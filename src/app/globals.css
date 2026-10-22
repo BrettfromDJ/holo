@@ -4,62 +4,77 @@
 
 /*
  * Design tokens. Dark is the default; `.light` on <html> switches themes.
- * Colors take cues from Apple's system palette: near-black canvas, layered
- * neutral surfaces, hairline borders, and restrained green/red for performance.
+ * Modeled on Fey: an ink-black canvas, a slightly lifted "stage" panel that
+ * holds each page, hairline dividers instead of boxes, small dense type, and
+ * soft tinted pills for performance. Violet marks secondary series.
  */
 :root,
 .dark {
-  --background: #0b0b0c;
-  --surface: #131315;
-  --surface-2: #1a1a1d;
-  --surface-3: #232327;
-  --border: rgb(255 255 255 / 0.07);
-  --border-strong: rgb(255 255 255 / 0.12);
-  --foreground: #f5f5f7;
-  --muted: #8e8e93;
-  --subtle: #636366;
-  --accent: #f5f5f7;
-  --accent-foreground: #0b0b0c;
-  --up: #30d158;
-  --down: #ff453a;
-  --up-soft: rgb(48 209 88 / 0.12);
-  --down-soft: rgb(255 69 58 / 0.12);
-  --ring: rgb(255 255 255 / 0.35);
+  --background: #050506;
+  --stage: #0c0c0e;
+  --surface: #111113;
+  --surface-2: #18181b;
+  --surface-3: #212125;
+  --border: rgb(255 255 255 / 0.06);
+  --border-strong: rgb(255 255 255 / 0.11);
+  --foreground: #ededef;
+  --muted: #8a8a93;
+  --subtle: #5c5c66;
+  --accent: #ededef;
+  --accent-foreground: #050506;
+  --up: #4cc38a;
+  --down: #f2555a;
+  --up-soft: rgb(76 195 138 / 0.13);
+  --down-soft: rgb(242 85 90 / 0.14);
+  --violet: #9b8afb;
+  --violet-soft: rgb(155 138 251 / 0.14);
+  --ring: rgb(255 255 255 / 0.3);
   --chart-grid: rgb(255 255 255 / 0.05);
-  --image-well: #18181a;
-  --cat-1: #3987e5;
-  --cat-2: #d95926;
-  --cat-3: #199e70;
+  --chart-line: #e8e8ea;
+  --image-well: #141416;
+  --dock: rgb(28 28 31 / 0.82);
+  --cat-1: #9b8afb;
+  --cat-2: #e8a35a;
+  --cat-3: #4cc38a;
   color-scheme: dark;
 }
 
 .light {
-  --background: #fbfbfd;
+  --background: #f3f3f5;
+  --stage: #fbfbfc;
   --surface: #ffffff;
-  --surface-2: #f5f5f7;
-  --surface-3: #ececf0;
+  --surface-2: #f1f1f4;
+  --surface-3: #e7e7ec;
   --border: rgb(0 0 0 / 0.07);
   --border-strong: rgb(0 0 0 / 0.12);
-  --foreground: #1d1d1f;
-  --muted: #6e6e73;
-  --subtle: #8e8e93;
-  --accent: #1d1d1f;
+  --foreground: #16161a;
+  --muted: #6b6b75;
+  --subtle: #9a9aa3;
+  --accent: #16161a;
   --accent-foreground: #ffffff;
-  --up: #1f9d48;
-  --down: #e5372b;
-  --up-soft: rgb(31 157 72 / 0.1);
-  --down-soft: rgb(229 55 43 / 0.1);
+  --up: #1c9a5f;
+  --down: #db3b40;
+  --up-soft: rgb(28 154 95 / 0.1);
+  --down-soft: rgb(219 59 64 / 0.1);
+  --violet: #6e5be6;
+  --violet-soft: rgb(110 91 230 / 0.1);
   --ring: rgb(0 0 0 / 0.3);
   --chart-grid: rgb(0 0 0 / 0.05);
-  --image-well: #f2f2f4;
-  --cat-1: #2a78d6;
-  --cat-2: #eb6834;
-  --cat-3: #1baf7a;
+  --chart-line: #16161a;
+  --image-well: #f1f1f4;
+  --dock: rgb(255 255 255 / 0.85);
+  --cat-1: #6e5be6;
+  --cat-2: #d9822b;
+  --cat-3: #1c9a5f;
   color-scheme: light;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-stage: var(--stage);
+  --color-dock: var(--dock);
+  --color-violet: var(--violet);
+  --color-violet-soft: var(--violet-soft);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
   --color-surface-3: var(--surface-3);
@@ -81,7 +96,7 @@
   --color-cat-3: var(--cat-3);
   --font-sans: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
-  --radius-card: 1.25rem;
+  --radius-card: 0.875rem;
   --ease-apple: cubic-bezier(0.32, 0.72, 0, 1);
 
   --animate-fade-in: fade-in 0.4s var(--ease-apple) both;
@@ -118,6 +133,9 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+  }
+  body {
+    font-size: 14px;
   }
   ::selection {
     background: rgb(120 120 128 / 0.35);

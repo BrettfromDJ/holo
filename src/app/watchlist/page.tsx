@@ -24,7 +24,7 @@ export default function WatchlistPage() {
   const store = useStore();
   const [editing, setEditing] = useState<WatchlistItem | null>(null);
 
-  if (store.status === "loading") return <Skeleton className="h-96 w-full rounded-3xl" />;
+  if (store.status === "loading") return <Skeleton className="h-96 w-full rounded-[var(--radius-card)]" />;
   if (store.status === "error") return <ErrorState message={store.error} />;
 
   const items = store.data.watchlist;
@@ -43,7 +43,7 @@ export default function WatchlistPage() {
 
       {!items.length ? (
         <div className="flex flex-col items-center py-20 text-center">
-          <span className="flex size-14 items-center justify-center rounded-2xl bg-surface-2">
+          <span className="flex size-14 items-center justify-center rounded-xl bg-surface-2">
             <Eye className="size-6 text-muted" />
           </span>
           <p className="mt-5 text-[18px] font-semibold">Nothing on your watchlist</p>

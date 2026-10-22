@@ -63,7 +63,7 @@ export default function AnalyticsPage() {
     return { best: sorted.filter((h) => h.unrealized! > 0).slice(0, 5), worst: sorted.reverse().filter((h) => h.unrealized! < 0).slice(0, 5) };
   }, [holdings, rankBy]);
 
-  if (store.status === "loading") return <Skeleton className="h-[600px] w-full rounded-3xl" />;
+  if (store.status === "loading") return <Skeleton className="h-[600px] w-full rounded-[var(--radius-card)]" />;
   if (store.status === "error") return <ErrorState message={store.error} />;
   if (!store.data.transactions.length) {
     return (

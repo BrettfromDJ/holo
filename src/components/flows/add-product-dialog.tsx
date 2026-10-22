@@ -286,7 +286,7 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
         </div>
 
         {!sealed && (
-          <div className="rounded-2xl border border-border p-4">
+          <div className="rounded-xl border border-border p-4">
             <label className="flex items-center justify-between gap-3">
               <span>
                 <span className="block text-[14px] font-medium">Graded card</span>

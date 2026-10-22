@@ -36,7 +36,7 @@ export function DeltaPill({ ratio, className }: { ratio: number | null | undefin
   return (
     <span
       className={cn(
-        "tabular inline-flex items-center rounded-md px-1.5 py-0.5 text-[12px] font-semibold",
+        "tabular inline-flex items-center justify-center rounded-[5px] px-1.5 py-[3px] text-[11px] font-medium leading-none",
         t === "up" ? "bg-up-soft text-up" : t === "down" ? "bg-down-soft text-down" : "bg-surface-2 text-muted",
         className,
       )}

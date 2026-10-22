@@ -44,7 +44,7 @@ export function PerformanceChart({ timeline, header }: { timeline: TimelinePoint
     <div>
       {header?.(scrub !== null && point ? { value: point.value, date: point.date } : null)}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-h-6 items-center gap-2 text-[14px]">
+        <div className="flex min-h-6 items-center gap-2 text-[13px]">
           {perf ? (
             <>
               <Delta value={perf.marketGain} ratio={perf.twr} className="font-medium" />
@@ -63,7 +63,7 @@ export function PerformanceChart({ timeline, header }: { timeline: TimelinePoint
           <label className="flex cursor-pointer items-center gap-2 text-[12px] text-muted">
             <input type="checkbox" checked={showInvested} onChange={(e) => setShowInvested(e.target.checked)} className="size-3.5 accent-[var(--foreground)]" />
             <span className="flex items-center gap-1.5">
-              <span className="inline-block h-0 w-4 border-t-[1.5px] border-dashed border-subtle" aria-hidden />
+              <span className="inline-block h-0 w-4 border-t-[1.5px] border-dashed border-violet" aria-hidden />
               Cost basis
             </span>
           </label>
@@ -83,7 +83,7 @@ export function PerformanceChart({ timeline, header }: { timeline: TimelinePoint
         {slice.length > 1 ? (
           <ScrubChart data={chartData} tone={t} baseline={slice[0]?.value} onScrub={setScrub} height={280} secondaryLabel="Cost basis" />
         ) : (
-          <div className="flex h-[280px] items-center justify-center rounded-2xl border border-dashed border-border text-[14px] text-muted">
+          <div className="flex h-[280px] items-center justify-center rounded-xl border border-dashed border-border text-[13px] text-muted">
             The chart fills in as daily price snapshots accumulate.
           </div>
         )}

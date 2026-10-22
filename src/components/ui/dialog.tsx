@@ -19,9 +19,9 @@ export function DialogContent({
       <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] data-[state=open]:animate-fade-in" />
       <DialogPrimitive.Content
         className={cn(
-          "fixed z-50 flex max-h-[92dvh] flex-col overflow-hidden border border-border bg-surface shadow-2xl shadow-black/40 outline-none data-[state=open]:animate-rise",
+          "fixed z-50 flex max-h-[92dvh] flex-col overflow-hidden border border-border-strong bg-surface shadow-2xl shadow-black/40 outline-none data-[state=open]:animate-rise",
           // Bottom sheet on mobile, centered card on larger screens.
-          "inset-x-0 bottom-0 rounded-t-[1.75rem] sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-[12vh] sm:w-full sm:max-w-lg sm:-translate-x-1/2 sm:rounded-[1.5rem]",
+          "inset-x-0 bottom-0 rounded-t-2xl sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-[12vh] sm:w-full sm:max-w-lg sm:-translate-x-1/2 sm:rounded-2xl",
           className,
         )}
         {...props}
@@ -43,11 +43,11 @@ export function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLD
 }
 
 export const DialogTitle = React.forwardRef<HTMLHeadingElement, React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>>(
-  ({ className, ...props }, ref) => <DialogPrimitive.Title ref={ref} className={cn("text-lg font-semibold tracking-tight", className)} {...props} />,
+  ({ className, ...props }, ref) => <DialogPrimitive.Title ref={ref} className={cn("text-[16px] font-semibold tracking-tight", className)} {...props} />,
 );
 DialogTitle.displayName = "DialogTitle";
 
 export const DialogDescription = React.forwardRef<HTMLParagraphElement, React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>>(
-  ({ className, ...props }, ref) => <DialogPrimitive.Description ref={ref} className={cn("mt-1 text-sm text-muted", className)} {...props} />,
+  ({ className, ...props }, ref) => <DialogPrimitive.Description ref={ref} className={cn("mt-1 text-[13px] text-muted", className)} {...props} />,
 );
 DialogDescription.displayName = "DialogDescription";

@@ -19,6 +19,22 @@ export async function middleware(request: NextRequest) {
       },
     },
   });
+  // If Supabase didn't accept our /auth/callback redirect URL it falls back to
+  // the Site URL, so the sign-in code can land on any page. Finish it here.
+  const code = request.nextUrl.searchParams.get("code");
+  if (code && !request.nextUrl.pathname.startsWith("/auth/") && !request.nextUrl.pathname.startsWith("/api/")) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const target = request.nextUrl.clone();
+    target.searchParams.delete("code");
+    if (error) {
+      target.pathname = "/login";
+      target.search = `?error=${encodeURIComponent(error.message)}`;
+    }
+    const redirect = NextResponse.redirect(target);
+    for (const c of response.cookies.getAll()) redirect.cookies.set(c);
+    return redirect;
+  }
+
   await supabase.auth.getUser();
   return response;
 }

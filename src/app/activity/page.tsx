@@ -52,7 +52,7 @@ export default function ActivityPage() {
 
   const realizedBySale = useMemo(() => new Map(realized.map((r) => [r.transactionId, r])), [realized]);
 
-  if (store.status === "loading") return <Skeleton className="h-96 w-full rounded-3xl" />;
+  if (store.status === "loading") return <Skeleton className="h-96 w-full rounded-[var(--radius-card)]" />;
   if (store.status === "error") return <ErrorState message={store.error} />;
   if (!store.data.transactions.length) {
     return (
