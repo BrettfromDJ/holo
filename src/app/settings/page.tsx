@@ -31,6 +31,15 @@ export default function SettingsPage() {
     }
   }, []);
 
+  const [budget, setBudget] = useState<{ daily_limit: number; daily_remaining: number; daily_reset: string } | null>(null);
+  useEffect(() => {
+    if (!store.integrations.tcgapi) return;
+    fetch("/api/status")
+      .then((r) => r.json())
+      .then((s) => setBudget(s?.tcgapi?.rateLimit ?? null))
+      .catch(() => undefined);
+  }, [store.integrations.tcgapi, store.pricesRefreshedAt]);
+
   const exportData = () => {
     const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), mode: store.mode, transactions: store.data.transactions, watchlist: store.data.watchlist, products: store.data.products }, null, 2)], {
       type: "application/json",
@@ -140,6 +149,16 @@ export default function SettingsPage() {
             )}
           </span>
         </Row>
+        {store.integrations.tcgapi && (
+          <Row
+            title="API requests today"
+            body={
+              budget
+                ? `${budget.daily_remaining.toLocaleString()} of ${budget.daily_limit.toLocaleString()} left · resets ${new Date(budget.daily_reset).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}`
+                : "Shown after the app's next request to TCG API (e.g. a search)."
+            }
+          />
+        )}
         <Row title="Supabase" body={store.integrations.supabase ? "Accounts, sync and daily snapshots enabled." : "Not configured. Your collection is saved in this browser."}>
           <Status ok={store.integrations.supabase} />
         </Row>

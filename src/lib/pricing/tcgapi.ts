@@ -33,22 +33,15 @@ const MIN = 60_000;
 const HOUR = 60 * MIN;
 /** A source price older than this is shown as stale. */
 const STALE_AFTER_MS = 72 * HOUR;
-/**
- * Daily requests kept back for the scheduled price sync. Only meaningful when
- * the sync can run (CRON_SECRET set); otherwise nothing would use them.
- */
-const DAILY_RESERVE = Number(process.env.TCGAPI_DAILY_RESERVE ?? (process.env.CRON_SECRET ? 10 : 0));
 
-/**
- * Budget snapshots and cool-downs are only trusted briefly. Blocking calls
- * means we stop seeing fresh budgets, so a stale snapshot would otherwise
- * keep blocking after a plan upgrade or the daily reset.
- */
-const BUDGET_SNAPSHOT_TTL_MS = 5 * MIN;
+/** Longest pause after a 429, so a plan upgrade or the daily reset takes effect quickly. */
 const MAX_COOLDOWN_MS = 10 * MIN;
 
+/**
+ * The latest budget TCG API reported (shown in Settings). Requests are never
+ * blocked pre-emptively; we only back off after a real 429.
+ */
 let rateLimit: RateLimit | null = null;
-let rateLimitAt = 0;
 let cooldownUntil = 0;
 
 export function rateLimitStatus() {
@@ -66,31 +59,26 @@ function api(): TCGApi {
   return client;
 }
 
-/**
- * Wrap every SDK call: honour cool-downs, keep a reserve of daily requests
- * for background jobs, record the live budget, and translate SDK errors.
- */
-async function call<T>(fn: (c: TCGApi) => Promise<{ data: T; rateLimit?: RateLimit; meta?: unknown }>, opts: { essential?: boolean } = {}) {
+function limitMessage(): string {
+  const reset = rateLimit?.daily_reset ? new Date(rateLimit.daily_reset) : null;
+  const when = reset && !Number.isNaN(reset.getTime()) ? ` It resets ${reset.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}.` : "";
+  return `TCG API says today's request limit has been reached.${when}`;
+}
+
+/** Wrap every SDK call: honour a 429 cool-down, record the live budget, and translate SDK errors. */
+async function call<T>(fn: (c: TCGApi) => Promise<{ data: T; rateLimit?: RateLimit; meta?: unknown }>) {
   if (Date.now() < cooldownUntil) {
-    throw new PricingUnavailableError("TCG API daily limit reached. Prices will refresh later.", "rate_limited", Math.ceil((cooldownUntil - Date.now()) / 1000));
-  }
-  // Re-check the live budget once a snapshot is old or past the daily reset.
-  if (rateLimit && (Date.now() - rateLimitAt > BUDGET_SNAPSHOT_TTL_MS || Date.parse(rateLimit.daily_reset) <= Date.now())) rateLimit = null;
-  if (!opts.essential && rateLimit && rateLimit.daily_remaining <= DAILY_RESERVE) {
-    throw new PricingUnavailableError("TCG API request budget is reserved for the daily price sync.", "rate_limited");
+    throw new PricingUnavailableError(limitMessage(), "rate_limited", Math.ceil((cooldownUntil - Date.now()) / 1000));
   }
   try {
     const res = await fn(api());
-    if (res.rateLimit) {
-      rateLimit = res.rateLimit;
-      rateLimitAt = Date.now();
-    }
+    if (res.rateLimit) rateLimit = res.rateLimit;
     return res;
   } catch (err) {
     if (err instanceof RateLimitError) {
       const retry = Math.min(err.retryAfter ?? 600, MAX_COOLDOWN_MS / 1000);
       cooldownUntil = Date.now() + retry * 1000;
-      throw new PricingUnavailableError("TCG API rate limit reached.", "rate_limited", retry);
+      throw new PricingUnavailableError(limitMessage(), "rate_limited", retry);
     }
     if (err instanceof TierError) throw new PricingUnavailableError("This feature isn't included in the current TCG API plan.", "tier");
     if (err instanceof AuthError) throw new PricingUnavailableError("The TCG API key was rejected.", "auth");
@@ -256,14 +244,14 @@ export const tcgApiProvider: PricingProvider = {
 
   async getProduct(externalId: string): Promise<Product> {
     return cached(`product:${externalId}`, 24 * HOUR, async () => {
-      const res = await call((c) => c.cards.get(Number(externalId)), { essential: true });
+      const res = await call((c) => c.cards.get(Number(externalId)));
       return toProduct(res.data);
     });
   },
 
   async getPrices(externalId: string): Promise<NormalizedPrice[]> {
     return cached(`prices:${externalId}`, HOUR, async () => {
-      const res = await call((c) => c.cards.prices(Number(externalId)), { essential: true });
+      const res = await call((c) => c.cards.prices(Number(externalId)));
       return res.data.map((p) => normalizePrice(`tcgapi:${externalId}`, p));
     });
   },
@@ -306,7 +294,7 @@ export const tcgApiProvider: PricingProvider = {
 /** Bulk current prices (Pro+). Returns null when the plan doesn't include it. */
 export async function bulkPrices(externalIds: string[]): Promise<NormalizedPrice[] | null> {
   try {
-    const res = await call((c) => c.bulk.prices(externalIds.map(Number)), { essential: true });
+    const res = await call((c) => c.bulk.prices(externalIds.map(Number)));
     return res.data.map((row) => normalizePrice(`tcgapi:${row.card_id}`, row as Price));
   } catch (err) {
     if (err instanceof PricingUnavailableError && err.code === "tier") return null;

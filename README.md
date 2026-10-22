@@ -36,7 +36,6 @@ Copy `.env.example` to `.env.local`.
 | `TCGAPI_KEY` | server | TCG API key. Enables live search, prices and history. Never sent to the browser. |
 | `TCGAPI_GAMES` | server | Optional comma-separated game slugs to search. By default every Pokémon catalog (English, Japanese, …) found via `GET /games` is searched. |
 | `TCGAPI_GAME` | server | Game slug for top movers, default `pokemon`. |
-| `TCGAPI_DAILY_RESERVE` | server | Daily requests held back for the scheduled sync (default 10 when `CRON_SECRET` is set, otherwise 0). |
 | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | public | Supabase project. Data is protected by RLS. |
 | `SUPABASE_SERVICE_ROLE_KEY` | server | Writes to the shared catalog/price tables and runs the daily sync. |
 | `CRON_SECRET` | server | Authenticates the Vercel Cron call to `/api/cron/sync-prices`. |
@@ -77,7 +76,7 @@ Unit tests: `src/lib/finance/__tests__/finance.test.ts` covers the "$1,000 box a
 - `src/lib/pricing/types.ts` — `PricingProvider` interface (search, product, prices per printing, history, top movers) and normalized `NormalizedPrice` (market, low, 24h/7d/30d %, source update time, fetch time, source, `live | stale | unavailable`).
 - `src/lib/pricing/tcgapi.ts` — TCG API implementation using the official SDK (`GET /v1/search`, `/v1/cards/:id`, `/v1/cards/:id/prices`, `/v1/cards/:id/history`, `/v1/prices/top-movers`, Pro-only `/v1/bulk/prices` with automatic fallback). Sealed vs. singles uses `type=Sealed Products` / `Cards`.
   - In-process TTL cache + in-flight request deduplication.
-  - Reads the live `rate_limit` budget from responses, keeps a reserve for the cron, and honors `Retry-After` after a 429.
+  - Reads the live `rate_limit` budget from responses (shown in Settings) and backs off briefly after a 429, honoring `Retry-After` up to 10 minutes.
   - Tier errors (403) make history/bulk degrade gracefully instead of failing.
 - Products are stored as `${source}:${externalId}` with the exact printing; nothing is matched by name. Another source plugs in by implementing `PricingProvider` and registering it in `src/lib/pricing/index.ts` — the collection tables don't change.
 - Per-client token buckets protect the API routes that spend upstream quota.
