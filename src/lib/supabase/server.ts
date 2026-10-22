@@ -28,7 +28,8 @@ export async function getServerSupabase(): Promise<SupabaseClient<Database> | nu
  * Bypasses RLS — never import from client code.
  */
 export function getAdminSupabase(): SupabaseClient<Database> | null {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // "service_role" (classic) or "secret" (newer) key — both bypass RLS.
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
   if (!isSupabaseConfigured() || !key) return null;
   return createClient<Database>(SUPABASE_URL, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
