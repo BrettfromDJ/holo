@@ -171,10 +171,16 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
 
   const entered = parseMoney(price);
   const unitPrice = entered === null ? null : priceMode === "unit" ? entered : qty > 0 ? entered / qty : null;
-  const extras = (parseMoney(shipping) ?? 0) + (parseMoney(fees) ?? 0) + (parseMoney(tax) ?? 0);
+  // In per-unit mode, shipping/fees/tax are entered per unit too; stored totals are always per order.
+  const extrasFactor = priceMode === "unit" ? qty : 1;
+  const shippingTotal = (parseMoney(shipping) ?? 0) * extrasFactor;
+  const feesTotal = (parseMoney(fees) ?? 0) * extrasFactor;
+  const taxTotal = (parseMoney(tax) ?? 0) * extrasFactor;
+  const extras = shippingTotal + feesTotal + taxTotal;
   const subtotal = unitPrice === null ? null : unitPrice * qty;
   const total = subtotal === null ? null : subtotal + extras;
   const valid = qty >= 1 && unitPrice !== null && date <= today && (!graded || grade.trim() !== "");
+  const extrasHint = priceMode === "unit" ? "each" : "order total";
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -193,9 +199,9 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
         date,
         quantity: qty,
         unitPrice,
-        shipping: parseMoney(shipping) ?? 0,
-        fees: parseMoney(fees) ?? 0,
-        tax: parseMoney(tax) ?? 0,
+        shipping: round2(shippingTotal),
+        fees: round2(feesTotal),
+        tax: round2(taxTotal),
         source: source.trim() || null,
         notes: notes.trim() || null,
       });
@@ -237,8 +243,15 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
               size="sm"
               value={priceMode}
               onChange={(m) => {
-                const v = parseMoney(price);
-                if (v !== null && qty > 0) setPrice((m === "lot" ? v * qty : v / qty).toFixed(2));
+                // Keep the same order total when switching between per-unit and lot entry.
+                const convert = (raw: string, set: (v: string) => void) => {
+                  const v = parseMoney(raw);
+                  if (v !== null && qty > 0) set((m === "lot" ? v * qty : v / qty).toFixed(2));
+                };
+                convert(price, setPrice);
+                convert(shipping, setShipping);
+                convert(fees, setFees);
+                convert(tax, setTax);
                 setPriceMode(m);
               }}
               options={[
@@ -316,13 +329,13 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
           {showExtras && (
             <div className="mt-4 space-y-4 animate-rise">
               <div className="grid grid-cols-3 gap-3">
-                <Field label="Shipping" htmlFor="shipping">
+                <Field label="Shipping" hint={extrasHint} htmlFor="shipping">
                   <MoneyInput id="shipping" value={shipping} onChange={setShipping} />
                 </Field>
-                <Field label="Fees" htmlFor="fees">
+                <Field label="Fees" hint={extrasHint} htmlFor="fees">
                   <MoneyInput id="fees" value={fees} onChange={setFees} />
                 </Field>
-                <Field label="Tax" htmlFor="tax">
+                <Field label="Tax" hint={extrasHint} htmlFor="tax">
                   <MoneyInput id="tax" value={tax} onChange={setTax} />
                 </Field>
               </div>
@@ -340,7 +353,7 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
       <div className="border-t border-border bg-surface px-6 pb-6 pt-4">
         <div className="space-y-1.5">
           {extras > 0 && <SummaryRow label="Subtotal" value={money(subtotal)} />}
-          {extras > 0 && <SummaryRow label="Shipping, fees & tax" value={money(extras)} />}
+          {extras > 0 && <SummaryRow label={priceMode === "unit" && qty > 1 ? `Shipping, fees & tax (${qty} × ${money(extras / qty)})` : "Shipping, fees & tax"} value={money(extras)} />}
           <SummaryRow strong label="Total cost basis" value={money(total)} />
         </div>
         <Button type="submit" variant="primary" size="lg" className="mt-4 w-full" disabled={!valid || saving}>
@@ -394,4 +407,8 @@ function WatchForm({ hit, onBack, onDone }: { hit: SearchHit; onBack?: () => voi
       </div>
     </form>
   );
+}
+
+function round2(n: number) {
+  return Math.round(n * 100) / 100;
 }
