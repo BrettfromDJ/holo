@@ -27,17 +27,6 @@ export interface SearchResult {
   relaxedQuery?: string | null;
 }
 
-export interface SetInfo {
-  id: string;
-  name: string;
-  abbreviation: string | null;
-  releaseDate: string | null;
-  iconUrl: string | null;
-  imageUrl: string | null;
-  cardCount: number | null;
-  gameName?: string | null;
-}
-
 export interface HistoryResult {
   points: PricePoint[];
   /** False when the subscription tier doesn't include history. */
@@ -64,10 +53,6 @@ export interface PricingProvider {
   /** One row per printing. */
   getPrices(externalId: string): Promise<NormalizedPrice[]>;
   getHistory(externalId: string, printing: string | null, range: "month" | "quarter" | "year" | "all"): Promise<HistoryResult>;
-  /** All sets for the game, newest first. */
-  listSets(): Promise<SetInfo[]>;
-  /** Products in one set, optionally limited to cards or sealed. */
-  setProducts(setId: string, type: ProductTypeFilter): Promise<SearchHit[]>;
   topMovers(params: { direction: "up" | "down"; period: "24h" | "7d" | "30d"; type?: ProductTypeFilter; limit?: number }): Promise<MoverHit[]>;
 }
 

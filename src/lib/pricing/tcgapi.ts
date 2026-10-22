@@ -24,7 +24,6 @@ import {
   type SearchQuery,
   type SearchHit,
   type SearchResult,
-  type SetInfo,
 } from "./types";
 
 /** Game slug for English Pokémon on TCG API (used for top movers). */
@@ -242,49 +241,6 @@ export const tcgApiProvider: PricingProvider = {
       }
     }
     return { hits: [], total: 0, hasMore: false, relaxedQuery: null };
-  },
-
-  async listSets(): Promise<SetInfo[]> {
-    return cached(`sets:all-pokemon`, 24 * HOUR, async () => {
-      const out: SetInfo[] = [];
-      for (const game of await pokemonGames()) {
-        for (let page = 1; page <= 5; page++) {
-          const res = await call((c) => c.sets.list({ game: game.slug, page, per_page: 200 }));
-          for (const s of res.data) {
-            out.push({
-              id: String(s.id),
-              name: s.name,
-              abbreviation: s.abbreviation ?? null,
-              releaseDate: s.release_date ?? null,
-              iconUrl: s.set_icon_url ?? null,
-              imageUrl: s.image_url ?? null,
-              cardCount: s.card_count ?? null,
-              gameName: s.game_name ?? game.name,
-            });
-          }
-          if (!(res.meta as { has_more?: boolean } | undefined)?.has_more) break;
-        }
-      }
-      return out.sort((a, b) => (b.releaseDate ?? "").localeCompare(a.releaseDate ?? ""));
-    });
-  },
-
-  async setProducts(setId: string, type: ProductTypeFilter): Promise<SearchHit[]> {
-    return cached(`set-products:${setId}:${type}`, 6 * HOUR, async () => {
-      const sets = await this.listSets().catch(() => [] as SetInfo[]);
-      const setName = sets.find((s) => s.id === setId)?.name ?? null;
-      const hint: ProductKind | undefined = type === "sealed" ? "sealed" : type === "cards" ? "single" : undefined;
-      const res = await call((c) => c.sets.cards(Number(setId), { type: typeParam(type), sort: "price_desc", per_page: 200 }));
-      return res.data.map((card) => {
-        const product = toProduct(card, hint);
-        return {
-          product: { ...product, setName: product.setName ?? setName, setId },
-          printing: card.printing ?? null,
-          market: card.market_price ?? null,
-          priceUpdatedAt: card.price_updated_at ?? null,
-        };
-      });
-    });
   },
 
   async getProduct(externalId: string): Promise<Product> {
