@@ -1,26 +1,162 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Design tokens. Dark is the default; `.light` on <html> switches themes.
+ * Colors take cues from Apple's system palette: near-black canvas, layered
+ * neutral surfaces, hairline borders, and restrained green/red for performance.
+ */
+:root,
+.dark {
+  --background: #0b0b0c;
+  --surface: #131315;
+  --surface-2: #1a1a1d;
+  --surface-3: #232327;
+  --border: rgb(255 255 255 / 0.07);
+  --border-strong: rgb(255 255 255 / 0.12);
+  --foreground: #f5f5f7;
+  --muted: #8e8e93;
+  --subtle: #636366;
+  --accent: #f5f5f7;
+  --accent-foreground: #0b0b0c;
+  --up: #30d158;
+  --down: #ff453a;
+  --up-soft: rgb(48 209 88 / 0.12);
+  --down-soft: rgb(255 69 58 / 0.12);
+  --ring: rgb(255 255 255 / 0.35);
+  --chart-grid: rgb(255 255 255 / 0.05);
+  --image-well: #18181a;
+  --cat-1: #3987e5;
+  --cat-2: #d95926;
+  --cat-3: #199e70;
+  color-scheme: dark;
+}
+
+.light {
+  --background: #fbfbfd;
+  --surface: #ffffff;
+  --surface-2: #f5f5f7;
+  --surface-3: #ececf0;
+  --border: rgb(0 0 0 / 0.07);
+  --border-strong: rgb(0 0 0 / 0.12);
+  --foreground: #1d1d1f;
+  --muted: #6e6e73;
+  --subtle: #8e8e93;
+  --accent: #1d1d1f;
+  --accent-foreground: #ffffff;
+  --up: #1f9d48;
+  --down: #e5372b;
+  --up-soft: rgb(31 157 72 / 0.1);
+  --down-soft: rgb(229 55 43 / 0.1);
+  --ring: rgb(0 0 0 / 0.3);
+  --chart-grid: rgb(0 0 0 / 0.05);
+  --image-well: #f2f2f4;
+  --cat-1: #2a78d6;
+  --cat-2: #eb6834;
+  --cat-3: #1baf7a;
+  color-scheme: light;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-up: var(--up);
+  --color-down: var(--down);
+  --color-up-soft: var(--up-soft);
+  --color-down-soft: var(--down-soft);
+  --color-ring: var(--ring);
+  --color-image-well: var(--image-well);
+  --color-cat-1: var(--cat-1);
+  --color-cat-2: var(--cat-2);
+  --color-cat-3: var(--cat-3);
+  --font-sans: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
+  --radius-card: 1.25rem;
+  --ease-apple: cubic-bezier(0.32, 0.72, 0, 1);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  --animate-fade-in: fade-in 0.4s var(--ease-apple) both;
+  --animate-rise: rise 0.5s var(--ease-apple) both;
+  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes shimmer {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 0.9; }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  html {
+    background: var(--background);
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  ::selection {
+    background: rgb(120 120 128 / 0.35);
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.6);
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

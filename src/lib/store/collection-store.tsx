@@ -53,6 +53,14 @@ interface StoreState {
   priceError: string | null;
 }
 
+export interface AddOptions {
+  productId?: string;
+  /** Add to the watchlist instead of the collection. */
+  watch?: boolean;
+  /** Remove this watchlist item once the purchase is saved. */
+  fromWatchId?: string;
+}
+
 interface StoreActions {
   setMode(mode: AppMode): void;
   importProduct(productId: string, printing?: string | null): Promise<ImportedProduct>;
@@ -65,9 +73,9 @@ interface StoreActions {
   savePreferences(p: Partial<Preferences>): Promise<void>;
   resetDemo(): Promise<void>;
   signOut(): Promise<void>;
-  openAdd(opts?: { productId?: string; watch?: boolean }): void;
+  openAdd(opts?: AddOptions): void;
   closeAdd(): void;
-  addTarget: { open: boolean; productId?: string; watch?: boolean };
+  addTarget: { open: boolean } & AddOptions;
 }
 
 const StoreContext = createContext<(StoreState & StoreActions) | null>(null);
@@ -355,7 +363,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
       resetDemo,
       signOut,
       addTarget,
-      openAdd: (opts?: { productId?: string; watch?: boolean }) => setAddTarget({ open: true, ...opts }),
+      openAdd: (opts?: AddOptions) => setAddTarget({ open: true, ...opts }),
       closeAdd: () => setAddTarget({ open: false }),
     }),
     [state, setMode, importProduct, addTransaction, addWatch, updateWatch, removeWatch, setManualValue, refreshPrices, savePreferences, resetDemo, signOut, addTarget],

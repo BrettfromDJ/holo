@@ -217,7 +217,7 @@ export function buildDemoData(today: ISODate): CollectionData {
 
   const graded = transactions.find((t) => t.grade)!;
   const manualValues: CollectionData["manualValues"] = {
-    [holdingKey(graded)]: { value: 2450, date: addDays(today, -14) },
+    [holdingKey(graded)]: { value: 2450, date: graded.date },
   };
 
   const watchlist: WatchlistItem[] = WATCHLIST.map((w, i) => {
