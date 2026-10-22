@@ -1,13 +1,13 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
-const badgeVariants = cva("inline-flex items-center gap-1 rounded-[5px] px-1.5 py-0.5 text-[11px] font-medium leading-4 [&_svg]:size-3", {
+const badgeVariants = cva("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-semibold leading-4 [&_svg]:size-3", {
   variants: {
     variant: {
       neutral: "bg-surface-2 text-muted",
       up: "bg-up-soft text-up",
       down: "bg-down-soft text-down",
-      sample: "bg-amber-400/12 text-amber-300 ring-1 ring-inset ring-amber-300/20",
+      sample: "bg-amber-100 text-amber-800 dark:bg-amber-400/12 dark:text-amber-300",
       outline: "text-muted ring-1 ring-inset ring-border-strong",
     },
   },

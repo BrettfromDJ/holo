@@ -3,75 +3,101 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
- * Design tokens. Dark is the default; `.light` on <html> switches themes.
- * Modeled on Fey: an ink-black canvas, a slightly lifted "stage" panel that
- * holds each page, hairline dividers instead of boxes, small dense type, and
- * soft tinted pills for performance. Violet marks secondary series.
+ * Design tokens. Light is the default; `.dark` on <html> switches themes.
+ * A warm, airy look: cream canvas, white cards that float on soft shadows,
+ * generous type, pastel tiles for key figures, and product photos up front.
  */
 :root,
-.dark {
-  --background: #050506;
-  --stage: #0c0c0e;
-  --surface: #111113;
-  --surface-2: #18181b;
-  --surface-3: #212125;
-  --border: rgb(255 255 255 / 0.06);
-  --border-strong: rgb(255 255 255 / 0.11);
-  --foreground: #ededef;
-  --muted: #8a8a93;
-  --subtle: #5c5c66;
-  --accent: #ededef;
-  --accent-foreground: #050506;
-  --up: #4cc38a;
-  --down: #f2555a;
-  --up-soft: rgb(76 195 138 / 0.13);
-  --down-soft: rgb(242 85 90 / 0.14);
-  --violet: #9b8afb;
-  --violet-soft: rgb(155 138 251 / 0.14);
-  --ring: rgb(255 255 255 / 0.3);
-  --chart-grid: rgb(255 255 255 / 0.05);
-  --chart-line: #e8e8ea;
-  --image-well: #141416;
-  --dock: rgb(28 28 31 / 0.82);
-  --cat-1: #9b8afb;
-  --cat-2: #e8a35a;
-  --cat-3: #4cc38a;
-  color-scheme: dark;
+.light {
+  --background: #f7f4ef;
+  --stage: #f7f4ef;
+  --surface: #ffffff;
+  --surface-2: #f2ede5;
+  --surface-3: #e8e1d6;
+  --border: rgb(60 40 20 / 0.08);
+  --border-strong: rgb(60 40 20 / 0.14);
+  --foreground: #1e1914;
+  --muted: #776e64;
+  --subtle: #a59c91;
+  --accent: #1e1914;
+  --accent-foreground: #ffffff;
+  --brand: #ff6b3d;
+  --brand-foreground: #ffffff;
+  --brand-soft: #ffe8dd;
+  --up: #0f9d58;
+  --down: #e5484d;
+  --up-soft: rgb(15 157 88 / 0.11);
+  --down-soft: rgb(229 72 77 / 0.11);
+  --violet: #7c6cf2;
+  --violet-soft: rgb(124 108 242 / 0.12);
+  --mint: #e2f5ea;
+  --lilac: #ece9ff;
+  --peach: #ffeadf;
+  --sky: #e2eeff;
+  --ring: rgb(255 107 61 / 0.45);
+  --chart-grid: rgb(60 40 20 / 0.06);
+  --chart-line: #1e1914;
+  --image-well: #f4efe8;
+  --dock: rgb(255 255 255 / 0.9);
+  --shadow-card: 0 1px 2px rgb(40 28 16 / 0.04), 0 10px 30px -14px rgb(40 28 16 / 0.16);
+  --shadow-lift: 0 2px 4px rgb(40 28 16 / 0.05), 0 22px 44px -18px rgb(40 28 16 / 0.26);
+  --cat-1: #7c6cf2;
+  --cat-2: #ff8a4c;
+  --cat-3: #19b37a;
+  color-scheme: light;
 }
 
-.light {
-  --background: #f3f3f5;
-  --stage: #fbfbfc;
-  --surface: #ffffff;
-  --surface-2: #f1f1f4;
-  --surface-3: #e7e7ec;
-  --border: rgb(0 0 0 / 0.07);
-  --border-strong: rgb(0 0 0 / 0.12);
-  --foreground: #16161a;
-  --muted: #6b6b75;
-  --subtle: #9a9aa3;
-  --accent: #16161a;
-  --accent-foreground: #ffffff;
-  --up: #1c9a5f;
-  --down: #db3b40;
-  --up-soft: rgb(28 154 95 / 0.1);
-  --down-soft: rgb(219 59 64 / 0.1);
-  --violet: #6e5be6;
-  --violet-soft: rgb(110 91 230 / 0.1);
-  --ring: rgb(0 0 0 / 0.3);
-  --chart-grid: rgb(0 0 0 / 0.05);
-  --chart-line: #16161a;
-  --image-well: #f1f1f4;
-  --dock: rgb(255 255 255 / 0.85);
-  --cat-1: #6e5be6;
-  --cat-2: #d9822b;
-  --cat-3: #1c9a5f;
-  color-scheme: light;
+.dark {
+  --background: #13110f;
+  --stage: #13110f;
+  --surface: #1c1a17;
+  --surface-2: #26231f;
+  --surface-3: #312d28;
+  --border: rgb(255 240 220 / 0.07);
+  --border-strong: rgb(255 240 220 / 0.13);
+  --foreground: #f5f0e9;
+  --muted: #a69d92;
+  --subtle: #6f675e;
+  --accent: #f5f0e9;
+  --accent-foreground: #13110f;
+  --brand: #ff7a50;
+  --brand-foreground: #13110f;
+  --brand-soft: rgb(255 122 80 / 0.14);
+  --up: #3ccf86;
+  --down: #ff6369;
+  --up-soft: rgb(60 207 134 / 0.13);
+  --down-soft: rgb(255 99 105 / 0.13);
+  --violet: #a196ff;
+  --violet-soft: rgb(161 150 255 / 0.14);
+  --mint: rgb(60 207 134 / 0.1);
+  --lilac: rgb(161 150 255 / 0.12);
+  --peach: rgb(255 122 80 / 0.12);
+  --sky: rgb(110 170 255 / 0.12);
+  --ring: rgb(255 122 80 / 0.5);
+  --chart-grid: rgb(255 255 255 / 0.05);
+  --chart-line: #f5f0e9;
+  --image-well: #24211d;
+  --dock: rgb(28 26 23 / 0.9);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 10px 30px -14px rgb(0 0 0 / 0.5);
+  --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.3), 0 22px 44px -18px rgb(0 0 0 / 0.6);
+  --cat-1: #a196ff;
+  --cat-2: #ff9a62;
+  --cat-3: #3ccf86;
+  color-scheme: dark;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-stage: var(--stage);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-soft: var(--brand-soft);
+  --color-mint: var(--mint);
+  --color-lilac: var(--lilac);
+  --color-peach: var(--peach);
+  --color-sky: var(--sky);
+  --shadow-card: var(--shadow-card);
+  --shadow-lift: var(--shadow-lift);
   --color-dock: var(--dock);
   --color-violet: var(--violet);
   --color-violet-soft: var(--violet-soft);
@@ -96,7 +122,7 @@
   --color-cat-3: var(--cat-3);
   --font-sans: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
-  --radius-card: 0.875rem;
+  --radius-card: 1.75rem;
   --ease-apple: cubic-bezier(0.32, 0.72, 0, 1);
 
   --animate-fade-in: fade-in 0.4s var(--ease-apple) both;
@@ -135,10 +161,10 @@
     text-rendering: optimizeLegibility;
   }
   body {
-    font-size: 14px;
+    font-size: 15px;
   }
   ::selection {
-    background: rgb(120 120 128 / 0.35);
+    background: rgb(255 107 61 / 0.22);
   }
   :focus-visible {
     outline: 2px solid var(--ring);

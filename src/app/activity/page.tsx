@@ -79,7 +79,7 @@ export default function ActivityPage() {
           ]}
         />
         {hiddenCount > 0 && (
-          <button onClick={() => setShowHidden((v) => !v)} className="ml-3 text-[12px] font-medium text-subtle hover:text-muted">
+          <button onClick={() => setShowHidden((v) => !v)} className="ml-3 text-[13px] font-medium text-subtle hover:text-muted">
             {showHidden ? "Hide" : "Show"} deleted &amp; edit records ({hiddenCount})
           </button>
         )}
@@ -88,7 +88,7 @@ export default function ActivityPage() {
       <div className="space-y-8">
         {groups.map(([month, txs]) => (
           <section key={month}>
-            <h2 className="mb-2 px-1 text-[13px] font-semibold text-muted">{formatMonth(month)}</h2>
+            <h2 className="mb-2 px-1 text-[14px] font-semibold text-muted">{formatMonth(month)}</h2>
             <Card className="divide-y divide-border overflow-hidden">
               {txs.map((t) => {
                 const product = store.data.products[t.productId];
@@ -104,16 +104,16 @@ export default function ActivityPage() {
                 return (
                   <div key={t.id} className="flex items-center gap-3 px-4 py-3.5">
                     <div className="relative shrink-0">
-                      <ProductImage product={product} size="xs" className="size-11 rounded-lg" />
+                      <ProductImage product={product} size="xs" className="size-11 rounded-xl" />
                       <span className="absolute -bottom-1 -right-1 flex size-5 items-center justify-center rounded-full border-2 border-surface bg-surface-3">
                         <Icon className={cn("size-3", t.type === "sale" ? "text-up" : "text-muted")} />
                       </span>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <Link href={`/product/${encodeURIComponent(t.productId)}`} className="block truncate text-[14px] font-medium hover:underline">
+                      <Link href={`/product/${encodeURIComponent(t.productId)}`} className="block truncate text-[15px] font-medium hover:underline">
                         {product?.name ?? t.productId}
                       </Link>
-                      <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[12px] text-muted">
+                      <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[13px] text-muted">
                         <span>{meta.label}</span>
                         {t.type !== "correction" ? (
                           <span className="tabular">
@@ -130,17 +130,17 @@ export default function ActivityPage() {
                         {voided && <Badge>Deleted</Badge>}
                         {corrected && <Badge>Edited</Badge>}
                       </p>
-                      {t.notes && <p className="mt-0.5 truncate text-[12px] text-subtle">{t.notes}</p>}
+                      {t.notes && <p className="mt-0.5 truncate text-[13px] text-subtle">{t.notes}</p>}
                     </div>
                     <div className="shrink-0 text-right">
                       {amount !== null && (
-                        <p className={cn("tabular text-[14px] font-medium", voided && "text-subtle line-through")}>
+                        <p className={cn("tabular text-[15px] font-medium", voided && "text-subtle line-through")}>
                           {t.type === "sale" ? "+" : "−"}
                           {money(amount)}
                         </p>
                       )}
-                      {realizedEntry && <Delta value={realizedEntry.gain} className="text-[12px]" />}
-                      {t.type === "adjustment" && t.quantity < 0 && realizedEntry && <p className="text-[11px] text-subtle">written off</p>}
+                      {realizedEntry && <Delta value={realizedEntry.gain} className="text-[13px]" />}
+                      {t.type === "adjustment" && t.quantity < 0 && realizedEntry && <p className="text-[13px] text-subtle">written off</p>}
                     </div>
                     {t.type !== "correction" && !voided ? <TransactionActions tx={t} /> : <span className="w-8" />}
                   </div>

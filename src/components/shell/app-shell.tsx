@@ -6,7 +6,7 @@ import { AddProductDialog } from "@/components/flows/add-product-dialog";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CollectionProvider } from "@/lib/store/collection-store";
 import { DemoBanner } from "./demo-banner";
-import { Dock } from "./dock";
+import { BottomTabs } from "./bottom-tabs";
 import { TopBar } from "./top-bar";
 
 const BARE_ROUTES = ["/login", "/auth"];
@@ -22,21 +22,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         ) : (
           <div className="flex min-h-dvh flex-col">
             <TopBar />
-            <div className="mx-auto w-full max-w-[1320px] flex-1 px-0 pb-28 sm:px-6">
-              {/* The stage: one lifted panel that holds every page. */}
-              <main className="min-h-[calc(100dvh-9rem)] border-y border-border bg-stage px-4 py-5 sm:rounded-[18px] sm:border sm:px-7 sm:py-7">
-                <DemoBanner />
-                {children}
-              </main>
-            </div>
-            <Dock />
+            <main className="mx-auto w-full max-w-[1180px] flex-1 px-5 pb-32 pt-6 sm:px-8 sm:pt-10 lg:pb-20">
+              <DemoBanner />
+              {children}
+            </main>
+            <BottomTabs />
             <AddProductDialog />
           </div>
         )}
         <Toaster
           position="top-center"
-          theme="dark"
-          toastOptions={{ classNames: { toast: "!rounded-xl !border-border-strong !bg-surface-2 !text-foreground", description: "!text-muted" } }}
+          theme="system"
+          toastOptions={{ classNames: { toast: "!rounded-2xl !border-border !bg-surface !text-foreground !shadow-lift", description: "!text-muted" } }}
         />
       </TooltipProvider>
     </CollectionProvider>

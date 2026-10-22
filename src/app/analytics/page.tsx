@@ -25,7 +25,7 @@ function ChartTooltip({ active, payload, label, rows }: { active?: boolean; payl
   if (!active || !payload?.length) return null;
   const p = payload[0].payload;
   return (
-    <div className="tabular min-w-44 rounded-xl border border-border bg-surface-3 px-3 py-2.5 text-[12px] shadow-xl">
+    <div className="tabular min-w-44 rounded-2xl bg-surface px-3.5 py-3 text-[13px] shadow-lift">
       <p className="mb-1.5 text-muted">{label && label.length === 7 ? formatMonth(label) : formatDate(String(label))}</p>
       {rows.map((r) => (
         <div key={r.key} className="flex items-center justify-between gap-4">
@@ -82,7 +82,7 @@ export default function AnalyticsPage() {
         title="Analytics"
         subtitle="How your collection is allocated and how it has performed."
         actions={
-          <Link href="/gains" className="text-[14px] font-medium text-muted hover:text-foreground">
+          <Link href="/gains" className="text-[15px] font-medium text-muted hover:text-foreground">
             Gains breakdown →
           </Link>
         }
@@ -92,7 +92,7 @@ export default function AnalyticsPage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h2 className="text-[17px] font-semibold tracking-tight">Portfolio history</h2>
-            <p className="tabular mt-1 text-[13px] text-muted">
+            <p className="tabular mt-1 text-[14px] text-muted">
               {perf ? (
                 <>
                   <Delta value={perf.marketGain} ratio={perf.twr} className="font-medium" /> market performance · {RANGE_LABEL[range].toLowerCase()}
@@ -104,7 +104,7 @@ export default function AnalyticsPage() {
           </div>
           <Segmented ariaLabel="History range" size="sm" value={range} onChange={setRange} options={RANGES.map((r) => ({ value: r, label: r }))} />
         </div>
-        <div className="mt-5 flex flex-wrap gap-4 text-[12px] text-muted">
+        <div className="mt-5 flex flex-wrap gap-4 text-[13px] text-muted">
           <Legend color="var(--foreground)" label="Market value" />
           <Legend color="var(--subtle)" label="Cost basis (priced holdings)" dashed />
         </div>
@@ -134,7 +134,7 @@ export default function AnalyticsPage() {
           </ResponsiveContainer>
         </div>
         <div className="mt-6 border-t border-border pt-5">
-          <p className="text-[12px] font-medium text-muted">Unrealized gain / loss</p>
+          <p className="text-[13px] font-medium text-muted">Unrealized gain / loss</p>
           <div className="mt-2 h-[120px]">
             <ResponsiveContainer>
               <ComposedChart data={history} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
@@ -199,9 +199,9 @@ export default function AnalyticsPage() {
             }
           />
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[520px] text-[14px]">
+            <table className="w-full min-w-[520px] text-[15px]">
               <thead>
-                <tr className="text-left text-[12px] text-subtle">
+                <tr className="text-left text-[13px] text-subtle">
                   <th className="pb-3 font-medium">Set</th>
                   <th className="w-[30%] pb-3 font-medium">Share of value</th>
                   <th className="pb-3 text-right font-medium">Value</th>
@@ -213,7 +213,7 @@ export default function AnalyticsPage() {
                   <tr key={s.setName}>
                     <td className="py-3 pr-4">
                       <p className="font-medium">{s.setName}</p>
-                      <p className="text-[12px] text-muted">
+                      <p className="text-[13px] text-muted">
                         {s.holdings} holding{s.holdings === 1 ? "" : "s"}
                       </p>
                     </td>
@@ -222,13 +222,13 @@ export default function AnalyticsPage() {
                         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
                           <div className="h-full rounded-full bg-cat-1" style={{ width: `${(s.share / maxShare) * 100}%` }} />
                         </div>
-                        <span className="tabular w-10 text-right text-[12px] text-muted">{pct(s.share, 0)}</span>
+                        <span className="tabular w-10 text-right text-[13px] text-muted">{pct(s.share, 0)}</span>
                       </div>
                     </td>
                     <td className="tabular py-3 text-right font-medium">{money(s.value)}</td>
                     <td className="py-3 text-right">
                       <Delta value={s.unrealized} className="block" />
-                      <Delta ratio={s.unrealizedPct} pctOnly className="block text-[12px]" />
+                      <Delta ratio={s.unrealizedPct} pctOnly className="block text-[13px]" />
                     </td>
                   </tr>
                 ))}
@@ -240,7 +240,7 @@ export default function AnalyticsPage() {
         <RankCard title="Best investments" items={ranked.best} rankBy={rankBy} setRankBy={setRankBy} empty="No holdings are in profit yet." />
         <RankCard title="Underperformers" items={ranked.worst} rankBy={rankBy} setRankBy={setRankBy} empty="Nothing is below cost. Nice." />
       </div>
-      <p className="mt-6 text-[12px] text-subtle">
+      <p className="mt-6 text-[13px] text-subtle">
         Performance percentages are time-weighted: daily market returns are chained so that purchases and sales never count as gains. History starts {timeline[0] ? formatDate(timeline[0].date) : "—"}.
       </p>
     </div>
@@ -286,7 +286,7 @@ function RankCard({
           />
         }
       />
-      {items.length ? items.map((h) => <HoldingMiniRow key={h.key} h={h} />) : <p className="py-4 text-[14px] text-muted">{empty}</p>}
+      {items.length ? items.map((h) => <HoldingMiniRow key={h.key} h={h} />) : <p className="py-4 text-[15px] text-muted">{empty}</p>}
     </Card>
   );
 }

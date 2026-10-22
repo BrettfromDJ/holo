@@ -95,13 +95,13 @@ function ProductHeader({ hit, imported, printing, onBack }: { hit: SearchHit; im
           <ChevronLeft className="size-5" />
         </button>
       )}
-      <ProductImage product={product} size="sm" className="size-16 shrink-0 rounded-xl" />
+      <ProductImage product={product} size="sm" className="size-16 shrink-0 rounded-2xl" />
       <div className="min-w-0 flex-1 pr-6">
         <DialogTitle className="truncate text-[17px]">{product.name}</DialogTitle>
         <DialogDescription className="mt-0.5 truncate">
           {[product.setName, categoryOf(product)].filter(Boolean).join(" · ")}
         </DialogDescription>
-        <p className="tabular mt-1 text-[13px]">
+        <p className="tabular mt-1 text-[14px]">
           {market === null ? <span className="text-subtle">No market price</span> : <span className="font-medium">{money(market)}</span>}
           <span className="text-subtle"> market</span>
           {product.source === "sample" && (
@@ -224,7 +224,7 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
     <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
       <ProductHeader hit={hit} imported={imported} printing={printing} onBack={onBack} />
       <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
-        {error && <p className="rounded-xl bg-down-soft px-3 py-2 text-[13px] text-down">{error}</p>}
+        {error && <p className="rounded-2xl bg-down-soft px-3 py-2 text-[14px] text-down">{error}</p>}
         <div className="grid grid-cols-2 gap-3">
           <Field label="Quantity">
             <Stepper value={qty} onChange={setQty} label="Quantity" />
@@ -262,7 +262,7 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
           }
         >
           <MoneyInput id="purchase-price" value={price} onChange={setPrice} />
-          {priceMode === "lot" && unitPrice !== null && qty > 1 && <p className="tabular text-[12px] text-subtle">{money(unitPrice)} per unit</p>}
+          {priceMode === "lot" && unitPrice !== null && qty > 1 && <p className="tabular text-[13px] text-subtle">{money(unitPrice)} per unit</p>}
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
@@ -286,11 +286,11 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
         </div>
 
         {!sealed && (
-          <div className="rounded-xl border border-border p-4">
+          <div className="rounded-2xl border border-border p-4">
             <label className="flex items-center justify-between gap-3">
               <span>
-                <span className="block text-[14px] font-medium">Graded card</span>
-                <span className="block text-[12px] text-muted">Valued manually — graded prices aren&apos;t provided by the pricing source.</span>
+                <span className="block text-[15px] font-medium">Graded card</span>
+                <span className="block text-[13px] text-muted">Valued manually — graded prices aren&apos;t provided by the pricing source.</span>
               </span>
               <Switch checked={graded} onCheckedChange={setGraded} aria-label="Graded card" />
             </label>
@@ -322,7 +322,7 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
         )}
 
         <div>
-          <button type="button" onClick={() => setShowExtras((s) => !s)} className="flex items-center gap-1.5 text-[13px] font-medium text-muted hover:text-foreground" aria-expanded={showExtras}>
+          <button type="button" onClick={() => setShowExtras((s) => !s)} className="flex items-center gap-1.5 text-[14px] font-medium text-muted hover:text-foreground" aria-expanded={showExtras}>
             <ChevronDown className={cn("size-4 transition-transform", showExtras && "rotate-180")} />
             Shipping, fees, tax &amp; notes
           </button>
@@ -392,12 +392,12 @@ function WatchForm({ hit, onBack, onDone }: { hit: SearchHit; onBack?: () => voi
     <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
       <ProductHeader hit={hit} imported={imported} printing={printing} onBack={onBack} />
       <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
-        {error && <p className="rounded-xl bg-down-soft px-3 py-2 text-[13px] text-down">{error}</p>}
+        {error && <p className="rounded-2xl bg-down-soft px-3 py-2 text-[14px] text-down">{error}</p>}
         <PrintingSelect options={printings} value={printing} onChange={setPrinting} />
         <Field label="Target purchase price" hint="Optional" htmlFor="target">
           <MoneyInput id="target" value={target} onChange={setTarget} autoFocus />
         </Field>
-        <p className="text-[13px] text-muted">Watchlist items are tracked separately and never affect your portfolio value.</p>
+        <p className="text-[14px] text-muted">Watchlist items are tracked separately and never affect your portfolio value.</p>
       </div>
       <div className="border-t border-border px-6 pb-6 pt-4">
         <Button type="submit" variant="primary" size="lg" className="w-full" disabled={saving || exists}>

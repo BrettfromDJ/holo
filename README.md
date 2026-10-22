@@ -25,7 +25,7 @@ npm run typecheck && npm run lint
 | **My collection — browser** | "Use my collection" without Supabase / sign-in | `localStorage` (`holo:local:v1`). Real TCG API products. |
 | **My collection — synced** | Supabase configured and signed in | Supabase Postgres with row-level security. |
 
-Switch modes from the sidebar (desktop) or Settings.
+Switch modes from the collection menu in the header or from Settings.
 
 ## Configuration
 

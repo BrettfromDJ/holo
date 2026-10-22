@@ -10,18 +10,18 @@ export function EmptyCollection({ title = "Start your collection", body }: { tit
   return (
     <div className="flex flex-col items-center px-6 py-20 text-center animate-rise">
       <div className="relative mb-8 h-36 w-56">
-        <div className="absolute left-4 top-6 h-28 w-20 -rotate-12 rounded-xl border border-border bg-surface-2" />
-        <div className="absolute right-4 top-6 h-28 w-20 rotate-12 rounded-xl border border-border bg-surface-2" />
-        <div className="absolute left-1/2 top-0 flex h-32 w-24 -translate-x-1/2 items-center justify-center rounded-xl border border-border-strong bg-surface-3 shadow-2xl shadow-black/40">
-          <Plus className="size-7 text-muted" />
+        <div className="absolute left-4 top-6 h-28 w-20 -rotate-12 rounded-2xl bg-lilac shadow-card" />
+        <div className="absolute right-4 top-6 h-28 w-20 rotate-12 rounded-2xl bg-peach shadow-card" />
+        <div className="absolute left-1/2 top-0 flex h-32 w-24 -translate-x-1/2 items-center justify-center rounded-2xl bg-surface shadow-lift">
+          <Plus className="size-8 text-brand" strokeWidth={2.5} />
         </div>
       </div>
-      <h2 className="text-[20px] font-semibold tracking-tight">{title}</h2>
-      <p className="mt-2 max-w-sm text-[14px] text-muted">
+      <h2 className="text-[28px] font-bold tracking-tight">{title}</h2>
+      <p className="mt-2 max-w-sm text-[16px] text-muted">
         {body ?? "Add your first Pokémon card or sealed product. Holo tracks its market value and your true investment performance."}
       </p>
       <div className="mt-8 flex flex-wrap justify-center gap-3">
-        <Button variant="primary" size="lg" onClick={() => openAdd()}>
+        <Button variant="brand" size="lg" onClick={() => openAdd()}>
           <Plus /> Add first product
         </Button>
         <Button variant="secondary" size="lg" onClick={() => setMode("demo")}>
