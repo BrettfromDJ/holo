@@ -1,13 +1,13 @@
 "use client";
 
-import { AlertCircle, CalendarDays, Layers, RefreshCw, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { AlertCircle, RefreshCw } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Delta } from "@/components/product/delta";
 import { AllocationBar } from "@/components/portfolio/allocation-bar";
 import { EmptyCollection } from "@/components/portfolio/empty-state";
 import { ErrorState } from "@/components/portfolio/error-state";
-import { HoldingMiniRow, HoldingTile } from "@/components/portfolio/holding-items";
+import { HoldingMiniRow } from "@/components/portfolio/holding-items";
 import { PerformanceChart } from "@/components/portfolio/performance-chart";
 import { Badge } from "@/components/ui/badge";
 import { Card, SectionTitle } from "@/components/ui/card";
@@ -31,9 +31,6 @@ export default function OverviewPage() {
   const store = useStore();
   const { holdings, summary, timeline } = usePortfolio();
   const [movePeriod, setMovePeriod] = useState<MovePeriod>("1D");
-  // Greeting depends on local time, so it's resolved after hydration.
-  const [hello, setHello] = useState<string | null>(null);
-  useEffect(() => setHello(greeting(new Date().getHours())), []);
 
   const movers = useMemo(() => {
     const withMove = holdings.map((h) => ({ h, m: moveOf(h, movePeriod) })).filter((x): x is { h: HoldingView; m: number } => x.m !== null);
@@ -43,7 +40,7 @@ export default function OverviewPage() {
     };
   }, [holdings, movePeriod]);
 
-  const mostValuable = useMemo(() => [...holdings].sort((a, b) => (b.value ?? -1) - (a.value ?? -1)).slice(0, 8), [holdings]);
+  const mostValuable = useMemo(() => [...holdings].sort((a, b) => (b.value ?? -1) - (a.value ?? -1)).slice(0, 5), [holdings]);
   const recent = useMemo(() => [...holdings].sort((a, b) => ((b.lastAcquired ?? "") > (a.lastAcquired ?? "") ? 1 : -1)).slice(0, 5), [holdings]);
   const alloc = useMemo(() => allocation(holdings), [holdings]);
   const allTime = useMemo(() => performanceOf(timeline), [timeline]);
@@ -54,72 +51,56 @@ export default function OverviewPage() {
   if (!store.data.transactions.length) return <EmptyCollection />;
 
   const totalReturn = summary.unrealized + summary.realized;
-  const gainUp = (summary.unrealized ?? 0) >= 0;
 
   return (
     <div className="animate-fade-in">
-      <header className="mb-8">
-        <p className="flex items-center gap-2 text-[15px] text-muted">
-          {longDate(store.today)}
-          {store.mode === "demo" && <Badge variant="sample">Sample data</Badge>}
-        </p>
-        <h1 className="mt-1 text-[34px] font-bold tracking-[-0.03em] sm:text-[44px]">{hello ?? "Welcome back"}</h1>
-      </header>
-
-      <Card className="p-5 sm:p-8">
-        <PerformanceChart
-          timeline={timeline}
-          header={(scrub) => (
-            <div className="mb-4">
-              <p className="text-[15px] font-medium text-muted">{scrub ? formatDate(scrub.date) : "Portfolio value"}</p>
-              <p className="tabular mt-1 text-[48px] font-bold leading-none tracking-[-0.04em] sm:text-[64px]">{money(scrub ? scrub.value : summary.marketValue)}</p>
+      <PerformanceChart
+        timeline={timeline}
+        header={(scrub) => (
+          <div className="mb-3">
+            <div className="flex items-center gap-2">
+              <p className="text-[13px] font-medium text-muted">{scrub ? formatDate(scrub.date) : "Portfolio value"}</p>
+              {store.mode === "demo" && <Badge variant="sample">Sample data</Badge>}
             </div>
-          )}
-        />
-        <PriceFreshness />
-      </Card>
+            <p className="tabular mt-1 text-[44px] font-semibold leading-none tracking-[-0.035em] sm:text-[56px]">{money(scrub ? scrub.value : summary.marketValue)}</p>
+          </div>
+        )}
+      />
 
-      {summary.unpricedCount > 0 && (
-        <p className="mt-4 flex items-center gap-3 rounded-2xl bg-surface-2 px-5 py-4 text-[14px] text-muted">
-          <AlertCircle className="size-5 shrink-0" />
-          {summary.unpricedCount} holding{summary.unpricedCount === 1 ? " has" : "s have"} no market price ({money(summary.unpricedCostBasis)} cost basis). {summary.unpricedCount === 1 ? "It's" : "They're"} excluded from value and gains — never counted as $0.
-        </p>
-      )}
-
-      <section className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4" aria-label="Key metrics">
-        <Tile tone="bg-lilac" icon={Wallet} label="Invested" value={money(summary.costBasis)} sub="Cost incl. fees & shipping" hint="Actual purchase cost of everything you currently hold, including allocated fees, shipping and tax (FIFO)." />
-        <Tile
-          tone={gainUp ? "bg-mint" : "bg-peach"}
-          icon={gainUp ? TrendingUp : TrendingDown}
-          label="Unrealized gain"
-          value={<Delta value={summary.unrealized} />}
-          sub={<Delta ratio={summary.unrealizedPct} pctOnly />}
-          href="/gains"
-        />
-        <Tile
-          tone="bg-sky"
-          icon={CalendarDays}
+      <section className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Key metrics">
+        <Metric label="Total value" value={money(summary.marketValue)} sub={`${summary.holdingsCount} holdings · ${summary.unitCount} items`} />
+        <Metric label="Total invested" value={money(summary.costBasis)} sub="Cost basis incl. fees & shipping" hint="Actual purchase cost of everything you currently hold, including allocated fees, shipping and tax (FIFO)." />
+        <Link href="/gains" className="block rounded-2xl transition-opacity hover:opacity-90">
+          <Metric
+            label="Unrealized gain"
+            value={<Delta value={summary.unrealized} />}
+            sub={
+              <span className="flex items-center justify-between gap-2">
+                <Delta ratio={summary.unrealizedPct} pctOnly />
+                <span className="text-subtle">See breakdown →</span>
+              </span>
+            }
+          />
+        </Link>
+        <Metric
           label="Today"
           value={<Delta value={summary.dayChange} />}
           sub={<Delta ratio={summary.dayChangePct} pctOnly />}
           hint="Change in market value of items held since yesterday. New purchases and sales are excluded."
         />
-        <Tile tone="bg-peach" icon={Layers} label="Holdings" value={String(summary.holdingsCount)} sub={`${summary.unitCount} items in total`} href="/collection" />
       </section>
 
-      <section className="mt-12" aria-label="Your showcase">
-        <SectionTitle title="Your showcase" subtitle="Your most valuable pieces" action={<SeeAll href="/collection?sort=value" />} />
-        <div className="scrollbar-none -mx-5 flex snap-x scroll-px-5 gap-4 overflow-x-auto px-5 pb-4 pt-1 sm:mx-0 sm:scroll-px-0 sm:px-0">
-          {mostValuable.map((h) => (
-            <div key={h.key} className="w-[210px] shrink-0 snap-start sm:w-[230px]">
-              <HoldingTile h={h} />
-            </div>
-          ))}
-        </div>
-      </section>
+      <PriceFreshness />
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-2">
-        <Card className="p-6 sm:p-7">
+      {summary.unpricedCount > 0 && (
+        <p className="mt-4 flex items-center gap-2 rounded-xl bg-surface px-4 py-3 text-[13px] text-muted">
+          <AlertCircle className="size-4 shrink-0" />
+          {summary.unpricedCount} holding{summary.unpricedCount === 1 ? " has" : "s have"} no market price ({money(summary.unpricedCostBasis)} cost basis). {summary.unpricedCount === 1 ? "It's" : "They're"} excluded from value and gains — never counted as $0.
+        </p>
+      )}
+
+      <div className="mt-10 grid gap-5 lg:grid-cols-2">
+        <Card className="p-5 sm:p-6">
           <SectionTitle
             title="Top movers"
             action={
@@ -136,30 +117,37 @@ export default function OverviewPage() {
               />
             }
           />
-          <MoverList title="Gainers" items={movers.gainers} />
-          <MoverList title="Losers" items={movers.losers} className="mt-5" />
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+            <MoverList title="Gainers" items={movers.gainers} />
+            <MoverList title="Losers" items={movers.losers} />
+          </div>
         </Card>
 
-        <div className="flex flex-col gap-6">
-          <Card className="p-6 sm:p-7">
-            <SectionTitle title="Sealed vs. singles" subtitle="Share of market value" />
-            <AllocationBar slices={alloc} />
-          </Card>
+        <Card className="p-5 sm:p-6">
+          <SectionTitle title="Most valuable" action={<SeeAll href="/collection?sort=value" />} />
+          {mostValuable.map((h) => (
+            <HoldingMiniRow key={h.key} h={h} />
+          ))}
+        </Card>
 
-          <Card className="p-6 sm:p-7">
-            <SectionTitle title="Performance" action={<SeeAll href="/gains" label="Gains" />} />
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-6">
-              <Stat label="Total return" value={<Delta value={totalReturn} />} sub="Unrealized + realized" />
-              <Stat label="Realized gains" value={<Delta value={summary.realized} />} sub="From completed sales" />
-              <Stat label="Time-weighted, 1Y" value={<Delta ratio={yearPerf?.twr ?? null} pctOnly />} sub={yearPerf ? signedMoney(yearPerf.marketGain) + " market gain" : "—"} />
-              <Stat label="Time-weighted, all" value={<Delta ratio={allTime?.twr ?? null} pctOnly />} sub={allTime ? `Since ${formatDate(allTime.start)}` : "—"} />
-            </dl>
-          </Card>
-        </div>
+        <Card className="p-5 sm:p-6">
+          <SectionTitle title="Sealed vs. singles" subtitle="Share of market value" />
+          <AllocationBar slices={alloc} />
+        </Card>
 
-        <Card className="p-6 sm:p-7 lg:col-span-2">
+        <Card className="p-5 sm:p-6">
+          <SectionTitle title="Collection performance" action={<SeeAll href="/gains" label="Gains breakdown" />} />
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-5">
+            <Stat label="Total return" value={<Delta value={totalReturn} />} sub="Unrealized + realized" />
+            <Stat label="Realized gains" value={<Delta value={summary.realized} />} sub="From completed sales" />
+            <Stat label="Time-weighted, 1Y" value={<Delta ratio={yearPerf?.twr ?? null} pctOnly />} sub={yearPerf ? signedMoney(yearPerf.marketGain) + " market gain" : "—"} />
+            <Stat label="Time-weighted, all" value={<Delta ratio={allTime?.twr ?? null} pctOnly />} sub={allTime ? `Since ${formatDate(allTime.start)}` : "—"} />
+          </dl>
+        </Card>
+
+        <Card className="p-5 sm:p-6 lg:col-span-2">
           <SectionTitle title="Recently added" action={<SeeAll href="/activity" label="Activity" />} />
-          <div className="grid gap-x-10 sm:grid-cols-2">
+          <div className="grid gap-x-8 sm:grid-cols-2">
             {recent.map((h) => (
               <HoldingMiniRow key={h.key} h={h} />
             ))}
@@ -170,58 +158,22 @@ export default function OverviewPage() {
   );
 }
 
-function longDate(iso: string) {
-  const d = new Date(`${iso}T12:00:00`);
-  return d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
-}
-
-function greeting(hour: number) {
-  if (hour >= 5 && hour < 12) return "Good morning";
-  if (hour >= 12 && hour < 18) return "Good afternoon";
-  return "Good evening";
-}
-
 function addYear(today: string) {
   const [y, m, d] = today.split("-");
   return `${Number(y) - 1}-${m}-${d}`;
 }
 
-function Tile({
-  tone,
-  icon: Icon,
-  label,
-  value,
-  sub,
-  hint,
-  href,
-}: {
-  tone: string;
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: React.ReactNode;
-  sub?: React.ReactNode;
-  hint?: string;
-  href?: string;
-}) {
+function Metric({ label, value, sub, hint }: { label: string; value: React.ReactNode; sub?: React.ReactNode; hint?: string }) {
   const inner = (
-    <div className={cn("flex h-full flex-col rounded-[1.75rem] p-5 transition-transform duration-300 ease-[var(--ease-apple)] sm:p-6", tone, href && "hover:-translate-y-1")}>
-      <span className="flex size-10 items-center justify-center rounded-full bg-surface/80 shadow-card">
-        <Icon className="size-5" />
-      </span>
-      <p className="mt-5 text-[14px] font-medium text-foreground/70">{label}</p>
-      <p className="tabular mt-1 text-[22px] font-bold tracking-tight sm:text-[26px]">{value}</p>
-      {sub && <p className="mt-0.5 text-[13px] font-medium text-foreground/60">{sub}</p>}
+    <div className="h-full rounded-2xl border border-border bg-surface p-4 sm:p-5">
+      <p className="text-[12px] font-medium text-muted">{label}</p>
+      <p className="tabular mt-2 text-[19px] font-semibold tracking-tight sm:text-[22px]">{value}</p>
+      {sub && <p className="mt-1 text-[12px] text-muted">{sub}</p>}
     </div>
   );
-  if (href)
-    return (
-      <Link href={href} className="block rounded-[1.75rem]">
-        {inner}
-      </Link>
-    );
   return hint ? (
     <Hint content={hint}>
-      <div tabIndex={0} className="rounded-[1.75rem]">
+      <div tabIndex={0} className="rounded-2xl">
         {inner}
       </div>
     </Hint>
@@ -233,25 +185,25 @@ function Tile({
 function Stat({ label, value, sub }: { label: string; value: React.ReactNode; sub: string }) {
   return (
     <div>
-      <dt className="text-[14px] text-muted">{label}</dt>
-      <dd className="tabular mt-1 text-[22px] font-bold tracking-tight">{value}</dd>
-      <dd className="mt-0.5 text-[13px] text-subtle">{sub}</dd>
+      <dt className="text-[12px] text-muted">{label}</dt>
+      <dd className="tabular mt-1 text-[18px] font-semibold">{value}</dd>
+      <dd className="mt-0.5 text-[12px] text-subtle">{sub}</dd>
     </div>
   );
 }
 
-function MoverList({ title, items, className }: { title: string; items: { h: HoldingView; m: number }[]; className?: string }) {
+function MoverList({ title, items }: { title: string; items: { h: HoldingView; m: number }[] }) {
   return (
-    <div className={className}>
-      <p className="mb-1 text-[13px] font-semibold text-subtle">{title}</p>
-      {items.length ? items.map(({ h, m }) => <HoldingMiniRow key={h.key} h={h} metric="change" change={m} />) : <p className="py-3 text-[15px] text-muted">No {title.toLowerCase()} in this period.</p>}
+    <div>
+      <p className="mb-1 text-[12px] font-medium uppercase tracking-wider text-subtle">{title}</p>
+      {items.length ? items.map(({ h, m }) => <HoldingMiniRow key={h.key} h={h} metric="change" change={m} />) : <p className="py-3 text-[13px] text-muted">No {title.toLowerCase()} in this period.</p>}
     </div>
   );
 }
 
 function SeeAll({ href, label = "See all" }: { href: string; label?: string }) {
   return (
-    <Link href={href} className="rounded-full bg-surface-2 px-3.5 py-1.5 text-[14px] font-semibold text-foreground transition-colors hover:bg-surface-3">
+    <Link href={href} className="text-[13px] font-medium text-muted transition-colors hover:text-foreground">
       {label}
     </Link>
   );
@@ -259,13 +211,13 @@ function SeeAll({ href, label = "See all" }: { href: string; label?: string }) {
 
 function PriceFreshness() {
   const { mode, integrations, pricesRefreshedAt, refreshing, priceError, refreshPrices } = useStore();
-  if (mode === "demo") return <p className="mt-4 text-[13px] text-subtle">Sample prices are generated for demonstration and are not market data.</p>;
+  if (mode === "demo") return <p className="mt-3 text-[12px] text-subtle">Sample prices are generated for demonstration and are not market data.</p>;
   return (
-    <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-subtle">
+    <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-subtle">
       <span>{integrations.tcgapi ? `Prices from TCG API · refreshed ${relativeTime(pricesRefreshedAt)}` : "Live pricing isn't configured — showing last stored prices."}</span>
       {integrations.tcgapi && (
-        <button onClick={() => void refreshPrices(true)} disabled={refreshing} className="inline-flex items-center gap-1 font-semibold text-muted hover:text-foreground disabled:opacity-50">
-          <RefreshCw className={cn("size-3.5", refreshing && "animate-spin")} /> Refresh
+        <button onClick={() => void refreshPrices(true)} disabled={refreshing} className="inline-flex items-center gap-1 font-medium text-muted hover:text-foreground disabled:opacity-50">
+          <RefreshCw className={cn("size-3", refreshing && "animate-spin")} /> Refresh
         </button>
       )}
       {priceError && <span className="text-down">{priceError}</span>}
@@ -276,12 +228,12 @@ function PriceFreshness() {
 function OverviewSkeleton() {
   return (
     <div aria-busy="true" aria-label="Loading portfolio">
-      <Skeleton className="h-4 w-40" />
-      <Skeleton className="mt-3 h-11 w-72" />
-      <Skeleton className="mt-8 h-[420px] w-full rounded-[var(--radius-card)]" />
-      <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <Skeleton className="h-4 w-28" />
+      <Skeleton className="mt-3 h-14 w-72" />
+      <Skeleton className="mt-6 h-[280px] w-full rounded-3xl" />
+      <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-44 rounded-[var(--radius-card)]" />
+          <Skeleton key={i} className="h-28" />
         ))}
       </div>
     </div>

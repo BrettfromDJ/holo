@@ -1,6 +1,7 @@
 "use client";
 
-import { Eye, EyeOff, ExternalLink, Loader2, MoreHorizontal, Plus, Tag } from "lucide-react";
+import { ChevronLeft, Eye, EyeOff, ExternalLink, Loader2, MoreHorizontal, Plus, Tag } from "lucide-react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -59,8 +60,12 @@ export default function ProductPage() {
 
   return (
     <div className="animate-fade-in">
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,440px)_1fr] lg:gap-12">
-        <ProductImage product={product} size="xl" priority className="aspect-square w-full rounded-[2.25rem] shadow-card lg:sticky lg:top-24" />
+      <Link href="/collection" className="mb-6 inline-flex items-center gap-1 text-[14px] text-muted hover:text-foreground">
+        <ChevronLeft className="size-4" /> Collection
+      </Link>
+
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,420px)_1fr] lg:gap-12">
+        <ProductImage product={product} size="xl" priority className="aspect-square w-full rounded-[1.75rem] lg:sticky lg:top-10" />
 
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -68,25 +73,25 @@ export default function ProductPage() {
             {product.rarity && <Badge variant="outline">{product.rarity}</Badge>}
             {product.source === "sample" && <Badge variant="sample">Sample data</Badge>}
           </div>
-          <h1 className="mt-3 text-[30px] font-bold leading-tight tracking-[-0.03em] sm:text-[40px]">{product.name}</h1>
-          <p className="mt-1.5 text-[16px] text-muted">
+          <h1 className="mt-3 text-[28px] font-semibold leading-tight tracking-[-0.02em] sm:text-[36px]">{product.name}</h1>
+          <p className="mt-1 text-[15px] text-muted">
             {[product.setName, product.number ? `#${product.number}` : null, printing && printing !== "Normal" ? printing : null].filter(Boolean).join(" · ")}
           </p>
 
           <div className="mt-6">
-            <p className="tabular text-[48px] font-bold leading-none tracking-[-0.04em]">{price?.market != null ? money(price.market) : <span className="text-muted">No price</span>}</p>
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-[14px]">
+            <p className="tabular text-[40px] font-semibold leading-none tracking-[-0.03em]">{price?.market != null ? money(price.market) : <span className="text-muted">No price</span>}</p>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-[13px]">
               {(["24h", "7d", "30d"] as const).map((p) => {
                 const v = p === "24h" ? price?.change24hPct : p === "7d" ? price?.change7dPct : price?.change30dPct;
                 return (
-                  <span key={p} className="inline-flex items-center gap-1.5 rounded-full bg-surface py-1 pl-3 pr-1 shadow-card">
+                  <span key={p} className="inline-flex items-center gap-1.5 rounded-full bg-surface px-2.5 py-1">
                     <span className="text-subtle">{p}</span>
-                    <DeltaPill ratio={v == null ? null : v / 100} />
+                    <DeltaPill ratio={v == null ? null : v / 100} className="px-0 py-0 bg-transparent" />
                   </span>
                 );
               })}
             </div>
-            <p className="mt-3 text-[13px] text-subtle">
+            <p className="mt-3 text-[12px] text-subtle">
               {price
                 ? `${price.source === "sample" ? "Sample price" : "Market price via TCG API"} · ${price.status === "stale" ? "stale · " : ""}updated ${relativeTime(price.updatedAt)}`
                 : "No market price available — not counted as $0."}
@@ -94,7 +99,7 @@ export default function ProductPage() {
           </div>
 
           <div className="mt-6 flex flex-wrap gap-2">
-            <Button variant="brand" onClick={() => store.openAdd({ productId })}>
+            <Button variant="primary" onClick={() => store.openAdd({ productId })}>
               <Plus /> {owned.length ? "Add more" : "Add to collection"}
             </Button>
             {owned.length === 1 && <SaleButton holding={owned[0]} />}
@@ -113,8 +118,8 @@ export default function ProductPage() {
           {owned.length > 0 && <Position holdings={owned} realized={realizedHere} />}
           {owned.length === 0 && realizedHere !== 0 && (
             <Card className="mt-6 p-5">
-              <p className="text-[14px] text-muted">Position closed · realized</p>
-              <Delta value={realizedHere} className="mt-1 text-[24px] font-bold" />
+              <p className="text-[13px] text-muted">Position closed · realized</p>
+              <Delta value={realizedHere} className="mt-1 text-[20px] font-semibold" />
             </Card>
           )}
           <History productId={productId} />
@@ -195,7 +200,7 @@ function PriceHistory({ productId, printing }: { productId: string; printing: st
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-[15px] font-semibold">Market price history</h2>
-          <p className="tabular mt-1 text-[14px]">
+          <p className="tabular mt-1 text-[13px]">
             {at ? (
               <>
                 <span className="font-medium">{money(at.price)}</span> <Delta value={change} ratio={first && change !== null ? change / first.price : null} />{" "}
@@ -212,7 +217,7 @@ function PriceHistory({ productId, printing }: { productId: string; printing: st
         {sliced.length > 1 ? (
           <ScrubChart data={sliced.map((p) => ({ date: p.date, value: p.price }))} tone={tone(sliced[sliced.length - 1].price - sliced[0].price)} baseline={sliced[0].price} onScrub={setScrub} height={220} />
         ) : (
-          <div className="flex h-[220px] flex-col items-center justify-center rounded-3xl border border-dashed border-border px-6 text-center text-[14px] text-muted">
+          <div className="flex h-[220px] flex-col items-center justify-center rounded-2xl border border-dashed border-border px-6 text-center text-[13px] text-muted">
             <p className="font-medium text-foreground">Not enough price history yet</p>
             <p className="mt-1 max-w-sm">
               History depends on your TCG API plan. Holo stores a daily snapshot for products you own or watch, so this chart fills in over time. Missing days are never filled with estimates.
@@ -220,7 +225,7 @@ function PriceHistory({ productId, printing }: { productId: string; printing: st
           </div>
         )}
       </div>
-      <p className="mt-2 text-[13px] text-subtle">
+      <p className="mt-2 text-[11px] text-subtle">
         {isSample ? "Sample series for demonstration — not market data." : `${series.length} daily observation${series.length === 1 ? "" : "s"} · gaps are shown as-is, never interpolated`}
       </p>
     </Card>
@@ -259,15 +264,15 @@ function HoldingLine({ h }: { h: HoldingView }) {
   return (
     <div className="flex items-center gap-3 py-3.5">
       <div className="min-w-0 flex-1">
-        <p className="text-[15px] font-medium">
+        <p className="text-[14px] font-medium">
           {h.quantity} × {holdingLabel(h) ?? h.identity.condition}
         </p>
-        <p className="tabular text-[13px] text-muted">
+        <p className="tabular text-[12px] text-muted">
           {h.lots.length} open lot{h.lots.length === 1 ? "" : "s"} · avg {money(h.avgCost)}
           {h.identity.grade && ` · valued ${money(h.price)} (manual)`}
         </p>
       </div>
-      <Delta value={h.unrealized} ratio={h.unrealizedPct} className="text-[14px]" />
+      <Delta value={h.unrealized} ratio={h.unrealizedPct} className="text-[13px]" />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon-sm" aria-label="Holding actions">
@@ -311,7 +316,7 @@ function History({ productId }: { productId: string }) {
               return (
                 <li key={t.id} className="flex items-center gap-3 py-3">
                   <div className="min-w-0 flex-1">
-                    <p className="text-[15px] font-medium capitalize">
+                    <p className="text-[14px] font-medium capitalize">
                       {t.type === "adjustment" ? (t.quantity > 0 ? "Added" : "Removed") : t.type}
                       <span className="tabular font-normal text-muted">
                         {" "}
@@ -319,12 +324,12 @@ function History({ productId }: { productId: string }) {
                       </span>
                       {edited && <Badge className="ml-2 normal-case">Edited</Badge>}
                     </p>
-                    <p className="truncate text-[13px] text-muted">
+                    <p className="truncate text-[12px] text-muted">
                       {formatDate(shown.date)}
                       {shown.source && ` · ${shown.source}`}
                     </p>
                   </div>
-                  <span className="tabular text-[15px]">
+                  <span className="tabular text-[14px]">
                     {t.type === "sale" ? "+" : ""}
                     {money(amount)}
                   </span>
@@ -334,17 +339,17 @@ function History({ productId }: { productId: string }) {
             })}
           </ul>
         ) : (
-          <p className="py-2 text-[15px] text-muted">No active entries.</p>
+          <p className="py-2 text-[14px] text-muted">No active entries.</p>
         )}
         {hiddenRows.length > 0 && (
           <div className="mt-3 border-t border-border pt-3">
-            <button onClick={() => setShowHidden((v) => !v)} className="text-[13px] font-medium text-subtle hover:text-muted">
+            <button onClick={() => setShowHidden((v) => !v)} className="text-[12px] font-medium text-subtle hover:text-muted">
               {showHidden ? "Hide" : "Show"} deleted &amp; edit records ({hiddenRows.length})
             </button>
             {showHidden && (
               <ul className="mt-2 space-y-1.5">
                 {hiddenRows.map((t) => (
-                  <li key={t.id} className="tabular text-[13px] text-subtle">
+                  <li key={t.id} className="tabular text-[12px] text-subtle">
                     {t.type === "correction" ? `${t.quantity === 0 ? "Deleted" : "Edited"} an entry` : `${t.type === "adjustment" ? "Adjustment" : t.type[0].toUpperCase() + t.type.slice(1)} · ${Math.abs(t.quantity)} × ${money(t.unitPrice)} (deleted)`}
                     {" · "}
                     {formatDate(t.createdAt)}
@@ -361,9 +366,9 @@ function History({ productId }: { productId: string }) {
           <SectionTitle title="Notes" />
           <ul className="space-y-3">
             {notes.map((t) => (
-              <li key={t.id} className="text-[15px]">
+              <li key={t.id} className="text-[14px]">
                 <p>{t.notes}</p>
-                <p className="mt-0.5 text-[13px] text-subtle">{formatDate(t.date)}</p>
+                <p className="mt-0.5 text-[12px] text-subtle">{formatDate(t.date)}</p>
               </li>
             ))}
           </ul>
@@ -376,7 +381,7 @@ function History({ productId }: { productId: string }) {
 function Stat({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
-      <dt className="text-[13px] text-muted">{label}</dt>
+      <dt className="text-[12px] text-muted">{label}</dt>
       <dd className="tabular mt-1 text-[17px] font-semibold">{value}</dd>
     </div>
   );
@@ -385,12 +390,12 @@ function Stat({ label, value }: { label: string; value: React.ReactNode }) {
 function ProductSkeleton() {
   return (
     <div className="grid gap-8 lg:grid-cols-[420px_1fr]" aria-busy="true">
-      <Skeleton className="aspect-square w-full rounded-[var(--radius-card)]" />
+      <Skeleton className="aspect-square w-full rounded-[1.75rem]" />
       <div>
         <Skeleton className="h-5 w-24" />
         <Skeleton className="mt-4 h-10 w-3/4" />
         <Skeleton className="mt-6 h-12 w-40" />
-        <Skeleton className="mt-8 h-64 w-full rounded-[var(--radius-card)]" />
+        <Skeleton className="mt-8 h-64 w-full rounded-3xl" />
       </div>
     </div>
   );

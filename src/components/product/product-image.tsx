@@ -35,7 +35,7 @@ export function ProductImage({
   const showImage = product?.imageUrl && !failed;
 
   return (
-    <div className={cn("relative flex items-center justify-center overflow-hidden rounded-3xl bg-image-well", className)}>
+    <div className={cn("relative flex items-center justify-center overflow-hidden rounded-2xl bg-image-well", className)}>
       {showImage ? (
         <img
           src={product.imageUrl!}
@@ -43,7 +43,7 @@ export function ProductImage({
           loading={priority ? "eager" : "lazy"}
           decoding="async"
           onError={() => setFailed(true)}
-          className={cn("h-full w-full object-contain drop-shadow-[0_10px_18px_rgba(60,40,20,0.25)] transition-transform duration-500 ease-[var(--ease-apple)]", pad)}
+          className={cn("h-full w-full object-contain drop-shadow-[0_8px_16px_rgba(0,0,0,0.35)] transition-transform duration-500 ease-[var(--ease-apple)]", pad)}
         />
       ) : (
         <Placeholder product={product} size={size} />

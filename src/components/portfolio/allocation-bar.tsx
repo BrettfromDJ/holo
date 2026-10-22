@@ -12,23 +12,23 @@ export function AllocationBar({ slices, showCost }: { slices: AllocationSlice[];
   const visible = slices.filter((s) => s.value > 0 || s.count > 0);
   return (
     <div>
-      <div className="flex h-4 w-full gap-1 overflow-hidden rounded-full" role="img" aria-label={visible.map((s) => `${CATEGORY_META[s.category].label} ${pct(s.share, 0)}`).join(", ")}>
+      <div className="flex h-3 w-full gap-[2px] overflow-hidden rounded-full" role="img" aria-label={visible.map((s) => `${CATEGORY_META[s.category].label} ${pct(s.share, 0)}`).join(", ")}>
         {visible
           .filter((s) => s.share > 0)
           .map((s) => (
-            <div key={s.category} className="h-full rounded-full transition-[flex-grow] duration-700" style={{ flexGrow: s.share, background: CATEGORY_META[s.category].color }} />
+            <div key={s.category} className="h-full first:rounded-l-full last:rounded-r-full transition-[flex-grow] duration-700" style={{ flexGrow: s.share, background: CATEGORY_META[s.category].color }} />
           ))}
         {!visible.some((s) => s.share > 0) && <div className="h-full flex-1 bg-surface-2" />}
       </div>
-      <ul className="mt-5 space-y-3.5">
+      <ul className="mt-5 space-y-3">
         {visible.map((s) => (
-          <li key={s.category} className="flex items-center gap-3 text-[15px]">
-            <span className="size-3 rounded-full" style={{ background: CATEGORY_META[s.category].color }} aria-hidden />
+          <li key={s.category} className="flex items-center gap-3 text-[14px]">
+            <span className="size-2.5 rounded-full" style={{ background: CATEGORY_META[s.category].color }} aria-hidden />
             <span className="flex-1">
               {CATEGORY_META[s.category].label} <span className="text-muted">· {s.count}</span>
             </span>
             {showCost && <span className="tabular hidden w-28 text-right text-muted sm:block">{money(s.costBasis)} cost</span>}
-            <span className="tabular w-24 text-right font-semibold">{money(s.value)}</span>
+            <span className="tabular w-24 text-right font-medium">{money(s.value)}</span>
             <span className="tabular w-12 text-right text-muted">{pct(s.share, 0)}</span>
           </li>
         ))}

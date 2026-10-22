@@ -22,10 +22,10 @@ function applyTheme(t: Theme) {
 
 export default function SettingsPage() {
   const store = useStore();
-  const [theme, setTheme] = useState<Theme>("light");
+  const [theme, setTheme] = useState<Theme>("dark");
   useEffect(() => {
     try {
-      setTheme((localStorage.getItem("holo:theme") as Theme) ?? "light");
+      setTheme((localStorage.getItem("holo:theme") as Theme) ?? "dark");
     } catch {
       // ignore
     }
@@ -105,7 +105,7 @@ export default function SettingsPage() {
       </Section>
 
       <Section title="Appearance">
-        <Row title="Theme" body="Light by default, or match your device.">
+        <Row title="Theme" body="Holo is designed dark-first.">
           <Segmented
             ariaLabel="Theme"
             value={theme}
@@ -165,7 +165,7 @@ export default function SettingsPage() {
       </Section>
 
       <Section title="How performance is calculated">
-        <div className="space-y-3 px-5 py-4 text-[15px] leading-relaxed text-muted">
+        <div className="space-y-3 px-5 py-4 text-[14px] leading-relaxed text-muted">
           <p>
             <span className="font-medium text-foreground">Cost basis</span> is what you actually paid for items you still hold — unit price plus allocated shipping, fees and tax. Sales use first-in, first-out lots.
           </p>
@@ -187,7 +187,7 @@ export default function SettingsPage() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mb-8">
-      <h2 className="mb-2 px-1 text-[14px] font-semibold text-muted">{title}</h2>
+      <h2 className="mb-2 px-1 text-[13px] font-semibold text-muted">{title}</h2>
       <Card className="divide-y divide-border">{children}</Card>
     </section>
   );
@@ -198,7 +198,7 @@ function Row({ title, body, children }: { title: string; body?: string; children
     <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
       <div className="min-w-0 flex-1">
         <p className="text-[15px] font-medium">{title}</p>
-        {body && <p className="mt-0.5 text-[14px] text-muted">{body}</p>}
+        {body && <p className="mt-0.5 text-[13px] text-muted">{body}</p>}
       </div>
       {children}
     </div>
@@ -207,7 +207,7 @@ function Row({ title, body, children }: { title: string; body?: string; children
 
 function Status({ ok }: { ok: boolean }) {
   return (
-    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-1 text-[13px] font-medium", ok ? "bg-up-soft text-up" : "bg-surface-2 text-muted")}>
+    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-1 text-[12px] font-medium", ok ? "bg-up-soft text-up" : "bg-surface-2 text-muted")}>
       {ok ? <Check className="size-3.5" /> : <X className="size-3.5" />}
       {ok ? "Connected" : "Not set"}
     </span>

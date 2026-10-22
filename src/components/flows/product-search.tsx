@@ -116,7 +116,7 @@ export function ProductSearch({ onSelect, autoFocus = true }: { onSelect: (hit: 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="px-5 pt-5">
-        <div className="relative flex h-11 items-center rounded-2xl border border-border bg-surface-2 focus-within:border-border-strong">
+        <div className="relative flex h-12 items-center rounded-2xl bg-surface-2 focus-within:bg-surface-3">
           <Search className="pointer-events-none ml-3.5 size-[18px] shrink-0 text-subtle" />
           <input
             autoFocus={autoFocus}
@@ -160,10 +160,10 @@ export function ProductSearch({ onSelect, autoFocus = true }: { onSelect: (hit: 
           <EmptyState icon={SearchX} title="Search is unavailable" body={error} />
         ) : tooShort ? (
           <div className="px-3 pt-1">
-            <p className="text-[13px] font-medium uppercase tracking-wider text-subtle">Try</p>
+            <p className="text-[11px] font-medium uppercase tracking-wider text-subtle">Try</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {SUGGESTIONS.map((s) => (
-                <button key={s} onClick={() => setQ(s)} className="rounded-full bg-surface-2 px-3 py-1.5 text-[14px] text-muted transition-colors hover:bg-surface-3 hover:text-foreground">
+                <button key={s} onClick={() => setQ(s)} className="rounded-full bg-surface-2 px-3 py-1.5 text-[13px] text-muted transition-colors hover:bg-surface-3 hover:text-foreground">
                   {s}
                 </button>
               ))}
@@ -172,7 +172,7 @@ export function ProductSearch({ onSelect, autoFocus = true }: { onSelect: (hit: 
         ) : (
           <>
             {relaxed && hits.length > 0 && (
-              <p className="px-3 pb-2 text-[13px] text-muted">
+              <p className="px-3 pb-2 text-[12px] text-muted">
                 No exact match for “{query}”. Showing results for <span className="text-foreground">“{relaxed}”</span>.
               </p>
             )}
@@ -185,15 +185,15 @@ export function ProductSearch({ onSelect, autoFocus = true }: { onSelect: (hit: 
                     <button
                       onClick={() => onSelect(hit)}
                       onMouseEnter={() => setCursor(i)}
-                      className={cn("flex w-full items-center gap-3.5 rounded-2xl px-3 py-2.5 text-left transition-colors", i === cursor && "bg-surface-2")}
+                      className={cn("flex w-full items-center gap-3.5 rounded-xl px-3 py-2.5 text-left transition-colors", i === cursor && "bg-surface-2")}
                     >
-                      <ProductImage product={hit.product} size="xs" className="size-12 shrink-0 rounded-xl" />
+                      <ProductImage product={hit.product} size="xs" className="size-12 shrink-0 rounded-lg" />
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-2">
                           <span className="truncate text-[15px] font-medium">{hit.product.name}</span>
                           {regionLabel(hit.gameName) && <Badge variant="outline" className="shrink-0">{regionLabel(hit.gameName)}</Badge>}
                         </span>
-                        <span className="mt-0.5 block truncate text-[14px] text-muted">
+                        <span className="mt-0.5 block truncate text-[13px] text-muted">
                           {[hit.product.setName, categoryOf(hit.product), hit.printing && hit.printing !== "Normal" ? hit.printing : null].filter(Boolean).join(" · ")}
                         </span>
                       </span>
