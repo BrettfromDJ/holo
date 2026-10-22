@@ -18,14 +18,14 @@ export function ModeSwitcher() {
     <DropdownMenu>
       <DropdownMenuTrigger
         title={current.sub}
-        className="flex h-8 max-w-[200px] items-center gap-2 rounded-lg px-2.5 text-left text-[13px] text-muted transition-colors hover:bg-surface-2 hover:text-foreground data-[state=open]:bg-surface-2"
+        className="flex h-10 max-w-[190px] items-center gap-2 rounded-full bg-surface px-3.5 text-left text-[14px] font-medium shadow-card transition-colors hover:text-foreground data-[state=open]:bg-surface-2"
       >
-        <Icon className="size-3.5 shrink-0" />
-        <span className="truncate">{current.title}</span>
+        <Icon className="size-4 shrink-0 text-muted" />
+        <span className="hidden truncate sm:inline">{current.title}</span>
         <ChevronsUpDown className="size-3.5 shrink-0 text-subtle" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[216px]">
-        <p className="truncate px-2.5 pb-1 pt-1.5 text-[12px] text-muted">{current.sub}</p>
+        <p className="truncate px-3 pb-1.5 pt-2 text-[13px] text-muted">{current.sub}</p>
         <DropdownMenuSeparator />
         <DropdownMenuLabel>Viewing</DropdownMenuLabel>
         <DropdownMenuItem onSelect={() => setMode("personal")}>

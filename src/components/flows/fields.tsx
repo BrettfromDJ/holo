@@ -10,7 +10,7 @@ export function Field({ label, hint, children, className, htmlFor }: { label: st
     <div className={cn("flex flex-col gap-1.5", className)}>
       <div className="flex items-baseline justify-between gap-2">
         <Label htmlFor={htmlFor}>{label}</Label>
-        {hint && <span className="text-[12px] text-subtle">{hint}</span>}
+        {hint && <span className="text-[13px] text-subtle">{hint}</span>}
       </div>
       {children}
     </div>
@@ -45,7 +45,7 @@ export function MoneyInput({
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1"))}
-        className="tabular h-11 w-full rounded-xl border border-border bg-surface-2 pl-7 pr-3.5 text-[15px] outline-none placeholder:text-subtle focus:border-border-strong focus:bg-surface-3"
+        className="tabular h-11 w-full rounded-2xl border border-border bg-surface-2 pl-7 pr-3.5 text-[15px] outline-none placeholder:text-subtle focus:border-border-strong focus:bg-surface-3"
       />
     </div>
   );
@@ -54,7 +54,7 @@ export function MoneyInput({
 export function Stepper({ value, onChange, min = 1, max = 9999, label }: { value: number; onChange: (n: number) => void; min?: number; max?: number; label: string }) {
   const id = useId();
   return (
-    <div className="flex h-11 items-center rounded-xl border border-border bg-surface-2">
+    <div className="flex h-11 items-center rounded-2xl border border-border bg-surface-2">
       <button type="button" aria-label={`Decrease ${label}`} onClick={() => onChange(Math.max(min, value - 1))} className="flex h-full w-11 items-center justify-center text-muted hover:text-foreground disabled:opacity-30" disabled={value <= min}>
         <Minus className="size-4" />
       </button>
@@ -85,7 +85,7 @@ export function parseMoney(s: string): number | null {
 
 export function SummaryRow({ label, value, strong }: { label: string; value: React.ReactNode; strong?: boolean }) {
   return (
-    <div className={cn("flex items-center justify-between text-[14px]", strong ? "font-semibold text-foreground" : "text-muted")}>
+    <div className={cn("flex items-center justify-between text-[15px]", strong ? "font-semibold text-foreground" : "text-muted")}>
       <span>{label}</span>
       <span className="tabular">{value}</span>
     </div>

@@ -111,7 +111,7 @@ export function SaleDialog({ holding, open, onOpenChange }: { holding: HoldingVi
               <div className="space-y-1.5">
                 <SummaryRow label="Net proceeds" value={money(proceeds)} />
                 <SummaryRow label="FIFO cost basis" value={money(basis)} />
-                <div className="flex items-center justify-between text-[14px] font-semibold">
+                <div className="flex items-center justify-between text-[15px] font-semibold">
                   <span>Realized gain</span>
                   <Delta value={gain} ratio={gain !== null && basis > 0 ? gain / basis : null} />
                 </div>

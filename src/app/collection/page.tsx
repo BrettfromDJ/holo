@@ -142,23 +142,23 @@ function Collection() {
           )
         }
         actions={
-          <Button variant="primary" onClick={() => store.openAdd()} className="hidden sm:inline-flex">
+          <Button variant="brand" onClick={() => store.openAdd()} className="hidden sm:inline-flex">
             <Plus /> Add
           </Button>
         }
       />
 
       {/* Toolbar */}
-      <div className="sticky top-14 z-20 -mx-4 border-b border-border bg-stage/90 px-4 py-3 backdrop-blur-xl sm:-mx-7 sm:px-7">
+      <div className="sticky top-16 z-20 -mx-5 bg-background/90 px-5 py-3 backdrop-blur-xl sm:-mx-8 sm:px-8">
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative min-w-[200px] flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-subtle" />
+            <Search className="pointer-events-none absolute left-4 top-1/2 size-[18px] -translate-y-1/2 text-subtle" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search your collection"
               aria-label="Search your collection"
-              className="h-9 w-full rounded-lg border border-border bg-surface-2/60 pl-9 pr-9 text-[13px] outline-none placeholder:text-subtle focus:border-border-strong focus:bg-surface-2"
+              className="h-11 w-full rounded-full bg-surface pl-11 pr-10 text-[15px] shadow-card outline-none placeholder:text-subtle focus:ring-4 focus:ring-brand/15"
             />
             {query && (
               <button onClick={() => setQuery("")} aria-label="Clear search" className="absolute right-3 top-1/2 -translate-y-1/2 text-subtle hover:text-foreground">
@@ -207,8 +207,8 @@ function Collection() {
               }}
               aria-pressed={kind === k.value}
               className={cn(
-                "h-7 shrink-0 rounded-md px-2.5 text-[12px] font-medium transition-colors",
-                kind === k.value ? "bg-surface-3 text-foreground" : "text-muted hover:bg-surface-2 hover:text-foreground",
+                "h-10 shrink-0 rounded-full px-4 text-[14px] font-semibold transition-colors",
+                kind === k.value ? "bg-accent text-accent-foreground" : "bg-surface text-muted shadow-card hover:text-foreground",
               )}
             >
               {k.label}
@@ -221,7 +221,7 @@ function Collection() {
             <FilterSelect label="Set" value={setName} onChange={setSetName} options={sets} allLabel="All sets" />
             <FilterSelect label="Product type" value={category} onChange={setCategory} options={categories} allLabel="All product types" />
             <Select value={perf} onValueChange={(v) => setPerf(v as Perf)}>
-              <SelectTrigger aria-label="Performance" className="h-9">
+              <SelectTrigger aria-label="Performance" className="h-11">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -243,13 +243,13 @@ function Collection() {
             <p className="mt-1 text-sm text-muted">Try clearing a filter or searching for something else.</p>
           </div>
         ) : view === "grid" ? (
-          <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 xl:grid-cols-4">
             {filtered.map((h) => (
               <HoldingTile key={h.key} h={h} />
             ))}
           </div>
         ) : (
-          <Card className="overflow-hidden pt-2.5">
+          <Card className="overflow-hidden pt-4">
             <HoldingListHeader />
             <div className="divide-y divide-border">
               {filtered.map((h) => (
@@ -266,7 +266,7 @@ function Collection() {
 function FilterSelect({ label, value, onChange, options, allLabel }: { label: string; value: string; onChange: (v: string) => void; options: readonly string[]; allLabel: string }) {
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger aria-label={label} className="h-9">
+      <SelectTrigger aria-label={label} className="h-11">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -289,20 +289,20 @@ function WatchGrid({ query }: { query: string }) {
   });
   if (!items.length) return <p className="py-20 text-center text-sm text-muted">Nothing on your watchlist yet.</p>;
   return (
-    <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 xl:grid-cols-4">
       {items.map((w) => {
         const p = data.products[w.productId];
         const price = data.prices[priceKey(w.productId, w.printing)];
         return (
           <Link key={w.id} href={`/product/${encodeURIComponent(w.productId)}`} className="group">
             <div className="relative">
-              <ProductImage product={p} className="aspect-square w-full border border-border" />
-              <span className="absolute left-2 top-2 rounded-[5px] bg-background/80 px-1.5 py-0.5 text-[11px] font-medium text-muted backdrop-blur">Watching</span>
+              <ProductImage product={p} className="aspect-square w-full rounded-[1.35rem]" />
+              <span className="absolute left-2.5 top-2.5 rounded-full bg-surface/90 px-2.5 py-1 text-[12px] font-semibold text-muted shadow-card backdrop-blur">Watching</span>
             </div>
-            <p className="mt-3 truncate text-[13px] font-semibold">{p?.name}</p>
+            <p className="mt-3 truncate px-2 text-[15px] font-semibold">{p?.name}</p>
             <p className="truncate text-[12px] text-muted">{p?.setName}</p>
             <div className="mt-2 flex items-center justify-between">
-              <span className="tabular text-[14px] font-semibold">{money(price?.market ?? null)}</span>
+              <span className="tabular text-[18px] font-bold">{money(price?.market ?? null)}</span>
               <DeltaPill ratio={price?.change7dPct != null ? price.change7dPct / 100 : null} />
             </div>
           </Link>
@@ -316,11 +316,11 @@ function GridSkeleton() {
   return (
     <div aria-busy="true">
       <Skeleton className="h-9 w-48" />
-      <Skeleton className="mt-8 h-9 w-full" />
+      <Skeleton className="mt-8 h-11 w-full rounded-full" />
       <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
         {Array.from({ length: 8 }).map((_, i) => (
           <div key={i}>
-            <Skeleton className="aspect-square w-full rounded-xl" />
+            <Skeleton className="aspect-square w-full rounded-[var(--radius-card)]" />
             <Skeleton className="mt-3 h-4 w-3/4" />
             <Skeleton className="mt-2 h-4 w-1/2" />
           </div>
