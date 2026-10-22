@@ -33,14 +33,22 @@ const MIN = 60_000;
 const HOUR = 60 * MIN;
 /** A source price older than this is shown as stale. */
 const STALE_AFTER_MS = 72 * HOUR;
-/** Keep this many daily requests in reserve for the scheduled price sync. */
 /**
  * Daily requests kept back for the scheduled price sync. Only meaningful when
  * the sync can run (CRON_SECRET set); otherwise nothing would use them.
  */
 const DAILY_RESERVE = Number(process.env.TCGAPI_DAILY_RESERVE ?? (process.env.CRON_SECRET ? 10 : 0));
 
+/**
+ * Budget snapshots and cool-downs are only trusted briefly. Blocking calls
+ * means we stop seeing fresh budgets, so a stale snapshot would otherwise
+ * keep blocking after a plan upgrade or the daily reset.
+ */
+const BUDGET_SNAPSHOT_TTL_MS = 5 * MIN;
+const MAX_COOLDOWN_MS = 10 * MIN;
+
 let rateLimit: RateLimit | null = null;
+let rateLimitAt = 0;
 let cooldownUntil = 0;
 
 export function rateLimitStatus() {
@@ -66,18 +74,21 @@ async function call<T>(fn: (c: TCGApi) => Promise<{ data: T; rateLimit?: RateLim
   if (Date.now() < cooldownUntil) {
     throw new PricingUnavailableError("TCG API daily limit reached. Prices will refresh later.", "rate_limited", Math.ceil((cooldownUntil - Date.now()) / 1000));
   }
-  // A budget snapshot from before the daily reset no longer applies.
-  if (rateLimit && Date.parse(rateLimit.daily_reset) <= Date.now()) rateLimit = null;
+  // Re-check the live budget once a snapshot is old or past the daily reset.
+  if (rateLimit && (Date.now() - rateLimitAt > BUDGET_SNAPSHOT_TTL_MS || Date.parse(rateLimit.daily_reset) <= Date.now())) rateLimit = null;
   if (!opts.essential && rateLimit && rateLimit.daily_remaining <= DAILY_RESERVE) {
     throw new PricingUnavailableError("TCG API request budget is reserved for the daily price sync.", "rate_limited");
   }
   try {
     const res = await fn(api());
-    if (res.rateLimit) rateLimit = res.rateLimit;
+    if (res.rateLimit) {
+      rateLimit = res.rateLimit;
+      rateLimitAt = Date.now();
+    }
     return res;
   } catch (err) {
     if (err instanceof RateLimitError) {
-      const retry = err.retryAfter ?? 3600;
+      const retry = Math.min(err.retryAfter ?? 600, MAX_COOLDOWN_MS / 1000);
       cooldownUntil = Date.now() + retry * 1000;
       throw new PricingUnavailableError("TCG API rate limit reached.", "rate_limited", retry);
     }
