@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { Loader2, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -8,8 +8,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input, Textarea } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
 import { Delta } from "@/components/product/delta";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { effectiveTransactions } from "@/lib/finance/ledger";
 import type { HoldingView } from "@/lib/finance/portfolio";
-import { money, signedMoney } from "@/lib/format";
+import { formatDate, money, signedMoney } from "@/lib/format";
 import { useStore } from "@/lib/store/collection-store";
 import type { Transaction } from "@/lib/types";
 import { Field, MoneyInput, Stepper, SummaryRow, parseMoney } from "./fields";
@@ -297,9 +299,9 @@ export function CorrectionDialog({ tx, open, onOpenChange }: { tx: Transaction |
         fees: voiding ? 0 : (parseMoney(fees) ?? 0),
         shipping: voiding ? 0 : (parseMoney(shipping) ?? 0),
         tax: voiding ? 0 : (parseMoney(tax) ?? 0),
-        notes: reason.trim() || (voiding ? "Voided" : "Corrected"),
+        notes: reason.trim() || (voiding ? "Deleted" : "Edited"),
       });
-      toast.success(voiding ? "Transaction voided" : "Correction recorded", { description: "The original stays in your activity log." });
+      toast.success(voiding ? "Entry deleted" : "Entry updated");
       onOpenChange(false);
     } catch (err) {
       toast.error("Couldn't save correction", { description: err instanceof Error ? err.message : undefined });
@@ -312,8 +314,8 @@ export function CorrectionDialog({ tx, open, onOpenChange }: { tx: Transaction |
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <FormShell
-          title="Correct transaction"
-          description="Corrections are recorded as new entries. The original is kept for your audit trail."
+          title="Edit entry"
+          description="Your totals update right away. The original is kept behind the scenes."
           onSubmit={(e) => {
             e.preventDefault();
             void save(false);
@@ -321,11 +323,11 @@ export function CorrectionDialog({ tx, open, onOpenChange }: { tx: Transaction |
           footer={
             <div className="flex gap-2">
               <Button type="button" variant="danger" size="lg" className="flex-1" disabled={saving} onClick={() => void save(true)}>
-                Void
+                Delete
               </Button>
               <Button type="submit" variant="primary" size="lg" className="flex-[2]" disabled={saving || qty < 1 || parseMoney(price) === null}>
                 {saving && <Loader2 className="animate-spin" />}
-                Save correction
+                Save changes
               </Button>
             </div>
           }
@@ -352,7 +354,7 @@ export function CorrectionDialog({ tx, open, onOpenChange }: { tx: Transaction |
               <MoneyInput id="cor-tax" value={tax} onChange={setTax} />
             </Field>
           </div>
-          <Field label="Reason" htmlFor="cor-reason">
+          <Field label="Reason" hint="Optional" htmlFor="cor-reason">
             <Textarea id="cor-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="What was wrong?" />
           </Field>
         </FormShell>
@@ -394,4 +396,101 @@ export function ManualValueDialog({ holding, open, onOpenChange }: { holding: Ho
       </DialogContent>
     </Dialog>
   );
+}
+
+/**
+ * Deleting records a void correction rather than erasing the row, so totals
+ * update immediately while the audit trail survives behind "Show deleted".
+ */
+export function DeleteTransactionDialog({ tx, open, onOpenChange }: { tx: Transaction | null; open: boolean; onOpenChange: (o: boolean) => void }) {
+  const { addTransaction, data } = useStore();
+  const [saving, setSaving] = useState(false);
+  if (!tx) return null;
+  const name = data.products[tx.productId]?.name ?? "this item";
+  const label = tx.type === "sale" ? "sale" : tx.type === "adjustment" ? "adjustment" : "purchase";
+
+  const confirm = async () => {
+    setSaving(true);
+    try {
+      await addTransaction({
+        productId: tx.productId,
+        printing: tx.printing,
+        condition: tx.condition,
+        grade: tx.grade,
+        type: "correction",
+        correctsId: tx.id,
+        date: tx.date,
+        quantity: 0,
+        unitPrice: 0,
+        fees: 0,
+        shipping: 0,
+        tax: 0,
+        notes: "Deleted",
+      });
+      toast.success(`Deleted ${label}`);
+      onOpenChange(false);
+    } catch (err) {
+      toast.error("Couldn't delete", { description: err instanceof Error ? err.message : undefined });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete this {label}?</DialogTitle>
+          <DialogDescription>
+            {Math.abs(tx.quantity)} × {name} on {formatDate(tx.date)}. It will be removed from your collection, totals and history.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex gap-2 px-6 pb-6 pt-4">
+          <Button variant="secondary" size="lg" className="flex-1" onClick={() => onOpenChange(false)} disabled={saving}>
+            Cancel
+          </Button>
+          <Button variant="danger" size="lg" className="flex-1" onClick={() => void confirm()} disabled={saving}>
+            {saving && <Loader2 className="animate-spin" />}
+            Delete
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Edit / Delete menu for a history row. */
+export function TransactionActions({ tx }: { tx: Transaction }) {
+  const [dialog, setDialog] = useState<"edit" | "delete" | null>(null);
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon-sm" aria-label="Entry actions">
+            <MoreHorizontal />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={() => setDialog("edit")}>
+            <Pencil /> Edit
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setDialog("delete")} className="text-down">
+            <Trash2 className="!text-down" /> Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <CorrectionDialog tx={tx} open={dialog === "edit"} onOpenChange={(o) => !o && setDialog(null)} />
+      <DeleteTransactionDialog tx={tx} open={dialog === "delete"} onOpenChange={(o) => !o && setDialog(null)} />
+    </>
+  );
+}
+
+/**
+ * Split a transaction list into what to show by default and what to tuck
+ * away: deleted entries and the correction records that edited or deleted them.
+ */
+export function partitionHistory(all: Transaction[]) {
+  const effective = new Map(effectiveTransactions(all).map((t) => [t.id, t]));
+  const isHidden = (t: Transaction) => t.type === "correction" || !effective.has(t.id);
+  return { effective, visible: all.filter((t) => !isHidden(t)), hidden: all.filter(isHidden) };
 }

@@ -3,53 +3,52 @@
 import { ArrowDownLeft, ArrowUpRight, MinusCircle, PencilLine, PlusCircle } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { CorrectionDialog } from "@/components/flows/transaction-dialogs";
+import { TransactionActions, partitionHistory } from "@/components/flows/transaction-dialogs";
 import { EmptyCollection } from "@/components/portfolio/empty-state";
 import { ErrorState } from "@/components/portfolio/error-state";
 import { Delta } from "@/components/product/delta";
 import { ProductImage } from "@/components/product/product-image";
 import { PageHeader } from "@/components/shell/page-header";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
-import { acquisitionCost, effectiveTransactions, saleProceeds } from "@/lib/finance/ledger";
+import { acquisitionCost, saleProceeds } from "@/lib/finance/ledger";
 import { formatDate, formatMonth, money } from "@/lib/format";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
 import type { Transaction } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-type Filter = "all" | "purchase" | "sale" | "adjustment" | "correction";
+type Filter = "all" | "purchase" | "sale" | "adjustment";
 
 const ICONS = {
   purchase: { icon: ArrowDownLeft, label: "Purchase" },
   sale: { icon: ArrowUpRight, label: "Sale" },
   adjustmentUp: { icon: PlusCircle, label: "Added" },
   adjustmentDown: { icon: MinusCircle, label: "Removed" },
-  correction: { icon: PencilLine, label: "Correction" },
+  correction: { icon: PencilLine, label: "Edit record" },
 };
 
 export default function ActivityPage() {
   const store = useStore();
   const { realized } = usePortfolio();
   const [filter, setFilter] = useState<Filter>("all");
-  const [correcting, setCorrecting] = useState<Transaction | null>(null);
+  const [showHidden, setShowHidden] = useState(false);
 
-  const { groups, effective, byId } = useMemo(() => {
+  const { groups, effective, byId, hiddenCount } = useMemo(() => {
     const all = store.data.transactions;
-    const effective = new Map(effectiveTransactions(all).map((t) => [t.id, t]));
+    const { effective, visible, hidden } = partitionHistory(all);
     const byId = new Map(all.map((t) => [t.id, t]));
-    const list = all
-      .filter((t) => filter === "all" || t.type === filter)
+    const list = (showHidden ? all : visible)
+      .filter((t) => filter === "all" || t.type === filter || (showHidden && t.type === "correction"))
       .sort((a, b) => (a.date === b.date ? (a.createdAt < b.createdAt ? 1 : -1) : a.date < b.date ? 1 : -1));
     const groups = new Map<string, Transaction[]>();
     for (const t of list) {
       const m = t.date.slice(0, 7);
       groups.set(m, [...(groups.get(m) ?? []), t]);
     }
-    return { groups: [...groups.entries()], effective, byId };
-  }, [store.data.transactions, filter]);
+    return { groups: [...groups.entries()], effective, byId, hiddenCount: hidden.length };
+  }, [store.data.transactions, filter, showHidden]);
 
   const realizedBySale = useMemo(() => new Map(realized.map((r) => [r.transactionId, r])), [realized]);
 
@@ -66,8 +65,8 @@ export default function ActivityPage() {
 
   return (
     <div className="animate-fade-in">
-      <PageHeader title="Activity" subtitle="A complete audit trail. Entries are never edited or deleted — corrections are recorded alongside." />
-      <div className="scrollbar-none -mx-4 mb-5 overflow-x-auto px-4">
+      <PageHeader title="Activity" subtitle="Every purchase, sale and adjustment." />
+      <div className="scrollbar-none -mx-4 mb-5 flex items-center overflow-x-auto px-4">
         <Segmented
           ariaLabel="Filter activity"
           value={filter}
@@ -77,9 +76,13 @@ export default function ActivityPage() {
             { value: "purchase", label: "Purchases" },
             { value: "sale", label: "Sales" },
             { value: "adjustment", label: "Adjustments" },
-            { value: "correction", label: "Corrections" },
           ]}
         />
+        {hiddenCount > 0 && (
+          <button onClick={() => setShowHidden((v) => !v)} className="ml-3 text-[12px] font-medium text-subtle hover:text-muted">
+            {showHidden ? "Hide" : "Show"} deleted &amp; edit records ({hiddenCount})
+          </button>
+        )}
       </div>
 
       <div className="space-y-8">
@@ -118,14 +121,14 @@ export default function ActivityPage() {
                           </span>
                         ) : (
                           <span>
-                            · {t.quantity === 0 ? "voided" : "amended"} {original ? `${original.type} from ${formatDate(original.date)}` : "entry"}
+                            · {t.quantity === 0 ? "deleted" : "edited"} {original ? `${original.type} from ${formatDate(original.date)}` : "entry"}
                           </span>
                         )}
                         <span>· {formatDate(shown.date)}</span>
                         {t.source && <span>· {t.source}</span>}
                         {t.grade && <span>· {t.grade.company} {t.grade.grade}</span>}
-                        {voided && <Badge>Voided</Badge>}
-                        {corrected && <Badge>Corrected</Badge>}
+                        {voided && <Badge>Deleted</Badge>}
+                        {corrected && <Badge>Edited</Badge>}
                       </p>
                       {t.notes && <p className="mt-0.5 truncate text-[12px] text-subtle">{t.notes}</p>}
                     </div>
@@ -139,11 +142,7 @@ export default function ActivityPage() {
                       {realizedEntry && <Delta value={realizedEntry.gain} className="text-[12px]" />}
                       {t.type === "adjustment" && t.quantity < 0 && realizedEntry && <p className="text-[11px] text-subtle">written off</p>}
                     </div>
-                    {t.type !== "correction" && !voided && (
-                      <Button variant="ghost" size="sm" onClick={() => setCorrecting(t)} className="hidden sm:inline-flex">
-                        Correct
-                      </Button>
-                    )}
+                    {t.type !== "correction" && !voided ? <TransactionActions tx={t} /> : <span className="w-8" />}
                   </div>
                 );
               })}
@@ -151,7 +150,6 @@ export default function ActivityPage() {
           </section>
         ))}
       </div>
-      <CorrectionDialog tx={correcting} open={correcting !== null} onOpenChange={(o) => !o && setCorrecting(null)} />
     </div>
   );
 }

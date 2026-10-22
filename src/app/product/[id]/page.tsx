@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ScrubChart } from "@/components/charts/scrub-chart";
-import { AdjustDialog, CorrectionDialog, ManualValueDialog, SaleDialog } from "@/components/flows/transaction-dialogs";
+import { AdjustDialog, ManualValueDialog, SaleDialog, TransactionActions, partitionHistory } from "@/components/flows/transaction-dialogs";
 import { ErrorState } from "@/components/portfolio/error-state";
 import { holdingLabel } from "@/components/portfolio/holding-items";
 import { Delta, DeltaPill } from "@/components/product/delta";
@@ -19,7 +19,7 @@ import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { categoryOf } from "@/lib/catalog";
 import { addDays } from "@/lib/finance/dates";
-import { acquisitionCost, effectiveTransactions, saleProceeds } from "@/lib/finance/ledger";
+import { acquisitionCost, saleProceeds } from "@/lib/finance/ledger";
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { formatDate, money, relativeTime, tone } from "@/lib/format";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
@@ -294,53 +294,72 @@ function HoldingLine({ h }: { h: HoldingView }) {
 
 function History({ productId }: { productId: string }) {
   const { data } = useStore();
-  const [correcting, setCorrecting] = useState<Transaction | null>(null);
+  const [showHidden, setShowHidden] = useState(false);
   const all = data.transactions.filter((t) => t.productId === productId);
   if (!all.length) return null;
-  const effective = new Map(effectiveTransactions(all).map((t) => [t.id, t]));
-  const rows = [...all].sort((a, b) => (a.date === b.date ? (a.createdAt < b.createdAt ? 1 : -1) : a.date < b.date ? 1 : -1));
-  const notes = all.filter((t) => t.notes);
+  const { effective, visible, hidden } = partitionHistory(all);
+  const byNewest = (a: Transaction, b: Transaction) => (a.date === b.date ? (a.createdAt < b.createdAt ? 1 : -1) : a.date < b.date ? 1 : -1);
+  const rows = [...visible].sort(byNewest);
+  const hiddenRows = [...hidden].sort(byNewest);
+  const notes = visible.map((t) => effective.get(t.id) ?? t).filter((t) => t.notes);
 
   return (
     <>
       <Card className="mt-6 p-5 sm:p-6">
-        <SectionTitle title="Purchase history" subtitle="Every entry is kept. Corrections are added, never overwritten." />
-        <ul className="divide-y divide-border">
-          {rows.map((t) => {
-            const eff = effective.get(t.id);
-            const voided = t.type !== "correction" && !eff;
-            const shown = eff ?? t;
-            const amount = t.type === "sale" ? saleProceeds(shown) : t.type === "correction" ? null : acquisitionCost(shown);
-            return (
-              <li key={t.id} className="flex items-center gap-3 py-3">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[14px] font-medium capitalize">
-                    {t.type === "adjustment" ? (t.quantity > 0 ? "Added" : "Removed") : t.type}
-                    {t.type !== "correction" && (
+        <SectionTitle title="Purchase history" />
+        {rows.length ? (
+          <ul className="divide-y divide-border">
+            {rows.map((t) => {
+              const shown = effective.get(t.id) ?? t;
+              const edited = shown.unitPrice !== t.unitPrice || shown.quantity !== t.quantity || shown.date !== t.date || shown.fees !== t.fees || shown.shipping !== t.shipping || shown.tax !== t.tax;
+              const amount = t.type === "sale" ? saleProceeds(shown) : acquisitionCost(shown);
+              return (
+                <li key={t.id} className="flex items-center gap-3 py-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[14px] font-medium capitalize">
+                      {t.type === "adjustment" ? (t.quantity > 0 ? "Added" : "Removed") : t.type}
                       <span className="tabular font-normal text-muted">
                         {" "}
                         · {Math.abs(shown.quantity)} × {money(shown.unitPrice)}
                       </span>
-                    )}
-                    {voided && <Badge className="ml-2">Voided</Badge>}
-                    {eff && eff !== t && (eff.unitPrice !== t.unitPrice || eff.quantity !== t.quantity || eff.date !== t.date) && <Badge className="ml-2">Corrected</Badge>}
-                  </p>
-                  <p className="truncate text-[12px] text-muted">
-                    {formatDate(shown.date)}
-                    {t.source && ` · ${t.source}`}
-                    {t.type === "correction" && t.notes && ` · ${t.notes}`}
-                  </p>
-                </div>
-                {amount !== null && <span className={`tabular text-[14px] ${voided ? "text-subtle line-through" : ""}`}>{t.type === "sale" ? "+" : ""}{money(amount)}</span>}
-                {t.type !== "correction" && !voided && (
-                  <Button variant="ghost" size="sm" onClick={() => setCorrecting(t)}>
-                    Correct
-                  </Button>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+                      {edited && <Badge className="ml-2 normal-case">Edited</Badge>}
+                    </p>
+                    <p className="truncate text-[12px] text-muted">
+                      {formatDate(shown.date)}
+                      {shown.source && ` · ${shown.source}`}
+                    </p>
+                  </div>
+                  <span className="tabular text-[14px]">
+                    {t.type === "sale" ? "+" : ""}
+                    {money(amount)}
+                  </span>
+                  <TransactionActions tx={t} />
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="py-2 text-[14px] text-muted">No active entries.</p>
+        )}
+        {hiddenRows.length > 0 && (
+          <div className="mt-3 border-t border-border pt-3">
+            <button onClick={() => setShowHidden((v) => !v)} className="text-[12px] font-medium text-subtle hover:text-muted">
+              {showHidden ? "Hide" : "Show"} deleted &amp; edit records ({hiddenRows.length})
+            </button>
+            {showHidden && (
+              <ul className="mt-2 space-y-1.5">
+                {hiddenRows.map((t) => (
+                  <li key={t.id} className="tabular text-[12px] text-subtle">
+                    {t.type === "correction" ? `${t.quantity === 0 ? "Deleted" : "Edited"} an entry` : `${t.type === "adjustment" ? "Adjustment" : t.type[0].toUpperCase() + t.type.slice(1)} · ${Math.abs(t.quantity)} × ${money(t.unitPrice)} (deleted)`}
+                    {" · "}
+                    {formatDate(t.createdAt)}
+                    {t.type === "correction" && t.notes && !["Deleted", "Edited", "Voided", "Corrected"].includes(t.notes) ? ` · ${t.notes}` : ""}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
       </Card>
       {notes.length > 0 && (
         <Card className="mt-6 p-5 sm:p-6">
@@ -355,7 +374,6 @@ function History({ productId }: { productId: string }) {
           </ul>
         </Card>
       )}
-      <CorrectionDialog tx={correcting} open={correcting !== null} onOpenChange={(o) => !o && setCorrecting(null)} />
     </>
   );
 }
