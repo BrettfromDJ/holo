@@ -39,7 +39,7 @@ export default function GainsPage() {
   );
   const fullCount = useMemo(() => attributeGains(holdings, realized, store.data.products, { mode, group }).steps.length, [holdings, realized, store.data.products, mode, group]);
 
-  if (store.status === "loading") return <Skeleton className="h-[600px] w-full rounded-[var(--radius-card)]" />;
+  if (store.status === "loading") return <Skeleton className="h-[600px] w-full rounded-3xl" />;
   if (store.status === "error") return <ErrorState message={store.error} />;
   if (!store.data.transactions.length) {
     return (
@@ -89,13 +89,13 @@ export default function GainsPage() {
       <Card className="p-5 sm:p-7">
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div>
-            <p className="text-[14px] font-medium text-muted">{MODE_LABEL[mode]}</p>
-            <p className="tabular mt-1 text-[44px] font-bold leading-none tracking-[-0.04em] sm:text-[56px]">
+            <p className="text-[13px] font-medium text-muted">{MODE_LABEL[mode]}</p>
+            <p className="tabular mt-1 text-[40px] font-semibold leading-none tracking-[-0.03em] sm:text-[48px]">
               <Delta value={total} />
             </p>
-            <p className="mt-2 text-[14px] text-subtle">{MODE_HINT[mode]}</p>
+            <p className="mt-2 text-[13px] text-subtle">{MODE_HINT[mode]}</p>
           </div>
-          <dl className="grid grid-cols-2 gap-x-8 gap-y-1 text-[14px] sm:text-right">
+          <dl className="grid grid-cols-2 gap-x-8 gap-y-1 text-[13px] sm:text-right">
             <dt className="text-muted">
               Gains · {winners} {winners === 1 ? noun.replace(/s$/, "").replace(/ie$/, "y") : noun}
             </dt>
@@ -108,13 +108,13 @@ export default function GainsPage() {
         </div>
 
         {topThreeShare !== null && winners > 3 && (
-          <p className="mt-6 rounded-2xl bg-mint px-5 py-4 text-[15px]">
+          <p className="mt-6 rounded-xl bg-surface-2 px-4 py-3 text-[14px]">
             Your top 3 {noun} account for <span className="font-semibold text-foreground">{pct(topThreeShare, 0)}</span> of your gains.
           </p>
         )}
 
         {!steps.length ? (
-          <p className="py-16 text-center text-[15px] text-muted">{mode === "realized" ? "No sales or write-offs yet." : "No gains or losses yet."}</p>
+          <p className="py-16 text-center text-[14px] text-muted">{mode === "realized" ? "No sales or write-offs yet." : "No gains or losses yet."}</p>
         ) : (
           <div className="mt-8">
             <div>
@@ -123,7 +123,7 @@ export default function GainsPage() {
                   <StepRow key={s.key} step={s} pos={pos} group={group} gains={gains} />
                 ))}
                 <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 border-t border-border pt-3 sm:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_7.5rem]">
-                  <span className="text-[15px] font-semibold">{MODE_LABEL[mode]}</span>
+                  <span className="text-[14px] font-semibold">{MODE_LABEL[mode]}</span>
                   <Bar start={0} end={total} pos={pos} total />
                   <span className="tabular col-start-2 row-start-1 text-right text-[15px] font-semibold sm:col-start-3">
                     <Delta value={total} />
@@ -132,7 +132,7 @@ export default function GainsPage() {
               </ul>
             </div>
             {fullCount > COLLAPSED_ROWS && (
-              <button onClick={() => setExpanded((v) => !v)} className="mt-5 text-[14px] font-medium text-muted hover:text-foreground">
+              <button onClick={() => setExpanded((v) => !v)} className="mt-5 text-[13px] font-medium text-muted hover:text-foreground">
                 {expanded ? "Show top contributors only" : `Show all ${fullCount} ${noun}`}
               </button>
             )}
@@ -141,7 +141,7 @@ export default function GainsPage() {
       </Card>
 
       {unpriced > 0 && mode !== "realized" && (
-        <p className="mt-4 flex items-center gap-2 text-[14px] text-muted">
+        <p className="mt-4 flex items-center gap-2 text-[13px] text-muted">
           <AlertCircle className="size-4 shrink-0" />
           {unpriced} holding{unpriced === 1 ? " has" : "s have"} no market price and {unpriced === 1 ? "isn't" : "aren't"} included.
         </p>
@@ -165,13 +165,13 @@ function StepRow({ step, pos, group, gains }: { step: WaterfallStep; pos: (v: nu
       {group === "category" && step.category ? (
         <span className="size-2.5 shrink-0 rounded-full" style={{ background: CATEGORY_META[step.category].color }} aria-hidden />
       ) : step.key !== "__other" ? (
-        <ProductImage product={step.product} size="xs" className="size-10 shrink-0 rounded-xl" />
+        <ProductImage product={step.product} size="xs" className="size-10 shrink-0 rounded-lg" />
       ) : (
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-[13px] text-muted">+{step.members}</span>
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-[12px] text-muted">+{step.members}</span>
       )}
       <div className="min-w-0">
-        <p className="truncate text-[15px] font-medium">{step.label}</p>
-        {detail && <p className="tabular truncate text-[13px] text-muted">{detail}</p>}
+        <p className="truncate text-[14px] font-medium">{step.label}</p>
+        {detail && <p className="tabular truncate text-[12px] text-muted">{detail}</p>}
       </div>
     </div>
   );
@@ -181,13 +181,13 @@ function StepRow({ step, pos, group, gains }: { step: WaterfallStep; pos: (v: nu
       {label}
       <Bar start={step.start} end={step.end} pos={pos} />
       <div className="col-start-2 row-start-1 text-right sm:col-start-3">
-        <Delta value={step.gain} className="block text-[15px] font-medium" />
-        {share !== null && <span className="tabular text-[13px] text-subtle">{pct(share, 0)} of gains</span>}
+        <Delta value={step.gain} className="block text-[14px] font-medium" />
+        {share !== null && <span className="tabular text-[11px] text-subtle">{pct(share, 0)} of gains</span>}
       </div>
     </>
   );
 
-  const cls = "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 rounded-2xl px-2 py-2 sm:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_7.5rem] -mx-2";
+  const cls = "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 rounded-xl px-2 py-2 sm:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_7.5rem] -mx-2";
   return (
     <li>
       {group === "product" && step.product && step.key !== "__other" ? (

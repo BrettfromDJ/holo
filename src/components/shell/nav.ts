@@ -14,9 +14,3 @@ export function isActive(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
-
-/** Label shown in the top bar for the current route. */
-export function sectionLabel(pathname: string): string {
-  if (pathname.startsWith("/product/")) return "Product";
-  return NAV.find((n) => isActive(pathname, n.href))?.label ?? "Holo";
-}

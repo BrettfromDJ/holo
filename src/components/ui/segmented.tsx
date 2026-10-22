@@ -2,7 +2,7 @@
 import * as ToggleGroup from "@radix-ui/react-toggle-group";
 import { cn } from "@/lib/utils";
 
-/** Pill segmented control: a soft track with the selected option on a white thumb. */
+/** iOS-style segmented control built on Radix ToggleGroup (single select). */
 export function Segmented<T extends string>({
   value,
   onChange,
@@ -33,8 +33,8 @@ export function Segmented<T extends string>({
           title={o.title}
           aria-label={o.title}
           className={cn(
-            "inline-flex items-center justify-center gap-1.5 rounded-full font-semibold text-muted transition-all duration-200 ease-[var(--ease-apple)] hover:text-foreground data-[state=on]:bg-surface data-[state=on]:text-foreground data-[state=on]:shadow-card [&_svg]:size-4",
-            size === "sm" ? "h-8 px-3 text-[13px]" : "h-9 px-4 text-[14px]",
+            "inline-flex items-center justify-center gap-1.5 rounded-full font-medium text-muted transition-all duration-200 ease-[var(--ease-apple)] hover:text-foreground data-[state=on]:bg-surface-3 data-[state=on]:text-foreground data-[state=on]:shadow-sm [&_svg]:size-4",
+            size === "sm" ? "h-7 px-2.5 text-xs" : "h-8 px-3.5 text-[13px]",
           )}
         >
           {o.label}

@@ -13,9 +13,9 @@ export interface ScrubPoint {
 }
 
 /**
- * Soft line chart: a smooth line colored by direction over a gentle gradient
- * wash, a dotted baseline at the starting value, a hairline crosshair on
- * hover, and no grid. Hover position is reported to the parent so the headline number
+ * Apple Stocks–style line chart: a single 2px line colored by direction, a
+ * dotted baseline at the starting value, a hairline crosshair on hover, and
+ * no grid. Hover position is reported to the parent so the headline number
  * can "scrub" with the cursor.
  */
 export function ScrubChart({
@@ -69,7 +69,7 @@ export function ScrubChart({
         >
           <defs>
             <linearGradient id={`fill-${gid}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity={0.2} />
+              <stop offset="0%" stopColor={color} stopOpacity={0.14} />
               <stop offset="100%" stopColor={color} stopOpacity={0} />
             </linearGradient>
           </defs>
@@ -82,7 +82,7 @@ export function ScrubChart({
             axisLine={false}
             tickLine={false}
             tickCount={4}
-            tick={{ fill: "var(--subtle)", fontSize: 12 }}
+            tick={{ fill: "var(--subtle)", fontSize: 11 }}
             tickFormatter={(v: number) => moneyCompact(v)}
           />
           {baseline !== null && baseline !== undefined && (
@@ -93,7 +93,7 @@ export function ScrubChart({
             isAnimationActive={false}
             content={({ active, payload }) =>
               active && payload?.length ? (
-                <div className="tabular rounded-full bg-accent px-2.5 py-1 text-[12px] font-medium text-accent-foreground">{formatShortDate(String(payload[0].payload.date))}</div>
+                <div className="tabular rounded-md bg-surface-3/90 px-2 py-1 text-[11px] text-muted">{formatShortDate(String(payload[0].payload.date))}</div>
               ) : null
             }
             position={{ y: 0 }}
@@ -103,9 +103,9 @@ export function ScrubChart({
               type="monotone"
               dataKey="secondary"
               name={secondaryLabel}
-              stroke="var(--violet)"
-              strokeWidth={1.25}
-              strokeDasharray="3 3"
+              stroke="var(--subtle)"
+              strokeWidth={1.5}
+              strokeDasharray="4 4"
               dot={false}
               activeDot={false}
               isAnimationActive={false}
@@ -116,10 +116,10 @@ export function ScrubChart({
             type="monotone"
             dataKey="value"
             stroke={color}
-            strokeWidth={2.5}
+            strokeWidth={2}
             fill={`url(#fill-${gid})`}
             dot={false}
-            activeDot={{ r: 6, fill: color, stroke: "var(--surface)", strokeWidth: 3 }}
+            activeDot={{ r: 4.5, fill: color, stroke: "var(--background)", strokeWidth: 2 }}
             isAnimationActive={false}
             connectNulls={false}
           />

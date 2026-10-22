@@ -24,7 +24,7 @@ export default function WatchlistPage() {
   const store = useStore();
   const [editing, setEditing] = useState<WatchlistItem | null>(null);
 
-  if (store.status === "loading") return <Skeleton className="h-96 w-full rounded-[var(--radius-card)]" />;
+  if (store.status === "loading") return <Skeleton className="h-96 w-full rounded-3xl" />;
   if (store.status === "error") return <ErrorState message={store.error} />;
 
   const items = store.data.watchlist;
@@ -54,7 +54,7 @@ export default function WatchlistPage() {
         </div>
       ) : (
         <Card className="overflow-hidden">
-          <div className="hidden grid-cols-[3.5rem_minmax(0,2fr)_repeat(4,minmax(0,1fr))_2.5rem] gap-4 border-b border-border px-4 py-3 text-[13px] font-medium text-subtle md:grid">
+          <div className="hidden grid-cols-[3.5rem_minmax(0,2fr)_repeat(4,minmax(0,1fr))_2.5rem] gap-4 border-b border-border px-4 py-3 text-[12px] font-medium text-subtle md:grid">
             <span />
             <span>Product</span>
             <span className="text-right">Price</span>
@@ -73,11 +73,11 @@ export default function WatchlistPage() {
               return (
                 <li key={w.id} className="grid grid-cols-[3rem_1fr_auto] items-center gap-4 px-4 py-3 md:grid-cols-[3.5rem_minmax(0,2fr)_repeat(4,minmax(0,1fr))_2.5rem]">
                   <Link href={`/product/${encodeURIComponent(w.productId)}`}>
-                    <ProductImage product={p} size="xs" className="size-12 rounded-xl md:size-14" />
+                    <ProductImage product={p} size="xs" className="size-12 rounded-lg md:size-14" />
                   </Link>
                   <Link href={`/product/${encodeURIComponent(w.productId)}`} className="min-w-0">
-                    <p className="truncate text-[15px] font-medium">{p?.name ?? w.productId}</p>
-                    <p className="truncate text-[13px] text-muted">{[p?.setName, p ? categoryOf(p) : null].filter(Boolean).join(" · ")}</p>
+                    <p className="truncate text-[14px] font-medium">{p?.name ?? w.productId}</p>
+                    <p className="truncate text-[12px] text-muted">{[p?.setName, p ? categoryOf(p) : null].filter(Boolean).join(" · ")}</p>
                     {hit && (
                       <Badge variant="up" className="mt-1">
                         <BellDot /> At or below target
@@ -85,7 +85,7 @@ export default function WatchlistPage() {
                     )}
                   </Link>
                   <div className="text-right md:contents">
-                    <p className="tabular text-[15px] font-medium md:text-right">{money(market)}</p>
+                    <p className="tabular text-[14px] font-medium md:text-right">{money(market)}</p>
                     <div className="md:text-right">
                       <DeltaPill ratio={price?.change7dPct != null ? price.change7dPct / 100 : null} />
                     </div>
@@ -93,8 +93,8 @@ export default function WatchlistPage() {
                       <DeltaPill ratio={price?.change30dPct != null ? price.change30dPct / 100 : null} />
                     </div>
                     <button onClick={() => setEditing(w)} className="hidden text-right md:block" aria-label="Edit target price">
-                      <p className="tabular text-[15px]">{w.targetPrice !== null ? money(w.targetPrice) : <span className="text-subtle">Set target</span>}</p>
-                      {gap !== null && <p className="tabular text-[13px] text-muted">{gap > 0 ? `${signedPct(gap, 1)} above` : "Reached"}</p>}
+                      <p className="tabular text-[14px]">{w.targetPrice !== null ? money(w.targetPrice) : <span className="text-subtle">Set target</span>}</p>
+                      {gap !== null && <p className="tabular text-[11px] text-muted">{gap > 0 ? `${signedPct(gap, 1)} above` : "Reached"}</p>}
                     </button>
                   </div>
                   <div className="col-start-3 row-start-1 hidden md:col-auto md:row-auto md:block">

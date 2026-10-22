@@ -11,7 +11,7 @@ export function SelectTrigger({ className, children, ...props }: React.Component
   return (
     <SelectPrimitive.Trigger
       className={cn(
-        "flex h-12 w-full items-center justify-between gap-2 rounded-2xl border border-border bg-surface px-4 text-[15px] text-foreground outline-none transition-colors hover:bg-surface-2 focus-visible:border-border-strong data-[placeholder]:text-subtle [&>span]:truncate",
+        "flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-border bg-surface-2 px-3.5 text-[15px] text-foreground outline-none transition-colors hover:bg-surface-3 focus-visible:border-border-strong data-[placeholder]:text-subtle [&>span]:truncate",
         className,
       )}
       {...props}
@@ -31,7 +31,7 @@ export function SelectContent({ className, children, position = "popper", ...pro
         position={position}
         sideOffset={6}
         className={cn(
-          "relative z-[60] max-h-80 min-w-[10rem] overflow-hidden rounded-2xl border border-border bg-surface p-1.5 shadow-lift shadow-black/30 data-[state=open]:animate-fade-in",
+          "relative z-[60] max-h-80 min-w-[10rem] overflow-hidden rounded-xl border border-border bg-surface-2 p-1 shadow-xl shadow-black/30 data-[state=open]:animate-fade-in",
           position === "popper" && "w-[var(--radix-select-trigger-width)]",
           className,
         )}
@@ -47,12 +47,12 @@ export function SelectItem({ className, children, ...props }: React.ComponentPro
   return (
     <SelectPrimitive.Item
       className={cn(
-        "relative flex cursor-default select-none items-center rounded-xl py-2.5 pl-9 pr-3 text-[15px] outline-none data-[highlighted]:bg-surface-2 data-[disabled]:opacity-40",
+        "relative flex cursor-default select-none items-center rounded-lg py-2 pl-8 pr-3 text-sm outline-none data-[highlighted]:bg-surface-3 data-[disabled]:opacity-40",
         className,
       )}
       {...props}
     >
-      <span className="absolute left-3 flex size-3.5 items-center justify-center">
+      <span className="absolute left-2.5 flex size-3.5 items-center justify-center">
         <SelectPrimitive.ItemIndicator>
           <Check className="size-3.5" />
         </SelectPrimitive.ItemIndicator>

@@ -76,16 +76,16 @@ export default function LoginPage() {
         <Logo className="mb-10" />
         {!supabase ? (
           <>
-            <h1 className="text-[24px] font-semibold tracking-tight">Accounts aren&apos;t set up</h1>
-            <p className="mt-2 text-[14px] text-muted">Add Supabase environment variables to enable sign-in. Until then, your collection is saved in this browser.</p>
+            <h1 className="text-[28px] font-semibold tracking-tight">Accounts aren&apos;t set up</h1>
+            <p className="mt-2 text-[15px] text-muted">Add Supabase environment variables to enable sign-in. Until then, your collection is saved in this browser.</p>
           </>
         ) : state === "sent" || state === "verifying" ? (
           <>
-            <div className="flex size-11 items-center justify-center rounded-xl bg-surface-2">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-surface-2">
               <Mail className="size-5" />
             </div>
-            <h1 className="mt-6 text-[24px] font-semibold tracking-tight">Check your email</h1>
-            <p className="mt-2 text-[14px] text-muted">
+            <h1 className="mt-6 text-[28px] font-semibold tracking-tight">Check your email</h1>
+            <p className="mt-2 text-[15px] text-muted">
               We sent a sign-in link to {email}. Open it in this browser — or, if the email has a code, enter it below. You&apos;ll stay signed in on this device.
             </p>
             <form onSubmit={verify} className="mt-6">
@@ -110,8 +110,8 @@ export default function LoginPage() {
           </>
         ) : (
           <form onSubmit={send}>
-            <h1 className="text-[24px] font-semibold tracking-tight">Sign in</h1>
-            <p className="mt-2 text-[14px] text-muted">Sync your collection securely across devices.</p>
+            <h1 className="text-[28px] font-semibold tracking-tight">Sign in</h1>
+            <p className="mt-2 text-[15px] text-muted">Sync your collection securely across devices.</p>
             <Input type="email" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="mt-8" aria-label="Email" />
             {error && <p className="mt-2 text-[13px] text-down">{error}</p>}
             <Button type="submit" variant="primary" size="lg" className="mt-4 w-full" disabled={state === "sending"}>
@@ -125,7 +125,7 @@ export default function LoginPage() {
             )}
           </form>
         )}
-        <Link href="/" className="mt-10 inline-flex items-center gap-1 text-[13px] text-muted hover:text-foreground">
+        <Link href="/" className="mt-10 inline-flex items-center gap-1 text-[14px] text-muted hover:text-foreground">
           <ArrowLeft className="size-4" /> Back to Holo
         </Link>
       </div>

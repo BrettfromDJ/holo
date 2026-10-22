@@ -4,8 +4,8 @@ export function PageHeader({ title, subtitle, actions, className }: { title: str
   return (
     <header className={cn("mb-8 flex flex-wrap items-end justify-between gap-4", className)}>
       <div className="min-w-0">
-        <h1 className="text-[32px] font-bold tracking-[-0.03em] sm:text-[40px]">{title}</h1>
-        {subtitle && <p className="mt-1.5 text-[16px] text-muted">{subtitle}</p>}
+        <h1 className="text-[28px] font-semibold tracking-[-0.02em] sm:text-[34px]">{title}</h1>
+        {subtitle && <p className="mt-1 text-[15px] text-muted">{subtitle}</p>}
       </div>
       {actions && <div className="flex items-center gap-2">{actions}</div>}
     </header>

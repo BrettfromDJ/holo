@@ -16,17 +16,17 @@ export function ModeSwitcher() {
   const Icon = current.icon;
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        title={current.sub}
-        className="flex h-10 max-w-[190px] items-center gap-2 rounded-full bg-surface px-3.5 text-left text-[14px] font-medium shadow-card transition-colors hover:text-foreground data-[state=open]:bg-surface-2"
-      >
-        <Icon className="size-4 shrink-0 text-muted" />
-        <span className="hidden truncate sm:inline">{current.title}</span>
-        <ChevronsUpDown className="size-3.5 shrink-0 text-subtle" />
+      <DropdownMenuTrigger className="flex w-full items-center gap-3 rounded-xl border border-border bg-surface px-3 py-2.5 text-left transition-colors hover:bg-surface-2">
+        <span className="flex size-8 items-center justify-center rounded-lg bg-surface-2">
+          <Icon className="size-4 text-muted" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[13px] font-medium">{current.title}</span>
+          <span className="block truncate text-[12px] text-muted">{current.sub}</span>
+        </span>
+        <ChevronsUpDown className="size-4 text-subtle" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[216px]">
-        <p className="truncate px-3 pb-1.5 pt-2 text-[13px] text-muted">{current.sub}</p>
-        <DropdownMenuSeparator />
+      <DropdownMenuContent align="start" className="w-[216px]">
         <DropdownMenuLabel>Viewing</DropdownMenuLabel>
         <DropdownMenuItem onSelect={() => setMode("personal")}>
           {repoKind === "cloud" || user ? <Cloud /> : <HardDrive />} My collection
