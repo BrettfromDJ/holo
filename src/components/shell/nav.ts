@@ -1,8 +1,9 @@
-import { Activity, BarChart3, Eye, LayoutGrid, LineChart, Settings } from "lucide-react";
+import { Activity, BarChart3, Eye, LayoutGrid, LineChart, Settings, TrendingUp } from "lucide-react";
 
 export const NAV = [
   { href: "/", label: "Overview", icon: LineChart },
   { href: "/collection", label: "Collection", icon: LayoutGrid },
+  { href: "/gains", label: "Gains", icon: TrendingUp },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/watchlist", label: "Watchlist", icon: Eye },
   { href: "/activity", label: "Activity", icon: Activity },

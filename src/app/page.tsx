@@ -70,12 +70,18 @@ export default function OverviewPage() {
       <section className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Key metrics">
         <Metric label="Total value" value={money(summary.marketValue)} sub={`${summary.holdingsCount} holdings · ${summary.unitCount} items`} />
         <Metric label="Total invested" value={money(summary.costBasis)} sub="Cost basis incl. fees & shipping" hint="Actual purchase cost of everything you currently hold, including allocated fees, shipping and tax (FIFO)." />
-        <Metric
-          label="Unrealized gain"
-          value={<Delta value={summary.unrealized} />}
-          sub={<Delta ratio={summary.unrealizedPct} pctOnly />}
-          hint="Market value minus cost basis for currently held items that have a price."
-        />
+        <Link href="/gains" className="block rounded-2xl transition-opacity hover:opacity-90">
+          <Metric
+            label="Unrealized gain"
+            value={<Delta value={summary.unrealized} />}
+            sub={
+              <span className="flex items-center justify-between gap-2">
+                <Delta ratio={summary.unrealizedPct} pctOnly />
+                <span className="text-subtle">See breakdown →</span>
+              </span>
+            }
+          />
+        </Link>
         <Metric
           label="Today"
           value={<Delta value={summary.dayChange} />}
@@ -130,7 +136,7 @@ export default function OverviewPage() {
         </Card>
 
         <Card className="p-5 sm:p-6">
-          <SectionTitle title="Collection performance" action={<SeeAll href="/analytics" label="Analytics" />} />
+          <SectionTitle title="Collection performance" action={<SeeAll href="/gains" label="Gains breakdown" />} />
           <dl className="grid grid-cols-2 gap-x-6 gap-y-5">
             <Stat label="Total return" value={<Delta value={totalReturn} />} sub="Unrealized + realized" />
             <Stat label="Realized gains" value={<Delta value={summary.realized} />} sub="From completed sales" />

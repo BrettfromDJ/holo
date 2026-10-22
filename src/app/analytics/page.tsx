@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Area, Bar, BarChart, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { EmptyCollection } from "@/components/portfolio/empty-state";
@@ -77,7 +78,15 @@ export default function AnalyticsPage() {
 
   return (
     <div className="animate-fade-in">
-      <PageHeader title="Analytics" subtitle="How your collection is allocated and how it has performed." />
+      <PageHeader
+        title="Analytics"
+        subtitle="How your collection is allocated and how it has performed."
+        actions={
+          <Link href="/gains" className="text-[14px] font-medium text-muted hover:text-foreground">
+            Gains breakdown →
+          </Link>
+        }
+      />
 
       <Card className="p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
