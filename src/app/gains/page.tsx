@@ -39,7 +39,7 @@ export default function GainsPage() {
   );
   const fullCount = useMemo(() => attributeGains(holdings, realized, store.data.products, { mode, group }).steps.length, [holdings, realized, store.data.products, mode, group]);
 
-  if (store.status === "loading") return <Skeleton className="h-[600px] w-full rounded-3xl" />;
+  if (store.status === "loading") return <Skeleton className="h-[600px] w-full rounded-[var(--radius-card)]" />;
   if (store.status === "error") return <ErrorState message={store.error} />;
   if (!store.data.transactions.length) {
     return (
@@ -90,7 +90,7 @@ export default function GainsPage() {
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div>
             <p className="text-[13px] font-medium text-muted">{MODE_LABEL[mode]}</p>
-            <p className="tabular mt-1 text-[40px] font-semibold leading-none tracking-[-0.03em] sm:text-[48px]">
+            <p className="tabular mt-1 text-[32px] font-semibold leading-none tracking-[-0.03em] sm:text-[38px]">
               <Delta value={total} />
             </p>
             <p className="mt-2 text-[13px] text-subtle">{MODE_HINT[mode]}</p>
@@ -108,7 +108,7 @@ export default function GainsPage() {
         </div>
 
         {topThreeShare !== null && winners > 3 && (
-          <p className="mt-6 rounded-xl bg-surface-2 px-4 py-3 text-[14px]">
+          <p className="mt-6 rounded-lg border border-border bg-surface-2/60 px-3.5 py-2.5 text-[13px]">
             Your top 3 {noun} account for <span className="font-semibold text-foreground">{pct(topThreeShare, 0)}</span> of your gains.
           </p>
         )}

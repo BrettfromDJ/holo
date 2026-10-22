@@ -2,7 +2,7 @@
 import * as ToggleGroup from "@radix-ui/react-toggle-group";
 import { cn } from "@/lib/utils";
 
-/** iOS-style segmented control built on Radix ToggleGroup (single select). */
+/** Fey-style range picker: bare text options, the selected one sits on a soft chip. */
 export function Segmented<T extends string>({
   value,
   onChange,
@@ -24,7 +24,7 @@ export function Segmented<T extends string>({
       value={value}
       onValueChange={(v) => v && onChange(v as T)}
       aria-label={ariaLabel}
-      className={cn("inline-flex items-center gap-0.5 rounded-full bg-surface-2 p-1", className)}
+      className={cn("inline-flex items-center gap-0.5", className)}
     >
       {options.map((o) => (
         <ToggleGroup.Item
@@ -33,8 +33,8 @@ export function Segmented<T extends string>({
           title={o.title}
           aria-label={o.title}
           className={cn(
-            "inline-flex items-center justify-center gap-1.5 rounded-full font-medium text-muted transition-all duration-200 ease-[var(--ease-apple)] hover:text-foreground data-[state=on]:bg-surface-3 data-[state=on]:text-foreground data-[state=on]:shadow-sm [&_svg]:size-4",
-            size === "sm" ? "h-7 px-2.5 text-xs" : "h-8 px-3.5 text-[13px]",
+            "inline-flex items-center justify-center gap-1.5 rounded-md font-medium text-muted transition-colors duration-200 hover:text-foreground data-[state=on]:bg-surface-3 data-[state=on]:text-foreground [&_svg]:size-3.5",
+            size === "sm" ? "h-6 px-2 text-[11px]" : "h-8 px-3 text-[12px]",
           )}
         >
           {o.label}

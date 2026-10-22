@@ -1,7 +1,6 @@
 "use client";
 
-import { ChevronLeft, Eye, EyeOff, ExternalLink, Loader2, MoreHorizontal, Plus, Tag } from "lucide-react";
-import Link from "next/link";
+import { Eye, EyeOff, ExternalLink, Loader2, MoreHorizontal, Plus, Tag } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -60,12 +59,8 @@ export default function ProductPage() {
 
   return (
     <div className="animate-fade-in">
-      <Link href="/collection" className="mb-6 inline-flex items-center gap-1 text-[14px] text-muted hover:text-foreground">
-        <ChevronLeft className="size-4" /> Collection
-      </Link>
-
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,420px)_1fr] lg:gap-12">
-        <ProductImage product={product} size="xl" priority className="aspect-square w-full rounded-[1.75rem] lg:sticky lg:top-10" />
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,380px)_1fr] lg:gap-10">
+        <ProductImage product={product} size="xl" priority className="aspect-square w-full rounded-[var(--radius-card)] border border-border lg:sticky lg:top-20" />
 
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -73,18 +68,18 @@ export default function ProductPage() {
             {product.rarity && <Badge variant="outline">{product.rarity}</Badge>}
             {product.source === "sample" && <Badge variant="sample">Sample data</Badge>}
           </div>
-          <h1 className="mt-3 text-[28px] font-semibold leading-tight tracking-[-0.02em] sm:text-[36px]">{product.name}</h1>
-          <p className="mt-1 text-[15px] text-muted">
+          <h1 className="mt-3 text-[22px] font-semibold leading-tight tracking-[-0.02em] sm:text-[26px]">{product.name}</h1>
+          <p className="mt-1 text-[13px] text-muted">
             {[product.setName, product.number ? `#${product.number}` : null, printing && printing !== "Normal" ? printing : null].filter(Boolean).join(" · ")}
           </p>
 
           <div className="mt-6">
-            <p className="tabular text-[40px] font-semibold leading-none tracking-[-0.03em]">{price?.market != null ? money(price.market) : <span className="text-muted">No price</span>}</p>
+            <p className="tabular text-[34px] font-semibold leading-none tracking-[-0.03em]">{price?.market != null ? money(price.market) : <span className="text-muted">No price</span>}</p>
             <div className="mt-3 flex flex-wrap items-center gap-2 text-[13px]">
               {(["24h", "7d", "30d"] as const).map((p) => {
                 const v = p === "24h" ? price?.change24hPct : p === "7d" ? price?.change7dPct : price?.change30dPct;
                 return (
-                  <span key={p} className="inline-flex items-center gap-1.5 rounded-full bg-surface px-2.5 py-1">
+                  <span key={p} className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2 py-1">
                     <span className="text-subtle">{p}</span>
                     <DeltaPill ratio={v == null ? null : v / 100} className="px-0 py-0 bg-transparent" />
                   </span>
@@ -119,7 +114,7 @@ export default function ProductPage() {
           {owned.length === 0 && realizedHere !== 0 && (
             <Card className="mt-6 p-5">
               <p className="text-[13px] text-muted">Position closed · realized</p>
-              <Delta value={realizedHere} className="mt-1 text-[20px] font-semibold" />
+              <Delta value={realizedHere} className="mt-1 text-[18px] font-semibold" />
             </Card>
           )}
           <History productId={productId} />
@@ -217,7 +212,7 @@ function PriceHistory({ productId, printing }: { productId: string; printing: st
         {sliced.length > 1 ? (
           <ScrubChart data={sliced.map((p) => ({ date: p.date, value: p.price }))} tone={tone(sliced[sliced.length - 1].price - sliced[0].price)} baseline={sliced[0].price} onScrub={setScrub} height={220} />
         ) : (
-          <div className="flex h-[220px] flex-col items-center justify-center rounded-2xl border border-dashed border-border px-6 text-center text-[13px] text-muted">
+          <div className="flex h-[220px] flex-col items-center justify-center rounded-xl border border-dashed border-border px-6 text-center text-[13px] text-muted">
             <p className="font-medium text-foreground">Not enough price history yet</p>
             <p className="mt-1 max-w-sm">
               History depends on your TCG API plan. Holo stores a daily snapshot for products you own or watch, so this chart fills in over time. Missing days are never filled with estimates.
@@ -390,12 +385,12 @@ function Stat({ label, value }: { label: string; value: React.ReactNode }) {
 function ProductSkeleton() {
   return (
     <div className="grid gap-8 lg:grid-cols-[420px_1fr]" aria-busy="true">
-      <Skeleton className="aspect-square w-full rounded-[1.75rem]" />
+      <Skeleton className="aspect-square w-full rounded-[var(--radius-card)]" />
       <div>
         <Skeleton className="h-5 w-24" />
         <Skeleton className="mt-4 h-10 w-3/4" />
         <Skeleton className="mt-6 h-12 w-40" />
-        <Skeleton className="mt-8 h-64 w-full rounded-3xl" />
+        <Skeleton className="mt-8 h-64 w-full rounded-[var(--radius-card)]" />
       </div>
     </div>
   );

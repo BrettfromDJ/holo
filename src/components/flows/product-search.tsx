@@ -116,7 +116,7 @@ export function ProductSearch({ onSelect, autoFocus = true }: { onSelect: (hit: 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="px-5 pt-5">
-        <div className="relative flex h-12 items-center rounded-2xl bg-surface-2 focus-within:bg-surface-3">
+        <div className="relative flex h-11 items-center rounded-xl border border-border bg-surface-2 focus-within:border-border-strong">
           <Search className="pointer-events-none ml-3.5 size-[18px] shrink-0 text-subtle" />
           <input
             autoFocus={autoFocus}
@@ -213,7 +213,7 @@ export function ProductSearch({ onSelect, autoFocus = true }: { onSelect: (hit: 
 function EmptyState({ icon: Icon, title, body, children }: { icon: React.ElementType; title: string; body: string; children?: React.ReactNode }) {
   return (
     <div className="flex flex-col items-center px-8 py-12 text-center">
-      <span className="flex size-12 items-center justify-center rounded-2xl bg-surface-2">
+      <span className="flex size-12 items-center justify-center rounded-xl bg-surface-2">
         <Icon className="size-5 text-muted" />
       </span>
       <p className="mt-4 font-medium">{title}</p>

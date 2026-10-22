@@ -35,7 +35,7 @@ export function ProductImage({
   const showImage = product?.imageUrl && !failed;
 
   return (
-    <div className={cn("relative flex items-center justify-center overflow-hidden rounded-2xl bg-image-well", className)}>
+    <div className={cn("relative flex items-center justify-center overflow-hidden rounded-xl bg-image-well", className)}>
       {showImage ? (
         <img
           src={product.imageUrl!}

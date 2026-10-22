@@ -16,8 +16,8 @@ export function EmptyCollection({ title = "Start your collection", body }: { tit
           <Plus className="size-7 text-muted" />
         </div>
       </div>
-      <h2 className="text-[22px] font-semibold tracking-tight">{title}</h2>
-      <p className="mt-2 max-w-sm text-[15px] text-muted">
+      <h2 className="text-[20px] font-semibold tracking-tight">{title}</h2>
+      <p className="mt-2 max-w-sm text-[14px] text-muted">
         {body ?? "Add your first Pokémon card or sealed product. Holo tracks its market value and your true investment performance."}
       </p>
       <div className="mt-8 flex flex-wrap justify-center gap-3">
