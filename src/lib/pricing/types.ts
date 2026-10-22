@@ -15,6 +15,8 @@ export interface SearchHit {
   printing: string | null;
   market: number | null;
   priceUpdatedAt: string | null;
+  /** Catalog the product belongs to (e.g. "Pokemon", "Pokemon Japan"). */
+  gameName?: string | null;
 }
 
 export interface SearchResult {
@@ -33,6 +35,7 @@ export interface SetInfo {
   iconUrl: string | null;
   imageUrl: string | null;
   cardCount: number | null;
+  gameName?: string | null;
 }
 
 export interface HistoryResult {

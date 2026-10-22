@@ -44,6 +44,12 @@ function matchesType(hit: SearchHit, type: ProductTypeFilter) {
  * catalog locally; personal mode queries TCG API through the server, which
  * retries looser variants when the exact phrase finds nothing.
  */
+/** "Pokemon Japan" → "Japan"; nothing for the English catalog. */
+function regionLabel(gameName: string | null | undefined): string | null {
+  if (!gameName || /^pok[eé]mon$/i.test(gameName.trim())) return null;
+  return gameName.replace(/^pok[eé]mon\s*/i, "").trim() || gameName;
+}
+
 export function ProductSearch({ onSelect, autoFocus = true }: { onSelect: (hit: SearchHit) => void; autoFocus?: boolean }) {
   const { mode, integrations, data } = useStore();
   const demo = mode === "demo";
@@ -268,6 +274,7 @@ export function ProductSearch({ onSelect, autoFocus = true }: { onSelect: (hit: 
                     <button key={s.id} onClick={() => openSet(s)} className="flex items-center gap-2 rounded-full bg-surface-2 py-1.5 pl-2 pr-3 text-[13px] hover:bg-surface-3">
                       <SetIcon set={s} className="size-5" />
                       {s.name}
+                      {regionLabel(s.gameName) && <span className="text-subtle">· {regionLabel(s.gameName)}</span>}
                       <ChevronRight className="size-3.5 text-subtle" />
                     </button>
                   ))}
@@ -298,7 +305,10 @@ export function ProductSearch({ onSelect, autoFocus = true }: { onSelect: (hit: 
                     >
                       <ProductImage product={hit.product} size="xs" className="size-12 shrink-0 rounded-lg" />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[15px] font-medium">{hit.product.name}</span>
+                        <span className="flex items-center gap-2">
+                          <span className="truncate text-[15px] font-medium">{hit.product.name}</span>
+                          {regionLabel(hit.gameName) && <Badge variant="outline" className="shrink-0">{regionLabel(hit.gameName)}</Badge>}
+                        </span>
                         <span className="mt-0.5 block truncate text-[13px] text-muted">
                           {[hit.product.setName, categoryOf(hit.product), hit.printing && hit.printing !== "Normal" ? hit.printing : null].filter(Boolean).join(" · ")}
                         </span>
@@ -379,7 +389,10 @@ function Browse({
                 <button onClick={() => onOpenSet(s)} className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-surface-2">
                   <SetIcon set={s} className="size-9" />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[14px] font-medium">{s.name}</span>
+                    <span className="flex items-center gap-2">
+                      <span className="truncate text-[14px] font-medium">{s.name}</span>
+                      {regionLabel(s.gameName) && <Badge variant="outline" className="shrink-0">{regionLabel(s.gameName)}</Badge>}
+                    </span>
                     {(s.releaseDate || s.cardCount) && (
                       <span className="block text-[12px] text-muted">{[s.releaseDate?.slice(0, 4), s.cardCount ? `${s.cardCount} products` : null].filter(Boolean).join(" · ")}</span>
                     )}

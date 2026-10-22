@@ -27,7 +27,7 @@ import {
   type SetInfo,
 } from "./types";
 
-/** Game slug for English Pokémon on TCG API. */
+/** Game slug for English Pokémon on TCG API (used for top movers). */
 export const POKEMON_GAME = process.env.TCGAPI_GAME ?? "pokemon";
 
 const MIN = 60_000;
@@ -135,10 +135,37 @@ export function normalizePrice(productId: string, p: Pick<Price, "printing" | "m
   };
 }
 
-async function rawSearch(q: string, type: ProductTypeFilter, page: number, perPage?: number): Promise<SearchResult> {
-  return cached(`search:${type}:${page}:${q}`, 30 * MIN, async () => {
+interface GameRef {
+  slug: string;
+  name: string;
+}
+
+/**
+ * Every Pokémon catalog on TCG API (English, Japanese, …). Japanese products
+ * such as "MEGA Dream ex" live under a separate game, so searching only the
+ * English game misses them. Discovered once a day from GET /games; override
+ * with TCGAPI_GAMES="pokemon,other-slug".
+ */
+async function pokemonGames(): Promise<GameRef[]> {
+  const override = process.env.TCGAPI_GAMES;
+  if (override) return override.split(",").map((slug) => ({ slug: slug.trim(), name: slug.trim() })).filter((g) => g.slug);
+  try {
+    return await cached("games:pokemon", 24 * HOUR, async () => {
+      const res = await call((c) => c.games.list({ per_page: 200 }));
+      const games = res.data.filter((g) => /pok[eé]mon/i.test(`${g.name} ${g.slug}`)).map((g) => ({ slug: g.slug, name: g.name }));
+      // English first so it wins ties in ranking.
+      games.sort((a, b) => (a.slug === "pokemon" ? -1 : b.slug === "pokemon" ? 1 : a.name.localeCompare(b.name)));
+      return games.length ? games : [{ slug: "pokemon", name: "Pokemon" }];
+    });
+  } catch {
+    return [{ slug: "pokemon", name: "Pokemon" }];
+  }
+}
+
+async function rawSearch(q: string, type: ProductTypeFilter, page: number, perPage: number | undefined, game: GameRef): Promise<SearchResult> {
+  return cached(`search:${game.slug}:${type}:${page}:${q}`, 30 * MIN, async () => {
     const res = await call((c) =>
-      c.search.cards({ q, game: POKEMON_GAME, type: typeParam(type), page, per_page: Math.min(perPage ?? 30, 50) }),
+      c.search.cards({ q, game: game.slug, type: typeParam(type), page, per_page: Math.min(perPage ?? 30, 50) }),
     );
     const hint: ProductKind | undefined = type === "sealed" ? "sealed" : type === "cards" ? "single" : undefined;
     return {
@@ -147,11 +174,28 @@ async function rawSearch(q: string, type: ProductTypeFilter, page: number, perPa
         printing: card.printing ?? null,
         market: card.market_price ?? null,
         priceUpdatedAt: card.price_updated_at ?? null,
+        gameName: card.game_name ?? game.name,
       })),
       total: (res.meta as { total?: number } | undefined)?.total ?? res.data.length,
       hasMore: Boolean((res.meta as { has_more?: boolean } | undefined)?.has_more),
     };
   });
+}
+
+/** Search every Pokémon catalog in parallel and merge. */
+async function searchAllGames(q: string, type: ProductTypeFilter, page: number, perPage?: number): Promise<SearchResult> {
+  const games = await pokemonGames();
+  const results = await Promise.allSettled(games.map((g) => rawSearch(q, type, page, perPage, g)));
+  const ok = results.filter((r): r is PromiseFulfilledResult<SearchResult> => r.status === "fulfilled").map((r) => r.value);
+  if (!ok.length) {
+    const failure = results.find((r): r is PromiseRejectedResult => r.status === "rejected");
+    throw failure?.reason ?? new PricingUnavailableError("Search failed.", "upstream");
+  }
+  return {
+    hits: ok.flatMap((r) => r.hits),
+    total: ok.reduce((s, r) => s + r.total, 0),
+    hasMore: ok.some((r) => r.hasMore),
+  };
 }
 
 export const tcgApiProvider: PricingProvider = {
@@ -162,11 +206,13 @@ export const tcgApiProvider: PricingProvider = {
    * variants (see search-query.ts) only when a stricter one finds nothing.
    * If the type filter returns nothing we retry unfiltered and filter
    * locally, so a catalog quirk in product typing can't hide results.
-   * At most MAX_ATTEMPTS upstream calls, each cached for 30 minutes.
+   * At most MAX_ATTEMPTS attempts (one call per Pokémon catalog each),
+   * cached for 30 minutes.
    */
   async search(query: SearchQuery): Promise<SearchResult> {
     const parsed = parseQuery(query.q);
-    const MAX_ATTEMPTS = 4;
+    // Each attempt queries every Pokémon catalog (English + Japanese).
+    const MAX_ATTEMPTS = 3;
     let attempts = 0;
     const wanted = (hit: SearchHit) =>
       query.type === "all" || (query.type === "sealed" ? hit.product.kind === "sealed" : hit.product.kind === "single");
@@ -176,7 +222,7 @@ export const tcgApiProvider: PricingProvider = {
       for (const type of types) {
         if (attempts >= MAX_ATTEMPTS) break;
         attempts++;
-        const res = await rawSearch(variant, type, query.page ?? 1, query.perPage);
+        const res = await searchAllGames(variant, type, query.page ?? 1, query.perPage);
         // Unfiltered retries are classified locally (rawSearch infers kind when untyped).
         const hits = type === query.type ? res.hits : res.hits.filter(wanted);
         if (hits.length) {
@@ -193,22 +239,25 @@ export const tcgApiProvider: PricingProvider = {
   },
 
   async listSets(): Promise<SetInfo[]> {
-    return cached(`sets:${POKEMON_GAME}`, 24 * HOUR, async () => {
+    return cached(`sets:all-pokemon`, 24 * HOUR, async () => {
       const out: SetInfo[] = [];
-      for (let page = 1; page <= 5; page++) {
-        const res = await call((c) => c.sets.list({ game: POKEMON_GAME, page, per_page: 200 }));
-        for (const s of res.data) {
-          out.push({
-            id: String(s.id),
-            name: s.name,
-            abbreviation: s.abbreviation ?? null,
-            releaseDate: s.release_date ?? null,
-            iconUrl: s.set_icon_url ?? null,
-            imageUrl: s.image_url ?? null,
-            cardCount: s.card_count ?? null,
-          });
+      for (const game of await pokemonGames()) {
+        for (let page = 1; page <= 5; page++) {
+          const res = await call((c) => c.sets.list({ game: game.slug, page, per_page: 200 }));
+          for (const s of res.data) {
+            out.push({
+              id: String(s.id),
+              name: s.name,
+              abbreviation: s.abbreviation ?? null,
+              releaseDate: s.release_date ?? null,
+              iconUrl: s.set_icon_url ?? null,
+              imageUrl: s.image_url ?? null,
+              cardCount: s.card_count ?? null,
+              gameName: s.game_name ?? game.name,
+            });
+          }
+          if (!(res.meta as { has_more?: boolean } | undefined)?.has_more) break;
         }
-        if (!(res.meta as { has_more?: boolean } | undefined)?.has_more) break;
       }
       return out.sort((a, b) => (b.releaseDate ?? "").localeCompare(a.releaseDate ?? ""));
     });
