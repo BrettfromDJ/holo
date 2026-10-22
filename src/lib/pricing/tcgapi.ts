@@ -35,7 +35,11 @@ const HOUR = 60 * MIN;
 /** A source price older than this is shown as stale. */
 const STALE_AFTER_MS = 72 * HOUR;
 /** Keep this many daily requests in reserve for the scheduled price sync. */
-const DAILY_RESERVE = Number(process.env.TCGAPI_DAILY_RESERVE ?? 10);
+/**
+ * Daily requests kept back for the scheduled price sync. Only meaningful when
+ * the sync can run (CRON_SECRET set); otherwise nothing would use them.
+ */
+const DAILY_RESERVE = Number(process.env.TCGAPI_DAILY_RESERVE ?? (process.env.CRON_SECRET ? 10 : 0));
 
 let rateLimit: RateLimit | null = null;
 let cooldownUntil = 0;
@@ -63,6 +67,8 @@ async function call<T>(fn: (c: TCGApi) => Promise<{ data: T; rateLimit?: RateLim
   if (Date.now() < cooldownUntil) {
     throw new PricingUnavailableError("TCG API daily limit reached. Prices will refresh later.", "rate_limited", Math.ceil((cooldownUntil - Date.now()) / 1000));
   }
+  // A budget snapshot from before the daily reset no longer applies.
+  if (rateLimit && Date.parse(rateLimit.daily_reset) <= Date.now()) rateLimit = null;
   if (!opts.essential && rateLimit && rateLimit.daily_remaining <= DAILY_RESERVE) {
     throw new PricingUnavailableError("TCG API request budget is reserved for the daily price sync.", "rate_limited");
   }
