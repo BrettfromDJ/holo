@@ -12,6 +12,7 @@ import {
   type RateLimit,
 } from "tcgapi";
 import { inferKind } from "../catalog";
+import { parseQuery, rankByQuery } from "../search-query";
 import type { NormalizedPrice, PriceStatus, Product, ProductKind } from "../types";
 import { cached } from "./cache";
 import {
@@ -21,7 +22,9 @@ import {
   type PricingProvider,
   type ProductTypeFilter,
   type SearchQuery,
+  type SearchHit,
   type SearchResult,
+  type SetInfo,
 } from "./types";
 
 /** Game slug for English Pokémon on TCG API. */
@@ -132,33 +135,100 @@ export function normalizePrice(productId: string, p: Pick<Price, "printing" | "m
   };
 }
 
+async function rawSearch(q: string, type: ProductTypeFilter, page: number, perPage?: number): Promise<SearchResult> {
+  return cached(`search:${type}:${page}:${q}`, 30 * MIN, async () => {
+    const res = await call((c) =>
+      c.search.cards({ q, game: POKEMON_GAME, type: typeParam(type), page, per_page: Math.min(perPage ?? 30, 50) }),
+    );
+    const hint: ProductKind | undefined = type === "sealed" ? "sealed" : type === "cards" ? "single" : undefined;
+    return {
+      hits: res.data.map((card) => ({
+        product: toProduct(card, hint),
+        printing: card.printing ?? null,
+        market: card.market_price ?? null,
+        priceUpdatedAt: card.price_updated_at ?? null,
+      })),
+      total: (res.meta as { total?: number } | undefined)?.total ?? res.data.length,
+      hasMore: Boolean((res.meta as { has_more?: boolean } | undefined)?.has_more),
+    };
+  });
+}
+
 export const tcgApiProvider: PricingProvider = {
   source: "tcgapi",
 
+  /**
+   * Forgiving search: try the query as typed, then progressively looser
+   * variants (see search-query.ts) only when a stricter one finds nothing.
+   * If the type filter returns nothing we retry unfiltered and filter
+   * locally, so a catalog quirk in product typing can't hide results.
+   * At most MAX_ATTEMPTS upstream calls, each cached for 30 minutes.
+   */
   async search(query: SearchQuery): Promise<SearchResult> {
-    const q = query.q.trim();
-    const key = `search:${query.type}:${query.page ?? 1}:${q.toLowerCase()}`;
-    return cached(key, 30 * MIN, async () => {
-      const res = await call((c) =>
-        c.search.cards({
-          q,
-          game: POKEMON_GAME,
-          type: typeParam(query.type),
-          page: query.page ?? 1,
-          per_page: Math.min(query.perPage ?? 24, 50),
-        }),
-      );
-      const hint: ProductKind | undefined = query.type === "sealed" ? "sealed" : query.type === "cards" ? "single" : undefined;
-      return {
-        hits: res.data.map((card) => ({
-          product: toProduct(card, hint),
+    const parsed = parseQuery(query.q);
+    const MAX_ATTEMPTS = 4;
+    let attempts = 0;
+    const wanted = (hit: SearchHit) =>
+      query.type === "all" || (query.type === "sealed" ? hit.product.kind === "sealed" : hit.product.kind === "single");
+
+    for (const variant of parsed.variants) {
+      const types: ProductTypeFilter[] = query.type === "all" ? ["all"] : [query.type, "all"];
+      for (const type of types) {
+        if (attempts >= MAX_ATTEMPTS) break;
+        attempts++;
+        const res = await rawSearch(variant, type, query.page ?? 1, query.perPage);
+        // Unfiltered retries are classified locally (rawSearch infers kind when untyped).
+        const hits = type === query.type ? res.hits : res.hits.filter(wanted);
+        if (hits.length) {
+          return {
+            hits: rankByQuery(hits, parsed),
+            total: type === query.type ? res.total : hits.length,
+            hasMore: type === query.type && res.hasMore,
+            relaxedQuery: variant === parsed.variants[0] ? null : variant,
+          };
+        }
+      }
+    }
+    return { hits: [], total: 0, hasMore: false, relaxedQuery: null };
+  },
+
+  async listSets(): Promise<SetInfo[]> {
+    return cached(`sets:${POKEMON_GAME}`, 24 * HOUR, async () => {
+      const out: SetInfo[] = [];
+      for (let page = 1; page <= 5; page++) {
+        const res = await call((c) => c.sets.list({ game: POKEMON_GAME, page, per_page: 200 }));
+        for (const s of res.data) {
+          out.push({
+            id: String(s.id),
+            name: s.name,
+            abbreviation: s.abbreviation ?? null,
+            releaseDate: s.release_date ?? null,
+            iconUrl: s.set_icon_url ?? null,
+            imageUrl: s.image_url ?? null,
+            cardCount: s.card_count ?? null,
+          });
+        }
+        if (!(res.meta as { has_more?: boolean } | undefined)?.has_more) break;
+      }
+      return out.sort((a, b) => (b.releaseDate ?? "").localeCompare(a.releaseDate ?? ""));
+    });
+  },
+
+  async setProducts(setId: string, type: ProductTypeFilter): Promise<SearchHit[]> {
+    return cached(`set-products:${setId}:${type}`, 6 * HOUR, async () => {
+      const sets = await this.listSets().catch(() => [] as SetInfo[]);
+      const setName = sets.find((s) => s.id === setId)?.name ?? null;
+      const hint: ProductKind | undefined = type === "sealed" ? "sealed" : type === "cards" ? "single" : undefined;
+      const res = await call((c) => c.sets.cards(Number(setId), { type: typeParam(type), sort: "price_desc", per_page: 200 }));
+      return res.data.map((card) => {
+        const product = toProduct(card, hint);
+        return {
+          product: { ...product, setName: product.setName ?? setName, setId },
           printing: card.printing ?? null,
           market: card.market_price ?? null,
           priceUpdatedAt: card.price_updated_at ?? null,
-        })),
-        total: (res.meta as { total?: number } | undefined)?.total ?? res.data.length,
-        hasMore: Boolean((res.meta as { has_more?: boolean } | undefined)?.has_more),
-      };
+        };
+      });
     });
   },
 
