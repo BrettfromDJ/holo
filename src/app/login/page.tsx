@@ -25,6 +25,8 @@ export default function LoginPage() {
   const [state, setState] = useState<"idle" | "sending" | "sent" | "verifying">("idle");
   const [error, setError] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
+  // Codes only appear if the Supabase email template includes {{ .Token }}, so keep the entry tucked away.
+  const [showCode, setShowCode] = useState(false);
 
   // Errors handed back from /auth/callback (expired or already-used links, etc.).
   useEffect(() => {
@@ -86,25 +88,33 @@ export default function LoginPage() {
             </div>
             <h1 className="mt-6 text-[28px] font-semibold tracking-tight">Check your email</h1>
             <p className="mt-2 text-[15px] text-muted">
-              We sent a sign-in link to {email}. Open it in this browser — or, if the email has a code, enter it below. You&apos;ll stay signed in on this device.
+              We sent a sign-in link to {email}. Click <span className="text-foreground">Sign in</span> in that email — open it in this same browser and you&apos;ll stay signed in on this device.
             </p>
-            <form onSubmit={verify} className="mt-6">
-              <Input
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                placeholder="Code from the email"
-                aria-label="Sign-in code"
-                className="tabular tracking-[0.2em]"
-              />
-              {error && <p className="mt-2 text-[13px] text-down">{error}</p>}
-              <Button type="submit" variant="primary" size="lg" className="mt-3 w-full" disabled={code.length < 6 || state === "verifying"}>
-                {state === "verifying" && <Loader2 className="animate-spin" />}
-                Sign in with code
-              </Button>
-            </form>
-            <button onClick={() => void send()} disabled={cooldown > 0} className="mt-4 text-[13px] text-muted hover:text-foreground disabled:opacity-50">
+            {error && !showCode && <p className="mt-4 text-[13px] text-down">{error}</p>}
+            {showCode ? (
+              <form onSubmit={verify} className="mt-6">
+                <Input
+                  autoFocus
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                  placeholder="Code from the email"
+                  aria-label="Sign-in code"
+                  className="tabular tracking-[0.2em]"
+                />
+                {error && <p className="mt-2 text-[13px] text-down">{error}</p>}
+                <Button type="submit" variant="primary" size="lg" className="mt-3 w-full" disabled={code.length < 6 || state === "verifying"}>
+                  {state === "verifying" && <Loader2 className="animate-spin" />}
+                  Sign in with code
+                </Button>
+              </form>
+            ) : (
+              <button onClick={() => setShowCode(true)} className="mt-6 block text-[13px] text-muted hover:text-foreground">
+                Email has a code instead?
+              </button>
+            )}
+            <button onClick={() => void send()} disabled={cooldown > 0} className="mt-3 block text-[13px] text-muted hover:text-foreground disabled:opacity-50">
               {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend email"}
             </button>
           </>
@@ -119,7 +129,14 @@ export default function LoginPage() {
               Email me a sign-in link
             </Button>
             {email && (
-              <button type="button" onClick={() => setState("sent")} className="mt-4 text-[13px] text-muted hover:text-foreground">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCode(true);
+                  setState("sent");
+                }}
+                className="mt-4 text-[13px] text-muted hover:text-foreground"
+              >
                 I already have a code
               </button>
             )}
