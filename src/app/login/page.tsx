@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { Logo } from "@/components/shell/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { getBrowserSupabase } from "@/lib/supabase/client";
+import { getBrowserSupabase, getMagicLinkClient } from "@/lib/supabase/client";
 
 const RESEND_SECONDS = 60;
 
@@ -50,7 +50,7 @@ export default function LoginPage() {
     } catch {
       // ignore
     }
-    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: `${location.origin}/auth/callback` } });
+    const { error } = await (getMagicLinkClient() ?? supabase).auth.signInWithOtp({ email, options: { emailRedirectTo: `${location.origin}/auth/callback` } });
     if (error) {
       setError(friendly(error.message));
       setState(/rate limit|too many/i.test(error.message) ? "sent" : "idle");

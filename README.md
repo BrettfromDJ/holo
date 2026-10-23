@@ -43,7 +43,7 @@ Copy `.env.example` to `.env.local`.
 ### Supabase
 
 1. Create a project, then apply `supabase/migrations/20261022000000_initial_schema.sql` (`supabase db push` or paste into the SQL editor).
-2. Authentication → URL configuration: set **Site URL** to your production domain and add `https://<your-domain>/auth/callback`, `https://*-<your-team>.vercel.app/auth/callback` (previews) and `http://localhost:3000/auth/callback` as redirect URLs. Sign-in uses email magic links; sessions last until sign-out.
+2. Authentication → URL configuration: set **Site URL** to your production domain and add `https://<your-domain>/auth/callback`, `https://*-<your-team>.vercel.app/auth/callback` (previews) and `http://localhost:3000/auth/callback` as redirect URLs. Sign-in uses email magic links that work in any browser (implicit-flow links, finished by `/auth/finish`); sessions last until sign-out.
    - Optional but recommended: in Authentication → Email Templates → Magic Link, add `{{ .Token }}` so the email also carries a code. The login page accepts it, which works even when the link opens in a different browser (e.g. a mail app's in-app browser).
    - Supabase's built-in mailer allows only a few emails per hour. For more, set up custom SMTP under Authentication → Emails.
 3. Set the env vars above. Regenerate `src/lib/supabase/database.types.ts` with `npx supabase gen types typescript` if you change the schema.
