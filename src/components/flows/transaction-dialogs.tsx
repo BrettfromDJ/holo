@@ -11,23 +11,11 @@ import { Delta } from "@/components/product/delta";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { effectiveTransactions } from "@/lib/finance/ledger";
 import type { HoldingView } from "@/lib/finance/portfolio";
+import { fifoCost } from "@/lib/finance/sell";
 import { formatDate, money, signedMoney } from "@/lib/format";
 import { useStore } from "@/lib/store/collection-store";
 import type { Transaction } from "@/lib/types";
 import { Field, MoneyInput, Stepper, SummaryRow, parseMoney } from "./fields";
-
-/** Cost of the first `qty` units under FIFO, for previewing a sale. */
-function fifoCost(holding: HoldingView, qty: number): number {
-  let remaining = qty;
-  let cost = 0;
-  for (const lot of holding.lots) {
-    if (remaining <= 0) break;
-    const take = Math.min(lot.quantity, remaining);
-    cost += take * lot.unitCost;
-    remaining -= take;
-  }
-  return cost;
-}
 
 function FormShell({ title, description, children, footer, onSubmit }: { title: string; description?: string; children: React.ReactNode; footer: React.ReactNode; onSubmit: (e: React.FormEvent) => void }) {
   return (
@@ -70,7 +58,7 @@ export function SaleDialog({ holding, open, onOpenChange }: { holding: HoldingVi
   const gross = unit === null ? null : unit * qty;
   const costs = (parseMoney(fees) ?? 0) + (parseMoney(shipping) ?? 0);
   const proceeds = gross === null ? null : gross - costs;
-  const basis = fifoCost(holding, qty);
+  const basis = fifoCost(holding.lots, qty);
   const gain = proceeds === null ? null : proceeds - basis;
   const valid = qty >= 1 && qty <= holding.quantity && unit !== null && date <= today;
 

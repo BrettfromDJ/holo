@@ -82,7 +82,6 @@ const StoreContext = createContext<(StoreState & StoreActions) | null>(null);
 
 const MODE_KEY = "holo:mode";
 const REFRESH_KEY = "holo:prices-refreshed";
-const REFRESH_INTERVAL_MS = 60 * 60 * 1000;
 
 function emptyData(): CollectionData {
   return {
@@ -267,8 +266,9 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
     async (force = false) => {
       const repo = repoRef.current;
       if (repo.kind === "demo" || !state.integrations.tcgapi) return;
-      const last = state.pricesRefreshedAt ? Date.parse(state.pricesRefreshedAt) : 0;
-      if (!force && Date.now() - last < REFRESH_INTERVAL_MS) return;
+      // Automatic refreshes happen at most once per calendar day; the Refresh button forces one.
+      const lastDay = state.pricesRefreshedAt ? todayISO(new Date(state.pricesRefreshedAt)) : null;
+      if (!force && lastDay === state.today) return;
       const ids = [...new Set([...state.data.transactions.map((t) => t.productId), ...state.data.watchlist.map((w) => w.productId)])].filter((id) =>
         id.startsWith("tcgapi:"),
       );
@@ -317,7 +317,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
     [state.integrations.tcgapi, state.pricesRefreshedAt, state.data.transactions, state.data.watchlist, state.today],
   );
 
-  // Refresh prices automatically (at most hourly) once a personal collection loads.
+  // Refresh prices automatically (at most once a day) when a personal collection loads.
   useEffect(() => {
     if (state.status === "ready" && state.mode === "personal") void refreshPrices(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps

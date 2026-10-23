@@ -214,7 +214,7 @@ function PriceFreshness() {
   if (mode === "demo") return <p className="mt-3 text-[12px] text-subtle">Sample prices are generated for demonstration and are not market data.</p>;
   return (
     <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-subtle">
-      <span>{integrations.tcgapi ? `Prices from TCG API · refreshed ${relativeTime(pricesRefreshedAt)}` : "Live pricing isn't configured — showing last stored prices."}</span>
+      <span>{integrations.tcgapi ? `Prices from TCG API · refreshed ${relativeTime(pricesRefreshedAt)} · updates daily` : "Live pricing isn't configured — showing last stored prices."}</span>
       {integrations.tcgapi && (
         <button onClick={() => void refreshPrices(true)} disabled={refreshing} className="inline-flex items-center gap-1 font-medium text-muted hover:text-foreground disabled:opacity-50">
           <RefreshCw className={cn("size-3", refreshing && "animate-spin")} /> Refresh

@@ -1,11 +1,12 @@
 "use client";
 
-import { ChevronLeft, Eye, EyeOff, ExternalLink, Loader2, MoreHorizontal, Plus, Tag } from "lucide-react";
+import { Calculator, ChevronLeft, ExternalLink, Eye, EyeOff, Loader2, MoreHorizontal, Plus, Tag } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ScrubChart } from "@/components/charts/scrub-chart";
+import { SellCalculatorDialog } from "@/components/flows/sell-calculator";
 import { AdjustDialog, ManualValueDialog, SaleDialog, TransactionActions, partitionHistory } from "@/components/flows/transaction-dialogs";
 import { ErrorState } from "@/components/portfolio/error-state";
 import { holdingLabel } from "@/components/portfolio/holding-items";
@@ -130,13 +131,17 @@ export default function ProductPage() {
 }
 
 function SaleButton({ holding }: { holding: HoldingView }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState<"sale" | "whatif" | null>(null);
   return (
     <>
-      <Button variant="secondary" onClick={() => setOpen(true)}>
+      <Button variant="secondary" onClick={() => setOpen("whatif")}>
+        <Calculator /> What if I sell?
+      </Button>
+      <Button variant="secondary" onClick={() => setOpen("sale")}>
         <Tag /> Record sale
       </Button>
-      <SaleDialog holding={holding} open={open} onOpenChange={setOpen} />
+      <SellCalculatorDialog holding={holding} open={open === "whatif"} onOpenChange={(o) => !o && setOpen(null)} />
+      <SaleDialog holding={holding} open={open === "sale"} onOpenChange={(o) => !o && setOpen(null)} />
     </>
   );
 }
@@ -260,7 +265,7 @@ function Position({ holdings, realized }: { holdings: HoldingView[]; realized: n
 }
 
 function HoldingLine({ h }: { h: HoldingView }) {
-  const [dialog, setDialog] = useState<"sale" | "adjust" | "value" | null>(null);
+  const [dialog, setDialog] = useState<"sale" | "whatif" | "adjust" | "value" | null>(null);
   return (
     <div className="flex items-center gap-3 py-3.5">
       <div className="min-w-0 flex-1">
@@ -280,11 +285,13 @@ function HoldingLine({ h }: { h: HoldingView }) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={() => setDialog("whatif")}>What if I sell?</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setDialog("sale")}>Record sale</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setDialog("adjust")}>Adjust quantity</DropdownMenuItem>
           {h.identity.grade && <DropdownMenuItem onSelect={() => setDialog("value")}>Update valuation</DropdownMenuItem>}
         </DropdownMenuContent>
       </DropdownMenu>
+      <SellCalculatorDialog holding={h} open={dialog === "whatif"} onOpenChange={(o) => !o && setDialog(null)} />
       <SaleDialog holding={h} open={dialog === "sale"} onOpenChange={(o) => !o && setDialog(null)} />
       <AdjustDialog holding={h} open={dialog === "adjust"} onOpenChange={(o) => !o && setDialog(null)} />
       {h.identity.grade && <ManualValueDialog holding={h} open={dialog === "value"} onOpenChange={(o) => !o && setDialog(null)} />}
