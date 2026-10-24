@@ -20,6 +20,7 @@ import {
   type HistoryResult,
   type MoverHit,
   type PricingProvider,
+  type GameFilter,
   type ProductTypeFilter,
   type SearchQuery,
   type SearchHit,
@@ -142,27 +143,48 @@ export function normalizePrice(productId: string, p: Pick<Price, "printing" | "m
 interface GameRef {
   slug: string;
   name: string;
+  franchise: Exclude<GameFilter, "all">;
 }
 
+function franchiseOf(text: string): GameRef["franchise"] | null {
+  if (/pok[eé]mon/i.test(text)) return "pokemon";
+  if (/lorcana/i.test(text)) return "lorcana";
+  return null;
+}
+
+const FALLBACK_GAMES: GameRef[] = [
+  { slug: "pokemon", name: "Pokemon", franchise: "pokemon" },
+  { slug: "lorcana", name: "Lorcana", franchise: "lorcana" },
+];
+
 /**
- * Every Pokémon catalog on TCG API (English, Japanese, …). Japanese products
- * such as "MEGA Dream ex" live under a separate game, so searching only the
- * English game misses them. Discovered once a day from GET /games; override
- * with TCGAPI_GAMES="pokemon,other-slug".
+ * Every catalog Holo searches: all Pokémon catalogs (English, Japanese, …)
+ * and Disney Lorcana. Japanese products such as "MEGA Dream ex" live under a
+ * separate game, so searching only the English game misses them. Discovered
+ * once a day from GET /games; override with TCGAPI_GAMES="slug-a,slug-b".
  */
-async function pokemonGames(): Promise<GameRef[]> {
+async function catalogGames(): Promise<GameRef[]> {
   const override = process.env.TCGAPI_GAMES;
-  if (override) return override.split(",").map((slug) => ({ slug: slug.trim(), name: slug.trim() })).filter((g) => g.slug);
+  if (override) {
+    return override
+      .split(",")
+      .map((slug) => slug.trim())
+      .filter(Boolean)
+      .map((slug) => ({ slug, name: slug, franchise: franchiseOf(slug) ?? "pokemon" }));
+  }
   try {
-    return await cached("games:pokemon", 24 * HOUR, async () => {
+    return await cached("games:catalogs", 24 * HOUR, async () => {
       const res = await call((c) => c.games.list({ per_page: 200 }));
-      const games = res.data.filter((g) => /pok[eé]mon/i.test(`${g.name} ${g.slug}`)).map((g) => ({ slug: g.slug, name: g.name }));
-      // English first so it wins ties in ranking.
+      const games = res.data.flatMap((g) => {
+        const franchise = franchiseOf(`${g.name} ${g.slug}`);
+        return franchise ? [{ slug: g.slug, name: g.name, franchise }] : [];
+      });
+      // English Pokémon first so it wins ties in ranking.
       games.sort((a, b) => (a.slug === "pokemon" ? -1 : b.slug === "pokemon" ? 1 : a.name.localeCompare(b.name)));
-      return games.length ? games : [{ slug: "pokemon", name: "Pokemon" }];
+      return games.length ? games : FALLBACK_GAMES;
     });
   } catch {
-    return [{ slug: "pokemon", name: "Pokemon" }];
+    return FALLBACK_GAMES;
   }
 }
 
@@ -186,9 +208,10 @@ async function rawSearch(q: string, type: ProductTypeFilter, page: number, perPa
   });
 }
 
-/** Search every Pokémon catalog in parallel and merge. */
-async function searchAllGames(q: string, type: ProductTypeFilter, page: number, perPage?: number): Promise<SearchResult> {
-  const games = await pokemonGames();
+/** Search the selected catalogs in parallel and merge. */
+async function searchAllGames(q: string, type: ProductTypeFilter, game: GameFilter, page: number, perPage?: number): Promise<SearchResult> {
+  const games = (await catalogGames()).filter((g) => game === "all" || g.franchise === game);
+  if (!games.length) return { hits: [], total: 0, hasMore: false };
   const results = await Promise.allSettled(games.map((g) => rawSearch(q, type, page, perPage, g)));
   const ok = results.filter((r): r is PromiseFulfilledResult<SearchResult> => r.status === "fulfilled").map((r) => r.value);
   if (!ok.length) {
@@ -226,7 +249,7 @@ export const tcgApiProvider: PricingProvider = {
       for (const type of types) {
         if (attempts >= MAX_ATTEMPTS) break;
         attempts++;
-        const res = await searchAllGames(variant, type, query.page ?? 1, query.perPage);
+        const res = await searchAllGames(variant, type, query.game ?? "pokemon", query.page ?? 1, query.perPage);
         // Unfiltered retries are classified locally (rawSearch infers kind when untyped).
         const hits = type === query.type ? res.hits : res.hits.filter(wanted);
         if (hits.length) {

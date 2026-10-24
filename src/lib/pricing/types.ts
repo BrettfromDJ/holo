@@ -2,9 +2,13 @@ import type { DataSource, NormalizedPrice, PricePoint, Product } from "../types"
 
 export type ProductTypeFilter = "all" | "cards" | "sealed";
 
+/** Which franchises to search. Each catalog searched costs one API request. */
+export type GameFilter = "all" | "pokemon" | "lorcana";
+
 export interface SearchQuery {
   q: string;
   type: ProductTypeFilter;
+  game?: GameFilter;
   page?: number;
   perPage?: number;
 }

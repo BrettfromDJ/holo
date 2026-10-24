@@ -34,7 +34,7 @@ Copy `.env.example` to `.env.local`.
 | Variable | Scope | Purpose |
 |---|---|---|
 | `TCGAPI_KEY` | server | TCG API key. Enables live search, prices and history. Never sent to the browser. |
-| `TCGAPI_GAMES` | server | Optional comma-separated game slugs to search. By default every Pokémon catalog (English, Japanese, …) found via `GET /games` is searched. |
+| `TCGAPI_GAMES` | server | Optional comma-separated game slugs to search. By default every Pokémon catalog (English, Japanese, …) and Disney Lorcana found via `GET /games` is searchable; the search panel picks Pokémon, Lorcana or both. |
 | `TCGAPI_GAME` | server | Game slug for top movers, default `pokemon`. |
 | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | public | Supabase project. Data is protected by RLS. |
 | `SUPABASE_SERVICE_ROLE_KEY` | server | Writes to the shared catalog/price tables and runs the daily sync. |

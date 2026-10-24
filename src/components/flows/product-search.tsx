@@ -9,7 +9,7 @@ import { ProductImage } from "@/components/product/product-image";
 import { categoryOf } from "@/lib/catalog";
 import { SAMPLE_PRODUCTS } from "@/lib/demo/catalog";
 import { money } from "@/lib/format";
-import type { ProductTypeFilter, SearchHit } from "@/lib/pricing/types";
+import type { GameFilter, ProductTypeFilter, SearchHit } from "@/lib/pricing/types";
 import { parseQuery, rankByQuery, scoreProduct } from "@/lib/search-query";
 import { useStore } from "@/lib/store/collection-store";
 import { priceKey } from "@/lib/types";
@@ -22,10 +22,23 @@ function matchesType(hit: SearchHit, type: ProductTypeFilter) {
   return type === "all" || (type === "sealed" ? hit.product.kind === "sealed" : hit.product.kind === "single");
 }
 
-/** "Pokemon Japan" → "Japan"; nothing for the English catalog. */
+/** "Pokemon Japan" → "Japan", "Disney Lorcana" → "Lorcana"; nothing for English Pokémon. */
 function regionLabel(gameName: string | null | undefined): string | null {
   if (!gameName || /^pok[eé]mon$/i.test(gameName.trim())) return null;
+  if (/lorcana/i.test(gameName)) return "Lorcana";
   return gameName.replace(/^pok[eé]mon\s*/i, "").trim() || gameName;
+}
+
+const GAME_KEY = "holo:search-game";
+
+function initialGame(): GameFilter {
+  try {
+    const g = localStorage.getItem(GAME_KEY);
+    if (g === "pokemon" || g === "lorcana" || g === "all") return g;
+  } catch {
+    // ignore
+  }
+  return "pokemon";
 }
 
 /**
@@ -40,6 +53,15 @@ export function ProductSearch({ onSelect, autoFocus = true }: { onSelect: (hit: 
 
   const [q, setQ] = useState("");
   const [type, setType] = useState<ProductTypeFilter>("all");
+  const [game, setGameState] = useState<GameFilter>(initialGame);
+  const setGame = (g: GameFilter) => {
+    setGameState(g);
+    try {
+      localStorage.setItem(GAME_KEY, g);
+    } catch {
+      // ignore
+    }
+  };
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [relaxed, setRelaxed] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -75,7 +97,7 @@ export function ProductSearch({ onSelect, autoFocus = true }: { onSelect: (hit: 
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`/api/tcg/search?q=${encodeURIComponent(query)}&type=${type}`, { signal: ctrl.signal });
+        const res = await fetch(`/api/tcg/search?q=${encodeURIComponent(query)}&type=${type}&game=${game}`, { signal: ctrl.signal });
         const body = await res.json();
         if (!res.ok) throw new Error(body?.error?.message ?? "Search failed.");
         setHits(body.hits ?? []);
@@ -90,7 +112,7 @@ export function ProductSearch({ onSelect, autoFocus = true }: { onSelect: (hit: 
       clearTimeout(t);
       ctrl.abort();
     };
-  }, [q, type, demo, unconfigured, sampleHits]);
+  }, [q, type, game, demo, unconfigured, sampleHits]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (!hits.length) return;
@@ -133,7 +155,7 @@ export function ProductSearch({ onSelect, autoFocus = true }: { onSelect: (hit: 
           />
           {loading && <Loader2 className="absolute right-3.5 size-4 animate-spin text-subtle" />}
         </div>
-        <div className="mt-3 flex items-center justify-between gap-2">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
           <Segmented
             ariaLabel="Product type"
             size="sm"
@@ -145,7 +167,21 @@ export function ProductSearch({ onSelect, autoFocus = true }: { onSelect: (hit: 
               { value: "sealed", label: "Sealed" },
             ]}
           />
-          {demo && <Badge variant="sample">Sample catalog</Badge>}
+          {demo ? (
+            <Badge variant="sample">Sample catalog</Badge>
+          ) : (
+            <Segmented
+              ariaLabel="Game"
+              size="sm"
+              value={game}
+              onChange={setGame}
+              options={[
+                { value: "pokemon", label: "Pokémon" },
+                { value: "lorcana", label: "Lorcana" },
+                { value: "all", label: "Both", title: "Search both (uses more API requests)" },
+              ]}
+            />
+          )}
         </div>
       </div>
 
