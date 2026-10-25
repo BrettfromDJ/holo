@@ -1,23 +1,21 @@
 "use client";
 
 import { AlertCircle, RefreshCw } from "lucide-react";
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Delta } from "@/components/product/delta";
 import { AnimatedNumber } from "@/components/motion/animated-number";
 import { Reveal } from "@/components/motion/reveal";
+import { MoversBoard, PerformancePanel, RecentTimeline } from "@/components/overview/boards";
 import { Headline, MetricStrip, Shelf, Spotlight } from "@/components/overview/sections";
 import { AllocationShowcase } from "@/components/portfolio/allocation-showcase";
 import { EmptyCollection } from "@/components/portfolio/empty-state";
 import { ErrorState } from "@/components/portfolio/error-state";
-import { HoldingMiniRow } from "@/components/portfolio/holding-items";
 import { PerformanceChart } from "@/components/portfolio/performance-chart";
 import { Badge } from "@/components/ui/badge";
-import { Card, SectionTitle } from "@/components/ui/card";
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { performanceOf, type HoldingView } from "@/lib/finance/portfolio";
-import { formatDate, money, relativeTime, signedMoney } from "@/lib/format";
+import { formatDate, money, relativeTime } from "@/lib/format";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
 import { cn } from "@/lib/utils";
 
@@ -49,8 +47,6 @@ export default function OverviewPage() {
   if (store.status === "loading") return <OverviewSkeleton />;
   if (store.status === "error") return <ErrorState message={store.error} />;
   if (!store.data.transactions.length) return <EmptyCollection />;
-
-  const totalReturn = summary.unrealized + summary.realized;
 
   return (
     <div className="animate-fade-in">
@@ -121,33 +117,12 @@ export default function OverviewPage() {
               />
             }
           />
-          <div className="grid gap-3 lg:grid-cols-2">
-            <Card className="p-5">
-              <MoverList title="Rising" items={movers.gainers} />
-            </Card>
-            <Card className="p-5">
-              <MoverList title="Falling" items={movers.losers} />
-            </Card>
-          </div>
+          <MoversBoard gainers={movers.gainers} losers={movers.losers} daily={movePeriod === "1D"} />
         </Reveal>
 
         <Reveal className="grid gap-3 lg:grid-cols-2">
-          <Card className="p-5 sm:p-6">
-            <SectionTitle title="Collection performance" action={<SeeAll href="/gains" label="Gains breakdown" />} />
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-5">
-              <Stat label="Total return" value={<Delta value={totalReturn} />} sub="Unrealized + realized" />
-              <Stat label="Realized gains" value={<Delta value={summary.realized} />} sub="From completed sales" />
-              <Stat label="Time-weighted, 1Y" value={<Delta ratio={yearPerf?.twr ?? null} pctOnly />} sub={yearPerf ? signedMoney(yearPerf.marketGain) + " market gain" : "—"} />
-              <Stat label="Time-weighted, all" value={<Delta ratio={allTime?.twr ?? null} pctOnly />} sub={allTime ? `Since ${formatDate(allTime.start)}` : "—"} />
-            </dl>
-          </Card>
-
-          <Card className="p-5 sm:p-6">
-            <SectionTitle title="Recently added" action={<SeeAll href="/activity" label="Activity" />} />
-            {recent.map((h) => (
-              <HoldingMiniRow key={h.key} h={h} />
-            ))}
-          </Card>
+          <PerformancePanel summary={summary} holdings={holdings} yearPerf={yearPerf} allTime={allTime} />
+          <RecentTimeline holdings={recent} />
         </Reveal>
       </div>
     </div>
@@ -169,33 +144,6 @@ function SectionHeading({ title, subtitle, action }: { title: string; subtitle?:
 function addYear(today: string) {
   const [y, m, d] = today.split("-");
   return `${Number(y) - 1}-${m}-${d}`;
-}
-
-function Stat({ label, value, sub }: { label: string; value: React.ReactNode; sub: string }) {
-  return (
-    <div>
-      <dt className="text-[12px] text-muted">{label}</dt>
-      <dd className="tabular mt-1 text-[18px] font-semibold">{value}</dd>
-      <dd className="mt-0.5 text-[12px] text-subtle">{sub}</dd>
-    </div>
-  );
-}
-
-function MoverList({ title, items }: { title: string; items: { h: HoldingView; m: number }[] }) {
-  return (
-    <div>
-      <p className="mb-1 text-[12px] font-medium uppercase tracking-wider text-subtle">{title}</p>
-      {items.length ? items.map(({ h, m }) => <HoldingMiniRow key={h.key} h={h} metric="change" change={m} />) : <p className="py-3 text-[13px] text-muted">No {title.toLowerCase()} in this period.</p>}
-    </div>
-  );
-}
-
-function SeeAll({ href, label = "See all" }: { href: string; label?: string }) {
-  return (
-    <Link href={href} className="text-[13px] font-medium text-muted transition-colors hover:text-foreground">
-      {label}
-    </Link>
-  );
 }
 
 function PriceFreshness() {
