@@ -24,11 +24,16 @@ export function ProductImage({
   className,
   size = "md",
   priority,
+  frame = true,
 }: {
-  product: Pick<Product, "name" | "imageUrl" | "kind" | "setName" | "productType"> | undefined;
+  product:
+    | Pick<Product, "name" | "imageUrl" | "kind" | "setName" | "productType">
+    | undefined;
   className?: string;
   size?: "xs" | "sm" | "md" | "lg" | "xl";
   priority?: boolean;
+  /** False draws the image edge to edge with no well behind it (e.g. a bare card). */
+  frame?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -41,7 +46,13 @@ export function ProductImage({
   const showImage = product?.imageUrl && !failed;
 
   return (
-    <div className={cn("relative flex items-center justify-center overflow-hidden rounded-2xl bg-image-well", className)}>
+    <div
+      className={cn(
+        "relative flex items-center justify-center overflow-hidden rounded-2xl",
+        (frame || !showImage) && "bg-image-well",
+        className,
+      )}
+    >
       {showImage ? (
         <img
           ref={imgRef}
@@ -50,7 +61,15 @@ export function ProductImage({
           loading={priority ? "eager" : "lazy"}
           decoding="async"
           onError={() => setFailed(true)}
-          className={cn("h-full w-full object-contain drop-shadow-[0_8px_16px_rgba(0,0,0,0.35)] transition-transform duration-500 ease-[var(--ease-apple)]", pad)}
+          className={cn(
+            "h-full w-full transition-transform duration-500 ease-[var(--ease-apple)]",
+            frame
+              ? cn(
+                  "object-contain drop-shadow-[0_8px_16px_rgba(0,0,0,0.35)]",
+                  pad,
+                )
+              : "object-cover",
+          )}
         />
       ) : (
         <Placeholder product={product} size={size} />
@@ -59,31 +78,71 @@ export function ProductImage({
   );
 }
 
-function Placeholder({ product, size }: { product: Parameters<typeof ProductImage>[0]["product"]; size: string }) {
+function Placeholder({
+  product,
+  size,
+}: {
+  product: Parameters<typeof ProductImage>[0]["product"];
+  size: string;
+}) {
   const name = product?.name ?? "Product";
   const hue = hueFor(product?.setName ?? name);
   const sealed = product?.kind === "sealed";
-  const label = product ? categoryOf({ name, productType: product.productType ?? null, kind: product.kind }) : "";
+  const label = product
+    ? categoryOf({
+        name,
+        productType: product.productType ?? null,
+        kind: product.kind,
+      })
+    : "";
   const Icon = sealed ? Package : Layers;
   const tint = `hsl(${hue} 30% 60%)`;
   if (size === "xs" || size === "sm") {
     return (
-      <div className="flex h-full w-full items-center justify-center" role="img" aria-label={`${name} (no image available)`}>
-        <Icon className="size-[42%] max-h-6 max-w-6 opacity-80" style={{ color: tint }} strokeWidth={1.5} />
+      <div
+        className="flex h-full w-full items-center justify-center"
+        role="img"
+        aria-label={`${name} (no image available)`}
+      >
+        <Icon
+          className="size-[42%] max-h-6 max-w-6 opacity-80"
+          style={{ color: tint }}
+          strokeWidth={1.5}
+        />
       </div>
     );
   }
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-[6%] p-[12%]" role="img" aria-label={`${name} (no image available)`}>
+    <div
+      className="flex h-full w-full flex-col items-center justify-center gap-[6%] p-[12%]"
+      role="img"
+      aria-label={`${name} (no image available)`}
+    >
       <div
-        className={cn("flex items-center justify-center border", sealed ? "aspect-[4/3] w-[62%] rounded-[12%]" : "aspect-[63/88] w-[46%] rounded-[8%]")}
-        style={{ borderColor: `hsl(${hue} 20% 50% / 0.35)`, background: `hsl(${hue} 25% 50% / 0.06)` }}
+        className={cn(
+          "flex items-center justify-center border",
+          sealed
+            ? "aspect-[4/3] w-[62%] rounded-[12%]"
+            : "aspect-[63/88] w-[46%] rounded-[8%]",
+        )}
+        style={{
+          borderColor: `hsl(${hue} 20% 50% / 0.35)`,
+          background: `hsl(${hue} 25% 50% / 0.06)`,
+        }}
       >
-        <Icon className="size-[30%] opacity-70" style={{ color: tint }} strokeWidth={1.25} />
+        <Icon
+          className="size-[30%] opacity-70"
+          style={{ color: tint }}
+          strokeWidth={1.25}
+        />
       </div>
       <div className="max-w-full text-center">
-        <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-subtle">{label}</p>
-        <p className="mt-0.5 truncate text-[11px] text-muted">{product?.setName ?? name}</p>
+        <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-subtle">
+          {label}
+        </p>
+        <p className="mt-0.5 truncate text-[11px] text-muted">
+          {product?.setName ?? name}
+        </p>
       </div>
     </div>
   );

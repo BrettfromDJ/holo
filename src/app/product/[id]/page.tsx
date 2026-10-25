@@ -70,9 +70,16 @@ export default function ProductPage() {
       </Link>
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,420px)_1fr] lg:gap-12">
-        <HoloTilt radius="1.75rem" foil={product.kind === "single"} className="aspect-square w-full animate-pop lg:sticky lg:top-10">
-          <ProductImage product={product} size="xl" priority className="h-full w-full rounded-[1.75rem]" />
-        </HoloTilt>
+        {product.kind === "single" && product.imageUrl ? (
+          // A bare card: no well or frame, just the card at its own proportions.
+          <HoloTilt radius="4.5% / 3.2%" className="mx-auto aspect-[63/88] w-full max-w-[260px] animate-pop sm:max-w-[360px] self-start lg:sticky lg:top-10">
+            <ProductImage product={product} size="xl" priority frame={false} className="h-full w-full rounded-[4.5%/3.2%] shadow-2xl shadow-black/50" />
+          </HoloTilt>
+        ) : (
+          <HoloTilt radius="1.75rem" foil={product.kind === "single"} className="aspect-square w-full animate-pop lg:sticky lg:top-10">
+            <ProductImage product={product} size="xl" priority className="h-full w-full rounded-[1.75rem]" />
+          </HoloTilt>
+        )}
 
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
