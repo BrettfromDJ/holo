@@ -4,6 +4,8 @@ import { AlertCircle, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Delta } from "@/components/product/delta";
+import { AnimatedNumber } from "@/components/motion/animated-number";
+import { Reveal } from "@/components/motion/reveal";
 import { Headline, MetricStrip, Shelf, Spotlight } from "@/components/overview/sections";
 import { AllocationShowcase } from "@/components/portfolio/allocation-showcase";
 import { EmptyCollection } from "@/components/portfolio/empty-state";
@@ -62,7 +64,9 @@ export default function OverviewPage() {
               <p className="text-[13px] font-medium text-muted">{scrub ? formatDate(scrub.date) : "Portfolio value"}</p>
               {store.mode === "demo" && <Badge variant="sample">Sample data</Badge>}
             </div>
-            <p className="tabular mt-1 text-[48px] font-semibold leading-none tracking-[-0.04em] sm:text-[64px]">{money(scrub ? scrub.value : summary.marketValue)}</p>
+            <p className="tabular mt-1 text-[48px] font-semibold leading-none tracking-[-0.04em] sm:text-[64px]">
+              <AnimatedNumber value={scrub ? scrub.value : summary.marketValue} format={money} animate={!scrub} duration={1100} from={summary.marketValue * 0.9} />
+            </p>
           </div>
         )}
       />
@@ -87,16 +91,20 @@ export default function OverviewPage() {
       )}
 
       <div className="mt-14 space-y-14">
-        <Spotlight holdings={holdings} />
+        <Reveal>
+          <Spotlight holdings={holdings} />
+        </Reveal>
 
-        <Shelf holdings={holdings} subtitle="Your most valuable pieces" />
+        <Reveal>
+          <Shelf holdings={holdings} subtitle="Your most valuable pieces" />
+        </Reveal>
 
-        <section>
+        <Reveal as="section">
           <SectionHeading title="Sealed vs. singles" subtitle="Where your collection's value sits" />
           <AllocationShowcase holdings={holdings} />
-        </section>
+        </Reveal>
 
-        <section>
+        <Reveal as="section">
           <SectionHeading
             title="Movers"
             action={
@@ -121,9 +129,9 @@ export default function OverviewPage() {
               <MoverList title="Falling" items={movers.losers} />
             </Card>
           </div>
-        </section>
+        </Reveal>
 
-        <div className="grid gap-3 lg:grid-cols-2">
+        <Reveal className="grid gap-3 lg:grid-cols-2">
           <Card className="p-5 sm:p-6">
             <SectionTitle title="Collection performance" action={<SeeAll href="/gains" label="Gains breakdown" />} />
             <dl className="grid grid-cols-2 gap-x-6 gap-y-5">
@@ -140,7 +148,7 @@ export default function OverviewPage() {
               <HoldingMiniRow key={h.key} h={h} />
             ))}
           </Card>
-        </div>
+        </Reveal>
       </div>
     </div>
   );

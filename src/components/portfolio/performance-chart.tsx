@@ -91,7 +91,7 @@ export function PerformanceChart({ timeline, header }: { timeline: TimelinePoint
           />
         )}
         {slice.length > 1 ? (
-          <ScrubChart data={chartData} tone={t} baseline={slice[0]?.value} onScrub={setScrub} height={300} secondaryLabel="Cost basis" className="relative" />
+          <ScrubChart key={range} data={chartData} tone={t} baseline={slice[0]?.value} onScrub={setScrub} height={300} secondaryLabel="Cost basis" className="relative animate-sweep" />
         ) : (
           <div className="flex h-[280px] items-center justify-center rounded-2xl border border-dashed border-border text-[14px] text-muted">
             The chart fills in as daily price snapshots accumulate.

@@ -3,6 +3,7 @@
 import { ArrowRight, Flame, Sparkles, TrendingDown } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
+import { AnimatedNumber } from "@/components/motion/animated-number";
 import { holdingHref, holdingLabel } from "@/components/portfolio/holding-items";
 import { Delta, DeltaPill } from "@/components/product/delta";
 import { ProductImage } from "@/components/product/product-image";
@@ -139,7 +140,9 @@ export function Spotlight({ holdings }: { holdings: HoldingView[] }) {
             </TileLabel>
             <h3 className="mt-3 line-clamp-2 text-[22px] font-semibold leading-tight tracking-[-0.01em] sm:text-[26px]">{star.product?.name}</h3>
             <p className="mt-1 truncate text-[13px] text-muted">{[star.product?.setName, holdingLabel(star)].filter(Boolean).join(" · ")}</p>
-            <p className="tabular mt-5 text-[34px] font-semibold leading-none tracking-[-0.03em] text-up sm:text-[40px]">{signedMoney(star.unrealized)}</p>
+            <p className="tabular mt-5 text-[34px] font-semibold leading-none tracking-[-0.03em] text-up sm:text-[40px]">
+              <AnimatedNumber value={star.unrealized ?? 0} format={signedMoney} duration={1300} />
+            </p>
             <p className="tabular mt-2 text-[13px] text-muted">
               Paid {money(star.costBasis)} · worth {money(star.value)} · <Delta ratio={star.unrealizedPct} pctOnly />
             </p>

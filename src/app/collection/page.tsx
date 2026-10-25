@@ -244,16 +244,20 @@ function Collection() {
           </div>
         ) : view === "grid" ? (
           <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 xl:grid-cols-4">
-            {filtered.map((h) => (
-              <HoldingTile key={h.key} h={h} />
+            {filtered.map((h, i) => (
+              <div key={h.key} className="animate-rise" style={{ animationDelay: `${Math.min(i, 16) * 40}ms` }}>
+                <HoldingTile h={h} />
+              </div>
             ))}
           </div>
         ) : (
           <Card className="overflow-hidden pt-3">
             <HoldingListHeader />
             <div className="divide-y divide-border">
-              {filtered.map((h) => (
-                <HoldingListRow key={h.key} h={h} />
+              {filtered.map((h, i) => (
+                <div key={h.key} className="animate-rise" style={{ animationDelay: `${Math.min(i, 16) * 30}ms` }}>
+                  <HoldingListRow h={h} />
+                </div>
               ))}
             </div>
           </Card>

@@ -19,8 +19,8 @@ export function Sparkline({ values, tone, className, height = 48 }: { values: nu
           <stop offset="100%" stopColor={color} stopOpacity={0} />
         </linearGradient>
       </defs>
-      <path d={`${line} L${w},${height} L0,${height} Z`} fill={`url(#sp-${gid})`} />
-      <path d={line} fill="none" stroke={color} strokeWidth={2} vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
+      <path d={`${line} L${w},${height} L0,${height} Z`} fill={`url(#sp-${gid})`} className="animate-fade-in" />
+      <path d={line} pathLength={1} fill="none" stroke={color} strokeWidth={2} vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" strokeDasharray={1} className="animate-draw" />
     </svg>
   );
 }

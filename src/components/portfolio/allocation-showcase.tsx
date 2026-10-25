@@ -74,7 +74,7 @@ export function AllocationShowcase({
   return (
     <div>
       <div
-        className="flex h-7 w-full gap-[3px] overflow-hidden rounded-[10px]"
+        className="flex h-7 w-full origin-left animate-grow-x gap-[3px] overflow-hidden rounded-[10px]"
         role="img"
         aria-label={groups
           .map((g) => `${CATEGORY_META[g.category].label} ${pct(g.share, 0)}`)

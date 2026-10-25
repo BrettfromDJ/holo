@@ -211,7 +211,7 @@ function Bar({ start, end, pos, total }: { start: number; end: number; pos: (v: 
       <div className="absolute inset-y-[11px] left-0 right-0 rounded-full bg-surface-2" />
       <div className="absolute inset-y-0 w-px bg-border-strong" style={{ left: `${pos(0)}%` }} />
       <div
-        className={cn("absolute inset-y-1 rounded-[4px] transition-all duration-500 ease-[var(--ease-apple)]", total ? "bg-foreground" : up ? "bg-up" : "bg-down")}
+        className={cn("absolute inset-y-1 animate-grow-x rounded-[4px] transition-all duration-500 ease-[var(--ease-apple)]", up ? "origin-left" : "origin-right", total ? "bg-foreground" : up ? "bg-up" : "bg-down")}
         style={{ left: `${left}%`, width: `${width}%` }}
       />
     </div>
