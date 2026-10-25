@@ -35,18 +35,12 @@ export function ProductImage({
   /** False draws the image edge to edge with no well behind it (e.g. a bare card). */
   frame?: boolean;
 }) {
-  // 0 = background-removed version (sealed), 1 = original, 2 = failed.
-  const [stage, setStage] = useState(0);
+  const [failed, setFailed] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
-  const cutout = product?.kind === "sealed" && Boolean(product.imageUrl) && /^https:/.test(product.imageUrl ?? "");
-  const src = product?.imageUrl ? (cutout && stage === 0 ? `/api/img?u=${encodeURIComponent(product.imageUrl)}` : product.imageUrl) : null;
-  const fail = () => setStage((s) => (s === 0 && cutout ? 1 : 2));
-  const failed = stage === 2 || (stage === 1 && !cutout);
   // Server-rendered images can fail before React attaches onError; catch that on mount.
   useEffect(() => {
     const img = imgRef.current;
-    if (img && img.complete && img.naturalWidth === 0) fail();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (img && img.complete && img.naturalWidth === 0) setFailed(true);
   }, []);
   const pad = { xs: "p-1", sm: "p-1.5", md: "p-3", lg: "p-5", xl: "p-8" }[size];
   const showImage = product?.imageUrl && !failed;
@@ -64,11 +58,11 @@ export function ProductImage({
       {showImage ? (
         <img
           ref={imgRef}
-          src={src!}
+          src={product.imageUrl!}
           alt={product.name}
           loading={priority ? "eager" : "lazy"}
           decoding="async"
-          onError={fail}
+          onError={() => setFailed(true)}
           className={cn(
             "transition-transform duration-500 ease-[var(--ease-apple)]",
             bare
