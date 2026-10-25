@@ -23,13 +23,13 @@ export function AllocationBar({ slices, showCost }: { slices: AllocationSlice[];
       <ul className="mt-5 space-y-3">
         {visible.map((s) => (
           <li key={s.category} className="flex items-center gap-3 text-[14px]">
-            <span className="size-2.5 rounded-full" style={{ background: CATEGORY_META[s.category].color }} aria-hidden />
-            <span className="flex-1">
+            <span className="size-2.5 shrink-0 rounded-full" style={{ background: CATEGORY_META[s.category].color }} aria-hidden />
+            <span className="min-w-0 flex-1 truncate">
               {CATEGORY_META[s.category].label} <span className="text-muted">· {s.count}</span>
             </span>
             {showCost && <span className="tabular hidden w-28 text-right text-muted sm:block">{money(s.costBasis)} cost</span>}
-            <span className="tabular w-24 text-right font-medium">{money(s.value)}</span>
-            <span className="tabular w-12 text-right text-muted">{pct(s.share, 0)}</span>
+            <span className="tabular shrink-0 text-right font-medium sm:w-24">{money(s.value)}</span>
+            <span className="tabular w-10 shrink-0 text-right text-muted sm:w-12">{pct(s.share, 0)}</span>
           </li>
         ))}
       </ul>

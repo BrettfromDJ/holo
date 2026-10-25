@@ -88,7 +88,7 @@ export default function AnalyticsPage() {
         }
       />
 
-      <Card className="p-5 sm:p-6">
+      <Card className="min-w-0 p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h2 className="text-[17px] font-semibold tracking-tight">Portfolio history</h2>
@@ -149,13 +149,13 @@ export default function AnalyticsPage() {
         </div>
       </Card>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-2">
-        <Card className="p-5 sm:p-6">
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <Card className="min-w-0 p-5 sm:p-6">
           <SectionTitle title="Allocation" subtitle="Exposure by market value" />
           <AllocationBar slices={alloc} showCost />
         </Card>
 
-        <Card className="p-5 sm:p-6">
+        <Card className="min-w-0 p-5 sm:p-6">
           <SectionTitle title="Investment activity" subtitle="Money invested per month, incl. fees" />
           <div className="h-[220px]">
             <ResponsiveContainer>
@@ -176,13 +176,13 @@ export default function AnalyticsPage() {
                     />
                   )}
                 />
-                <Bar dataKey="invested" fill="var(--cat-1)" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                <Bar dataKey="invested" fill="var(--cat-1)" radius={[4, 4, 0, 0]} maxBarSize={28} isAnimationActive={false} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </Card>
 
-        <Card className="p-5 sm:p-6 lg:col-span-2">
+        <Card className="min-w-0 p-5 sm:p-6 lg:col-span-2">
           <SectionTitle
             title="Performance by set"
             action={
@@ -198,43 +198,38 @@ export default function AnalyticsPage() {
               />
             }
           />
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[520px] text-[14px]">
-              <thead>
-                <tr className="text-left text-[12px] text-subtle">
-                  <th className="pb-3 font-medium">Set</th>
-                  <th className="w-[30%] pb-3 font-medium">Share of value</th>
-                  <th className="pb-3 text-right font-medium">Value</th>
-                  <th className="pb-3 text-right font-medium">Unrealized</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {sets.map((s) => (
-                  <tr key={s.setName}>
-                    <td className="py-3 pr-4">
-                      <p className="font-medium">{s.setName}</p>
-                      <p className="text-[12px] text-muted">
-                        {s.holdings} holding{s.holdings === 1 ? "" : "s"}
-                      </p>
-                    </td>
-                    <td className="py-3 pr-4">
-                      <div className="flex items-center gap-2">
-                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
-                          <div className="h-full rounded-full bg-cat-1" style={{ width: `${(s.share / maxShare) * 100}%` }} />
-                        </div>
-                        <span className="tabular w-10 text-right text-[12px] text-muted">{pct(s.share, 0)}</span>
-                      </div>
-                    </td>
-                    <td className="tabular py-3 text-right font-medium">{money(s.value)}</td>
-                    <td className="py-3 text-right">
-                      <Delta value={s.unrealized} className="block" />
-                      <Delta ratio={s.unrealizedPct} pctOnly className="block text-[12px]" />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {/* Stacked rows on phones; a four-column grid from sm up. */}
+          <div className="hidden grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_7rem_7rem] gap-4 pb-3 text-[12px] font-medium text-subtle sm:grid">
+            <span>Set</span>
+            <span>Share of value</span>
+            <span className="text-right">Value</span>
+            <span className="text-right">Unrealized</span>
           </div>
+          <ul className="divide-y divide-border text-[14px]">
+            {sets.map((s) => (
+              <li key={s.setName} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 py-3 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_7rem_7rem]">
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{s.setName}</p>
+                  <p className="text-[12px] text-muted">
+                    {s.holdings} holding{s.holdings === 1 ? "" : "s"}
+                  </p>
+                </div>
+                <div className="col-span-2 row-start-2 flex items-center gap-2 sm:col-span-1 sm:col-start-2 sm:row-start-1">
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
+                    <div className="h-full rounded-full bg-cat-1" style={{ width: `${(s.share / maxShare) * 100}%` }} />
+                  </div>
+                  <span className="tabular w-10 text-right text-[12px] text-muted">{pct(s.share, 0)}</span>
+                </div>
+                <div className="text-right sm:contents">
+                  <p className="tabular font-medium sm:text-right">{money(s.value)}</p>
+                  <div className="sm:text-right">
+                    <Delta value={s.unrealized} className="text-[12px] sm:block sm:text-[14px]" />
+                    <Delta ratio={s.unrealizedPct} pctOnly className="ml-1.5 text-[12px] sm:ml-0 sm:block" />
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
         </Card>
 
         <RankCard title="Best investments" items={ranked.best} rankBy={rankBy} setRankBy={setRankBy} empty="No holdings are in profit yet." />
@@ -270,7 +265,7 @@ function RankCard({
   empty: string;
 }) {
   return (
-    <Card className="p-5 sm:p-6">
+    <Card className="min-w-0 p-5 sm:p-6">
       <SectionTitle
         title={title}
         action={
