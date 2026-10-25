@@ -19,6 +19,7 @@ import {
   type PricePoint,
   type Preferences,
   type Product,
+  type ProductKind,
   type Transaction,
   type WatchlistItem,
 } from "../types";
@@ -63,7 +64,8 @@ export interface AddOptions {
 
 interface StoreActions {
   setMode(mode: AppMode): void;
-  importProduct(productId: string, printing?: string | null): Promise<ImportedProduct>;
+  importProduct(productId: string, printing?: string | null, kind?: ProductKind): Promise<ImportedProduct>;
+  setProductKind(productId: string, kind: ProductKind): Promise<void>;
   addTransaction(tx: NewTransaction): Promise<Transaction>;
   addWatch(productId: string, printing: string | null, targetPrice: number | null): Promise<void>;
   updateWatch(id: string, patch: Partial<Pick<WatchlistItem, "targetPrice" | "notes">>): Promise<void>;
@@ -195,7 +197,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
   );
 
   const importProduct = useCallback(
-    async (productId: string, printing?: string | null): Promise<ImportedProduct> => {
+    async (productId: string, printing?: string | null, kind?: ProductKind): Promise<ImportedProduct> => {
       if (productId.startsWith("sample:")) {
         if (state.mode !== "demo") throw new Error("Sample products can only be used in demo mode.");
         const p = SAMPLE_BY_ID[productId];
@@ -212,7 +214,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
       if (state.mode === "demo") throw new Error("Demo mode only uses sample products. Switch to your collection to add real products.");
       const res = await fetchJSON<{ product: Product; prices: NormalizedPrice[]; history: PricePoint[]; historyAvailable: boolean; historyReason: string | null }>(
         "/api/catalog",
-        { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ productId, printing: printing ?? null }) },
+        { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ productId, printing: printing ?? null, kind: kind ?? null }) },
       );
       const histPrinting = printing ?? res.prices[0]?.printing ?? null;
       const history = { [priceKey(res.product.id, histPrinting)]: res.history };
@@ -231,6 +233,14 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
     },
     [state.mode, state.data],
   );
+
+  const setProductKind = useCallback(async (productId: string, kind: ProductKind) => {
+    await repoRef.current.setProductKind(productId, kind);
+    setState((s) => {
+      const p = s.data.products[productId];
+      return p ? { ...s, data: { ...s.data, products: { ...s.data.products, [productId]: { ...p, kind } } } } : s;
+    });
+  }, []);
 
   const addTransaction = useCallback(async (tx: NewTransaction) => {
     const saved = await repoRef.current.addTransaction(tx);
@@ -353,6 +363,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
       ...state,
       setMode,
       importProduct,
+      setProductKind,
       addTransaction,
       addWatch,
       updateWatch,
@@ -366,7 +377,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
       openAdd: (opts?: AddOptions) => setAddTarget({ open: true, ...opts }),
       closeAdd: () => setAddTarget({ open: false }),
     }),
-    [state, setMode, importProduct, addTransaction, addWatch, updateWatch, removeWatch, setManualValue, refreshPrices, savePreferences, resetDemo, signOut, addTarget],
+    [state, setMode, importProduct, setProductKind, addTransaction, addWatch, updateWatch, removeWatch, setManualValue, refreshPrices, savePreferences, resetDemo, signOut, addTarget],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

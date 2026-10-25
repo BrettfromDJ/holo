@@ -1,6 +1,6 @@
 "use client";
 
-import { Calculator, ChevronLeft, ExternalLink, Eye, EyeOff, Loader2, MoreHorizontal, Plus, Tag } from "lucide-react";
+import { Calculator, Check, ChevronDown, ChevronLeft, ExternalLink, Eye, EyeOff, Layers, Loader2, MoreHorizontal, Package, Plus, Tag } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -17,7 +17,7 @@ import { ProductImage } from "@/components/product/product-image";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, SectionTitle } from "@/components/ui/card";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { categoryOf } from "@/lib/catalog";
@@ -26,7 +26,7 @@ import { acquisitionCost, saleProceeds } from "@/lib/finance/ledger";
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { formatDate, money, relativeTime, tone } from "@/lib/format";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
-import { priceKey, type Transaction } from "@/lib/types";
+import { priceKey, type Product, type Transaction } from "@/lib/types";
 
 type HistRange = "1M" | "3M" | "1Y" | "ALL";
 const HIST_DAYS: Record<HistRange, number | null> = { "1M": 30, "3M": 91, "1Y": 365, ALL: null };
@@ -72,7 +72,7 @@ export default function ProductPage() {
 
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge>{categoryOf(product)}</Badge>
+            <KindMenu productId={productId} kind={product.kind} label={categoryOf(product)} />
             {product.rarity && <Badge variant="outline">{product.rarity}</Badge>}
             {product.source === "sample" && <Badge variant="sample">Sample data</Badge>}
           </div>
@@ -139,6 +139,37 @@ export default function ProductPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+/** Category badge that doubles as a "Change type" control (sealed ⇄ single). */
+function KindMenu({ productId, kind, label }: { productId: string; kind: Product["kind"]; label: string }) {
+  const { setProductKind } = useStore();
+  const change = async (next: Product["kind"]) => {
+    if (next === kind) return;
+    try {
+      await setProductKind(productId, next);
+      toast.success(next === "sealed" ? "Marked as sealed product" : "Marked as single card");
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium leading-4 text-muted transition-colors hover:bg-surface-3 hover:text-foreground" aria-label={`Type: ${label}. Change type`}>
+        {label}
+        <ChevronDown className="size-3" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        <DropdownMenuLabel>Product type</DropdownMenuLabel>
+        <DropdownMenuItem onSelect={() => void change("sealed")}>
+          <Package /> Sealed product {kind === "sealed" && <Check className="ml-auto !text-foreground" />}
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void change("single")}>
+          <Layers /> Single card {kind === "single" && <Check className="ml-auto !text-foreground" />}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

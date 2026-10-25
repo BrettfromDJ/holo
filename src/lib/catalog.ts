@@ -37,16 +37,28 @@ export function categoryOf(product: Pick<Product, "name" | "productType" | "kind
 }
 
 /**
- * Determine whether a TCG API record is sealed. The API distinguishes
- * "Cards" from "Sealed Products" via the `type` filter; records returned under
- * `type=Sealed Products` are flagged sealed explicitly by the caller. Without
- * that signal, a product with no collector number and a sealed-sounding name is
- * treated as sealed.
+ * Phrases that only ever describe sealed product. Matched against the name
+ * with any "(…)" suffix removed, so card names like "Charizard (Classic
+ * Collection)" stay singles.
+ */
+const SEALED_NAME =
+  /\b(booster (box|bundle|pack|display|case)|elite trainer box|etb|ultra[- ]premium collection|premium collection|illustration collection|special collection|collection box|binder collection|poster collection|figure collection|pin collection|(mini |stacking )?tins?|blister|build (&|and) battle|trainer box|gift (set|box)|deck box|theme deck|starter deck|battle deck|league battle deck|display box|sleeved booster|surprise box|collector chest|booster bundle|bundle)\b/i;
+
+export function looksSealed(name: string): boolean {
+  return SEALED_NAME.test(name.replace(/\([^)]*\)/g, " "));
+}
+
+/**
+ * Determine whether a catalog record is sealed. Order of evidence:
+ * an explicit hint (the search was filtered to Cards or Sealed), the source's
+ * product type when it says "sealed", an unmistakably sealed name, then the
+ * source's "cards" type or a collector number, then looser name rules.
  */
 export function inferKind(input: { productType: string | null; number: string | null; name: string }, hint?: ProductKind): ProductKind {
   if (hint) return hint;
   const t = input.productType?.toLowerCase() ?? "";
   if (t.includes("sealed")) return "sealed";
+  if (looksSealed(input.name)) return "sealed";
   if (t === "cards" || t === "card" || t.includes("single")) return "single";
   if (input.number) return "single";
   return RULES.some(([re]) => re.test(input.name)) ? "sealed" : "single";

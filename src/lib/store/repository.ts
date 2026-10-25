@@ -37,6 +37,8 @@ export interface Repository {
   load(today: ISODate): Promise<CollectionData>;
   /** Persist catalog info, current prices and history for a product. */
   importProduct(product: Product, prices: NormalizedPrice[], history: Record<string, PricePoint[]>): Promise<void>;
+  /** Correct whether a product is sealed or a single card. */
+  setProductKind(productId: string, kind: Product["kind"]): Promise<void>;
   addTransaction(tx: NewTransaction): Promise<Transaction>;
   addWatch(item: Omit<WatchlistItem, "id" | "addedAt">): Promise<WatchlistItem>;
   updateWatch(id: string, patch: Partial<Pick<WatchlistItem, "targetPrice" | "notes">>): Promise<void>;
@@ -106,6 +108,11 @@ export class LocalRepository implements Repository {
     this.data.products[product.id] = product;
     for (const p of prices) this.data.prices[priceKey(p.productId, p.printing)] = p;
     for (const [k, pts] of Object.entries(history)) this.data.history[k] = mergeHistory(this.data.history[k], pts);
+    this.save();
+  }
+  async setProductKind(productId: string, kind: Product["kind"]) {
+    const p = this.data.products[productId];
+    if (p) this.data.products[productId] = { ...p, kind };
     this.save();
   }
   async addTransaction(tx: NewTransaction) {
@@ -184,6 +191,9 @@ export class DemoRepository implements Repository {
   async importProduct() {
     // Sample catalog is static; nothing to persist.
   }
+  async setProductKind() {
+    // Sample catalog is static; the change lasts for this session only.
+  }
   async addTransaction(tx: NewTransaction) {
     const t: Transaction = { ...tx, id: `sandbox-${newId()}`, createdAt: new Date().toISOString() };
     this.overlay.transactions.push(t);
@@ -246,6 +256,14 @@ export class CloudRepository implements Repository {
   async importProduct() {
     // The server's /api/catalog route writes catalog, prices and history
     // with the service role, so there is nothing to do client-side.
+  }
+
+  async setProductKind(productId: string, kind: Product["kind"]) {
+    const res = await fetch("/api/catalog", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ productId, kind }) });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.error?.message ?? "Couldn't update the product type.");
+    }
   }
 
   private async holdingFor(identity: HoldingIdentity): Promise<HoldingRow> {

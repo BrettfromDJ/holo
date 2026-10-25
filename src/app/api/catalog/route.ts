@@ -5,7 +5,7 @@ import { errorResponse } from "@/lib/server/http";
 import { allowRequest, clientKey } from "@/lib/server/rate-limit";
 import { getAdminSupabase, getServerSupabase } from "@/lib/supabase/server";
 import { priceToRow, productToRow } from "@/lib/supabase/mappers";
-import type { PricePoint } from "@/lib/types";
+import type { PricePoint, Product, ProductKind } from "@/lib/types";
 
 /**
  * Import a product into the catalog before it's added to a collection or
@@ -19,18 +19,25 @@ export async function POST(req: Request) {
   }
   let productId: string;
   let printing: string | null;
+  let kindHint: ProductKind | null;
   try {
     const body = await req.json();
     productId = String(body?.productId ?? "");
     printing = typeof body?.printing === "string" && body.printing ? body.printing : null;
+    kindHint = body?.kind === "sealed" || body?.kind === "single" ? body.kind : null;
   } catch {
     return NextResponse.json({ error: { code: "bad_request", message: "Invalid body." } }, { status: 400 });
   }
 
   try {
     const { provider, externalId } = providerFor(productId);
-    const [product, prices] = await Promise.all([provider.getProduct(externalId), provider.getPrices(externalId)]);
-    product.printings = prices.map((p) => p.printing).filter((p): p is string => Boolean(p));
+    const [cachedProduct, prices] = await Promise.all([provider.getProduct(externalId), provider.getPrices(externalId)]);
+    // Copy: the provider's cached object must not be mutated.
+    const product: Product = {
+      ...cachedProduct,
+      kind: kindHint ?? cachedProduct.kind,
+      printings: prices.map((p) => p.printing).filter((p): p is string => Boolean(p)),
+    };
 
     let history: PricePoint[] = [];
     let historyAvailable = true;
@@ -65,4 +72,27 @@ export async function POST(req: Request) {
   } catch (err) {
     return errorResponse(err);
   }
+}
+
+/**
+ * Correct a product's sealed/single classification in the shared catalog.
+ * Signed-in users only; the change applies to the product, not to holdings.
+ */
+export async function PATCH(req: Request) {
+  if (!allowRequest(clientKey(req, "catalog-kind"), 20, 20)) {
+    return NextResponse.json({ error: { code: "rate_limited", message: "Too many requests." } }, { status: 429 });
+  }
+  const body = await req.json().catch(() => null);
+  const productId = typeof body?.productId === "string" ? body.productId : "";
+  const kind = body?.kind === "sealed" || body?.kind === "single" ? (body.kind as ProductKind) : null;
+  if (!productId || !kind) return NextResponse.json({ error: { code: "bad_request", message: "productId and kind are required." } }, { status: 400 });
+
+  const userClient = await getServerSupabase();
+  const user = userClient ? (await userClient.auth.getUser()).data.user : null;
+  const admin = getAdminSupabase();
+  if (!user || !admin) return NextResponse.json({ error: { code: "unauthorized", message: "Sign in to change product types." } }, { status: 401 });
+
+  const { error } = await admin.from("products").update({ kind, updated_at: new Date().toISOString() }).eq("id", productId);
+  if (error) return NextResponse.json({ error: { code: "internal", message: error.message } }, { status: 500 });
+  return NextResponse.json({ ok: true });
 }

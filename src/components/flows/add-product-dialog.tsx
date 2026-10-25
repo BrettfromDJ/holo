@@ -73,7 +73,7 @@ function useImported(hit: SearchHit) {
     let cancelled = false;
     setImported(null);
     setError(null);
-    importProduct(hit.product.id, hit.printing)
+    importProduct(hit.product.id, hit.printing, hit.product.kind)
       .then((r) => !cancelled && setImported(r))
       .catch((e: Error) => !cancelled && setError(e.message));
     return () => {
