@@ -103,7 +103,7 @@ export function HoldingTile({ h }: { h: HoldingView }) {
   return (
     <Link href={holdingHref(h)} className="group flex flex-col">
       <div className="relative">
-        <HoloTilt max={8} foil={h.category !== "sealed"} className="aspect-square w-full">
+        <HoloTilt max={8} foil={false} className="aspect-square w-full">
           <ProductImage product={h.product} className="h-full w-full" />
         </HoloTilt>
         <span className="tabular absolute left-2.5 top-2.5 rounded-full bg-background/80 px-2 py-0.5 text-[11px] font-semibold backdrop-blur">×{h.quantity}</span>

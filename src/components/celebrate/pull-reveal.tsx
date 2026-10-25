@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { onPull, type PullEvent } from "@/lib/celebrate";
 import { money, signedMoney } from "@/lib/format";
 import { usePortfolio } from "@/lib/store/collection-store";
+import { cn } from "@/lib/utils";
 
 /**
  * Full-screen "pack pull" moment after a purchase is saved: the product
@@ -33,6 +34,7 @@ export function PullReveal() {
 
   if (!event || typeof document === "undefined") return null;
   const added = summary.marketValue - event.before;
+  const card = event.product.kind === "single" && Boolean(event.product.imageUrl);
 
   return createPortal(
     <div
@@ -52,11 +54,16 @@ export function PullReveal() {
           style={{ background: "radial-gradient(closest-side, rgb(160 120 255 / 0.25), rgb(80 200 255 / 0.12), transparent)" }}
         />
         <div className="animate-pull-in relative w-[240px] sm:w-[280px]">
-          <HoloTilt max={16} radius="1.5rem" className="aspect-square w-full">
-            <ProductImage product={event.product} size="xl" priority className="h-full w-full rounded-3xl shadow-2xl shadow-black/60 ring-1 ring-white/10" />
+          <HoloTilt max={16} radius={card ? "4.5% / 3.2%" : "1.5rem"} className={card ? "mx-auto aspect-[63/88] w-[78%]" : "aspect-square w-full"}>
+            <ProductImage
+              product={event.product}
+              size="xl"
+              priority
+              className={card ? "h-full w-full rounded-[4.5%/3.2%]" : "h-full w-full rounded-3xl shadow-2xl shadow-black/60 ring-1 ring-white/10"}
+            />
             <span
               aria-hidden
-              className="animate-foil-sweep pointer-events-none absolute inset-0 rounded-3xl mix-blend-color-dodge"
+              className={cn("animate-foil-sweep pointer-events-none absolute inset-0 mix-blend-color-dodge", card ? "rounded-[4.5%/3.2%]" : "rounded-3xl")}
               style={{
                 background: "linear-gradient(110deg, transparent 20%, rgb(255 120 200 / 0.6) 35%, rgb(120 220 255 / 0.6) 50%, rgb(255 230 120 / 0.6) 65%, transparent 80%)",
                 backgroundSize: "250% 100%",

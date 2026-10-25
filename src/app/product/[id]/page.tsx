@@ -76,7 +76,7 @@ export default function ProductPage() {
             <ProductImage product={product} size="xl" priority frame={false} className="h-full w-full rounded-[4.5%/3.2%] shadow-2xl shadow-black/50" />
           </HoloTilt>
         ) : (
-          <HoloTilt radius="1.75rem" foil={product.kind === "single"} className="aspect-square w-full animate-pop lg:sticky lg:top-10">
+          <HoloTilt radius="1.75rem" foil={false} className="aspect-square w-full animate-pop lg:sticky lg:top-10">
             <ProductImage product={product} size="xl" priority className="h-full w-full rounded-[1.75rem]" />
           </HoloTilt>
         )}
