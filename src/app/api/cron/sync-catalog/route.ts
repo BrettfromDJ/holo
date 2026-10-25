@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isTcgApiConfigured } from "@/lib/pricing/tcgapi";
+import { dailyBudget, isTcgApiConfigured } from "@/lib/pricing/tcgapi";
 import { syncCatalog } from "@/lib/server/catalog-sync";
 import { getAdminSupabase } from "@/lib/supabase/server";
 
@@ -23,5 +23,5 @@ export async function GET(req: Request) {
   const maxCalls = Number(process.env.CATALOG_SYNC_MAX_CALLS) || 40;
   const reserve = Number(process.env.CATALOG_SYNC_RESERVE) || 30;
   const result = await syncCatalog(admin, { maxCalls, reserve });
-  return NextResponse.json(result, { status: result.stoppedBecause === "error" ? 500 : 200 });
+  return NextResponse.json({ ...result, apiBudget: dailyBudget(), maxCalls, reserve }, { status: result.stoppedBecause === "error" ? 500 : 200 });
 }

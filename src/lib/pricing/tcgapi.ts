@@ -373,7 +373,16 @@ export async function setChecklist(slug: string): Promise<SetChecklist> {
 
 /** Requests left today, as last reported by TCG API (null until the first call). */
 export function dailyRemaining(): number | null {
-  return rateLimit?.daily_remaining ?? null;
+  if (!rateLimit) return null;
+  // A snapshot from before the daily reset says nothing about today.
+  const reset = Date.parse(rateLimit.daily_reset);
+  if (Number.isFinite(reset) && reset <= Date.now()) return null;
+  return rateLimit.daily_remaining ?? null;
+}
+
+/** The latest budget snapshot, for reporting. */
+export function dailyBudget(): { limit: number; remaining: number; reset: string } | null {
+  return rateLimit ? { limit: rateLimit.daily_limit, remaining: rateLimit.daily_remaining, reset: rateLimit.daily_reset } : null;
 }
 
 /** Catalogs (games) Holo covers, for the catalog sync. */
