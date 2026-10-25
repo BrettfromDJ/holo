@@ -6,7 +6,9 @@ import { Delta } from "@/components/product/delta";
 import { AnimatedNumber } from "@/components/motion/animated-number";
 import { Reveal } from "@/components/motion/reveal";
 import { MoversBoard, RecentTimeline } from "@/components/overview/boards";
+import { MarketPulse } from "@/components/overview/market-pulse";
 import { Headline, MetricStrip, Shelf, Spotlight } from "@/components/overview/sections";
+import { RecapButton, WeeklyRecap } from "@/components/overview/weekly-recap";
 import { AllocationShowcase } from "@/components/portfolio/allocation-showcase";
 import { EmptyCollection } from "@/components/portfolio/empty-state";
 import { ErrorState } from "@/components/portfolio/error-state";
@@ -31,6 +33,7 @@ export default function OverviewPage() {
   const store = useStore();
   const { holdings, summary, timeline } = usePortfolio();
   const [movePeriod, setMovePeriod] = useState<MovePeriod>("1D");
+  const [recapOpen, setRecapOpen] = useState(false);
 
   const movers = useMemo(() => {
     const withMove = holdings.map((h) => ({ h, m: moveOf(h, movePeriod) })).filter((x): x is { h: HoldingView; m: number } => x.m !== null);
@@ -48,7 +51,9 @@ export default function OverviewPage() {
 
   return (
     <div className="animate-fade-in">
-      <Headline summary={summary} holdings={holdings} />
+      <MarketPulse holdings={holdings} />
+      <Headline summary={summary} holdings={holdings} action={<RecapButton onClick={() => setRecapOpen(true)} />} />
+      <WeeklyRecap open={recapOpen} onClose={() => setRecapOpen(false)} />
 
       <PerformanceChart
         timeline={timeline}
