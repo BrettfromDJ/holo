@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { Delta } from "@/components/product/delta";
 import { AnimatedNumber } from "@/components/motion/animated-number";
 import { Reveal } from "@/components/motion/reveal";
-import { MoversBoard, PerformancePanel, RecentTimeline } from "@/components/overview/boards";
+import { MoversBoard, RecentTimeline } from "@/components/overview/boards";
 import { Headline, MetricStrip, Shelf, Spotlight } from "@/components/overview/sections";
 import { AllocationShowcase } from "@/components/portfolio/allocation-showcase";
 import { EmptyCollection } from "@/components/portfolio/empty-state";
@@ -14,7 +14,7 @@ import { PerformanceChart } from "@/components/portfolio/performance-chart";
 import { Badge } from "@/components/ui/badge";
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
-import { performanceOf, type HoldingView } from "@/lib/finance/portfolio";
+import type { HoldingView } from "@/lib/finance/portfolio";
 import { formatDate, money, relativeTime } from "@/lib/format";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
 import { cn } from "@/lib/utils";
@@ -41,8 +41,6 @@ export default function OverviewPage() {
   }, [holdings, movePeriod]);
 
   const recent = useMemo(() => [...holdings].sort((a, b) => ((b.lastAcquired ?? "") > (a.lastAcquired ?? "") ? 1 : -1)).slice(0, 5), [holdings]);
-  const allTime = useMemo(() => performanceOf(timeline), [timeline]);
-  const yearPerf = useMemo(() => performanceOf(timeline.filter((p) => p.date >= addYear(store.today))), [timeline, store.today]);
 
   if (store.status === "loading") return <OverviewSkeleton />;
   if (store.status === "error") return <ErrorState message={store.error} />;
@@ -120,8 +118,7 @@ export default function OverviewPage() {
           <MoversBoard gainers={movers.gainers} losers={movers.losers} daily={movePeriod === "1D"} />
         </Reveal>
 
-        <Reveal className="grid gap-3 lg:grid-cols-2">
-          <PerformancePanel summary={summary} holdings={holdings} yearPerf={yearPerf} allTime={allTime} />
+        <Reveal>
           <RecentTimeline holdings={recent} />
         </Reveal>
       </div>
@@ -139,11 +136,6 @@ function SectionHeading({ title, subtitle, action }: { title: string; subtitle?:
       {action}
     </div>
   );
-}
-
-function addYear(today: string) {
-  const [y, m, d] = today.split("-");
-  return `${Number(y) - 1}-${m}-${d}`;
 }
 
 function PriceFreshness() {

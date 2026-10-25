@@ -3,7 +3,6 @@
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
-import { AnimatedNumber } from "@/components/motion/animated-number";
 import { useInView } from "@/components/motion/reveal";
 import {
   holdingHref,
@@ -11,11 +10,7 @@ import {
 } from "@/components/portfolio/holding-items";
 import { Delta } from "@/components/product/delta";
 import { ProductImage } from "@/components/product/product-image";
-import type {
-  HoldingView,
-  PortfolioSummary,
-  RangePerformance as Performance,
-} from "@/lib/finance/portfolio";
+import type { HoldingView } from "@/lib/finance/portfolio";
 import { formatDate, money, signedMoney, signedPct } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -158,124 +153,6 @@ export function MoversBoard({
           );
         })}
       </ol>
-    </div>
-  );
-}
-
-/* ------------------------- Performance panel --------------------------- */
-
-export function PerformancePanel({
-  summary,
-  holdings,
-  yearPerf,
-  allTime,
-}: {
-  summary: PortfolioSummary;
-  holdings: HoldingView[];
-  yearPerf: Performance | null;
-  allTime: Performance | null;
-}) {
-  const drivers = useMemo(
-    () =>
-      [...holdings]
-        .filter((h) => h.unrealized)
-        .sort(
-          (a, b) => Math.abs(b.unrealized ?? 0) - Math.abs(a.unrealized ?? 0),
-        )
-        .slice(0, 3),
-    [holdings],
-  );
-  const driverMax = Math.max(
-    ...drivers.map((h) => Math.abs(h.unrealized ?? 0)),
-    1,
-  );
-  const total = summary.unrealized + summary.realized;
-  const totalPct = summary.costBasis > 0 ? total / summary.costBasis : null;
-
-  return (
-    <Link
-      href="/gains"
-      className="group flex min-w-0 flex-col rounded-[var(--radius-card)] border border-border bg-surface p-6 transition-colors hover:bg-surface-2/50 sm:p-7"
-    >
-      <div className="flex items-center justify-between">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
-          Total return
-        </p>
-        <span className="flex items-center gap-1 text-[13px] font-medium text-muted transition-colors group-hover:text-foreground">
-          Breakdown{" "}
-          <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
-        </span>
-      </div>
-      <p className="tabular mt-3 text-[44px] font-semibold leading-none tracking-[-0.04em] sm:text-[52px]">
-        <AnimatedNumber value={total} format={signedMoney} duration={1200} />
-      </p>
-      <p className="tabular mt-2.5 text-[13px] text-muted">
-        <Delta ratio={totalPct} pctOnly className="font-medium" /> on{" "}
-        {money(summary.costBasis)} invested
-      </p>
-      <p className="tabular mt-1 text-[13px] text-subtle">
-        {signedMoney(summary.unrealized)} unrealized ·{" "}
-        {signedMoney(summary.realized)} realized
-      </p>
-
-      {drivers.length > 0 && (
-        <div className="mt-8 border-t border-border pt-5">
-          <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-subtle">
-            Biggest drivers
-          </p>
-          <ul className="space-y-3">
-            {drivers.map((h, i) => {
-              const v = h.unrealized ?? 0;
-              return (
-                <li key={h.key}>
-                  <div className="flex items-baseline justify-between gap-3">
-                    <p className="truncate text-[13px] text-foreground/85">
-                      {h.product?.name}
-                    </p>
-                    <span className="tabular shrink-0 text-[13px] font-medium">
-                      {signedMoney(v)}
-                    </span>
-                  </div>
-                  <div className="mt-1.5 h-[3px] overflow-hidden rounded-full bg-surface-2">
-                    <div
-                      className="h-full origin-left animate-grow-x rounded-full bg-foreground/35"
-                      style={{
-                        width: `${(Math.abs(v) / driverMax) * 100}%`,
-                        animationDelay: `${300 + i * 120}ms`,
-                      }}
-                    />
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-
-      <div className="mt-auto pt-8">
-        <dl className="grid grid-cols-2 gap-6 border-t border-border pt-5">
-          <Stat label="Time-weighted, 1Y" ratio={yearPerf?.twr ?? null} />
-          <Stat
-            label={
-              allTime
-                ? `Since ${formatDate(allTime.start)}`
-                : "Time-weighted, all"
-            }
-            ratio={allTime?.twr ?? null}
-          />
-        </dl>
-      </div>
-    </Link>
-  );
-}
-
-function Stat({ label, ratio }: { label: string; ratio: number | null }) {
-  return (
-    <div className="min-w-0">
-      <dt className="truncate text-[12px] text-muted">{label}</dt>
-      <dd className="tabular mt-1 text-[17px] font-semibold">
-        {signedPct(ratio)}
-      </dd>
     </div>
   );
 }
