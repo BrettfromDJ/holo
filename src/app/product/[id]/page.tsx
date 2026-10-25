@@ -13,6 +13,7 @@ import { holdingLabel } from "@/components/portfolio/holding-items";
 import { Delta, DeltaPill } from "@/components/product/delta";
 import { AnimatedNumber } from "@/components/motion/animated-number";
 import { Reveal } from "@/components/motion/reveal";
+import { HoloTilt } from "@/components/motion/holo-tilt";
 import { ProductImage } from "@/components/product/product-image";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -68,7 +69,9 @@ export default function ProductPage() {
       </Link>
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,420px)_1fr] lg:gap-12">
-        <ProductImage product={product} size="xl" priority className="aspect-square w-full animate-pop rounded-[1.75rem] lg:sticky lg:top-10" />
+        <HoloTilt radius="1.75rem" foil={product.kind === "single"} className="aspect-square w-full animate-pop lg:sticky lg:top-10">
+          <ProductImage product={product} size="xl" priority className="h-full w-full rounded-[1.75rem]" />
+        </HoloTilt>
 
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">

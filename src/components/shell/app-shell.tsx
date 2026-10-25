@@ -2,6 +2,9 @@
 
 import { usePathname } from "next/navigation";
 import { Toaster } from "sonner";
+import { ConfettiLayer } from "@/components/celebrate/confetti";
+import { MilestoneWatcher } from "@/components/celebrate/milestone-watcher";
+import { PullReveal } from "@/components/celebrate/pull-reveal";
 import { AddProductDialog } from "@/components/flows/add-product-dialog";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CollectionProvider } from "@/lib/store/collection-store";
@@ -29,8 +32,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
             <BottomNav />
             <AddProductDialog />
+            <PullReveal />
+            <MilestoneWatcher />
           </div>
         )}
+        <ConfettiLayer />
         <Toaster
           position="top-center"
           theme="dark"

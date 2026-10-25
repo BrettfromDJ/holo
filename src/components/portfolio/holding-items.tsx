@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Delta, DeltaPill } from "@/components/product/delta";
 import { PriceStatus } from "@/components/product/price-status";
+import { HoloTilt } from "@/components/motion/holo-tilt";
 import { ProductImage } from "@/components/product/product-image";
 import { categoryOf } from "@/lib/catalog";
 import type { HoldingView } from "@/lib/finance/portfolio";
@@ -102,7 +103,9 @@ export function HoldingTile({ h }: { h: HoldingView }) {
   return (
     <Link href={holdingHref(h)} className="group flex flex-col">
       <div className="relative">
-        <ProductImage product={h.product} className="aspect-square w-full transition-transform duration-500 ease-[var(--ease-apple)] group-hover:scale-[1.015]" />
+        <HoloTilt max={8} foil={h.category !== "sealed"} className="aspect-square w-full">
+          <ProductImage product={h.product} className="h-full w-full" />
+        </HoloTilt>
         <span className="tabular absolute left-2.5 top-2.5 rounded-full bg-background/80 px-2 py-0.5 text-[11px] font-semibold backdrop-blur">×{h.quantity}</span>
         {holdingLabel(h) && <span className="absolute right-2.5 top-2.5 rounded-full bg-background/80 px-2 py-0.5 text-[11px] font-medium text-muted backdrop-blur">{holdingLabel(h)}</span>}
       </div>

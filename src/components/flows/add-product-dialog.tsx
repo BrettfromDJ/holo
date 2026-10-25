@@ -1,7 +1,6 @@
 "use client";
 
 import { ChevronDown, ChevronLeft, Loader2 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +14,8 @@ import { ProductImage } from "@/components/product/product-image";
 import { categoryOf } from "@/lib/catalog";
 import { money } from "@/lib/format";
 import type { SearchHit } from "@/lib/pricing/types";
-import { useStore, type ImportedProduct } from "@/lib/store/collection-store";
+import { usePortfolio, useStore, type ImportedProduct } from "@/lib/store/collection-store";
+import { celebratePull } from "@/lib/celebrate";
 import { CONDITIONS, priceKey, type Condition } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Field, MoneyInput, Stepper, SummaryRow, parseMoney } from "./fields";
@@ -137,7 +137,7 @@ function PrintingSelect({ options, value, onChange }: { options: string[]; value
 
 function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fromWatchId?: string; onBack?: () => void; onDone: () => void }) {
   const { addTransaction, setManualValue, removeWatch, today } = useStore();
-  const router = useRouter();
+  const { summary } = usePortfolio();
   const { imported, error } = useImported(hit);
   const product = imported?.product ?? hit.product;
   const sealed = product.kind === "sealed";
@@ -186,6 +186,7 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
     e.preventDefault();
     if (!valid || unitPrice === null) return;
     setSaving(true);
+    const before = summary.marketValue;
     try {
       const identity = {
         productId: product.id,
@@ -208,11 +209,8 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
       const gv = parseMoney(gradedValue);
       if (graded && gv !== null) await setManualValue(identity, gv);
       if (fromWatchId) await removeWatch(fromWatchId);
-      toast.success(`Added ${qty} × ${product.name}`, {
-        description: `Cost basis ${money(total)}`,
-        action: { label: "View", onClick: () => router.push(`/product/${encodeURIComponent(product.id)}`) },
-      });
       onDone();
+      celebratePull({ product, quantity: qty, before });
     } catch (err) {
       toast.error("Couldn't save purchase", { description: err instanceof Error ? err.message : undefined });
     } finally {
