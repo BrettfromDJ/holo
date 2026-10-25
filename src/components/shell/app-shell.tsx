@@ -9,7 +9,7 @@ import { DemoBanner } from "./demo-banner";
 import { BottomNav, MobileTopBar } from "./mobile-nav";
 import { Sidebar } from "./sidebar";
 
-const BARE_ROUTES = ["/login", "/auth"];
+const BARE_ROUTES = ["/login", "/auth", "/s/"];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

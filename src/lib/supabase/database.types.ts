@@ -116,6 +116,16 @@ export type PreferencesRow = {
   updated_at: string;
 };
 
+export type ShareLinkRow = {
+  id: string;
+  user_id: string;
+  token: string;
+  title: string | null;
+  show_gains: boolean;
+  created_at: string;
+  revoked_at: string | null;
+};
+
 export type ProfileRow = {
   id: string;
   display_name: string | null;
@@ -134,6 +144,7 @@ export type Database = {
       transactions: Table<TransactionRow>;
       portfolio_snapshots: Table<PortfolioSnapshotRow>;
       watchlist_items: Table<WatchlistRow>;
+      share_links: Table<ShareLinkRow>;
     };
     Views: {
       purchase_lots: {

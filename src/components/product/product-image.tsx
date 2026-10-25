@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- images come from arbitrary pricing-source CDNs */
 import { Layers, Package } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { categoryOf } from "@/lib/catalog";
 import type { Product } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -31,6 +31,12 @@ export function ProductImage({
   priority?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
+  // Server-rendered images can fail before React attaches onError; catch that on mount.
+  useEffect(() => {
+    const img = imgRef.current;
+    if (img && img.complete && img.naturalWidth === 0) setFailed(true);
+  }, []);
   const pad = { xs: "p-1", sm: "p-1.5", md: "p-3", lg: "p-5", xl: "p-8" }[size];
   const showImage = product?.imageUrl && !failed;
 
@@ -38,6 +44,7 @@ export function ProductImage({
     <div className={cn("relative flex items-center justify-center overflow-hidden rounded-2xl bg-image-well", className)}>
       {showImage ? (
         <img
+          ref={imgRef}
           src={product.imageUrl!}
           alt={product.name}
           loading={priority ? "eager" : "lazy"}
