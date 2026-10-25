@@ -13,7 +13,6 @@ import { holdingLabel } from "@/components/portfolio/holding-items";
 import { Delta, DeltaPill } from "@/components/product/delta";
 import { AnimatedNumber } from "@/components/motion/animated-number";
 import { Reveal } from "@/components/motion/reveal";
-import { ProductBackdrop } from "@/components/product/product-backdrop";
 import { ProductImage } from "@/components/product/product-image";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -63,16 +62,13 @@ export default function ProductPage() {
   const watch = store.data.watchlist.find((w) => w.productId === productId);
 
   return (
-    <div className="relative animate-fade-in">
-      <div className="pointer-events-none absolute -inset-x-4 -top-6 sm:-inset-x-8 sm:-top-10" aria-hidden>
-        <ProductBackdrop product={product} />
-      </div>
+    <div className="animate-fade-in">
       <Link href="/collection" className="mb-6 inline-flex items-center gap-1 text-[14px] text-muted hover:text-foreground">
         <ChevronLeft className="size-4" /> Collection
       </Link>
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,420px)_1fr] lg:gap-12">
-        <ProductImage product={product} size="xl" priority className="aspect-square w-full animate-pop rounded-[1.75rem] bg-image-well/70 shadow-2xl shadow-black/50 ring-1 ring-white/5 backdrop-blur-sm lg:sticky lg:top-10" />
+        <ProductImage product={product} size="xl" priority className="aspect-square w-full animate-pop rounded-[1.75rem] lg:sticky lg:top-10" />
 
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -132,7 +128,7 @@ export default function ProductPage() {
             </Reveal>
           )}
           {owned.length === 0 && realizedHere !== 0 && (
-            <Card className="bg-surface/70 backdrop-blur-xl mt-6 p-5">
+            <Card className="mt-6 p-5">
               <p className="text-[13px] text-muted">Position closed · realized</p>
               <Delta value={realizedHere} className="mt-1 text-[20px] font-semibold" />
             </Card>
@@ -217,7 +213,7 @@ function PriceHistory({ productId, printing }: { productId: string; printing: st
   const isSample = data.prices[key]?.source === "sample";
 
   return (
-    <Card className="bg-surface/70 backdrop-blur-xl mt-8 p-5 sm:p-6">
+    <Card className="mt-8 p-5 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-[15px] font-semibold">Market price history</h2>
@@ -261,7 +257,7 @@ function Position({ holdings, realized }: { holdings: HoldingView[]; realized: n
   const pricedCost = priced.reduce((s, h) => s + h.costBasis, 0);
   const unrealized = priced.length ? value - pricedCost : null;
   return (
-    <Card className="bg-surface/70 backdrop-blur-xl mt-6 p-5 sm:p-6">
+    <Card className="mt-6 p-5 sm:p-6">
       <SectionTitle title="Your position" />
       <dl className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3">
         <Stat label="Quantity" value={String(qty)} />
@@ -328,7 +324,7 @@ function History({ productId }: { productId: string }) {
 
   return (
     <>
-      <Card className="bg-surface/70 backdrop-blur-xl mt-6 p-5 sm:p-6">
+      <Card className="mt-6 p-5 sm:p-6">
         <SectionTitle title="Purchase history" />
         {rows.length ? (
           <ul className="divide-y divide-border">
@@ -385,7 +381,7 @@ function History({ productId }: { productId: string }) {
         )}
       </Card>
       {notes.length > 0 && (
-        <Card className="bg-surface/70 backdrop-blur-xl mt-6 p-5 sm:p-6">
+        <Card className="mt-6 p-5 sm:p-6">
           <SectionTitle title="Notes" />
           <ul className="space-y-3">
             {notes.map((t) => (

@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 const HUES = [210, 265, 330, 20, 45, 160, 190, 290];
 
-export function hueFor(text: string) {
+function hueFor(text: string) {
   let h = 0;
   for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) >>> 0;
   return HUES[h % HUES.length];
