@@ -126,6 +126,16 @@ export type ShareLinkRow = {
   revoked_at: string | null;
 };
 
+export type ShelfRow = {
+  id: string;
+  user_id: string;
+  name: string;
+  emoji: string | null;
+  product_ids: string[];
+  created_at: string;
+  updated_at: string;
+};
+
 export type ProfileRow = {
   id: string;
   display_name: string | null;
@@ -145,6 +155,7 @@ export type Database = {
       portfolio_snapshots: Table<PortfolioSnapshotRow>;
       watchlist_items: Table<WatchlistRow>;
       share_links: Table<ShareLinkRow>;
+      shelves: Table<ShelfRow>;
     };
     Views: {
       purchase_lots: {

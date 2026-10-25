@@ -14,6 +14,7 @@ import { Delta, DeltaPill } from "@/components/product/delta";
 import { AnimatedNumber } from "@/components/motion/animated-number";
 import { Reveal } from "@/components/motion/reveal";
 import { HoloTilt } from "@/components/motion/holo-tilt";
+import { ShelfMenu } from "@/components/shelves/shelf-controls";
 import { ProductImage } from "@/components/product/product-image";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -112,6 +113,7 @@ export default function ProductPage() {
             </Button>
             {owned.length === 1 && <SaleButton holding={owned[0]} />}
             <WatchButton productId={productId} printing={printing} watchId={watch?.id} />
+            <ShelfMenu productId={productId} />
             {product.tcgplayerUrl && (
               <Button variant="ghost" asChild>
                 <a href={product.tcgplayerUrl} target="_blank" rel="noreferrer">

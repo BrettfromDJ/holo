@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpDown, LayoutGrid, List, Plus, Search, SlidersHorizontal, X } from "lucide-react";
+import { ArrowUpDown, LayoutGrid, List, MoreHorizontal, Pencil, Plus, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
@@ -10,9 +10,10 @@ import { HoldingListHeader, HoldingListRow, HoldingTile } from "@/components/por
 import { DeltaPill } from "@/components/product/delta";
 import { ProductImage } from "@/components/product/product-image";
 import { PageHeader } from "@/components/shell/page-header";
+import { ShelfDialog } from "@/components/shelves/shelf-controls";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Segmented } from "@/components/ui/segmented";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,6 +21,7 @@ import { categoryOf, PRODUCT_CATEGORIES } from "@/lib/catalog";
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { money } from "@/lib/format";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
+import { useShelves } from "@/lib/store/shelves";
 import { priceKey } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -84,6 +86,10 @@ function Collection() {
   const [category, setCategory] = useState<string>("all");
   const [perf, setPerf] = useState<Perf>("all");
   const [showFilters, setShowFilters] = useState(false);
+  const { shelves, remove: removeShelf } = useShelves();
+  const [shelfId, setShelfId] = useState<string | null>(params.get("shelf"));
+  const [shelfDialog, setShelfDialog] = useState<"new" | "edit" | null>(null);
+  const shelf = shelves.find((x) => x.id === shelfId) ?? null;
   const view = store.data.preferences.defaultView;
 
   const sets = useMemo(() => [...new Set(holdings.map((h) => h.product?.setName).filter((s): s is string => Boolean(s)))].sort(), [holdings]);
@@ -92,6 +98,7 @@ function Collection() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const list = holdings.filter((h) => {
+      if (shelf && !shelf.productIds.includes(h.identity.productId)) return false;
       if (kind !== "all" && kind !== "watchlist" && h.category !== kind) return false;
       if (setName !== "all" && h.product?.setName !== setName) return false;
       if (category !== "all" && (!h.product || categoryOf(h.product) !== category)) return false;
@@ -101,7 +108,7 @@ function Collection() {
       return true;
     });
     return sortHoldings(list, sort);
-  }, [holdings, kind, setName, category, perf, query, sort]);
+  }, [holdings, kind, setName, category, perf, query, sort, shelf]);
 
   const totals = useMemo(() => {
     let value = 0;
@@ -203,17 +210,44 @@ function Collection() {
               key={k.value}
               onClick={() => {
                 setKind(k.value);
+                setShelfId(null);
                 router.replace(k.value === "all" ? "/collection" : `/collection?kind=${k.value}`, { scroll: false });
               }}
-              aria-pressed={kind === k.value}
+              aria-pressed={kind === k.value && !shelf}
               className={cn(
                 "h-8 shrink-0 rounded-full px-3.5 text-[13px] font-medium transition-colors",
-                kind === k.value ? "bg-accent text-accent-foreground" : "bg-surface-2 text-muted hover:text-foreground",
+                kind === k.value && !shelf ? "bg-accent text-accent-foreground" : "bg-surface-2 text-muted hover:text-foreground",
               )}
             >
               {k.label}
             </button>
           ))}
+          <span aria-hidden className="mx-1 my-1.5 w-px shrink-0 bg-border" />
+          {shelves.map((x) => (
+            <button
+              key={x.id}
+              onClick={() => {
+                setKind("all");
+                setShelfId(x.id);
+                router.replace(`/collection?shelf=${x.id}`, { scroll: false });
+              }}
+              aria-pressed={shelf?.id === x.id}
+              className={cn(
+                "flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors",
+                shelf?.id === x.id ? "bg-accent text-accent-foreground" : "bg-surface-2 text-muted hover:text-foreground",
+              )}
+            >
+              <span>{x.emoji}</span>
+              {x.name}
+              <span className="tabular opacity-60">{x.productIds.length}</span>
+            </button>
+          ))}
+          <button
+            onClick={() => setShelfDialog("new")}
+            className="flex h-8 shrink-0 items-center gap-1 rounded-full border border-dashed border-border-strong px-3 text-[13px] font-medium text-muted hover:text-foreground"
+          >
+            <Plus className="size-3.5" /> Shelf
+          </button>
         </div>
 
         {showFilters && (
@@ -234,8 +268,60 @@ function Collection() {
         )}
       </div>
 
+      {shelf && (
+        <div className="mt-4 flex animate-rise items-center gap-4 rounded-[var(--radius-card)] border border-border bg-surface px-5 py-4">
+          <span className="flex size-12 items-center justify-center rounded-2xl bg-surface-2 text-[26px]">{shelf.emoji}</span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[17px] font-semibold">{shelf.name}</p>
+            <p className="tabular text-[13px] text-muted">
+              {filtered.length} product{filtered.length === 1 ? "" : "s"} · {money(totals.value)} <DeltaPill ratio={totals.pct} />
+            </p>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon-sm" aria-label="Shelf options">
+                <MoreHorizontal />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => setShelfDialog("edit")}>
+                <Pencil className="size-4" /> Rename
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-down"
+                onSelect={() => {
+                  if (!confirm(`Delete the shelf "${shelf.name}"? Your products stay in your collection.`)) return;
+                  void removeShelf(shelf.id).then(() => {
+                    setShelfId(null);
+                    router.replace("/collection", { scroll: false });
+                  });
+                }}
+              >
+                <Trash2 className="size-4" /> Delete shelf
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
+      <ShelfDialog
+        open={shelfDialog !== null}
+        onOpenChange={(o) => !o && setShelfDialog(null)}
+        shelf={shelfDialog === "edit" ? shelf : null}
+        onSaved={(x) => {
+          setKind("all");
+          setShelfId(x.id);
+          router.replace(`/collection?shelf=${x.id}`, { scroll: false });
+        }}
+      />
+
       <div className="mt-4">
-        {kind === "watchlist" ? (
+        {shelf && !filtered.length ? (
+          <div className="py-20 text-center">
+            <p className="text-[32px]">{shelf.emoji}</p>
+            <p className="mt-2 font-medium">This shelf is empty</p>
+            <p className="mt-1 text-sm text-muted">Open any product and use “Add to shelf” to put it here.</p>
+          </div>
+        ) : kind === "watchlist" ? (
           <WatchGrid query={query} />
         ) : !filtered.length ? (
           <div className="py-20 text-center">
