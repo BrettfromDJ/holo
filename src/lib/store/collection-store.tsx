@@ -2,6 +2,7 @@
 
 import type { User } from "@supabase/supabase-js";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { looksSealed } from "../catalog";
 import { SAMPLE_BY_ID } from "../demo/catalog";
 import { todayISO } from "../finance/dates";
 import { computeHoldings, computeTimeline, summarize, totalRealized, type HoldingView, type PortfolioSummary, type TimelinePoint } from "../finance/portfolio";
@@ -332,6 +333,36 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
     if (state.status === "ready" && state.mode === "personal") void refreshPrices(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.status, state.mode, state.integrations.tcgapi]);
+
+  // One-time repair: products saved before sealed detection improved (e.g.
+  // "Illustration Collection" boxes) may be stored as singles. Runs once per
+  // repository so a later manual choice in the type menu is never overridden.
+  useEffect(() => {
+    if (state.status !== "ready" || state.mode !== "personal") return;
+    const doneKey = `holo:kindfix:v1:${state.repoKind}`;
+    try {
+      if (localStorage.getItem(doneKey)) return;
+    } catch {
+      return;
+    }
+    const wrong = Object.values(state.data.products).filter((p) => p.kind === "single" && looksSealed(p.name));
+    void (async () => {
+      let ok = true;
+      for (const p of wrong) {
+        try {
+          await setProductKind(p.id, "sealed");
+        } catch {
+          ok = false;
+        }
+      }
+      try {
+        if (ok) localStorage.setItem(doneKey, "1");
+      } catch {
+        // ignore
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.status, state.mode, state.repoKind]);
 
   const savePreferences = useCallback(
     async (p: Partial<Preferences>) => {
