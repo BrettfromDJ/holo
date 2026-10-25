@@ -4,7 +4,7 @@ import { AlertCircle, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Delta } from "@/components/product/delta";
-import { AllocationBar } from "@/components/portfolio/allocation-bar";
+import { AllocationShowcase } from "@/components/portfolio/allocation-showcase";
 import { EmptyCollection } from "@/components/portfolio/empty-state";
 import { ErrorState } from "@/components/portfolio/error-state";
 import { HoldingMiniRow } from "@/components/portfolio/holding-items";
@@ -14,7 +14,7 @@ import { Card, SectionTitle } from "@/components/ui/card";
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Hint } from "@/components/ui/tooltip";
-import { allocation, performanceOf, type HoldingView } from "@/lib/finance/portfolio";
+import { performanceOf, type HoldingView } from "@/lib/finance/portfolio";
 import { formatDate, money, relativeTime, signedMoney } from "@/lib/format";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
 import { cn } from "@/lib/utils";
@@ -42,7 +42,6 @@ export default function OverviewPage() {
 
   const mostValuable = useMemo(() => [...holdings].sort((a, b) => (b.value ?? -1) - (a.value ?? -1)).slice(0, 5), [holdings]);
   const recent = useMemo(() => [...holdings].sort((a, b) => ((b.lastAcquired ?? "") > (a.lastAcquired ?? "") ? 1 : -1)).slice(0, 5), [holdings]);
-  const alloc = useMemo(() => allocation(holdings), [holdings]);
   const allTime = useMemo(() => performanceOf(timeline), [timeline]);
   const yearPerf = useMemo(() => performanceOf(timeline.filter((p) => p.date >= addYear(store.today))), [timeline, store.today]);
 
@@ -130,9 +129,9 @@ export default function OverviewPage() {
           ))}
         </Card>
 
-        <Card className="p-5 sm:p-6">
-          <SectionTitle title="Sealed vs. singles" subtitle="Share of market value" />
-          <AllocationBar slices={alloc} />
+        <Card className="p-5 sm:p-6 lg:col-span-2">
+          <SectionTitle title="Sealed vs. singles" subtitle="Where your collection's value sits" />
+          <AllocationShowcase holdings={holdings} />
         </Card>
 
         <Card className="p-5 sm:p-6">
@@ -145,9 +144,9 @@ export default function OverviewPage() {
           </dl>
         </Card>
 
-        <Card className="p-5 sm:p-6 lg:col-span-2">
+        <Card className="p-5 sm:p-6">
           <SectionTitle title="Recently added" action={<SeeAll href="/activity" label="Activity" />} />
-          <div className="grid gap-x-8 sm:grid-cols-2">
+          <div>
             {recent.map((h) => (
               <HoldingMiniRow key={h.key} h={h} />
             ))}

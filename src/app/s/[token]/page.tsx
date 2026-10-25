@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { AllocationBar } from "@/components/portfolio/allocation-bar";
+import { AllocationShowcase } from "@/components/portfolio/allocation-showcase";
 import { Delta, DeltaPill } from "@/components/product/delta";
 import { ProductImage } from "@/components/product/product-image";
 import { Logo } from "@/components/shell/logo";
 import { categoryOf } from "@/lib/catalog";
 import { todayISO } from "@/lib/finance/dates";
-import { allocation, computeHoldings, summarize, type HoldingView } from "@/lib/finance/portfolio";
+import { computeHoldings, summarize, type HoldingView } from "@/lib/finance/portfolio";
 import { formatDate, money } from "@/lib/format";
 import { loadCollection } from "@/lib/supabase/load";
 import { getAdminSupabase } from "@/lib/supabase/server";
@@ -27,7 +27,7 @@ async function loadShare(token: string) {
   const data = await loadCollection(admin, link.user_id);
   const today = todayISO();
   const holdings = computeHoldings(data, today).sort((a, b) => (b.value ?? -1) - (a.value ?? -1));
-  return { link, holdings, summary: summarize(holdings, 0), slices: allocation(holdings), today };
+  return { link, holdings, summary: summarize(holdings, 0), today };
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
@@ -43,7 +43,7 @@ export default async function SharedCollectionPage({ params }: { params: Promise
   const { token } = await params;
   const share = await loadShare(token);
   if (!share) notFound();
-  const { link, holdings, summary, slices, today } = share;
+  const { link, holdings, summary, today } = share;
   const showGains = link.show_gains;
 
   return (
@@ -71,7 +71,7 @@ export default async function SharedCollectionPage({ params }: { params: Promise
       {holdings.length > 0 && (
         <section className="mt-10 rounded-[var(--radius-card)] border border-border bg-surface p-5 sm:p-6">
           <h2 className="mb-4 text-[15px] font-semibold">What&apos;s in it</h2>
-          <AllocationBar slices={slices} />
+          <AllocationShowcase holdings={holdings} showGains={showGains} linkTiles={false} />
         </section>
       )}
 
