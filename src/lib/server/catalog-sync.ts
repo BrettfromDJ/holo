@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { catalogGameList, dailyRemaining, gameSetsPage, setProductsPage } from "../pricing/tcgapi";
+import { catalogGameList, gameSetsPage, setProductsPage } from "../pricing/tcgapi";
 import { PricingUnavailableError } from "../pricing/types";
 import type { Database } from "../supabase/database.types";
 import { priceToRow, productToRow } from "../supabase/mappers";
@@ -9,10 +9,8 @@ import type { NormalizedPrice } from "../types";
 const DAY = 24 * 60 * 60 * 1000;
 
 export interface CatalogSyncOptions {
-  /** Most TCG API requests this run may make. */
+  /** Most TCG API requests this run may make. A real 429 also stops it. */
   maxCalls: number;
-  /** Stop once TCG API reports this many or fewer requests left today. */
-  reserve: number;
 }
 
 export interface CatalogSyncResult {
@@ -40,10 +38,9 @@ export interface CatalogSyncResult {
  */
 export async function syncCatalog(admin: SupabaseClient<Database>, opts: CatalogSyncOptions): Promise<CatalogSyncResult> {
   const result: CatalogSyncResult = { calls: 0, setsListed: 0, setsSynced: [], productsSeen: 0, pricesStored: 0, stoppedBecause: "done" };
-  const canCall = () => {
-    const left = dailyRemaining();
-    return result.calls < opts.maxCalls && (left === null || left > opts.reserve);
-  };
+  // The "remaining" figure TCG API reports doesn't always match its dashboard,
+  // so it never blocks the sync; only the per-run cap and a real 429 do.
+  const canCall = () => result.calls < opts.maxCalls;
 
   try {
     // --- 1. Set lists (weekly) ---------------------------------------------
