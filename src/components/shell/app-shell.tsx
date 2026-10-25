@@ -2,7 +2,6 @@
 
 import { usePathname } from "next/navigation";
 import { Toaster } from "sonner";
-import { ConfettiLayer } from "@/components/celebrate/confetti";
 import { MilestoneWatcher } from "@/components/celebrate/milestone-watcher";
 import { PullReveal } from "@/components/celebrate/pull-reveal";
 import { AddProductDialog } from "@/components/flows/add-product-dialog";
@@ -40,9 +39,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <MilestoneWatcher />
             </div>
           )}
-          <ConfettiLayer />
           <Toaster
-            position="top-center"
+            position="bottom-right"
+            mobileOffset={{
+              bottom: "calc(env(safe-area-inset-bottom) + 96px)",
+            }}
             theme="dark"
             toastOptions={{
               classNames: {

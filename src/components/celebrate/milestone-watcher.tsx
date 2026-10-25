@@ -5,14 +5,12 @@ import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { pickNew, reachedMilestones } from "@/lib/milestones";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
-import { confetti } from "./confetti";
 
 const KEY = "holo:milestones:v1";
 
 /**
- * Watches the collection and celebrates each milestone once: a toast plus a
- * little confetti. Seen milestones are remembered per collection in this
- * browser.
+ * Watches the collection and celebrates each milestone once with a toast.
+ * Seen milestones are remembered per collection in this browser.
  */
 export function MilestoneWatcher() {
   const { status, repoKind, user } = useStore();
@@ -41,7 +39,6 @@ export function MilestoneWatcher() {
     show.forEach((m, i) => {
       window.setTimeout(() => {
         toast(m.title, { description: m.description, icon: <Trophy className="size-4 text-[#ffd93d]" />, duration: 6000 });
-        if (i === 0) confetti(60);
       }, 1200 + i * 1800);
     });
     window.setTimeout(() => (busy.current = false), 1200 + show.length * 1800);

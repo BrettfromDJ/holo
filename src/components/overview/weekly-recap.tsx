@@ -138,7 +138,7 @@ function useSlides(): { slides: Slide[]; from: string; to: string } {
           ) : (
             <div>
               <Big>$0 spent</Big>
-              <p className="mt-3 text-[18px] text-white/80">No new buys this week. Diamond hands. 💎</p>
+              <p className="mt-3 text-[18px] text-white/80">No new buys this week.</p>
             </div>
           )}
         </div>

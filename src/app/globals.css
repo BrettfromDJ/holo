@@ -251,11 +251,6 @@
 .animate-foil-sweep {
   animation: foil-sweep 1.6s 0.5s var(--ease-apple) both;
 }
-@keyframes confetti-fall {
-  0% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 1; }
-  100% { transform: translate3d(var(--dx), 105vh, 0) rotate(var(--rot)); opacity: 0.9; }
-}
-
 /* Binder page turns */
 @keyframes page-in-next {
   from { opacity: 0; transform: perspective(1400px) rotateY(-16deg) translateX(28px); }

@@ -96,7 +96,7 @@ function SetTile({ set, active, onSelect }: { set: OwnedSet; active: boolean; on
         <p className="tabular mt-0.5 text-[12px] text-muted">
           {owned} / {total ?? "?"} cards
         </p>
-        {ratio !== null && ratio >= 1 && <p className="mt-0.5 text-[11px] font-semibold text-up">Complete ✦</p>}
+        {ratio !== null && ratio >= 1 && <p className="mt-0.5 text-[11px] font-semibold text-up">Complete</p>}
       </div>
     </button>
   );

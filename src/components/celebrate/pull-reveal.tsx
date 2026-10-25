@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { onPull, type PullEvent } from "@/lib/celebrate";
 import { money, signedMoney } from "@/lib/format";
 import { usePortfolio } from "@/lib/store/collection-store";
-import { confetti } from "./confetti";
 
 /**
  * Full-screen "pack pull" moment after a purchase is saved: the product
@@ -23,14 +22,7 @@ export function PullReveal() {
   const { summary } = usePortfolio();
   const router = useRouter();
 
-  useEffect(
-    () =>
-      onPull((e) => {
-        setEvent(e);
-        window.setTimeout(() => confetti(70), 650);
-      }),
-    [],
-  );
+  useEffect(() => onPull(setEvent), []);
 
   useEffect(() => {
     if (!event) return;

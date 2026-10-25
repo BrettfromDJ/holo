@@ -7,8 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { SHELF_EMOJIS, useShelves, type Shelf } from "@/lib/store/shelves";
-import { cn } from "@/lib/utils";
+import { useShelves, type Shelf } from "@/lib/store/shelves";
 
 /** Create or rename a shelf. `onSaved` receives the new or edited shelf. */
 export function ShelfDialog({
@@ -26,14 +25,12 @@ export function ShelfDialog({
 }) {
   const { create, update } = useShelves();
   const [name, setName] = useState("");
-  const [emoji, setEmoji] = useState<string>(SHELF_EMOJIS[0]);
   const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
     setName(shelf?.name ?? "");
-    setEmoji(shelf?.emoji ?? SHELF_EMOJIS[0]);
   }, [open, shelf]);
 
   const submit = async (e: React.FormEvent) => {
@@ -43,12 +40,12 @@ export function ShelfDialog({
     setSaving(true);
     try {
       if (shelf) {
-        await update(shelf.id, { name: n, emoji });
-        onSaved?.({ ...shelf, name: n, emoji });
+        await update(shelf.id, { name: n });
+        onSaved?.({ ...shelf, name: n });
       } else {
-        const created = await create(n, emoji, initialProductIds);
+        const created = await create(n, initialProductIds);
         onSaved?.(created);
-        toast.success(`${emoji} ${n} created`);
+        toast.success(`Shelf “${n}” created`);
       }
       onOpenChange(false);
     } catch (err) {
@@ -70,20 +67,6 @@ export function ShelfDialog({
         <DialogTitle className="text-[17px] font-semibold">{shelf ? "Edit shelf" : "New shelf"}</DialogTitle>
         <DialogDescription className="mt-1 text-[13px] text-muted">Group products your way — grails, things to open, things to sell.</DialogDescription>
         <form onSubmit={submit} className="mt-5 space-y-4">
-          <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Icon">
-            {SHELF_EMOJIS.map((e) => (
-              <button
-                key={e}
-                type="button"
-                role="radio"
-                aria-checked={emoji === e}
-                onClick={() => setEmoji(e)}
-                className={cn("flex size-10 items-center justify-center rounded-xl text-[20px] transition-all", emoji === e ? "scale-110 bg-surface-3 ring-2 ring-foreground/40" : "bg-surface-2 hover:bg-surface-3")}
-              >
-                {e}
-              </button>
-            ))}
-          </div>
           <Input ref={inputRef} value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder="e.g. Grails" aria-label="Shelf name" />
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
@@ -124,12 +107,11 @@ export function ShelfMenu({ productId }: { productId: string }) {
                 onSelect={(e) => {
                   e.preventDefault();
                   toggle(s.id, productId).then(
-                    () => toast(checked ? `Removed from ${s.name}` : `Added to ${s.emoji ?? ""} ${s.name}`),
+                    () => toast(checked ? `Removed from ${s.name}` : `Added to ${s.name}`),
                     (err: Error) => toast.error(err.message),
                   );
                 }}
               >
-                <span className="text-[16px]">{s.emoji}</span>
                 <span className="flex-1 truncate">{s.name}</span>
                 {checked && <Check className="size-4" />}
               </DropdownMenuItem>

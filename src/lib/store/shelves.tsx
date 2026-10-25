@@ -9,19 +9,16 @@ import { useStore } from "./collection-store";
 export interface Shelf {
   id: string;
   name: string;
-  emoji: string | null;
   productIds: string[];
   createdAt: string;
 }
-
-export const SHELF_EMOJIS = ["🏆", "💎", "🔥", "🎄", "💰", "📦", "⭐", "🃏", "🎁", "🧊", "🌈", "👀"];
 
 interface ShelvesState {
   shelves: Shelf[];
   /** Set when the cloud table is missing or unreachable. */
   error: string | null;
-  create(name: string, emoji: string | null, productIds?: string[]): Promise<Shelf>;
-  update(id: string, patch: Partial<Pick<Shelf, "name" | "emoji">>): Promise<void>;
+  create(name: string, productIds?: string[]): Promise<Shelf>;
+  update(id: string, patch: Partial<Pick<Shelf, "name">>): Promise<void>;
   remove(id: string): Promise<void>;
   toggle(id: string, productId: string): Promise<void>;
 }
@@ -29,12 +26,12 @@ interface ShelvesState {
 const Ctx = createContext<ShelvesState | null>(null);
 
 const DEMO_SEED: Shelf[] = [
-  { id: "demo-grails", name: "Grails", emoji: "🏆", productIds: ["sample:umbreon-vmax-alt", "sample:charizard-base", "sample:es-bb"], createdAt: "2026-01-01T00:00:00Z" },
-  { id: "demo-xmas", name: "Opening at Christmas", emoji: "🎄", productIds: ["sample:pe-etb", "sample:151-bundle"], createdAt: "2026-01-02T00:00:00Z" },
+  { id: "demo-grails", name: "Grails", productIds: ["sample:umbreon-vmax-alt", "sample:charizard-base", "sample:es-bb"], createdAt: "2026-01-01T00:00:00Z" },
+  { id: "demo-xmas", name: "Opening at Christmas", productIds: ["sample:pe-etb", "sample:151-bundle"], createdAt: "2026-01-02T00:00:00Z" },
 ];
 
 function fromRow(r: ShelfRow): Shelf {
-  return { id: r.id, name: r.name, emoji: r.emoji, productIds: r.product_ids ?? [], createdAt: r.created_at };
+  return { id: r.id, name: r.name, productIds: r.product_ids ?? [], createdAt: r.created_at };
 }
 
 function storageKey(kind: string) {
@@ -101,15 +98,15 @@ export function ShelvesProvider({ children }: { children: ReactNode }) {
   );
 
   const create = useCallback(
-    async (name: string, emoji: string | null, productIds: string[] = []) => {
+    async (name: string, productIds: string[] = []) => {
       if (cloud && user) {
-        const { data, error: err } = await cloud.from("shelves").insert({ user_id: user.id, name, emoji, product_ids: productIds }).select().single();
+        const { data, error: err } = await cloud.from("shelves").insert({ user_id: user.id, name, product_ids: productIds }).select().single();
         if (err || !data) throw new Error(err?.message ?? "Couldn't create shelf.");
         const shelf = fromRow(data);
         setShelves((s) => [...s, shelf]);
         return shelf;
       }
-      const shelf: Shelf = { id: crypto.randomUUID(), name, emoji, productIds, createdAt: new Date().toISOString() };
+      const shelf: Shelf = { id: crypto.randomUUID(), name, productIds, createdAt: new Date().toISOString() };
       commitLocal([...shelves, shelf]);
       return shelf;
     },
@@ -117,7 +114,7 @@ export function ShelvesProvider({ children }: { children: ReactNode }) {
   );
 
   const update = useCallback(
-    async (id: string, patch: Partial<Pick<Shelf, "name" | "emoji">>) => {
+    async (id: string, patch: Partial<Pick<Shelf, "name">>) => {
       if (cloud) {
         const { error: err } = await cloud.from("shelves").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", id);
         if (err) throw new Error(err.message);

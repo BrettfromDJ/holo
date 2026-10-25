@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpDown, LayoutGrid, List, MoreHorizontal, Pencil, Plus, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { ArrowUpDown, LayoutGrid, Library, List, MoreHorizontal, Pencil, Plus, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
@@ -237,7 +237,6 @@ function Collection() {
                 shelf?.id === x.id ? "bg-accent text-accent-foreground" : "bg-surface-2 text-muted hover:text-foreground",
               )}
             >
-              <span>{x.emoji}</span>
               {x.name}
               <span className="tabular opacity-60">{x.productIds.length}</span>
             </button>
@@ -270,7 +269,9 @@ function Collection() {
 
       {shelf && (
         <div className="mt-4 flex animate-rise items-center gap-4 rounded-[var(--radius-card)] border border-border bg-surface px-5 py-4">
-          <span className="flex size-12 items-center justify-center rounded-2xl bg-surface-2 text-[26px]">{shelf.emoji}</span>
+          <span className="flex size-12 items-center justify-center rounded-2xl bg-surface-2 text-muted">
+            <Library className="size-5" />
+          </span>
           <div className="min-w-0 flex-1">
             <p className="truncate text-[17px] font-semibold">{shelf.name}</p>
             <p className="tabular text-[13px] text-muted">
@@ -317,8 +318,8 @@ function Collection() {
       <div className="mt-4">
         {shelf && !filtered.length ? (
           <div className="py-20 text-center">
-            <p className="text-[32px]">{shelf.emoji}</p>
-            <p className="mt-2 font-medium">This shelf is empty</p>
+            <Library className="mx-auto size-8 text-subtle" strokeWidth={1.5} />
+            <p className="mt-3 font-medium">This shelf is empty</p>
             <p className="mt-1 text-sm text-muted">Open any product and use “Add to shelf” to put it here.</p>
           </div>
         ) : kind === "watchlist" ? (
