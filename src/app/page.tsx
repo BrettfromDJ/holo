@@ -4,6 +4,7 @@ import { AlertCircle, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Delta } from "@/components/product/delta";
+import { Headline, MetricStrip, Shelf, Spotlight } from "@/components/overview/sections";
 import { AllocationShowcase } from "@/components/portfolio/allocation-showcase";
 import { EmptyCollection } from "@/components/portfolio/empty-state";
 import { ErrorState } from "@/components/portfolio/error-state";
@@ -13,7 +14,6 @@ import { Badge } from "@/components/ui/badge";
 import { Card, SectionTitle } from "@/components/ui/card";
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Hint } from "@/components/ui/tooltip";
 import { performanceOf, type HoldingView } from "@/lib/finance/portfolio";
 import { formatDate, money, relativeTime, signedMoney } from "@/lib/format";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
@@ -40,7 +40,6 @@ export default function OverviewPage() {
     };
   }, [holdings, movePeriod]);
 
-  const mostValuable = useMemo(() => [...holdings].sort((a, b) => (b.value ?? -1) - (a.value ?? -1)).slice(0, 5), [holdings]);
   const recent = useMemo(() => [...holdings].sort((a, b) => ((b.lastAcquired ?? "") > (a.lastAcquired ?? "") ? 1 : -1)).slice(0, 5), [holdings]);
   const allTime = useMemo(() => performanceOf(timeline), [timeline]);
   const yearPerf = useMemo(() => performanceOf(timeline.filter((p) => p.date >= addYear(store.today))), [timeline, store.today]);
@@ -53,6 +52,8 @@ export default function OverviewPage() {
 
   return (
     <div className="animate-fade-in">
+      <Headline summary={summary} holdings={holdings} />
+
       <PerformanceChart
         timeline={timeline}
         header={(scrub) => (
@@ -61,35 +62,22 @@ export default function OverviewPage() {
               <p className="text-[13px] font-medium text-muted">{scrub ? formatDate(scrub.date) : "Portfolio value"}</p>
               {store.mode === "demo" && <Badge variant="sample">Sample data</Badge>}
             </div>
-            <p className="tabular mt-1 text-[44px] font-semibold leading-none tracking-[-0.035em] sm:text-[56px]">{money(scrub ? scrub.value : summary.marketValue)}</p>
+            <p className="tabular mt-1 text-[48px] font-semibold leading-none tracking-[-0.04em] sm:text-[64px]">{money(scrub ? scrub.value : summary.marketValue)}</p>
           </div>
         )}
       />
 
-      <section className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Key metrics">
-        <Metric label="Total value" value={money(summary.marketValue)} sub={`${summary.holdingsCount} holdings · ${summary.unitCount} items`} />
-        <Metric label="Total invested" value={money(summary.costBasis)} sub="Cost basis incl. fees & shipping" hint="Actual purchase cost of everything you currently hold, including allocated fees, shipping and tax (FIFO)." />
-        <Link href="/gains" className="block rounded-2xl transition-opacity hover:opacity-90">
-          <Metric
-            label="Unrealized gain"
-            value={<Delta value={summary.unrealized} />}
-            sub={
-              <span className="flex items-center justify-between gap-2">
-                <Delta ratio={summary.unrealizedPct} pctOnly />
-                <span className="text-subtle">See breakdown →</span>
-              </span>
-            }
-          />
-        </Link>
-        <Metric
-          label="Today"
-          value={<Delta value={summary.dayChange} />}
-          sub={<Delta ratio={summary.dayChangePct} pctOnly />}
-          hint="Change in market value of items held since yesterday. New purchases and sales are excluded."
+      <div className="mt-8">
+        <MetricStrip
+          items={[
+            { label: "Total invested", value: money(summary.costBasis), sub: "incl. fees & shipping" },
+            { label: "Unrealized gain", value: <Delta value={summary.unrealized} />, sub: <span className="flex items-center gap-2"><Delta ratio={summary.unrealizedPct} pctOnly /><span className="text-subtle">· breakdown →</span></span>, href: "/gains" },
+            { label: "Today", value: <Delta value={summary.dayChange} />, sub: <Delta ratio={summary.dayChangePct} pctOnly /> },
+            { label: "Collection", value: `${summary.unitCount} items`, sub: `${summary.holdingsCount} products`, href: "/collection" },
+          ]}
         />
-      </section>
-
-      <PriceFreshness />
+        <PriceFreshness />
+      </div>
 
       {summary.unpricedCount > 0 && (
         <p className="mt-4 flex items-center gap-2 rounded-xl bg-surface px-4 py-3 text-[13px] text-muted">
@@ -98,10 +86,19 @@ export default function OverviewPage() {
         </p>
       )}
 
-      <div className="mt-10 grid gap-5 lg:grid-cols-2">
-        <Card className="p-5 sm:p-6">
-          <SectionTitle
-            title="Top movers"
+      <div className="mt-14 space-y-14">
+        <Spotlight holdings={holdings} />
+
+        <Shelf holdings={holdings} subtitle="Your most valuable pieces" />
+
+        <section>
+          <SectionHeading title="Sealed vs. singles" subtitle="Where your collection's value sits" />
+          <AllocationShowcase holdings={holdings} />
+        </section>
+
+        <section>
+          <SectionHeading
+            title="Movers"
             action={
               <Segmented
                 ariaLabel="Mover period"
@@ -116,43 +113,47 @@ export default function OverviewPage() {
               />
             }
           />
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-            <MoverList title="Gainers" items={movers.gainers} />
-            <MoverList title="Losers" items={movers.losers} />
+          <div className="grid gap-3 lg:grid-cols-2">
+            <Card className="p-5">
+              <MoverList title="Rising" items={movers.gainers} />
+            </Card>
+            <Card className="p-5">
+              <MoverList title="Falling" items={movers.losers} />
+            </Card>
           </div>
-        </Card>
+        </section>
 
-        <Card className="p-5 sm:p-6">
-          <SectionTitle title="Most valuable" action={<SeeAll href="/collection?sort=value" />} />
-          {mostValuable.map((h) => (
-            <HoldingMiniRow key={h.key} h={h} />
-          ))}
-        </Card>
+        <div className="grid gap-3 lg:grid-cols-2">
+          <Card className="p-5 sm:p-6">
+            <SectionTitle title="Collection performance" action={<SeeAll href="/gains" label="Gains breakdown" />} />
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-5">
+              <Stat label="Total return" value={<Delta value={totalReturn} />} sub="Unrealized + realized" />
+              <Stat label="Realized gains" value={<Delta value={summary.realized} />} sub="From completed sales" />
+              <Stat label="Time-weighted, 1Y" value={<Delta ratio={yearPerf?.twr ?? null} pctOnly />} sub={yearPerf ? signedMoney(yearPerf.marketGain) + " market gain" : "—"} />
+              <Stat label="Time-weighted, all" value={<Delta ratio={allTime?.twr ?? null} pctOnly />} sub={allTime ? `Since ${formatDate(allTime.start)}` : "—"} />
+            </dl>
+          </Card>
 
-        <Card className="p-5 sm:p-6 lg:col-span-2">
-          <SectionTitle title="Sealed vs. singles" subtitle="Where your collection's value sits" />
-          <AllocationShowcase holdings={holdings} />
-        </Card>
-
-        <Card className="p-5 sm:p-6">
-          <SectionTitle title="Collection performance" action={<SeeAll href="/gains" label="Gains breakdown" />} />
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-5">
-            <Stat label="Total return" value={<Delta value={totalReturn} />} sub="Unrealized + realized" />
-            <Stat label="Realized gains" value={<Delta value={summary.realized} />} sub="From completed sales" />
-            <Stat label="Time-weighted, 1Y" value={<Delta ratio={yearPerf?.twr ?? null} pctOnly />} sub={yearPerf ? signedMoney(yearPerf.marketGain) + " market gain" : "—"} />
-            <Stat label="Time-weighted, all" value={<Delta ratio={allTime?.twr ?? null} pctOnly />} sub={allTime ? `Since ${formatDate(allTime.start)}` : "—"} />
-          </dl>
-        </Card>
-
-        <Card className="p-5 sm:p-6">
-          <SectionTitle title="Recently added" action={<SeeAll href="/activity" label="Activity" />} />
-          <div>
+          <Card className="p-5 sm:p-6">
+            <SectionTitle title="Recently added" action={<SeeAll href="/activity" label="Activity" />} />
             {recent.map((h) => (
               <HoldingMiniRow key={h.key} h={h} />
             ))}
-          </div>
-        </Card>
+          </Card>
+        </div>
       </div>
+    </div>
+  );
+}
+
+function SectionHeading({ title, subtitle, action }: { title: string; subtitle?: string; action?: React.ReactNode }) {
+  return (
+    <div className="mb-4 flex items-end justify-between gap-4">
+      <div>
+        <h2 className="text-[20px] font-semibold tracking-[-0.01em]">{title}</h2>
+        {subtitle && <p className="mt-0.5 text-[13px] text-muted">{subtitle}</p>}
+      </div>
+      {action}
     </div>
   );
 }
@@ -160,25 +161,6 @@ export default function OverviewPage() {
 function addYear(today: string) {
   const [y, m, d] = today.split("-");
   return `${Number(y) - 1}-${m}-${d}`;
-}
-
-function Metric({ label, value, sub, hint }: { label: string; value: React.ReactNode; sub?: React.ReactNode; hint?: string }) {
-  const inner = (
-    <div className="h-full rounded-2xl border border-border bg-surface p-4 sm:p-5">
-      <p className="text-[12px] font-medium text-muted">{label}</p>
-      <p className="tabular mt-2 text-[19px] font-semibold tracking-tight sm:text-[22px]">{value}</p>
-      {sub && <p className="mt-1 text-[12px] text-muted">{sub}</p>}
-    </div>
-  );
-  return hint ? (
-    <Hint content={hint}>
-      <div tabIndex={0} className="rounded-2xl">
-        {inner}
-      </div>
-    </Hint>
-  ) : (
-    inner
-  );
 }
 
 function Stat({ label, value, sub }: { label: string; value: React.ReactNode; sub: string }) {

@@ -79,9 +79,19 @@ export function PerformanceChart({ timeline, header }: { timeline: TimelinePoint
           />
         </div>
       </div>
-      <div className="mt-4">
+      <div className="relative mt-4">
+        {slice.length > 1 && (
+          // Ambient glow tinted by performance; purely decorative.
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -inset-x-10 -bottom-6 top-6 -z-0 rounded-[50%] opacity-80 blur-3xl transition-colors duration-700"
+            style={{
+              background: `radial-gradient(60% 55% at 70% 55%, color-mix(in srgb, ${t === "down" ? "var(--down)" : t === "up" ? "var(--up)" : "var(--muted)"} 16%, transparent), transparent 70%)`,
+            }}
+          />
+        )}
         {slice.length > 1 ? (
-          <ScrubChart data={chartData} tone={t} baseline={slice[0]?.value} onScrub={setScrub} height={280} secondaryLabel="Cost basis" />
+          <ScrubChart data={chartData} tone={t} baseline={slice[0]?.value} onScrub={setScrub} height={300} secondaryLabel="Cost basis" className="relative" />
         ) : (
           <div className="flex h-[280px] items-center justify-center rounded-2xl border border-dashed border-border text-[14px] text-muted">
             The chart fills in as daily price snapshots accumulate.
