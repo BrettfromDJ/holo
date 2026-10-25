@@ -67,6 +67,9 @@ export function ProductSearch({ onSelect, autoFocus = true }: { onSelect: (hit: 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cursor, setCursor] = useState(0);
+  // Searches hit the stored catalog first (free); TCG API only when it has nothing or on request.
+  const [source, setSource] = useState<"catalog" | "live">("catalog");
+  const [forceLive, setForceLive] = useState(false);
   const listRef = useRef<HTMLUListElement>(null);
 
   const sampleHits = useMemo<SearchHit[]>(
@@ -97,11 +100,26 @@ export function ProductSearch({ onSelect, autoFocus = true }: { onSelect: (hit: 
       setLoading(true);
       setError(null);
       try {
+        if (!forceLive) {
+          const stored = await fetch(`/api/explore/search?q=${encodeURIComponent(query)}`, { signal: ctrl.signal })
+            .then((r) => (r.ok ? r.json() : null))
+            .catch((e: Error) => {
+              if (e.name === "AbortError") throw e;
+              return null;
+            });
+          const fromCatalog = ((stored?.products ?? []) as SearchHit[]).filter((h) => matchesType(h, type));
+          if (fromCatalog.length) {
+            setHits(fromCatalog);
+            setSource("catalog");
+            return;
+          }
+        }
         const res = await fetch(`/api/tcg/search?q=${encodeURIComponent(query)}&type=${type}&game=${game}`, { signal: ctrl.signal });
         const body = await res.json();
         if (!res.ok) throw new Error(body?.error?.message ?? "Search failed.");
         setHits(body.hits ?? []);
         setRelaxed(body.relaxedQuery ?? null);
+        setSource("live");
       } catch (err) {
         if ((err as Error).name !== "AbortError") setError((err as Error).message);
       } finally {
@@ -112,7 +130,10 @@ export function ProductSearch({ onSelect, autoFocus = true }: { onSelect: (hit: 
       clearTimeout(t);
       ctrl.abort();
     };
-  }, [q, type, game, demo, unconfigured, sampleHits]);
+  }, [q, type, game, demo, unconfigured, sampleHits, forceLive]);
+
+  // A new query starts from the stored catalog again.
+  useEffect(() => setForceLive(false), [q]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (!hits.length) return;
@@ -238,6 +259,14 @@ export function ProductSearch({ onSelect, autoFocus = true }: { onSelect: (hit: 
                   </li>
                 ))}
               </ul>
+            )}
+            {!demo && !loading && source === "catalog" && hits.length > 0 && (
+              <div className="px-3 pt-3 text-center text-[12px] text-subtle">
+                From Holo&apos;s catalog.{" "}
+                <button onClick={() => setForceLive(true)} className="font-medium text-muted underline-offset-4 hover:text-foreground hover:underline">
+                  Not here? Search TCG API live
+                </button>
+              </div>
             )}
           </>
         )}

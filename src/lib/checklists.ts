@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import { compareCollectorNumbers } from "./collector-number";
 import type { HoldingView } from "./finance/portfolio";
+import type { ExploreProduct, ExploreSet } from "./explore/types";
 import type { ChecklistCard, SetChecklist } from "./pricing/types";
 
 const CACHE_PREFIX = "holo:checklist:v1:";
-const CACHE_MS = 7 * 24 * 60 * 60 * 1000;
+const CACHE_MS = 24 * 60 * 60 * 1000;
 
 /**
  * SAMPLE checklist sizes for the demo sets (cards in the set incl. secret
@@ -94,11 +95,21 @@ async function fetchChecklist(setId: string): Promise<SetChecklist> {
   const existing = inflight.get(setId);
   if (existing) return existing;
   const p = (async () => {
-    const res = await fetch(`/api/sets/${encodeURIComponent(setId)}`);
-    const body = await res.json().catch(() => null);
-    if (!res.ok) throw new Error(body?.error?.message ?? "Couldn't load this set's checklist.");
-    const checklist = body.checklist as SetChecklist;
-    checklist.cards.sort((a, b) => compareCollectorNumbers(a.number, b.number));
+    // Read from the stored Explore catalog — no TCG API requests.
+    const res = await fetch(`/api/explore/sets/${encodeURIComponent(setId)}`);
+    const body = (await res.json().catch(() => null)) as { set?: ExploreSet; products?: ExploreProduct[]; error?: { message?: string } } | null;
+    if (!res.ok || !body?.set) throw new Error(res.status === 404 ? "This set isn't in Holo's catalog yet." : (body?.error?.message ?? "Couldn't load this set's checklist."));
+    if (!body.set.loaded) throw new Error("This set's card list loads in an upcoming daily catalog sync.");
+    const checklist: SetChecklist = {
+      setId,
+      name: body.set.name,
+      releaseDate: body.set.releaseDate,
+      iconUrl: body.set.iconUrl,
+      cards: (body.products ?? [])
+        .filter((p) => p.product.kind === "single")
+        .map((p) => ({ productId: p.product.id, number: p.product.number, name: p.product.name, rarity: p.product.rarity, imageUrl: p.product.imageUrl, market: p.market }))
+        .sort((a, b) => compareCollectorNumbers(a.number, b.number)),
+    };
     writeCache(checklist);
     return checklist;
   })();
@@ -118,7 +129,7 @@ export interface ChecklistState {
   sample: boolean;
 }
 
-/** Loads a set's checklist: cached in this browser for a week, one API call per set otherwise. */
+/** Loads a set's checklist from the stored catalog, cached in this browser for a day. */
 export function useChecklist(set: OwnedSet | null): ChecklistState {
   const [state, setState] = useState<ChecklistState>({ checklist: null, loading: false, error: null, sample: false });
   const setId = set?.setId ?? null;

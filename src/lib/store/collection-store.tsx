@@ -325,7 +325,16 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
           };
         });
       } catch (err) {
-        setState((s) => ({ ...s, refreshing: false, priceError: err instanceof Error ? err.message : "Price refresh failed." }));
+        // Count a failed automatic refresh as today's attempt so it isn't retried on every page load.
+        const now = new Date().toISOString();
+        if (!force) {
+          try {
+            localStorage.setItem(`${REFRESH_KEY}:${repo.kind}`, now);
+          } catch {
+            // ignore
+          }
+        }
+        setState((s) => ({ ...s, refreshing: false, pricesRefreshedAt: force ? s.pricesRefreshedAt : now, priceError: err instanceof Error ? err.message : "Price refresh failed." }));
       }
     },
     [state.integrations.tcgapi, state.pricesRefreshedAt, state.data.transactions, state.data.watchlist, state.today],
