@@ -69,3 +69,22 @@ export class PricingUnavailableError extends Error {
     super(message);
   }
 }
+
+/** One card in a set's checklist, in collector-number order. */
+export interface ChecklistCard {
+  productId: string;
+  number: string | null;
+  name: string;
+  rarity: string | null;
+  imageUrl: string | null;
+  market: number | null;
+}
+
+/** A set's full list of singles, for binder views and completion. */
+export interface SetChecklist {
+  setId: string;
+  name: string;
+  releaseDate: string | null;
+  iconUrl: string | null;
+  cards: ChecklistCard[];
+}

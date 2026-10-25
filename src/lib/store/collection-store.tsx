@@ -7,6 +7,7 @@ import { SAMPLE_BY_ID } from "../demo/catalog";
 import { todayISO } from "../finance/dates";
 import { computeHoldings, computeTimeline, summarize, totalRealized, type HoldingView, type PortfolioSummary, type TimelinePoint } from "../finance/portfolio";
 import type { RealizedEntry } from "../finance/ledger";
+import type { SearchHit } from "../pricing/types";
 import { getBrowserSupabase } from "../supabase/client";
 import { isSupabaseConfigured } from "../supabase/config";
 import {
@@ -61,6 +62,8 @@ export interface AddOptions {
   watch?: boolean;
   /** Remove this watchlist item once the purchase is saved. */
   fromWatchId?: string;
+  /** Open straight to the form for a product not yet in the collection's catalog. */
+  hit?: SearchHit;
 }
 
 interface StoreActions {

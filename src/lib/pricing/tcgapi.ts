@@ -10,8 +10,10 @@ import {
   type Price,
   type PriceMover,
   type RateLimit,
+  type Set as TcgSet,
 } from "tcgapi";
 import { inferKind } from "../catalog";
+import { compareCollectorNumbers } from "../collector-number";
 import { parseQuery, rankByQuery } from "../search-query";
 import type { NormalizedPrice, PriceStatus, Product, ProductKind } from "../types";
 import { cached } from "./cache";
@@ -25,6 +27,7 @@ import {
   type SearchQuery,
   type SearchHit,
   type SearchResult,
+  type SetChecklist,
 } from "./types";
 
 /** Game slug for English Pokémon on TCG API (used for top movers). */
@@ -323,4 +326,45 @@ export async function bulkPrices(externalIds: string[]): Promise<NormalizedPrice
     if (err instanceof PricingUnavailableError && err.code === "tier") return null;
     throw err;
   }
+}
+
+/** Every set across Holo's catalogs, keyed by slug. Refreshed daily. */
+async function setIndex(): Promise<Map<string, TcgSet>> {
+  return cached("sets:index", 24 * HOUR, async () => {
+    const index = new Map<string, TcgSet>();
+    for (const game of await catalogGames()) {
+      for (let page = 1; page <= 5; page++) {
+        const res = await call((c) => c.games.sets(game.slug, { page, per_page: 200 }));
+        for (const set of res.data) index.set(set.slug, set);
+        if (!(res.meta as { has_more?: boolean } | undefined)?.has_more && res.data.length < 200) break;
+      }
+    }
+    return index;
+  });
+}
+
+/** Singles in a set, in collector-number order, with primary-printing prices. */
+export async function setChecklist(slug: string): Promise<SetChecklist> {
+  return cached(`checklist:${slug}`, 24 * HOUR, async () => {
+    const set = (await setIndex()).get(slug);
+    if (!set) throw new PricingUnavailableError("That set wasn't found in the catalog.", "not_found");
+    const cards: SetChecklist["cards"] = [];
+    for (let page = 1; page <= 6; page++) {
+      const res = await call((c) => c.sets.cards(set.id, { type: "Cards", sort: "number", page, per_page: 200 }));
+      for (const card of res.data) {
+        if (cards.some((c) => c.productId === `tcgapi:${card.id}`)) continue;
+        cards.push({
+          productId: `tcgapi:${card.id}`,
+          number: card.number ?? null,
+          name: card.name,
+          rarity: card.rarity ?? null,
+          imageUrl: card.image_url ?? null,
+          market: card.market_price ?? null,
+        });
+      }
+      if (!(res.meta as { has_more?: boolean } | undefined)?.has_more) break;
+    }
+    cards.sort((a, b) => compareCollectorNumbers(a.number, b.number));
+    return { setId: slug, name: set.name, releaseDate: set.release_date, iconUrl: set.set_icon_url ?? set.image_url, cards };
+  });
 }

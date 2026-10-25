@@ -33,7 +33,9 @@ export function AddProductDialog() {
       const t = setTimeout(() => setHit(null), 250);
       return () => clearTimeout(t);
     }
-    if (addTarget.productId) {
+    if (addTarget.hit) {
+      setHit(addTarget.hit);
+    } else if (addTarget.productId) {
       const product = data.products[addTarget.productId];
       if (product) {
         const printing = product.printings?.[0] ?? null;
@@ -41,7 +43,7 @@ export function AddProductDialog() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [addTarget.open, addTarget.productId]);
+  }, [addTarget.open, addTarget.productId, addTarget.hit]);
 
   const watch = Boolean(addTarget.watch);
 
@@ -56,9 +58,9 @@ export function AddProductDialog() {
             <ProductSearch onSelect={setHit} />
           </>
         ) : watch ? (
-          <WatchForm hit={hit} onBack={addTarget.productId ? undefined : () => setHit(null)} onDone={closeAdd} />
+          <WatchForm hit={hit} onBack={addTarget.productId || addTarget.hit ? undefined : () => setHit(null)} onDone={closeAdd} />
         ) : (
-          <PurchaseForm hit={hit} fromWatchId={addTarget.fromWatchId} onBack={addTarget.productId ? undefined : () => setHit(null)} onDone={closeAdd} />
+          <PurchaseForm hit={hit} fromWatchId={addTarget.fromWatchId} onBack={addTarget.productId || addTarget.hit ? undefined : () => setHit(null)} onDone={closeAdd} />
         )}
       </DialogContent>
     </Dialog>
