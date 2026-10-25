@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ScrubChart } from "@/components/charts/scrub-chart";
+import { ScrubChart, type ChartMarker } from "@/components/charts/scrub-chart";
 import { SellCalculatorDialog } from "@/components/flows/sell-calculator";
 import { AdjustDialog, ManualValueDialog, SaleDialog, TransactionActions, partitionHistory } from "@/components/flows/transaction-dialogs";
 import { ErrorState } from "@/components/portfolio/error-state";
@@ -22,7 +22,7 @@ import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { categoryOf } from "@/lib/catalog";
 import { addDays } from "@/lib/finance/dates";
-import { acquisitionCost, saleProceeds } from "@/lib/finance/ledger";
+import { acquisitionCost, effectiveTransactions, saleProceeds } from "@/lib/finance/ledger";
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { formatDate, money, relativeTime, tone } from "@/lib/format";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
@@ -243,6 +243,18 @@ function PriceHistory({ productId, printing }: { productId: string; printing: st
   const change = first && at ? at.price - first.price : null;
   const isSample = data.prices[key]?.source === "sample";
 
+  const markers = useMemo<ChartMarker[]>(
+    () =>
+      effectiveTransactions(data.transactions)
+        .filter((t) => t.productId === productId && (t.printing ?? null) === (printing ?? null) && (t.type === "purchase" || t.type === "sale"))
+        .map((t) => ({
+          date: t.date,
+          kind: t.type === "sale" ? "sell" : "buy",
+          label: `${t.type === "sale" ? "Sold" : "Bought"} ${t.quantity} × ${money(t.unitPrice)}`,
+        })),
+    [data.transactions, productId, printing],
+  );
+
   return (
     <Card className="mt-8 p-5 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -263,7 +275,7 @@ function PriceHistory({ productId, printing }: { productId: string; printing: st
       </div>
       <div className="mt-4">
         {sliced.length > 1 ? (
-          <ScrubChart data={sliced.map((p) => ({ date: p.date, value: p.price }))} tone={tone(sliced[sliced.length - 1].price - sliced[0].price)} baseline={sliced[0].price} onScrub={setScrub} height={220} />
+          <ScrubChart data={sliced.map((p) => ({ date: p.date, value: p.price }))} tone={tone(sliced[sliced.length - 1].price - sliced[0].price)} baseline={sliced[0].price} onScrub={setScrub} height={220} markers={markers} />
         ) : (
           <div className="flex h-[220px] flex-col items-center justify-center rounded-2xl border border-dashed border-border px-6 text-center text-[13px] text-muted">
             <p className="font-medium text-foreground">Not enough price history yet</p>
@@ -274,6 +286,16 @@ function PriceHistory({ productId, printing }: { productId: string; printing: st
         )}
       </div>
       <p className="mt-2 text-[11px] text-subtle">
+        {markers.length > 0 && (
+          <span className="mr-3 inline-flex items-center gap-1.5 text-muted">
+            <span className="size-2 rounded-full bg-foreground" /> Your purchases
+            {markers.some((m) => m.kind === "sell") && (
+              <>
+                <span className="ml-2 size-2 rounded-full bg-down" /> Sales
+              </>
+            )}
+          </span>
+        )}
         {isSample ? "Sample series for demonstration — not market data." : `${series.length} daily observation${series.length === 1 ? "" : "s"} · gaps are shown as-is, never interpolated`}
       </p>
     </Card>
