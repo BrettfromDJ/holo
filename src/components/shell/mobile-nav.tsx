@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, BookOpen, Plus, Settings } from "lucide-react";
+import { Activity, BookOpen, Compass, Plus, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useStore } from "@/lib/store/collection-store";
@@ -20,6 +20,7 @@ export function MobileTopBar() {
       </Link>
       <div className="flex items-center gap-1">
         {[
+          { href: "/explore", label: "Explore", icon: Compass },
           { href: "/binder", label: "Binder", icon: BookOpen },
           { href: "/activity", label: "Activity", icon: Activity },
           { href: "/settings", label: "Settings", icon: Settings },

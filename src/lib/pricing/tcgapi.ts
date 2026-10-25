@@ -368,3 +368,49 @@ export async function setChecklist(slug: string): Promise<SetChecklist> {
     return { setId: slug, name: set.name, releaseDate: set.release_date, iconUrl: set.set_icon_url ?? set.image_url, cards };
   });
 }
+
+/* ------------------------- Explore catalog sync -------------------------- */
+
+/** Requests left today, as last reported by TCG API (null until the first call). */
+export function dailyRemaining(): number | null {
+  return rateLimit?.daily_remaining ?? null;
+}
+
+/** Catalogs (games) Holo covers, for the catalog sync. */
+export async function catalogGameList(): Promise<{ slug: string; name: string }[]> {
+  return (await catalogGames()).map(({ slug, name }) => ({ slug, name }));
+}
+
+/** One page of a game's sets. Uncached: the catalog sync stores the result. */
+export async function gameSetsPage(gameSlug: string, page: number): Promise<{ sets: TcgSet[]; hasMore: boolean }> {
+  const res = await call((c) => c.games.sets(gameSlug, { page, per_page: 200 }));
+  const more = (res.meta as { has_more?: boolean } | undefined)?.has_more;
+  return { sets: res.data, hasMore: more ?? res.data.length === 200 };
+}
+
+/** One page of every product (singles and sealed) in a set, with primary-printing prices. */
+export async function setProductsPage(
+  set: { id: number; slug: string; name: string },
+  page: number,
+): Promise<{ products: Product[]; prices: NormalizedPrice[]; hasMore: boolean }> {
+  const res = await call((c) => c.sets.cards(set.id, { page, per_page: 200, sort: "number" }));
+  const products: Product[] = [];
+  const prices: NormalizedPrice[] = [];
+  for (const card of res.data) {
+    const product = { ...toProduct(card), setName: set.name, setId: set.slug };
+    products.push(product);
+    prices.push(
+      normalizePrice(product.id, {
+        printing: card.printing,
+        market_price: card.market_price,
+        low_price: card.low_price,
+        price_change_24h: null,
+        price_change_7d: null,
+        price_change_30d: null,
+        last_updated_at: (card.price_updated_at ?? null) as string,
+      }),
+    );
+  }
+  const more = (res.meta as { has_more?: boolean } | undefined)?.has_more;
+  return { products, prices, hasMore: more ?? res.data.length === 200 };
+}

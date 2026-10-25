@@ -136,6 +136,22 @@ export type ShelfRow = {
   updated_at: string;
 };
 
+export type CatalogSetRow = {
+  slug: string;
+  tcgapi_id: number;
+  game_slug: string;
+  game_name: string;
+  name: string;
+  abbreviation: string | null;
+  release_date: string | null;
+  card_count: number | null;
+  image_url: string | null;
+  icon_url: string | null;
+  product_count: number | null;
+  listed_at: string;
+  products_synced_at: string | null;
+};
+
 export type ProfileRow = {
   id: string;
   display_name: string | null;
@@ -156,6 +172,7 @@ export type Database = {
       watchlist_items: Table<WatchlistRow>;
       share_links: Table<ShareLinkRow>;
       shelves: Table<ShelfRow>;
+      catalog_sets: Table<CatalogSetRow>;
     };
     Views: {
       purchase_lots: {
