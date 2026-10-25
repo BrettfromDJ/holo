@@ -71,38 +71,45 @@ export function AllocationShowcase({
     graded: "graded",
   };
 
+  // A bar only says something when value is split across categories.
+  const split = groups.filter((g) => g.share > 0).length > 1;
+  const solo = groups.length === 1;
+
   return (
     <div>
-      <div
-        className="flex h-7 w-full origin-left animate-grow-x gap-[3px] overflow-hidden rounded-[10px]"
-        role="img"
-        aria-label={groups
-          .map((g) => `${CATEGORY_META[g.category].label} ${pct(g.share, 0)}`)
-          .join(", ")}
-      >
-        {groups
-          .filter((g) => g.share > 0)
-          .map((g) => (
-            <div
-              key={g.category}
-              className="flex min-w-0 items-center overflow-hidden px-2.5 transition-[flex-grow] duration-700 ease-[var(--ease-apple)]"
-              style={{
-                flexGrow: g.share,
-                background: CATEGORY_META[g.category].color,
-              }}
-            >
-              {g.share >= 0.12 && (
-                <span className="tabular truncate text-[12px] font-semibold text-white/95">
-                  {pct(g.share, 0)}
-                </span>
-              )}
-            </div>
-          ))}
-      </div>
+      {split && (
+        <div
+          className="flex h-7 w-full origin-left animate-grow-x gap-[3px] overflow-hidden rounded-[10px]"
+          role="img"
+          aria-label={groups
+            .map((g) => `${CATEGORY_META[g.category].label} ${pct(g.share, 0)}`)
+            .join(", ")}
+        >
+          {groups
+            .filter((g) => g.share > 0)
+            .map((g) => (
+              <div
+                key={g.category}
+                className="flex min-w-0 items-center overflow-hidden px-2.5 transition-[flex-grow] duration-700 ease-[var(--ease-apple)]"
+                style={{
+                  flexGrow: g.share,
+                  background: CATEGORY_META[g.category].color,
+                }}
+              >
+                {g.share >= 0.12 && (
+                  <span className="tabular truncate text-[12px] font-semibold text-white/95">
+                    {pct(g.share, 0)}
+                  </span>
+                )}
+              </div>
+            ))}
+        </div>
+      )}
 
       <div
         className={cn(
-          "mt-5 grid gap-3",
+          "grid gap-3",
+          split && "mt-5",
           groups.length === 1
             ? "grid-cols-1"
             : groups.length === 2
@@ -114,8 +121,18 @@ export function AllocationShowcase({
           const gainPct =
             g.costBasis > 0 ? (g.value - g.costBasis) / g.costBasis : null;
           const body = (
-            <div className="flex items-center gap-4 sm:block">
-              <div className="relative flex h-[84px] w-[132px] shrink-0 items-center justify-center sm:h-[104px] sm:w-auto">
+            <div
+              className={cn(
+                "flex items-center gap-4",
+                solo ? "sm:gap-10 sm:px-4" : "sm:block",
+              )}
+            >
+              <div
+                className={cn(
+                  "relative flex h-[84px] w-[132px] shrink-0 items-center justify-center",
+                  solo ? "sm:h-[120px] sm:w-[220px]" : "sm:h-[104px] sm:w-auto",
+                )}
+              >
                 {g.top.length ? (
                   g.top.map((h, i) => {
                     const slot =
@@ -148,7 +165,9 @@ export function AllocationShowcase({
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 sm:mt-3">
+                <div
+                  className={cn("flex items-center gap-2", !solo && "sm:mt-3")}
+                >
                   <span
                     className="size-2 rounded-full"
                     style={{ background: CATEGORY_META[g.category].color }}
@@ -157,9 +176,11 @@ export function AllocationShowcase({
                   <span className="text-[13px] font-medium">
                     {CATEGORY_META[g.category].label}
                   </span>
-                  <span className="tabular ml-auto text-[12px] text-muted">
-                    {pct(g.share, 0)}
-                  </span>
+                  {split && (
+                    <span className="tabular ml-auto text-[12px] text-muted">
+                      {pct(g.share, 0)}
+                    </span>
+                  )}
                 </div>
                 <p className="tabular mt-1 text-[22px] font-semibold tracking-tight">
                   {money(g.value)}
@@ -173,6 +194,14 @@ export function AllocationShowcase({
                   </span>
                   {showGains && <DeltaPill ratio={gainPct} />}
                 </div>
+                {solo && linkTiles && (
+                  <p className="mt-3 text-[12px] text-subtle">
+                    Your whole collection is{" "}
+                    {CATEGORY_META[g.category].label.toLowerCase()}. Add{" "}
+                    {g.category === "sealed" ? "singles" : "sealed product"} and
+                    this becomes a split.
+                  </p>
+                )}
               </div>
             </div>
           );
