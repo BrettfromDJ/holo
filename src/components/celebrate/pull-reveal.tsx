@@ -10,7 +10,8 @@ import { ProductImage } from "@/components/product/product-image";
 import { Button } from "@/components/ui/button";
 import { onPull, type PullEvent } from "@/lib/celebrate";
 import { money, signedMoney } from "@/lib/format";
-import { usePortfolio } from "@/lib/store/collection-store";
+import { budgetStatus } from "@/lib/budget";
+import { usePortfolio, useStore } from "@/lib/store/collection-store";
 import { cn } from "@/lib/utils";
 
 /**
@@ -21,6 +22,8 @@ import { cn } from "@/lib/utils";
 export function PullReveal() {
   const [event, setEvent] = useState<PullEvent | null>(null);
   const { summary } = usePortfolio();
+  const { data, today } = useStore();
+  const budget = budgetStatus(data.transactions, today, data.preferences.monthlyBudget);
   const router = useRouter();
 
   useEffect(() => onPull(setEvent), []);
@@ -85,7 +88,14 @@ export function PullReveal() {
           <p className="tabular mt-1 text-[40px] font-semibold leading-none tracking-[-0.03em]">
             <AnimatedNumber value={summary.marketValue} from={event.before} format={money} duration={1600} />
           </p>
-          {Math.abs(added) >= 0.01 && <p className="tabular mt-1.5 text-[13px] text-up">{signedMoney(added)} at today&apos;s price</p>}
+          {Math.abs(added) >= 0.01 && <p className="tabular mt-1.5 text-[13px] text-muted">
+              <span className="text-up">{signedMoney(added)}</span> at today&apos;s price
+            </p>}
+          {budget.budget !== null && budget.remaining! < 0 && (
+            <p className="tabular mt-3 rounded-full bg-surface-2 px-3 py-1 text-[12px] text-muted">
+              That puts you <span className="font-medium text-down">{money(-budget.remaining!)}</span> over your monthly budget
+            </p>
+          )}
         </div>
 
         <div className="relative mt-8 flex animate-rise gap-2" style={{ animationDelay: "900ms" }}>

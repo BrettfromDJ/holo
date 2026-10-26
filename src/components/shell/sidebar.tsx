@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store/collection-store";
 import { cn } from "@/lib/utils";
 import { Logo } from "./logo";
+import { PortfolioSwitcher } from "@/components/portfolio/portfolio-controls";
 import { ModeSwitcher } from "./mode-switcher";
 import { NAV, isActive } from "./nav";
 
@@ -40,7 +41,8 @@ export function Sidebar() {
           );
         })}
       </nav>
-      <div className="mt-auto">
+      <div className="mt-auto space-y-2">
+        <PortfolioSwitcher />
         <ModeSwitcher />
       </div>
     </aside>

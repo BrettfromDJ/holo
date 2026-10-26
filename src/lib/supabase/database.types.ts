@@ -114,6 +114,7 @@ export type PreferencesRow = {
   default_view: "grid" | "list";
   chart_range: "1D" | "1W" | "1M" | "3M" | "1Y" | "ALL";
   updated_at: string;
+  monthly_budget?: number | null;
 };
 
 export type ShareLinkRow = {
@@ -163,6 +164,15 @@ export type CatalogGameRow = {
   listed_at: string;
 };
 
+export type PortfolioRow = {
+  id: string;
+  user_id: string;
+  name: string;
+  holding_keys: string[];
+  created_at: string;
+  updated_at: string;
+};
+
 export type ProfileRow = {
   id: string;
   display_name: string | null;
@@ -183,6 +193,7 @@ export type Database = {
       watchlist_items: Table<WatchlistRow>;
       share_links: Table<ShareLinkRow>;
       shelves: Table<ShelfRow>;
+      portfolios: Table<PortfolioRow>;
       catalog_sets: Table<CatalogSetRow>;
       catalog_games: Table<CatalogGameRow>;
     };

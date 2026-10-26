@@ -4,6 +4,7 @@ import { Check, Cloud, Download, FlaskConical, HardDrive, Moon, RefreshCw, Sun, 
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { PortfolioManager } from "@/components/portfolio/portfolio-controls";
 import { ShareLinks } from "@/components/settings/share-links";
 import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
@@ -103,6 +104,10 @@ export default function SettingsPage() {
             <Download /> Export
           </Button>
         </Row>
+      </Section>
+
+      <Section title="Portfolios">
+        <PortfolioManager />
       </Section>
 
       <Section title="Share">

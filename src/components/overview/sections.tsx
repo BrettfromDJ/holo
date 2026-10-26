@@ -136,7 +136,7 @@ export function Spotlight({ holdings }: { holdings: HoldingView[] }) {
             className="aspect-[16/11] w-full shrink-0 rounded-2xl transition-transform duration-700 ease-[var(--ease-apple)] group-hover:scale-[1.02] sm:aspect-square sm:w-[44%]"
           />
           <div className="flex min-w-0 flex-1 flex-col">
-            <TileLabel icon={Sparkles} className="text-up">
+            <TileLabel icon={Sparkles} className="text-muted">
               Star of the collection
             </TileLabel>
             <h3 className="mt-3 line-clamp-2 text-[22px] font-semibold leading-tight tracking-[-0.01em] sm:text-[26px]">{star.product?.name}</h3>
@@ -159,7 +159,7 @@ export function Spotlight({ holdings }: { holdings: HoldingView[] }) {
 
       {mover && <MiniTile h={mover} icon={Flame} label="Biggest move today" metric={<Delta value={mover.dayChange} ratio={mover.dayChangePct} />} />}
       {laggard ? (
-        <MiniTile h={laggard} icon={TrendingDown} label="Below what you paid" metric={<Delta value={laggard.unrealized} ratio={laggard.unrealizedPct} />} accent="down" />
+        <MiniTile h={laggard} icon={TrendingDown} label="Below what you paid" metric={<Delta value={laggard.unrealized} ratio={laggard.unrealizedPct} />} />
       ) : (
         <div className="flex flex-col justify-center rounded-[var(--radius-card)] border border-border bg-surface p-5">
           <TileLabel icon={TrendingDown} className="text-muted">
@@ -172,11 +172,11 @@ export function Spotlight({ holdings }: { holdings: HoldingView[] }) {
   );
 }
 
-function MiniTile({ h, icon, label, metric, accent }: { h: HoldingView; icon: React.ElementType; label: string; metric: React.ReactNode; accent?: "down" }) {
+function MiniTile({ h, icon, label, metric }: { h: HoldingView; icon: React.ElementType; label: string; metric: React.ReactNode }) {
   const series = useSeries(h, 30);
   return (
     <Link href={holdingHref(h)} className="group flex flex-col overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface p-5 transition-colors hover:bg-surface-2/60">
-      <TileLabel icon={icon} className={accent === "down" ? "text-down" : "text-muted"}>
+      <TileLabel icon={icon} className="text-muted">
         {label}
       </TileLabel>
       <div className="mt-4 flex items-center gap-4">

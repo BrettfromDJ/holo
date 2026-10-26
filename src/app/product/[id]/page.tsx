@@ -14,6 +14,7 @@ import { Delta, DeltaPill } from "@/components/product/delta";
 import { AnimatedNumber } from "@/components/motion/animated-number";
 import { Reveal } from "@/components/motion/reveal";
 import { HoloTilt } from "@/components/motion/holo-tilt";
+import { MoveToPortfolio } from "@/components/portfolio/portfolio-controls";
 import { ShelfMenu } from "@/components/shelves/shelf-controls";
 import { ProductImage } from "@/components/product/product-image";
 import { Badge } from "@/components/ui/badge";
@@ -38,7 +39,7 @@ export default function ProductPage() {
   const params = useParams<{ id: string }>();
   const productId = decodeURIComponent(params.id);
   const store = useStore();
-  const { holdings, realized } = usePortfolio();
+  const { holdings, realized } = usePortfolio({ ignoreFilter: true });
   const product = store.data.products[productId];
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -438,6 +439,7 @@ function HoldingLine({ h }: { h: HoldingView }) {
           {h.identity.grade && ` · valued ${money(h.price)} (manual)`}
         </p>
       </div>
+      <MoveToPortfolio holdingKey={h.key} />
       <Delta value={h.unrealized} ratio={h.unrealizedPct} className="text-[13px]" />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

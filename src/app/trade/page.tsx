@@ -12,7 +12,6 @@ import type { ExploreProduct } from "@/lib/explore/types";
 import { money, pct, signedMoney } from "@/lib/format";
 import { usePortfolio } from "@/lib/store/collection-store";
 import type { Product } from "@/lib/types";
-import { cn } from "@/lib/utils";
 
 interface TradeItem {
   key: string;
@@ -97,8 +96,20 @@ export default function TradePage() {
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-muted">{hasBoth ? "Verdict" : "Add items to both sides"}</p>
-            <p className={cn("mt-2 text-[26px] font-semibold leading-tight tracking-[-0.02em] sm:text-[30px]", hasBoth && !even && (diff > 0 ? "text-up" : "text-down"))}>
-              {!hasBoth ? "—" : even ? "Fair trade" : diff > 0 ? `You come out ${money(diff)} ahead` : `You give up ${money(-diff)} more`}
+            <p className="mt-2 text-[26px] font-semibold leading-tight tracking-[-0.02em] sm:text-[30px]">
+              {!hasBoth ? (
+                "—"
+              ) : even ? (
+                "Fair trade"
+              ) : diff > 0 ? (
+                <>
+                  You come out <span className="tabular text-up">{money(diff)}</span> ahead
+                </>
+              ) : (
+                <>
+                  You give up <span className="tabular text-down">{money(-diff)}</span> more
+                </>
+              )}
             </p>
             {hasBoth && (
               <p className="tabular mt-1 text-[13px] text-muted">

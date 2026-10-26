@@ -6,6 +6,8 @@ import { Delta } from "@/components/product/delta";
 import { AnimatedNumber } from "@/components/motion/animated-number";
 import { Reveal } from "@/components/motion/reveal";
 import { MoversBoard, RecentTimeline } from "@/components/overview/boards";
+import { BudgetCard } from "@/components/overview/budget-card";
+import { PortfolioBanner, PortfolioSwitcher } from "@/components/portfolio/portfolio-controls";
 import { MarketPulse } from "@/components/overview/market-pulse";
 import { ReleaseReminders } from "@/components/overview/release-reminders";
 import { Headline, MetricStrip, Shelf, Spotlight } from "@/components/overview/sections";
@@ -53,6 +55,8 @@ export default function OverviewPage() {
   return (
     <div className="animate-fade-in">
       <MarketPulse holdings={holdings} />
+      <PortfolioSwitcher compact className="mb-4 lg:hidden" />
+      <PortfolioBanner />
       <Headline summary={summary} holdings={holdings} action={<RecapButton onClick={() => setRecapOpen(true)} />} />
       <WeeklyRecap open={recapOpen} onClose={() => setRecapOpen(false)} />
       <ReleaseReminders />
@@ -78,9 +82,10 @@ export default function OverviewPage() {
             { label: "Total invested", value: money(summary.costBasis), sub: "incl. fees & shipping" },
             { label: "Unrealized gain", value: <Delta value={summary.unrealized} />, sub: <span className="flex items-center gap-2"><Delta ratio={summary.unrealizedPct} pctOnly /><span className="text-subtle">· breakdown →</span></span>, href: "/gains" },
             { label: "Today", value: <Delta value={summary.dayChange} />, sub: <Delta ratio={summary.dayChangePct} pctOnly /> },
-            { label: "Collection", value: `${summary.unitCount} items`, sub: `${summary.holdingsCount} products`, href: "/collection" },
+            { label: "Collection", value: `${summary.unitCount} item${summary.unitCount === 1 ? "" : "s"}`, sub: `${summary.holdingsCount} product${summary.holdingsCount === 1 ? "" : "s"}`, href: "/collection" },
           ]}
         />
+        <BudgetCard />
         <PriceFreshness />
       </div>
 

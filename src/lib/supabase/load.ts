@@ -47,7 +47,12 @@ export async function loadCollection(client: Client, userId?: string): Promise<C
     history: {},
     manualValues: {},
     preferences: prefRows[0]
-      ? { currency: "USD", defaultView: prefRows[0].default_view, chartRange: prefRows[0].chart_range }
+      ? {
+          currency: "USD",
+          defaultView: prefRows[0].default_view,
+          chartRange: prefRows[0].chart_range,
+          monthlyBudget: prefRows[0].monthly_budget == null ? null : Number(prefRows[0].monthly_budget),
+        }
       : DEFAULT_PREFERENCES,
   };
 

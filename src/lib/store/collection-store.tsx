@@ -54,6 +54,8 @@ interface StoreState {
   pricesRefreshedAt: string | null;
   refreshing: boolean;
   priceError: string | null;
+  /** When set, portfolio views (usePortfolio) only include holdings it accepts. */
+  holdingFilter: ((holdingKey: string) => boolean) | null;
 }
 
 export interface AddOptions {
@@ -68,6 +70,8 @@ export interface AddOptions {
 
 interface StoreActions {
   setMode(mode: AppMode): void;
+  /** Limit portfolio views to some holdings (e.g. one portfolio), or null for all. */
+  setHoldingFilter(filter: ((holdingKey: string) => boolean) | null): void;
   importProduct(productId: string, printing?: string | null, kind?: ProductKind): Promise<ImportedProduct>;
   setProductKind(productId: string, kind: ProductKind): Promise<void>;
   /** Load a stored catalog product for viewing (no TCG API requests). Nothing is saved to the collection. Returns false if it isn't in the catalog. */
@@ -130,6 +134,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
     today: todayISO(),
     data: emptyData(),
     user: null,
+    holdingFilter: null,
     integrations: { tcgapi: false, supabase: isSupabaseConfigured() },
     pricesRefreshedAt: null,
     refreshing: false,
@@ -271,6 +276,9 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
       return { ...s, data };
     });
   }, []);
+
+  // Stable, so effects that set the filter don't re-run on every store update.
+  const setHoldingFilter = useCallback((filter: ((holdingKey: string) => boolean) | null) => setState((s) => ({ ...s, holdingFilter: filter })), []);
 
   const setProductKind = useCallback(async (productId: string, kind: ProductKind) => {
     await repoRef.current.setProductKind(productId, kind);
@@ -443,6 +451,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
       setProductKind,
       showCatalogProduct,
       mergeHistory,
+      setHoldingFilter,
       addTransaction,
       addWatch,
       updateWatch,
@@ -456,7 +465,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
       openAdd: (opts?: AddOptions) => setAddTarget({ open: true, ...opts }),
       closeAdd: () => setAddTarget({ open: false }),
     }),
-    [state, setMode, importProduct, setProductKind, showCatalogProduct, mergeHistory, addTransaction, addWatch, updateWatch, removeWatch, setManualValue, refreshPrices, savePreferences, resetDemo, signOut, addTarget],
+    [state, setMode, importProduct, setProductKind, showCatalogProduct, mergeHistory, setHoldingFilter, addTransaction, addWatch, updateWatch, removeWatch, setManualValue, refreshPrices, savePreferences, resetDemo, signOut, addTarget],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
@@ -476,9 +485,12 @@ export interface PortfolioView {
 }
 
 /** Derived portfolio numbers, memoized on the underlying data. */
-export function usePortfolio(): PortfolioView {
-  const { data, today } = useStore();
+/** Holdings, summary and timeline — limited to the selected portfolio unless `ignoreFilter`. */
+export function usePortfolio(opts?: { ignoreFilter?: boolean }): PortfolioView {
+  const { data: all, today, holdingFilter: selected } = useStore();
+  const holdingFilter = opts?.ignoreFilter ? null : selected;
   return useMemo(() => {
+    const data = holdingFilter ? { ...all, transactions: all.transactions.filter((t) => holdingFilter(holdingKey(t))) } : all;
     const holdings = computeHoldings(data, today);
     const realized = totalRealized(data, today);
     return {
@@ -487,5 +499,5 @@ export function usePortfolio(): PortfolioView {
       timeline: computeTimeline(data, today),
       realized: realized.entries,
     };
-  }, [data, today]);
+  }, [all, today, holdingFilter]);
 }

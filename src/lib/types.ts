@@ -130,6 +130,8 @@ export interface Preferences {
   currency: "USD";
   defaultView: "grid" | "list";
   chartRange: ChartRange;
+  /** Monthly spending limit for purchases (incl. fees), or null for none. */
+  monthlyBudget?: number | null;
 }
 
 export type ChartRange = "1D" | "1W" | "1M" | "3M" | "1Y" | "ALL";
@@ -152,6 +154,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   currency: "USD",
   defaultView: "grid",
   chartRange: "1M",
+  monthlyBudget: null,
 };
 
 export function priceKey(productId: string, printing: string | null): string {

@@ -16,7 +16,8 @@ import { money } from "@/lib/format";
 import type { SearchHit } from "@/lib/pricing/types";
 import { usePortfolio, useStore, type ImportedProduct } from "@/lib/store/collection-store";
 import { celebratePull } from "@/lib/celebrate";
-import { CONDITIONS, priceKey, type Condition } from "@/lib/types";
+import { ALL, MAIN, MAIN_NAME, usePortfolios } from "@/lib/store/portfolios";
+import { CONDITIONS, holdingKey, priceKey, type Condition } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Field, MoneyInput, Stepper, SummaryRow, parseMoney } from "./fields";
 import { ProductSearch } from "./product-search";
@@ -165,6 +166,9 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
   const [tax, setTax] = useState("");
   const [source, setSource] = useState("");
   const [notes, setNotes] = useState("");
+  const { portfolios, selected: viewing, portfolioOf, move } = usePortfolios();
+  // New purchases go to the portfolio being viewed (Main when viewing all).
+  const [portfolioId, setPortfolioId] = useState<string>(viewing !== ALL ? viewing : MAIN);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -208,6 +212,8 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
         source: source.trim() || null,
         notes: notes.trim() || null,
       });
+      const key = holdingKey(identity);
+      if (portfolioOf(key) !== portfolioId) await move(key, portfolioId).catch(() => undefined);
       const gv = parseMoney(gradedValue);
       if (graded && gv !== null) await setManualValue(identity, gv);
       if (fromWatchId) await removeWatch(fromWatchId);
@@ -233,6 +239,22 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
             <Input id="purchase-date" type="date" value={date} max={today} onChange={(e) => setDate(e.target.value)} className="tabular" />
           </Field>
         </div>
+        {portfolios.length > 0 && (
+          <Field label="Portfolio">
+            <Select value={portfolioId} onValueChange={setPortfolioId}>
+              <SelectTrigger aria-label="Portfolio">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[{ id: MAIN, name: MAIN_NAME }, ...portfolios].map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        )}
 
         <Field
           label={priceMode === "unit" ? "Price per unit" : "Total lot price"}

@@ -354,9 +354,16 @@ export class CloudRepository implements Repository {
   }
 
   async savePreferences(p: Preferences) {
-    const { error } = await this.client
-      .from("user_preferences")
-      .upsert({ user_id: this.userId, currency: p.currency, default_view: p.defaultView, chart_range: p.chartRange, updated_at: new Date().toISOString() });
-    if (error) throw error;
+    const row = { user_id: this.userId, currency: p.currency, default_view: p.defaultView, chart_range: p.chartRange, updated_at: new Date().toISOString() };
+    const { error } = await this.client.from("user_preferences").upsert({ ...row, monthly_budget: p.monthlyBudget ?? null });
+    if (!error) return;
+    // Before the budget column is added, save everything else and say why the budget didn't stick.
+    if (/monthly_budget/.test(error.message)) {
+      const { error: retry } = await this.client.from("user_preferences").upsert(row);
+      if (retry) throw retry;
+      if (p.monthlyBudget != null) throw new Error("Run supabase/migrations/20261029000000_budget_and_portfolios.sql in Supabase to save your budget to your account.");
+      return;
+    }
+    throw error;
   }
 }

@@ -9,6 +9,7 @@ import { ErrorState } from "@/components/portfolio/error-state";
 import { HoldingListHeader, HoldingListRow, HoldingTile } from "@/components/portfolio/holding-items";
 import { DeltaPill } from "@/components/product/delta";
 import { ProductImage } from "@/components/product/product-image";
+import { PortfolioBanner, PortfolioSwitcher } from "@/components/portfolio/portfolio-controls";
 import { PageHeader } from "@/components/shell/page-header";
 import { ShelfDialog } from "@/components/shelves/shelf-controls";
 import { Button } from "@/components/ui/button";
@@ -155,6 +156,8 @@ function Collection() {
         }
       />
 
+      <PortfolioSwitcher compact className="mb-3 lg:hidden" />
+      <PortfolioBanner />
       {/* Toolbar */}
       <div className="sticky top-14 z-20 -mx-4 bg-background/90 px-4 py-3 backdrop-blur-xl sm:-mx-8 sm:px-8 lg:top-0">
         <div className="flex flex-wrap items-center gap-2">
