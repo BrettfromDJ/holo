@@ -4,8 +4,8 @@ import type { ExploreProduct, ExploreSet } from "../explore/types";
 import type { CatalogSetRow, Database, ProductRow } from "../supabase/database.types";
 import { productFromRow } from "../supabase/mappers";
 
-/** Browsing is read from Supabase only — never from the TCG API. Cached at the CDN for an hour. */
-export const EXPLORE_CACHE = "public, s-maxage=3600, stale-while-revalidate=86400";
+/** Browsing is read from Supabase only — never from the TCG API. Cached at the CDN for ten minutes. */
+export const EXPLORE_CACHE = "public, s-maxage=600, stale-while-revalidate=3600";
 
 export function setFromRow(r: CatalogSetRow): ExploreSet {
   return {

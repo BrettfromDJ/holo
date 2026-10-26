@@ -14,5 +14,8 @@ export async function GET() {
       { status: missing ? 503 : 500 },
     );
   }
-  return NextResponse.json({ sets: (data ?? []).map(setFromRow) }, { headers: { "cache-control": EXPLORE_CACHE } });
+  const sets = (data ?? []).map(setFromRow);
+  // Never cache an empty or barely-started catalog, so the first sync shows up right away.
+  const cache = sets.some((s) => s.loaded) ? EXPLORE_CACHE : "no-store";
+  return NextResponse.json({ sets }, { headers: { "cache-control": cache } });
 }
