@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { tcgApiProvider } from "@/lib/pricing";
-import type { GameFilter, ProductTypeFilter } from "@/lib/pricing/types";
+import { FRANCHISES, type GameFilter, type ProductTypeFilter } from "@/lib/pricing/types";
 import { errorResponse } from "@/lib/server/http";
 import { allowRequest, clientKey } from "@/lib/server/rate-limit";
 
@@ -11,7 +11,7 @@ export async function GET(req: Request) {
   const game = (url.searchParams.get("game") ?? "pokemon") as GameFilter;
   const page = Math.max(1, Number(url.searchParams.get("page") ?? 1) || 1);
   if (q.length < 2) return NextResponse.json({ hits: [], total: 0, hasMore: false });
-  if (!["all", "pokemon", "lorcana"].includes(game)) return NextResponse.json({ error: { code: "bad_request", message: "Invalid game." } }, { status: 400 });
+  if (game !== "all" && !FRANCHISES.some((f) => f.value === game)) return NextResponse.json({ error: { code: "bad_request", message: "Invalid game." } }, { status: 400 });
   if (!["all", "cards", "sealed"].includes(type)) return NextResponse.json({ error: { code: "bad_request", message: "Invalid type." } }, { status: 400 });
   if (!allowRequest(clientKey(req, "search"), 40, 40)) {
     return NextResponse.json({ error: { code: "rate_limited", message: "Searching too quickly — try again in a moment." } }, { status: 429 });

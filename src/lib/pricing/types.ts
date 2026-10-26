@@ -3,7 +3,16 @@ import type { DataSource, NormalizedPrice, PricePoint, Product } from "../types"
 export type ProductTypeFilter = "all" | "cards" | "sealed";
 
 /** Which franchises to search. Each catalog searched costs one API request. */
-export type GameFilter = "all" | "pokemon" | "lorcana";
+export type GameFilter = "all" | "pokemon" | "lorcana" | "yugioh" | "onepiece" | "magic";
+
+/** Franchises Holo covers, in display order. */
+export const FRANCHISES: { value: Exclude<GameFilter, "all">; label: string }[] = [
+  { value: "pokemon", label: "Pokémon" },
+  { value: "magic", label: "Magic: The Gathering" },
+  { value: "yugioh", label: "Yu-Gi-Oh!" },
+  { value: "onepiece", label: "One Piece" },
+  { value: "lorcana", label: "Disney Lorcana" },
+];
 
 export interface SearchQuery {
   q: string;

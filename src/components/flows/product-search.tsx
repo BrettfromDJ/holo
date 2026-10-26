@@ -9,7 +9,8 @@ import { ProductImage } from "@/components/product/product-image";
 import { categoryOf } from "@/lib/catalog";
 import { SAMPLE_PRODUCTS } from "@/lib/demo/catalog";
 import { money } from "@/lib/format";
-import type { GameFilter, ProductTypeFilter, SearchHit } from "@/lib/pricing/types";
+import { FRANCHISES, type GameFilter, type ProductTypeFilter, type SearchHit } from "@/lib/pricing/types";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { parseQuery, rankByQuery, scoreProduct } from "@/lib/search-query";
 import { useStore } from "@/lib/store/collection-store";
 import { priceKey } from "@/lib/types";
@@ -22,7 +23,7 @@ function matchesType(hit: SearchHit, type: ProductTypeFilter) {
   return type === "all" || (type === "sealed" ? hit.product.kind === "sealed" : hit.product.kind === "single");
 }
 
-/** "Pokemon Japan" → "Japan", "Disney Lorcana" → "Lorcana"; nothing for English Pokémon. */
+/** "Pokemon Japan" → "Japan", "Disney Lorcana" → "Lorcana", other brands by name; nothing for English Pokémon. */
 function regionLabel(gameName: string | null | undefined): string | null {
   if (!gameName || /^pok[eé]mon$/i.test(gameName.trim())) return null;
   if (/lorcana/i.test(gameName)) return "Lorcana";
@@ -34,7 +35,7 @@ const GAME_KEY = "holo:search-game";
 function initialGame(): GameFilter {
   try {
     const g = localStorage.getItem(GAME_KEY);
-    if (g === "pokemon" || g === "lorcana" || g === "all") return g;
+    if (g === "all" || FRANCHISES.some((f) => f.value === g)) return g as GameFilter;
   } catch {
     // ignore
   }
@@ -191,17 +192,19 @@ export function ProductSearch({ onSelect, autoFocus = true }: { onSelect: (hit: 
           {demo ? (
             <Badge variant="sample">Sample catalog</Badge>
           ) : (
-            <Segmented
-              ariaLabel="Game"
-              size="sm"
-              value={game}
-              onChange={setGame}
-              options={[
-                { value: "pokemon", label: "Pokémon" },
-                { value: "lorcana", label: "Lorcana" },
-                { value: "all", label: "Both", title: "Search both (uses more API requests)" },
-              ]}
-            />
+            <Select value={game} onValueChange={(v) => setGame(v as GameFilter)}>
+              <SelectTrigger aria-label="Game" className="h-8 w-auto min-w-[150px] text-[13px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent align="end">
+                {FRANCHISES.map((f) => (
+                  <SelectItem key={f.value} value={f.value}>
+                    {f.label}
+                  </SelectItem>
+                ))}
+                <SelectItem value="all">All games (more API requests)</SelectItem>
+              </SelectContent>
+            </Select>
           )}
         </div>
       </div>

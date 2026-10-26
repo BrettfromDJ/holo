@@ -154,6 +154,9 @@ interface GameRef {
 function franchiseOf(text: string): GameRef["franchise"] | null {
   if (/pok[eé]mon/i.test(text)) return "pokemon";
   if (/lorcana/i.test(text)) return "lorcana";
+  if (/yu-?gi-?oh/i.test(text)) return "yugioh";
+  if (/one[\s-]?piece/i.test(text)) return "onepiece";
+  if (/magic[\s:-]*the[\s-]*gathering|^magic\b|\bmtg\b/i.test(text)) return "magic";
   return null;
 }
 
@@ -163,8 +166,8 @@ const FALLBACK_GAMES: GameRef[] = [
 ];
 
 /**
- * Every catalog Holo searches: all Pokémon catalogs (English, Japanese, …)
- * and Disney Lorcana. Japanese products such as "MEGA Dream ex" live under a
+ * Every catalog Holo covers: all Pokémon catalogs (English, Japanese, …),
+ * Magic: The Gathering, Yu-Gi-Oh!, One Piece and Disney Lorcana. Japanese products such as "MEGA Dream ex" live under a
  * separate game, so searching only the English game misses them. Discovered
  * once a day from GET /games; override with TCGAPI_GAMES="slug-a,slug-b".
  */

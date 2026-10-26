@@ -8,7 +8,7 @@ export async function GET() {
   const admin = getAdminSupabase();
   if (!admin) return NextResponse.json({ error: { message: "Explore needs Supabase to be configured." } }, { status: 503 });
   const [{ data, error }, { data: gameRows }] = await Promise.all([
-    admin.from("catalog_sets").select("*").order("release_date", { ascending: false, nullsFirst: false }).limit(3000),
+    admin.from("catalog_sets").select("*").order("release_date", { ascending: false, nullsFirst: false }).limit(6000),
     admin.from("catalog_games").select("*").order("sort"),
   ]);
   if (error) {

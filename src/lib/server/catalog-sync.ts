@@ -46,35 +46,33 @@ export async function syncCatalog(admin: SupabaseClient<Database>, opts: Catalog
     // --- 0. Brands (weekly; never blocks the rest) -------------------------
     await syncGames(admin);
 
-    // --- 1. Set lists (weekly) ---------------------------------------------
-    const { data: newest } = await admin.from("catalog_sets").select("listed_at").order("listed_at", { ascending: false }).limit(1);
-    const listStale = !newest?.length || Date.now() - Date.parse(newest[0].listed_at) > 7 * DAY;
-    if (listStale) {
-      for (const game of await catalogGameList()) {
-        for (let page = 1; page <= 5; page++) {
-          if (!canCall()) return { ...result, stoppedBecause: "budget" };
-          result.calls++;
-          const { sets, hasMore } = await gameSetsPage(game.slug, page);
-          if (sets.length) {
-            const rows = sets.map((s) => ({
-              slug: s.slug,
-              tcgapi_id: s.id,
-              game_slug: game.slug,
-              game_name: s.game_name ?? game.name,
-              name: s.name,
-              abbreviation: s.abbreviation,
-              release_date: s.release_date ? s.release_date.slice(0, 10) : null,
-              card_count: s.card_count,
-              image_url: s.image_url,
-              icon_url: s.set_icon_url,
-              listed_at: new Date().toISOString(),
-            }));
-            const { error } = await admin.from("catalog_sets").upsert(rows);
-            if (error) throw new Error(error.message);
-            result.setsListed += rows.length;
-          }
-          if (!hasMore) break;
+    // --- 1. Set lists (weekly per brand; a newly added brand right away) --
+    for (const game of await catalogGameList()) {
+      const { data: newest } = await admin.from("catalog_sets").select("listed_at").eq("game_slug", game.slug).order("listed_at", { ascending: false }).limit(1);
+      if (newest?.length && Date.now() - Date.parse(newest[0].listed_at) < 7 * DAY) continue;
+      for (let page = 1; page <= 10; page++) {
+        if (!canCall()) return { ...result, stoppedBecause: "budget" };
+        result.calls++;
+        const { sets, hasMore } = await gameSetsPage(game.slug, page);
+        if (sets.length) {
+          const rows = sets.map((s) => ({
+            slug: s.slug,
+            tcgapi_id: s.id,
+            game_slug: game.slug,
+            game_name: s.game_name ?? game.name,
+            name: s.name,
+            abbreviation: s.abbreviation,
+            release_date: s.release_date ? s.release_date.slice(0, 10) : null,
+            card_count: s.card_count,
+            image_url: s.image_url,
+            icon_url: s.set_icon_url,
+            listed_at: new Date().toISOString(),
+          }));
+          const { error } = await admin.from("catalog_sets").upsert(rows);
+          if (error) throw new Error(error.message);
+          result.setsListed += rows.length;
         }
+        if (!hasMore) break;
       }
     }
 
@@ -131,21 +129,21 @@ async function storePrices(admin: SupabaseClient<Database>, prices: NormalizedPr
   if (!toWrite.length) return 0;
   const { error } = await admin.from("product_prices").upsert(toWrite);
   if (error) throw new Error(error.message);
-  const today = new Date().toISOString().slice(0, 10);
-  const snaps = toWrite
-    .filter((r) => r.market_price !== null)
-    .map((r) => ({ product_id: r.product_id, printing: r.printing, snapshot_date: today, market_price: r.market_price as number, source: r.source }));
-  if (snaps.length) await admin.from("price_snapshots").upsert(snaps, { ignoreDuplicates: true });
+  // No daily snapshots here: across every brand that would be hundreds of
+  // thousands of rows per pass. History comes from the daily price sync for
+  // owned/watched products and from "Load full price history" on demand.
   return toWrite.length;
 }
 
 /** Store the catalogs (brands) with their logos for Explore. Missing table or errors are ignored. */
 async function syncGames(admin: SupabaseClient<Database>) {
   try {
-    const { data, error } = await admin.from("catalog_games").select("listed_at").order("listed_at", { ascending: false }).limit(1);
+    const { data, error } = await admin.from("catalog_games").select("slug, listed_at");
     if (error) return;
-    if (data?.length && Date.now() - Date.parse(data[0].listed_at) < 7 * DAY) return;
     const games = await catalogGameList();
+    const stored = new Set((data ?? []).map((g) => g.slug));
+    const newest = (data ?? []).reduce((m, g) => Math.max(m, Date.parse(g.listed_at)), 0);
+    if (games.every((g) => stored.has(g.slug)) && Date.now() - newest < 7 * DAY) return;
     await admin.from("catalog_games").upsert(
       games.map((g, i) => ({
         slug: g.slug,
