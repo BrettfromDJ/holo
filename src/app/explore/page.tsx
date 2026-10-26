@@ -2,7 +2,7 @@
 
 import { Compass, Loader2, Search, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { GameTile, ProductSheet, ProductTile, useExploreIndex, useOwnedIds } from "@/components/explore/explore-items";
+import { GameTile, ProductTile, useExploreIndex, useOwnedIds } from "@/components/explore/explore-items";
 import { PageHeader } from "@/components/shell/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ExploreProduct } from "@/lib/explore/types";
@@ -14,7 +14,6 @@ export default function ExplorePage() {
   const index = useExploreIndex();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Load<ExploreProduct[]> | null>(null);
-  const [open, setOpen] = useState<ExploreProduct | null>(null);
   const owned = useOwnedIds();
 
   // Debounced catalog search — served from Supabase, never the TCG API.
@@ -78,7 +77,7 @@ export default function ExplorePage() {
           ) : (
             <div className="grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 lg:grid-cols-5">
               {results.data.map((item) => (
-                <ProductTile key={item.product.id} item={item} owned={owned.has(item.product.id)} onOpen={() => setOpen(item)} />
+                <ProductTile key={item.product.id} item={item} owned={owned.has(item.product.id)} />
               ))}
             </div>
           )}
@@ -110,8 +109,6 @@ export default function ExplorePage() {
           </div>
         </section>
       )}
-
-      <ProductSheet item={open} onClose={() => setOpen(null)} />
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ProductSheet, ProductTile, useOwnedIds } from "@/components/explore/explore-items";
+import { ProductTile, useOwnedIds } from "@/components/explore/explore-items";
 import { Segmented } from "@/components/ui/segmented";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,7 +21,6 @@ export default function ExploreSetPage() {
   const [state, setState] = useState<{ set: ExploreSet; products: ExploreProduct[] } | { error: string } | null>(null);
   const [tab, setTab] = useState<Tab>("single");
   const [sort, setSort] = useState<Sort>("price");
-  const [open, setOpen] = useState<ExploreProduct | null>(null);
   const owned = useOwnedIds();
 
   useEffect(() => {
@@ -130,7 +129,7 @@ export default function ExploreSetPage() {
             <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 lg:grid-cols-5">
               {list.map((item, i) => (
                 <div key={item.product.id} className="animate-rise" style={{ animationDelay: `${Math.min(i, 20) * 25}ms` }}>
-                  <ProductTile item={item} owned={owned.has(item.product.id)} onOpen={() => setOpen(item)} />
+                  <ProductTile item={item} owned={owned.has(item.product.id)} />
                 </div>
               ))}
             </div>
@@ -139,8 +138,6 @@ export default function ExploreSetPage() {
           )}
         </>
       )}
-
-      <ProductSheet item={open} onClose={() => setOpen(null)} />
     </div>
   );
 }

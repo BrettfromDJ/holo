@@ -1,17 +1,14 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- set logos come from the pricing source's CDN */
 
-import { Check, ExternalLink, Eye, Plus } from "lucide-react";
+import { Check } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ProductImage } from "@/components/product/product-image";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { categoryOf } from "@/lib/catalog";
 import type { ExploreGame, ExploreProduct, ExploreSet } from "@/lib/explore/types";
-import { formatDate, money, relativeTime } from "@/lib/format";
-import { usePortfolio, useStore } from "@/lib/store/collection-store";
+import { formatDate, money } from "@/lib/format";
+import { usePortfolio } from "@/lib/store/collection-store";
 import { cn } from "@/lib/utils";
 
 /** Product ids the user owns, for "Owned" badges. */
@@ -112,10 +109,11 @@ export function useExploreIndex() {
   return state;
 }
 
-export function ProductTile({ item, owned, onOpen }: { item: ExploreProduct; owned: boolean; onOpen: () => void }) {
+/** A catalog product; opens its full product page (served from the stored catalog). */
+export function ProductTile({ item, owned }: { item: ExploreProduct; owned: boolean }) {
   const p = item.product;
   return (
-    <button onClick={onOpen} className="group flex w-full min-w-0 flex-col text-left">
+    <Link href={`/product/${encodeURIComponent(p.id)}`} className="group flex w-full min-w-0 flex-col text-left">
       <div className="relative">
         <ProductImage product={p} className="aspect-square w-full transition-transform duration-500 ease-[var(--ease-apple)] group-hover:-translate-y-1" />
         {owned && (
@@ -127,67 +125,6 @@ export function ProductTile({ item, owned, onOpen }: { item: ExploreProduct; own
       <p className="mt-2.5 line-clamp-2 text-[13px] font-medium leading-snug">{p.name}</p>
       <p className="truncate text-[12px] text-muted">{[p.number && `#${p.number}`, p.rarity ?? (p.kind === "sealed" ? categoryOf(p) : null)].filter(Boolean).join(" · ")}</p>
       <p className="tabular mt-1 text-[14px] font-semibold">{item.market === null ? <span className="text-subtle">No price</span> : money(item.market)}</p>
-    </button>
-  );
-}
-
-/** Detail sheet for a catalog product — everything comes from the stored catalog. */
-export function ProductSheet({ item, onClose }: { item: ExploreProduct | null; onClose: () => void }) {
-  const { openAdd } = useStore();
-  const owned = useOwnedIds();
-  // Keep showing the last product while the sheet animates closed.
-  const last = useRef<ExploreProduct | null>(null);
-  if (item) last.current = item;
-  const shown = item ?? last.current;
-  if (!shown) return null;
-  const p = shown.product;
-  const hit = { product: p, printing: shown.printing, market: shown.market, priceUpdatedAt: shown.priceUpdatedAt };
-
-  return (
-    <Dialog open={Boolean(item)} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-[640px]">
-        <div className="grid gap-6 overflow-y-auto p-6 sm:grid-cols-[220px_1fr]">
-          <ProductImage product={p} size="lg" className={cn("mx-auto w-full max-w-[220px]", p.kind === "single" ? "aspect-[63/88]" : "aspect-square")} />
-          <div className="min-w-0">
-            <div className="flex flex-wrap gap-1.5">
-              <Badge variant="outline">{categoryOf(p)}</Badge>
-              {p.rarity && <Badge variant="outline">{p.rarity}</Badge>}
-              {owned.has(p.id) && <Badge>Owned</Badge>}
-            </div>
-            <DialogTitle className="mt-3 text-[20px] leading-tight">{p.name}</DialogTitle>
-            <DialogDescription className="mt-1">{[p.setName, p.number && `#${p.number}`, shown.printing].filter(Boolean).join(" · ")}</DialogDescription>
-            <p className="tabular mt-5 text-[32px] font-semibold leading-none tracking-[-0.03em]">{shown.market === null ? <span className="text-[18px] text-subtle">No market price</span> : money(shown.market)}</p>
-            <p className="mt-1.5 text-[12px] text-subtle">Market price · {shown.priceUpdatedAt ? `updated ${relativeTime(shown.priceUpdatedAt)}` : "from the stored catalog"}</p>
-            <div className="mt-6 flex flex-wrap gap-2">
-              <Button
-                variant="primary"
-                onClick={() => {
-                  onClose();
-                  openAdd({ hit });
-                }}
-              >
-                <Plus /> Add to collection
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  onClose();
-                  openAdd({ hit, watch: true });
-                }}
-              >
-                <Eye /> Watch
-              </Button>
-              {p.tcgplayerUrl && (
-                <Button variant="ghost" asChild>
-                  <a href={p.tcgplayerUrl} target="_blank" rel="noreferrer">
-                    TCGplayer <ExternalLink />
-                  </a>
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+    </Link>
   );
 }

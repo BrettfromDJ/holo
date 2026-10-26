@@ -70,6 +70,10 @@ interface StoreActions {
   setMode(mode: AppMode): void;
   importProduct(productId: string, printing?: string | null, kind?: ProductKind): Promise<ImportedProduct>;
   setProductKind(productId: string, kind: ProductKind): Promise<void>;
+  /** Load a stored catalog product for viewing (no TCG API requests). Nothing is saved to the collection. Returns false if it isn't in the catalog. */
+  showCatalogProduct(productId: string): Promise<boolean>;
+  /** Merge price history points into the in-memory history. */
+  mergeHistory(productId: string, printing: string | null, points: PricePoint[]): void;
   addTransaction(tx: NewTransaction): Promise<Transaction>;
   addWatch(productId: string, printing: string | null, targetPrice: number | null): Promise<void>;
   updateWatch(id: string, patch: Partial<Pick<WatchlistItem, "targetPrice" | "notes">>): Promise<void>;
@@ -82,6 +86,15 @@ interface StoreActions {
   openAdd(opts?: AddOptions): void;
   closeAdd(): void;
   addTarget: { open: boolean } & AddOptions;
+}
+
+/** Merge price points into history, one point per date, oldest first. */
+function mergeInto(data: CollectionData, history: Record<string, PricePoint[]>) {
+  for (const [k, pts] of Object.entries(history)) {
+    const merged = new Map((data.history[k] ?? []).map((x) => [x.date, x.price]));
+    for (const x of pts) merged.set(x.date, x.price);
+    data.history[k] = [...merged.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([date, price]) => ({ date, price }));
+  }
 }
 
 const StoreContext = createContext<(StoreState & StoreActions) | null>(null);
@@ -237,6 +250,27 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
     },
     [state.mode, state.data],
   );
+
+  const showCatalogProduct = useCallback(async (productId: string) => {
+    const res = await fetch(`/api/explore/products/${encodeURIComponent(productId)}`);
+    if (!res.ok) return false;
+    const body = (await res.json()) as { product: Product; prices: NormalizedPrice[]; history: Record<string, PricePoint[]> };
+    setState((s) => {
+      const data = { ...s.data, products: { ...s.data.products, [body.product.id]: s.data.products[body.product.id] ?? body.product }, prices: { ...s.data.prices }, history: { ...s.data.history } };
+      for (const p of body.prices) data.prices[priceKey(p.productId, p.printing)] ??= p;
+      mergeInto(data, body.history);
+      return { ...s, data };
+    });
+    return true;
+  }, []);
+
+  const mergeHistory = useCallback((productId: string, printing: string | null, points: PricePoint[]) => {
+    setState((s) => {
+      const data = { ...s.data, history: { ...s.data.history } };
+      mergeInto(data, { [priceKey(productId, printing)]: points });
+      return { ...s, data };
+    });
+  }, []);
 
   const setProductKind = useCallback(async (productId: string, kind: ProductKind) => {
     await repoRef.current.setProductKind(productId, kind);
@@ -407,6 +441,8 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
       setMode,
       importProduct,
       setProductKind,
+      showCatalogProduct,
+      mergeHistory,
       addTransaction,
       addWatch,
       updateWatch,
@@ -420,7 +456,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
       openAdd: (opts?: AddOptions) => setAddTarget({ open: true, ...opts }),
       closeAdd: () => setAddTarget({ open: false }),
     }),
-    [state, setMode, importProduct, setProductKind, addTransaction, addWatch, updateWatch, removeWatch, setManualValue, refreshPrices, savePreferences, resetDemo, signOut, addTarget],
+    [state, setMode, importProduct, setProductKind, showCatalogProduct, mergeHistory, addTransaction, addWatch, updateWatch, removeWatch, setManualValue, refreshPrices, savePreferences, resetDemo, signOut, addTarget],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

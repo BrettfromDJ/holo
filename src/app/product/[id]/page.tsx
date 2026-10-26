@@ -42,12 +42,13 @@ export default function ProductPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Products not yet in the local catalog (e.g. deep links) are fetched once.
+  // Products not in this collection (Explore, deep links) come from the stored
+  // catalog first, which costs no TCG API requests; only unknown ones are fetched.
   useEffect(() => {
     if (store.status !== "ready" || product || loading || loadError) return;
     setLoading(true);
-    store
-      .importProduct(productId)
+    (productId.startsWith("sample:") ? Promise.resolve(false) : store.showCatalogProduct(productId).catch(() => false))
+      .then((found) => (found ? undefined : store.importProduct(productId)))
       .catch((e: Error) => setLoadError(e.message))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -65,9 +66,16 @@ export default function ProductPage() {
 
   return (
     <div className="animate-fade-in">
-      <Link href="/collection" className="mb-6 inline-flex items-center gap-1 text-[14px] text-muted hover:text-foreground">
-        <ChevronLeft className="size-4" /> Collection
-      </Link>
+      {/* Owned products go back to the collection; catalog products back to their set in Explore. */}
+      {owned.length || !product.setId || product.source !== "tcgapi" ? (
+        <Link href="/collection" className="mb-6 inline-flex items-center gap-1 text-[14px] text-muted hover:text-foreground">
+          <ChevronLeft className="size-4" /> Collection
+        </Link>
+      ) : (
+        <Link href={`/explore/${encodeURIComponent(product.setId)}`} className="mb-6 inline-flex items-center gap-1 text-[14px] text-muted hover:text-foreground">
+          <ChevronLeft className="size-4" /> {product.setName ?? "Explore"}
+        </Link>
+      )}
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,420px)_1fr] lg:gap-12">
         {product.kind === "single" && product.imageUrl ? (
@@ -231,6 +239,41 @@ function WatchButton({ productId, printing, watchId }: { productId: string; prin
   );
 }
 
+/** Fetch a product's full price history once (one TCG API request, then stored for everyone). */
+function LoadHistoryButton({ productId, printing }: { productId: string; printing: string | null }) {
+  const { mergeHistory } = useStore();
+  const [state, setState] = useState<"idle" | "loading" | "done">("idle");
+  return (
+    <Button
+      variant="secondary"
+      size="sm"
+      disabled={state !== "idle"}
+      onClick={async () => {
+        setState("loading");
+        try {
+          const res = await fetch(`/api/explore/products/${encodeURIComponent(productId)}/history`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ printing }),
+          });
+          const body = await res.json().catch(() => null);
+          if (!res.ok) throw new Error(body?.error?.message ?? "Couldn't load price history.");
+          mergeHistory(productId, printing, body.points ?? []);
+          if (!body.available) toast(body.reason ?? "Your TCG API plan doesn't include price history.");
+          else if (!body.points?.length) toast("No price history is available for this product.");
+          setState("done");
+        } catch (e) {
+          toast.error((e as Error).message);
+          setState("idle");
+        }
+      }}
+    >
+      {state === "loading" ? <Loader2 className="animate-spin" /> : null}
+      {state === "done" ? "History loaded" : "Load full price history"}
+    </Button>
+  );
+}
+
 function PriceHistory({ productId, printing }: { productId: string; printing: string | null }) {
   const { data, today } = useStore();
   const [range, setRange] = useState<HistRange>("3M");
@@ -250,6 +293,8 @@ function PriceHistory({ productId, printing }: { productId: string; printing: st
     return series.filter((p) => p.date >= from);
   }, [series, range, today]);
 
+  // Few stored days and a real catalog product: offer the one-time full history fetch.
+  const canLoadHistory = productId.startsWith("tcgapi:") && series.length < 60;
   const first = sliced[0];
   const at = scrub !== null && sliced[scrub] ? sliced[scrub] : sliced[sliced.length - 1];
   const change = first && at ? at.price - first.price : null;
@@ -292,8 +337,13 @@ function PriceHistory({ productId, printing }: { productId: string; printing: st
           <div className="flex h-[220px] flex-col items-center justify-center rounded-2xl border border-dashed border-border px-6 text-center text-[13px] text-muted">
             <p className="font-medium text-foreground">Not enough price history yet</p>
             <p className="mt-1 max-w-sm">
-              History depends on your TCG API plan. Holo stores a daily snapshot for products you own or watch, so this chart fills in over time. Missing days are never filled with estimates.
+              Holo stores a daily snapshot for products you own or watch, so this chart fills in over time. Missing days are never filled with estimates.
             </p>
+            {canLoadHistory && (
+              <div className="mt-4">
+                <LoadHistoryButton productId={productId} printing={printing} />
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -310,6 +360,11 @@ function PriceHistory({ productId, printing }: { productId: string; printing: st
         )}
         {isSample ? "Sample series for demonstration — not market data." : `${series.length} daily observation${series.length === 1 ? "" : "s"} · gaps are shown as-is, never interpolated`}
       </p>
+      {canLoadHistory && sliced.length > 1 && (
+        <div className="mt-3">
+          <LoadHistoryButton productId={productId} printing={printing} />
+        </div>
+      )}
     </Card>
   );
 }
