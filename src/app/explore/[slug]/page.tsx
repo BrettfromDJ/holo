@@ -78,11 +78,13 @@ export default function ExploreSetPage() {
       ) : (
         <>
           <header className="flex flex-col gap-5 sm:flex-row sm:items-center">
-            {state.set.imageUrl && (
-              <div className="flex h-24 w-full shrink-0 items-center justify-center rounded-2xl bg-image-well p-4 sm:w-48">
+            {state.set.iconUrl ? (
+              <img src={state.set.iconUrl} alt="" className="aspect-[3/2] w-full max-w-sm shrink-0 rounded-2xl object-cover shadow-xl shadow-black/40 sm:w-56" />
+            ) : state.set.imageUrl ? (
+              <div className="flex h-28 w-full shrink-0 items-center justify-center rounded-2xl bg-image-well p-3 sm:w-40">
                 <img src={state.set.imageUrl} alt="" className="max-h-full max-w-full object-contain" />
               </div>
-            )}
+            ) : null}
             <div className="min-w-0">
               <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-subtle">{state.set.gameName}</p>
               <h1 className="mt-1 text-[28px] font-semibold leading-tight tracking-[-0.02em]">{state.set.name}</h1>

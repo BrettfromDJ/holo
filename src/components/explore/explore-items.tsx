@@ -55,14 +55,17 @@ export function GameTile({ game }: { game: ExploreGame }) {
 export function SetTile({ set }: { set: ExploreSet }) {
   const body = (
     <>
-      <div className="flex aspect-[3/2] items-center justify-center p-4 sm:p-5">
-        {set.imageUrl ? (
-          <img src={set.imageUrl} alt="" loading="lazy" className="h-full w-full rounded-lg object-cover shadow-lg shadow-black/40 transition-transform duration-500 ease-[var(--ease-apple)] group-hover:scale-[1.03]" />
-        ) : set.iconUrl ? (
-          <img src={set.iconUrl} alt="" loading="lazy" className="size-12 object-contain opacity-80" />
-        ) : (
-          <span className="text-center text-[13px] font-semibold text-subtle">{set.name}</span>
-        )}
+      {/* Fixed 3:2 frame. TCG API's set_icon_url is the set's banner art; image_url is a sample product. */}
+      <div className="relative aspect-[3/2] overflow-hidden">
+        <div className="absolute inset-4 flex items-center justify-center sm:inset-5">
+          {set.iconUrl ? (
+            <img src={set.iconUrl} alt="" loading="lazy" className="h-full w-full rounded-lg object-cover shadow-lg shadow-black/40 transition-transform duration-500 ease-[var(--ease-apple)] group-hover:scale-[1.03]" />
+          ) : set.imageUrl ? (
+            <img src={set.imageUrl} alt="" loading="lazy" className="h-full w-full object-contain drop-shadow-[0_8px_16px_rgba(0,0,0,0.45)] transition-transform duration-500 ease-[var(--ease-apple)] group-hover:scale-[1.03]" />
+          ) : (
+            <span className="text-center text-[13px] font-semibold text-subtle">{set.name}</span>
+          )}
+        </div>
       </div>
       <div className="border-t border-border px-4 py-3">
         <p className="flex items-start gap-2">
