@@ -10,17 +10,21 @@ import { Segmented } from "@/components/ui/segmented";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { ExploreProduct } from "@/lib/explore/types";
 import { money, pct, signedMoney } from "@/lib/format";
-import { usePortfolio } from "@/lib/store/collection-store";
+import { usePortfolio, useStore } from "@/lib/store/collection-store";
 import type { Product } from "@/lib/types";
 
 interface TradeItem {
   key: string;
   product: Product;
-  /** Market value per unit when added (editable). */
+  /** Value per unit: the latest saved market price, unless typed in. */
   unit: number | null;
   qty: number;
   /** Units you own, for items picked from your collection. */
   maxQty?: number;
+  /** Printing the catalog price is for. */
+  printing?: string | null;
+  /** True once the value was typed in; those are never refreshed. */
+  custom?: boolean;
 }
 
 type Side = "give" | "get";
@@ -41,26 +45,65 @@ function sideValue(items: TradeItem[], rate: number) {
   return items.reduce((s, i) => s + (i.unit ?? 0) * i.qty, 0) * rate;
 }
 
+function persist(next: TradeState) {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(next));
+  } catch {
+    // ignore
+  }
+}
+
+/** Latest saved market price for a catalog product (no TCG API requests). */
+async function latestCatalogPrice(item: TradeItem): Promise<number | null | undefined> {
+  const res = await fetch(`/api/explore/products/${encodeURIComponent(item.product.id)}`);
+  if (!res.ok) return undefined;
+  const { prices } = (await res.json()) as { prices: { printing: string | null; market: number | null }[] };
+  const match = prices.find((p) => p.printing === (item.printing ?? null) && p.market !== null) ?? prices.find((p) => p.market !== null);
+  return match ? match.market : undefined;
+}
+
 export default function TradePage() {
   const [trade, setTrade] = useState<TradeState>(EMPTY);
   const [picking, setPicking] = useState<Side | null>(null);
+  const { status } = useStore();
+  const { holdings } = usePortfolio({ ignoreFilter: true });
 
-  // Keep the trade in progress in this browser.
+  // Keep the trade in progress in this browser, and refresh every value that
+  // wasn't typed in to the latest saved price each time the page opens.
   useEffect(() => {
+    if (status !== "ready") return;
+    let saved: TradeState = EMPTY;
     try {
       const raw = localStorage.getItem(KEY);
-      if (raw) setTrade({ ...EMPTY, ...(JSON.parse(raw) as TradeState) });
+      if (raw) saved = { ...EMPTY, ...(JSON.parse(raw) as TradeState) };
     } catch {
       // ignore
     }
-  }, []);
+    setTrade(saved);
+    let cancelled = false;
+    const refresh = async (item: TradeItem): Promise<TradeItem> => {
+      if (item.custom) return item;
+      if (item.key.startsWith("h:")) {
+        const h = holdings.find((x) => `h:${x.key}` === item.key);
+        return h ? { ...item, unit: h.price, maxQty: h.quantity, qty: Math.min(item.qty, h.quantity) } : item;
+      }
+      const latest = await latestCatalogPrice(item).catch(() => undefined);
+      return latest === undefined ? item : { ...item, unit: latest };
+    };
+    void (async () => {
+      const next = { ...saved, give: await Promise.all(saved.give.map(refresh)), get: await Promise.all(saved.get.map(refresh)) };
+      if (cancelled) return;
+      setTrade(next);
+      persist(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per visit, after the collection loads
+  }, [status]);
   const save = (next: TradeState) => {
     setTrade(next);
-    try {
-      localStorage.setItem(KEY, JSON.stringify(next));
-    } catch {
-      // ignore
-    }
+    persist(next);
   };
 
   const give = sideValue(trade.give, trade.rate.give);
@@ -194,12 +237,24 @@ export default function TradePage() {
                             placeholder="Value"
                             onChange={(e) => {
                               const v = e.target.value.replace(/[^0-9.]/g, "");
-                              update(side, trade[side].map((i) => (i.key === item.key ? { ...i, unit: v === "" ? null : Number(v) } : i)));
+                              update(side, trade[side].map((i) => (i.key === item.key ? { ...i, unit: v === "" ? null : Number(v), custom: true } : i)));
                             }}
                             className="tabular h-7 w-24 rounded-full bg-surface-2 pl-5 pr-2 text-[12px] text-foreground outline-none focus:bg-surface-3"
                           />
                         </span>
                       </label>
+                      {item.custom && (
+                        <button
+                          className="text-[12px] text-subtle underline-offset-4 hover:text-foreground hover:underline"
+                          onClick={async () => {
+                            const h = holdings.find((x) => `h:${x.key}` === item.key);
+                            const latest = h ? h.price : await latestCatalogPrice(item).catch(() => undefined);
+                            update(side, trade[side].map((i) => (i.key === item.key ? { ...i, custom: false, unit: latest === undefined ? i.unit : latest } : i)));
+                          }}
+                        >
+                          Use market
+                        </button>
+                      )}
                     </div>
                   </div>
                   <div className="shrink-0 text-right">
@@ -220,7 +275,7 @@ export default function TradePage() {
       </div>
 
       <p className="mt-5 flex items-center gap-2 text-[12px] text-subtle">
-        <ArrowLeftRight className="size-3.5" /> Values use Holo&apos;s stored market prices and never spend TCG API requests. Edit any value to use a price you agreed on.
+        <ArrowLeftRight className="size-3.5" /> Uses Holo&apos;s latest saved prices, refreshed each time you open this page. Edit a value to use a price you agreed on.
       </p>
 
       <PickerDialog side={picking} onClose={() => setPicking(null)} onPick={(item) => picking && add(picking, item)} />
@@ -326,7 +381,7 @@ function PickerDialog({ side, onClose, onPick }: { side: Side | null; onClose: (
                 product={r.product}
                 sub={[r.product.setName, r.product.number && `#${r.product.number}`].filter(Boolean).join(" · ")}
                 price={r.market}
-                onClick={() => pick({ key: `p:${r.product.id}`, product: r.product, unit: r.market, qty: 1 })}
+                onClick={() => pick({ key: `p:${r.product.id}`, product: r.product, unit: r.market, qty: 1, printing: r.printing })}
               />
             ))
           ) : (
