@@ -10,17 +10,18 @@ import { Segmented } from "@/components/ui/segmented";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { compareCollectorNumbers } from "@/lib/collector-number";
+import { packCount, pricePerPack } from "@/lib/packs";
 import type { ExploreProduct, ExploreSet } from "@/lib/explore/types";
 import { formatDate, money, relativeTime } from "@/lib/format";
 
 type Tab = "single" | "sealed";
-type Sort = "price" | "number" | "name";
+type Sort = "price" | "perPack" | "number" | "name";
 
 export default function ExploreSetPage() {
   const { slug } = useParams<{ slug: string }>();
   const [state, setState] = useState<{ set: ExploreSet; products: ExploreProduct[] } | { error: string } | null>(null);
   const [tab, setTab] = useState<Tab>("single");
-  const [sort, setSort] = useState<Sort>("price");
+  const [sortChoice, setSort] = useState<Sort>("price");
   const owned = useOwnedIds();
 
   useEffect(() => {
@@ -42,12 +43,19 @@ export default function ExploreSetPage() {
 
   const products = useMemo(() => (state && "products" in state ? state.products : []), [state]);
   const counts = useMemo(() => ({ single: products.filter((p) => p.product.kind === "single").length, sealed: products.filter((p) => p.product.kind === "sealed").length }), [products]);
+  const gameSlug = state && "set" in state ? state.set.gameSlug : null;
+  // Price per pack only applies to sealed products.
+  const sort: Sort = tab === "single" && sortChoice === "perPack" ? "price" : sortChoice;
   const list = useMemo(() => {
     const l = products.filter((p) => p.product.kind === tab);
     if (sort === "price") return l.sort((a, b) => (b.market ?? -1) - (a.market ?? -1));
+    if (sort === "perPack") {
+      const per = (p: ExploreProduct) => pricePerPack(p.market, packCount(p.product, gameSlug)) ?? Infinity;
+      return l.sort((a, b) => per(a) - per(b));
+    }
     if (sort === "number") return l.sort((a, b) => compareCollectorNumbers(a.product.number, b.product.number));
     return l.sort((a, b) => a.product.name.localeCompare(b.product.name));
-  }, [products, tab, sort]);
+  }, [products, tab, sort, gameSlug]);
   const value = list.reduce((s, p) => s + (p.market ?? 0), 0);
   const ownedHere = products.filter((p) => owned.has(p.product.id)).length;
 
@@ -118,6 +126,7 @@ export default function ExploreSetPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="price">Price: high to low</SelectItem>
+                  {tab === "sealed" && <SelectItem value="perPack">Price per pack: low to high</SelectItem>}
                   <SelectItem value="number">Collector number</SelectItem>
                   <SelectItem value="name">Name</SelectItem>
                 </SelectContent>
@@ -129,7 +138,7 @@ export default function ExploreSetPage() {
             <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 lg:grid-cols-5">
               {list.map((item, i) => (
                 <div key={item.product.id} className="animate-rise" style={{ animationDelay: `${Math.min(i, 20) * 25}ms` }}>
-                  <ProductTile item={item} owned={owned.has(item.product.id)} />
+                  <ProductTile item={item} owned={owned.has(item.product.id)} gameSlug={gameSlug} />
                 </div>
               ))}
             </div>

@@ -1,10 +1,11 @@
-import { Activity, BarChart3, BookOpen, Compass, Eye, LayoutGrid, LineChart, Settings, TrendingUp } from "lucide-react";
+import { Activity, ArrowLeftRight, BarChart3, BookOpen, Compass, Eye, LayoutGrid, LineChart, Settings, TrendingUp } from "lucide-react";
 
 export const NAV = [
   { href: "/", label: "Overview", icon: LineChart },
   { href: "/collection", label: "Collection", icon: LayoutGrid },
   { href: "/binder", label: "Binder", icon: BookOpen },
   { href: "/explore", label: "Explore", icon: Compass },
+  { href: "/trade", label: "Trade", icon: ArrowLeftRight },
   { href: "/gains", label: "Gains", icon: TrendingUp },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/watchlist", label: "Watchlist", icon: Eye },

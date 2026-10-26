@@ -23,6 +23,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { categoryOf } from "@/lib/catalog";
+import { packCount, pricePerPack } from "@/lib/packs";
 import { addDays } from "@/lib/finance/dates";
 import { acquisitionCost, effectiveTransactions, saleProceeds } from "@/lib/finance/ledger";
 import type { HoldingView } from "@/lib/finance/portfolio";
@@ -104,6 +105,7 @@ export default function ProductPage() {
             <p className="tabular text-[40px] font-semibold leading-none tracking-[-0.03em]">
               {price?.market != null ? <AnimatedNumber key={productId} value={price.market} format={money} from={price.market * 0.85} /> : <span className="text-muted">No price</span>}
             </p>
+            {product.kind === "sealed" && <PerPack product={product} price={price?.market ?? null} />}
             <div className="mt-3 flex flex-wrap items-center gap-2 text-[13px]">
               {(["24h", "7d", "30d"] as const).map((p) => {
                 const v = p === "24h" ? price?.change24hPct : p === "7d" ? price?.change7dPct : price?.change30dPct;
@@ -236,6 +238,33 @@ function WatchButton({ productId, printing, watchId }: { productId: string; prin
       {busy ? <Loader2 className="animate-spin" /> : watchId ? <EyeOff /> : <Eye />}
       {watchId ? "Watching" : "Watch"}
     </Button>
+  );
+}
+
+/** Market price per booster pack for sealed products, when the pack count is known. */
+function PerPack({ product, price }: { product: Product; price: number | null }) {
+  const [gameSlug, setGameSlug] = useState<string | null>(null);
+  const direct = packCount(product);
+  // Booster boxes differ by game; look the set's game up in the stored catalog (no TCG API request).
+  useEffect(() => {
+    if (direct || !product.setId || product.source !== "tcgapi" || !/booster (box|display)/i.test(product.name)) return;
+    let cancelled = false;
+    fetch(`/api/explore/sets/${encodeURIComponent(product.setId)}?meta=1`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b) => !cancelled && b?.set?.gameSlug && setGameSlug(b.set.gameSlug))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [direct, product.setId, product.source, product.name]);
+  const count = direct ?? packCount(product, gameSlug ?? (product.source === "sample" ? "pokemon" : null));
+  const per = pricePerPack(price, count);
+  if (per === null || !count) return null;
+  return (
+    <p className="tabular mt-2 text-[14px] text-muted">
+      <span className="font-medium text-foreground">{money(per)}</span> per pack · {count.packs} pack{count.packs === 1 ? "" : "s"}
+      {!count.exact && <span className="text-subtle"> (standard contents)</span>}
+    </p>
   );
 }
 

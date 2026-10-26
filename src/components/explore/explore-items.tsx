@@ -8,6 +8,7 @@ import { ProductImage } from "@/components/product/product-image";
 import { categoryOf } from "@/lib/catalog";
 import type { ExploreGame, ExploreProduct, ExploreSet } from "@/lib/explore/types";
 import { formatDate, money } from "@/lib/format";
+import { packCount, pricePerPack } from "@/lib/packs";
 import { usePortfolio } from "@/lib/store/collection-store";
 import { cn } from "@/lib/utils";
 
@@ -110,8 +111,9 @@ export function useExploreIndex() {
 }
 
 /** A catalog product; opens its full product page (served from the stored catalog). */
-export function ProductTile({ item, owned }: { item: ExploreProduct; owned: boolean }) {
+export function ProductTile({ item, owned, gameSlug }: { item: ExploreProduct; owned: boolean; gameSlug?: string | null }) {
   const p = item.product;
+  const perPack = pricePerPack(item.market, packCount(p, gameSlug));
   return (
     <Link href={`/product/${encodeURIComponent(p.id)}`} className="group flex w-full min-w-0 flex-col text-left">
       <div className="relative">
@@ -124,7 +126,10 @@ export function ProductTile({ item, owned }: { item: ExploreProduct; owned: bool
       </div>
       <p className="mt-2.5 line-clamp-2 text-[13px] font-medium leading-snug">{p.name}</p>
       <p className="truncate text-[12px] text-muted">{[p.number && `#${p.number}`, p.rarity ?? (p.kind === "sealed" ? categoryOf(p) : null)].filter(Boolean).join(" · ")}</p>
-      <p className="tabular mt-1 text-[14px] font-semibold">{item.market === null ? <span className="text-subtle">No price</span> : money(item.market)}</p>
+      <p className="tabular mt-1 text-[14px] font-semibold">
+        {item.market === null ? <span className="text-subtle">No price</span> : money(item.market)}
+        {perPack !== null && <span className="ml-1.5 text-[12px] font-normal text-muted">{money(perPack)}/pack</span>}
+      </p>
     </Link>
   );
 }

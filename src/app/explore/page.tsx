@@ -1,12 +1,15 @@
 "use client";
 
-import { Compass, Loader2, Search, X } from "lucide-react";
+import { ArrowRight, Compass, Loader2, Search, X } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { GameTile, ProductTile, useExploreIndex, useOwnedIds } from "@/components/explore/explore-items";
+import { ReleaseRow } from "@/components/explore/release-items";
 import { PageHeader } from "@/components/shell/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ExploreProduct } from "@/lib/explore/types";
 import { relativeTime } from "@/lib/format";
+import { useStore } from "@/lib/store/collection-store";
 
 type Load<T> = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; data: T };
 
@@ -15,6 +18,7 @@ export default function ExplorePage() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Load<ExploreProduct[]> | null>(null);
   const owned = useOwnedIds();
+  const { today } = useStore();
 
   // Debounced catalog search — served from Supabase, never the TCG API.
   useEffect(() => {
@@ -37,6 +41,7 @@ export default function ExplorePage() {
   }, [query]);
 
   const loaded = index.status === "ready" ? index.sets.filter((s) => s.loaded) : [];
+  const upcoming = index.status === "ready" ? index.sets.filter((s) => s.releaseDate && s.releaseDate >= today).sort((a, b) => (a.releaseDate! < b.releaseDate! ? -1 : 1)).slice(0, 4) : [];
   const lastSync = loaded.reduce<string | null>((m, s) => (s.syncedAt && (!m || s.syncedAt > m) ? s.syncedAt : m), null);
 
   return (
@@ -93,7 +98,23 @@ export default function ExplorePage() {
       ) : !index.games.length ? (
         <EmptyCatalog title="The catalog is empty for now" body="It fills in automatically each day. To start it now, run the “sync-catalog” cron job." />
       ) : (
-        <section aria-label="Brands" className="mt-4">
+        <>
+        {upcoming.length > 0 && (
+          <section aria-label="Coming soon" className="mt-4">
+            <div className="mb-2 flex items-baseline justify-between gap-3">
+              <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-muted">Coming soon</h2>
+              <Link href="/explore/releases" className="flex items-center gap-1 text-[13px] font-medium text-muted hover:text-foreground">
+                Release calendar <ArrowRight className="size-3.5" />
+              </Link>
+            </div>
+            <div className="grid gap-x-6 sm:grid-cols-2">
+              {upcoming.map((s) => (
+                <ReleaseRow key={s.slug} set={s} />
+              ))}
+            </div>
+          </section>
+        )}
+        <section aria-label="Brands" className="mt-8">
           <div className="mb-4 flex items-baseline gap-3">
             <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-muted">Brands</h2>
             <span className="text-[12px] text-subtle">
@@ -108,6 +129,7 @@ export default function ExplorePage() {
             ))}
           </div>
         </section>
+        </>
       )}
     </div>
   );

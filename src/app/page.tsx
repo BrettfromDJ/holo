@@ -7,6 +7,7 @@ import { AnimatedNumber } from "@/components/motion/animated-number";
 import { Reveal } from "@/components/motion/reveal";
 import { MoversBoard, RecentTimeline } from "@/components/overview/boards";
 import { MarketPulse } from "@/components/overview/market-pulse";
+import { ReleaseReminders } from "@/components/overview/release-reminders";
 import { Headline, MetricStrip, Shelf, Spotlight } from "@/components/overview/sections";
 import { RecapButton, WeeklyRecap } from "@/components/overview/weekly-recap";
 import { AllocationShowcase } from "@/components/portfolio/allocation-showcase";
@@ -54,6 +55,7 @@ export default function OverviewPage() {
       <MarketPulse holdings={holdings} />
       <Headline summary={summary} holdings={holdings} action={<RecapButton onClick={() => setRecapOpen(true)} />} />
       <WeeklyRecap open={recapOpen} onClose={() => setRecapOpen(false)} />
+      <ReleaseReminders />
 
       <PerformanceChart
         timeline={timeline}

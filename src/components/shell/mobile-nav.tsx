@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, BookOpen, Compass, Plus, Settings } from "lucide-react";
+import { Activity, ArrowLeftRight, BookOpen, Compass, Plus, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useStore } from "@/lib/store/collection-store";
@@ -22,6 +22,7 @@ export function MobileTopBar() {
         {[
           { href: "/explore", label: "Explore", icon: Compass },
           { href: "/binder", label: "Binder", icon: BookOpen },
+          { href: "/trade", label: "Trade", icon: ArrowLeftRight },
           { href: "/activity", label: "Activity", icon: Activity },
           { href: "/settings", label: "Settings", icon: Settings },
         ].map(({ href, label, icon: Icon }) => (
