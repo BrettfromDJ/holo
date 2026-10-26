@@ -141,6 +141,7 @@ function PrintingSelect({ options, value, onChange }: { options: string[]; value
 function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fromWatchId?: string; onBack?: () => void; onDone: () => void }) {
   const { addTransaction, setManualValue, removeWatch, today } = useStore();
   const { summary } = usePortfolio();
+  const { holdings: allHoldings } = usePortfolio({ ignoreFilter: true });
   const { imported, error } = useImported(hit);
   const product = imported?.product ?? hit.product;
   const sealed = product.kind === "sealed";
@@ -167,13 +168,18 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
   const [source, setSource] = useState("");
   const [notes, setNotes] = useState("");
   const { portfolios, selected: viewing, portfolioOf, move } = usePortfolios();
-  // New purchases go to the portfolio being viewed (Main when viewing all).
-  const [portfolioId, setPortfolioId] = useState<string>(viewing !== ALL ? viewing : MAIN);
+  const [pickedPortfolio, setPortfolioId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!printing && printings.length) setPrinting(printings[0]);
   }, [printings, printing]);
+
+  // Until the user picks one: more of something you own stays in its portfolio;
+  // anything new goes to the portfolio being viewed, or Main when viewing all.
+  const currentKey = holdingKey({ productId: product.id, printing, condition: graded ? "Near Mint" : condition, grade: graded ? { company: grader, grade: grade.trim() } : null });
+  const alreadyOwned = allHoldings.some((h) => h.key === currentKey);
+  const portfolioId = pickedPortfolio ?? (alreadyOwned ? portfolioOf(currentKey) : viewing !== ALL ? viewing : MAIN);
 
   const entered = parseMoney(price);
   const unitPrice = entered === null ? null : priceMode === "unit" ? entered : qty > 0 ? entered / qty : null;
