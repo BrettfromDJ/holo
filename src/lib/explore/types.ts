@@ -20,3 +20,14 @@ export interface ExploreProduct {
   market: number | null;
   priceUpdatedAt: string | null;
 }
+
+export interface ExploreGame {
+  slug: string;
+  name: string;
+  logoUrl: string | null;
+  /** Sets in Holo's catalog for this brand, and how many are loaded. */
+  sets: number;
+  loadedSets: number;
+  /** Total cards reported by the source, when known. */
+  cardCount: number | null;
+}

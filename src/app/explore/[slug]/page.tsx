@@ -54,9 +54,15 @@ export default function ExploreSetPage() {
 
   return (
     <div className="animate-fade-in">
-      <Link href="/explore" className="mb-6 inline-flex items-center gap-1 text-[13px] text-muted hover:text-foreground">
-        <ChevronLeft className="size-4" /> Explore
-      </Link>
+      {state && "set" in state ? (
+        <Link href={`/explore/g/${encodeURIComponent(state.set.gameSlug)}`} className="mb-6 inline-flex items-center gap-1 text-[13px] text-muted hover:text-foreground">
+          <ChevronLeft className="size-4" /> {state.set.gameName}
+        </Link>
+      ) : (
+        <Link href="/explore" className="mb-6 inline-flex items-center gap-1 text-[13px] text-muted hover:text-foreground">
+          <ChevronLeft className="size-4" /> Explore
+        </Link>
+      )}
 
       {!state ? (
         <>

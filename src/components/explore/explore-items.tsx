@@ -3,13 +3,13 @@
 
 import { Check, ExternalLink, Eye, Plus } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ProductImage } from "@/components/product/product-image";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { categoryOf } from "@/lib/catalog";
-import type { ExploreProduct, ExploreSet } from "@/lib/explore/types";
+import type { ExploreGame, ExploreProduct, ExploreSet } from "@/lib/explore/types";
 import { formatDate, money, relativeTime } from "@/lib/format";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
 import { cn } from "@/lib/utils";
@@ -20,33 +20,93 @@ export function useOwnedIds() {
   return useMemo(() => new Set(holdings.map((h) => h.identity.productId)), [holdings]);
 }
 
+function isNew(releaseDate: string | null) {
+  if (!releaseDate) return false;
+  const age = Date.now() - Date.parse(releaseDate);
+  return age < 60 * 24 * 60 * 60 * 1000;
+}
+
+function compactCount(n: number) {
+  return n >= 1000 ? `${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}K` : String(n);
+}
+
+/** A brand (Pokémon, Pokémon Japan, Lorcana…) with its logo. */
+export function GameTile({ game }: { game: ExploreGame }) {
+  return (
+    <Link href={`/explore/g/${encodeURIComponent(game.slug)}`} className="group flex flex-col overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface transition-colors hover:border-border-strong">
+      <div className="flex aspect-[16/9] items-center justify-center p-6 sm:p-8">
+        {game.logoUrl ? (
+          <img src={game.logoUrl} alt="" loading="lazy" className="max-h-full max-w-full object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.5)] transition-transform duration-500 ease-[var(--ease-apple)] group-hover:scale-105" />
+        ) : (
+          <span className="text-center text-[22px] font-semibold tracking-tight text-foreground/80">{game.name}</span>
+        )}
+      </div>
+      <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3">
+        <span className="truncate text-[14px] font-medium">{game.name}</span>
+        <span className="tabular shrink-0 text-[12px] text-subtle">
+          {game.sets} set{game.sets === 1 ? "" : "s"}{game.cardCount ? ` · ${compactCount(game.cardCount)} cards` : ""}
+        </span>
+      </div>
+    </Link>
+  );
+}
+
+/** A set with its banner art, release date and size. */
 export function SetTile({ set }: { set: ExploreSet }) {
   const body = (
     <>
-      <div className="flex aspect-[16/9] items-center justify-center rounded-2xl bg-image-well p-5">
+      <div className="flex aspect-[3/2] items-center justify-center p-4 sm:p-5">
         {set.imageUrl ? (
-          <img src={set.imageUrl} alt="" loading="lazy" className="max-h-full max-w-full object-contain drop-shadow-[0_6px_14px_rgba(0,0,0,0.45)] transition-transform duration-500 group-hover:scale-105" />
+          <img src={set.imageUrl} alt="" loading="lazy" className="h-full w-full rounded-lg object-cover shadow-lg shadow-black/40 transition-transform duration-500 ease-[var(--ease-apple)] group-hover:scale-[1.03]" />
         ) : set.iconUrl ? (
           <img src={set.iconUrl} alt="" loading="lazy" className="size-12 object-contain opacity-80" />
         ) : (
           <span className="text-center text-[13px] font-semibold text-subtle">{set.name}</span>
         )}
       </div>
-      <p className="mt-3 truncate text-[14px] font-medium">{set.name}</p>
-      <p className="truncate text-[12px] text-muted">
-        {[set.releaseDate ? formatDate(set.releaseDate) : null, set.loaded ? `${set.productCount ?? 0} products` : "Loading soon"].filter(Boolean).join(" · ")}
-      </p>
+      <div className="border-t border-border px-4 py-3">
+        <p className="flex items-start gap-2">
+          <span className="line-clamp-2 text-[14px] font-medium leading-snug">{set.name}</span>
+          {isNew(set.releaseDate) && <span className="mt-px shrink-0 rounded bg-[var(--cat-1)]/20 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-[var(--cat-1)]">New</span>}
+        </p>
+        <p className="tabular mt-0.5 truncate text-[12px] text-subtle">
+          {[set.releaseDate ? formatDate(set.releaseDate) : null, set.loaded ? `${set.productCount ?? 0} products` : "Loading soon"].filter(Boolean).join(" · ")}
+        </p>
+      </div>
     </>
   );
+  const cls = "group flex flex-col overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface";
   return set.loaded ? (
-    <Link href={`/explore/${encodeURIComponent(set.slug)}`} className="group block">
+    <Link href={`/explore/${encodeURIComponent(set.slug)}`} className={cn(cls, "transition-colors hover:border-border-strong")}>
       {body}
     </Link>
   ) : (
-    <div className="block opacity-45" title="This set loads in an upcoming daily catalog sync.">
+    <div className={cn(cls, "opacity-45")} title="This set loads in an upcoming daily catalog sync.">
       {body}
     </div>
   );
+}
+
+let exploreIndex: Promise<{ games: ExploreGame[]; sets: ExploreSet[] }> | null = null;
+
+/** Brands and sets from /api/explore, fetched once per page load. */
+export function useExploreIndex() {
+  const [state, setState] = useState<{ status: "loading" } | { status: "error"; message: string } | { status: "ready"; games: ExploreGame[]; sets: ExploreSet[] }>({ status: "loading" });
+  useEffect(() => {
+    exploreIndex ??= fetch("/api/explore").then(async (res) => {
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error?.message ?? "Couldn't load the catalog.");
+      return { games: body.games ?? [], sets: body.sets ?? [] };
+    });
+    exploreIndex.then(
+      (d) => setState({ status: "ready", ...d }),
+      (e: Error) => {
+        exploreIndex = null;
+        setState({ status: "error", message: e.message });
+      },
+    );
+  }, []);
+  return state;
 }
 
 export function ProductTile({ item, owned, onOpen }: { item: ExploreProduct; owned: boolean; onOpen: () => void }) {

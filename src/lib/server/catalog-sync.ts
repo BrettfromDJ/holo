@@ -43,6 +43,9 @@ export async function syncCatalog(admin: SupabaseClient<Database>, opts: Catalog
   const canCall = () => result.calls < opts.maxCalls;
 
   try {
+    // --- 0. Brands (weekly; never blocks the rest) -------------------------
+    await syncGames(admin);
+
     // --- 1. Set lists (weekly) ---------------------------------------------
     const { data: newest } = await admin.from("catalog_sets").select("listed_at").order("listed_at", { ascending: false }).limit(1);
     const listStale = !newest?.length || Date.now() - Date.parse(newest[0].listed_at) > 7 * DAY;
@@ -134,4 +137,28 @@ async function storePrices(admin: SupabaseClient<Database>, prices: NormalizedPr
     .map((r) => ({ product_id: r.product_id, printing: r.printing, snapshot_date: today, market_price: r.market_price as number, source: r.source }));
   if (snaps.length) await admin.from("price_snapshots").upsert(snaps, { ignoreDuplicates: true });
   return toWrite.length;
+}
+
+/** Store the catalogs (brands) with their logos for Explore. Missing table or errors are ignored. */
+async function syncGames(admin: SupabaseClient<Database>) {
+  try {
+    const { data, error } = await admin.from("catalog_games").select("listed_at").order("listed_at", { ascending: false }).limit(1);
+    if (error) return;
+    if (data?.length && Date.now() - Date.parse(data[0].listed_at) < 7 * DAY) return;
+    const games = await catalogGameList();
+    await admin.from("catalog_games").upsert(
+      games.map((g, i) => ({
+        slug: g.slug,
+        name: g.name,
+        logo_url: g.logoUrl,
+        image_url: g.imageUrl,
+        set_count: g.setCount,
+        card_count: g.cardCount,
+        sort: i,
+        listed_at: new Date().toISOString(),
+      })),
+    );
+  } catch {
+    // Brands are cosmetic; Explore falls back to names from the set list.
+  }
 }

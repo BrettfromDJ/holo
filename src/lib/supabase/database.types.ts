@@ -152,6 +152,17 @@ export type CatalogSetRow = {
   products_synced_at: string | null;
 };
 
+export type CatalogGameRow = {
+  slug: string;
+  name: string;
+  logo_url: string | null;
+  image_url: string | null;
+  set_count: number | null;
+  card_count: number | null;
+  sort: number;
+  listed_at: string;
+};
+
 export type ProfileRow = {
   id: string;
   display_name: string | null;
@@ -173,6 +184,7 @@ export type Database = {
       share_links: Table<ShareLinkRow>;
       shelves: Table<ShelfRow>;
       catalog_sets: Table<CatalogSetRow>;
+      catalog_games: Table<CatalogGameRow>;
     };
     Views: {
       purchase_lots: {

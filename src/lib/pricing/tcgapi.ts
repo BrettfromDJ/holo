@@ -145,6 +145,10 @@ interface GameRef {
   slug: string;
   name: string;
   franchise: Exclude<GameFilter, "all">;
+  logoUrl?: string | null;
+  imageUrl?: string | null;
+  setCount?: number | null;
+  cardCount?: number | null;
 }
 
 function franchiseOf(text: string): GameRef["franchise"] | null {
@@ -178,7 +182,9 @@ async function catalogGames(): Promise<GameRef[]> {
       const res = await call((c) => c.games.list({ per_page: 200 }));
       const games = res.data.flatMap((g) => {
         const franchise = franchiseOf(`${g.name} ${g.slug}`);
-        return franchise ? [{ slug: g.slug, name: g.name, franchise }] : [];
+        return franchise
+          ? [{ slug: g.slug, name: g.name, franchise, logoUrl: g.logo_url, imageUrl: g.image_url, setCount: g.set_count, cardCount: g.card_count }]
+          : [];
       });
       // English Pokémon first so it wins ties in ranking.
       games.sort((a, b) => (a.slug === "pokemon" ? -1 : b.slug === "pokemon" ? 1 : a.name.localeCompare(b.name)));
@@ -343,8 +349,17 @@ export function dailyBudget(): { limit: number; remaining: number; reset: string
 }
 
 /** Catalogs (games) Holo covers, for the catalog sync. */
-export async function catalogGameList(): Promise<{ slug: string; name: string }[]> {
-  return (await catalogGames()).map(({ slug, name }) => ({ slug, name }));
+export async function catalogGameList(): Promise<
+  { slug: string; name: string; logoUrl: string | null; imageUrl: string | null; setCount: number | null; cardCount: number | null }[]
+> {
+  return (await catalogGames()).map((g) => ({
+    slug: g.slug,
+    name: g.name,
+    logoUrl: g.logoUrl ?? null,
+    imageUrl: g.imageUrl ?? null,
+    setCount: g.setCount ?? null,
+    cardCount: g.cardCount ?? null,
+  }));
 }
 
 /** One page of a game's sets. Uncached: the catalog sync stores the result. */
