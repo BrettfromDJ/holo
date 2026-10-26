@@ -81,7 +81,7 @@ export async function syncCatalog(admin: SupabaseClient<Database>, opts: Catalog
       .select("slug, tcgapi_id, name, products_synced_at")
       .order("products_synced_at", { ascending: true, nullsFirst: true })
       .order("release_date", { ascending: false, nullsFirst: false })
-      .limit(50);
+      .limit(500);
     if (qErr) throw new Error(qErr.message);
 
     for (const set of queue ?? []) {
