@@ -1,44 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
+import { useSyncedState } from "./store/synced-state";
 
-const KEY = "holo:release-reminders:v1";
-const EVENT = "holo:reminders";
+const EMPTY: string[] = [];
 
-function read(): string[] {
-  try {
-    const raw = localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as string[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-/** Sets the user asked to be reminded about, kept in this browser. */
+/** Sets the user asked to be reminded about — synced to the account when signed in. */
 export function useReleaseReminders() {
-  const [slugs, setSlugs] = useState<string[]>([]);
-  useEffect(() => {
-    setSlugs(read());
-    const sync = () => setSlugs(read());
-    window.addEventListener(EVENT, sync);
-    window.addEventListener("storage", sync);
-    return () => {
-      window.removeEventListener(EVENT, sync);
-      window.removeEventListener("storage", sync);
-    };
-  }, []);
-  const toggle = useCallback((slug: string) => {
-    const current = read();
-    const next = current.includes(slug) ? current.filter((s) => s !== slug) : [...current, slug];
-    try {
-      localStorage.setItem(KEY, JSON.stringify(next));
-    } catch {
-      // Storage blocked — the reminder lasts for this page only.
-    }
-    setSlugs(next);
-    window.dispatchEvent(new Event(EVENT));
-    return next.includes(slug);
-  }, []);
+  const [slugs, setSlugs] = useSyncedState<string[]>("release-reminders", EMPTY, { legacyKey: "holo:release-reminders:v1" });
+  const toggle = useCallback(
+    (slug: string) => {
+      const on = !slugs.includes(slug);
+      setSlugs((current) => (current.includes(slug) ? current.filter((s) => s !== slug) : [...current, slug]));
+      return on;
+    },
+    [slugs, setSlugs],
+  );
   return { slugs, has: (slug: string) => slugs.includes(slug), toggle };
 }
 

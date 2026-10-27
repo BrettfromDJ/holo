@@ -5,36 +5,27 @@ import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { pickNew, reachedMilestones } from "@/lib/milestones";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
+import { useSyncedState } from "@/lib/store/synced-state";
 
 const KEY = "holo:milestones:v1";
 
 /**
  * Watches the collection and celebrates each milestone once with a toast.
- * Seen milestones are remembered per collection in this browser.
+ * Seen milestones are remembered per collection (synced when signed in).
  */
 export function MilestoneWatcher() {
   const { status, repoKind, user } = useStore();
-  const { summary, holdings } = usePortfolio();
+  // Milestones are about the whole collection, whichever portfolio is shown.
+  const { summary, holdings } = usePortfolio({ ignoreFilter: true });
+  const [stored, setStored, ready] = useSyncedState<string[] | null>("milestones-seen", null, { legacyKey: `${KEY}:${repoKind}:${user?.id ?? "anon"}` });
   const busy = useRef(false);
 
   useEffect(() => {
-    if (status !== "ready" || !holdings.length || busy.current) return;
-    const key = `${KEY}:${repoKind}:${user?.id ?? "anon"}`;
-    let stored: string[] | null = null;
-    try {
-      const raw = localStorage.getItem(key);
-      stored = raw ? (JSON.parse(raw) as string[]) : null;
-    } catch {
-      return;
-    }
+    if (status !== "ready" || !ready || !holdings.length || busy.current) return;
     const seen = new Set(stored ?? []);
     const { show, record } = pickNew(reachedMilestones(summary, holdings), seen, stored === null);
     if (!record.length) return;
-    try {
-      localStorage.setItem(key, JSON.stringify([...seen, ...record]));
-    } catch {
-      return;
-    }
+    setStored([...seen, ...record]);
     busy.current = true;
     show.forEach((m, i) => {
       window.setTimeout(() => {
@@ -42,7 +33,7 @@ export function MilestoneWatcher() {
       }, 1200 + i * 1800);
     });
     window.setTimeout(() => (busy.current = false), 1200 + show.length * 1800);
-  }, [status, repoKind, user, summary, holdings]);
+  }, [status, ready, stored, setStored, summary, holdings]);
 
   return null;
 }

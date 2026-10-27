@@ -2,30 +2,22 @@
 
 import { Check, X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store/collection-store";
+import { useSyncedState } from "@/lib/store/synced-state";
 import { cn } from "@/lib/utils";
 
-const DISMISSED = "holo:getting-started:dismissed";
-export const EXPLORED = "holo:getting-started:explored";
-
-function flag(key: string) {
-  try {
-    return localStorage.getItem(key) === "1";
-  } catch {
-    return false;
-  }
+interface Progress {
+  dismissed?: boolean;
+  explored?: boolean;
 }
+const NONE: Progress = {};
 
-/** Call on the Explore page so the checklist can tick "Browse the catalog". */
-export function markExplored() {
-  try {
-    localStorage.setItem(EXPLORED, "1");
-  } catch {
-    // ignore
-  }
+/** Checklist progress, synced to the account when signed in. */
+export function useGettingStarted() {
+  return useSyncedState<Progress>("getting-started", NONE);
 }
 
 /**
@@ -34,16 +26,11 @@ export function markExplored() {
  */
 export function GettingStarted({ className }: { className?: string }) {
   const { mode, data, repoKind, integrations, openAdd, savePreferences } = useStore();
-  const [dismissed, setDismissed] = useState(true);
-  const [explored, setExplored] = useState(false);
+  const [progress, setProgress, ready] = useGettingStarted();
   const [budgetDraft, setBudgetDraft] = useState<string | null>(null);
+  const explored = Boolean(progress.explored);
 
-  useEffect(() => {
-    setDismissed(flag(DISMISSED));
-    setExplored(flag(EXPLORED));
-  }, []);
-
-  if (mode === "demo" || dismissed) return null;
+  if (mode === "demo" || !ready || progress.dismissed) return null;
 
   const steps = [
     { key: "add", title: "Add your first card or sealed product", done: data.transactions.length > 0, action: <Button size="sm" variant="primary" onClick={() => openAdd()}>Add</Button> },
@@ -94,14 +81,7 @@ export function GettingStarted({ className }: { className?: string }) {
         </div>
         <button
           aria-label="Hide getting started"
-          onClick={() => {
-            try {
-              localStorage.setItem(DISMISSED, "1");
-            } catch {
-              // ignore
-            }
-            setDismissed(true);
-          }}
+          onClick={() => setProgress((p) => ({ ...p, dismissed: true }))}
           className="rounded-full p-1.5 text-subtle hover:bg-surface-2 hover:text-foreground"
         >
           <X className="size-4" />

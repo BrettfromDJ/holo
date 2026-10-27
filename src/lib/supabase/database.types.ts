@@ -173,6 +173,13 @@ export type PortfolioRow = {
   updated_at: string;
 };
 
+export type UserStateRow = {
+  user_id: string;
+  key: string;
+  value: unknown;
+  updated_at: string;
+};
+
 export type ProfileRow = {
   id: string;
   display_name: string | null;
@@ -194,6 +201,7 @@ export type Database = {
       share_links: Table<ShareLinkRow>;
       shelves: Table<ShelfRow>;
       portfolios: Table<PortfolioRow>;
+      user_state: Table<UserStateRow>;
       catalog_sets: Table<CatalogSetRow>;
       catalog_games: Table<CatalogGameRow>;
     };

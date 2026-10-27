@@ -10,7 +10,8 @@ import { Segmented } from "@/components/ui/segmented";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { ExploreProduct } from "@/lib/explore/types";
 import { money, pct, signedMoney } from "@/lib/format";
-import { usePortfolio, useStore } from "@/lib/store/collection-store";
+import { usePortfolio } from "@/lib/store/collection-store";
+import { useSyncedState } from "@/lib/store/synced-state";
 import type { Product } from "@/lib/types";
 
 interface TradeItem {
@@ -45,14 +46,6 @@ function sideValue(items: TradeItem[], rate: number) {
   return items.reduce((s, i) => s + (i.unit ?? 0) * i.qty, 0) * rate;
 }
 
-function persist(next: TradeState) {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(next));
-  } catch {
-    // ignore
-  }
-}
-
 /** Latest saved market price for a catalog product (no TCG API requests). */
 async function latestCatalogPrice(item: TradeItem): Promise<number | null | undefined> {
   const res = await fetch(`/api/explore/products/${encodeURIComponent(item.product.id)}`);
@@ -63,24 +56,18 @@ async function latestCatalogPrice(item: TradeItem): Promise<number | null | unde
 }
 
 export default function TradePage() {
-  const [trade, setTrade] = useState<TradeState>(EMPTY);
+  // The trade in progress follows you across devices when signed in.
+  const [stored, setStored, ready] = useSyncedState<TradeState>("trade", EMPTY, { legacyKey: KEY });
+  const trade: TradeState = { ...EMPTY, ...stored };
   const [picking, setPicking] = useState<Side | null>(null);
-  const { status } = useStore();
   const { holdings } = usePortfolio({ ignoreFilter: true });
 
-  // Keep the trade in progress in this browser, and refresh every value that
-  // wasn't typed in to the latest saved price each time the page opens.
+  // Each visit, refresh every value that wasn't typed in to the latest saved price.
+  const [refreshed, setRefreshed] = useState(false);
   useEffect(() => {
-    if (status !== "ready") return;
-    let saved: TradeState = EMPTY;
-    try {
-      const raw = localStorage.getItem(KEY);
-      if (raw) saved = { ...EMPTY, ...(JSON.parse(raw) as TradeState) };
-    } catch {
-      // ignore
-    }
-    setTrade(saved);
-    let cancelled = false;
+    if (!ready || refreshed) return;
+    setRefreshed(true);
+    const saved = trade;
     const refresh = async (item: TradeItem): Promise<TradeItem> => {
       if (item.custom) return item;
       if (item.key.startsWith("h:")) {
@@ -91,20 +78,18 @@ export default function TradePage() {
       return latest === undefined ? item : { ...item, unit: latest };
     };
     void (async () => {
-      const next = { ...saved, give: await Promise.all(saved.give.map(refresh)), get: await Promise.all(saved.get.map(refresh)) };
-      if (cancelled) return;
-      setTrade(next);
-      persist(next);
+      const [give, get] = await Promise.all([Promise.all(saved.give.map(refresh)), Promise.all(saved.get.map(refresh))]);
+      // Apply refreshed values by item, so edits made meanwhile aren't lost.
+      const fresh = new Map([...give, ...get].map((i) => [i.key, i]));
+      setStored((cur) => {
+        const t = { ...EMPTY, ...cur };
+        const merge = (items: TradeItem[]) => items.map((i) => (i.custom ? i : { ...i, ...(fresh.get(i.key) ? { unit: fresh.get(i.key)!.unit, maxQty: fresh.get(i.key)!.maxQty, qty: Math.min(i.qty, fresh.get(i.key)!.maxQty ?? i.qty) } : {}) }));
+        return { ...t, give: merge(t.give), get: merge(t.get) };
+      });
     })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per visit, after the collection loads
-  }, [status]);
-  const save = (next: TradeState) => {
-    setTrade(next);
-    persist(next);
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per visit, after the trade loads
+  }, [ready, refreshed]);
+  const save = (next: TradeState) => setStored(next);
 
   const give = sideValue(trade.give, trade.rate.give);
   const get = sideValue(trade.get, trade.rate.get);
