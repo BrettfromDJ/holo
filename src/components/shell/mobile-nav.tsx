@@ -1,41 +1,58 @@
 "use client";
 
-import { Activity, ArrowLeftRight, BookOpen, Compass, Plus, Settings } from "lucide-react";
+import { Menu, Plus, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useStore } from "@/lib/store/collection-store";
 import { cn } from "@/lib/utils";
 import { Logo } from "./logo";
-import { NAV, isActive } from "./nav";
+import { MOBILE_MENU, MOBILE_TABS, SETTINGS, isActive, type NavItem } from "./nav";
 
-const PRIMARY = NAV.filter((n) => ["/", "/collection", "/analytics", "/watchlist"].includes(n.href));
-
-/** Compact top bar for secondary destinations on small screens. */
+/** Top bar on small screens: logo, settings, and a menu with every other destination. */
 export function MobileTopBar() {
   const pathname = usePathname();
+  const inMenu = MOBILE_MENU.some((n) => isActive(pathname, n.href));
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-background/85 px-4 backdrop-blur-xl lg:hidden">
       <Link href="/" aria-label="Overview">
         <Logo />
       </Link>
       <div className="flex items-center gap-1">
-        {[
-          { href: "/explore", label: "Explore", icon: Compass },
-          { href: "/binder", label: "Binder", icon: BookOpen },
-          { href: "/trade", label: "Trade", icon: ArrowLeftRight },
-          { href: "/activity", label: "Activity", icon: Activity },
-          { href: "/settings", label: "Settings", icon: Settings },
-        ].map(({ href, label, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            aria-label={label}
-            aria-current={isActive(pathname, href) ? "page" : undefined}
-            className={cn("flex size-10 items-center justify-center rounded-full", isActive(pathname, href) ? "bg-surface-2 text-foreground" : "text-muted")}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            aria-label="More pages"
+            className={cn("flex h-10 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium", inMenu ? "bg-surface-2 text-foreground" : "text-muted")}
           >
-            <Icon className="size-5" />
-          </Link>
-        ))}
+            <Menu className="size-5" />
+            {inMenu ? MOBILE_MENU.find((n) => isActive(pathname, n.href))?.label : "More"}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            {MOBILE_MENU.map((n, i) => (
+              <div key={n.href}>
+                {n.group !== (MOBILE_MENU[i - 1]?.group ?? undefined) && (
+                  <>
+                    {i > 0 && <DropdownMenuSeparator />}
+                    {n.group && <DropdownMenuLabel>{n.group}</DropdownMenuLabel>}
+                  </>
+                )}
+                <DropdownMenuItem asChild>
+                  <Link href={n.href} className={cn(isActive(pathname, n.href) && "bg-surface-2")}>
+                    <n.icon className="size-4" /> {n.label}
+                  </Link>
+                </DropdownMenuItem>
+              </div>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <Link
+          href={SETTINGS.href}
+          aria-label="Settings"
+          aria-current={isActive(pathname, SETTINGS.href) ? "page" : undefined}
+          className={cn("flex size-10 items-center justify-center rounded-full", isActive(pathname, SETTINGS.href) ? "bg-surface-2 text-foreground" : "text-muted")}
+        >
+          <Settings className="size-5" />
+        </Link>
       </div>
     </header>
   );
@@ -45,9 +62,8 @@ export function MobileTopBar() {
 export function BottomNav() {
   const pathname = usePathname();
   const { openAdd } = useStore();
-  const left = PRIMARY.slice(0, 2);
-  const right = PRIMARY.slice(2);
-  const Tab = ({ href, label, icon: Icon }: (typeof PRIMARY)[number]) => {
+  const { left, right } = MOBILE_TABS;
+  const Tab = ({ href, label, icon: Icon }: NavItem) => {
     const active = isActive(pathname, href);
     return (
       <Link

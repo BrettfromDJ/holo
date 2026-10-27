@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { Logo } from "./logo";
 import { PortfolioSwitcher } from "@/components/portfolio/portfolio-controls";
 import { ModeSwitcher } from "./mode-switcher";
-import { NAV, isActive } from "./nav";
+import { NAV_GROUPS, SETTINGS, isActive, type NavItem } from "./nav";
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -22,29 +22,34 @@ export function Sidebar() {
       <Button variant="primary" className="mt-8 w-full" onClick={() => openAdd()}>
         <Plus /> Add to Collection
       </Button>
-      <nav className="mt-6 flex flex-col gap-0.5" aria-label="Primary">
-        {NAV.map(({ href, label, icon: Icon }) => {
-          const active = isActive(pathname, href);
-          return (
-            <Link
-              key={href}
-              href={href}
-              aria-current={active ? "page" : undefined}
-              className={cn(
-                "flex h-10 items-center gap-3 rounded-xl px-3 text-[14px] font-medium transition-colors",
-                active ? "bg-surface-2 text-foreground" : "text-muted hover:bg-surface hover:text-foreground",
-              )}
-            >
-              <Icon className="size-[18px]" strokeWidth={active ? 2.2 : 1.8} />
-              {label}
-            </Link>
-          );
-        })}
+      <nav className="scrollbar-none -mx-1 mt-6 flex min-h-0 flex-col gap-5 overflow-y-auto px-1 pb-4" aria-label="Primary">
+        {NAV_GROUPS.map((group) => (
+          <div key={group.label ?? "main"} className="flex flex-col gap-0.5">
+            {group.label && <p className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-subtle">{group.label}</p>}
+            {group.items.map((item) => (
+              <NavLink key={item.href} item={item} active={isActive(pathname, item.href)} />
+            ))}
+          </div>
+        ))}
+        <NavLink item={SETTINGS} active={isActive(pathname, SETTINGS.href)} />
       </nav>
-      <div className="mt-auto space-y-2">
+      <div className="mt-auto shrink-0 space-y-2 pt-2">
         <PortfolioSwitcher />
         <ModeSwitcher />
       </div>
     </aside>
+  );
+}
+
+function NavLink({ item: { href, label, icon: Icon }, active }: { item: NavItem; active: boolean }) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={cn("flex h-9 items-center gap-3 rounded-xl px-3 text-[14px] font-medium transition-colors", active ? "bg-surface-2 text-foreground" : "text-muted hover:bg-surface hover:text-foreground")}
+    >
+      <Icon className="size-[18px]" strokeWidth={active ? 2.2 : 1.8} />
+      {label}
+    </Link>
   );
 }
