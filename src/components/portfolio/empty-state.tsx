@@ -18,7 +18,7 @@ export function EmptyCollection({ title = "Start your collection", body }: { tit
       </div>
       <h2 className="text-[22px] font-semibold tracking-tight">{title}</h2>
       <p className="mt-2 max-w-sm text-[15px] text-muted">
-        {body ?? "Add your first Pokémon card or sealed product. Holo tracks its market value and your true investment performance."}
+        {body ?? "Add your first card or sealed product — Pokémon, Magic, Yu-Gi-Oh!, One Piece or Lorcana. Holo tracks its market value and your true investment performance."}
       </p>
       <div className="mt-8 flex flex-wrap justify-center gap-3">
         <Button variant="primary" size="lg" onClick={() => openAdd()}>

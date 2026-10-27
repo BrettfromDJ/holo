@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { GameTile, ProductTile, useExploreIndex, useOwnedIds } from "@/components/explore/explore-items";
 import { ReleaseRow } from "@/components/explore/release-items";
+import { markExplored } from "@/components/overview/getting-started";
 import { PageHeader } from "@/components/shell/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ExploreProduct } from "@/lib/explore/types";
@@ -19,6 +20,7 @@ export default function ExplorePage() {
   const [results, setResults] = useState<Load<ExploreProduct[]> | null>(null);
   const owned = useOwnedIds();
   const { today } = useStore();
+  useEffect(() => markExplored(), []);
 
   // Debounced catalog search — served from Supabase, never the TCG API.
   useEffect(() => {
