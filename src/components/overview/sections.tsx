@@ -8,45 +8,12 @@ import { holdingHref, holdingLabel } from "@/components/portfolio/holding-items"
 import { Delta, DeltaPill } from "@/components/product/delta";
 import { ProductImage } from "@/components/product/product-image";
 import { addDays } from "@/lib/finance/dates";
-import type { HoldingView, PortfolioSummary } from "@/lib/finance/portfolio";
+import type { HoldingView } from "@/lib/finance/portfolio";
 import { money, signedMoney, tone } from "@/lib/format";
 import { useStore } from "@/lib/store/collection-store";
 import { priceKey } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Sparkline } from "./sparkline";
-
-/* ------------------------------ Headline ------------------------------- */
-
-function greeting(now = new Date()) {
-  const h = now.getHours();
-  return h < 5 ? "Good evening" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
-}
-
-function shortName(h: HoldingView) {
-  const name = h.product?.name ?? "one item";
-  return name.replace(/\s*\(.*?\)\s*/g, " ").replace(/\s+-\s+\d+\/\d+$/, "").trim();
-}
-
-/** Greeting plus one sentence that tells the story of today. */
-export function Headline({ summary, holdings, action }: { summary: PortfolioSummary; holdings: HoldingView[]; action?: React.ReactNode }) {
-  const sentence = useMemo(() => {
-    const change = summary.dayChange;
-    if (Math.abs(change) < 0.5) return `${summary.unitCount} items, ${money(summary.marketValue)} — a quiet day, prices held steady.`;
-    const dir = change > 0 ? "up" : "down";
-    const leader = [...holdings]
-      .filter((h) => h.dayChange !== null && Math.sign(h.dayChange) === Math.sign(change))
-      .sort((a, b) => Math.abs(b.dayChange ?? 0) - Math.abs(a.dayChange ?? 0))[0];
-    return `Your collection is ${dir} ${money(Math.abs(change))} today${leader ? `, ${change > 0 ? "led" : "dragged"} by ${shortName(leader)}` : ""}.`;
-  }, [summary, holdings]);
-
-  return (
-    <header className="mb-10">
-      <p className="text-[13px] font-medium uppercase tracking-[0.14em] text-subtle">{greeting()}</p>
-      <h1 className="mt-2 max-w-3xl text-balance text-[24px] font-semibold leading-tight tracking-[-0.02em] text-foreground/90 sm:text-[30px]">{sentence}</h1>
-      {action && <div className="mt-5">{action}</div>}
-    </header>
-  );
-}
 
 /* ---------------------------- Metric strip ----------------------------- */
 

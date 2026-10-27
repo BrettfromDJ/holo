@@ -10,7 +10,7 @@ import { BudgetCard } from "@/components/overview/budget-card";
 import { PortfolioBanner, PortfolioSwitcher } from "@/components/portfolio/portfolio-controls";
 import { MarketPulse } from "@/components/overview/market-pulse";
 import { ReleaseReminders } from "@/components/overview/release-reminders";
-import { Headline, MetricStrip, Shelf, Spotlight } from "@/components/overview/sections";
+import { MetricStrip, Shelf, Spotlight } from "@/components/overview/sections";
 import { RecapButton, WeeklyRecap } from "@/components/overview/weekly-recap";
 import { AllocationShowcase } from "@/components/portfolio/allocation-showcase";
 import { EmptyCollection } from "@/components/portfolio/empty-state";
@@ -59,7 +59,9 @@ export default function OverviewPage() {
       <MarketPulse holdings={holdings} />
       <PortfolioSwitcher compact className="mb-4 lg:hidden" />
       <PortfolioBanner />
-      <Headline summary={summary} holdings={holdings} action={<RecapButton onClick={() => setRecapOpen(true)} />} />
+      <div className="mb-8">
+        <RecapButton onClick={() => setRecapOpen(true)} />
+      </div>
       <WeeklyRecap open={recapOpen} onClose={() => setRecapOpen(false)} />
       <ReleaseReminders />
 

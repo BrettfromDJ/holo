@@ -210,12 +210,20 @@ function Bar({ start, end, pos, total }: { start: number; end: number; pos: (v: 
   const width = Math.max(Math.abs(pos(end) - pos(start)), 0.4);
   const up = end >= start;
   return (
-    <div className="relative col-span-2 h-6 sm:col-span-1" aria-hidden>
-      <div className="absolute inset-y-[11px] left-0 right-0 rounded-full bg-surface-2" />
-      <div className="absolute inset-y-0 w-px bg-border-strong" style={{ left: `${pos(0)}%` }} />
+    <div className="relative col-span-2 h-4 sm:col-span-1 sm:h-7" aria-hidden>
+      <div className="absolute inset-y-0 w-px bg-border" style={{ left: `${pos(0)}%` }} />
       <div
-        className={cn("absolute inset-y-1 animate-grow-x rounded-[4px] transition-all duration-500 ease-[var(--ease-apple)]", up ? "origin-left" : "origin-right", total ? "bg-foreground" : up ? "bg-up" : "bg-down")}
-        style={{ left: `${left}%`, width: `${width}%` }}
+        className={cn("absolute top-1/2 h-3 -translate-y-1/2 animate-grow-x rounded-full transition-all duration-500 ease-[var(--ease-apple)]", up ? "origin-left" : "origin-right")}
+        style={{
+          left: `${left}%`,
+          width: `${width}%`,
+          background: total
+            ? "linear-gradient(90deg, color-mix(in srgb, var(--foreground) 35%, transparent), var(--foreground))"
+            : up
+              ? "linear-gradient(90deg, color-mix(in srgb, var(--up) 35%, transparent), var(--up))"
+              : "linear-gradient(270deg, color-mix(in srgb, var(--down) 35%, transparent), var(--down))",
+          boxShadow: total ? undefined : `0 0 18px color-mix(in srgb, var(${up ? "--up" : "--down"}) 35%, transparent)`,
+        }}
       />
     </div>
   );
