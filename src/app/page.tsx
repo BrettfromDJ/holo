@@ -7,7 +7,6 @@ import { AnimatedNumber } from "@/components/motion/animated-number";
 import { Reveal } from "@/components/motion/reveal";
 import { MoversBoard, RecentTimeline } from "@/components/overview/boards";
 import { BudgetCard } from "@/components/overview/budget-card";
-import { GettingStarted } from "@/components/overview/getting-started";
 import { PortfolioBanner, PortfolioSwitcher } from "@/components/portfolio/portfolio-controls";
 import { MarketPulse } from "@/components/overview/market-pulse";
 import { ReleaseReminders } from "@/components/overview/release-reminders";
@@ -52,12 +51,7 @@ export default function OverviewPage() {
   if (store.status === "loading") return <OverviewSkeleton />;
   if (store.status === "error") return <ErrorState message={store.error} />;
   if (!store.data.transactions.length) {
-    return (
-      <>
-        <EmptyCollection />
-        <GettingStarted className="mx-auto max-w-xl" />
-      </>
-    );
+    return <EmptyCollection />;
   }
 
   return (
@@ -68,7 +62,6 @@ export default function OverviewPage() {
       <Headline summary={summary} holdings={holdings} action={<RecapButton onClick={() => setRecapOpen(true)} />} />
       <WeeklyRecap open={recapOpen} onClose={() => setRecapOpen(false)} />
       <ReleaseReminders />
-      <GettingStarted className="mb-8" />
 
       <PerformanceChart
         timeline={timeline}
