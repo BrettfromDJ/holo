@@ -468,7 +468,21 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
     [state, setMode, importProduct, setProductKind, showCatalogProduct, mergeHistory, setHoldingFilter, addTransaction, addWatch, updateWatch, removeWatch, setManualValue, refreshPrices, savePreferences, resetDemo, signOut, addTarget],
   );
 
-  return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
+  // Portfolio math (holdings, timeline, realized) is computed once per data
+  // change here and shared, instead of once per component that shows numbers.
+  const allView = useMemo(() => portfolioView(state.data, state.today), [state.data, state.today]);
+  const filtered = state.holdingFilter;
+  const filteredView = useMemo(
+    () => (filtered ? portfolioView({ ...state.data, transactions: state.data.transactions.filter((t) => filtered(holdingKey(t))) }, state.today) : allView),
+    [state.data, state.today, filtered, allView],
+  );
+  const views = useMemo(() => ({ all: allView, filtered: filteredView }), [allView, filteredView]);
+
+  return (
+    <StoreContext.Provider value={value}>
+      <PortfolioViewContext.Provider value={views}>{children}</PortfolioViewContext.Provider>
+    </StoreContext.Provider>
+  );
 }
 
 export function useStore() {
@@ -484,20 +498,17 @@ export interface PortfolioView {
   realized: RealizedEntry[];
 }
 
-/** Derived portfolio numbers, memoized on the underlying data. */
-/** Holdings, summary and timeline — limited to the selected portfolio unless `ignoreFilter`. */
+function portfolioView(data: CollectionData, today: ISODate): PortfolioView {
+  const holdings = computeHoldings(data, today);
+  const realized = totalRealized(data, today);
+  return { holdings, summary: summarize(holdings, realized.total), timeline: computeTimeline(data, today), realized: realized.entries };
+}
+
+const PortfolioViewContext = createContext<{ all: PortfolioView; filtered: PortfolioView } | null>(null);
+
+/** Holdings, summary and timeline — limited to the selected portfolio unless `ignoreFilter`. Computed once in the provider. */
 export function usePortfolio(opts?: { ignoreFilter?: boolean }): PortfolioView {
-  const { data: all, today, holdingFilter: selected } = useStore();
-  const holdingFilter = opts?.ignoreFilter ? null : selected;
-  return useMemo(() => {
-    const data = holdingFilter ? { ...all, transactions: all.transactions.filter((t) => holdingFilter(holdingKey(t))) } : all;
-    const holdings = computeHoldings(data, today);
-    const realized = totalRealized(data, today);
-    return {
-      holdings,
-      summary: summarize(holdings, realized.total),
-      timeline: computeTimeline(data, today),
-      realized: realized.entries,
-    };
-  }, [all, today, holdingFilter]);
+  const views = useContext(PortfolioViewContext);
+  if (!views) throw new Error("usePortfolio must be used inside CollectionProvider");
+  return opts?.ignoreFilter ? views.all : views.filtered;
 }

@@ -379,7 +379,7 @@ function PickerDialog({ side, onClose, onPick }: { side: Side | null; onClose: (
               <PickRow
                 key={r.product.id}
                 product={r.product}
-                sub={[r.product.setName, r.product.number && `#${r.product.number}`].filter(Boolean).join(" · ")}
+                sub={[r.gameName, r.product.setName, r.product.number && `#${r.product.number}`].filter(Boolean).join(" · ")}
                 price={r.market}
                 onClick={() => pick({ key: `p:${r.product.id}`, product: r.product, unit: r.market, qty: 1, printing: r.printing })}
               />

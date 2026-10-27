@@ -111,7 +111,7 @@ export function useExploreIndex() {
 }
 
 /** A catalog product; opens its full product page (served from the stored catalog). */
-export function ProductTile({ item, owned, gameSlug }: { item: ExploreProduct; owned: boolean; gameSlug?: string | null }) {
+export function ProductTile({ item, owned, gameSlug, showBrand }: { item: ExploreProduct; owned: boolean; gameSlug?: string | null; showBrand?: boolean }) {
   const p = item.product;
   const perPack = pricePerPack(item.market, packCount(p, gameSlug));
   return (
@@ -124,7 +124,8 @@ export function ProductTile({ item, owned, gameSlug }: { item: ExploreProduct; o
           </span>
         )}
       </div>
-      <p className="mt-2.5 line-clamp-2 text-[13px] font-medium leading-snug">{p.name}</p>
+      {showBrand && item.gameName && <p className="mt-2.5 truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-subtle">{item.gameName}</p>}
+      <p className={cn("line-clamp-2 text-[13px] font-medium leading-snug", showBrand && item.gameName ? "mt-0.5" : "mt-2.5")}>{p.name}</p>
       <p className="truncate text-[12px] text-muted">{[p.number && `#${p.number}`, p.rarity ?? (p.kind === "sealed" ? categoryOf(p) : null)].filter(Boolean).join(" · ")}</p>
       <p className="tabular mt-1 text-[14px] font-semibold">
         {item.market === null ? <span className="text-subtle">No price</span> : money(item.market)}

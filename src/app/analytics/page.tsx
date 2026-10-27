@@ -9,6 +9,7 @@ import { HoldingMiniRow } from "@/components/portfolio/holding-items";
 import { AllocationBar } from "@/components/portfolio/allocation-bar";
 import { RANGES, RANGE_LABEL } from "@/components/portfolio/performance-chart";
 import { Delta } from "@/components/product/delta";
+import { PortfolioBanner, PortfolioSwitcher } from "@/components/portfolio/portfolio-controls";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, SectionTitle } from "@/components/ui/card";
 import { Segmented } from "@/components/ui/segmented";
@@ -87,6 +88,8 @@ export default function AnalyticsPage() {
           </Link>
         }
       />
+      <PortfolioSwitcher compact className="mb-3 lg:hidden" />
+      <PortfolioBanner />
 
       <Card className="min-w-0 p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">

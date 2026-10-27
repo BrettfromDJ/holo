@@ -8,6 +8,7 @@ import { EmptyCollection } from "@/components/portfolio/empty-state";
 import { ErrorState } from "@/components/portfolio/error-state";
 import { Delta } from "@/components/product/delta";
 import { ProductImage } from "@/components/product/product-image";
+import { PortfolioBanner, PortfolioSwitcher } from "@/components/portfolio/portfolio-controls";
 import { PageHeader } from "@/components/shell/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -59,6 +60,8 @@ export default function GainsPage() {
   return (
     <div className="animate-fade-in">
       <PageHeader title="Gains" subtitle="See exactly which products your gains come from." actions={store.mode === "demo" ? <Badge variant="sample">Sample data</Badge> : undefined} />
+      <PortfolioSwitcher compact className="mb-3 lg:hidden" />
+      <PortfolioBanner />
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <Segmented

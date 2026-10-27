@@ -8,6 +8,7 @@ import { EmptyCollection } from "@/components/portfolio/empty-state";
 import { ErrorState } from "@/components/portfolio/error-state";
 import { Delta } from "@/components/product/delta";
 import { ProductImage } from "@/components/product/product-image";
+import { PortfolioBanner, PortfolioSwitcher } from "@/components/portfolio/portfolio-controls";
 import { PageHeader } from "@/components/shell/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -16,7 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { acquisitionCost, saleProceeds } from "@/lib/finance/ledger";
 import { formatDate, formatMonth, money } from "@/lib/format";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
-import type { Transaction } from "@/lib/types";
+import { holdingKey, type Transaction } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type Filter = "all" | "purchase" | "sale" | "adjustment";
@@ -36,7 +37,9 @@ export default function ActivityPage() {
   const [showHidden, setShowHidden] = useState(false);
 
   const { groups, effective, byId, hiddenCount } = useMemo(() => {
-    const all = store.data.transactions;
+    // Follows the portfolio picker like the other portfolio views.
+    const keep = store.holdingFilter;
+    const all = keep ? store.data.transactions.filter((t) => keep(holdingKey(t))) : store.data.transactions;
     const { effective, visible, hidden } = partitionHistory(all);
     const byId = new Map(all.map((t) => [t.id, t]));
     const list = (showHidden ? all : visible)
@@ -48,7 +51,7 @@ export default function ActivityPage() {
       groups.set(m, [...(groups.get(m) ?? []), t]);
     }
     return { groups: [...groups.entries()], effective, byId, hiddenCount: hidden.length };
-  }, [store.data.transactions, filter, showHidden]);
+  }, [store.data.transactions, store.holdingFilter, filter, showHidden]);
 
   const realizedBySale = useMemo(() => new Map(realized.map((r) => [r.transactionId, r])), [realized]);
 
@@ -66,6 +69,8 @@ export default function ActivityPage() {
   return (
     <div className="animate-fade-in">
       <PageHeader title="Activity" subtitle="Every purchase, sale and adjustment." />
+      <PortfolioSwitcher compact className="mb-3 lg:hidden" />
+      <PortfolioBanner />
       <div className="scrollbar-none -mx-4 mb-5 flex items-center overflow-x-auto px-4">
         <Segmented
           ariaLabel="Filter activity"

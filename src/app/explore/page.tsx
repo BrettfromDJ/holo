@@ -82,7 +82,7 @@ export default function ExplorePage() {
           ) : (
             <div className="grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 lg:grid-cols-5">
               {results.data.map((item) => (
-                <ProductTile key={item.product.id} item={item} owned={owned.has(item.product.id)} />
+                <ProductTile key={item.product.id} item={item} owned={owned.has(item.product.id)} showBrand />
               ))}
             </div>
           )}

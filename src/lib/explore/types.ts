@@ -19,6 +19,8 @@ export interface ExploreProduct {
   printing: string | null;
   market: number | null;
   priceUpdatedAt: string | null;
+  /** Brand (catalog) the product belongs to, e.g. "Pokemon Japan". */
+  gameName?: string | null;
 }
 
 export interface ExploreGame {

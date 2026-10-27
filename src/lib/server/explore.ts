@@ -34,6 +34,13 @@ export async function withPrices(admin: SupabaseClient<Database>, rows: ProductR
       if (!prev || (prev.market_price === null && p.market_price !== null)) prices.set(p.product_id, p);
     }
   }
+  // Brand names, from each product's set.
+  const setIds = [...new Set(rows.map((r) => r.set_id).filter((x): x is string => Boolean(x)))];
+  const brands = new Map<string, string>();
+  for (let i = 0; i < setIds.length; i += 300) {
+    const { data } = await admin.from("catalog_sets").select("slug, game_name").in("slug", setIds.slice(i, i + 300));
+    for (const s of data ?? []) brands.set(s.slug, s.game_name);
+  }
   return rows.map((r) => {
     const p = prices.get(r.id);
     return {
@@ -41,6 +48,7 @@ export async function withPrices(admin: SupabaseClient<Database>, rows: ProductR
       printing: p?.printing || null,
       market: p?.market_price === null || p?.market_price === undefined ? null : Number(p.market_price),
       priceUpdatedAt: p?.source_updated_at ?? null,
+      gameName: r.set_id ? (brands.get(r.set_id) ?? null) : null,
     };
   });
 }
