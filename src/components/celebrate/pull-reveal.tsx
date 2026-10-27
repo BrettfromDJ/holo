@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
  */
 export function PullReveal() {
   const [event, setEvent] = useState<PullEvent | null>(null);
-  const { summary } = usePortfolio();
+  const { summary } = usePortfolio({ ignoreFilter: true });
   const { data, today } = useStore();
   const budget = budgetStatus(data.transactions, today, data.preferences.monthlyBudget);
   const router = useRouter();

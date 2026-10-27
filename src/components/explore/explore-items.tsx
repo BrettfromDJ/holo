@@ -14,7 +14,8 @@ import { cn } from "@/lib/utils";
 
 /** Product ids the user owns, for "Owned" badges. */
 export function useOwnedIds() {
-  const { holdings } = usePortfolio();
+  // Owned anywhere in the collection, whichever portfolio is shown.
+  const { holdings } = usePortfolio({ ignoreFilter: true });
   return useMemo(() => new Set(holdings.map((h) => h.identity.productId)), [holdings]);
 }
 

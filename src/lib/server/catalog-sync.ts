@@ -50,12 +50,16 @@ export async function syncCatalog(admin: SupabaseClient<Database>, opts: Catalog
     for (const game of await catalogGameList()) {
       const { data: newest } = await admin.from("catalog_sets").select("listed_at").eq("game_slug", game.slug).order("listed_at", { ascending: false }).limit(1);
       if (newest?.length && Date.now() - Date.parse(newest[0].listed_at) < 7 * DAY) continue;
-      for (let page = 1; page <= 10; page++) {
+      // Collect every page first and save at the end: a brand only counts as
+      // listed once its whole list is in, so a listing cut short by the budget
+      // is redone on the next run instead of being skipped for a week.
+      const rows: Database["public"]["Tables"]["catalog_sets"]["Insert"][] = [];
+      for (let page = 1; page <= 20; page++) {
         if (!canCall()) return { ...result, stoppedBecause: "budget" };
         result.calls++;
         const { sets, hasMore } = await gameSetsPage(game.slug, page);
-        if (sets.length) {
-          const rows = sets.map((s) => ({
+        rows.push(
+          ...sets.map((s) => ({
             slug: s.slug,
             tcgapi_id: s.id,
             game_slug: game.slug,
@@ -67,13 +71,15 @@ export async function syncCatalog(admin: SupabaseClient<Database>, opts: Catalog
             image_url: s.image_url,
             icon_url: s.set_icon_url,
             listed_at: new Date().toISOString(),
-          }));
-          const { error } = await admin.from("catalog_sets").upsert(rows);
-          if (error) throw new Error(error.message);
-          result.setsListed += rows.length;
-        }
+          })),
+        );
         if (!hasMore) break;
       }
+      for (let i = 0; i < rows.length; i += 500) {
+        const { error } = await admin.from("catalog_sets").upsert(rows.slice(i, i + 500));
+        if (error) throw new Error(error.message);
+      }
+      result.setsListed += rows.length;
     }
 
     // --- 2. Products, newest unloaded sets first, then the stalest ----------
@@ -90,7 +96,9 @@ export async function syncCatalog(admin: SupabaseClient<Database>, opts: Catalog
       if (set.products_synced_at && Date.now() - Date.parse(set.products_synced_at) < 3 * DAY) break;
       let count = 0;
       let finished = false;
-      for (let page = 1; page <= 10; page++) {
+      // Very large sets stop at 25 pages (5,000 products) and still count as
+      // loaded, so they can't hog the queue run after run.
+      for (let page = 1; page <= 25; page++) {
         if (!canCall()) return { ...result, stoppedBecause: "budget" };
         result.calls++;
         const { products, prices, hasMore } = await setProductsPage({ id: set.tcgapi_id, slug: set.slug, name: set.name }, page);
@@ -101,7 +109,7 @@ export async function syncCatalog(admin: SupabaseClient<Database>, opts: Catalog
           if (error) throw new Error(error.message);
           result.pricesStored += await storePrices(admin, prices);
         }
-        if (!hasMore) {
+        if (!hasMore || page === 25) {
           finished = true;
           break;
         }

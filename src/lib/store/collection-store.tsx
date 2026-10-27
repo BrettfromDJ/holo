@@ -105,6 +105,7 @@ const StoreContext = createContext<(StoreState & StoreActions) | null>(null);
 
 const MODE_KEY = "holo:mode";
 const REFRESH_KEY = "holo:prices-refreshed";
+const ATTEMPT_KEY = "holo:prices-attempted";
 
 function emptyData(): CollectionData {
   return {
@@ -324,7 +325,13 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
       if (repo.kind === "demo" || !state.integrations.tcgapi) return;
       // Automatic refreshes happen at most once per calendar day; the Refresh button forces one.
       const lastDay = state.pricesRefreshedAt ? todayISO(new Date(state.pricesRefreshedAt)) : null;
-      if (!force && lastDay === state.today) return;
+      let attempted: string | null = null;
+      try {
+        attempted = localStorage.getItem(`${ATTEMPT_KEY}:${repo.kind}`);
+      } catch {
+        // ignore
+      }
+      if (!force && (lastDay === state.today || attempted === state.today)) return;
       const ids = [...new Set([...state.data.transactions.map((t) => t.productId), ...state.data.watchlist.map((w) => w.productId)])].filter((id) =>
         id.startsWith("tcgapi:"),
       );
@@ -367,16 +374,16 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
           };
         });
       } catch (err) {
-        // Count a failed automatic refresh as today's attempt so it isn't retried on every page load.
-        const now = new Date().toISOString();
+        // Remember today's failed automatic attempt so it isn't retried on every
+        // page load — without claiming the prices were refreshed.
         if (!force) {
           try {
-            localStorage.setItem(`${REFRESH_KEY}:${repo.kind}`, now);
+            localStorage.setItem(`${ATTEMPT_KEY}:${repo.kind}`, state.today);
           } catch {
             // ignore
           }
         }
-        setState((s) => ({ ...s, refreshing: false, pricesRefreshedAt: force ? s.pricesRefreshedAt : now, priceError: err instanceof Error ? err.message : "Price refresh failed." }));
+        setState((s) => ({ ...s, refreshing: false, priceError: err instanceof Error ? err.message : "Price refresh failed." }));
       }
     },
     [state.integrations.tcgapi, state.pricesRefreshedAt, state.data.transactions, state.data.watchlist, state.today],

@@ -324,7 +324,7 @@ function PriceHistory({ productId, printing }: { productId: string; printing: st
   }, [series, range, today]);
 
   // Few stored days and a real catalog product: offer the one-time full history fetch.
-  const canLoadHistory = productId.startsWith("tcgapi:") && series.length < 60;
+  const canLoadHistory = productId.startsWith("tcgapi:") && !(series[0] && series[0].date <= addDays(today, -60));
   const first = sliced[0];
   const at = scrub !== null && sliced[scrub] ? sliced[scrub] : sliced[sliced.length - 1];
   const change = first && at ? at.price - first.price : null;

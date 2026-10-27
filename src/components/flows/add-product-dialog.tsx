@@ -140,8 +140,8 @@ function PrintingSelect({ options, value, onChange }: { options: string[]; value
 
 function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fromWatchId?: string; onBack?: () => void; onDone: () => void }) {
   const { addTransaction, setManualValue, removeWatch, today } = useStore();
-  const { summary } = usePortfolio();
-  const { holdings: allHoldings } = usePortfolio({ ignoreFilter: true });
+  // The reveal compares the whole collection, whichever portfolio is being viewed.
+  const { summary, holdings: allHoldings } = usePortfolio({ ignoreFilter: true });
   const { imported, error } = useImported(hit);
   const product = imported?.product ?? hit.product;
   const sealed = product.kind === "sealed";

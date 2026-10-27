@@ -1,16 +1,25 @@
 import { NextResponse } from "next/server";
 import type { ExploreGame } from "@/lib/explore/types";
 import { EXPLORE_CACHE, setFromRow } from "@/lib/server/explore";
+import { selectAll } from "@/lib/server/paging";
+import type { CatalogSetRow } from "@/lib/supabase/database.types";
 import { getAdminSupabase } from "@/lib/supabase/server";
 
 /** GET /api/explore — brands and every set in the stored catalog, newest first. */
 export async function GET() {
   const admin = getAdminSupabase();
   if (!admin) return NextResponse.json({ error: { message: "Explore needs Supabase to be configured." } }, { status: 503 });
-  const [{ data, error }, { data: gameRows }] = await Promise.all([
-    admin.from("catalog_sets").select("*").order("release_date", { ascending: false, nullsFirst: false }).limit(6000),
+  let data: CatalogSetRow[] = [];
+  let error: { message: string } | null = null;
+  const [setsResult, { data: gameRows }] = await Promise.all([
+    selectAll<CatalogSetRow>((from, to) => admin.from("catalog_sets").select("*").order("release_date", { ascending: false, nullsFirst: false }).order("slug").range(from, to)).then(
+      (rows) => ({ rows, err: null }),
+      (e: Error) => ({ rows: [] as CatalogSetRow[], err: { message: e.message } }),
+    ),
     admin.from("catalog_games").select("*").order("sort"),
   ]);
+  data = setsResult.rows;
+  error = setsResult.err;
   if (error) {
     const missing = /catalog_sets/.test(error.message);
     return NextResponse.json(

@@ -26,8 +26,9 @@ export function setFromRow(r: CatalogSetRow): ExploreSet {
 export async function withPrices(admin: SupabaseClient<Database>, rows: ProductRow[]): Promise<ExploreProduct[]> {
   const ids = rows.map((r) => r.id);
   const prices = new Map<string, { printing: string; market_price: number | null; source_updated_at: string | null }>();
-  for (let i = 0; i < ids.length; i += 300) {
-    const { data } = await admin.from("product_prices").select("product_id, printing, market_price, source_updated_at").in("product_id", ids.slice(i, i + 300));
+  // Several printings per product, so keep each request well under the 1,000-row cap.
+  for (let i = 0; i < ids.length; i += 150) {
+    const { data } = await admin.from("product_prices").select("product_id, printing, market_price, source_updated_at").in("product_id", ids.slice(i, i + 150));
     for (const p of data ?? []) {
       const prev = prices.get(p.product_id);
       // Prefer the row with a price; otherwise keep the first.

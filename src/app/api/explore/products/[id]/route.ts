@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { selectAll } from "@/lib/server/paging";
 import { productFromRow, priceFromRow } from "@/lib/supabase/mappers";
 import { getAdminSupabase } from "@/lib/supabase/server";
 import { priceKey, type PricePoint } from "@/lib/types";
@@ -17,7 +18,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   const [{ data: priceRows }, { data: snaps }] = await Promise.all([
     admin.from("product_prices").select("*").eq("product_id", id),
-    admin.from("price_snapshots").select("printing, snapshot_date, market_price").eq("product_id", id).order("snapshot_date").limit(5000),
+    selectAll<{ printing: string; snapshot_date: string; market_price: number }>((from, to) =>
+      admin.from("price_snapshots").select("printing, snapshot_date, market_price").eq("product_id", id).order("snapshot_date").order("printing").range(from, to),
+    ).then((data) => ({ data })),
   ]);
   const prices = (priceRows ?? []).map(priceFromRow);
   const product = productFromRow(row);

@@ -23,6 +23,24 @@ function matchesType(hit: SearchHit, type: ProductTypeFilter) {
   return type === "all" || (type === "sealed" ? hit.product.kind === "sealed" : hit.product.kind === "single");
 }
 
+/** Catalog results carry their brand name; keep those from the chosen game (unknown brands are kept). */
+function matchesGame(hit: SearchHit, game: GameFilter) {
+  if (game === "all" || !hit.gameName) return true;
+  const name = hit.gameName.toLowerCase();
+  const brand = /pok[eé]mon/.test(name)
+    ? "pokemon"
+    : /lorcana/.test(name)
+      ? "lorcana"
+      : /yu-?gi-?oh/.test(name)
+        ? "yugioh"
+        : /one[\s-]?piece/.test(name)
+          ? "onepiece"
+          : /magic/.test(name)
+            ? "magic"
+            : null;
+  return brand === null || brand === game;
+}
+
 /** "Pokemon Japan" → "Japan", "Disney Lorcana" → "Lorcana", other brands by name; nothing for English Pokémon. */
 function regionLabel(gameName: string | null | undefined): string | null {
   if (!gameName || /^pok[eé]mon$/i.test(gameName.trim())) return null;
@@ -108,9 +126,10 @@ export function ProductSearch({ onSelect, autoFocus = true }: { onSelect: (hit: 
               if (e.name === "AbortError") throw e;
               return null;
             });
-          const fromCatalog = ((stored?.products ?? []) as SearchHit[]).filter((h) => matchesType(h, type));
+          const fromCatalog = ((stored?.products ?? []) as SearchHit[]).filter((h) => matchesType(h, type) && matchesGame(h, game));
           if (fromCatalog.length) {
             setHits(fromCatalog);
+            setRelaxed(null);
             setSource("catalog");
             return;
           }
