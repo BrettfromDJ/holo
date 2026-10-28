@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Field, MoneyInput, Stepper, parseMoney } from "@/components/flows/fields";
 import { FormShell } from "@/components/flows/transaction-dialogs";
+import { Hint } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, SectionTitle } from "@/components/ui/card";
@@ -14,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { daysBetween } from "@/lib/finance/dates";
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { formatDate, money } from "@/lib/format";
-import { certLookupUrl, GRADED_SOURCE, gradedLadder, gradeLabel, GRADERS, isStaleValue } from "@/lib/graded";
+import { certLookupUrl, GRADED_SOURCE, gradedLadder, gradeLabel, GRADERS, isStaleValue, liquidityNote, liquidityOf, salesRate, sampleSalesPerYear } from "@/lib/graded";
 import { useStore } from "@/lib/store/collection-store";
 import { useGradingCosts, useGradingSubmissions, useSlabCerts, type GradingSubmission } from "@/lib/store/grading";
 import { holdingKey, priceKey, type Grade } from "@/lib/types";
@@ -53,12 +54,12 @@ export function GradedPrices({ productId, printing, owned }: { productId: string
     <Card className="mt-6 p-5 sm:p-6">
       <SectionTitle
         title="Graded prices"
-        subtitle={`Raw ${money(raw)} · what slabs of this card sell for`}
+        subtitle={`Raw ${money(raw)}, sells ${salesRate(sampleSalesPerYear(productId, null, raw))} · what slabs of this card sell for`}
         action={GRADED_SOURCE === "sample" ? <Badge variant="sample">Sample data</Badge> : undefined}
       />
       <ul className="divide-y divide-border">
         {rows.map((r) => (
-          <li key={gradeLabel(r.grade)} className="grid grid-cols-[4.5rem_minmax(0,1fr)_auto_3.25rem] items-center gap-3 py-2.5">
+          <li key={gradeLabel(r.grade)} className="grid grid-cols-[4.5rem_minmax(0,1fr)_auto_3.5rem] items-center gap-x-3 py-2.5 sm:grid-cols-[4.5rem_minmax(0,1fr)_auto_4rem_3.25rem]">
             <GradeChip grade={r.grade} className="justify-self-start" />
             <div className="h-1.5 overflow-hidden rounded-full bg-surface-2" aria-hidden>
               <div
@@ -73,12 +74,23 @@ export function GradedPrices({ productId, printing, owned }: { productId: string
               {money(r.price)}
               {ownedLabels.has(gradeLabel(r.grade)) && <span className="ml-1.5 text-[11px] font-normal text-muted">yours</span>}
             </span>
-            <span className="tabular text-right font-mono text-[12px] text-muted">{multipleLabel(r.multiple)}</span>
+            <SalesCell perYear={sampleSalesPerYear(productId, r.grade, raw)} />
+            <span className="tabular hidden text-right font-mono text-[12px] text-muted sm:block">{multipleLabel(r.multiple)}</span>
           </li>
         ))}
       </ul>
-      <p className="mt-3 text-[12px] text-subtle">× is the multiple of the raw price.</p>
+      <p className="mt-3 text-[12px] text-subtle">Sales are how often each grade sells. × is the multiple of the raw price.</p>
     </Card>
+  );
+}
+
+/** How often something sells; rare sellers are dimmed. */
+export function SalesCell({ perYear, className }: { perYear: number; className?: string }) {
+  const rare = liquidityOf(perYear) === "rare";
+  return (
+    <Hint content={liquidityNote(perYear)}>
+      <span className={cn("tabular text-right font-mono text-[12px]", rare ? "text-subtle" : "text-muted", className)}>{salesRate(perYear)}</span>
+    </Hint>
   );
 }
 
@@ -102,6 +114,7 @@ export function SlabDetails({ h, onRevalue, onCert }: { h: HoldingView; onRevalu
           </>
         )}
       </p>
+      {raw !== null && <p>{liquidityNote(sampleSalesPerYear(h.identity.productId, grade, raw))}</p>}
       {stale && (
         <p>
           Your value is {daysBetween(h.priceUpdatedAt!, today)} days old.{" "}

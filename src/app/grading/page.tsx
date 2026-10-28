@@ -22,7 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { daysBetween } from "@/lib/finance/dates";
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { formatDate, money, signedMoney } from "@/lib/format";
-import { GRADED_SOURCE, gradingOutlook, isStaleValue } from "@/lib/graded";
+import { GRADED_SOURCE, gradingOutlook, isStaleValue, liquidityOf, salesRate, sampleSalesPerYear } from "@/lib/graded";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
 import { useGradingCosts, useGradingSubmissions, type GradingSubmission } from "@/lib/store/grading";
 import { holdingKey, priceKey } from "@/lib/types";
@@ -48,7 +48,8 @@ export default function GradingPage() {
       if (h.identity.grade || h.product?.kind !== "single" || h.price === null || h.price < MIN_RAW) continue;
       out.push({ h, outlook: gradingOutlook(h.identity.productId, h.price, costs) });
     }
-    return out.filter((c) => c.outlook.upside10 > 0).sort((a, b) => b.outlook.upside10 - a.outlook.upside10);
+    // Ranked by upside, discounted when PSA 10s of the card rarely sell.
+    return out.filter((c) => c.outlook.upside10 > 0).sort((a, b) => b.outlook.score - a.outlook.score);
   }, [holdings, costs]);
 
   if (store.status === "loading") return <Skeleton className="h-[600px] w-full rounded-3xl" />;
@@ -128,7 +129,7 @@ export default function GradingPage() {
         <Card className="p-5 sm:p-6">
           <SectionTitle
             title="Worth grading"
-            subtitle={`Raw cards with the most upside if they come back a PSA 10, after ${money(costs.fee + costs.shipping)} in costs`}
+            subtitle={`Raw cards with the most upside if they come back a PSA 10, after ${money(costs.fee + costs.shipping)} in costs. Cards whose PSA 10s rarely sell rank lower.`}
             action={
               <Button variant="ghost" size="sm" onClick={() => setCostsOpen(true)}>
                 Costs
@@ -224,6 +225,10 @@ function CandidateRow({ h, outlook, away }: { h: HoldingView; outlook: ReturnTyp
         <p className="tabular truncate text-[12px] text-muted">
           Raw {money(outlook.raw)} · PSA 10 {money(outlook.psa10)} · PSA 9 {money(outlook.psa9)}
         </p>
+        <p className={cn("text-[11px]", liquidityOf(outlook.psa10Sales) === "rare" ? "text-subtle" : "text-muted")}>
+          PSA 10s sell <span className="font-mono">{salesRate(outlook.psa10Sales)}</span>
+          {liquidityOf(outlook.psa10Sales) === "rare" && " · hard to sell"}
+        </p>
       </div>
       <div className="shrink-0 text-right">
         <p className="tabular text-[14px] font-semibold">
@@ -261,6 +266,11 @@ function SlabTile({ h, today }: { h: HoldingView; today: string }) {
       <p className={cn("text-[11px]", stale ? "text-foreground/80" : "text-subtle")}>
         {manual ? (stale ? `Your value · ${daysBetween(h.priceUpdatedAt!, today)} days old` : "Your value") : GRADED_SOURCE === "sample" ? "Graded market (sample)" : "Graded market"}
       </p>
+      {raw !== null && h.identity.grade && (
+        <p className="text-[11px] text-subtle">
+          Sells <span className="font-mono">{salesRate(sampleSalesPerYear(h.identity.productId, h.identity.grade, raw))}</span>
+        </p>
+      )}
     </Link>
   );
 }

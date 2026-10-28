@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PriceResolver } from "./finance/prices";
-import { gradedLadder, gradedPriceKey, gradingOutlook, isStaleValue, sampleMultiple, withSampleGradedPrices } from "./graded";
+import { gradedLadder, gradedPriceKey, gradingOutlook, isStaleValue, liquidityOf, salesRate, sampleMultiple, sampleSalesPerYear, withSampleGradedPrices } from "./graded";
 import { priceKey, type CollectionData, type NormalizedPrice, type Transaction } from "./types";
 
 const today = "2026-10-28";
@@ -58,5 +58,20 @@ describe("graded prices", () => {
     expect(isStaleValue("2026-07-01", today)).toBe(true);
     expect(isStaleValue("2026-10-01", today)).toBe(false);
     expect(isStaleValue(null, today)).toBe(false);
+  });
+
+  it("sells raw copies more often than PSA 10s", () => {
+    const raw = sampleSalesPerYear("p1", null, 100);
+    const ten = sampleSalesPerYear("p1", { company: "PSA", grade: "10" }, 100);
+    expect(raw).toBeGreaterThan(ten);
+  });
+
+  it("describes sales rates", () => {
+    expect(liquidityOf(104)).toBe("often");
+    expect(salesRate(104)).toBe("~2/wk");
+    expect(liquidityOf(24)).toBe("regular");
+    expect(salesRate(24)).toBe("~2/mo");
+    expect(liquidityOf(5)).toBe("rare");
+    expect(salesRate(5)).toBe("~5/yr");
   });
 });

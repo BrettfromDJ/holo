@@ -194,6 +194,10 @@ export interface GradingOutlook {
   upside10: number;
   /** Profit over selling raw at PSA 9 (negative means a 9 loses money). */
   upside9: number;
+  /** PSA 10 sales per year. */
+  psa10Sales: number;
+  /** Upside at a 10, discounted when PSA 10s rarely sell. Used for ranking. */
+  score: number;
 }
 
 /** What grading a raw card with PSA would likely be worth. */
@@ -201,5 +205,52 @@ export function gradingOutlook(productId: string, raw: number, costs: GradingCos
   const cost = costs.fee + costs.shipping;
   const psa10 = round(raw * sampleMultiple(productId, { company: "PSA", grade: "10" }));
   const psa9 = round(raw * sampleMultiple(productId, { company: "PSA", grade: "9" }));
-  return { raw, cost, psa10, psa9, upside10: psa10 - raw - cost, upside9: psa9 - raw - cost };
+  const psa10Sales = sampleSalesPerYear(productId, { company: "PSA", grade: "10" }, raw);
+  const upside10 = psa10 - raw - cost;
+  return { raw, cost, psa10, psa9, upside10, upside9: psa9 - raw - cost, psa10Sales, score: upside10 * LIQUIDITY_WEIGHT[liquidityOf(psa10Sales)] };
 }
+
+/* ------------------------------ Sales volume ------------------------------ */
+
+/**
+ * How many copies sell per year, raw (`grade` null) or at a grade. Sample
+ * figures for now (cheaper cards and lower grades sell more often); a real
+ * feed such as PriceCharting's sales volume replaces this.
+ */
+export function sampleSalesPerYear(productId: string, grade: Grade | null, raw: number | null): number {
+  const price = raw ?? 50;
+  const base = price < 20 ? 420 : price < 100 ? 220 : price < 500 ? 90 : 34;
+  let factor = 1;
+  if (grade) {
+    const n = Number.parseFloat(grade.grade);
+    const company = grade.company.toUpperCase();
+    factor = company === "PSA" ? (n >= 10 ? 0.14 : n >= 9 ? 0.3 : n >= 8 ? 0.2 : 0.1) : n >= 10 ? 0.05 : 0.08;
+  }
+  const jitter = 0.4 + hash(`${productId}|${grade ? gradeLabel(grade) : "raw"}|sales`) * 1.2;
+  return Math.max(1, Math.round(base * factor * jitter));
+}
+
+export type Liquidity = "often" | "regular" | "rare";
+
+/** Weekly or more is "often", monthly or more "regular", anything less "rare". */
+export function liquidityOf(perYear: number): Liquidity {
+  return perYear >= 52 ? "often" : perYear >= 12 ? "regular" : "rare";
+}
+
+/** "~3/wk", "~2/mo", "~5/yr". */
+export function salesRate(perYear: number): string {
+  if (perYear >= 52) return `~${Math.round(perYear / 52)}/wk`;
+  if (perYear >= 12) return `~${Math.round(perYear / 12)}/mo`;
+  return `~${perYear}/yr`;
+}
+
+/** A plain sentence about how easy a slab is to sell. */
+export function liquidityNote(perYear: number): string {
+  const level = liquidityOf(perYear);
+  if (level === "often") return `Sells often (${salesRate(perYear)}). Easy to sell near this price.`;
+  if (level === "regular") return `Sells regularly (${salesRate(perYear)}).`;
+  return `Rarely sells (${salesRate(perYear)}). A sale may take time or a lower price.`;
+}
+
+/** How much a grading upside counts when ranking, by how often the PSA 10 sells. */
+export const LIQUIDITY_WEIGHT: Record<Liquidity, number> = { often: 1, regular: 0.8, rare: 0.4 };
