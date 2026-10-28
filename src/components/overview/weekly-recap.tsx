@@ -30,14 +30,28 @@ function Kicker({ children }: { children: React.ReactNode }) {
 }
 
 function Big({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <p className={cn("tabular mt-3 text-[46px] font-semibold leading-[1.02] tracking-[-0.04em] text-white", className)}>{children}</p>;
+  return <p className={cn("tabular mt-3 text-[46px] font-semibold leading-[1.02] tracking-[-0.04em] text-white sm:text-[64px]", className)}>{children}</p>;
 }
 
 function ProductHero({ h }: { h: HoldingView }) {
   return (
-    <HoloTilt max={14} radius="1.5rem" foil={false} className="mx-auto mt-8 aspect-square w-[62%] animate-pull-in">
+    <HoloTilt max={14} radius="1.5rem" foil={false} className="mx-auto mt-8 aspect-square w-[62%] animate-pull-in sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:mt-0 sm:w-full sm:max-w-[340px] sm:self-center">
       <ProductImage product={h.product} size="lg" className="h-full w-full rounded-3xl shadow-2xl shadow-black/50" />
     </HoloTilt>
+  );
+}
+
+/**
+ * A slide about one product: stacked on phones (kicker, image, numbers);
+ * side by side on wider screens (words left, image right).
+ */
+function HeroSlide({ kicker, h, children }: { kicker: string; h: HoldingView; children: React.ReactNode }) {
+  return (
+    <div className="flex h-full flex-col sm:grid sm:grid-cols-2 sm:grid-rows-[auto_1fr] sm:gap-x-12">
+      <Kicker>{kicker}</Kicker>
+      <ProductHero h={h} />
+      <div className="mt-auto sm:col-start-1 sm:row-start-2 sm:self-end">{children}</div>
+    </div>
   );
 }
 
@@ -87,15 +101,11 @@ function useSlides(): { slides: Slide[]; from: string; to: string } {
         key: "gainer",
         bg: "radial-gradient(120% 80% at 80% 0%, #10b981 0%, #053d2c 55%, #0b0b0c 100%)",
         render: () => (
-          <div className="flex h-full flex-col">
-            <Kicker>Hottest this week</Kicker>
-            <ProductHero h={gainer} />
-            <div className="mt-auto">
-              <p className="line-clamp-2 text-[20px] font-semibold leading-tight text-white">{shortName(gainer.product!.name)}</p>
+          <HeroSlide kicker="Hottest this week" h={gainer}>
+              <p className="line-clamp-2 text-[20px] font-semibold leading-tight text-white sm:text-[26px]">{shortName(gainer.product!.name)}</p>
               <Big className="text-[#7dffa1]">{signedPct((gainer.change7dPct ?? 0) / 100)}</Big>
               <p className="tabular mt-1 text-[14px] text-white/70">Now {money(gainer.price)} each</p>
-            </div>
-          </div>
+          </HeroSlide>
         ),
       });
     }
@@ -104,15 +114,11 @@ function useSlides(): { slides: Slide[]; from: string; to: string } {
         key: "loser",
         bg: "radial-gradient(120% 80% at 20% 0%, #e5484d 0%, #3d0f12 55%, #0b0b0c 100%)",
         render: () => (
-          <div className="flex h-full flex-col">
-            <Kicker>Cooled off</Kicker>
-            <ProductHero h={loser} />
-            <div className="mt-auto">
-              <p className="line-clamp-2 text-[20px] font-semibold leading-tight text-white">{shortName(loser.product!.name)}</p>
+          <HeroSlide kicker="Cooled off" h={loser}>
+              <p className="line-clamp-2 text-[20px] font-semibold leading-tight text-white sm:text-[26px]">{shortName(loser.product!.name)}</p>
               <Big className="text-[#ff8a80]">{signedPct((loser.change7dPct ?? 0) / 100)}</Big>
               <p className="tabular mt-1 text-[14px] text-white/70">Now {money(loser.price)} each — buying opportunity?</p>
-            </div>
-          </div>
+          </HeroSlide>
         ),
       });
     }
@@ -149,17 +155,13 @@ function useSlides(): { slides: Slide[]; from: string; to: string } {
         key: "best",
         bg: "radial-gradient(120% 80% at 50% 0%, #ec4899 0%, #3d0d26 55%, #0b0b0c 100%)",
         render: () => (
-          <div className="flex h-full flex-col">
-            <Kicker>Best buy you&apos;ve ever made</Kicker>
-            <ProductHero h={best} />
-            <div className="mt-auto">
-              <p className="line-clamp-2 text-[20px] font-semibold leading-tight text-white">{shortName(best.product!.name)}</p>
+          <HeroSlide kicker="Best buy you’ve ever made" h={best}>
+              <p className="line-clamp-2 text-[20px] font-semibold leading-tight text-white sm:text-[26px]">{shortName(best.product!.name)}</p>
               <Big className="text-[#ffb3d9]">{signedPct(best.unrealizedPct)}</Big>
               <p className="tabular mt-1 text-[14px] text-white/70">
                 Paid {money(best.costBasis)} · worth {money(best.value)}
               </p>
-            </div>
-          </div>
+          </HeroSlide>
         ),
       });
     }
@@ -232,7 +234,7 @@ export function WeeklyRecap({ open, onClose }: { open: boolean; onClose: () => v
       </button>
 
       <div
-        className="relative aspect-[9/16] max-h-[88dvh] w-full max-w-[400px] select-none overflow-hidden rounded-[2rem] shadow-2xl ring-1 ring-white/10"
+        className="relative aspect-[9/16] max-h-[88dvh] w-full max-w-[400px] select-none sm:aspect-[16/10] sm:max-h-none sm:w-[min(880px,calc(100vw-9rem),calc(88dvh*1.6))] sm:max-w-none overflow-hidden rounded-[2rem] shadow-2xl ring-1 ring-white/10"
         style={{ background: slide.bg }}
         onClick={(e) => {
           e.stopPropagation();
@@ -244,7 +246,7 @@ export function WeeklyRecap({ open, onClose }: { open: boolean; onClose: () => v
         onPointerUp={() => setPaused(false)}
         onPointerLeave={() => setPaused(false)}
       >
-        <div className="absolute inset-x-4 top-4 z-10 flex gap-1.5">
+        <div className="absolute inset-x-4 top-4 z-10 flex gap-1.5 sm:inset-x-6 sm:top-5">
           {slides.map((s, n) => (
             <div key={s.key} className="h-[3px] flex-1 overflow-hidden rounded-full bg-white/25">
               <div
@@ -255,10 +257,10 @@ export function WeeklyRecap({ open, onClose }: { open: boolean; onClose: () => v
             </div>
           ))}
         </div>
-        <div key={slide.key} className="h-full animate-rise px-7 pb-12 pt-12">
+        <div key={slide.key} className="h-full animate-rise px-7 pb-12 pt-12 sm:px-14 sm:pb-14 sm:pt-14">
           {slide.render()}
         </div>
-        <div className="pointer-events-none absolute bottom-4 left-7 text-[11px] font-semibold tracking-[0.2em] text-white/35">HOLO</div>
+        <div className="pointer-events-none absolute bottom-4 left-7 text-[11px] sm:bottom-5 sm:left-14 font-semibold tracking-[0.2em] text-white/35">HOLO</div>
       </div>
     </div>,
     document.body,
