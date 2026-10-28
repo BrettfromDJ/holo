@@ -14,18 +14,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { daysBetween } from "@/lib/finance/dates";
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { formatDate, money } from "@/lib/format";
-import { certLookupUrl, GRADED_SOURCE, gradedLadder, gradeLabel, GRADERS, isStaleValue, slabStyle } from "@/lib/graded";
+import { certLookupUrl, GRADED_SOURCE, gradedLadder, gradeLabel, GRADERS, isStaleValue } from "@/lib/graded";
 import { useStore } from "@/lib/store/collection-store";
 import { useGradingCosts, useGradingSubmissions, useSlabCerts, type GradingSubmission } from "@/lib/store/grading";
 import { holdingKey, priceKey, type Grade } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-/** A small slab-colored chip: "PSA 10". */
+/** A small neutral chip: "PSA 10". */
 export function GradeChip({ grade, className }: { grade: Grade; className?: string }) {
-  const s = slabStyle(grade.company);
   return (
-    <span className={cn("inline-flex items-center rounded-[5px] px-1.5 py-0.5 font-mono text-[11px] font-semibold leading-none", className)} style={{ background: s.label, color: s.text }}>
-      {gradeLabel(grade)}
+    <span className={cn("inline-flex items-center gap-1 rounded-[5px] bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] font-medium leading-none ring-1 ring-inset ring-border", className)}>
+      <span className="text-muted">{grade.company}</span>
+      <span className="text-foreground">{grade.grade}</span>
     </span>
   );
 }
@@ -61,7 +61,13 @@ export function GradedPrices({ productId, printing, owned }: { productId: string
           <li key={gradeLabel(r.grade)} className="grid grid-cols-[4.5rem_minmax(0,1fr)_auto_3.25rem] items-center gap-3 py-2.5">
             <GradeChip grade={r.grade} className="justify-self-start" />
             <div className="h-1.5 overflow-hidden rounded-full bg-surface-2" aria-hidden>
-              <div className="h-full rounded-full" style={{ width: `${(r.price / best) * 100}%`, background: `color-mix(in srgb, ${slabStyle(r.grade.company).accent} 60%, transparent)` }} />
+              <div
+                className="h-full rounded-full"
+                style={{
+                  width: `${(r.price / best) * 100}%`,
+                  background: "linear-gradient(90deg, color-mix(in srgb, var(--foreground) 12%, transparent), color-mix(in srgb, var(--foreground) 55%, transparent))",
+                }}
+              />
             </div>
             <span className="tabular text-right text-[14px] font-semibold">
               {money(r.price)}
