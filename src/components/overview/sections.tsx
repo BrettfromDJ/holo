@@ -45,7 +45,7 @@ export function MetricStrip({ items, tinted }: { items: Metric[]; tinted?: boole
               {m.sub && <div className="mt-2 text-[12px] text-muted">{m.sub}</div>}
             </>
           );
-          const cls = cn("tint hype-surface block rounded-[var(--radius-card)] px-5 py-4 sm:py-5", m.tint);
+          const cls = cn("tint tint-borderless hype-surface block rounded-[var(--radius-card)] px-5 py-4 sm:py-5", m.tint);
           return m.href ? (
             <Link key={m.label} href={m.href} className={cls}>
               {inner}

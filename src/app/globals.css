@@ -569,6 +569,15 @@
     var(--surface);
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--tint) 30%, transparent);
 }
+/* No outline: just the color wash. */
+.tint.tint-borderless,
+.hype .tint.tint-borderless:hover {
+  border-color: transparent;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--tint) 18%, transparent);
+}
+.hype .tint.tint-borderless:hover {
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--tint) 18%, transparent), 0 14px 44px -14px color-mix(in srgb, var(--tint) 35%, transparent);
+}
 .tint-lime { --tint: var(--lime); }
 .tint-pink { --tint: var(--plan-pink); }
 .tint-blue { --tint: var(--plan-blue); }
