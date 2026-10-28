@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { daysBetween } from "@/lib/finance/dates";
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { formatDate, money } from "@/lib/format";
-import { certLookupUrl, GRADED_SOURCE, gradeDescriptor, gradedLadder, gradeLabel, GRADERS, isStaleValue, liquidityNote, liquidityOf, salesRate, sampleSalesPerYear } from "@/lib/graded";
+import { certLookupUrl, GRADED_SOURCE, gradeDescriptor, gradedLadder, gradeLabel, GRADERS, isStaleValue, liquidityLabel, liquidityNote, liquidityOf, sampleSalesPerYear } from "@/lib/graded";
 import { useStore } from "@/lib/store/collection-store";
 import { useGradingCosts, useGradingSubmissions, useSlabCerts, type GradingSubmission } from "@/lib/store/grading";
 import { holdingKey, priceKey, type Grade } from "@/lib/types";
@@ -56,7 +56,7 @@ export function GradedPrices({ productId, printing, owned }: { productId: string
     <Card className="mt-6 p-5 sm:p-6">
       <SectionTitle
         title="Graded prices"
-        subtitle={`Raw ${money(raw)}, sells ${salesRate(sampleSalesPerYear(productId, null, raw))} · what slabs of this card sell for`}
+        subtitle={`Raw ${money(raw)} · what slabs of this card sell for`}
         action={GRADED_SOURCE === "sample" ? <Badge variant="sample">Sample data</Badge> : undefined}
       />
       <ul className="divide-y divide-border">
@@ -81,17 +81,31 @@ export function GradedPrices({ productId, printing, owned }: { productId: string
           </li>
         ))}
       </ul>
-      <p className="mt-3 text-[12px] text-subtle">Sales are how often each grade sells. × is the multiple of the raw price.</p>
+      <p className="mt-3 text-[12px] text-subtle">Bars show how easy each grade is to sell. × is the multiple of the raw price.</p>
     </Card>
   );
 }
 
-/** How often something sells; rare sellers are dimmed. */
+/** Three rising bars: one for hard to sell, three for easy. */
+export function LiquidityMeter({ perYear, className }: { perYear: number; className?: string }) {
+  const level = liquidityOf(perYear);
+  const filled = level === "often" ? 3 : level === "regular" ? 2 : 1;
+  return (
+    <span className={cn("inline-flex items-end gap-[3px]", className)} role="img" aria-label={liquidityLabel(perYear)}>
+      {[0, 1, 2].map((i) => (
+        <span key={i} className={cn("w-[4px] rounded-full", i < filled ? "bg-foreground/80" : "bg-foreground/15")} style={{ height: `${7 + i * 4}px` }} />
+      ))}
+    </span>
+  );
+}
+
+/** How easy a grade is to sell, as a meter with the label on hover. */
 export function SalesCell({ perYear, className }: { perYear: number; className?: string }) {
-  const rare = liquidityOf(perYear) === "rare";
   return (
     <Hint content={liquidityNote(perYear)}>
-      <span className={cn("tabular text-right font-mono text-[12px]", rare ? "text-subtle" : "text-muted", className)}>{salesRate(perYear)}</span>
+      <span className={cn("flex justify-end", className)}>
+        <LiquidityMeter perYear={perYear} />
+      </span>
     </Hint>
   );
 }
@@ -107,8 +121,6 @@ export function SlabCard({ h, actions, onRevalue, onCert }: { h: HoldingView; ac
   const manual = h.priceOrigin === "manual";
   const stale = manual && isStaleValue(h.priceUpdatedAt, today);
   const sales = raw !== null ? sampleSalesPerYear(h.identity.productId, grade, raw) : null;
-  const level = sales !== null ? liquidityOf(sales) : null;
-  const filled = level === "often" ? 3 : level === "regular" ? 2 : level === "rare" ? 1 : 0;
 
   return (
     <div className="flex gap-4 sm:gap-5">
@@ -144,16 +156,9 @@ export function SlabCard({ h, actions, onRevalue, onCert }: { h: HoldingView; ac
           <Tile label="Sells">
             {sales !== null ? (
               <Hint content={liquidityNote(sales)}>
-                <span className="block">
-                  <span className="flex items-center gap-2">
-                    <span className="font-mono text-[17px] font-semibold">{salesRate(sales)}</span>
-                    <span className="flex items-end gap-[3px]" aria-hidden>
-                      {[0, 1, 2].map((i) => (
-                        <span key={i} className={cn("w-[4px] rounded-full", i < filled ? "bg-foreground/80" : "bg-foreground/15")} style={{ height: `${7 + i * 4}px` }} />
-                      ))}
-                    </span>
-                  </span>
-                  <span className="mt-0.5 block text-[11px] text-subtle">{level === "often" ? "Easy to sell" : level === "regular" ? "Sells regularly" : "Hard to sell"}</span>
+                <span className="flex items-center gap-2.5">
+                  <span className="text-[15px] font-semibold">{liquidityLabel(sales)}</span>
+                  <LiquidityMeter perYear={sales} />
                 </span>
               </Hint>
             ) : (

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PriceResolver } from "./finance/prices";
-import { gradedLadder, gradedPriceKey, gradingOutlook, isStaleValue, liquidityOf, salesRate, sampleMultiple, sampleSalesPerYear, withSampleGradedPrices } from "./graded";
+import { gradedLadder, gradedPriceKey, gradingOutlook, isStaleValue, liquidityLabel, liquidityOf, sampleMultiple, sampleSalesPerYear, withSampleGradedPrices } from "./graded";
 import { priceKey, type CollectionData, type NormalizedPrice, type Transaction } from "./types";
 
 const today = "2026-10-28";
@@ -66,12 +66,10 @@ describe("graded prices", () => {
     expect(raw).toBeGreaterThan(ten);
   });
 
-  it("describes sales rates", () => {
+  it("describes how easy something is to sell", () => {
     expect(liquidityOf(104)).toBe("often");
-    expect(salesRate(104)).toBe("~2/wk");
+    expect(liquidityLabel(104)).toBe("Easy to sell");
     expect(liquidityOf(24)).toBe("regular");
-    expect(salesRate(24)).toBe("~2/mo");
-    expect(liquidityOf(5)).toBe("rare");
-    expect(salesRate(5)).toBe("~5/yr");
+    expect(liquidityLabel(5)).toBe("Hard to sell");
   });
 });

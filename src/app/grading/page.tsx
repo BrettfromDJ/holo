@@ -22,7 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { daysBetween } from "@/lib/finance/dates";
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { formatDate, money, signedMoney } from "@/lib/format";
-import { GRADED_SOURCE, gradingOutlook, isStaleValue, liquidityOf, salesRate, sampleSalesPerYear } from "@/lib/graded";
+import { GRADED_SOURCE, gradingOutlook, isStaleValue, liquidityLabel, liquidityOf, sampleSalesPerYear } from "@/lib/graded";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
 import { useGradingCosts, useGradingSubmissions, type GradingSubmission } from "@/lib/store/grading";
 import { holdingKey, priceKey } from "@/lib/types";
@@ -226,8 +226,7 @@ function CandidateRow({ h, outlook, away }: { h: HoldingView; outlook: ReturnTyp
           Raw {money(outlook.raw)} · PSA 10 {money(outlook.psa10)} · PSA 9 {money(outlook.psa9)}
         </p>
         <p className={cn("text-[11px]", liquidityOf(outlook.psa10Sales) === "rare" ? "text-subtle" : "text-muted")}>
-          PSA 10s sell <span className="font-mono">{salesRate(outlook.psa10Sales)}</span>
-          {liquidityOf(outlook.psa10Sales) === "rare" && " · hard to sell"}
+          PSA 10s: {liquidityLabel(outlook.psa10Sales).toLowerCase()}
         </p>
       </div>
       <div className="shrink-0 text-right">
@@ -268,7 +267,7 @@ function SlabTile({ h, today }: { h: HoldingView; today: string }) {
       </p>
       {raw !== null && h.identity.grade && (
         <p className="text-[11px] text-subtle">
-          Sells <span className="font-mono">{salesRate(sampleSalesPerYear(h.identity.productId, h.identity.grade, raw))}</span>
+          {liquidityLabel(sampleSalesPerYear(h.identity.productId, h.identity.grade, raw))}
         </p>
       )}
     </Link>

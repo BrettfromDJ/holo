@@ -257,19 +257,18 @@ export function liquidityOf(perYear: number): Liquidity {
   return perYear >= 52 ? "often" : perYear >= 12 ? "regular" : "rare";
 }
 
-/** "~3/wk", "~2/mo", "~5/yr". */
-export function salesRate(perYear: number): string {
-  if (perYear >= 52) return `~${Math.round(perYear / 52)}/wk`;
-  if (perYear >= 12) return `~${Math.round(perYear / 12)}/mo`;
-  return `~${perYear}/yr`;
+/** A plain label for how easy something is to sell: no rates or time periods. */
+export function liquidityLabel(perYear: number): string {
+  const level = liquidityOf(perYear);
+  return level === "often" ? "Easy to sell" : level === "regular" ? "Sells steadily" : "Hard to sell";
 }
 
 /** A plain sentence about how easy a slab is to sell. */
 export function liquidityNote(perYear: number): string {
   const level = liquidityOf(perYear);
-  if (level === "often") return `Sells often (${salesRate(perYear)}). Easy to sell near this price.`;
-  if (level === "regular") return `Sells regularly (${salesRate(perYear)}).`;
-  return `Rarely sells (${salesRate(perYear)}). A sale may take time or a lower price.`;
+  if (level === "often") return "Easy to sell. Copies sell often, near this price.";
+  if (level === "regular") return "Sells steadily. Copies change hands regularly.";
+  return "Hard to sell. Copies rarely sell, so a sale may take time or a lower price.";
 }
 
 /** How much a grading upside counts when ranking, by how often the PSA 10 sells. */
