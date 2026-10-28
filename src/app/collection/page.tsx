@@ -21,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { categoryOf, PRODUCT_CATEGORIES } from "@/lib/catalog";
 import type { HoldingView } from "@/lib/finance/portfolio";
-import { money } from "@/lib/format";
+import { money, signedMoney, signedPct } from "@/lib/format";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
 import { useShelves } from "@/lib/store/shelves";
 import { priceKey } from "@/lib/types";
@@ -124,6 +124,13 @@ function Collection() {
     return { value, gain: value - cost, pct: cost > 0 ? (value - cost) / cost : null };
   }, [filtered]);
 
+  const kindCounts: Record<Kind, number> = {
+    all: holdings.length,
+    sealed: holdings.filter((h) => h.category === "sealed").length,
+    single: holdings.filter((h) => h.category === "single").length,
+    graded: holdings.filter((h) => h.category === "graded").length,
+    watchlist: store.data.watchlist.length,
+  };
   const activeFilters = (setName !== "all" ? 1 : 0) + (category !== "all" ? 1 : 0) + (perf !== "all" ? 1 : 0);
 
   if (store.status === "loading") return <GridSkeleton />;
@@ -141,33 +148,46 @@ function Collection() {
     <div className="animate-fade-in">
       <PageHeader
         title="Collection"
-        subtitle={
-          kind === "watchlist" ? (
-            "Products you're watching — not part of your portfolio"
-          ) : (
-            <span className="tabular">
-              {filtered.length} holding{filtered.length === 1 ? "" : "s"} · {money(totals.value)} · <DeltaPill ratio={totals.pct} />
-            </span>
-          )
-        }
+        className="mb-5"
+        subtitle={kind === "watchlist" ? "Products you're watching — not part of your portfolio" : undefined}
         actions={
           <Button variant="primary" onClick={() => store.openAdd()} className="hidden sm:inline-flex">
             <Plus /> Add
           </Button>
         }
       />
+      {kind !== "watchlist" && (
+        // What's in view right now: value first, then the gain (only its numbers colored) and the count.
+        <dl className="mb-6 grid grid-cols-2 items-end gap-x-8 gap-y-4 sm:flex">
+          <div className="col-span-2">
+            <dt className="font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-subtle">Value</dt>
+            <dd className="tabular mt-1 text-[34px] font-semibold leading-none tracking-[-0.03em] sm:text-[36px]">{money(totals.value)}</dd>
+          </div>
+          <div>
+            <dt className="font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-subtle">Gain</dt>
+            <dd className="tabular mt-1 flex items-baseline gap-2 text-[17px] font-semibold leading-none">
+              <span className={totals.gain >= 0 ? "text-up" : "text-down"}>{signedMoney(totals.gain)}</span>
+              {totals.pct !== null && <span className={cn("text-[13px] font-medium", totals.gain >= 0 ? "text-up" : "text-down")}>{signedPct(totals.pct)}</span>}
+            </dd>
+          </div>
+          <div>
+            <dt className="font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-subtle">{shelf ? shelf.name : kind === "all" ? "Holdings" : KINDS.find((k) => k.value === kind)?.label}</dt>
+            <dd className="tabular mt-1 text-[17px] font-semibold leading-none">{filtered.length}</dd>
+          </div>
+        </dl>
+      )}
 
       <PortfolioSwitcher compact className="mb-3 lg:hidden" />
       <PortfolioBanner />
       {/* Toolbar */}
       <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-20 -mx-4 bg-background/90 px-4 py-3 backdrop-blur-xl sm:-mx-8 sm:px-8 lg:top-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-[200px] flex-1">
+        <div className="flex items-center gap-2">
+          <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-subtle" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search your collection"
+              placeholder="Search"
               aria-label="Search your collection"
               className="h-10 w-full rounded-full bg-surface-2 pl-9 pr-9 text-[14px] outline-none placeholder:text-subtle focus:bg-surface-3"
             />
@@ -177,12 +197,19 @@ function Collection() {
               </button>
             )}
           </div>
-          <Button variant={showFilters || activeFilters ? "outline" : "secondary"} onClick={() => setShowFilters((s) => !s)} aria-expanded={showFilters}>
-            <SlidersHorizontal /> Filters{activeFilters ? ` · ${activeFilters}` : ""}
+          <Button
+            variant={showFilters || activeFilters ? "outline" : "secondary"}
+            onClick={() => setShowFilters((s) => !s)}
+            aria-expanded={showFilters}
+            aria-label="Filters"
+            className="relative max-sm:size-10 max-sm:px-0"
+          >
+            <SlidersHorizontal /> <span className="hidden sm:inline">Filters{activeFilters ? ` · ${activeFilters}` : ""}</span>
+            {activeFilters > 0 && <span className="tabular absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-foreground text-[10px] font-semibold text-background sm:hidden">{activeFilters}</span>}
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="secondary" aria-label="Sort">
+              <Button variant="secondary" aria-label="Sort" className="max-sm:size-10 max-sm:px-0">
                 <ArrowUpDown /> <span className="hidden sm:inline">{SORTS.find((s) => s.value === sort)?.label}</span>
               </Button>
             </DropdownMenuTrigger>
@@ -208,7 +235,11 @@ function Collection() {
           />
         </div>
 
-        <div className="scrollbar-none -mx-1 mt-3 flex gap-1.5 overflow-x-auto px-1">
+        <div
+          className="scrollbar-none -mx-1 mt-3 flex gap-1.5 overflow-x-auto px-1 pr-8"
+          // Fades at the right edge so it's clear the row scrolls.
+          style={{ maskImage: "linear-gradient(90deg, black calc(100% - 40px), transparent)", WebkitMaskImage: "linear-gradient(90deg, black calc(100% - 40px), transparent)" }}
+        >
           {KINDS.map((k) => (
             <button
               key={k.value}
@@ -224,6 +255,7 @@ function Collection() {
               )}
             >
               {k.label}
+              {kindCounts[k.value] > 0 && <span className="tabular ml-1.5 opacity-60">{kindCounts[k.value]}</span>}
             </button>
           ))}
           <span aria-hidden className="mx-1 my-1.5 w-px shrink-0 bg-border" />
