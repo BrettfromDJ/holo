@@ -3,6 +3,7 @@
 import { Layers, Package } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { categoryOf } from "@/lib/catalog";
+import { isFoilCard } from "@/components/motion/holo-tilt";
 import { gradeDescriptor, slabStyle } from "@/lib/graded";
 import type { Grade, Product } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -29,7 +30,7 @@ export function ProductImage({
   grade,
 }: {
   product:
-    | (Pick<Product, "name" | "imageUrl" | "kind" | "setName" | "productType"> & Partial<Pick<Product, "number">>)
+    | (Pick<Product, "name" | "imageUrl" | "kind" | "setName" | "productType"> & Partial<Pick<Product, "number" | "rarity">>)
     | undefined;
   className?: string;
   size?: "xs" | "sm" | "md" | "lg" | "xl";
@@ -88,7 +89,7 @@ function ProductPhoto({
             onError={() => setFailed(true)}
             className="h-full w-auto max-w-full rounded-[4.5%/3.2%] object-contain shadow-[0_8px_24px_rgba(0,0,0,0.45)] transition-transform duration-500 ease-[var(--ease-apple)]"
           />
-          <span aria-hidden className="card-texture pointer-events-none absolute inset-0 rounded-[4.5%/3.2%]" />
+          <span aria-hidden className={cn("card-texture pointer-events-none absolute inset-0 rounded-[4.5%/3.2%]", isFoilCard(product) && "is-foil")} />
         </span>
       ) : showImage ? (
         <img

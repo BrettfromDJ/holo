@@ -9,6 +9,8 @@
  */
 :root,
 .dark {
+  /* Etched-foil grooves (fine swirling lines), used by foil cards. */
+  --etch: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='e' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='0.01' numOctaves='2' seed='7' result='warp'/><feTurbulence type='fractalNoise' baseFrequency='0.003 0.95' numOctaves='2' seed='3' result='lines'/><feDisplacementMap in='lines' in2='warp' scale='28' xChannelSelector='R' yChannelSelector='G' result='w'/><feColorMatrix in='w' values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  3.4 0 0 0 -1.1'/></filter><rect x='-50%' y='-50%' width='200%' height='200%' filter='url(%23e)' transform='rotate(-35 150.0 150.0)'/></svg>");
   --background: #0b0b0c;
   --surface: #131315;
   --surface-2: #1a1a1d;
@@ -222,10 +224,17 @@
       hsl(320 90% 65% / 0.55) 40%,
       hsl(0 90% 65% / 0.55) 48%
     );
-  background-size: 300% 300%;
+  background-size: 400% 400%;
   background-position: var(--mx, 50%) var(--my, 50%);
   mix-blend-mode: color-dodge;
-  filter: saturate(1.2);
+  filter: saturate(1.1);
+  /* The rainbow shows in the etched grooves, strongest where the light is. */
+  -webkit-mask-image: var(--etch), radial-gradient(circle at var(--mx, 50%) var(--my, 50%), #000 0, transparent 60%);
+  -webkit-mask-size: 150px 150px, 100% 100%;
+  -webkit-mask-composite: source-in;
+  mask-image: var(--etch), radial-gradient(circle at var(--mx, 50%) var(--my, 50%), #000 0, transparent 60%);
+  mask-size: 150px 150px, 100% 100%;
+  mask-composite: intersect;
 }
 .holo-glare {
   background:
@@ -248,7 +257,7 @@
   opacity: 0.7;
 }
 .holo-tilt-inner[data-active="true"] .holo-foil {
-  opacity: 0.32;
+  opacity: 0.8;
 }
 .holo-tilt-inner[data-active="true"] .holo-glare {
   opacity: 1;
@@ -269,6 +278,18 @@
     inset 0 0 0 1px rgb(255 255 255 / 0.14),
     inset 0 1px 0 rgb(255 255 255 / 0.22),
     inset 0 -2px 6px rgb(0 0 0 / 0.25);
+}
+
+/* Foil and special-art cards are etched: fine grooves across the surface. */
+.card-texture.is-foil::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--etch);
+  background-size: 150px 150px;
+  mix-blend-mode: overlay;
+  opacity: 0.7;
 }
 
 /* Market pulse ticker */
