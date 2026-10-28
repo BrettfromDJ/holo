@@ -1,5 +1,7 @@
 "use client";
 
+import { CollectionMap, Diversification, KpiGrid, ReturnsHeatmap, ReturnVsTime, Signed, TypeBreakdown } from "@/components/analytics/analytics-items";
+import { averageHoldDays, concentration, drawdownSeries, monthlyReturns, performanceByType, returnVsTime, riskStats } from "@/lib/finance/analytics";
 import { InsideTick } from "@/components/charts/inside-tick";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -16,7 +18,7 @@ import { Card, SectionTitle } from "@/components/ui/card";
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { allocation, monthlyActivity, performanceBySet, performanceOf, slicePoints } from "@/lib/finance/portfolio";
-import { formatDate, formatMonth, formatShortDate, money, moneyCompact, pct, signedMoney } from "@/lib/format";
+import { formatDate, formatMonth, formatShortDate, money, moneyCompact, pct, signedMoney, signedPct } from "@/lib/format";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
 import type { ChartRange } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -48,10 +50,27 @@ export default function AnalyticsPage() {
   const [range, setRange] = useState<ChartRange>("1Y");
   const [setSort, setSetSort] = useState<"value" | "return">("value");
   const [rankBy, setRankBy] = useState<"dollar" | "percent">("dollar");
+  const [mode, setMode] = useState<"value" | "return" | "drawdown">("value");
+  const { realized } = usePortfolio();
+
+  const risk = useMemo(() => riskStats(timeline), [timeline]);
+  const months = useMemo(() => monthlyReturns(timeline), [timeline]);
+  const conc = useMemo(() => concentration(holdings), [holdings]);
+  const types = useMemo(() => performanceByType(holdings), [holdings]);
+  const held = useMemo(() => returnVsTime(holdings, store.today), [holdings, store.today]);
+  const topFive = useMemo(() => [...holdings].filter((h) => (h.value ?? 0) > 0).sort((a, b) => (b.value ?? 0) - (a.value ?? 0)).slice(0, 5), [holdings]);
+  const winRate = useMemo(() => {
+    const priced = holdings.filter((h) => h.unrealized !== null);
+    return priced.length ? priced.filter((h) => h.unrealized! > 0).length / priced.length : null;
+  }, [holdings]);
 
   const slice = useMemo(() => slicePoints(timeline, range, store.today), [timeline, range, store.today]);
   const perf = performanceOf(slice);
-  const history = useMemo(() => slice.map((p) => ({ date: p.date, value: p.value, invested: p.costBasisPriced, gain: p.unrealized })), [slice]);
+  const history = useMemo(() => {
+    const base = slice[0]?.twrIndex || 1;
+    const dd = drawdownSeries(slice);
+    return slice.map((p, i) => ({ date: p.date, value: p.value, invested: p.costBasisPriced, gain: p.unrealized, ret: p.twrIndex / base - 1, drawdown: dd[i].drawdown }));
+  }, [slice]);
   const alloc = useMemo(() => allocation(holdings), [holdings]);
   const sets = useMemo(() => {
     const rows = performanceBySet(holdings);
@@ -92,7 +111,20 @@ export default function AnalyticsPage() {
       <PortfolioSwitcher compact className="mb-3 lg:hidden" />
       <PortfolioBanner />
 
-      <Card className="min-w-0 p-5 sm:p-6">
+      <KpiGrid
+        items={[
+          { label: "Total return", value: <Signed value={summary.unrealized + summary.realized} format={signedMoney} />, sub: <>{summary.costBasis > 0 ? <Signed value={(summary.unrealized + summary.realized) / summary.costBasis} format={(v) => signedPct(v)} /> : "—"} on {money(summary.costBasis)} invested</> },
+          { label: "Time-weighted", value: <Signed value={risk.totalReturn} format={(v) => signedPct(v, 1)} />, sub: risk.annualized !== null ? <><Signed value={risk.annualized} format={(v) => signedPct(v, 1)} /> a year</> : "Market moves only" },
+          { label: "Max drawdown", value: <Signed value={risk.maxDrawdown} format={(v) => pct(v, 1)} />, sub: risk.maxDrawdownTo ? `${formatShortDate(risk.maxDrawdownFrom!)} → ${formatShortDate(risk.maxDrawdownTo)}` : "No dips yet" },
+          { label: "Volatility", value: risk.volatility !== null ? pct(risk.volatility, 0) : "—", sub: "Annualized swing in value" },
+          { label: "Best day", value: <Signed value={risk.bestDay?.gain ?? null} format={signedMoney} />, sub: risk.bestDay ? formatDate(risk.bestDay.date) : "—" },
+          { label: "Worst day", value: <Signed value={risk.worstDay?.gain ?? null} format={signedMoney} />, sub: risk.worstDay ? formatDate(risk.worstDay.date) : "—" },
+          { label: "In profit", value: winRate !== null ? pct(winRate, 0) : "—", sub: `of ${holdings.length} holdings · ${risk.upDays !== null ? `${pct(risk.upDays, 0)} up days` : ""}` },
+          { label: "Realized", value: <Signed value={summary.realized} format={signedMoney} />, sub: `${realized.length} sale${realized.length === 1 ? "" : "s"} & write-offs` },
+        ]}
+      />
+
+      <Card className="mt-5 min-w-0 p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h2 className="text-[17px] font-semibold tracking-tight">Portfolio history</h2>
@@ -106,8 +138,23 @@ export default function AnalyticsPage() {
               )}
             </p>
           </div>
-          <Segmented ariaLabel="History range" size="sm" value={range} onChange={setRange} options={RANGES.map((r) => ({ value: r, label: r }))} />
+          <div className="flex flex-wrap gap-2">
+            <Segmented
+              ariaLabel="Chart"
+              size="sm"
+              value={mode}
+              onChange={setMode}
+              options={[
+                { value: "value", label: "Value" },
+                { value: "return", label: "Return" },
+                { value: "drawdown", label: "Drawdown" },
+              ]}
+            />
+            <Segmented ariaLabel="History range" size="sm" value={range} onChange={setRange} options={RANGES.map((r) => ({ value: r, label: r }))} />
+          </div>
         </div>
+        {mode === "value" ? (
+          <>
         <div className="mt-5 flex flex-wrap gap-4 text-[12px] text-muted">
           <Legend color="var(--foreground)" label="Market value" />
           <Legend color="var(--subtle)" label="Cost basis (priced holdings)" dashed />
@@ -151,15 +198,64 @@ export default function AnalyticsPage() {
             </ResponsiveContainer>
           </div>
         </div>
+          </>
+        ) : (
+          <>
+            <p className="mt-5 text-[12px] text-muted">
+              {mode === "return" ? "Time-weighted return over the range: market moves only, so buying and selling don't count." : "How far below its previous high the collection's return has been. 0% is a new high."}
+            </p>
+            <div className="mt-3 h-[300px]">
+              <ResponsiveContainer>
+                <ComposedChart data={history} margin={{ top: 16, right: 0, left: 0, bottom: 0 }}>
+                  <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
+                  <XAxis dataKey="date" tick={axisTick} tickLine={false} axisLine={false} tickFormatter={formatShortDate} minTickGap={48} />
+                  <YAxis orientation="right" tick={(props: object) => <InsideTick {...props} format={(v) => pct(v, 0)} />} tickLine={false} axisLine={false} width={1} domain={mode === "drawdown" ? ["auto", 0] : ["auto", "auto"]} />
+                  <ReferenceLine y={0} stroke="var(--border-strong)" />
+                  <Tooltip
+                    cursor={{ stroke: "var(--border-strong)" }}
+                    content={({ active, payload, label }) => {
+                      const v = active && payload?.[0] ? Number((payload[0].payload as Record<string, number>)[mode === "return" ? "ret" : "drawdown"]) : null;
+                      if (v === null) return null;
+                      return (
+                        <div className="tabular rounded-xl border border-border bg-surface-3/95 px-3 py-2 text-[12px] shadow-xl backdrop-blur">
+                          <p className="text-muted">{formatShortDate(String(label))}</p>
+                          <p className="mt-0.5 font-semibold">
+                            <Signed value={v} format={(x) => signedPct(x)} />
+                          </p>
+                        </div>
+                      );
+                    }}
+                  />
+                  {mode === "return" ? (
+                    <Area type="monotone" dataKey="ret" stroke={(history.at(-1)?.ret ?? 0) >= 0 ? "var(--up)" : "var(--down)"} fill={(history.at(-1)?.ret ?? 0) >= 0 ? "var(--up-soft)" : "var(--down-soft)"} strokeWidth={2} isAnimationActive={false} />
+                  ) : (
+                    <Area type="monotone" dataKey="drawdown" stroke="var(--down)" fill="var(--down-soft)" strokeWidth={1.5} isAnimationActive={false} />
+                  )}
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </>
+        )}
       </Card>
 
+      <div className="mt-5">
+        <CollectionMap holdings={holdings} />
+      </div>
+      <div className="mt-5">
+        <ReturnsHeatmap months={months} />
+      </div>
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <ReturnVsTime points={held} avgDays={averageHoldDays(held)} />
+        <TypeBreakdown groups={types} />
+        <Diversification c={conc} holdings={holdings.length} top={topFive} />
         <Card className="min-w-0 p-5 sm:p-6">
           <SectionTitle title="Allocation" subtitle="Exposure by market value" />
           <AllocationBar slices={alloc} showCost />
         </Card>
+      </div>
 
-        <Card className="min-w-0 p-5 sm:p-6">
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <Card className="min-w-0 p-5 sm:p-6 lg:col-span-2">
           <SectionTitle title="Investment activity" subtitle="Money invested per month, incl. fees" />
           <div className="h-[220px]">
             <ResponsiveContainer>
