@@ -1,5 +1,6 @@
 "use client";
 
+import { Hint } from "@/components/ui/tooltip";
 import { WishButton } from "@/components/wishlist/wish-items";
 import { CertDialog, GradeChip, GradedPrices, SendToGraderDialog, SlabCard, useAtGrader } from "@/components/grading/grading-items";
 import { Calculator, Check, ChevronDown, ChevronLeft, ExternalLink, Eye, EyeOff, Layers, Loader2, MoreHorizontal, Package, Plus, Tag } from "lucide-react";
@@ -145,20 +146,22 @@ export default function ProductPage() {
             </p>
           </div>
 
-          <div className="mt-6 flex flex-wrap gap-2">
+          <div className="mt-6 flex flex-wrap gap-1.5 sm:gap-2 max-sm:[&_button.size-10]:size-9 max-sm:[&_a.size-10]:size-9">
             <Button variant="primary" onClick={() => store.openAdd({ productId })}>
               <Plus /> {owned.length ? "Add more" : "Add to collection"}
             </Button>
             {owned.length === 1 && <SaleButton holding={owned[0]} />}
             <WatchButton productId={productId} printing={printing} watchId={watch?.id} />
-            <WishButton product={product} price={price?.market ?? null} printing={printing} />
-            <ShelfMenu productId={productId} />
+            <WishButton product={product} price={price?.market ?? null} printing={printing} compact />
+            <ShelfMenu productId={productId} compact />
             {product.tcgplayerUrl && (
-              <Button variant="ghost" asChild>
-                <a href={product.tcgplayerUrl} target="_blank" rel="noreferrer">
-                  TCGplayer <ExternalLink />
-                </a>
-              </Button>
+              <Hint content="View on TCGplayer">
+                <Button variant="ghost" size="icon" asChild>
+                  <a href={product.tcgplayerUrl} target="_blank" rel="noreferrer" aria-label="View on TCGplayer">
+                    <ExternalLink />
+                  </a>
+                </Button>
+              </Hint>
             )}
           </div>
 
@@ -227,12 +230,16 @@ function SaleButton({ holding }: { holding: HoldingView }) {
   const [open, setOpen] = useState<"sale" | "whatif" | null>(null);
   return (
     <>
-      <Button variant="secondary" onClick={() => setOpen("whatif")}>
-        <Calculator /> What if I sell?
-      </Button>
-      <Button variant="secondary" onClick={() => setOpen("sale")}>
-        <Tag /> Record sale
-      </Button>
+      <Hint content="What if I sell?">
+        <Button variant="secondary" size="icon" aria-label="What if I sell?" onClick={() => setOpen("whatif")}>
+          <Calculator />
+        </Button>
+      </Hint>
+      <Hint content="Record sale">
+        <Button variant="secondary" size="icon" aria-label="Record sale" onClick={() => setOpen("sale")}>
+          <Tag />
+        </Button>
+      </Hint>
       <SellCalculatorDialog holding={holding} open={open === "whatif"} onOpenChange={(o) => !o && setOpen(null)} />
       <SaleDialog holding={holding} open={open === "sale"} onOpenChange={(o) => !o && setOpen(null)} />
     </>
@@ -243,8 +250,11 @@ function WatchButton({ productId, printing, watchId }: { productId: string; prin
   const { addWatch, removeWatch } = useStore();
   const [busy, setBusy] = useState(false);
   return (
+    <Hint content={watchId ? "Watching · tap to stop" : "Watch"}>
     <Button
       variant="secondary"
+      size="icon"
+      aria-label={watchId ? "Stop watching" : "Watch"}
       disabled={busy}
       onClick={async () => {
         setBusy(true);
@@ -264,8 +274,8 @@ function WatchButton({ productId, printing, watchId }: { productId: string; prin
       }}
     >
       {busy ? <Loader2 className="animate-spin" /> : watchId ? <EyeOff /> : <Eye />}
-      {watchId ? "Watching" : "Watch"}
     </Button>
+    </Hint>
   );
 }
 

@@ -9,6 +9,7 @@ import { FormShell } from "@/components/flows/transaction-dialogs";
 import { ProductImage } from "@/components/product/product-image";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Hint } from "@/components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { categoryOf } from "@/lib/catalog";
 import { money } from "@/lib/format";
@@ -16,24 +17,30 @@ import { hitTarget, PRIORITIES, useWishlist, type WishItem, type WishPriority } 
 import type { Product } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-/** Heart toggle: add or remove a product from the wishlist. */
-export function WishButton({ product, price, printing, className }: { product: Product; price: number | null; printing?: string | null; className?: string }) {
+/** Heart toggle: add or remove a product from the wishlist. `compact` shows just the heart, labelled on hover. */
+export function WishButton({ product, price, printing, className, compact }: { product: Product; price: number | null; printing?: string | null; className?: string; compact?: boolean }) {
   const { has, add, remove } = useWishlist();
   const on = has(product.id);
+  const toggle = () => {
+    if (on) {
+      remove(product.id);
+      toast("Removed from wishlist");
+    } else {
+      add(product, price, { printing });
+      toast.success("Added to wishlist");
+    }
+  };
+  if (compact) {
+    return (
+      <Hint content={on ? "On wishlist · tap to remove" : "Add to wishlist"}>
+        <Button variant="secondary" size="icon" aria-label={on ? "Remove from wishlist" : "Add to wishlist"} aria-pressed={on} className={className} onClick={toggle}>
+          <Heart className={cn(on && "fill-current")} />
+        </Button>
+      </Hint>
+    );
+  }
   return (
-    <Button
-      variant="secondary"
-      className={className}
-      onClick={() => {
-        if (on) {
-          remove(product.id);
-          toast("Removed from wishlist");
-        } else {
-          add(product, price, { printing });
-          toast.success("Added to wishlist");
-        }
-      }}
-    >
+    <Button variant="secondary" className={className} onClick={toggle}>
       <Heart className={cn(on && "fill-current")} />
       {on ? "On wishlist" : "Wishlist"}
     </Button>

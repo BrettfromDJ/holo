@@ -1,5 +1,6 @@
 "use client";
 
+import { Hint } from "@/components/ui/tooltip";
 import { Check, Library, Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -83,7 +84,7 @@ export function ShelfDialog({
 }
 
 /** Product-page menu for putting a product on (or taking it off) shelves. */
-export function ShelfMenu({ productId }: { productId: string }) {
+export function ShelfMenu({ productId, compact }: { productId: string; compact?: boolean }) {
   const { shelves, toggle, error } = useShelves();
   const [creating, setCreating] = useState(false);
   const on = shelves.filter((s) => s.productIds.includes(productId));
@@ -91,11 +92,22 @@ export function ShelfMenu({ productId }: { productId: string }) {
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="secondary">
-            <Library /> {on.length ? `On ${on.length} shelf${on.length === 1 ? "" : "s"}` : "Add to shelf"}
-          </Button>
-        </DropdownMenuTrigger>
+        {compact ? (
+          <Hint content={on.length ? `On ${on.length} shelf${on.length === 1 ? "" : "s"}` : "Add to shelf"}>
+            <DropdownMenuTrigger asChild>
+              <Button variant="secondary" size="icon" aria-label={on.length ? `On ${on.length} shelf${on.length === 1 ? "" : "s"}` : "Add to shelf"} className="relative">
+                <Library />
+                {on.length > 0 && <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-foreground" aria-hidden />}
+              </Button>
+            </DropdownMenuTrigger>
+          </Hint>
+        ) : (
+          <DropdownMenuTrigger asChild>
+            <Button variant="secondary">
+              <Library /> {on.length ? `On ${on.length} shelf${on.length === 1 ? "" : "s"}` : "Add to shelf"}
+            </Button>
+          </DropdownMenuTrigger>
+        )}
         <DropdownMenuContent align="end" className="w-60">
           <DropdownMenuLabel>Shelves</DropdownMenuLabel>
           {error && <p className="px-2 py-1.5 text-[12px] text-down">{error}</p>}
