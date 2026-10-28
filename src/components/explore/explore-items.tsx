@@ -123,7 +123,8 @@ export function ProductTile({ item, owned, gameSlug, showBrand }: { item: Explor
   return (
     <Link href={`/product/${encodeURIComponent(p.id)}`} className="group flex w-full min-w-0 flex-col text-left">
       <div className="relative">
-        <ProductImage product={p} className="aspect-square w-full transition-transform duration-500 ease-[var(--ease-apple)] group-hover:-translate-y-1" />
+        {/* Tall, card-shaped tiles so cards fill the width; sealed sits in the same frame. */}
+        <ProductImage product={p} size="lg" frame={p.kind !== "single"} className="aspect-[5/7] w-full items-end transition-transform duration-500 ease-[var(--ease-apple)] group-hover:-translate-y-1" />
         {owned && (
           <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-background/85 px-2 py-0.5 text-[11px] font-medium backdrop-blur">
             <Check className="size-3" /> Owned

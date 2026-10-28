@@ -74,9 +74,9 @@ export default function ExploreSetPage() {
       {!state ? (
         <>
           <Skeleton className="h-24 w-full rounded-3xl" />
-          <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <Skeleton key={i} className="aspect-square rounded-2xl" />
+          <div className="mt-8 grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Skeleton key={i} className="aspect-[5/7] rounded-2xl" />
             ))}
           </div>
         </>
@@ -135,7 +135,7 @@ export default function ExploreSetPage() {
           </div>
 
           {list.length ? (
-            <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="mt-4 grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
               {list.map((item, i) => (
                 <div key={item.product.id} className="animate-rise" style={{ animationDelay: `${Math.min(i, 20) * 25}ms` }}>
                   <ProductTile item={item} owned={owned.has(item.product.id)} gameSlug={gameSlug} />

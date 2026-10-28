@@ -333,7 +333,7 @@ function Collection() {
             <p className="mt-1 text-sm text-muted">Try clearing a filter or searching for something else.</p>
           </div>
         ) : view === "grid" ? (
-          <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
             {filtered.map((h, i) => (
               <div key={h.key} className="animate-rise" style={{ animationDelay: `${Math.min(i, 16) * 40}ms` }}>
                 <HoldingTile h={h} />
@@ -383,7 +383,7 @@ function WatchGrid({ query }: { query: string }) {
   });
   if (!items.length) return <p className="py-20 text-center text-sm text-muted">Nothing on your watchlist yet.</p>;
   return (
-    <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
       {items.map((w) => {
         const p = data.products[w.productId];
         const price = data.prices[priceKey(w.productId, w.printing)];
