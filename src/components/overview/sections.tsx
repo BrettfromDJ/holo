@@ -202,7 +202,7 @@ function MiniTile({ h, icon, label, value, ratio }: { h: HoldingView; icon: Reac
 
 /* -------------------------------- Shelf -------------------------------- */
 
-/** Horizontally scrolling "shelf" of the most valuable pieces. */
+/** A display shelf of the most valuable pieces: each stands on a glass ledge under its own light, with a price tag below. */
 export function Shelf({ holdings, title = "Your shelf", subtitle }: { holdings: HoldingView[]; title?: string; subtitle?: string }) {
   const items = useMemo(() => [...holdings].filter((h) => h.value !== null).sort((a, b) => (b.value ?? 0) - (a.value ?? 0)).slice(0, 14), [holdings]);
   if (!items.length) return null;
@@ -217,22 +217,72 @@ export function Shelf({ holdings, title = "Your shelf", subtitle }: { holdings: 
           See all <ArrowRight className="size-3.5" />
         </Link>
       </div>
-      <div className="scrollbar-none -mx-4 flex scroll-px-4 snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 sm:-mx-8 sm:scroll-px-8 sm:px-8">
-        {items.map((h, i) => (
-          <Link key={h.key} href={holdingHref(h)} className="group w-[168px] shrink-0 snap-start sm:w-[196px]">
-            <div className="relative">
-              <ProductImage product={h.product} grade={h.identity.grade} className="aspect-[4/5] w-full rounded-2xl transition-transform duration-500 ease-[var(--ease-apple)] group-hover:-translate-y-1" />
-              <span className="tabular absolute left-2.5 top-2.5 flex size-6 items-center justify-center rounded-full bg-background/80 text-[11px] font-semibold backdrop-blur">{i + 1}</span>
-              {h.quantity > 1 && <span className="tabular absolute right-2.5 top-2.5 rounded-full bg-background/80 px-2 py-0.5 text-[11px] font-semibold backdrop-blur">×{h.quantity}</span>}
+      <div
+        className="relative overflow-hidden rounded-[var(--radius-card)] border border-border"
+        // The back wall: lit from above, falling off toward the ledge.
+        style={{ background: "linear-gradient(180deg, color-mix(in srgb, var(--foreground) 7%, var(--surface)), var(--surface) 55%, color-mix(in srgb, var(--background) 60%, var(--surface)))" }}
+      >
+        <div className="scrollbar-none overflow-x-auto">
+          <div className="relative flex w-max gap-6 px-6 pb-6 pt-8 sm:gap-8 sm:px-8 sm:pb-8 sm:pt-10">
+            {/* The ledge runs the full length of the scroll. */}
+            <div aria-hidden className="pointer-events-none absolute inset-x-0 top-[calc(2rem+200px)] sm:top-[calc(2.5rem+236px)]">
+              <div
+                className="h-3"
+                style={{
+                  background: "linear-gradient(180deg, color-mix(in srgb, var(--foreground) 22%, transparent), color-mix(in srgb, var(--foreground) 8%, transparent))",
+                  boxShadow: "inset 0 1px 0 color-mix(in srgb, var(--foreground) 40%, transparent)",
+                }}
+              />
+              <div className="h-2" style={{ background: "color-mix(in srgb, var(--foreground) 5%, transparent)" }} />
+              <div className="h-10 bg-gradient-to-b from-black/35 to-transparent" />
             </div>
-            <p className="mt-3 truncate text-[14px] font-medium">{h.product?.name}</p>
-            <div className="mt-1 flex items-center justify-between gap-2">
-              <span className="tabular text-[15px] font-semibold">{money(h.value)}</span>
-              <DeltaPill ratio={h.unrealizedPct} />
-            </div>
-          </Link>
-        ))}
+            {items.map((h, i) => (
+              <ShelfItem key={h.key} h={h} rank={i + 1} />
+            ))}
+          </div>
+        </div>
       </div>
     </section>
+  );
+}
+
+function ShelfItem({ h, rank }: { h: HoldingView; rank: number }) {
+  const shape = h.identity.grade ? "slab" : h.product?.kind === "single" && h.product.imageUrl ? "card" : "sealed";
+  return (
+    <Link href={holdingHref(h)} className="group relative flex w-[150px] shrink-0 flex-col sm:w-[176px]">
+      {/* Spotlight from above. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-10 left-1/2 h-[240px] w-[220px] -translate-x-1/2 opacity-70 transition-opacity duration-500 group-hover:opacity-100 sm:h-[280px]"
+        style={{ background: "radial-gradient(50% 60% at 50% 0%, color-mix(in srgb, var(--foreground) 10%, transparent), transparent)" }}
+      />
+      <div className="relative flex h-[200px] items-end justify-center sm:h-[236px]">
+        {/* Contact shadow where it meets the ledge. */}
+        <div aria-hidden className="absolute bottom-0 left-1/2 h-3 w-[70%] -translate-x-1/2 translate-y-1/2 rounded-[50%] bg-black/60 blur-md" />
+        <div className="relative flex h-full w-full items-end justify-center transition-transform duration-500 ease-[var(--ease-apple)] group-hover:-translate-y-1.5">
+          {shape === "slab" ? (
+            <ProductImage product={h.product} grade={h.identity.grade} size="md" className="h-full w-full items-end" />
+          ) : shape === "card" ? (
+            <ProductImage product={h.product} size="md" frame={false} className="h-[82%] w-full items-end" />
+          ) : (
+            <ProductImage product={h.product} size="md" frame={false} className="h-full w-full items-end rounded-xl" />
+          )}
+        </div>
+        {h.quantity > 1 && (
+          <span className="tabular absolute right-0 top-0 rounded-full bg-background/80 px-2 py-0.5 text-[11px] font-semibold ring-1 ring-border backdrop-blur">×{h.quantity}</span>
+        )}
+      </div>
+      {/* Price tag hanging under the ledge. */}
+      <div className="relative mt-[26px] rounded-lg bg-background/60 px-3 py-2.5 ring-1 ring-inset ring-border backdrop-blur transition-colors group-hover:bg-background/80">
+        <p className="flex items-baseline gap-1.5">
+          <span className="font-mono text-[10px] font-medium text-subtle">{String(rank).padStart(2, "0")}</span>
+          <span className="truncate text-[13px] font-medium">{h.product?.name}</span>
+        </p>
+        <div className="mt-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+          <span className="tabular text-[14px] font-semibold">{money(h.value)}</span>
+          <DeltaPill ratio={h.unrealizedPct} />
+        </div>
+      </div>
+    </Link>
   );
 }
