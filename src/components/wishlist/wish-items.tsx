@@ -154,7 +154,7 @@ export function WishTile({ w, owned, onBought }: { w: WishItem; owned: boolean; 
       </div>
 
       <div className="mt-1.5 flex items-baseline justify-between gap-2">
-        <p className="tabular text-[16px] font-semibold">{w.price === null ? <span className="text-[14px] font-normal text-subtle">No price</span> : money(w.price)}</p>
+        <p className="hype-num tabular text-[20px] leading-none">{w.price === null ? <span className="text-[14px] font-normal text-subtle">No price</span> : money(w.price)}</p>
         {w.target !== null ? (
           <p className="tabular text-[12px] text-muted">
             {hit ? (

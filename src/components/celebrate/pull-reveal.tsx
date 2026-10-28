@@ -85,7 +85,7 @@ export function PullReveal() {
 
         <div className="relative mt-6 animate-rise" style={{ animationDelay: "750ms" }}>
           <p className="text-[12px] text-muted">Collection value</p>
-          <p className="tabular mt-1 text-[40px] font-semibold leading-none tracking-[-0.03em]">
+          <p className="tabular mt-1 font-display text-[52px] leading-none text-lime">
             <AnimatedNumber value={summary.marketValue} from={event.before} format={money} duration={1600} />
           </p>
           {Math.abs(added) >= 0.01 && <p className="tabular mt-1.5 text-[13px] text-muted">

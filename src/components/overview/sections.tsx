@@ -30,11 +30,14 @@ export interface Metric {
 }
 
 /** Key numbers. `tinted` lays them out as separate color-washed cards. */
-export function MetricStrip({ items, tinted }: { items: Metric[]; tinted?: boolean }) {
+const STRIP_TINTS = ["tint-blue", "tint-lime", "tint-pink", "tint-blue"];
+
+/** Key numbers as separate color-washed cards; `tinted={false}` keeps the plain joined strip. */
+export function MetricStrip({ items, tinted = true }: { items: Metric[]; tinted?: boolean }) {
   if (tinted) {
     return (
       <section aria-label="Key metrics" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {items.map((m) => {
+        {items.map((m, i) => {
           const inner = (
             <>
               <div className="flex items-center justify-between gap-2">
@@ -45,7 +48,7 @@ export function MetricStrip({ items, tinted }: { items: Metric[]; tinted?: boole
               {m.sub && <div className="mt-2 text-[12px] text-muted">{m.sub}</div>}
             </>
           );
-          const cls = cn("tint tint-borderless hype-surface block rounded-[var(--radius-card)] px-5 py-4 sm:py-5", m.tint);
+          const cls = cn("tint tint-borderless hype-surface block rounded-[var(--radius-card)] px-5 py-4 sm:py-5", m.tint ?? STRIP_TINTS[i % STRIP_TINTS.length]);
           return m.href ? (
             <Link key={m.label} href={m.href} className={cls}>
               {inner}

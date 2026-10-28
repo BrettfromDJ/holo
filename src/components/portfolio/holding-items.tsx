@@ -127,7 +127,7 @@ export function HoldingTile({ h }: { h: HoldingView }) {
         <p className="truncate text-[12px] text-muted">{[h.product?.setName, h.product ? categoryOf(h.product) : null].filter(Boolean).join(" · ")}</p>
         <div className="mt-2 flex items-end justify-between gap-2">
           <div>
-            <p className="tabular text-[15px] font-semibold">{money(h.value)}</p>
+            <p className="hype-num tabular text-[20px] leading-none">{money(h.value)}</p>
             <p className="tabular flex items-center gap-1 text-[12px] text-muted">
               {money(h.price)} ea
               <PriceStatus holding={h} />

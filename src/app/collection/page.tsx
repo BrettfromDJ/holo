@@ -161,7 +161,7 @@ function Collection() {
         <dl className="mb-6 grid grid-cols-2 items-end gap-x-8 gap-y-4 sm:flex">
           <div className="col-span-2">
             <dt className="font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-subtle">Value</dt>
-            <dd className="tabular mt-1 text-[34px] font-semibold leading-none tracking-[-0.03em] sm:text-[36px]">{money(totals.value)}</dd>
+            <dd className="tabular mt-1 font-display text-[44px] leading-none sm:text-[52px]">{money(totals.value)}</dd>
           </div>
           <div>
             <dt className="font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-subtle">Gain</dt>
@@ -251,7 +251,7 @@ function Collection() {
               aria-pressed={kind === k.value && !shelf}
               className={cn(
                 "h-8 shrink-0 rounded-full px-3.5 text-[13px] font-medium transition-colors",
-                kind === k.value && !shelf ? "bg-accent text-accent-foreground" : "bg-surface-2 text-muted hover:text-foreground",
+                kind === k.value && !shelf ? "bg-lime font-semibold text-[#0b0b0c] shadow-[0_0_16px_-4px_var(--lime)]" : "bg-surface-2 text-muted hover:text-foreground",
               )}
             >
               {k.label}
@@ -270,7 +270,7 @@ function Collection() {
               aria-pressed={shelf?.id === x.id}
               className={cn(
                 "flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors",
-                shelf?.id === x.id ? "bg-accent text-accent-foreground" : "bg-surface-2 text-muted hover:text-foreground",
+                shelf?.id === x.id ? "bg-lime font-semibold text-[#0b0b0c] shadow-[0_0_16px_-4px_var(--lime)]" : "bg-surface-2 text-muted hover:text-foreground",
               )}
             >
               {x.name}

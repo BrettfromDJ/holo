@@ -57,7 +57,7 @@ export default async function SharedWishlistPage({ params }: { params: Promise<{
 
       <header className="mt-12">
         <p className="text-[14px] font-medium text-muted">{list.title || "Wishlist"}</p>
-        <p className="tabular mt-2 text-[44px] font-semibold leading-none tracking-[-0.035em] sm:text-[56px]">{money(total)}</p>
+        <p className="tabular mt-2 font-display text-[52px] leading-none text-lime sm:text-[72px]">{money(total)}</p>
         <p className="mt-3 text-[14px] text-muted">
           {list.items.length} item{list.items.length === 1 ? "" : "s"} · at today&apos;s market prices
         </p>

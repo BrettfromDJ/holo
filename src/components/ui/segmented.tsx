@@ -33,7 +33,7 @@ export function Segmented<T extends string>({
           title={o.title}
           aria-label={o.title}
           className={cn(
-            "inline-flex items-center justify-center gap-1.5 rounded-full font-medium text-muted transition-all duration-200 ease-[var(--ease-apple)] hover:text-foreground data-[state=on]:bg-surface-3 data-[state=on]:text-foreground data-[state=on]:shadow-sm [&_svg]:size-4",
+            "inline-flex items-center justify-center gap-1.5 rounded-full font-medium text-muted transition-all duration-200 ease-[var(--ease-apple)] hover:text-foreground data-[state=on]:bg-lime data-[state=on]:font-semibold data-[state=on]:text-[#0b0b0c] data-[state=on]:shadow-[0_2px_0_color-mix(in_srgb,var(--lime)_50%,#2b3300),0_0_16px_-4px_var(--lime)] [&_svg]:size-4",
             size === "sm" ? "h-7 px-2.5 text-xs" : "h-8 px-3.5 text-[13px]",
           )}
         >

@@ -71,7 +71,7 @@ export function BottomNav() {
         aria-current={active ? "page" : undefined}
         className={cn("flex flex-1 flex-col items-center gap-1 pt-2 text-[10px] font-medium transition-colors", active ? "text-foreground" : "text-subtle")}
       >
-        <Icon className="size-[22px]" strokeWidth={active ? 2.2 : 1.7} />
+        <Icon className={cn("size-[22px]", active && "text-lime drop-shadow-[0_0_8px_var(--lime)]")} strokeWidth={active ? 2.2 : 1.7} />
         {label}
       </Link>
     );

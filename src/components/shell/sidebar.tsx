@@ -46,9 +46,9 @@ function NavLink({ item: { href, label, icon: Icon }, active }: { item: NavItem;
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className={cn("flex h-9 items-center gap-3 rounded-xl px-3 text-[14px] font-medium transition-colors", active ? "bg-surface-2 text-foreground" : "text-muted hover:bg-surface hover:text-foreground")}
+      className={cn("flex h-9 items-center gap-3 rounded-xl px-3 text-[14px] font-medium transition-colors", active ? "nav-active text-foreground" : "text-muted hover:bg-surface hover:text-foreground")}
     >
-      <Icon className="size-[18px]" strokeWidth={active ? 2.2 : 1.8} />
+      <Icon className={cn("size-[18px]", active && "text-lime drop-shadow-[0_0_6px_var(--lime)]")} strokeWidth={active ? 2.2 : 1.8} />
       {label}
     </Link>
   );

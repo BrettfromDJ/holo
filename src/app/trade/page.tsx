@@ -13,6 +13,7 @@ import { money, pct } from "@/lib/format";
 import { usePortfolio } from "@/lib/store/collection-store";
 import { useSyncedState } from "@/lib/store/synced-state";
 import type { Product } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 interface TradeItem {
   key: string;
@@ -246,11 +247,11 @@ function TradeMat({
   const fan = items.flatMap((i) => Array.from({ length: Math.min(i.qty, 3) }, () => i)).slice(0, 6);
   const set = (key: string, patch: Partial<TradeItem>) => onChange(items.map((i) => (i.key === key ? { ...i, ...patch } : i)));
   return (
-    <section className="min-w-0 overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface">
+    <section className={cn("tint hype-surface min-w-0 overflow-hidden rounded-[var(--radius-card)]", side === "give" ? "tint-pink" : "tint-lime")}>
       <div className="flex items-start justify-between gap-3 px-5 pt-5 sm:px-6">
         <div>
-          <h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-subtle">{label}</h2>
-          <p className="tabular mt-1 text-[26px] font-semibold leading-none tracking-[-0.02em]">{money(total)}</p>
+          <h2 className="font-display text-[18px] uppercase leading-none tracking-[0.02em] text-foreground/85">{label}</h2>
+          <p className="tabular mt-2 font-display text-[36px] leading-none">{money(total)}</p>
         </div>
         <Select value={String(rate)} onValueChange={(v) => onRate(Number(v))}>
           <SelectTrigger aria-label="Count at" className="h-8 w-[150px] text-[12px]">

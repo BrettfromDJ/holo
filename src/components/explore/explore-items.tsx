@@ -40,7 +40,7 @@ export function logoTone(game: Pick<ExploreGame, "slug" | "name">) {
 /** A brand (Pokémon, Pokémon Japan, Lorcana…) with its logo. */
 export function GameTile({ game }: { game: ExploreGame }) {
   return (
-    <Link href={`/explore/g/${encodeURIComponent(game.slug)}`} className="group flex flex-col overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface transition-colors hover:border-border-strong">
+    <Link href={`/explore/g/${encodeURIComponent(game.slug)}`} className="tint tint-borderless hype-surface tint-lime group flex flex-col overflow-hidden rounded-[var(--radius-card)] transition-transform duration-300 hover:-translate-y-1">
       <div className="flex aspect-[16/9] items-center justify-center p-6 sm:p-8">
         {game.logoUrl ? (
           <img src={game.logoUrl} alt="" loading="lazy" className={cn("max-h-full max-w-full object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.5)] transition-transform duration-500 ease-[var(--ease-apple)] group-hover:scale-105", logoTone(game))} />
@@ -49,7 +49,7 @@ export function GameTile({ game }: { game: ExploreGame }) {
         )}
       </div>
       <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3">
-        <span className="truncate text-[14px] font-medium">{game.name}</span>
+        <span className="truncate font-display text-[20px] uppercase leading-none tracking-[0.01em]">{game.name}</span>
         <span className="tabular shrink-0 text-[12px] text-subtle">
           {game.sets} set{game.sets === 1 ? "" : "s"}{game.cardCount ? ` · ${compactCount(game.cardCount)} cards` : ""}
         </span>
@@ -147,7 +147,7 @@ export function ProductTile({ item, owned, gameSlug, showBrand }: { item: Explor
       {showBrand && item.gameName && <p className="mt-2.5 truncate text-[10px] font-medium font-mono uppercase tracking-[0.06em] text-subtle">{item.gameName}</p>}
       <p className={cn("line-clamp-2 text-[13px] font-medium leading-snug", showBrand && item.gameName ? "mt-0.5" : "mt-2.5")}>{p.name}</p>
       <p className="truncate text-[12px] text-muted">{[p.number && `#${p.number}`, p.rarity ?? (p.kind === "sealed" ? categoryOf(p) : null)].filter(Boolean).join(" · ")}</p>
-      <p className="tabular mt-1 text-[14px] font-semibold">
+      <p className="hype-num tabular mt-1.5 text-[19px] leading-none">
         {item.market === null ? <span className="text-subtle">No price</span> : money(item.market)}
         {perPack !== null && <span className="ml-1.5 text-[12px] font-normal text-muted">{money(perPack)}/pack</span>}
       </p>

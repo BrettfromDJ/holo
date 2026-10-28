@@ -55,7 +55,7 @@ export default async function SharedCollectionPage({ params }: { params: Promise
 
       <header className="mt-12">
         <p className="text-[14px] font-medium text-muted">{link.title || "Collection"}</p>
-        <p className="tabular mt-2 text-[44px] font-semibold leading-none tracking-[-0.035em] sm:text-[56px]">{money(summary.marketValue)}</p>
+        <p className="tabular mt-2 font-display text-[52px] leading-none text-lime sm:text-[72px]">{money(summary.marketValue)}</p>
         <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[14px] text-muted">
           <span>
             {summary.unitCount} item{summary.unitCount === 1 ? "" : "s"} · {summary.holdingsCount} product{summary.holdingsCount === 1 ? "" : "s"}

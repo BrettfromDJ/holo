@@ -93,7 +93,7 @@ export default function GainsPage() {
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div>
             <p className="text-[13px] font-medium text-muted">{MODE_LABEL[mode]}</p>
-            <p className="tabular mt-1 text-[40px] font-semibold leading-none tracking-[-0.03em] sm:text-[48px]">
+            <p className="tabular mt-1 font-display text-[48px] leading-none sm:text-[60px]">
               <Delta value={total} />
             </p>
             <p className="mt-2 text-[13px] text-subtle">{MODE_HINT[mode]}</p>

@@ -29,13 +29,15 @@ export interface Kpi {
 }
 
 /** A grid of headline numbers, four across on wider screens. */
+const KPI_TINTS = ["tint-lime", "tint-blue", "tint-pink", "tint-blue", "tint-lime", "tint-pink", "tint-blue", "tint-lime"];
+
 export function KpiGrid({ items }: { items: Kpi[] }) {
   return (
-    <section aria-label="Key stats" className="grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius-card)] border border-border bg-border sm:grid-cols-4">
-      {items.map((k) => (
-        <div key={k.label} className="bg-surface px-5 py-4">
-          <p className="font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-subtle">{k.label}</p>
-          <p className="tabular mt-1.5 text-[20px] font-semibold leading-none tracking-tight sm:text-[22px]">{k.value}</p>
+    <section aria-label="Key stats" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {items.map((k, i) => (
+        <div key={k.label} className={cn("tint tint-borderless hype-surface rounded-[var(--radius-card)] px-5 py-4", KPI_TINTS[i % KPI_TINTS.length])}>
+          <p className="font-display text-[14px] uppercase leading-none tracking-[0.02em] text-foreground/80">{k.label}</p>
+          <p className="hype-num tabular mt-3 text-[26px] leading-none sm:text-[30px]">{k.value}</p>
           {k.sub && <p className="tabular mt-1.5 truncate text-[12px] text-muted">{k.sub}</p>}
         </div>
       ))}

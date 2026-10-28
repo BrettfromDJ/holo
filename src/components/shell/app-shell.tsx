@@ -31,7 +31,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <div className="flex min-w-0 flex-1 flex-col">
                   <MobileTopBar />
                   <DemoBanner />
-                  <main className="mx-auto w-full max-w-[1200px] flex-1 overflow-x-clip px-4 pb-32 pt-6 sm:px-8 sm:pt-10 lg:pb-16">
+                  <main className="hype mx-auto w-full max-w-[1200px] flex-1 overflow-x-clip px-4 pb-32 pt-6 sm:px-8 sm:pt-10 lg:pb-16">
                     {children}
                   </main>
                 </div>

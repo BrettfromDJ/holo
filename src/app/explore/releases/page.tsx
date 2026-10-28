@@ -48,7 +48,7 @@ export default function ReleaseCalendarPage() {
               key={b.slug}
               onClick={() => setBrand(b.slug)}
               aria-pressed={brand === b.slug}
-              className={cn("h-8 shrink-0 rounded-full px-3.5 text-[13px] font-medium transition-colors", brand === b.slug ? "bg-accent text-accent-foreground" : "bg-surface-2 text-muted hover:text-foreground")}
+              className={cn("h-8 shrink-0 rounded-full px-3.5 text-[13px] font-medium transition-colors", brand === b.slug ? "bg-lime font-semibold text-[#0b0b0c] shadow-[0_0_16px_-4px_var(--lime)]" : "bg-surface-2 text-muted hover:text-foreground")}
             >
               {b.name}
             </button>

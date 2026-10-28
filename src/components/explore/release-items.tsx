@@ -25,7 +25,7 @@ export function ReminderButton({ set, compact }: { set: ExploreSet; compact?: bo
       className={cn(
         "inline-flex shrink-0 items-center gap-1.5 rounded-full text-[12px] font-medium transition-colors",
         compact ? "size-8 justify-center" : "h-8 px-3",
-        on ? "bg-accent text-accent-foreground" : "bg-surface-2 text-muted hover:text-foreground",
+        on ? "bg-lime font-semibold text-[#0b0b0c] shadow-[0_0_16px_-4px_var(--lime)]" : "bg-surface-2 text-muted hover:text-foreground",
       )}
     >
       {on ? <BellRing className="size-3.5" /> : <Bell className="size-3.5" />}
