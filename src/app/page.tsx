@@ -12,7 +12,7 @@ import { ReleaseReminders } from "@/components/overview/release-reminders";
 import { MetricStrip, Shelf, Spotlight } from "@/components/overview/sections";
 import { HypeHeading, HypeHero } from "@/components/overview/hype-hero";
 import { WeeklyRecap } from "@/components/overview/weekly-recap";
-import { AllocationShowcase } from "@/components/portfolio/allocation-showcase";
+import { CategoryPlans } from "@/components/overview/category-plans";
 import { EmptyCollection } from "@/components/portfolio/empty-state";
 import { ErrorState } from "@/components/portfolio/error-state";
 import { PerformanceChart } from "@/components/portfolio/performance-chart";
@@ -126,8 +126,8 @@ export default function OverviewPage() {
         </Reveal>
 
         <Reveal as="section">
-          <SectionHeading title="Sealed vs. singles" subtitle="Where your collection's value sits" />
-          <AllocationShowcase holdings={holdings} />
+          <SectionHeading title="Where your value sits" subtitle="Sealed, singles and slabs, side by side" />
+          <CategoryPlans holdings={holdings} />
         </Reveal>
 
         <Reveal as="section">
