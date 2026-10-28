@@ -67,7 +67,7 @@ function MoverColumn({ title, rows, up, max, daily, inView }: { title: string; r
   const [all, setAll] = useState(false);
   const shown = all ? rows : rows.slice(0, COLLAPSED);
   return (
-    <div className="relative overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface p-2 sm:p-3">
+    <div className="hype-surface relative overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface p-2 sm:p-3">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 opacity-60"
@@ -113,7 +113,7 @@ function MoverColumn({ title, rows, up, max, daily, inView }: { title: string; r
                     />
                   </div>
                   <div className="text-right leading-tight">
-                    <p className={cn("tabular text-[13px] font-semibold", up ? "text-up" : "text-down")}>{signedPct(m)}</p>
+                    <p className={cn("hype-num tabular text-[13px] font-semibold", up ? "text-up" : "text-down")}>{signedPct(m)}</p>
                     <p className="tabular text-[11px] text-muted">{usd === null ? "—" : signedMoney(usd)}</p>
                   </div>
                 </Link>
@@ -139,11 +139,12 @@ function MoverColumn({ title, rows, up, max, daily, inView }: { title: string; r
 export function RecentTimeline({ holdings }: { holdings: HoldingView[] }) {
   const [ref, inView] = useInView<HTMLOListElement>();
   return (
-    <div className="min-w-0 rounded-[var(--radius-card)] border border-border bg-surface p-6 sm:p-7">
+    <div className="hype-surface min-w-0 rounded-[var(--radius-card)] border border-border bg-surface p-6 sm:p-7">
       <div className="mb-5 flex items-center justify-between">
-        <p className="text-[11px] font-medium font-mono uppercase tracking-[0.06em] text-muted">
+        <h2 className="flex items-center gap-2.5 font-display text-[24px] uppercase leading-none tracking-[0.01em] sm:text-[28px]">
+          <span aria-hidden className="h-[0.7em] w-1.5 rounded-full bg-lime shadow-[0_0_12px_var(--lime)]" />
           Recently added
-        </p>
+        </h2>
         <Link
           href="/activity"
           className="flex items-center gap-1 text-[13px] font-medium text-muted hover:text-foreground"
@@ -155,7 +156,7 @@ export function RecentTimeline({ holdings }: { holdings: HoldingView[] }) {
         <span
           aria-hidden
           className={cn(
-            "absolute bottom-6 left-[5px] top-2 w-px origin-top bg-gradient-to-b from-[var(--cat-1)] via-border to-border",
+            "absolute bottom-6 left-[5px] top-2 w-px origin-top bg-gradient-to-b from-[var(--lime)] via-border to-border",
             inView ? "animate-[grow-y_1s_var(--ease-apple)_both]" : "scale-y-0",
           )}
         />
@@ -173,7 +174,7 @@ export function RecentTimeline({ holdings }: { holdings: HoldingView[] }) {
               className={cn(
                 "absolute left-0 top-[22px] size-[11px] rounded-full border-2 border-surface",
                 i === 0
-                  ? "bg-[var(--cat-1)] shadow-[0_0_0_4px_color-mix(in_srgb,var(--cat-1)_25%,transparent)]"
+                  ? "bg-[var(--lime)] shadow-[0_0_0_4px_color-mix(in_srgb,var(--lime)_25%,transparent)]"
                   : "bg-surface-2 ring-1 ring-border",
               )}
             />
@@ -198,7 +199,7 @@ export function RecentTimeline({ holdings }: { holdings: HoldingView[] }) {
                 </p>
               </div>
               <div className="shrink-0 text-right">
-                <p className="tabular text-[14px] font-semibold">
+                <p className="hype-num tabular text-[15px] font-semibold">
                   {money(h.value)}
                 </p>
                 <Delta

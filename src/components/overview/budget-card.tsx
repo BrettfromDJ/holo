@@ -33,7 +33,7 @@ export function BudgetCard() {
   const tone = over ? "var(--down)" : near ? "#f5b544" : "var(--foreground)";
 
   return (
-    <section aria-label="Monthly budget" className="mt-3 rounded-[var(--radius-card)] border border-border bg-surface px-5 py-4">
+    <section aria-label="Monthly budget" className="hype-surface mt-3 rounded-[var(--radius-card)] border border-border bg-surface px-5 py-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-surface-2">

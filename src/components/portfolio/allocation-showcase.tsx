@@ -187,7 +187,7 @@ export function AllocationShowcase({
                     </span>
                   )}
                 </div>
-                <p className="tabular mt-1 text-[22px] font-semibold tracking-tight">
+                <p className="hype-num tabular mt-1 text-[22px] font-semibold tracking-tight">
                   {money(g.value)}
                 </p>
                 <div className="mt-1 flex items-center justify-between gap-2">
@@ -211,7 +211,7 @@ export function AllocationShowcase({
             </div>
           );
           const cls =
-            "group block rounded-2xl bg-surface-2/60 p-4 transition-colors duration-300 hover:bg-surface-2";
+            "hype-surface group block rounded-2xl border border-transparent bg-surface-2/60 p-4 transition-colors duration-300 hover:bg-surface-2";
           return linkTiles ? (
             <Link
               key={g.category}

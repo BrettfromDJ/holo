@@ -142,3 +142,30 @@ export function HypeHeading({ title, subtitle, action }: { title: string; subtit
     </div>
   );
 }
+
+/** A kinetic band of the collection's headline pieces scrolling past, in the display face. */
+export function HypeTicker({ holdings }: { holdings: HoldingView[] }) {
+  const items = [...holdings].filter((h) => (h.value ?? 0) > 0 && h.product).sort((a, b) => (b.value ?? 0) - (a.value ?? 0)).slice(0, 8);
+  if (items.length < 2) return null;
+  const run = (copy: number) =>
+    items.map((h, i) => (
+      <span key={`${copy}-${h.key}`} className="flex shrink-0 items-center gap-5 pr-5" aria-hidden={copy > 0}>
+        <span className={cn("whitespace-nowrap", i % 2 ? "hype-outline" : "text-foreground")}>{h.product!.name.replace(/\s*\(.*?\)\s*/g, " ").trim()}</span>
+        <span className="tabular whitespace-nowrap">
+          <span className="text-foreground/90">{money(h.value)}</span>
+          {h.unrealizedPct !== null && <span className={cn("ml-2", h.unrealizedPct >= 0 ? "text-up" : "text-down")}>{signedPct(h.unrealizedPct, 0)}</span>}
+        </span>
+        <span aria-hidden className="h-[0.5em] w-[0.5em] rotate-45 bg-lime shadow-[0_0_10px_var(--lime)]" />
+      </span>
+    ));
+  return (
+    <div className="relative -mx-4 -rotate-1 border-y border-white/10 bg-surface/60 py-3 backdrop-blur sm:-mx-8" aria-label="Top pieces">
+      <div className="overflow-hidden" style={{ maskImage: "linear-gradient(90deg, transparent, black 6%, black 94%, transparent)", WebkitMaskImage: "linear-gradient(90deg, transparent, black 6%, black 94%, transparent)" }}>
+        <div className="marquee-track flex w-max font-display text-[26px] uppercase leading-none tracking-[0.01em] sm:text-[34px]" style={{ ["--marquee-duration" as string]: "40s" }}>
+          {run(0)}
+          {run(1)}
+        </div>
+      </div>
+    </div>
+  );
+}

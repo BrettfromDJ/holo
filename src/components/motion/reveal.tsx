@@ -36,7 +36,8 @@ export function Reveal({ children, delay = 0, className, as: Tag = "div" }: { ch
   return (
     <Tag
       ref={ref}
-      className={cn("transition-[opacity,transform] duration-700 ease-[var(--ease-apple)] will-change-transform", inView ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0", className)}
+      data-reveal={inView ? "in" : "out"}
+      className={cn("transition-[opacity,transform,filter] duration-700 ease-[var(--ease-apple)] will-change-transform", inView ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0", className)}
       style={{ transitionDelay: inView ? `${delay}ms` : "0ms" }}
     >
       {children}

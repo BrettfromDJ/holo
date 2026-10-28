@@ -497,6 +497,32 @@
   .hype-glow { transform: translateX(-50%); }
 }
 
+/* Overview "hype" scope: display-face numbers, cards that light up lime, punchier reveals. */
+.hype .hype-num {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+.hype .hype-surface {
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--foreground) 3.5%, transparent), transparent 45%);
+  transition: border-color 0.35s var(--ease-apple), box-shadow 0.35s var(--ease-apple), background-color 0.3s;
+}
+.hype .hype-surface:hover {
+  border-color: color-mix(in srgb, var(--lime) 45%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--lime) 18%, transparent), 0 14px 44px -14px color-mix(in srgb, var(--lime) 35%, transparent);
+}
+.hype [data-reveal="out"] {
+  filter: blur(10px);
+  transform: translateY(36px) scale(0.98);
+}
+.hype [data-reveal="in"] {
+  filter: blur(0);
+}
+.hype-outline {
+  color: transparent;
+  -webkit-text-stroke: 1.2px color-mix(in srgb, var(--foreground) 70%, transparent);
+}
+
 /* Market pulse ticker */
 @keyframes marquee {
   from { transform: translateX(0); }

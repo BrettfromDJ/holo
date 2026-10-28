@@ -21,12 +21,12 @@ import { Sparkline } from "./sparkline";
 
 export function MetricStrip({ items }: { items: { label: string; value: React.ReactNode; sub?: React.ReactNode; href?: string }[] }) {
   return (
-    <section aria-label="Key metrics" className="grid grid-cols-2 overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface sm:grid-cols-4">
+    <section aria-label="Key metrics" className="hype-surface grid grid-cols-2 overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface sm:grid-cols-4">
       {items.map((m, i) => {
         const inner = (
           <>
             <p className="text-[12px] font-medium text-muted">{m.label}</p>
-            <p className="tabular mt-1.5 text-[20px] font-semibold tracking-tight sm:text-[22px]">{m.value}</p>
+            <p className="hype-num tabular mt-1.5 text-[20px] font-semibold tracking-tight sm:text-[22px]">{m.value}</p>
             {m.sub && <div className="mt-0.5 text-[12px] text-muted">{m.sub}</div>}
           </>
         );
@@ -96,7 +96,7 @@ export function Spotlight({ holdings }: { holdings: HoldingView[] }) {
     <section className="grid gap-3 lg:grid-cols-3 lg:grid-rows-2" aria-label="Spotlight">
       <Link
         href={holdingHref(star)}
-        className="group relative isolate overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface p-5 sm:p-8 lg:col-span-2 lg:row-span-2"
+        className="hype-surface group relative isolate overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface p-5 sm:p-8 lg:col-span-2 lg:row-span-2"
       >
         <ArtGlow h={star} className="opacity-45" />
         <div className="relative flex h-full flex-col gap-7 sm:flex-row sm:items-center sm:gap-10">
@@ -113,7 +113,7 @@ export function Spotlight({ holdings }: { holdings: HoldingView[] }) {
             </TileLabel>
             <h3 className="mt-3 line-clamp-2 text-balance text-[24px] font-semibold leading-[1.1] tracking-[-0.02em] sm:text-[30px]">{star.product?.name}</h3>
             <p className="mt-2 truncate text-[13px] text-muted">{[star.product?.setName, holdingLabel(star)].filter(Boolean).join(" · ")}</p>
-            <p className="tabular mt-6 text-[40px] font-semibold leading-none tracking-[-0.035em] sm:text-[52px]">
+            <p className="hype-num tabular mt-6 text-[40px] font-semibold leading-none tracking-[-0.035em] sm:text-[52px]">
               <span className="text-up">
                 <AnimatedNumber value={star.unrealized ?? 0} format={signedMoney} duration={1300} />
               </span>
@@ -137,7 +137,7 @@ export function Spotlight({ holdings }: { holdings: HoldingView[] }) {
       {laggard ? (
         <MiniTile h={laggard} icon={TrendingDown} label="Below what you paid" value={laggard.unrealized} ratio={laggard.unrealizedPct} />
       ) : (
-        <div className="flex flex-col justify-center rounded-[var(--radius-card)] border border-border bg-surface p-5">
+        <div className="hype-surface flex flex-col justify-center rounded-[var(--radius-card)] border border-border bg-surface p-5">
           <TileLabel icon={TrendingDown} className="text-muted">
             Below what you paid
           </TileLabel>
@@ -174,7 +174,7 @@ function MiniTile({ h, icon, label, value, ratio }: { h: HoldingView; icon: Reac
   const series = useSeries(h, 30);
   const up = (value ?? 0) >= 0;
   return (
-    <Link href={holdingHref(h)} className="group relative isolate flex flex-col overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface p-5">
+    <Link href={holdingHref(h)} className="hype-surface group relative isolate flex flex-col overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface p-5">
       <ArtGlow h={h} className="opacity-25" />
       <div
         aria-hidden
@@ -188,7 +188,7 @@ function MiniTile({ h, icon, label, value, ratio }: { h: HoldingView; icon: Reac
         <ProductImage product={h.product} grade={h.identity.grade} slabKey={h.key} size="sm" className="h-20 w-16 shrink-0 transition-transform duration-500 ease-[var(--ease-apple)] group-hover:-rotate-3 group-hover:scale-105" />
         <div className="min-w-0">
           <p className="line-clamp-2 text-[14px] font-medium leading-snug text-foreground/90">{h.product?.name}</p>
-          <p className="tabular mt-1.5 text-[22px] font-semibold leading-none tracking-[-0.02em]">
+          <p className="hype-num tabular mt-1.5 text-[22px] font-semibold leading-none tracking-[-0.02em]">
             <span className={up ? "text-up" : "text-down"}>{value === null ? "—" : signedMoney(value)}</span>
           </p>
           <p className="tabular mt-1 text-[12px] text-muted">
@@ -329,7 +329,7 @@ function ShelfItem({ h, rank }: { h: HoldingView; rank: number }) {
           <span className="truncate text-[13px] font-medium">{h.product?.name}</span>
         </p>
         <div className="mt-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-          <span className="tabular text-[14px] font-semibold">{money(h.value)}</span>
+          <span className="hype-num tabular text-[14px] font-semibold">{money(h.value)}</span>
           <DeltaPill ratio={h.unrealizedPct} />
         </div>
       </div>
