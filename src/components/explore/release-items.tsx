@@ -55,10 +55,20 @@ export function ReleaseRow({ set }: { set: ExploreSet }) {
           {days !== null && <span className={cn(days >= 0 && days <= 7 && "text-foreground")}> · {whenLabel(days)}</span>}
         </p>
       </div>
-      {days !== null && days >= 0 && <ReminderButton set={set} />}
+      {days !== null && days >= 0 && (
+        <>
+          <span className="sm:hidden">
+            <ReminderButton set={set} compact />
+          </span>
+          <span className="hidden sm:inline-flex">
+            <ReminderButton set={set} />
+          </span>
+        </>
+      )}
     </>
   );
-  const cls = "flex items-center gap-3 rounded-2xl px-2 py-2.5 transition-colors sm:gap-4";
+  // min-w-0 lets long names truncate inside grid cells instead of pushing the button off screen.
+  const cls = "flex min-w-0 items-center gap-3 rounded-2xl px-2 py-2.5 transition-colors sm:gap-4";
   return set.loaded ? (
     <Link href={`/explore/${encodeURIComponent(set.slug)}`} className={cn(cls, "hover:bg-surface-2/60")}>
       {body}

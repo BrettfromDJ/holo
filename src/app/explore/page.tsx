@@ -110,7 +110,7 @@ export default function ExplorePage() {
                 Release calendar <ArrowRight className="size-3.5" />
               </Link>
             </div>
-            <div className="grid gap-x-6 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-x-6 sm:grid-cols-2">
               {upcoming.map((s) => (
                 <ReleaseRow key={s.slug} set={s} />
               ))}
