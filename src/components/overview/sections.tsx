@@ -218,14 +218,27 @@ export function Shelf({ holdings, title = "Your shelf", subtitle }: { holdings: 
         </Link>
       </div>
       <div
-        className="relative overflow-hidden rounded-[var(--radius-card)] border border-border"
-        // The back wall: lit from above, falling off toward the ledge.
-        style={{ background: "linear-gradient(180deg, color-mix(in srgb, var(--foreground) 7%, var(--surface)), var(--surface) 55%, color-mix(in srgb, var(--background) 60%, var(--surface)))" }}
+        // No box: runs edge to edge and fades into the page.
+        className="relative -mx-4 sm:-mx-8"
       >
-        <div className="scrollbar-none overflow-x-auto">
-          <div className="relative flex w-max gap-6 px-6 pb-6 pt-8 sm:gap-8 sm:px-8 sm:pb-8 sm:pt-10">
+        {/* Soft light from above, falling away to the page background on every side. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 -top-6 bottom-0"
+          style={{
+            background: "radial-gradient(60% 75% at 50% 45%, color-mix(in srgb, var(--foreground) 6%, transparent), transparent 75%)",
+            maskImage: "linear-gradient(180deg, transparent, black 30%, black 70%, transparent)",
+            WebkitMaskImage: "linear-gradient(180deg, transparent, black 30%, black 70%, transparent)",
+          }}
+        />
+        <div
+          className="scrollbar-none relative overflow-x-auto"
+          // Items fade out at the edges as they scroll away.
+          style={{ maskImage: "linear-gradient(90deg, transparent, black 5%, black 95%, transparent)", WebkitMaskImage: "linear-gradient(90deg, transparent, black 5%, black 95%, transparent)" }}
+        >
+          <div className="relative flex w-max gap-6 px-6 pb-4 pt-6 sm:gap-8 sm:px-10 sm:pb-6 sm:pt-8">
             {/* The ledge runs the full length of the scroll. */}
-            <div aria-hidden className="pointer-events-none absolute inset-x-0 top-[calc(2rem+200px)] sm:top-[calc(2.5rem+236px)]">
+            <div aria-hidden className="pointer-events-none absolute inset-x-0 top-[calc(1.5rem+200px)] sm:top-[calc(2rem+236px)]">
               <div
                 className="h-3"
                 style={{
@@ -253,8 +266,9 @@ function ShelfItem({ h, rank }: { h: HoldingView; rank: number }) {
       {/* Spotlight from above. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -top-10 left-1/2 h-[240px] w-[220px] -translate-x-1/2 opacity-70 transition-opacity duration-500 group-hover:opacity-100 sm:h-[280px]"
-        style={{ background: "radial-gradient(50% 60% at 50% 0%, color-mix(in srgb, var(--foreground) 10%, transparent), transparent)" }}
+        className="pointer-events-none absolute -top-6 left-1/2 h-[240px] w-[220px] -translate-x-1/2 opacity-70 transition-opacity duration-500 group-hover:opacity-100 sm:h-[280px]"
+        // Peaks just below the top so it fades in, rather than starting at a hard edge.
+        style={{ background: "radial-gradient(45% 50% at 50% 35%, color-mix(in srgb, var(--foreground) 8%, transparent), transparent)" }}
       />
       <div className="relative flex h-[200px] items-end justify-center sm:h-[236px]">
         {/* Contact shadow where it meets the ledge. */}
