@@ -87,7 +87,7 @@ export default function ProductPage() {
         {slab ? (
           // Only slabs of this card are owned: show it in its slab.
           <HoloTilt radius="7% / 4.4%" foil={false} className="mx-auto aspect-[5/8] w-full max-w-[260px] animate-pop self-start sm:max-w-[340px] lg:sticky lg:top-10">
-            <ProductImage product={product} grade={slab} size="xl" priority className="h-full w-full" />
+            <ProductImage product={product} grade={slab} slabKey={owned[0]?.key} size="xl" priority className="h-full w-full" />
           </HoloTilt>
         ) : product.kind === "single" && product.imageUrl ? (
           // A bare card: no well or frame, just the card at its own proportions.

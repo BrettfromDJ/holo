@@ -19,7 +19,8 @@ import type { HoldingView } from "@/lib/finance/portfolio";
 import { formatDate, money } from "@/lib/format";
 import { certLookupUrl, GRADED_SOURCE, gradeDescriptor, gradedLadder, gradeLabel, GRADERS, isStaleValue, liquidityLabel, liquidityNote, liquidityOf, sampleSalesPerYear } from "@/lib/graded";
 import { useStore } from "@/lib/store/collection-store";
-import { useGradingCosts, useGradingSubmissions, useSlabCerts, type GradingSubmission } from "@/lib/store/grading";
+import { useGradingCosts, useGradingSubmissions, useSlabBumpers, useSlabCerts, type GradingSubmission } from "@/lib/store/grading";
+import { BUMPERS, bumperById, GLITTER_SPECKS } from "@/lib/bumpers";
 import { holdingKey, priceKey, type Grade } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -124,7 +125,7 @@ export function SlabCard({ h, actions, onRevalue, onCert }: { h: HoldingView; ac
 
   return (
     <div className="flex gap-4 sm:gap-5">
-      <ProductImage product={h.product} grade={grade} size="md" className="h-[124px] w-[78px] shrink-0 sm:h-[176px] sm:w-[110px]" />
+      <ProductImage product={h.product} grade={grade} slabKey={h.key} size="md" className="h-[124px] w-[78px] shrink-0 sm:h-[176px] sm:w-[110px]" />
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
@@ -182,6 +183,7 @@ export function SlabCard({ h, actions, onRevalue, onCert }: { h: HoldingView; ac
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12px] text-subtle">
+          <BumperButton h={h} />
           <span>{manual ? "Your value" : GRADED_SOURCE === "sample" ? "Graded market · sample" : "Graded market"}</span>
           <span>
             {h.lots.length} lot{h.lots.length === 1 ? "" : "s"} · avg {money(h.avgCost)}
@@ -194,6 +196,85 @@ export function SlabCard({ h, actions, onRevalue, onCert }: { h: HoldingView; ac
         </div>
       </div>
     </div>
+  );
+}
+
+/** Opens the bumper picker; shows the current bumper as a swatch. */
+function BumperButton({ h }: { h: HoldingView }) {
+  const { bumpers } = useSlabBumpers();
+  const [open, setOpen] = useState(false);
+  const current = bumperById(bumpers[h.key]);
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-surface-2 py-1 pl-1 pr-2.5 font-medium text-foreground/85 ring-1 ring-inset ring-border hover:bg-surface-3">
+        <span className="size-4 rounded-full ring-1 ring-inset ring-white/20" style={{ background: current?.background ?? "transparent" }}>
+          {!current && <Plus className="m-0.5 size-3 text-muted" />}
+        </span>
+        {current ? current.name : "Add bumper"}
+      </button>
+      <BumperDialog h={h} open={open} onOpenChange={setOpen} />
+    </>
+  );
+}
+
+/** Pick a bumper guard for a slab, with a live preview. */
+export function BumperDialog({ h, open, onOpenChange }: { h: HoldingView; open: boolean; onOpenChange: (o: boolean) => void }) {
+  const { bumpers, setBumper } = useSlabBumpers();
+  const [pick, setPick] = useState<string | null>(null);
+  // Start from the saved bumper each time the picker opens (not on every render).
+  useEffect(() => {
+    if (open) setPick(bumpers[h.key] ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when opened
+  }, [open, h.key]);
+  const preview = bumperById(pick);
+  const group = (kind: "glitter" | "solid", title: string) => (
+    <div>
+      <p className="mb-2 font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-subtle">{title}</p>
+      <div className="grid grid-cols-6 gap-2">
+        {BUMPERS.filter((b) => b.kind === kind).map((b) => (
+          <Hint key={b.id} content={b.name}>
+            <button
+              type="button"
+              aria-label={b.name}
+              aria-pressed={pick === b.id}
+              onClick={() => setPick(b.id)}
+              className={cn("aspect-square rounded-xl ring-1 ring-inset ring-white/15 transition-transform hover:scale-105", pick === b.id && "ring-2 ring-foreground ring-offset-2 ring-offset-[var(--surface)]")}
+              style={{ background: b.kind === "glitter" ? `${GLITTER_SPECKS} 0 0 / 34px 34px, ${b.background}` : b.background }}
+            />
+          </Hint>
+        ))}
+      </div>
+    </div>
+  );
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[520px]">
+        <FormShell
+          title="Bumper"
+          description="Snap a bumper guard around this slab. It shows everywhere the slab appears."
+          onSubmit={(e) => {
+            e.preventDefault();
+            setBumper(h.key, pick);
+            toast.success(pick ? `${bumperById(pick)?.name} bumper on` : "Bumper removed");
+            onOpenChange(false);
+          }}
+          footer={
+            <Button type="submit" variant="primary" size="lg" className="w-full">
+              {pick ? "Save bumper" : "No bumper"}
+            </Button>
+          }
+        >
+          <div className="flex justify-center rounded-2xl bg-surface-2/60 py-5">
+            <ProductImage product={h.product} grade={h.identity.grade} bumper={preview} size="md" className="h-[220px] w-[140px]" />
+          </div>
+          {group("glitter", "Glitter")}
+          {group("solid", "Solid")}
+          <button type="button" onClick={() => setPick(null)} className={cn("text-[13px] font-medium", pick ? "text-muted hover:text-foreground" : "text-foreground")}>
+            {pick ? "Remove bumper" : "No bumper selected"}
+          </button>
+        </FormShell>
+      </DialogContent>
+    </Dialog>
   );
 }
 

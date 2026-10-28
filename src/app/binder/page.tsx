@@ -311,7 +311,7 @@ function OwnedPocket({ slot }: { slot: Slot }) {
   return (
     <Link href={`/product/${encodeURIComponent(slot.card.productId)}`} className="group relative block" title={slot.card.name}>
       <HoloTilt max={10} radius="0.75rem" className="aspect-[63/88] w-full">
-        <ProductImage product={h.product} grade={h.identity.grade} size="sm" frame={false} className="h-full w-full rounded-xl" />
+        <ProductImage product={h.product} grade={h.identity.grade} slabKey={h.key} size="sm" frame={false} className="h-full w-full rounded-xl" />
       </HoloTilt>
       {qty > 1 && <span className="tabular absolute right-1.5 top-1.5 rounded-full bg-background/85 px-1.5 text-[10px] font-semibold backdrop-blur">×{qty}</span>}
       {holdingLabel(h) && <span className="absolute bottom-1.5 left-1.5 rounded-full bg-background/85 px-1.5 text-[10px] font-medium backdrop-blur">{holdingLabel(h)}</span>}

@@ -24,6 +24,22 @@ export function useSlabCerts() {
   return { certs, setCert };
 }
 
+/** The bumper guard chosen for each slab, keyed by `holdingKey`. */
+export function useSlabBumpers() {
+  const [bumpers, setBumpers] = useSyncedState<Record<string, string>>("slab-bumpers", {});
+  const setBumper = useCallback(
+    (key: string, id: string | null) =>
+      setBumpers((prev) => {
+        const next = { ...prev };
+        if (id) next[key] = id;
+        else delete next[key];
+        return next;
+      }),
+    [setBumpers],
+  );
+  return { bumpers, setBumper };
+}
+
 /** The grading fee and shipping assumed when weighing whether to grade. */
 export function useGradingCosts() {
   const [costs, setCosts] = useSyncedState<GradingCosts>("grading-costs", DEFAULT_GRADING_COSTS);

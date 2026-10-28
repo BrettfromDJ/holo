@@ -256,7 +256,7 @@ function SlabTile({ h, today }: { h: HoldingView; today: string }) {
   const stale = manual && isStaleValue(h.priceUpdatedAt, today);
   return (
     <Link href={`/product/${encodeURIComponent(h.identity.productId)}`} className="group flex min-w-0 flex-col">
-      <ProductImage product={h.product} grade={h.identity.grade} size="md" className="aspect-[4/5] w-full transition-transform duration-500 ease-[var(--ease-apple)] group-hover:-translate-y-1" />
+      <ProductImage product={h.product} grade={h.identity.grade} slabKey={h.key} size="md" className="aspect-[4/5] w-full transition-transform duration-500 ease-[var(--ease-apple)] group-hover:-translate-y-1" />
       <p className="mt-3 line-clamp-2 text-[13px] font-medium leading-snug">{h.product?.name ?? "Card"}</p>
       <p className="tabular mt-1 text-[14px] font-semibold">
         {h.price === null ? <span className="text-subtle">No value</span> : money(h.value)}

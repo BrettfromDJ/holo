@@ -89,7 +89,7 @@ function MoverColumn({ title, rows, up, max, daily, inView }: { title: string; r
                 >
                   <ProductImage
                     product={h.product}
-                    grade={h.identity.grade}
+                    grade={h.identity.grade} slabKey={h.key}
                     size="xs"
                     className="size-9 rounded-lg transition-transform duration-500 group-hover:scale-110 group-hover:-rotate-3"
                   />

@@ -27,7 +27,7 @@ export function holdingLabel(h: HoldingView): string | null {
 export function HoldingMiniRow({ h, metric = "gain", change }: { h: HoldingView; metric?: "gain" | "value" | "change" | "added"; change?: number | null }) {
   return (
     <Link href={holdingHref(h)} className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-surface-2">
-      <ProductImage product={h.product} grade={h.identity.grade} size="xs" className="size-11 shrink-0 rounded-lg" />
+      <ProductImage product={h.product} grade={h.identity.grade} slabKey={h.key} size="xs" className="size-11 shrink-0 rounded-lg" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-[14px] font-medium">{h.product?.name ?? "Unknown product"}</p>
         <p className="tabular truncate text-[12px] text-muted">
@@ -56,7 +56,7 @@ export function HoldingListRow({ h }: { h: HoldingView }) {
       href={holdingHref(h)}
       className="group grid grid-cols-[3rem_1fr_auto] items-center gap-4 px-4 py-3 transition-colors hover:bg-surface-2 md:grid-cols-[3.5rem_minmax(0,2.4fr)_repeat(5,minmax(0,1fr))]"
     >
-      <ProductImage product={h.product} grade={h.identity.grade} size="xs" className="size-12 rounded-lg md:size-14" />
+      <ProductImage product={h.product} grade={h.identity.grade} slabKey={h.key} size="xs" className="size-12 rounded-lg md:size-14" />
       <div className="min-w-0">
         <p className="truncate text-[14px] font-medium">{h.product?.name ?? "Unknown product"}</p>
         <p className="mt-0.5 flex items-center gap-1.5 truncate text-[12px] text-muted">
@@ -112,7 +112,7 @@ export function HoldingTile({ h }: { h: HoldingView }) {
             </HoloTilt>
           ) : (
             <HoloTilt max={8} foil={shape === "card" && isFoilCard(h.product)} radius={shape === "slab" ? "7% / 4.4%" : "4.5% / 3.2%"} className={cn("h-full", shape === "slab" ? "aspect-[5/8]" : "aspect-[63/88]")}>
-              <ProductImage product={h.product} grade={h.identity.grade} frame={false} className="h-full w-full" />
+              <ProductImage product={h.product} grade={h.identity.grade} slabKey={h.key} frame={false} className="h-full w-full" />
             </HoloTilt>
           )}
         </div>

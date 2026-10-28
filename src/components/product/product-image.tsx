@@ -4,7 +4,9 @@ import { Layers, Package } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { categoryOf } from "@/lib/catalog";
 import { isFoilCard } from "@/components/motion/holo-tilt";
+import { bumperById, GLITTER_SPECKS, type Bumper } from "@/lib/bumpers";
 import { gradeDescriptor, slabStyle } from "@/lib/graded";
+import { useSlabBumpers } from "@/lib/store/grading";
 import type { Grade, Product } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +30,8 @@ export function ProductImage({
   priority,
   frame = true,
   grade,
+  slabKey,
+  bumper,
 }: {
   product:
     | (Pick<Product, "name" | "imageUrl" | "kind" | "setName" | "productType"> & Partial<Pick<Product, "number" | "rarity">>)
@@ -39,8 +43,13 @@ export function ProductImage({
   frame?: boolean;
   /** A graded card is drawn inside a slab with its grading label. */
   grade?: Grade | null;
+  /** The holding this slab is, so it wears the bumper chosen for it. */
+  slabKey?: string;
+  /** Draw this bumper (e.g. a preview), overriding the saved one. */
+  bumper?: Bumper | null;
 }) {
-  if (grade) return <Slab product={product} grade={grade} size={size} priority={priority} className={className} />;
+  if (grade && slabKey && bumper === undefined) return <SavedBumperSlab slabKey={slabKey} product={product} grade={grade} size={size} priority={priority} className={className} />;
+  if (grade) return <Slab product={product} grade={grade} size={size} priority={priority} className={className} bumper={bumper ?? null} />;
   return <ProductPhoto product={product} size={size} priority={priority} frame={frame} className={className} />;
 }
 
@@ -118,6 +127,30 @@ function ProductPhoto({
   );
 }
 
+function SavedBumperSlab({ slabKey, ...props }: { slabKey: string } & Omit<Parameters<typeof Slab>[0], "bumper">) {
+  const { bumpers } = useSlabBumpers();
+  return <Slab {...props} bumper={bumperById(bumpers[slabKey])} />;
+}
+
+/** The bumper around a slab: molded plastic (solid) or clear glitter (gradient). */
+function BumperFrame({ bumper }: { bumper: Bumper }) {
+  return (
+    <div
+      aria-hidden
+      className="absolute inset-0 overflow-hidden rounded-[10cqw]"
+      style={{
+        background: bumper.background,
+        opacity: bumper.kind === "glitter" ? 0.94 : 1,
+        boxShadow: "inset 0 1.2cqw 1.6cqw rgb(255 255 255 / 0.45), inset 0 -1.6cqw 2.6cqw rgb(0 0 0 / 0.3), 0 4cqw 9cqw -2cqw rgb(0 0 0 / 0.7), 0 1cqw 2cqw rgb(0 0 0 / 0.35)",
+      }}
+    >
+      {bumper.kind === "glitter" && <span className="absolute inset-0 mix-blend-screen" style={{ backgroundImage: GLITTER_SPECKS, backgroundSize: "34cqw 34cqw" }} />}
+      {/* The lip the slab sits in. */}
+      <span className="absolute inset-[4.2cqw] rounded-[7.5cqw] shadow-[inset_0_0_0_0.6cqw_rgb(0_0_0/0.25),0_0_1.5cqw_rgb(0_0_0/0.35)]" />
+    </div>
+  );
+}
+
 /**
  * A grading slab, drawn to scale with its own width (container units): a
  * thick clear case with a bevel and glare, a printed label (company, card,
@@ -129,12 +162,14 @@ function Slab({
   size,
   priority,
   className,
+  bumper,
 }: {
   product: Parameters<typeof ProductImage>[0]["product"];
   grade: Grade;
   size: NonNullable<Parameters<typeof ProductImage>[0]["size"]>;
   priority?: boolean;
   className?: string;
+  bumper: Bumper | null;
 }) {
   const style = slabStyle(grade);
   const tiny = size === "xs" || size === "sm";
@@ -142,6 +177,9 @@ function Slab({
   return (
     <div className={cn("relative flex items-center justify-center", className)} role="img" aria-label={`${product?.name ?? "Card"}, ${grade.company} ${grade.grade}`}>
       <div className="group/slab relative aspect-[5/8] h-full max-w-full [container-type:inline-size]">
+        {bumper && <BumperFrame bumper={bumper} />}
+        {/* With a bumper, the slab sits inside it and sizes to its own width. */}
+        <div className={cn("absolute [container-type:inline-size]", bumper ? "inset-[5cqw]" : "inset-0")}>
         {/* The case: clear acrylic with a lit top edge and a darker base. */}
         <div
           className="absolute inset-0 rounded-[7cqw]"
@@ -198,6 +236,7 @@ function Slab({
             className="absolute -inset-[40%] translate-x-[-12%] transition-transform duration-700 ease-[var(--ease-apple)] group-hover/slab:translate-x-[12%]"
             style={{ background: "linear-gradient(115deg, transparent 40%, rgb(255 255 255 / 0.13) 47%, rgb(255 255 255 / 0.04) 52%, transparent 58%)" }}
           />
+        </div>
         </div>
       </div>
     </div>

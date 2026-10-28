@@ -103,7 +103,7 @@ export function Spotlight({ holdings }: { holdings: HoldingView[] }) {
             {/* Soft floor shadow under the card. */}
             <div aria-hidden className="absolute inset-x-[12%] -bottom-4 h-8 rounded-[50%] bg-black/60 blur-xl" />
             <HoloTilt max={14} foil={shape === "card" && isFoilCard(star.product)} radius={shape === "slab" ? "7% / 4.4%" : shape === "card" ? "4.5% / 3.2%" : "1.5rem"} className={cn("relative w-full", shape === "slab" ? "aspect-[5/8]" : shape === "card" ? "aspect-[63/88]" : "aspect-square")}>
-              <ProductImage product={star.product} grade={star.identity.grade} size="lg" frame={shape !== "card"} className={cn("h-full w-full", shape === "sealed" && "rounded-3xl")} />
+              <ProductImage product={star.product} grade={star.identity.grade} slabKey={star.key} size="lg" frame={shape !== "card"} className={cn("h-full w-full", shape === "sealed" && "rounded-3xl")} />
             </HoloTilt>
           </div>
           <div className="flex min-w-0 flex-1 flex-col self-stretch sm:justify-center">
@@ -184,7 +184,7 @@ function MiniTile({ h, icon, label, value, ratio }: { h: HoldingView; icon: Reac
         {label}
       </TileLabel>
       <div className="mt-4 flex items-center gap-4">
-        <ProductImage product={h.product} grade={h.identity.grade} size="sm" className="h-20 w-16 shrink-0 transition-transform duration-500 ease-[var(--ease-apple)] group-hover:-rotate-3 group-hover:scale-105" />
+        <ProductImage product={h.product} grade={h.identity.grade} slabKey={h.key} size="sm" className="h-20 w-16 shrink-0 transition-transform duration-500 ease-[var(--ease-apple)] group-hover:-rotate-3 group-hover:scale-105" />
         <div className="min-w-0">
           <p className="line-clamp-2 text-[14px] font-medium leading-snug text-foreground/90">{h.product?.name}</p>
           <p className="tabular mt-1.5 text-[22px] font-semibold leading-none tracking-[-0.02em]">
@@ -275,7 +275,7 @@ function ShelfItem({ h, rank }: { h: HoldingView; rank: number }) {
         <div aria-hidden className="absolute bottom-0 left-1/2 h-3 w-[70%] -translate-x-1/2 translate-y-1/2 rounded-[50%] bg-black/60 blur-md" />
         <div className="relative flex h-full w-full items-end justify-center transition-transform duration-500 ease-[var(--ease-apple)] group-hover:-translate-y-1.5">
           {shape === "slab" ? (
-            <ProductImage product={h.product} grade={h.identity.grade} size="md" className="h-full w-full items-end" />
+            <ProductImage product={h.product} grade={h.identity.grade} slabKey={h.key} size="md" className="h-full w-full items-end" />
           ) : shape === "card" ? (
             <ProductImage product={h.product} size="md" frame={false} className="h-[82%] w-full items-end" />
           ) : (

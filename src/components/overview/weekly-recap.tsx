@@ -44,7 +44,7 @@ function ProductHero({ h }: { h: HoldingView }) {
         </HoloTilt>
       ) : (
         <HoloTilt max={14} radius={shape === "slab" ? "7% / 4.4%" : "4.5% / 3.2%"} foil={false} className={cn("h-full", shape === "slab" ? "aspect-[5/8]" : "aspect-[63/88]")}>
-          <ProductImage product={h.product} grade={h.identity.grade} size="lg" frame={false} className="h-full w-full" />
+          <ProductImage product={h.product} grade={h.identity.grade} slabKey={h.key} size="lg" frame={false} className="h-full w-full" />
         </HoloTilt>
       )}
     </div>
