@@ -87,7 +87,9 @@ function ProductPhoto({
             loading={priority ? "eager" : "lazy"}
             decoding="async"
             onError={() => setFailed(true)}
-            className="h-full w-auto max-w-full rounded-[4.5%/3.2%] object-contain shadow-[0_8px_24px_rgba(0,0,0,0.45)] transition-transform duration-500 ease-[var(--ease-apple)]"
+            // Cover, not contain: scans are a hair wider than the card frame, and
+            // letterboxing them would leave the texture and shine overhanging.
+            className="h-full w-auto max-w-full rounded-[4.5%/3.2%] object-cover shadow-[0_8px_24px_rgba(0,0,0,0.45)] transition-transform duration-500 ease-[var(--ease-apple)]"
           />
           <span aria-hidden className={cn("card-texture pointer-events-none absolute inset-0 rounded-[4.5%/3.2%]", isFoilCard(product) && "is-foil")} />
         </span>
