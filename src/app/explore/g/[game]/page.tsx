@@ -5,9 +5,10 @@ import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
-import { SetTile, useExploreIndex } from "@/components/explore/explore-items";
+import { logoTone, SetTile, useExploreIndex } from "@/components/explore/explore-items";
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 type Show = "all" | "loaded";
 
@@ -52,7 +53,7 @@ export default function ExploreGamePage() {
         <>
           <header className="flex flex-wrap items-end justify-between gap-4">
             <div className="flex items-center gap-5">
-              {game.logoUrl && <img src={game.logoUrl} alt="" className="h-14 w-auto max-w-[180px] object-contain sm:h-16" />}
+              {game.logoUrl && <img src={game.logoUrl} alt="" className={cn("h-14 w-auto max-w-[180px] object-contain sm:h-16", logoTone(game))} />}
               <div>
                 <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.02em]">{game.name}</h1>
                 <p className="tabular mt-0.5 text-[13px] text-muted">

@@ -29,13 +29,18 @@ function compactCount(n: number) {
   return n >= 1000 ? `${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}K` : String(n);
 }
 
+/** Logos drawn in black, which vanish on the dark theme: shown white there instead. */
+export function logoTone(game: Pick<ExploreGame, "slug" | "name">) {
+  return /one[\s-]?piece/i.test(`${game.slug} ${game.name}`) ? "dark:brightness-0 dark:invert" : "";
+}
+
 /** A brand (Pokémon, Pokémon Japan, Lorcana…) with its logo. */
 export function GameTile({ game }: { game: ExploreGame }) {
   return (
     <Link href={`/explore/g/${encodeURIComponent(game.slug)}`} className="group flex flex-col overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface transition-colors hover:border-border-strong">
       <div className="flex aspect-[16/9] items-center justify-center p-6 sm:p-8">
         {game.logoUrl ? (
-          <img src={game.logoUrl} alt="" loading="lazy" className="max-h-full max-w-full object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.5)] transition-transform duration-500 ease-[var(--ease-apple)] group-hover:scale-105" />
+          <img src={game.logoUrl} alt="" loading="lazy" className={cn("max-h-full max-w-full object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.5)] transition-transform duration-500 ease-[var(--ease-apple)] group-hover:scale-105", logoTone(game))} />
         ) : (
           <span className="text-center text-[22px] font-semibold tracking-tight text-foreground/80">{game.name}</span>
         )}
