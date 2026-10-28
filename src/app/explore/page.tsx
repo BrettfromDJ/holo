@@ -48,7 +48,7 @@ export default function ExplorePage() {
     <div className="animate-fade-in">
       <PageHeader title="Explore" subtitle="Every brand, set, sealed product and single" />
 
-      <div className="sticky top-14 z-20 -mx-4 bg-background/90 px-4 py-3 backdrop-blur-xl sm:-mx-8 sm:px-8 lg:top-0">
+      <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-20 -mx-4 bg-background/90 px-4 py-3 backdrop-blur-xl sm:-mx-8 sm:px-8 lg:top-0">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-subtle" />
           <input

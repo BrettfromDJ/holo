@@ -7,6 +7,12 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: { default: "Holo — Pokémon Collection Tracker", template: "%s · Holo" },
   description: "Track the market value and investment performance of your Pokémon cards and sealed products.",
+  applicationName: "Holo",
+  // Added to the iPhone home screen, Holo opens full-screen under a translucent status bar.
+  appleWebApp: { capable: true, title: "Holo", statusBarStyle: "black-translucent" },
+  formatDetection: { telephone: false },
+  // Older iOS versions only go full-screen with this one.
+  other: { "apple-mobile-web-app-capable": "yes" },
 };
 
 export const viewport: Viewport = {

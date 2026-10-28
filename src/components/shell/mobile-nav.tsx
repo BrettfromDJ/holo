@@ -14,7 +14,7 @@ export function MobileTopBar() {
   const pathname = usePathname();
   const inMenu = MOBILE_MENU.some((n) => isActive(pathname, n.href));
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-background/85 px-4 backdrop-blur-xl lg:hidden">
+    <header className="sticky top-0 z-30 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center pt-[env(safe-area-inset-top)] justify-between border-b border-border bg-background/85 px-4 backdrop-blur-xl lg:hidden">
       <Link href="/" aria-label="Overview">
         <Logo />
       </Link>

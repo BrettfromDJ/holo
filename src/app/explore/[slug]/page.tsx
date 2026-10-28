@@ -108,7 +108,7 @@ export default function ExploreSetPage() {
             </div>
           </header>
 
-          <div className="sticky top-14 z-20 -mx-4 mt-6 flex flex-wrap items-center justify-between gap-3 bg-background/90 px-4 py-3 backdrop-blur-xl sm:-mx-8 sm:px-8 lg:top-0">
+          <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-20 -mx-4 mt-6 flex flex-wrap items-center justify-between gap-3 bg-background/90 px-4 py-3 backdrop-blur-xl sm:-mx-8 sm:px-8 lg:top-0">
             <Segmented
               ariaLabel="Product type"
               value={tab}
