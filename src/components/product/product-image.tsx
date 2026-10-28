@@ -142,7 +142,7 @@ function PsaLabel({ product, grade, cert, tiny }: { product: Parameters<typeof P
   const lines = [product?.setName, product?.name, product?.rarity ?? (product?.kind === "single" ? "Holo" : null)].filter(Boolean) as string[];
   return (
     <div
-      className={cn("relative shrink-0 overflow-hidden", tiny ? "h-[16cqw] rounded-[1.6cqw] p-[1.6cqw]" : "h-[27cqw] rounded-[1.8cqw] p-[1.5cqw]")}
+      className={cn("relative shrink-0 overflow-hidden", tiny ? "h-[16cqw] rounded-[1.6cqw] p-[1.6cqw]" : "h-[29cqw] rounded-[1.8cqw] p-[1.5cqw]")}
       style={{ background: "linear-gradient(180deg, #e3262f, #c8141f)", boxShadow: "0 0.5cqw 1.5cqw rgb(0 0 0 / 0.35)" }}
     >
       <div
@@ -150,8 +150,8 @@ function PsaLabel({ product, grade, cert, tiny }: { product: Parameters<typeof P
         style={{ background: `${SECURITY_INK} 0 0 / 14cqw 3.3cqw, linear-gradient(180deg, #fbfcfd, #eef3f6)` }}
       >
         {!tiny && (
-          <div className="grid h-full grid-cols-[minmax(0,1fr)_auto] gap-x-[2cqw] px-[2.6cqw] pb-[1.6cqw] pt-[1.8cqw] font-sans uppercase leading-[1.12] tracking-[0.01em]">
-            <div className="flex min-w-0 flex-col text-[3.25cqw]">
+          <div className="grid h-full grid-cols-[minmax(0,1fr)_auto] gap-x-[2cqw] px-[2.4cqw] pb-[1.2cqw] pt-[1.4cqw] font-sans font-medium uppercase leading-[1.08] tracking-[0.005em]">
+            <div className="flex min-w-0 flex-col text-[4.2cqw]">
               {lines.map((l, i) => (
                 <span key={i} className="truncate">
                   {l}
@@ -159,11 +159,11 @@ function PsaLabel({ product, grade, cert, tiny }: { product: Parameters<typeof P
               ))}
               <span
                 aria-hidden
-                className="mt-auto block h-[2.8cqw] w-[38%]"
+                className="mt-auto block h-[3.2cqw] w-[36%]"
                 style={{ background: "repeating-linear-gradient(90deg, #161616 0 0.3cqw, transparent 0.3cqw 0.6cqw, #161616 0.6cqw 1.2cqw, transparent 1.2cqw 1.5cqw, #161616 1.5cqw 1.7cqw, transparent 1.7cqw 2.3cqw)" }}
               />
             </div>
-            <div className="flex flex-col items-end text-right text-[3.25cqw]">
+            <div className="flex flex-col items-end text-right text-[4.2cqw]">
               {product?.number && <span className="truncate">#{product.number.split("/")[0]}</span>}
               <span>{gradeDescriptor(grade)}</span>
               <span>{grade.grade}</span>
@@ -173,8 +173,8 @@ function PsaLabel({ product, grade, cert, tiny }: { product: Parameters<typeof P
         )}
         {/* The PSA logo, joined to the red trim below. */}
         {!tiny && (
-          <span className="absolute bottom-0 left-1/2 flex h-[5.4cqw] w-[10cqw] -translate-x-1/2 items-center justify-center rounded-t-[0.6cqw] bg-gradient-to-b from-[#c9ced6] to-[#9aa3ae]">
-            <span className="text-[3.4cqw] font-black italic leading-none tracking-[-0.04em] text-[#1d3f8f]">PSA</span>
+          <span className="absolute bottom-0 left-1/2 flex h-[5.8cqw] w-[11cqw] -translate-x-1/2 items-center justify-center rounded-t-[0.6cqw] bg-gradient-to-b from-[#c9ced6] to-[#9aa3ae]">
+            <span className="text-[3.8cqw] font-black italic leading-none tracking-[-0.04em] text-[#1d3f8f]">PSA</span>
           </span>
         )}
       </div>
