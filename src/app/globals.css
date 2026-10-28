@@ -292,6 +292,45 @@
   opacity: 0.7;
 }
 
+/* Touch screens have no hover, so on-screen cards drift on their own: a slow
+   tilt that carries the light, glare and foil across them. Touching a card
+   (data-active) stops the drift and follows the finger instead. */
+@property --rx { syntax: "<angle>"; inherits: true; initial-value: 0deg; }
+@property --ry { syntax: "<angle>"; inherits: true; initial-value: 0deg; }
+@property --mx { syntax: "<percentage>"; inherits: true; initial-value: 50%; }
+@property --my { syntax: "<percentage>"; inherits: true; initial-value: 50%; }
+@property --px { syntax: "<number>"; inherits: true; initial-value: 0; }
+@property --py { syntax: "<number>"; inherits: true; initial-value: 0; }
+@keyframes holo-drift {
+  0%, 100% { --rx: 4deg; --ry: -6deg; --mx: 22%; --my: 22%; }
+  25% { --rx: -3deg; --ry: -3deg; --mx: 38%; --my: 78%; }
+  50% { --rx: -5deg; --ry: 6deg; --mx: 80%; --my: 68%; }
+  75% { --rx: 3deg; --ry: 4deg; --mx: 64%; --my: 24%; }
+}
+@keyframes holo-drift-shadow {
+  0%, 100% { --px: -0.28; --py: -0.28; }
+  25% { --px: -0.12; --py: 0.28; }
+  50% { --px: 0.3; --py: 0.18; }
+  75% { --px: 0.14; --py: -0.26; }
+}
+@media (hover: none) and (pointer: coarse) and (prefers-reduced-motion: no-preference) {
+  .holo-tilt[data-visible="true"]:not([data-active="true"]) {
+    animation: holo-drift-shadow 9s ease-in-out var(--holo-delay, 0s) infinite;
+  }
+  .holo-tilt[data-visible="true"]:not([data-active="true"]) .holo-tilt-inner {
+    animation: holo-drift 9s ease-in-out var(--holo-delay, 0s) infinite;
+  }
+  .holo-tilt[data-visible="true"] .holo-shadow {
+    opacity: 0.8;
+  }
+  .holo-tilt[data-visible="true"] .holo-glare {
+    opacity: 0.85;
+  }
+  .holo-tilt[data-visible="true"] .holo-foil {
+    opacity: 0.7;
+  }
+}
+
 /* Market pulse ticker */
 @keyframes marquee {
   from { transform: translateX(0); }

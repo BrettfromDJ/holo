@@ -1,12 +1,16 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 
 /**
  * Tilts its child toward the pointer and lays a rainbow foil sheen over it,
  * like turning a holo card under a light. Works with mouse, pen and touch
  * drags; does nothing for reduced-motion users.
+ *
+ * On touch screens, where there's no hover, cards on screen drift on their
+ * own (a slow tilt that moves the light across them); touching one hands
+ * control back to your finger.
  */
 export function HoloTilt({
   children,
@@ -23,7 +27,18 @@ export function HoloTilt({
   radius?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const wrap = useRef<HTMLDivElement>(null);
   const frame = useRef(0);
+
+  // Only drift while on screen, each card at its own point in the loop.
+  useEffect(() => {
+    const el = wrap.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    el.style.setProperty("--holo-delay", `${(-Math.random() * 9).toFixed(2)}s`);
+    const io = new IntersectionObserver(([entry]) => (el.dataset.visible = String(entry.isIntersecting)), { rootMargin: "40px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   function move(e: React.PointerEvent) {
     const el = ref.current;
@@ -58,7 +73,7 @@ export function HoloTilt({
   }
 
   return (
-    <div className={cn("holo-tilt relative isolate", className)} data-active="false" onPointerMove={move} onPointerLeave={leave} onPointerCancel={leave} style={{ perspective: "900px" }}>
+    <div ref={wrap} className={cn("holo-tilt relative isolate", className)} data-active="false" data-visible="false" onPointerMove={move} onPointerLeave={leave} onPointerCancel={leave} style={{ perspective: "900px" }}>
       {/* Shadow on the "table": slides opposite the tilt, as if lit from above. */}
       <span aria-hidden className="holo-shadow" style={{ borderRadius: radius }} />
       <div ref={ref} className="holo-tilt-inner relative h-full w-full" data-active="false" style={{ borderRadius: radius }}>
