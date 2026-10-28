@@ -294,8 +294,10 @@ export function CertDialog({ holding, open, onOpenChange }: { holding: HoldingVi
   const { certs, setCert } = useSlabCerts();
   const [value, setValue] = useState("");
   useEffect(() => {
+    // Only when opened: re-running on every render would wipe what's being typed.
     if (open) setValue(certs[holding.key] ?? "");
-  }, [open, certs, holding.key]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when opened
+  }, [open, holding.key]);
   const grade = holding.identity.grade;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

@@ -6,7 +6,7 @@ import { categoryOf } from "@/lib/catalog";
 import { isFoilCard } from "@/components/motion/holo-tilt";
 import { bumperById, GLITTER_SPECKS, type Bumper } from "@/lib/bumpers";
 import { gradeDescriptor, slabStyle } from "@/lib/graded";
-import { useSlabBumpers } from "@/lib/store/grading";
+import { useSlabBumpers, useSlabCerts } from "@/lib/store/grading";
 import type { Grade, Product } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -127,9 +127,59 @@ function ProductPhoto({
   );
 }
 
-function SavedBumperSlab({ slabKey, ...props }: { slabKey: string } & Omit<Parameters<typeof Slab>[0], "bumper">) {
+function SavedBumperSlab({ slabKey, ...props }: { slabKey: string } & Omit<Parameters<typeof Slab>[0], "bumper" | "cert">) {
   const { bumpers } = useSlabBumpers();
-  return <Slab {...props} bumper={bumperById(bumpers[slabKey])} />;
+  const { certs } = useSlabCerts();
+  return <Slab {...props} bumper={bumperById(bumpers[slabKey])} cert={certs[slabKey]} />;
+}
+
+/** Faint wavy security print, like the fugitive-ink pattern on a PSA label. */
+const SECURITY_INK =
+  "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='14'><path d='M0 7 Q7.5 1 15 7 T30 7 T45 7 T60 7' fill='none' stroke='%2378b6e0' stroke-opacity='0.35' stroke-width='0.7'/><path d='M0 11 Q7.5 5 15 11 T30 11 T45 11 T60 11' fill='none' stroke='%2378b6e0' stroke-opacity='0.2' stroke-width='0.6'/></svg>\")";
+
+/** A PSA label: red trim, three uppercase lines on the left, number, grade and cert on the right, the PSA logo between. */
+function PsaLabel({ product, grade, cert, tiny }: { product: Parameters<typeof ProductImage>[0]["product"]; grade: Grade; cert?: string; tiny: boolean }) {
+  const lines = [product?.setName, product?.name, product?.rarity ?? (product?.kind === "single" ? "Holo" : null)].filter(Boolean) as string[];
+  return (
+    <div
+      className={cn("relative shrink-0 overflow-hidden", tiny ? "h-[16cqw] rounded-[1.6cqw] p-[1.6cqw]" : "h-[27cqw] rounded-[1.8cqw] p-[1.5cqw]")}
+      style={{ background: "linear-gradient(180deg, #e3262f, #c8141f)", boxShadow: "0 0.5cqw 1.5cqw rgb(0 0 0 / 0.35)" }}
+    >
+      <div
+        className="relative h-full overflow-hidden rounded-[0.7cqw] text-[#161616]"
+        style={{ background: `${SECURITY_INK} 0 0 / 14cqw 3.3cqw, linear-gradient(180deg, #fbfcfd, #eef3f6)` }}
+      >
+        {!tiny && (
+          <div className="grid h-full grid-cols-[minmax(0,1fr)_auto] gap-x-[2cqw] px-[2.6cqw] pb-[1.6cqw] pt-[1.8cqw] font-sans uppercase leading-[1.12] tracking-[0.01em]">
+            <div className="flex min-w-0 flex-col text-[3.25cqw]">
+              {lines.map((l, i) => (
+                <span key={i} className="truncate">
+                  {l}
+                </span>
+              ))}
+              <span
+                aria-hidden
+                className="mt-auto block h-[2.8cqw] w-[38%]"
+                style={{ background: "repeating-linear-gradient(90deg, #161616 0 0.3cqw, transparent 0.3cqw 0.6cqw, #161616 0.6cqw 1.2cqw, transparent 1.2cqw 1.5cqw, #161616 1.5cqw 1.7cqw, transparent 1.7cqw 2.3cqw)" }}
+              />
+            </div>
+            <div className="flex flex-col items-end text-right text-[3.25cqw]">
+              {product?.number && <span className="truncate">#{product.number.split("/")[0]}</span>}
+              <span>{gradeDescriptor(grade)}</span>
+              <span>{grade.grade}</span>
+              <span className="mt-auto tabular-nums">{cert ?? ""}</span>
+            </div>
+          </div>
+        )}
+        {/* The PSA logo, joined to the red trim below. */}
+        {!tiny && (
+          <span className="absolute bottom-0 left-1/2 flex h-[5.4cqw] w-[10cqw] -translate-x-1/2 items-center justify-center rounded-t-[0.6cqw] bg-gradient-to-b from-[#c9ced6] to-[#9aa3ae]">
+            <span className="text-[3.4cqw] font-black italic leading-none tracking-[-0.04em] text-[#1d3f8f]">PSA</span>
+          </span>
+        )}
+      </div>
+    </div>
+  );
 }
 
 /** The bumper around a slab: molded plastic (solid) or clear glitter (gradient). */
@@ -163,6 +213,7 @@ function Slab({
   priority,
   className,
   bumper,
+  cert,
 }: {
   product: Parameters<typeof ProductImage>[0]["product"];
   grade: Grade;
@@ -170,6 +221,8 @@ function Slab({
   priority?: boolean;
   className?: string;
   bumper: Bumper | null;
+  /** Cert number printed on the label, when known. */
+  cert?: string;
 }) {
   const style = slabStyle(grade);
   const tiny = size === "xs" || size === "sm";
@@ -194,32 +247,36 @@ function Slab({
 
         <div className={cn("absolute flex flex-col", tiny ? "inset-[6cqw] gap-[5cqw]" : "inset-[4.5cqw] gap-[3.5cqw]")}>
           {/* Label */}
-          <div
-            className={cn("relative shrink-0 overflow-hidden rounded-[2.4cqw]", tiny ? "h-[16cqw]" : "h-[27cqw]")}
-            style={{ background: style.label, color: style.text, boxShadow: `inset 0 ${tiny ? "2.5cqw" : "1.1cqw"} 0 ${style.accent}, 0 0.5cqw 1.5cqw rgb(0 0 0 / 0.35)` }}
-          >
-            {!tiny && (
-              <div className="flex h-full items-stretch gap-[3cqw] px-[4cqw] pb-[2.6cqw] pt-[3.4cqw]">
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <span className="text-[6.4cqw] font-black leading-none tracking-[-0.02em]" style={{ color: style.accent }}>
-                    {grade.company}
-                  </span>
-                  <span className="mt-[1.6cqw] truncate text-[3.3cqw] font-bold uppercase leading-tight">{product?.name ?? "Card"}</span>
-                  {details && <span className="truncate text-[2.8cqw] font-medium uppercase leading-tight opacity-60">{details}</span>}
-                  {/* Barcode */}
-                  <span
-                    aria-hidden
-                    className="mt-auto block h-[3cqw] w-[55%] opacity-70"
-                    style={{ background: `repeating-linear-gradient(90deg, currentColor 0 0.35cqw, transparent 0.35cqw 0.7cqw, currentColor 0.7cqw 1.4cqw, transparent 1.4cqw 1.75cqw, currentColor 1.75cqw 1.95cqw, transparent 1.95cqw 2.6cqw)` }}
-                  />
+          {grade.company.toUpperCase() === "PSA" ? (
+            <PsaLabel product={product} grade={grade} cert={cert} tiny={tiny} />
+          ) : (
+            <div
+              className={cn("relative shrink-0 overflow-hidden rounded-[2.4cqw]", tiny ? "h-[16cqw]" : "h-[27cqw]")}
+              style={{ background: style.label, color: style.text, boxShadow: `inset 0 ${tiny ? "2.5cqw" : "1.1cqw"} 0 ${style.accent}, 0 0.5cqw 1.5cqw rgb(0 0 0 / 0.35)` }}
+            >
+              {!tiny && (
+                <div className="flex h-full items-stretch gap-[3cqw] px-[4cqw] pb-[2.6cqw] pt-[3.4cqw]">
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <span className="text-[6.4cqw] font-black leading-none tracking-[-0.02em]" style={{ color: style.accent }}>
+                      {grade.company}
+                    </span>
+                    <span className="mt-[1.6cqw] truncate text-[3.3cqw] font-bold uppercase leading-tight">{product?.name ?? "Card"}</span>
+                    {details && <span className="truncate text-[2.8cqw] font-medium uppercase leading-tight opacity-60">{details}</span>}
+                    {/* Barcode */}
+                    <span
+                      aria-hidden
+                      className="mt-auto block h-[3cqw] w-[55%] opacity-70"
+                      style={{ background: `repeating-linear-gradient(90deg, currentColor 0 0.35cqw, transparent 0.35cqw 0.7cqw, currentColor 0.7cqw 1.4cqw, transparent 1.4cqw 1.75cqw, currentColor 1.75cqw 1.95cqw, transparent 1.95cqw 2.6cqw)` }}
+                    />
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end justify-center text-right">
+                    <span className="text-[2.9cqw] font-bold uppercase leading-none tracking-[0.04em] opacity-75">{gradeDescriptor(grade)}</span>
+                    <span className="mt-[1cqw] text-[12cqw] font-black leading-[0.85] tracking-[-0.04em]">{grade.grade}</span>
+                  </div>
                 </div>
-                <div className="flex shrink-0 flex-col items-end justify-center text-right">
-                  <span className="text-[2.9cqw] font-bold uppercase leading-none tracking-[0.04em] opacity-75">{gradeDescriptor(grade)}</span>
-                  <span className="mt-[1cqw] text-[12cqw] font-black leading-[0.85] tracking-[-0.04em]">{grade.grade}</span>
-                </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
           {/* Card window */}
           <div
