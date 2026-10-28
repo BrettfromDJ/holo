@@ -1,6 +1,6 @@
 "use client";
 
-import { CertDialog, GradeChip, GradedPrices, SendToGraderDialog, SlabDetails, useAtGrader } from "@/components/grading/grading-items";
+import { CertDialog, GradeChip, GradedPrices, SendToGraderDialog, SlabCard, useAtGrader } from "@/components/grading/grading-items";
 import { Calculator, Check, ChevronDown, ChevronLeft, ExternalLink, Eye, EyeOff, Layers, Loader2, MoreHorizontal, Package, Plus, Tag } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -455,43 +455,43 @@ function HoldingLine({ h }: { h: HoldingView }) {
   const [dialog, setDialog] = useState<"sale" | "whatif" | "adjust" | "value" | "cert" | "grade" | null>(null);
   const atGrader = useAtGrader().get(h.key) ?? 0;
   const gradeable = !h.identity.grade && h.product?.kind === "single";
+  const menu = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon-sm" aria-label="Holding actions">
+          <MoreHorizontal />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onSelect={() => setDialog("whatif")}>What if I sell?</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => setDialog("sale")}>Record sale</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => setDialog("adjust")}>Adjust quantity</DropdownMenuItem>
+        {h.identity.grade && <DropdownMenuItem onSelect={() => setDialog("value")}>Set your own value</DropdownMenuItem>}
+        {h.identity.grade && <DropdownMenuItem onSelect={() => setDialog("cert")}>Cert number</DropdownMenuItem>}
+        {gradeable && <DropdownMenuItem onSelect={() => setDialog("grade")}>Send for grading</DropdownMenuItem>}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
   return (
-    <div className="flex items-center gap-3 py-3.5">
-      <div className="min-w-0 flex-1">
-        <p className="flex flex-wrap items-center gap-2 text-[14px] font-medium">
-          {h.identity.grade ? (
-            <>
-              {h.quantity} × <GradeChip grade={h.identity.grade} />
-            </>
-          ) : (
-            <>
+    <div className={h.identity.grade ? "py-4" : "flex items-center gap-3 py-3.5"}>
+      {h.identity.grade ? (
+        <SlabCard h={h} actions={<><MoveToPortfolio holdingKey={h.key} />{menu}</>} onRevalue={() => setDialog("value")} onCert={() => setDialog("cert")} />
+      ) : (
+        <>
+          <div className="min-w-0 flex-1">
+            <p className="flex flex-wrap items-center gap-2 text-[14px] font-medium">
               {h.quantity} × {holdingLabel(h) ?? h.identity.condition}
-            </>
-          )}
-          {atGrader > 0 && <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-muted">{atGrader} at the grader</span>}
-        </p>
-        <p className="tabular text-[12px] text-muted">
-          {h.lots.length} open lot{h.lots.length === 1 ? "" : "s"} · avg {money(h.avgCost)}
-        </p>
-        <SlabDetails h={h} onRevalue={() => setDialog("value")} onCert={() => setDialog("cert")} />
-      </div>
-      <MoveToPortfolio holdingKey={h.key} />
-      <Delta value={h.unrealized} ratio={h.unrealizedPct} className="text-[13px]" />
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon-sm" aria-label="Holding actions">
-            <MoreHorizontal />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={() => setDialog("whatif")}>What if I sell?</DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => setDialog("sale")}>Record sale</DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => setDialog("adjust")}>Adjust quantity</DropdownMenuItem>
-          {h.identity.grade && <DropdownMenuItem onSelect={() => setDialog("value")}>Set your own value</DropdownMenuItem>}
-          {h.identity.grade && <DropdownMenuItem onSelect={() => setDialog("cert")}>Cert number</DropdownMenuItem>}
-          {gradeable && <DropdownMenuItem onSelect={() => setDialog("grade")}>Send for grading</DropdownMenuItem>}
-        </DropdownMenuContent>
-      </DropdownMenu>
+              {atGrader > 0 && <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-muted">{atGrader} at the grader</span>}
+            </p>
+            <p className="tabular text-[12px] text-muted">
+              {h.lots.length} open lot{h.lots.length === 1 ? "" : "s"} · avg {money(h.avgCost)}
+            </p>
+          </div>
+          <MoveToPortfolio holdingKey={h.key} />
+          <Delta value={h.unrealized} ratio={h.unrealizedPct} className="text-[13px]" />
+          {menu}
+        </>
+      )}
       <SellCalculatorDialog holding={h} open={dialog === "whatif"} onOpenChange={(o) => !o && setDialog(null)} />
       <SaleDialog holding={h} open={dialog === "sale"} onOpenChange={(o) => !o && setDialog(null)} />
       <AdjustDialog holding={h} open={dialog === "adjust"} onOpenChange={(o) => !o && setDialog(null)} />

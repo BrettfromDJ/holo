@@ -1,11 +1,13 @@
 "use client";
 
-import { ExternalLink } from "lucide-react";
+import { Clock, ExternalLink, Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Field, MoneyInput, Stepper, parseMoney } from "@/components/flows/fields";
 import { FormShell } from "@/components/flows/transaction-dialogs";
 import { Hint } from "@/components/ui/tooltip";
+import { ProductImage } from "@/components/product/product-image";
+import { Delta } from "@/components/product/delta";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, SectionTitle } from "@/components/ui/card";
@@ -15,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { daysBetween } from "@/lib/finance/dates";
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { formatDate, money } from "@/lib/format";
-import { certLookupUrl, GRADED_SOURCE, gradedLadder, gradeLabel, GRADERS, isStaleValue, liquidityNote, liquidityOf, salesRate, sampleSalesPerYear } from "@/lib/graded";
+import { certLookupUrl, GRADED_SOURCE, gradeDescriptor, gradedLadder, gradeLabel, GRADERS, isStaleValue, liquidityNote, liquidityOf, salesRate, sampleSalesPerYear } from "@/lib/graded";
 import { useStore } from "@/lib/store/collection-store";
 import { useGradingCosts, useGradingSubmissions, useSlabCerts, type GradingSubmission } from "@/lib/store/grading";
 import { holdingKey, priceKey, type Grade } from "@/lib/types";
@@ -94,8 +96,8 @@ export function SalesCell({ perYear, className }: { perYear: number; className?:
   );
 }
 
-/** Extra lines under a graded holding: premium over raw, cert, and a stale-value nudge. */
-export function SlabDetails({ h, onRevalue, onCert }: { h: HoldingView; onRevalue: () => void; onCert: () => void }) {
+/** A graded holding on its product page: the slab, its value, and tiles for premium, sales and cert. */
+export function SlabCard({ h, actions, onRevalue, onCert }: { h: HoldingView; actions: React.ReactNode; onRevalue: () => void; onCert: () => void }) {
   const { today } = useStore();
   const { certs } = useSlabCerts();
   const raw = useRawPrice(h.identity.productId, h.identity.printing);
@@ -104,39 +106,97 @@ export function SlabDetails({ h, onRevalue, onCert }: { h: HoldingView; onRevalu
   const cert = certs[h.key];
   const manual = h.priceOrigin === "manual";
   const stale = manual && isStaleValue(h.priceUpdatedAt, today);
+  const sales = raw !== null ? sampleSalesPerYear(h.identity.productId, grade, raw) : null;
+  const level = sales !== null ? liquidityOf(sales) : null;
+  const filled = level === "often" ? 3 : level === "regular" ? 2 : level === "rare" ? 1 : 0;
+
   return (
-    <div className="mt-1 space-y-1 text-[12px] text-muted">
-      <p className="tabular">
-        {manual ? "Your value" : GRADED_SOURCE === "sample" ? "Graded market (sample)" : "Graded market"} {money(h.price)}
-        {raw !== null && h.price !== null && (
-          <>
-            {" · "}raw {money(raw)} · <span className="font-mono text-foreground/80">{multipleLabel(h.price / raw)}</span> premium
-          </>
-        )}
-      </p>
-      {raw !== null && <p>{liquidityNote(sampleSalesPerYear(h.identity.productId, grade, raw))}</p>}
-      {stale && (
-        <p>
-          Your value is {daysBetween(h.priceUpdatedAt!, today)} days old.{" "}
-          <button type="button" onClick={onRevalue} className="font-medium text-foreground underline-offset-2 hover:underline">
-            Update it
-          </button>
-        </p>
-      )}
-      <p>
-        {cert ? (
-          <>
-            Cert <span className="font-mono text-foreground/80">{cert}</span> ·{" "}
-            <a href={certLookupUrl(grade.company, cert)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 font-medium text-foreground underline-offset-2 hover:underline">
-              Verify on {grade.company} <ExternalLink className="size-3" />
-            </a>
-          </>
-        ) : (
-          <button type="button" onClick={onCert} className="font-medium text-foreground underline-offset-2 hover:underline">
-            Add cert number
-          </button>
-        )}
-      </p>
+    <div className="flex gap-4 sm:gap-5">
+      <ProductImage product={h.product} grade={grade} size="md" className="h-[124px] w-[78px] shrink-0 sm:h-[176px] sm:w-[110px]" />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="flex items-center gap-2">
+              <span className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-subtle">
+                {h.quantity > 1 ? `${h.quantity} × ` : ""}
+                {gradeLabel(grade)} · {gradeDescriptor(grade)}
+              </span>
+            </p>
+            <p className="tabular mt-1 text-[26px] font-semibold leading-none tracking-[-0.02em]">{money(h.value)}</p>
+            <p className="tabular mt-1.5 text-[12px] text-muted">
+              <Delta value={h.unrealized} ratio={h.unrealizedPct} className="text-[12px]" /> <span className="text-subtle">on {money(h.costBasis)} cost</span>
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">{actions}</div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <Tile label="Premium">
+            {raw !== null && h.price !== null ? (
+              <>
+                <span className="font-mono text-[17px] font-semibold">{multipleLabel(h.price / raw)}</span>
+                <span className="mt-0.5 block text-[11px] text-subtle">over raw {money(raw)}</span>
+              </>
+            ) : (
+              <span className="text-muted">—</span>
+            )}
+          </Tile>
+          <Tile label="Sells">
+            {sales !== null ? (
+              <Hint content={liquidityNote(sales)}>
+                <span className="block">
+                  <span className="flex items-center gap-2">
+                    <span className="font-mono text-[17px] font-semibold">{salesRate(sales)}</span>
+                    <span className="flex items-end gap-[3px]" aria-hidden>
+                      {[0, 1, 2].map((i) => (
+                        <span key={i} className={cn("w-[4px] rounded-full", i < filled ? "bg-foreground/80" : "bg-foreground/15")} style={{ height: `${7 + i * 4}px` }} />
+                      ))}
+                    </span>
+                  </span>
+                  <span className="mt-0.5 block text-[11px] text-subtle">{level === "often" ? "Easy to sell" : level === "regular" ? "Sells regularly" : "Hard to sell"}</span>
+                </span>
+              </Hint>
+            ) : (
+              <span className="text-muted">—</span>
+            )}
+          </Tile>
+          <Tile label="Cert" className="col-span-2 sm:col-span-1">
+            {cert ? (
+              <>
+                <span className="block truncate font-mono text-[15px] font-semibold">{cert}</span>
+                <a href={certLookupUrl(grade.company, cert)} target="_blank" rel="noreferrer" className="mt-0.5 inline-flex items-center gap-0.5 text-[11px] font-medium text-muted hover:text-foreground">
+                  Verify on {grade.company} <ExternalLink className="size-3" />
+                </a>
+              </>
+            ) : (
+              <button type="button" onClick={onCert} className="flex items-center gap-1 text-[13px] font-medium text-muted hover:text-foreground">
+                <Plus className="size-3.5" /> Add cert number
+              </button>
+            )}
+          </Tile>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12px] text-subtle">
+          <span>{manual ? "Your value" : GRADED_SOURCE === "sample" ? "Graded market · sample" : "Graded market"}</span>
+          <span>
+            {h.lots.length} lot{h.lots.length === 1 ? "" : "s"} · avg {money(h.avgCost)}
+          </span>
+          {stale && (
+            <button type="button" onClick={onRevalue} className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-surface-2 px-2.5 py-1 font-medium text-foreground/85 ring-1 ring-inset ring-border hover:bg-surface-3">
+              <Clock className="size-3" /> Value {daysBetween(h.priceUpdatedAt!, today)}d old · Update
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Tile({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
+  return (
+    <div className={cn("min-w-0 rounded-xl bg-surface-2/60 px-3 py-2.5 ring-1 ring-inset ring-border", className)}>
+      <p className="font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-subtle">{label}</p>
+      <div className="tabular mt-1 leading-tight">{children}</div>
     </div>
   );
 }
