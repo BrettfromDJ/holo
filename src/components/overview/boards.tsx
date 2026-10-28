@@ -2,7 +2,7 @@
 
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useInView } from "@/components/motion/reveal";
 import {
   holdingHref,
@@ -25,9 +25,12 @@ function dollarMove(h: HoldingView, m: number, daily: boolean) {
   return h.value - h.value / (1 + m);
 }
 
+const COLLAPSED = 3;
+
 /**
- * Diverging bar board: one shared zero line, gains grow right in green,
- * losses grow left in red, each bar sized against the period's biggest move.
+ * Two compact columns, gainers and losers, each sized against the period's
+ * biggest move so bars compare across both. Shows the top few with the rest
+ * a click away.
  */
 export function MoversBoard({
   gainers,
@@ -39,16 +42,12 @@ export function MoversBoard({
   daily: boolean;
 }) {
   const [ref, inView] = useInView<HTMLDivElement>();
-  const rows = useMemo(
-    () => [...gainers, ...[...losers].reverse()],
+  const max = useMemo(
+    () => Math.max(...[...gainers, ...losers].map((r) => Math.abs(r.m)), 0.0001),
     [gainers, losers],
   );
-  const max = useMemo(
-    () => Math.max(...rows.map((r) => Math.abs(r.m)), 0.0001),
-    [rows],
-  );
 
-  if (!rows.length) {
+  if (!gainers.length && !losers.length) {
     return (
       <div className="rounded-[var(--radius-card)] border border-border bg-surface px-6 py-10 text-center text-[14px] text-muted">
         Nothing moved in this period.
@@ -57,102 +56,79 @@ export function MoversBoard({
   }
 
   return (
-    <div
-      ref={ref}
-      className="relative overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface p-3 sm:p-4"
-    >
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-y-0 left-0 w-1/2 opacity-60"
-        style={{
-          background:
-            "radial-gradient(60% 80% at 0% 0%, color-mix(in srgb, var(--down) 8%, transparent), transparent)",
-        }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-y-0 right-0 w-1/2 opacity-60"
-        style={{
-          background:
-            "radial-gradient(60% 80% at 100% 0%, color-mix(in srgb, var(--up) 8%, transparent), transparent)",
-        }}
-      />
-      <ol className="relative">
-        {rows.map(({ h, m }, i) => {
-          const up = m > 0;
-          const width = (Math.abs(m) / max) * 100;
-          const firstLoser = !up && i > 0 && rows[i - 1].m > 0;
-          const usd = dollarMove(h, m, daily);
-          return (
-            <li
-              key={h.key}
-              className={cn(
-                firstLoser && "mt-2 border-t border-dashed border-border pt-2",
-              )}
-            >
-              <Link
-                href={holdingHref(h)}
-                className="group grid grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 rounded-2xl px-2 py-2.5 transition-colors hover:bg-surface-2/70 sm:grid-cols-[2.75rem_minmax(0,1fr)_minmax(0,1.15fr)_5.5rem] sm:gap-x-4"
-              >
-                <ProductImage
-                  product={h.product}
-                  size="xs"
-                  className="size-11 rounded-xl transition-transform duration-500 group-hover:scale-110 group-hover:-rotate-3"
-                />
-                <div className="min-w-0">
-                  <p className="truncate text-[14px] font-medium">
-                    {h.product?.name ?? "Unknown product"}
-                  </p>
-                  <p className="tabular truncate text-[12px] text-muted">
-                    {money(h.value)}
-                    {h.quantity > 1 && <span> · ×{h.quantity}</span>}
-                    {holdingLabel(h) && <span> · {holdingLabel(h)}</span>}
-                  </p>
-                </div>
+    <div ref={ref} className="grid gap-3 lg:grid-cols-2">
+      <MoverColumn title="Gainers" rows={gainers} up max={max} daily={daily} inView={inView} />
+      <MoverColumn title="Losers" rows={[...losers].sort((a, b) => a.m - b.m)} up={false} max={max} daily={daily} inView={inView} />
+    </div>
+  );
+}
 
-                {/* Diverging track */}
-                <div
-                  className="relative col-span-3 -mt-1 h-4 sm:col-span-1 sm:mt-0 sm:h-7"
-                  aria-hidden
+function MoverColumn({ title, rows, up, max, daily, inView }: { title: string; rows: Mover[]; up: boolean; max: number; daily: boolean; inView: boolean }) {
+  const [all, setAll] = useState(false);
+  const shown = all ? rows : rows.slice(0, COLLAPSED);
+  return (
+    <div className="relative overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface p-2 sm:p-3">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-60"
+        style={{ background: `radial-gradient(60% 70% at ${up ? "100%" : "0%"} 0%, color-mix(in srgb, var(${up ? "--up" : "--down"}) 8%, transparent), transparent)` }}
+      />
+      <p className="relative px-2 pb-1 pt-1 font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-subtle">
+        {title}
+        {rows.length > 0 && <span className="ml-1.5 text-subtle/70">{rows.length}</span>}
+      </p>
+      {rows.length ? (
+        <ol className="relative">
+          {shown.map(({ h, m }, i) => {
+            const usd = dollarMove(h, m, daily);
+            return (
+              <li key={h.key}>
+                <Link
+                  href={holdingHref(h)}
+                  className="group grid grid-cols-[2.25rem_minmax(0,1fr)_4.75rem] items-center gap-x-3 rounded-xl px-2 py-1.5 transition-colors hover:bg-surface-2/70 sm:grid-cols-[2.25rem_minmax(0,1fr)_5rem_5rem]"
                 >
-                  <div className="absolute inset-y-0 left-1/2 w-px bg-border" />
-                  <div
-                    className={cn(
-                      "absolute top-1/2 h-3 -translate-y-1/2 rounded-full",
-                      up
-                        ? "left-1/2 origin-left rounded-l-none"
-                        : "right-1/2 origin-right rounded-r-none",
-                      inView ? "animate-grow-x" : "scale-x-0",
-                    )}
-                    style={{
-                      width: `${width / 2}%`,
-                      background: up
-                        ? "linear-gradient(90deg, color-mix(in srgb, var(--up) 35%, transparent), var(--up))"
-                        : "linear-gradient(270deg, color-mix(in srgb, var(--down) 35%, transparent), var(--down))",
-                      boxShadow: `0 0 18px color-mix(in srgb, var(${up ? "--up" : "--down"}) 35%, transparent)`,
-                      animationDelay: `${120 + i * 60}ms`,
-                    }}
+                  <ProductImage
+                    product={h.product}
+                    grade={h.identity.grade}
+                    size="xs"
+                    className="size-9 rounded-lg transition-transform duration-500 group-hover:scale-110 group-hover:-rotate-3"
                   />
-                </div>
-
-                <div className="col-start-3 row-start-1 text-right sm:col-start-4">
-                  <p
-                    className={cn(
-                      "tabular text-[15px] font-semibold",
-                      up ? "text-up" : "text-down",
-                    )}
-                  >
-                    {signedPct(m)}
-                  </p>
-                  <p className="tabular text-[12px] text-muted">
-                    {usd === null ? "—" : signedMoney(usd)}
-                  </p>
-                </div>
-              </Link>
-            </li>
-          );
-        })}
-      </ol>
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] font-medium">{h.product?.name ?? "Unknown product"}</p>
+                    <p className="tabular truncate text-[11px] text-muted">
+                      {money(h.value)}
+                      {h.quantity > 1 && <span> · ×{h.quantity}</span>}
+                      {holdingLabel(h) && <span> · {holdingLabel(h)}</span>}
+                    </p>
+                  </div>
+                  <div className="relative hidden h-1.5 overflow-hidden rounded-full bg-surface-2 sm:block" aria-hidden>
+                    <div
+                      className={cn("absolute inset-y-0 left-0 origin-left rounded-full", inView ? "animate-grow-x" : "scale-x-0")}
+                      style={{
+                        width: `${(Math.abs(m) / max) * 100}%`,
+                        background: `linear-gradient(90deg, color-mix(in srgb, var(${up ? "--up" : "--down"}) 35%, transparent), var(${up ? "--up" : "--down"}))`,
+                        boxShadow: `0 0 12px color-mix(in srgb, var(${up ? "--up" : "--down"}) 35%, transparent)`,
+                        animationDelay: `${120 + i * 60}ms`,
+                      }}
+                    />
+                  </div>
+                  <div className="text-right leading-tight">
+                    <p className={cn("tabular text-[13px] font-semibold", up ? "text-up" : "text-down")}>{signedPct(m)}</p>
+                    <p className="tabular text-[11px] text-muted">{usd === null ? "—" : signedMoney(usd)}</p>
+                  </div>
+                </Link>
+              </li>
+            );
+          })}
+        </ol>
+      ) : (
+        <p className="relative px-2 py-4 text-[13px] text-muted">{up ? "Nothing went up in this period." : "Nothing went down in this period."}</p>
+      )}
+      {rows.length > COLLAPSED && (
+        <button type="button" onClick={() => setAll((v) => !v)} className="relative mt-1 px-2 pb-1 text-[12px] font-medium text-muted hover:text-foreground">
+          {all ? "Show fewer" : `Show all ${rows.length}`}
+        </button>
+      )}
     </div>
   );
 }
