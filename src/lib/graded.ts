@@ -135,17 +135,37 @@ export function gradedLadder(productId: string, raw: number | null, grades: Grad
 
 /* --------------------------------- Slabs --------------------------------- */
 
-/** Label colors that echo each company's slab, for the slab frame. */
-export const SLAB_STYLE: Record<string, { label: string; text: string; accent: string }> = {
-  PSA: { label: "#c8102e", text: "#ffffff", accent: "#ff5a6e" },
-  BGS: { label: "#b8bcc4", text: "#111111", accent: "#d9dde4" },
-  CGC: { label: "#1d4f91", text: "#ffffff", accent: "#5b8fd6" },
-  SGC: { label: "#111111", text: "#ffffff", accent: "#9a9a9a" },
-  TAG: { label: "#f2f2f2", text: "#111111", accent: "#cfcfcf" },
-};
+/** Label styling per company: wordmark color and label stock. A BGS 10 is a Black Label. */
+export interface SlabStyle {
+  /** Wordmark and accent stripe. */
+  accent: string;
+  /** Label background and text. */
+  label: string;
+  text: string;
+}
 
-export function slabStyle(company: string) {
-  return SLAB_STYLE[company.toUpperCase()] ?? { label: "#3a3a3c", text: "#ffffff", accent: "#8e8e93" };
+const LABEL_STOCK = { label: "linear-gradient(180deg, #fbfaf6, #ebe8df)", text: "#1a1a1a" };
+
+export function slabStyle(grade: Grade): SlabStyle {
+  const company = grade.company.toUpperCase();
+  const n = Number.parseFloat(grade.grade);
+  if (company === "BGS" && n >= 10) return { accent: "#d9b45a", label: "linear-gradient(180deg, #1c1c1e, #0c0c0d)", text: "#f2e6c4" };
+  const accent = { PSA: "#c8102e", BGS: "#8a8f98", CGC: "#1d4f91", SGC: "#111111", TAG: "#111111" }[company] ?? "#636366";
+  return { accent, ...LABEL_STOCK };
+}
+
+/** The words printed under the grade, e.g. "GEM MT" for a PSA 10. */
+export function gradeDescriptor(grade: Grade): string {
+  const n = Number.parseFloat(grade.grade);
+  const company = grade.company.toUpperCase();
+  if (!Number.isFinite(n)) return "";
+  if (company === "PSA") return n >= 10 ? "GEM MT" : n >= 9 ? "MINT" : n >= 8 ? "NM-MT" : n >= 7 ? "NM" : n >= 6 ? "EX-MT" : n >= 5 ? "EX" : n >= 4 ? "VG-EX" : n >= 3 ? "VG" : n >= 2 ? "GOOD" : "POOR";
+  if (n >= 10) return "PRISTINE";
+  if (n >= 9.5) return "GEM MINT";
+  if (n >= 9) return "MINT";
+  if (n >= 8.5) return "NM-MT+";
+  if (n >= 8) return "NM-MT";
+  return "NEAR MINT";
 }
 
 /** Where to check a certification number. Companies without a direct link get their lookup page. */

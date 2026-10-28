@@ -107,7 +107,8 @@ export function HoldingTile({ h }: { h: HoldingView }) {
           <ProductImage product={h.product} grade={h.identity.grade} className="h-full w-full" />
         </HoloTilt>
         <span className="tabular absolute left-2.5 top-2.5 rounded-full bg-background/80 px-2 py-0.5 text-[11px] font-semibold backdrop-blur">×{h.quantity}</span>
-        {holdingLabel(h) && <span className="absolute right-2.5 top-2.5 rounded-full bg-background/80 px-2 py-0.5 text-[11px] font-medium text-muted backdrop-blur">{holdingLabel(h)}</span>}
+        {/* A slab's own label already shows its grade. */}
+        {holdingLabel(h) && !h.identity.grade && <span className="absolute right-2.5 top-2.5 rounded-full bg-background/80 px-2 py-0.5 text-[11px] font-medium text-muted backdrop-blur">{holdingLabel(h)}</span>}
       </div>
       <div className="mt-3 min-w-0 px-0.5">
         <p className="truncate text-[14px] font-medium">{h.product?.name ?? "Unknown product"}</p>

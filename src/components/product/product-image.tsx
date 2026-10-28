@@ -3,7 +3,7 @@
 import { Layers, Package } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { categoryOf } from "@/lib/catalog";
-import { slabStyle } from "@/lib/graded";
+import { gradeDescriptor, slabStyle } from "@/lib/graded";
 import type { Grade, Product } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -29,7 +29,7 @@ export function ProductImage({
   grade,
 }: {
   product:
-    | Pick<Product, "name" | "imageUrl" | "kind" | "setName" | "productType">
+    | (Pick<Product, "name" | "imageUrl" | "kind" | "setName" | "productType"> & Partial<Pick<Product, "number">>)
     | undefined;
   className?: string;
   size?: "xs" | "sm" | "md" | "lg" | "xl";
@@ -101,7 +101,11 @@ function ProductPhoto({
   );
 }
 
-/** A grading slab: clear case, colored label with the company and grade, card inside. */
+/**
+ * A grading slab, drawn to scale with its own width (container units): a
+ * thick clear case with a bevel and glare, a printed label (company, card,
+ * grade and its wording, barcode) and the card in a recessed window.
+ */
 function Slab({
   product,
   grade,
@@ -115,28 +119,68 @@ function Slab({
   priority?: boolean;
   className?: string;
 }) {
-  const style = slabStyle(grade.company);
+  const style = slabStyle(grade);
   const tiny = size === "xs" || size === "sm";
-  const text = { xs: "", sm: "", md: "text-[10px]", lg: "text-[12px]", xl: "text-[15px]" }[size];
+  const details = [product?.setName, product?.number ? `#${product.number}` : null].filter(Boolean).join(" · ");
   return (
     <div className={cn("relative flex items-center justify-center", className)} role="img" aria-label={`${product?.name ?? "Card"}, ${grade.company} ${grade.grade}`}>
-      <div
-        className="flex aspect-[5/8] h-full max-w-full flex-col overflow-hidden rounded-[7%/4.4%] border border-white/15 p-[5%] shadow-[0_8px_24px_rgba(0,0,0,0.45)]"
-        style={{ background: "linear-gradient(160deg, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0.04) 45%, rgb(255 255 255 / 0.09))" }}
-      >
+      <div className="group/slab relative aspect-[5/8] h-full max-w-full [container-type:inline-size]">
+        {/* The case: clear acrylic with a lit top edge and a darker base. */}
         <div
-          className={cn("flex shrink-0 items-center justify-between rounded-[6%/30%] font-mono font-semibold leading-none", tiny ? "h-[13%]" : "h-[15%] px-[7%]", text)}
-          style={{ background: style.label, color: style.text, boxShadow: `inset 0 -2px 0 ${style.accent}55` }}
-        >
-          {!tiny && (
-            <>
-              <span>{grade.company}</span>
-              <span>{grade.grade}</span>
-            </>
-          )}
+          className="absolute inset-0 rounded-[7cqw]"
+          style={{
+            background: "linear-gradient(155deg, rgb(255 255 255 / 0.26), rgb(255 255 255 / 0.08) 22%, rgb(255 255 255 / 0.04) 55%, rgb(255 255 255 / 0.14))",
+            boxShadow:
+              "inset 0 0 0 1px rgb(255 255 255 / 0.22), inset 0 1.5px 0 rgb(255 255 255 / 0.45), inset 0 -1.2cqw 3cqw rgb(0 0 0 / 0.35), 0 4cqw 9cqw -2cqw rgb(0 0 0 / 0.7), 0 1cqw 2cqw rgb(0 0 0 / 0.35)",
+          }}
+        />
+        {/* The inner step where the insert sits. */}
+        <div className="absolute inset-[2.2cqw] rounded-[5cqw] ring-1 ring-inset ring-white/10" />
+
+        <div className={cn("absolute flex flex-col", tiny ? "inset-[6cqw] gap-[5cqw]" : "inset-[4.5cqw] gap-[3.5cqw]")}>
+          {/* Label */}
+          <div
+            className={cn("relative shrink-0 overflow-hidden rounded-[2.4cqw]", tiny ? "h-[16cqw]" : "h-[27cqw]")}
+            style={{ background: style.label, color: style.text, boxShadow: `inset 0 ${tiny ? "2.5cqw" : "1.1cqw"} 0 ${style.accent}, 0 0.5cqw 1.5cqw rgb(0 0 0 / 0.35)` }}
+          >
+            {!tiny && (
+              <div className="flex h-full items-stretch gap-[3cqw] px-[4cqw] pb-[2.6cqw] pt-[3.4cqw]">
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="text-[6.4cqw] font-black leading-none tracking-[-0.02em]" style={{ color: style.accent }}>
+                    {grade.company}
+                  </span>
+                  <span className="mt-[1.6cqw] truncate text-[3.3cqw] font-bold uppercase leading-tight">{product?.name ?? "Card"}</span>
+                  {details && <span className="truncate text-[2.8cqw] font-medium uppercase leading-tight opacity-60">{details}</span>}
+                  {/* Barcode */}
+                  <span
+                    aria-hidden
+                    className="mt-auto block h-[3cqw] w-[55%] opacity-70"
+                    style={{ background: `repeating-linear-gradient(90deg, currentColor 0 0.35cqw, transparent 0.35cqw 0.7cqw, currentColor 0.7cqw 1.4cqw, transparent 1.4cqw 1.75cqw, currentColor 1.75cqw 1.95cqw, transparent 1.95cqw 2.6cqw)` }}
+                  />
+                </div>
+                <div className="flex shrink-0 flex-col items-end justify-center text-right">
+                  <span className="text-[2.9cqw] font-bold uppercase leading-none tracking-[0.04em] opacity-75">{gradeDescriptor(grade)}</span>
+                  <span className="mt-[1cqw] text-[12cqw] font-black leading-[0.85] tracking-[-0.04em]">{grade.grade}</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Card window */}
+          <div
+            className="relative min-h-0 flex-1 rounded-[3cqw] p-[3.5cqw]"
+            style={{ background: "linear-gradient(180deg, rgb(0 0 0 / 0.45), rgb(0 0 0 / 0.3))", boxShadow: "inset 0 0.8cqw 2.5cqw rgb(0 0 0 / 0.6), inset 0 0 0 1px rgb(255 255 255 / 0.06)" }}
+          >
+            <ProductPhoto product={product} size={size} priority={priority} frame={false} className="h-full w-full rounded-[2cqw]" />
+          </div>
         </div>
-        <div className="mt-[5%] min-h-0 flex-1">
-          <ProductPhoto product={product} size={size} priority={priority} frame={false} className="h-full w-full rounded-[4%]" />
+
+        {/* Glare across the acrylic; drifts on hover. */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-[7cqw]">
+          <div
+            className="absolute -inset-[40%] translate-x-[-12%] transition-transform duration-700 ease-[var(--ease-apple)] group-hover/slab:translate-x-[12%]"
+            style={{ background: "linear-gradient(115deg, transparent 40%, rgb(255 255 255 / 0.13) 47%, rgb(255 255 255 / 0.04) 52%, transparent 58%)" }}
+          />
         </div>
       </div>
     </div>
