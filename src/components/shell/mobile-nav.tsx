@@ -89,7 +89,7 @@ export function BottomNav() {
           <button
             onClick={() => openAdd()}
             aria-label="Add to collection"
-            className="-mt-3 flex size-14 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-lg shadow-black/40 transition-transform active:scale-95"
+            className="btn-3d btn-3d-lime -mt-3 flex size-14 items-center justify-center rounded-full bg-lime text-[#0b0b0c] transition-transform"
           >
             <Plus className="size-6" strokeWidth={2.4} />
           </button>

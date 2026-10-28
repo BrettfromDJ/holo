@@ -19,7 +19,7 @@ export function Sidebar() {
       <Link href="/" className="px-2.5">
         <Logo />
       </Link>
-      <Button variant="primary" className="mt-8 w-full" onClick={() => openAdd()}>
+      <Button variant="lime" size="lg" className="mt-8 w-full" onClick={() => openAdd()}>
         <Plus /> Add to Collection
       </Button>
       <nav className="scrollbar-none -mx-1 mt-6 flex min-h-0 flex-col gap-5 overflow-y-auto px-1 pb-4" aria-label="Primary">

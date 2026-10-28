@@ -20,7 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { HoldingView } from "@/lib/finance/portfolio";
-import { formatDate, money, relativeTime } from "@/lib/format";
+import { formatDate, money, relativeTime, signedPct } from "@/lib/format";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
 import { cn } from "@/lib/utils";
 
@@ -85,11 +85,24 @@ export default function OverviewPage() {
 
       <div className="mt-8">
         <MetricStrip
+          tinted
           items={[
-            { label: "Total invested", value: money(summary.costBasis), sub: "incl. fees & shipping" },
-            { label: "Unrealized gain", value: <Delta value={summary.unrealized} />, sub: <span className="flex items-center gap-2"><Delta ratio={summary.unrealizedPct} pctOnly /><span className="text-subtle">· breakdown →</span></span>, href: "/gains" },
-            { label: "Today", value: <Delta value={summary.dayChange} />, sub: <Delta ratio={summary.dayChangePct} pctOnly /> },
-            { label: "Collection", value: `${summary.unitCount} item${summary.unitCount === 1 ? "" : "s"}`, sub: `${summary.holdingsCount} product${summary.holdingsCount === 1 ? "" : "s"}`, href: "/collection" },
+            { label: "Invested", value: money(summary.costBasis), sub: "incl. fees & shipping", tint: "tint-azure" },
+            {
+              label: "Unrealized",
+              value: <Delta value={summary.unrealized} />,
+              sub: "breakdown →",
+              href: "/gains",
+              tint: summary.unrealized >= 0 ? "tint-lime" : "tint-pink",
+              tag: summary.unrealizedPct !== null && <span className={cn("tag-skew", summary.unrealized >= 0 ? "tag-lime" : "tag-pink")}>{signedPct(summary.unrealizedPct, 0)}</span>,
+            },
+            {
+              label: "Today",
+              value: <Delta value={summary.dayChange} />,
+              tint: summary.dayChange >= 0 ? "tint-lime" : "tint-pink",
+              tag: summary.dayChangePct !== null && <span className={cn("tag-skew", summary.dayChange >= 0 ? "tag-lime" : "tag-pink")}>{signedPct(summary.dayChangePct)}</span>,
+            },
+            { label: "Collection", value: `${summary.unitCount} items`, sub: `${summary.holdingsCount} products`, href: "/collection", tint: "tint-blue", tag: <span className="tag-skew tag-blue">{summary.holdingsCount} SKUs</span> },
           ]}
         />
         <BudgetCard />

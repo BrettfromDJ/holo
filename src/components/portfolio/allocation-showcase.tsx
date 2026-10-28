@@ -210,8 +210,10 @@ export function AllocationShowcase({
               </div>
             </div>
           );
-          const cls =
-            "hype-surface group block rounded-2xl border border-transparent bg-surface-2/60 p-4 transition-colors duration-300 hover:bg-surface-2";
+          const cls = cn(
+            "tint hype-surface group block rounded-2xl p-4",
+            g.category === "sealed" ? "tint-azure" : g.category === "single" ? "tint-orange" : "tint-teal",
+          );
           return linkTiles ? (
             <Link
               key={g.category}

@@ -11,7 +11,7 @@ import { Delta, DeltaPill } from "@/components/product/delta";
 import { ProductImage } from "@/components/product/product-image";
 import { addDays } from "@/lib/finance/dates";
 import type { HoldingView } from "@/lib/finance/portfolio";
-import { money, signedMoney, tone } from "@/lib/format";
+import { money, signedMoney, signedPct, tone } from "@/lib/format";
 import { useStore } from "@/lib/store/collection-store";
 import { priceKey } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -19,7 +19,46 @@ import { Sparkline } from "./sparkline";
 
 /* ---------------------------- Metric strip ----------------------------- */
 
-export function MetricStrip({ items }: { items: { label: string; value: React.ReactNode; sub?: React.ReactNode; href?: string }[] }) {
+export interface Metric {
+  label: string;
+  value: React.ReactNode;
+  sub?: React.ReactNode;
+  href?: string;
+  /** Tinted mode: the card's color wash (tint-lime, tint-pink…) and a slanted tag. */
+  tint?: string;
+  tag?: React.ReactNode;
+}
+
+/** Key numbers. `tinted` lays them out as separate color-washed cards. */
+export function MetricStrip({ items, tinted }: { items: Metric[]; tinted?: boolean }) {
+  if (tinted) {
+    return (
+      <section aria-label="Key metrics" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {items.map((m) => {
+          const inner = (
+            <>
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-display text-[15px] uppercase leading-none tracking-[0.02em] text-foreground/85">{m.label}</p>
+                {m.tag}
+              </div>
+              <p className="hype-num tabular mt-4 text-[28px] leading-none sm:text-[34px]">{m.value}</p>
+              {m.sub && <div className="mt-2 text-[12px] text-muted">{m.sub}</div>}
+            </>
+          );
+          const cls = cn("tint hype-surface block rounded-[var(--radius-card)] px-5 py-4 sm:py-5", m.tint);
+          return m.href ? (
+            <Link key={m.label} href={m.href} className={cls}>
+              {inner}
+            </Link>
+          ) : (
+            <div key={m.label} className={cls}>
+              {inner}
+            </div>
+          );
+        })}
+      </section>
+    );
+  }
   return (
     <section aria-label="Key metrics" className="hype-surface grid grid-cols-2 overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface sm:grid-cols-4">
       {items.map((m, i) => {
@@ -96,22 +135,32 @@ export function Spotlight({ holdings }: { holdings: HoldingView[] }) {
     <section className="grid gap-3 lg:grid-cols-3 lg:grid-rows-2" aria-label="Spotlight">
       <Link
         href={holdingHref(star)}
-        className="hype-surface group relative isolate overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface p-5 sm:p-8 lg:col-span-2 lg:row-span-2"
+        className="neon-frame group relative overflow-hidden rounded-[var(--radius-card)] p-5 sm:p-8 lg:col-span-2 lg:row-span-2"
       >
-        <ArtGlow h={star} className="opacity-45" />
         <div className="relative flex h-full flex-col gap-7 sm:flex-row sm:items-center sm:gap-10">
           <div className="relative mx-auto w-[48%] max-w-[240px] shrink-0 sm:mx-0 sm:w-[34%]">
             {/* Soft floor shadow under the card. */}
             <div aria-hidden className="absolute inset-x-[12%] -bottom-4 h-8 rounded-[50%] bg-black/60 blur-xl" />
+            {/* Floating chips, like labels hovering over a stage. */}
+            {star.unrealizedPct !== null && (
+              <span className="float-chip absolute -right-4 top-[8%] z-10 rounded-full bg-lime px-3 py-1.5 font-display text-[15px] uppercase leading-none text-[#0b0b0c] shadow-[0_8px_24px_-4px_color-mix(in_srgb,var(--lime)_60%,transparent)] sm:-right-10">
+                {signedPct(star.unrealizedPct, 0)}
+              </span>
+            )}
+            {star.identity.grade && (
+              <span className="float-chip absolute -left-3 bottom-[12%] z-10 rounded-full bg-white px-3 py-1.5 text-[13px] font-semibold leading-none text-[#0b0b0c] shadow-xl [animation-delay:-2s] sm:-left-8">
+                {star.identity.grade.company} {star.identity.grade.grade}
+              </span>
+            )}
             <HoloTilt max={14} foil={shape === "card" && isFoilCard(star.product)} radius={shape === "slab" ? "7% / 4.4%" : shape === "card" ? "4.5% / 3.2%" : "1.5rem"} className={cn("relative w-full", shape === "slab" ? "aspect-[5/8]" : shape === "card" ? "aspect-[63/88]" : "aspect-square")}>
               <ProductImage product={star.product} grade={star.identity.grade} slabKey={star.key} size="lg" frame={shape !== "card"} className={cn("h-full w-full", shape === "sealed" && "rounded-3xl")} />
             </HoloTilt>
           </div>
           <div className="flex min-w-0 flex-1 flex-col self-stretch sm:justify-center">
-            <TileLabel icon={Sparkles} className="text-muted">
-              Star of the collection
-            </TileLabel>
-            <h3 className="mt-3 line-clamp-2 text-balance text-[24px] font-semibold leading-[1.1] tracking-[-0.02em] sm:text-[30px]">{star.product?.name}</h3>
+            <span className="tag-skew tag-lime self-start">
+              <Sparkles className="size-3" /> Star of the collection
+            </span>
+            <h3 className="mt-4 line-clamp-3 text-balance font-display text-[30px] uppercase leading-[0.98] tracking-[0.01em] sm:text-[40px]">{star.product?.name}</h3>
             <p className="mt-2 truncate text-[13px] text-muted">{[star.product?.setName, holdingLabel(star)].filter(Boolean).join(" · ")}</p>
             <p className="hype-num tabular mt-6 text-[40px] font-semibold leading-none tracking-[-0.035em] sm:text-[52px]">
               <span className="text-up">
@@ -137,7 +186,7 @@ export function Spotlight({ holdings }: { holdings: HoldingView[] }) {
       {laggard ? (
         <MiniTile h={laggard} icon={TrendingDown} label="Below what you paid" value={laggard.unrealized} ratio={laggard.unrealizedPct} />
       ) : (
-        <div className="hype-surface flex flex-col justify-center rounded-[var(--radius-card)] border border-border bg-surface p-5">
+        <div className="tint tint-lime hype-surface flex flex-col justify-center rounded-[var(--radius-card)] p-5">
           <TileLabel icon={TrendingDown} className="text-muted">
             Below what you paid
           </TileLabel>
@@ -145,19 +194,6 @@ export function Spotlight({ holdings }: { holdings: HoldingView[] }) {
         </div>
       )}
     </section>
-  );
-}
-
-/** The product's own art, blown up and blurred into a soft backdrop. */
-function ArtGlow({ h, className }: { h: HoldingView; className?: string }) {
-  const src = h.product?.imageUrl;
-  if (!src) return null;
-  return (
-    <div aria-hidden className={cn("pointer-events-none absolute inset-0 -z-10 overflow-hidden", className)}>
-      {/* eslint-disable-next-line @next/next/no-img-element -- decorative blur of the product image */}
-      <img src={src} alt="" className="absolute left-[-10%] top-1/2 h-[160%] w-auto max-w-none -translate-y-1/2 scale-125 opacity-80 blur-[70px] saturate-150" />
-      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-surface/70 to-surface" />
-    </div>
   );
 }
 
@@ -170,20 +206,14 @@ function StarStat({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function MiniTile({ h, icon, label, value, ratio }: { h: HoldingView; icon: React.ElementType; label: string; value: number | null; ratio: number | null }) {
+function MiniTile({ h, icon: Icon, label, value, ratio }: { h: HoldingView; icon: React.ElementType; label: string; value: number | null; ratio: number | null }) {
   const series = useSeries(h, 30);
   const up = (value ?? 0) >= 0;
   return (
-    <Link href={holdingHref(h)} className="hype-surface group relative isolate flex flex-col overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface p-5">
-      <ArtGlow h={h} className="opacity-25" />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -right-16 -top-16 -z-10 size-48 rounded-full blur-3xl"
-        style={{ background: `color-mix(in srgb, var(${up ? "--up" : "--down"}) 10%, transparent)` }}
-      />
-      <TileLabel icon={icon} className="text-muted">
-        {label}
-      </TileLabel>
+    <Link href={holdingHref(h)} className={cn("tint hype-surface group relative isolate flex flex-col overflow-hidden rounded-[var(--radius-card)] p-5", up ? "tint-lime" : "tint-pink")}>
+      <span className={cn("tag-skew self-start", up ? "tag-lime" : "tag-pink")}>
+        <Icon className="size-3" /> {label}
+      </span>
       <div className="mt-4 flex items-center gap-4">
         <ProductImage product={h.product} grade={h.identity.grade} slabKey={h.key} size="sm" className="h-20 w-16 shrink-0 transition-transform duration-500 ease-[var(--ease-apple)] group-hover:-rotate-3 group-hover:scale-105" />
         <div className="min-w-0">

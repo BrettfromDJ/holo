@@ -67,15 +67,10 @@ function MoverColumn({ title, rows, up, max, daily, inView }: { title: string; r
   const [all, setAll] = useState(false);
   const shown = all ? rows : rows.slice(0, COLLAPSED);
   return (
-    <div className="hype-surface relative overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface p-2 sm:p-3">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-60"
-        style={{ background: `radial-gradient(60% 70% at ${up ? "100%" : "0%"} 0%, color-mix(in srgb, var(${up ? "--up" : "--down"}) 8%, transparent), transparent)` }}
-      />
-      <p className="relative px-2 pb-1 pt-1 font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-subtle">
-        {title}
-        {rows.length > 0 && <span className="ml-1.5 text-subtle/70">{rows.length}</span>}
+    <div className={cn("tint hype-surface relative overflow-hidden rounded-[var(--radius-card)] p-2 sm:p-3", up ? "tint-lime" : "tint-pink")}>
+      <p className="relative flex items-center gap-2 px-2 pb-2 pt-2">
+        <span className="font-display text-[22px] uppercase leading-none tracking-[0.01em]">{title}</span>
+        {rows.length > 0 && <span className={cn("tag-skew", up ? "tag-lime" : "tag-pink")}>{rows.length}</span>}
       </p>
       {rows.length ? (
         <ol className="relative">
