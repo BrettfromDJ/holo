@@ -4,7 +4,7 @@ import { ArrowRight, Flame, Sparkles, TrendingDown } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
 import { AnimatedNumber } from "@/components/motion/animated-number";
-import { HoloTilt } from "@/components/motion/holo-tilt";
+import { HoloTilt, isFoilCard } from "@/components/motion/holo-tilt";
 import { holdingHref, holdingLabel } from "@/components/portfolio/holding-items";
 import { Delta, DeltaPill } from "@/components/product/delta";
 import { ProductImage } from "@/components/product/product-image";
@@ -102,7 +102,7 @@ export function Spotlight({ holdings }: { holdings: HoldingView[] }) {
           <div className="relative mx-auto w-[48%] max-w-[240px] shrink-0 sm:mx-0 sm:w-[34%]">
             {/* Soft floor shadow under the card. */}
             <div aria-hidden className="absolute inset-x-[12%] -bottom-4 h-8 rounded-[50%] bg-black/60 blur-xl" />
-            <HoloTilt max={14} foil={shape === "card"} radius={shape === "slab" ? "7% / 4.4%" : shape === "card" ? "4.5% / 3.2%" : "1.5rem"} className={cn("relative w-full", shape === "slab" ? "aspect-[5/8]" : shape === "card" ? "aspect-[63/88]" : "aspect-square")}>
+            <HoloTilt max={14} foil={shape === "card" && isFoilCard(star.product)} radius={shape === "slab" ? "7% / 4.4%" : shape === "card" ? "4.5% / 3.2%" : "1.5rem"} className={cn("relative w-full", shape === "slab" ? "aspect-[5/8]" : shape === "card" ? "aspect-[63/88]" : "aspect-square")}>
               <ProductImage product={star.product} grade={star.identity.grade} size="lg" frame={shape !== "card"} className={cn("h-full w-full", shape === "sealed" && "rounded-3xl")} />
             </HoloTilt>
           </div>

@@ -4,6 +4,7 @@
 import { Check } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { HoloTilt, isFoilCard } from "@/components/motion/holo-tilt";
 import { ProductImage } from "@/components/product/product-image";
 import { WishHeart } from "@/components/wishlist/wish-items";
 import { categoryOf } from "@/lib/catalog";
@@ -125,7 +126,15 @@ export function ProductTile({ item, owned, gameSlug, showBrand }: { item: Explor
     <Link href={`/product/${encodeURIComponent(p.id)}`} className="group flex w-full min-w-0 flex-col text-left">
       <div className="relative">
         {/* Tall, card-shaped tiles so cards fill the width; sealed sits in the same frame. */}
-        <ProductImage product={p} size="lg" frame={p.kind !== "single"} className="aspect-[5/7] w-full items-end transition-transform duration-500 ease-[var(--ease-apple)] group-hover:-translate-y-1" />
+        {p.kind === "single" && p.imageUrl ? (
+          <div className="flex aspect-[5/7] w-full items-end justify-center">
+            <HoloTilt max={8} foil={isFoilCard(p)} radius="4.5% / 3.2%" className="aspect-[63/88] h-full max-w-full">
+              <ProductImage product={p} size="lg" frame={false} className="h-full w-full" />
+            </HoloTilt>
+          </div>
+        ) : (
+          <ProductImage product={p} size="lg" className="aspect-[5/7] w-full items-end transition-transform duration-500 ease-[var(--ease-apple)] group-hover:-translate-y-1" />
+        )}
         <WishHeart product={p} price={item.market} printing={item.printing} className="absolute right-2 top-2" />
         {owned && (
           <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-background/85 px-2 py-0.5 text-[11px] font-medium backdrop-blur">

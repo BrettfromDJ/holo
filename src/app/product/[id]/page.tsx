@@ -16,7 +16,7 @@ import { holdingLabel } from "@/components/portfolio/holding-items";
 import { Delta, DeltaPill } from "@/components/product/delta";
 import { AnimatedNumber } from "@/components/motion/animated-number";
 import { Reveal } from "@/components/motion/reveal";
-import { HoloTilt } from "@/components/motion/holo-tilt";
+import { HoloTilt, isFoilCard } from "@/components/motion/holo-tilt";
 import { MoveToPortfolio } from "@/components/portfolio/portfolio-controls";
 import { ShelfMenu } from "@/components/shelves/shelf-controls";
 import { ProductImage } from "@/components/product/product-image";
@@ -91,7 +91,7 @@ export default function ProductPage() {
           </HoloTilt>
         ) : product.kind === "single" && product.imageUrl ? (
           // A bare card: no well or frame, just the card at its own proportions.
-          <HoloTilt radius="4.5% / 3.2%" className="mx-auto aspect-[63/88] w-full max-w-[260px] animate-pop sm:max-w-[360px] self-start lg:sticky lg:top-10">
+          <HoloTilt radius="4.5% / 3.2%" foil={isFoilCard(product)} className="mx-auto aspect-[63/88] w-full max-w-[260px] animate-pop sm:max-w-[360px] self-start lg:sticky lg:top-10">
             <ProductImage product={product} size="xl" priority frame={false} className="h-full w-full rounded-[4.5%/3.2%] shadow-2xl shadow-black/50" />
           </HoloTilt>
         ) : (

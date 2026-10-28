@@ -37,7 +37,11 @@ export function HoloTilt({
       el.style.setProperty("--ry", `${(x - 0.5) * max}deg`);
       el.style.setProperty("--mx", `${x * 100}%`);
       el.style.setProperty("--my", `${y * 100}%`);
+      // Unitless -0.5..0.5 offsets for the moving shadow (on the wrapper, outside the tilt).
+      el.parentElement?.style.setProperty("--px", String(x - 0.5));
+      el.parentElement?.style.setProperty("--py", String(y - 0.5));
       el.dataset.active = "true";
+      if (el.parentElement) el.parentElement.dataset.active = "true";
     });
   }
 
@@ -47,11 +51,16 @@ export function HoloTilt({
     cancelAnimationFrame(frame.current);
     el.style.setProperty("--rx", "0deg");
     el.style.setProperty("--ry", "0deg");
+    el.parentElement?.style.setProperty("--px", "0");
+    el.parentElement?.style.setProperty("--py", "0");
     el.dataset.active = "false";
+    if (el.parentElement) el.parentElement.dataset.active = "false";
   }
 
   return (
-    <div className={cn("holo-tilt", className)} onPointerMove={move} onPointerLeave={leave} onPointerCancel={leave} style={{ perspective: "900px" }}>
+    <div className={cn("holo-tilt relative isolate", className)} data-active="false" onPointerMove={move} onPointerLeave={leave} onPointerCancel={leave} style={{ perspective: "900px" }}>
+      {/* Shadow on the "table": slides opposite the tilt, as if lit from above. */}
+      <span aria-hidden className="holo-shadow" style={{ borderRadius: radius }} />
       <div ref={ref} className="holo-tilt-inner relative h-full w-full" data-active="false" style={{ borderRadius: radius }}>
         {children}
         {foil && <span aria-hidden className="holo-foil" style={{ borderRadius: radius }} />}
@@ -59,4 +68,10 @@ export function HoloTilt({
       </div>
     </div>
   );
+}
+
+/** Cards whose rarity or name suggests a holo, foil or special-art finish. */
+export function isFoilCard(p: { kind?: string; rarity?: string | null; name?: string } | undefined): boolean {
+  if (!p || p.kind !== "single") return false;
+  return /holo|foil|secret|illustration|full art|alternate|alt art|rainbow|gold|hyper|ultra|special|v(max|star)\b|\bex\b|\bgx\b|shiny|prism/i.test(`${p.rarity ?? ""} ${p.name ?? ""}`);
 }

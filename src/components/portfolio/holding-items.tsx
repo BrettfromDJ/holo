@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Delta, DeltaPill } from "@/components/product/delta";
 import { PriceStatus } from "@/components/product/price-status";
-import { HoloTilt } from "@/components/motion/holo-tilt";
+import { HoloTilt, isFoilCard } from "@/components/motion/holo-tilt";
 import { ProductImage } from "@/components/product/product-image";
 import { categoryOf } from "@/lib/catalog";
 import type { HoldingView } from "@/lib/finance/portfolio";
@@ -111,7 +111,7 @@ export function HoldingTile({ h }: { h: HoldingView }) {
               <ProductImage product={h.product} className="h-full w-full" />
             </HoloTilt>
           ) : (
-            <HoloTilt max={8} foil={false} radius={shape === "slab" ? "7% / 4.4%" : "4.5% / 3.2%"} className={cn("h-full", shape === "slab" ? "aspect-[5/8]" : "aspect-[63/88]")}>
+            <HoloTilt max={8} foil={shape === "card" && isFoilCard(h.product)} radius={shape === "slab" ? "7% / 4.4%" : "4.5% / 3.2%"} className={cn("h-full", shape === "slab" ? "aspect-[5/8]" : "aspect-[63/88]")}>
               <ProductImage product={h.product} grade={h.identity.grade} frame={false} className="h-full w-full" />
             </HoloTilt>
           )}
