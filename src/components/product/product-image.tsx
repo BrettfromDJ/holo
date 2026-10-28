@@ -76,7 +76,21 @@ function ProductPhoto({
         className,
       )}
     >
-      {showImage ? (
+      {showImage && bare && product.kind === "single" ? (
+        // A bare card gets a printed-card finish: grain, a fine print pattern, a sheen and an edge.
+        <span className="relative inline-flex h-full max-w-full">
+          <img
+            ref={imgRef}
+            src={product.imageUrl!}
+            alt={product.name}
+            loading={priority ? "eager" : "lazy"}
+            decoding="async"
+            onError={() => setFailed(true)}
+            className="h-full w-auto max-w-full rounded-[4.5%/3.2%] object-contain shadow-[0_8px_24px_rgba(0,0,0,0.45)] transition-transform duration-500 ease-[var(--ease-apple)]"
+          />
+          <span aria-hidden className="card-texture pointer-events-none absolute inset-0 rounded-[4.5%/3.2%]" />
+        </span>
+      ) : showImage ? (
         <img
           ref={imgRef}
           src={product.imageUrl!}

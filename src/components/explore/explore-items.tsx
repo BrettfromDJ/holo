@@ -5,6 +5,7 @@ import { Check } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ProductImage } from "@/components/product/product-image";
+import { WishHeart } from "@/components/wishlist/wish-items";
 import { categoryOf } from "@/lib/catalog";
 import type { ExploreGame, ExploreProduct, ExploreSet } from "@/lib/explore/types";
 import { formatDate, money } from "@/lib/format";
@@ -125,6 +126,7 @@ export function ProductTile({ item, owned, gameSlug, showBrand }: { item: Explor
       <div className="relative">
         {/* Tall, card-shaped tiles so cards fill the width; sealed sits in the same frame. */}
         <ProductImage product={p} size="lg" frame={p.kind !== "single"} className="aspect-[5/7] w-full items-end transition-transform duration-500 ease-[var(--ease-apple)] group-hover:-translate-y-1" />
+        <WishHeart product={p} price={item.market} printing={item.printing} className="absolute right-2 top-2" />
         {owned && (
           <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-background/85 px-2 py-0.5 text-[11px] font-medium backdrop-blur">
             <Check className="size-3" /> Owned

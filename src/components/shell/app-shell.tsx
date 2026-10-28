@@ -13,7 +13,7 @@ import { DemoBanner } from "./demo-banner";
 import { BottomNav, MobileTopBar } from "./mobile-nav";
 import { Sidebar } from "./sidebar";
 
-const BARE_ROUTES = ["/login", "/auth", "/s/"];
+const BARE_ROUTES = ["/login", "/auth", "/s/", "/w/"];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

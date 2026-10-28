@@ -1,5 +1,6 @@
 "use client";
 
+import { WishButton } from "@/components/wishlist/wish-items";
 import { CertDialog, GradeChip, GradedPrices, SendToGraderDialog, SlabCard, useAtGrader } from "@/components/grading/grading-items";
 import { Calculator, Check, ChevronDown, ChevronLeft, ExternalLink, Eye, EyeOff, Layers, Loader2, MoreHorizontal, Package, Plus, Tag } from "lucide-react";
 import Link from "next/link";
@@ -150,6 +151,7 @@ export default function ProductPage() {
             </Button>
             {owned.length === 1 && <SaleButton holding={owned[0]} />}
             <WatchButton productId={productId} printing={printing} watchId={watch?.id} />
+            <WishButton product={product} price={price?.market ?? null} printing={printing} />
             <ShelfMenu productId={productId} />
             {product.tcgplayerUrl && (
               <Button variant="ghost" asChild>
