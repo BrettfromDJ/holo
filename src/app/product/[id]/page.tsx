@@ -2,7 +2,7 @@
 
 import { Hint } from "@/components/ui/tooltip";
 import { WishButton } from "@/components/wishlist/wish-items";
-import { CertDialog, GradeChip, GradedPrices, SendToGraderDialog, SlabCard, useAtGrader } from "@/components/grading/grading-items";
+import { BumperButton, CertDialog, GradeChip, GradedPrices, SendToGraderDialog, SlabCard, useAtGrader } from "@/components/grading/grading-items";
 import { Calculator, Check, ChevronDown, ChevronLeft, ExternalLink, Eye, EyeOff, Layers, Loader2, MoreHorizontal, Package, Plus, Tag } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -86,9 +86,12 @@ export default function ProductPage() {
       <div className="grid gap-8 lg:grid-cols-[minmax(0,420px)_1fr] lg:gap-12">
         {slab ? (
           // Only slabs of this card are owned: show it in its slab.
-          <HoloTilt radius="7% / 4.4%" foil={false} className="mx-auto aspect-[5/8] w-full max-w-[260px] animate-pop self-start sm:max-w-[340px] lg:sticky lg:top-10">
-            <ProductImage product={product} grade={slab} slabKey={owned[0]?.key} size="xl" priority className="h-full w-full" />
-          </HoloTilt>
+          <div className="flex flex-col items-center self-start lg:sticky lg:top-10">
+            <HoloTilt radius="7% / 4.4%" foil={false} className="mx-auto aspect-[5/8] w-full max-w-[260px] animate-pop sm:max-w-[340px]">
+              <ProductImage product={product} grade={slab} slabKey={owned[0]?.key} size="xl" priority className="h-full w-full" />
+            </HoloTilt>
+            <BumperButton h={owned[0]} className="mt-6 py-1.5 pl-1.5 pr-3.5 text-[13px]" />
+          </div>
         ) : product.kind === "single" && product.imageUrl ? (
           // A bare card: no well or frame, just the card at its own proportions.
           <HoloTilt radius="4.5% / 3.2%" foil={isFoilCard(product)} className="mx-auto aspect-[63/88] w-full max-w-[260px] animate-pop sm:max-w-[360px] self-start lg:sticky lg:top-10">
@@ -456,14 +459,14 @@ function Position({ holdings, realized }: { holdings: HoldingView[]; realized: n
       </dl>
       <div className="mt-6 divide-y divide-border border-t border-border">
         {holdings.map((h) => (
-          <HoldingLine key={h.key} h={h} />
+          <HoldingLine key={h.key} h={h} showBumper={holdings.length > 1} />
         ))}
       </div>
     </Card>
   );
 }
 
-function HoldingLine({ h }: { h: HoldingView }) {
+function HoldingLine({ h, showBumper }: { h: HoldingView; showBumper: boolean }) {
   const [dialog, setDialog] = useState<"sale" | "whatif" | "adjust" | "value" | "cert" | "grade" | null>(null);
   const atGrader = useAtGrader().get(h.key) ?? 0;
   const gradeable = !h.identity.grade && h.product?.kind === "single";
@@ -487,7 +490,7 @@ function HoldingLine({ h }: { h: HoldingView }) {
   return (
     <div className={h.identity.grade ? "py-4" : "flex items-center gap-3 py-3.5"}>
       {h.identity.grade ? (
-        <SlabCard h={h} actions={<><MoveToPortfolio holdingKey={h.key} />{menu}</>} onRevalue={() => setDialog("value")} onCert={() => setDialog("cert")} />
+        <SlabCard h={h} showBumper={showBumper} actions={<><MoveToPortfolio holdingKey={h.key} />{menu}</>} onRevalue={() => setDialog("value")} onCert={() => setDialog("cert")} />
       ) : (
         <>
           <div className="min-w-0 flex-1">

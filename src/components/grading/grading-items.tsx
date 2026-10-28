@@ -112,7 +112,8 @@ export function SalesCell({ perYear, className }: { perYear: number; className?:
 }
 
 /** A graded holding on its product page: the slab, its value, and tiles for premium, sales and cert. */
-export function SlabCard({ h, actions, onRevalue, onCert }: { h: HoldingView; actions: React.ReactNode; onRevalue: () => void; onCert: () => void }) {
+/** `showBumper` adds the bumper control here; off when it sits under the page's slab photo instead. */
+export function SlabCard({ h, actions, onRevalue, onCert, showBumper = true }: { h: HoldingView; actions: React.ReactNode; onRevalue: () => void; onCert: () => void; showBumper?: boolean }) {
   const { today } = useStore();
   const { certs } = useSlabCerts();
   const raw = useRawPrice(h.identity.productId, h.identity.printing);
@@ -183,7 +184,7 @@ export function SlabCard({ h, actions, onRevalue, onCert }: { h: HoldingView; ac
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12px] text-subtle">
-          <BumperButton h={h} />
+          {showBumper && <BumperButton h={h} />}
           <span>{manual ? "Your value" : GRADED_SOURCE === "sample" ? "Graded market · sample" : "Graded market"}</span>
           <span>
             {h.lots.length} lot{h.lots.length === 1 ? "" : "s"} · avg {money(h.avgCost)}
@@ -200,13 +201,13 @@ export function SlabCard({ h, actions, onRevalue, onCert }: { h: HoldingView; ac
 }
 
 /** Opens the bumper picker; shows the current bumper as a swatch. */
-function BumperButton({ h }: { h: HoldingView }) {
+export function BumperButton({ h, className }: { h: HoldingView; className?: string }) {
   const { bumpers } = useSlabBumpers();
   const [open, setOpen] = useState(false);
   const current = bumperById(bumpers[h.key]);
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-surface-2 py-1 pl-1 pr-2.5 font-medium text-foreground/85 ring-1 ring-inset ring-border hover:bg-surface-3">
+      <button type="button" onClick={() => setOpen(true)} className={cn("inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-surface-2 py-1 pl-1 pr-2.5 font-medium text-foreground/85 ring-1 ring-inset ring-border hover:bg-surface-3", className)}>
         <span className="size-4 rounded-full ring-1 ring-inset ring-white/20" style={{ background: current?.background ?? "transparent" }}>
           {!current && <Plus className="m-0.5 size-3 text-muted" />}
         </span>
