@@ -10,7 +10,7 @@ import { PortfolioBanner, PortfolioSwitcher } from "@/components/portfolio/portf
 import { MarketPulse } from "@/components/overview/market-pulse";
 import { ReleaseReminders } from "@/components/overview/release-reminders";
 import { MetricStrip, Shelf, Spotlight } from "@/components/overview/sections";
-import { HypeHeading, HypeHero, HypeTicker } from "@/components/overview/hype-hero";
+import { HypeHeading, HypeHero } from "@/components/overview/hype-hero";
 import { WeeklyRecap } from "@/components/overview/weekly-recap";
 import { AllocationShowcase } from "@/components/portfolio/allocation-showcase";
 import { EmptyCollection } from "@/components/portfolio/empty-state";
@@ -60,8 +60,7 @@ export default function OverviewPage() {
       <PortfolioSwitcher compact className="mb-4 lg:hidden" />
       <PortfolioBanner />
       <HypeHero holdings={holdings} summary={summary} onRecap={() => setRecapOpen(true)} />
-      <HypeTicker holdings={holdings} />
-      <div className="h-12" />
+      <div className="h-6" />
       <WeeklyRecap open={recapOpen} onClose={() => setRecapOpen(false)} />
       <ReleaseReminders />
 
