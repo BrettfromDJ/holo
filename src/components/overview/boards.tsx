@@ -165,7 +165,7 @@ export function RecentTimeline({ holdings }: { holdings: HoldingView[] }) {
   return (
     <div className="min-w-0 rounded-[var(--radius-card)] border border-border bg-surface p-6 sm:p-7">
       <div className="mb-5 flex items-center justify-between">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
+        <p className="text-[11px] font-medium font-mono uppercase tracking-[0.06em] text-muted">
           Recently added
         </p>
         <Link
@@ -211,7 +211,7 @@ export function RecentTimeline({ holdings }: { holdings: HoldingView[] }) {
                 className="size-12 shrink-0 rounded-xl transition-transform duration-500 group-hover:scale-105"
               />
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-medium uppercase tracking-wider text-subtle">
+                <p className="text-[11px] font-medium font-mono uppercase tracking-[0.06em] text-subtle">
                   {formatDate(h.lastAcquired)}
                 </p>
                 <p className="truncate text-[14px] font-medium">

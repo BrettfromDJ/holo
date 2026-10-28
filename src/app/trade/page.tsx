@@ -123,7 +123,7 @@ export default function TradePage() {
       <section aria-live="polite" className="rounded-[var(--radius-card)] border border-border bg-surface p-5 sm:p-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-muted">{hasBoth ? "Verdict" : "Add items to both sides"}</p>
+            <p className="text-[12px] font-medium font-mono uppercase tracking-[0.06em] text-muted">{hasBoth ? "Verdict" : "Add items to both sides"}</p>
             <p className="mt-2 text-[26px] font-semibold leading-tight tracking-[-0.02em] sm:text-[30px]">
               {!hasBoth ? (
                 "—"

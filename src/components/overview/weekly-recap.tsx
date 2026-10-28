@@ -26,7 +26,7 @@ function shortName(name: string) {
 }
 
 function Kicker({ children }: { children: React.ReactNode }) {
-  return <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-white/60">{children}</p>;
+  return <p className="text-[12px] font-medium font-mono uppercase tracking-[0.06em] text-white/60">{children}</p>;
 }
 
 function Big({ children, className }: { children: React.ReactNode; className?: string }) {

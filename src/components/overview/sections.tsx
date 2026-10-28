@@ -64,7 +64,7 @@ function useSeries(h: HoldingView | undefined, days = 90): number[] {
 
 function TileLabel({ icon: Icon, children, className }: { icon: React.ElementType; children: React.ReactNode; className?: string }) {
   return (
-    <p className={cn("flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em]", className)}>
+    <p className={cn("flex items-center gap-1.5 text-[11px] font-medium font-mono uppercase tracking-[0.06em]", className)}>
       <Icon className="size-3.5" />
       {children}
     </p>

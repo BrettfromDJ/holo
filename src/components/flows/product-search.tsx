@@ -239,7 +239,7 @@ export function ProductSearch({ onSelect, autoFocus = true }: { onSelect: (hit: 
           <EmptyState icon={SearchX} title="Search is unavailable" body={error} />
         ) : tooShort ? (
           <div className="px-3 pt-1">
-            <p className="text-[11px] font-medium uppercase tracking-wider text-subtle">Try</p>
+            <p className="text-[11px] font-medium font-mono uppercase tracking-[0.06em] text-subtle">Try</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {SUGGESTIONS.map((s) => (
                 <button key={s} onClick={() => setQ(s)} className="rounded-full bg-surface-2 px-3 py-1.5 text-[13px] text-muted transition-colors hover:bg-surface-3 hover:text-foreground">

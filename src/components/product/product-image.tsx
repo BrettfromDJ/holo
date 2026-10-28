@@ -139,7 +139,7 @@ function Placeholder({
         />
       </div>
       <div className="max-w-full text-center">
-        <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-subtle">
+        <p className="truncate text-[10px] font-medium font-mono uppercase tracking-[0.06em] text-subtle">
           {label}
         </p>
         <p className="mt-0.5 truncate text-[11px] text-muted">

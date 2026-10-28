@@ -102,7 +102,7 @@ export default function ExplorePage() {
         {upcoming.length > 0 && (
           <section aria-label="Coming soon" className="mt-4">
             <div className="mb-2 flex items-baseline justify-between gap-3">
-              <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-muted">Coming soon</h2>
+              <h2 className="text-[13px] font-medium font-mono uppercase tracking-[0.06em] text-muted">Coming soon</h2>
               <Link href="/explore/releases" className="flex items-center gap-1 text-[13px] font-medium text-muted hover:text-foreground">
                 Release calendar <ArrowRight className="size-3.5" />
               </Link>
@@ -116,7 +116,7 @@ export default function ExplorePage() {
         )}
         <section aria-label="Brands" className="mt-8">
           <div className="mb-4 flex items-baseline gap-3">
-            <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-muted">Brands</h2>
+            <h2 className="text-[13px] font-medium font-mono uppercase tracking-[0.06em] text-muted">Brands</h2>
             <span className="text-[12px] text-subtle">
               {loaded.length} of {index.sets.length} sets loaded{lastSync ? ` · updated ${relativeTime(lastSync)}` : ""}
             </span>

@@ -69,7 +69,7 @@ export function SetTile({ set }: { set: ExploreSet }) {
       <div className="border-t border-border px-4 py-3">
         <p className="flex items-start gap-2">
           <span className="line-clamp-2 text-[14px] font-medium leading-snug">{set.name}</span>
-          {isNew(set.releaseDate) && <span className="mt-px shrink-0 rounded bg-[var(--cat-1)]/20 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-[var(--cat-1)]">New</span>}
+          {isNew(set.releaseDate) && <span className="mt-px shrink-0 rounded bg-[var(--cat-1)]/20 px-1.5 py-px text-[10px] font-medium font-mono uppercase tracking-[0.06em] text-[var(--cat-1)]">New</span>}
         </p>
         <p className="tabular mt-0.5 truncate text-[12px] text-subtle">
           {[set.releaseDate ? formatDate(set.releaseDate) : null, set.loaded ? `${set.productCount ?? 0} products` : "Loading soon"].filter(Boolean).join(" · ")}
@@ -125,7 +125,7 @@ export function ProductTile({ item, owned, gameSlug, showBrand }: { item: Explor
           </span>
         )}
       </div>
-      {showBrand && item.gameName && <p className="mt-2.5 truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-subtle">{item.gameName}</p>}
+      {showBrand && item.gameName && <p className="mt-2.5 truncate text-[10px] font-medium font-mono uppercase tracking-[0.06em] text-subtle">{item.gameName}</p>}
       <p className={cn("line-clamp-2 text-[13px] font-medium leading-snug", showBrand && item.gameName ? "mt-0.5" : "mt-2.5")}>{p.name}</p>
       <p className="truncate text-[12px] text-muted">{[p.number && `#${p.number}`, p.rarity ?? (p.kind === "sealed" ? categoryOf(p) : null)].filter(Boolean).join(" · ")}</p>
       <p className="tabular mt-1 text-[14px] font-semibold">

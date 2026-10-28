@@ -75,7 +75,7 @@ export function PullReveal() {
           </HoloTilt>
         </div>
 
-        <p className="relative mt-8 animate-rise text-[12px] font-semibold uppercase tracking-[0.16em] text-muted" style={{ animationDelay: "500ms" }}>
+        <p className="relative mt-8 animate-rise text-[12px] font-medium font-mono uppercase tracking-[0.06em] text-muted" style={{ animationDelay: "500ms" }}>
           Added to your collection
         </p>
         <h2 className="relative mt-2 animate-rise text-balance text-[22px] font-semibold leading-tight" style={{ animationDelay: "600ms" }}>

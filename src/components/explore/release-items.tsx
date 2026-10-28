@@ -42,7 +42,7 @@ export function ReleaseRow({ set }: { set: ExploreSet }) {
   const body = (
     <>
       <div className="flex w-12 shrink-0 flex-col items-center rounded-xl bg-surface-2 py-1.5">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-subtle">{d?.toLocaleString("en-US", { month: "short", timeZone: "UTC" })}</span>
+        <span className="text-[10px] font-medium font-mono uppercase tracking-[0.06em] text-subtle">{d?.toLocaleString("en-US", { month: "short", timeZone: "UTC" })}</span>
         <span className="tabular text-[18px] font-semibold leading-tight">{d?.getUTCDate()}</span>
       </div>
       <div className="hidden h-12 w-[72px] shrink-0 overflow-hidden rounded-lg bg-image-well sm:block">

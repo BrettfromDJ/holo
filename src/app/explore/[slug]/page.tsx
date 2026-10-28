@@ -93,7 +93,7 @@ export default function ExploreSetPage() {
               </div>
             ) : null}
             <div className="min-w-0">
-              <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-subtle">{state.set.gameName}</p>
+              <p className="text-[12px] font-medium font-mono uppercase tracking-[0.06em] text-subtle">{state.set.gameName}</p>
               <h1 className="mt-1 text-[28px] font-semibold leading-tight tracking-[-0.02em]">{state.set.name}</h1>
               <p className="tabular mt-1 text-[13px] text-muted">
                 {[

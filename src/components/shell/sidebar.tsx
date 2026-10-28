@@ -25,7 +25,7 @@ export function Sidebar() {
       <nav className="scrollbar-none -mx-1 mt-6 flex min-h-0 flex-col gap-5 overflow-y-auto px-1 pb-4" aria-label="Primary">
         {NAV_GROUPS.map((group) => (
           <div key={group.label ?? "main"} className="flex flex-col gap-0.5">
-            {group.label && <p className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-subtle">{group.label}</p>}
+            {group.label && <p className="mb-1 px-3 text-[11px] font-medium font-mono uppercase tracking-[0.06em] text-subtle">{group.label}</p>}
             {group.items.map((item) => (
               <NavLink key={item.href} item={item} active={isActive(pathname, item.href)} />
             ))}

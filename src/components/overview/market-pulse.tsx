@@ -60,7 +60,7 @@ export function MarketPulse({ holdings }: { holdings: HoldingView[] }) {
           <span className="absolute inline-flex size-full animate-ping rounded-full bg-up opacity-60" />
           <span className="relative inline-flex size-2 rounded-full bg-up" />
         </span>
-        <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
+        <span className="text-[11px] font-medium font-mono uppercase tracking-[0.06em] text-muted">
           <Activity className="mr-1 inline size-3.5 -translate-y-px" />
           Pulse
         </span>
@@ -81,7 +81,7 @@ export function MarketPulse({ holdings }: { holdings: HoldingView[] }) {
                   >
                     <ProductImage product={t.product} size="xs" className="size-6 rounded-md" />
                     <span className="max-w-[180px] truncate text-[13px] font-medium">{shortName(t.product.name)}</span>
-                    {t.watching && <span className="rounded bg-surface-2 px-1 text-[9px] font-semibold uppercase tracking-wider text-subtle">Watch</span>}
+                    {t.watching && <span className="rounded bg-surface-2 px-1 text-[9px] font-medium font-mono uppercase tracking-[0.06em] text-subtle">Watch</span>}
                     <span className="tabular text-[13px] text-muted">{money(t.price)}</span>
                     <span className={cn("tabular text-[13px] font-semibold", t.change > 0 ? "text-up" : "text-down")}>
                       {t.change > 0 ? "▲" : "▼"} {signedPct(t.change).replace(/^[+-]/, "")}
