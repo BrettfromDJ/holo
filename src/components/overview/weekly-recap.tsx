@@ -34,10 +34,20 @@ function Big({ children, className }: { children: React.ReactNode; className?: s
 }
 
 function ProductHero({ h }: { h: HoldingView }) {
+  const shape = h.identity.grade ? "slab" : h.product?.kind === "single" && h.product.imageUrl ? "card" : "sealed";
+  // The tilt wraps the item's own shape so its glare never spills past a card or slab.
   return (
-    <HoloTilt max={14} radius="1.5rem" foil={false} className="mx-auto mt-8 aspect-square w-[62%] animate-pull-in sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:mt-0 sm:w-full sm:max-w-[340px] sm:self-center">
-      <ProductImage product={h.product} grade={h.identity.grade} size="lg" className="h-full w-full rounded-3xl shadow-2xl shadow-black/50" />
-    </HoloTilt>
+    <div className="mx-auto mt-8 flex aspect-square w-[62%] animate-pull-in items-center justify-center sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:mt-0 sm:w-full sm:max-w-[340px] sm:self-center">
+      {shape === "sealed" ? (
+        <HoloTilt max={14} radius="1.5rem" foil={false} className="h-full w-full">
+          <ProductImage product={h.product} size="lg" className="h-full w-full rounded-3xl shadow-2xl shadow-black/50" />
+        </HoloTilt>
+      ) : (
+        <HoloTilt max={14} radius={shape === "slab" ? "7% / 4.4%" : "4.5% / 3.2%"} foil={false} className={cn("h-full", shape === "slab" ? "aspect-[5/8]" : "aspect-[63/88]")}>
+          <ProductImage product={h.product} grade={h.identity.grade} size="lg" frame={false} className="h-full w-full" />
+        </HoloTilt>
+      )}
+    </div>
   );
 }
 

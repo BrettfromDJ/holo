@@ -100,12 +100,22 @@ export function HoldingListHeader() {
 
 /** Photo-forward card for the collection grid view. */
 export function HoldingTile({ h }: { h: HoldingView }) {
+  const shape = h.identity.grade ? "slab" : h.product?.kind === "single" && h.product.imageUrl ? "card" : "sealed";
   return (
     <Link href={holdingHref(h)} className="group flex flex-col">
       <div className="relative">
-        <HoloTilt max={8} foil={false} className="aspect-square w-full">
-          <ProductImage product={h.product} grade={h.identity.grade} className="h-full w-full" />
-        </HoloTilt>
+        {/* The tilt (and its glare) wraps the item's own shape, not the square tile around it. */}
+        <div className="flex aspect-square w-full items-center justify-center">
+          {shape === "sealed" ? (
+            <HoloTilt max={8} foil={false} className="h-full w-full">
+              <ProductImage product={h.product} className="h-full w-full" />
+            </HoloTilt>
+          ) : (
+            <HoloTilt max={8} foil={false} radius={shape === "slab" ? "7% / 4.4%" : "4.5% / 3.2%"} className={cn("h-full", shape === "slab" ? "aspect-[5/8]" : "aspect-[63/88]")}>
+              <ProductImage product={h.product} grade={h.identity.grade} frame={false} className="h-full w-full" />
+            </HoloTilt>
+          )}
+        </div>
         <span className="tabular absolute left-2.5 top-2.5 rounded-full bg-background/80 px-2 py-0.5 text-[11px] font-semibold backdrop-blur">×{h.quantity}</span>
         {/* A slab's own label already shows its grade. */}
         {holdingLabel(h) && !h.identity.grade && <span className="absolute right-2.5 top-2.5 rounded-full bg-background/80 px-2 py-0.5 text-[11px] font-medium text-muted backdrop-blur">{holdingLabel(h)}</span>}
