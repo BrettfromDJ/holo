@@ -1,5 +1,6 @@
 "use client";
 
+import { FlipGrid, FlipItem } from "@/components/motion/flip-grid";
 import { ArrowRight, Compass, Loader2, Search, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -80,11 +81,13 @@ export default function ExplorePage() {
               <p className="mt-1 text-sm text-muted">The catalog fills in a few sets a day. Try another search, or add it from “Add to Collection”.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
-              {results.data.map((item) => (
-                <ProductTile key={item.product.id} item={item} owned={owned.has(item.product.id)} showBrand />
+            <FlipGrid className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
+              {results.data.map((item, i) => (
+                <FlipItem key={item.product.id} flipKey={item.product.id} index={i}>
+                  <ProductTile item={item} owned={owned.has(item.product.id)} showBrand />
+                </FlipItem>
               ))}
-            </div>
+            </FlipGrid>
           )}
         </section>
       ) : index.status === "loading" ? (

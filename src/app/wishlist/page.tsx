@@ -1,5 +1,6 @@
 "use client";
 
+import { FlipGrid, FlipItem } from "@/components/motion/flip-grid";
 import { Copy, Heart, Link2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -129,11 +130,13 @@ export default function WishlistPage() {
           </div>
 
           {shown.length ? (
-            <div className="mt-6 grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
-              {shown.map((w) => (
-                <WishTile key={w.id} w={w} owned={owned.has(w.product.id)} onBought={() => void bought(w)} />
+            <FlipGrid className="mt-6 grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
+              {shown.map((w, i) => (
+                <FlipItem key={w.id} flipKey={w.id} index={i}>
+                  <WishTile w={w} owned={owned.has(w.product.id)} onBought={() => void bought(w)} />
+                </FlipItem>
               ))}
-            </div>
+            </FlipGrid>
           ) : (
             <p className="py-16 text-center text-[14px] text-muted">Nothing marked {filter} yet.</p>
           )}

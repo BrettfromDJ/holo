@@ -346,6 +346,85 @@
   }
 }
 
+/* Shared-element transition: the tapped card flies into the product page. */
+::view-transition-group(product-hero) {
+  animation-duration: 0.5s;
+  animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+  z-index: 50;
+}
+::view-transition-old(product-hero),
+::view-transition-new(product-hero) {
+  height: 100%;
+  object-fit: contain;
+  animation-duration: 0.5s;
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.28s;
+}
+
+/* A card lifted out of its binder pocket before it opens. */
+.pocket-lift {
+  transform: translateY(-12%) scale(1.06);
+  filter: drop-shadow(0 18px 22px rgb(0 0 0 / 0.55));
+  transition: transform 0.17s var(--ease-apple), filter 0.17s var(--ease-apple);
+  z-index: 10;
+}
+
+/* Wishlist heart: a quick pop and a ring that spreads out. */
+@keyframes heart-pop {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.35); }
+  60% { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+@keyframes heart-ring {
+  from { transform: scale(0.4); opacity: 0.7; }
+  to { transform: scale(2.1); opacity: 0; }
+}
+.heart-pop {
+  animation: heart-pop 0.45s var(--ease-apple);
+}
+.heart-ring {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 1.5px solid currentColor;
+  animation: heart-ring 0.55s ease-out forwards;
+}
+
+/* Shelf lighting. Spotlights lean toward the pointer and brighten as it
+   passes (--lean -1..1, --near 0..1, set from the shelf); on touch screens
+   they sway slowly on their own instead. */
+@property --lean { syntax: "<number>"; inherits: true; initial-value: 0; }
+@property --near { syntax: "<number>"; inherits: true; initial-value: 0; }
+.shelf-spot {
+  transform: translateX(calc(-50% + var(--lean, 0) * 26px)) rotate(calc(var(--lean, 0) * -6deg));
+  transform-origin: 50% 0;
+  opacity: calc(0.6 + var(--near, 0) * 0.4);
+  transition: transform 0.6s var(--ease-apple), opacity 0.6s var(--ease-apple);
+}
+.shelf-follow {
+  background: radial-gradient(260px 220px at var(--sx, 50%) 40%, color-mix(in srgb, var(--foreground) 5%, transparent), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.6s var(--ease-apple);
+  -webkit-mask-image: linear-gradient(180deg, transparent, black 30%, black 70%, transparent);
+  mask-image: linear-gradient(180deg, transparent, black 30%, black 70%, transparent);
+}
+.shelf[data-lit="true"] .shelf-follow {
+  opacity: 1;
+}
+@keyframes shelf-sway {
+  0%, 100% { --lean: -0.7; --near: 0.2; }
+  50% { --lean: 0.7; --near: 0.8; }
+}
+@media (hover: none) and (prefers-reduced-motion: no-preference) {
+  .shelf [data-shelf-item] {
+    animation: shelf-sway 8s ease-in-out var(--drift-delay, 0s) infinite;
+  }
+}
+
 /* Market pulse ticker */
 @keyframes marquee {
   from { transform: translateX(0); }

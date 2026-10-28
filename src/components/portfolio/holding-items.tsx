@@ -1,5 +1,6 @@
 "use client";
 
+import { useHeroLink } from "@/lib/motion/hero";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Delta, DeltaPill } from "@/components/product/delta";
@@ -100,9 +101,10 @@ export function HoldingListHeader() {
 
 /** Photo-forward card for the collection grid view. */
 export function HoldingTile({ h }: { h: HoldingView }) {
+  const hero = useHeroLink();
   const shape = h.identity.grade ? "slab" : h.product?.kind === "single" && h.product.imageUrl ? "card" : "sealed";
   return (
-    <Link href={holdingHref(h)} className="group flex flex-col">
+    <Link href={holdingHref(h)} onClick={(e) => hero(e, holdingHref(h))} className="group flex flex-col">
       <div className="relative">
         {/* The tilt (and its glare) wraps the item's own shape, not the square tile around it. */}
         <div className="flex aspect-[5/7] w-full items-end justify-center">

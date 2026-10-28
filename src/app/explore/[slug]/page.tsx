@@ -1,6 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- set logos come from the pricing source's CDN */
 
+import { FlipGrid, FlipItem } from "@/components/motion/flip-grid";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -135,13 +136,13 @@ export default function ExploreSetPage() {
           </div>
 
           {list.length ? (
-            <div className="mt-4 grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
+            <FlipGrid className="mt-4 grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
               {list.map((item, i) => (
-                <div key={item.product.id} className="animate-rise" style={{ animationDelay: `${Math.min(i, 20) * 25}ms` }}>
+                <FlipItem key={item.product.id} flipKey={item.product.id} index={i}>
                   <ProductTile item={item} owned={owned.has(item.product.id)} gameSlug={gameSlug} />
-                </div>
+                </FlipItem>
               ))}
-            </div>
+            </FlipGrid>
           ) : (
             <p className="py-20 text-center text-[14px] text-muted">No {tab === "single" ? "singles" : "sealed products"} in this set.</p>
           )}

@@ -1,8 +1,9 @@
 "use client";
 
+import { useHeroLink } from "@/lib/motion/hero";
 import { ArrowRight, Flame, Sparkles, TrendingDown } from "lucide-react";
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { AnimatedNumber } from "@/components/motion/animated-number";
 import { HoloTilt, isFoilCard } from "@/components/motion/holo-tilt";
 import { holdingHref, holdingLabel } from "@/components/portfolio/holding-items";
@@ -205,6 +206,32 @@ function MiniTile({ h, icon, label, value, ratio }: { h: HoldingView; icon: Reac
 /** A display shelf of the most valuable pieces: each stands on a glass ledge under its own light, with a price tag below. */
 export function Shelf({ holdings, title = "Your shelf", subtitle }: { holdings: HoldingView[]; title?: string; subtitle?: string }) {
   const items = useMemo(() => [...holdings].filter((h) => h.value !== null).sort((a, b) => (b.value ?? 0) - (a.value ?? 0)).slice(0, 14), [holdings]);
+  const shelf = useRef<HTMLDivElement>(null);
+  const frame = useRef(0);
+
+  // The lights follow the pointer: each spotlight leans toward it and brightens
+  // as it passes, like walking past a lit display case.
+  const follow = (clientX: number | null) => {
+    const root = shelf.current;
+    if (!root) return;
+    cancelAnimationFrame(frame.current);
+    frame.current = requestAnimationFrame(() => {
+      const box = root.getBoundingClientRect();
+      root.style.setProperty("--sx", clientX === null ? "50%" : `${clientX - box.left}px`);
+      root.dataset.lit = String(clientX !== null);
+      for (const el of root.querySelectorAll<HTMLElement>("[data-shelf-item]")) {
+        if (clientX === null) {
+          el.style.setProperty("--lean", "0");
+          el.style.setProperty("--near", "0");
+          continue;
+        }
+        const r = el.getBoundingClientRect();
+        const d = clientX - (r.left + r.width / 2);
+        el.style.setProperty("--lean", String(Math.max(-1, Math.min(1, d / 260))));
+        el.style.setProperty("--near", String(Math.max(0, 1 - Math.abs(d) / 320)));
+      }
+    });
+  };
   if (!items.length) return null;
   return (
     <section aria-label={title}>
@@ -218,9 +245,14 @@ export function Shelf({ holdings, title = "Your shelf", subtitle }: { holdings: 
         </Link>
       </div>
       <div
+        ref={shelf}
         // No box: runs edge to edge and fades into the page.
-        className="relative -mx-4 sm:-mx-8"
+        className="shelf relative -mx-4 sm:-mx-8"
+        onPointerMove={(e) => e.pointerType === "mouse" && follow(e.clientX)}
+        onPointerLeave={() => follow(null)}
       >
+        {/* A soft pool of light that follows the pointer along the shelf. */}
+        <div aria-hidden className="shelf-follow pointer-events-none absolute inset-x-0 -top-6 bottom-0" />
         {/* Soft light from above, falling away to the page background on every side. */}
         <div
           aria-hidden
@@ -260,13 +292,14 @@ export function Shelf({ holdings, title = "Your shelf", subtitle }: { holdings: 
 }
 
 function ShelfItem({ h, rank }: { h: HoldingView; rank: number }) {
+  const hero = useHeroLink();
   const shape = h.identity.grade ? "slab" : h.product?.kind === "single" && h.product.imageUrl ? "card" : "sealed";
   return (
-    <Link href={holdingHref(h)} className="group relative flex w-[150px] shrink-0 flex-col sm:w-[176px]">
-      {/* Spotlight from above. */}
+    <Link data-shelf-item href={holdingHref(h)} onClick={(e) => hero(e, holdingHref(h))} className="group relative flex w-[150px] shrink-0 flex-col sm:w-[176px]" style={{ ["--drift-delay" as string]: `${-rank * 1.3}s` }}>
+      {/* Spotlight from above; leans toward the pointer (or drifts on phones). */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -top-6 left-1/2 h-[240px] w-[220px] -translate-x-1/2 opacity-70 transition-opacity duration-500 group-hover:opacity-100 sm:h-[280px]"
+        className="shelf-spot pointer-events-none absolute -top-6 left-1/2 h-[240px] w-[220px] sm:h-[280px]"
         // Peaks just below the top so it fades in, rather than starting at a hard edge.
         style={{ background: "radial-gradient(45% 50% at 50% 35%, color-mix(in srgb, var(--foreground) 8%, transparent), transparent)" }}
       />

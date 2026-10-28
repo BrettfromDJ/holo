@@ -1,6 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- set logos come from the pricing source's CDN */
 
+import { useHeroLink } from "@/lib/motion/hero";
 import { Check } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -120,10 +121,11 @@ export function useExploreIndex() {
 
 /** A catalog product; opens its full product page (served from the stored catalog). */
 export function ProductTile({ item, owned, gameSlug, showBrand }: { item: ExploreProduct; owned: boolean; gameSlug?: string | null; showBrand?: boolean }) {
+  const hero = useHeroLink();
   const p = item.product;
   const perPack = pricePerPack(item.market, packCount(p, gameSlug));
   return (
-    <Link href={`/product/${encodeURIComponent(p.id)}`} className="group flex w-full min-w-0 flex-col text-left">
+    <Link href={`/product/${encodeURIComponent(p.id)}`} onClick={(e) => hero(e, `/product/${encodeURIComponent(p.id)}`)} className="group flex w-full min-w-0 flex-col text-left">
       <div className="relative">
         {/* Tall, card-shaped tiles so cards fill the width; sealed sits in the same frame. */}
         {p.kind === "single" && p.imageUrl ? (

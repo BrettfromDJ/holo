@@ -18,6 +18,7 @@ export function HoloTilt({
   max = 12,
   foil = true,
   radius = "1rem",
+  heroName,
 }: {
   children: React.ReactNode;
   className?: string;
@@ -25,6 +26,8 @@ export function HoloTilt({
   max?: number;
   foil?: boolean;
   radius?: string;
+  /** View-transition name, so a card can fly into this spot from a grid. */
+  heroName?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const wrap = useRef<HTMLDivElement>(null);
@@ -73,7 +76,7 @@ export function HoloTilt({
   }
 
   return (
-    <div ref={wrap} className={cn("holo-tilt relative isolate", className)} data-active="false" data-visible="false" onPointerMove={move} onPointerLeave={leave} onPointerCancel={leave} style={{ perspective: "900px" }}>
+    <div ref={wrap} className={cn("holo-tilt relative isolate", className)} data-active="false" data-visible="false" onPointerMove={move} onPointerLeave={leave} onPointerCancel={leave} style={{ perspective: "900px", viewTransitionName: heroName }}>
       {/* Shadow on the "table": slides opposite the tilt, as if lit from above. */}
       <span aria-hidden className="holo-shadow" style={{ borderRadius: radius }} />
       <div ref={ref} className="holo-tilt-inner relative h-full w-full" data-active="false" style={{ borderRadius: radius }}>

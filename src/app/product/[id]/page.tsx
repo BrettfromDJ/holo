@@ -1,5 +1,6 @@
 "use client";
 
+import { useHeroTarget } from "@/lib/motion/hero";
 import { Hint } from "@/components/ui/tooltip";
 import { WishButton } from "@/components/wishlist/wish-items";
 import { BumperButton, CertDialog, GradeChip, GradedPrices, SendToGraderDialog, SlabCard, useAtGrader } from "@/components/grading/grading-items";
@@ -59,6 +60,9 @@ export default function ProductPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store.status, product, productId]);
 
+  // Lets a card tapped in a grid fly into the image spot once the page has it.
+  const hero = useHeroTarget(store.status === "ready" && Boolean(product));
+
   if (store.status === "loading" || (!product && loading)) return <ProductSkeleton />;
   if (store.status === "error") return <ErrorState message={store.error} />;
   if (!product) return <ErrorState message={loadError ?? "This product couldn't be found."} />;
@@ -87,18 +91,18 @@ export default function ProductPage() {
         {slab ? (
           // Only slabs of this card are owned: show it in its slab.
           <div className="flex flex-col items-center self-start lg:sticky lg:top-10">
-            <HoloTilt radius="7% / 4.4%" foil={false} className="mx-auto aspect-[5/8] w-full max-w-[260px] animate-pop sm:max-w-[340px]">
+            <HoloTilt heroName={hero.name} radius="7% / 4.4%" foil={false} className={`mx-auto aspect-[5/8] w-full max-w-[260px] ${hero.arriving ? "" : "animate-pop"} sm:max-w-[340px]`}>
               <ProductImage product={product} grade={slab} slabKey={owned[0]?.key} size="xl" priority className="h-full w-full" />
             </HoloTilt>
             <BumperButton h={owned[0]} className="mt-6 py-1.5 pl-1.5 pr-3.5 text-[13px]" />
           </div>
         ) : product.kind === "single" && product.imageUrl ? (
           // A bare card: no well or frame, just the card at its own proportions.
-          <HoloTilt radius="4.5% / 3.2%" foil={isFoilCard(product)} className="mx-auto aspect-[63/88] w-full max-w-[260px] animate-pop sm:max-w-[360px] self-start lg:sticky lg:top-10">
+          <HoloTilt heroName={hero.name} radius="4.5% / 3.2%" foil={isFoilCard(product)} className={`mx-auto aspect-[63/88] w-full max-w-[260px] ${hero.arriving ? "" : "animate-pop"} sm:max-w-[360px] self-start lg:sticky lg:top-10`}>
             <ProductImage product={product} size="xl" priority frame={false} className="h-full w-full rounded-[4.5%/3.2%] shadow-2xl shadow-black/50" />
           </HoloTilt>
         ) : (
-          <HoloTilt radius="1.75rem" foil={false} className="aspect-square w-full animate-pop lg:sticky lg:top-10">
+          <HoloTilt heroName={hero.name} radius="1.75rem" foil={false} className={`aspect-square w-full ${hero.arriving ? "" : "animate-pop"} lg:sticky lg:top-10`}>
             <ProductImage product={product} size="xl" priority className="h-full w-full rounded-[1.75rem]" />
           </HoloTilt>
         )}

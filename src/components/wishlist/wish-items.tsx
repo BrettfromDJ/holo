@@ -1,5 +1,6 @@
 "use client";
 
+import { useHeroLink } from "@/lib/motion/hero";
 import { Check, Heart, MoreHorizontal } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -21,27 +22,31 @@ import { cn } from "@/lib/utils";
 export function WishButton({ product, price, printing, className, compact }: { product: Product; price: number | null; printing?: string | null; className?: string; compact?: boolean }) {
   const { has, add, remove } = useWishlist();
   const on = has(product.id);
+  const [burst, setBurst] = useState(0);
   const toggle = () => {
     if (on) {
       remove(product.id);
       toast("Removed from wishlist");
     } else {
       add(product, price, { printing });
+      setBurst((n) => n + 1);
       toast.success("Added to wishlist");
     }
   };
   if (compact) {
     return (
       <Hint content={on ? "On wishlist · tap to remove" : "Add to wishlist"}>
-        <Button variant="secondary" size="icon" aria-label={on ? "Remove from wishlist" : "Add to wishlist"} aria-pressed={on} className={className} onClick={toggle}>
-          <Heart className={cn(on && "fill-current")} />
+        <Button variant="secondary" size="icon" aria-label={on ? "Remove from wishlist" : "Add to wishlist"} aria-pressed={on} className={cn("relative", className)} onClick={toggle}>
+          <HeartBurst on={on} burst={burst} />
         </Button>
       </Hint>
     );
   }
   return (
-    <Button variant="secondary" className={className} onClick={toggle}>
-      <Heart className={cn(on && "fill-current")} />
+    <Button variant="secondary" className={cn("relative", className)} onClick={toggle}>
+      <span className="relative inline-flex">
+        <HeartBurst on={on} burst={burst} />
+      </span>
       {on ? "On wishlist" : "Wishlist"}
     </Button>
   );
@@ -51,6 +56,7 @@ export function WishButton({ product, price, printing, className, compact }: { p
 export function WishHeart({ product, price, printing, className }: { product: Product; price: number | null; printing?: string | null; className?: string }) {
   const { has, add, remove } = useWishlist();
   const on = has(product.id);
+  const [burst, setBurst] = useState(0);
   return (
     <button
       type="button"
@@ -62,17 +68,28 @@ export function WishHeart({ product, price, printing, className }: { product: Pr
         if (on) remove(product.id);
         else {
           add(product, price, { printing });
+          setBurst((n) => n + 1);
           toast.success("Added to wishlist");
         }
       }}
       className={cn(
-        "flex size-8 items-center justify-center rounded-full bg-background/80 ring-1 ring-border backdrop-blur transition-all hover:scale-110",
+        "relative flex size-8 items-center justify-center rounded-full bg-background/80 ring-1 ring-border backdrop-blur transition-all hover:scale-110",
         on ? "text-foreground opacity-100" : "text-muted opacity-0 group-hover:opacity-100 focus-visible:opacity-100 max-sm:opacity-100",
         className,
       )}
     >
-      <Heart className={cn("size-4", on && "fill-current")} />
+      <HeartBurst on={on} burst={burst} className="size-4" />
     </button>
+  );
+}
+
+/** The heart icon; each new `burst` replays a pop and a ring spreading out. */
+function HeartBurst({ on, burst, className }: { on: boolean; burst: number; className?: string }) {
+  return (
+    <>
+      <Heart key={burst} className={cn(className, on && "fill-current", burst > 0 && "heart-pop")} />
+      {burst > 0 && <span key={`ring-${burst}`} aria-hidden className="heart-ring" />}
+    </>
   );
 }
 
@@ -80,13 +97,14 @@ const PRIORITY_LABEL: Record<WishPriority, string> = { grail: "Grail", want: "Wa
 
 /** A wishlist entry: big card image, priority, price against your target. */
 export function WishTile({ w, owned, onBought }: { w: WishItem; owned: boolean; onBought: () => void }) {
+  const hero = useHeroLink();
   const { update, remove } = useWishlist();
   const [targetOpen, setTargetOpen] = useState(false);
   const p = w.product;
   const hit = hitTarget(w);
   return (
     <div className="group relative flex min-w-0 flex-col">
-      <Link href={`/product/${encodeURIComponent(p.id)}`} className="block">
+      <Link href={`/product/${encodeURIComponent(p.id)}`} onClick={(e) => hero(e, `/product/${encodeURIComponent(p.id)}`)} className="block">
         <ProductImage product={p} size="lg" frame={p.kind !== "single"} className="aspect-[5/7] w-full items-end transition-transform duration-500 ease-[var(--ease-apple)] group-hover:-translate-y-1" />
       </Link>
       <div className="pointer-events-none absolute left-2 top-2 flex flex-wrap gap-1.5">

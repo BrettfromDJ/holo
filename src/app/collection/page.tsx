@@ -1,5 +1,6 @@
 "use client";
 
+import { FlipGrid, FlipItem } from "@/components/motion/flip-grid";
 import { ArrowUpDown, LayoutGrid, Library, List, MoreHorizontal, Pencil, Plus, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -333,13 +334,13 @@ function Collection() {
             <p className="mt-1 text-sm text-muted">Try clearing a filter or searching for something else.</p>
           </div>
         ) : view === "grid" ? (
-          <div className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
+          <FlipGrid className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
             {filtered.map((h, i) => (
-              <div key={h.key} className="animate-rise" style={{ animationDelay: `${Math.min(i, 16) * 40}ms` }}>
+              <FlipItem key={h.key} flipKey={h.key} index={i}>
                 <HoldingTile h={h} />
-              </div>
+              </FlipItem>
             ))}
-          </div>
+          </FlipGrid>
         ) : (
           <Card className="overflow-hidden pt-3">
             <HoldingListHeader />

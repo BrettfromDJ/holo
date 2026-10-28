@@ -1,5 +1,6 @@
 "use client";
 
+import { useHeroLink } from "@/lib/motion/hero";
 import { BookOpen, ChevronLeft, ChevronRight, Loader2, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -306,10 +307,13 @@ function BinderBook({ set }: { set: OwnedSet }) {
 }
 
 function OwnedPocket({ slot }: { slot: Slot }) {
+  const hero = useHeroLink({ lift: true });
+  const href = `/product/${encodeURIComponent(slot.card.productId)}`;
   const h = slot.holdings[0];
   const qty = slot.holdings.reduce((s, x) => s + x.quantity, 0);
   return (
-    <Link href={`/product/${encodeURIComponent(slot.card.productId)}`} className="group relative block" title={slot.card.name}>
+    // Tapping a card lifts it out of its pocket, then it flies into the product page.
+    <Link href={href} onClick={(e) => hero(e, href)} className="group relative block" title={slot.card.name}>
       <HoloTilt max={10} radius="0.75rem" className="aspect-[63/88] w-full">
         <ProductImage product={h.product} grade={h.identity.grade} slabKey={h.key} size="sm" frame={false} className="h-full w-full rounded-xl" />
       </HoloTilt>
