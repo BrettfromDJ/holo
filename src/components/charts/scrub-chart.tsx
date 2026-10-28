@@ -1,5 +1,6 @@
 "use client";
 
+import { InsideTick } from "./inside-tick";
 import { useId, useMemo } from "react";
 import { Area, AreaChart, Line, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { formatShortDate, moneyCompact } from "@/lib/format";
@@ -86,7 +87,7 @@ export function ScrubChart({
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={data}
-          margin={{ top: 8, right: showAxis ? 4 : 0, bottom: 0, left: 0 }}
+          margin={{ top: 16, right: 0, bottom: 0, left: 0 }}
           onMouseMove={(s) => {
             const i = s?.activeTooltipIndex;
             onScrub?.(i === undefined || i === null ? null : Number(i));
@@ -104,12 +105,13 @@ export function ScrubChart({
             domain={domain}
             orientation="right"
             hide={!showAxis}
-            width={showAxis ? 56 : 0}
+            // Labels sit inside the plot along the right edge (just above each
+            // gridline) so the line can run the full width, no empty gutter.
+            width={1}
             axisLine={false}
             tickLine={false}
             tickCount={4}
-            tick={{ fill: "var(--subtle)", fontSize: 11 }}
-            tickFormatter={(v: number) => moneyCompact(v)}
+            tick={(props: object) => <InsideTick {...props} format={moneyCompact} />}
           />
           {baseline !== null && baseline !== undefined && (
             <ReferenceLine y={baseline} stroke="var(--subtle)" strokeDasharray="1 4" strokeWidth={1.25} ifOverflow="extendDomain" />

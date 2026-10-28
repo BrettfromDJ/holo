@@ -1,5 +1,6 @@
 "use client";
 
+import { InsideTick } from "@/components/charts/inside-tick";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Area, Bar, BarChart, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -113,10 +114,10 @@ export default function AnalyticsPage() {
         </div>
         <div className="mt-3 h-[260px]">
           <ResponsiveContainer>
-            <ComposedChart data={history} margin={{ top: 8, right: 0, left: 0, bottom: 0 }}>
+            <ComposedChart data={history} margin={{ top: 16, right: 0, left: 0, bottom: 0 }}>
               <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
               <XAxis dataKey="date" tick={axisTick} tickLine={false} axisLine={false} tickFormatter={formatShortDate} minTickGap={48} />
-              <YAxis orientation="right" tick={axisTick} tickLine={false} axisLine={false} width={56} tickFormatter={moneyCompact} domain={["auto", "auto"]} />
+              <YAxis orientation="right" tick={(props: object) => <InsideTick {...props} format={moneyCompact} />} tickLine={false} axisLine={false} width={1} domain={["auto", "auto"]} />
               <Tooltip
                 cursor={{ stroke: "var(--border-strong)" }}
                 content={(p) => (
@@ -140,9 +141,9 @@ export default function AnalyticsPage() {
           <p className="text-[12px] font-medium text-muted">Unrealized gain / loss</p>
           <div className="mt-2 h-[120px]">
             <ResponsiveContainer>
-              <ComposedChart data={history} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+              <ComposedChart data={history} margin={{ top: 16, right: 0, left: 0, bottom: 0 }}>
                 <XAxis dataKey="date" hide />
-                <YAxis orientation="right" tick={axisTick} tickLine={false} axisLine={false} width={56} tickFormatter={moneyCompact} />
+                <YAxis orientation="right" tick={(props: object) => <InsideTick {...props} format={moneyCompact} />} tickLine={false} axisLine={false} width={1} />
                 <ReferenceLine y={0} stroke="var(--border-strong)" />
                 <Tooltip cursor={{ stroke: "var(--border-strong)" }} content={(p) => <ChartTooltip {...(p as object)} label={String(p.label)} rows={[{ key: "gain", label: "Unrealized", color: "var(--up)", signed: true }]} />} />
                 <Area type="monotone" dataKey="gain" stroke={summary.unrealized >= 0 ? "var(--up)" : "var(--down)"} fill={summary.unrealized >= 0 ? "var(--up-soft)" : "var(--down-soft)"} strokeWidth={1.5} isAnimationActive={false} />
@@ -162,10 +163,10 @@ export default function AnalyticsPage() {
           <SectionTitle title="Investment activity" subtitle="Money invested per month, incl. fees" />
           <div className="h-[220px]">
             <ResponsiveContainer>
-              <BarChart data={monthly} margin={{ top: 8, right: 0, left: 0, bottom: 0 }}>
+              <BarChart data={monthly} margin={{ top: 16, right: 0, left: 0, bottom: 0 }}>
                 <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
                 <XAxis dataKey="month" tick={axisTick} tickLine={false} axisLine={false} tickFormatter={formatMonth} minTickGap={16} />
-                <YAxis orientation="right" tick={axisTick} tickLine={false} axisLine={false} width={48} tickFormatter={moneyCompact} />
+                <YAxis orientation="right" tick={(props: object) => <InsideTick {...props} format={moneyCompact} />} tickLine={false} axisLine={false} width={1} />
                 <Tooltip
                   cursor={{ fill: "var(--surface-2)" }}
                   content={(p) => (
