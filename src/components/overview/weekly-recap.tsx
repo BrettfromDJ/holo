@@ -96,7 +96,7 @@ function useSlides(): { slides: Slide[]; from: string; to: string } {
           </div>
           <div>
             <p className="text-[18px] font-medium text-white/80">Your collection {gain >= 0 ? "grew" : "slipped"}</p>
-            <Big className={gain >= 0 ? "text-[#7dffa1]" : "text-[#ff8a80]"}>
+            <Big className={gain >= 0 ? "text-[#e4ff7a]" : "text-[#ff8ab3]"}>
               <AnimatedNumber value={gain} format={signedMoney} duration={1400} />
             </Big>
             <p className="tabular mt-2 text-[15px] text-white/70">
@@ -109,11 +109,11 @@ function useSlides(): { slides: Slide[]; from: string; to: string } {
     if (gainer && (gainer.change7dPct ?? 0) > 0) {
       slides.push({
         key: "gainer",
-        bg: "radial-gradient(120% 80% at 80% 0%, #10b981 0%, #053d2c 55%, #0b0b0c 100%)",
+        bg: "radial-gradient(120% 80% at 80% 0%, #8fae00 0%, #2a3600 55%, #0b0b0c 100%)",
         render: () => (
           <HeroSlide kicker="Hottest this week" h={gainer}>
               <p className="line-clamp-2 text-[20px] font-semibold leading-tight text-white sm:text-[26px]">{shortName(gainer.product!.name)}</p>
-              <Big className="text-[#7dffa1]">{signedPct((gainer.change7dPct ?? 0) / 100)}</Big>
+              <Big className="text-[#e4ff7a]">{signedPct((gainer.change7dPct ?? 0) / 100)}</Big>
               <p className="tabular mt-1 text-[14px] text-white/70">Now {money(gainer.price)} each</p>
           </HeroSlide>
         ),
@@ -122,11 +122,11 @@ function useSlides(): { slides: Slide[]; from: string; to: string } {
     if (loser && (loser.change7dPct ?? 0) < 0) {
       slides.push({
         key: "loser",
-        bg: "radial-gradient(120% 80% at 20% 0%, #e5484d 0%, #3d0f12 55%, #0b0b0c 100%)",
+        bg: "radial-gradient(120% 80% at 20% 0%, #e0306f 0%, #3d0a1f 55%, #0b0b0c 100%)",
         render: () => (
           <HeroSlide kicker="Cooled off" h={loser}>
               <p className="line-clamp-2 text-[20px] font-semibold leading-tight text-white sm:text-[26px]">{shortName(loser.product!.name)}</p>
-              <Big className="text-[#ff8a80]">{signedPct((loser.change7dPct ?? 0) / 100)}</Big>
+              <Big className="text-[#ff8ab3]">{signedPct((loser.change7dPct ?? 0) / 100)}</Big>
               <p className="tabular mt-1 text-[14px] text-white/70">Now {money(loser.price)} each — buying opportunity?</p>
           </HeroSlide>
         ),
