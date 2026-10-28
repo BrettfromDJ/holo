@@ -4,6 +4,7 @@ import { ArrowRight, Flame, Sparkles, TrendingDown } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
 import { AnimatedNumber } from "@/components/motion/animated-number";
+import { HoloTilt } from "@/components/motion/holo-tilt";
 import { holdingHref, holdingLabel } from "@/components/portfolio/holding-items";
 import { Delta, DeltaPill } from "@/components/product/delta";
 import { ProductImage } from "@/components/product/product-image";
@@ -53,13 +54,17 @@ export function MetricStrip({ items }: { items: { label: string; value: React.Re
 function useSeries(h: HoldingView | undefined, days = 90): number[] {
   const { data, today } = useStore();
   return useMemo(() => {
-    if (!h || h.identity.grade) return [];
+    // A slab you valued yourself has no market trend to draw.
+    if (!h || h.priceOrigin === "manual") return [];
     const key = priceKey(h.identity.productId, h.identity.printing);
     const from = addDays(today, -days);
-    const pts = (data.history[key] ?? []).filter((p) => p.date >= from && p.date < today).map((p) => p.price);
+    let pts = (data.history[key] ?? []).filter((p) => p.date >= from && p.date < today).map((p) => p.price);
+    // Slabs follow their card's raw trend, scaled to the slab's price.
+    const raw = data.prices[key]?.market;
+    if (h.identity.grade && h.price !== null && raw) pts = pts.map((p) => (p * h.price!) / raw);
     if (h.price !== null) pts.push(h.price);
     return pts;
-  }, [h, data.history, today, days]);
+  }, [h, data.history, data.prices, today, days]);
 }
 
 function TileLabel({ icon: Icon, children, className }: { icon: React.ElementType; children: React.ReactNode; className?: string }) {
@@ -84,49 +89,52 @@ export function Spotlight({ holdings }: { holdings: HoldingView[] }) {
   const laggard = useMemo(() => [...holdings].filter((h) => (h.unrealizedPct ?? 0) < 0).sort((a, b) => (a.unrealizedPct ?? 0) - (b.unrealizedPct ?? 0))[0], [holdings]);
   const series = useSeries(star);
   if (!star) return null;
+  const shape = star.identity.grade ? "slab" : star.product?.kind === "single" && star.product.imageUrl ? "card" : "sealed";
 
   return (
     <section className="grid gap-3 lg:grid-cols-3 lg:grid-rows-2" aria-label="Spotlight">
       <Link
         href={holdingHref(star)}
-        className="group relative overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface p-5 transition-colors hover:bg-surface-2/60 sm:p-7 lg:col-span-2 lg:row-span-2"
+        className="group relative isolate overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface p-5 sm:p-8 lg:col-span-2 lg:row-span-2"
       >
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-24 -top-24 size-[420px] rounded-full opacity-70 blur-3xl"
-          style={{ background: "radial-gradient(closest-side, color-mix(in srgb, var(--up) 14%, transparent), transparent)" }}
-        />
-        <div className="relative flex h-full flex-col gap-6 sm:flex-row sm:items-center">
-          <ProductImage
-            product={star.product}
-            size="lg"
-            className="aspect-[16/11] w-full shrink-0 rounded-2xl transition-transform duration-700 ease-[var(--ease-apple)] group-hover:scale-[1.02] sm:aspect-square sm:w-[44%]"
-          />
-          <div className="flex min-w-0 flex-1 flex-col">
+        <ArtGlow h={star} className="opacity-45" />
+        <div className="relative flex h-full flex-col gap-7 sm:flex-row sm:items-center sm:gap-10">
+          <div className="relative mx-auto w-[48%] max-w-[240px] shrink-0 sm:mx-0 sm:w-[34%]">
+            {/* Soft floor shadow under the card. */}
+            <div aria-hidden className="absolute inset-x-[12%] -bottom-4 h-8 rounded-[50%] bg-black/60 blur-xl" />
+            <HoloTilt max={14} foil={shape === "card"} radius={shape === "slab" ? "7% / 4.4%" : shape === "card" ? "4.5% / 3.2%" : "1.5rem"} className={cn("relative w-full", shape === "slab" ? "aspect-[5/8]" : shape === "card" ? "aspect-[63/88]" : "aspect-square")}>
+              <ProductImage product={star.product} grade={star.identity.grade} size="lg" frame={shape !== "card"} className={cn("h-full w-full", shape === "sealed" && "rounded-3xl")} />
+            </HoloTilt>
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col self-stretch sm:justify-center">
             <TileLabel icon={Sparkles} className="text-muted">
               Star of the collection
             </TileLabel>
-            <h3 className="mt-3 line-clamp-2 text-[22px] font-semibold leading-tight tracking-[-0.01em] sm:text-[26px]">{star.product?.name}</h3>
-            <p className="mt-1 truncate text-[13px] text-muted">{[star.product?.setName, holdingLabel(star)].filter(Boolean).join(" · ")}</p>
-            <p className="tabular mt-5 text-[34px] font-semibold leading-none tracking-[-0.03em] text-up sm:text-[40px]">
-              <AnimatedNumber value={star.unrealized ?? 0} format={signedMoney} duration={1300} />
+            <h3 className="mt-3 line-clamp-2 text-balance text-[24px] font-semibold leading-[1.1] tracking-[-0.02em] sm:text-[30px]">{star.product?.name}</h3>
+            <p className="mt-2 truncate text-[13px] text-muted">{[star.product?.setName, holdingLabel(star)].filter(Boolean).join(" · ")}</p>
+            <p className="tabular mt-6 text-[40px] font-semibold leading-none tracking-[-0.035em] sm:text-[52px]">
+              <span className="text-up">
+                <AnimatedNumber value={star.unrealized ?? 0} format={signedMoney} duration={1300} />
+              </span>
             </p>
-            <p className="tabular mt-2 text-[13px] text-muted">
-              Paid {money(star.costBasis)} · worth {money(star.value)} · <Delta ratio={star.unrealizedPct} pctOnly />
-            </p>
+            <dl className="mt-6 grid grid-cols-3 gap-2">
+              <StarStat label="Paid" value={money(star.costBasis)} />
+              <StarStat label="Worth" value={money(star.value)} />
+              <StarStat label="Return" value={<Delta ratio={star.unrealizedPct} pctOnly />} />
+            </dl>
             {series.length > 2 && (
-              <div className="mt-auto pt-6">
-                <Sparkline values={series} tone={tone(series[series.length - 1] - series[0])} className="w-full" height={56} />
-                <p className="mt-1 text-[11px] text-subtle">Last 90 days</p>
+              <div className="mt-6">
+                <Sparkline values={series} tone={tone(series[series.length - 1] - series[0])} className="w-full" height={52} />
+                <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.06em] text-subtle">Last 90 days</p>
               </div>
             )}
           </div>
         </div>
       </Link>
 
-      {mover && <MiniTile h={mover} icon={Flame} label="Biggest move today" metric={<Delta value={mover.dayChange} ratio={mover.dayChangePct} />} />}
+      {mover && <MiniTile h={mover} icon={Flame} label="Biggest move today" value={mover.dayChange} ratio={mover.dayChangePct} />}
       {laggard ? (
-        <MiniTile h={laggard} icon={TrendingDown} label="Below what you paid" metric={<Delta value={laggard.unrealized} ratio={laggard.unrealizedPct} />} />
+        <MiniTile h={laggard} icon={TrendingDown} label="Below what you paid" value={laggard.unrealized} ratio={laggard.unrealizedPct} />
       ) : (
         <div className="flex flex-col justify-center rounded-[var(--radius-card)] border border-border bg-surface p-5">
           <TileLabel icon={TrendingDown} className="text-muted">
@@ -139,21 +147,55 @@ export function Spotlight({ holdings }: { holdings: HoldingView[] }) {
   );
 }
 
-function MiniTile({ h, icon, label, metric }: { h: HoldingView; icon: React.ElementType; label: string; metric: React.ReactNode }) {
-  const series = useSeries(h, 30);
+/** The product's own art, blown up and blurred into a soft backdrop. */
+function ArtGlow({ h, className }: { h: HoldingView; className?: string }) {
+  const src = h.product?.imageUrl;
+  if (!src) return null;
   return (
-    <Link href={holdingHref(h)} className="group flex flex-col overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface p-5 transition-colors hover:bg-surface-2/60">
+    <div aria-hidden className={cn("pointer-events-none absolute inset-0 -z-10 overflow-hidden", className)}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- decorative blur of the product image */}
+      <img src={src} alt="" className="absolute left-[-10%] top-1/2 h-[160%] w-auto max-w-none -translate-y-1/2 scale-125 opacity-80 blur-[70px] saturate-150" />
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-surface/70 to-surface" />
+    </div>
+  );
+}
+
+function StarStat({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="min-w-0 rounded-xl bg-background/40 px-3 py-2.5 ring-1 ring-inset ring-white/[0.06] backdrop-blur">
+      <dt className="font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-subtle">{label}</dt>
+      <dd className="tabular mt-1 truncate text-[14px] font-semibold sm:text-[15px]">{value}</dd>
+    </div>
+  );
+}
+
+function MiniTile({ h, icon, label, value, ratio }: { h: HoldingView; icon: React.ElementType; label: string; value: number | null; ratio: number | null }) {
+  const series = useSeries(h, 30);
+  const up = (value ?? 0) >= 0;
+  return (
+    <Link href={holdingHref(h)} className="group relative isolate flex flex-col overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface p-5">
+      <ArtGlow h={h} className="opacity-25" />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-16 -top-16 -z-10 size-48 rounded-full blur-3xl"
+        style={{ background: `color-mix(in srgb, var(${up ? "--up" : "--down"}) 10%, transparent)` }}
+      />
       <TileLabel icon={icon} className="text-muted">
         {label}
       </TileLabel>
       <div className="mt-4 flex items-center gap-4">
-        <ProductImage product={h.product} grade={h.identity.grade} size="sm" className="size-16 shrink-0 rounded-xl transition-transform duration-500 group-hover:scale-105" />
+        <ProductImage product={h.product} grade={h.identity.grade} size="sm" className="h-20 w-16 shrink-0 transition-transform duration-500 ease-[var(--ease-apple)] group-hover:-rotate-3 group-hover:scale-105" />
         <div className="min-w-0">
-          <p className="line-clamp-2 text-[15px] font-semibold leading-snug">{h.product?.name}</p>
-          <p className="tabular mt-1 text-[14px]">{metric}</p>
+          <p className="line-clamp-2 text-[14px] font-medium leading-snug text-foreground/90">{h.product?.name}</p>
+          <p className="tabular mt-1.5 text-[22px] font-semibold leading-none tracking-[-0.02em]">
+            <span className={up ? "text-up" : "text-down"}>{value === null ? "—" : signedMoney(value)}</span>
+          </p>
+          <p className="tabular mt-1 text-[12px] text-muted">
+            <Delta ratio={ratio} pctOnly /> {label === "Biggest move today" ? "today" : "vs what you paid"}
+          </p>
         </div>
       </div>
-      {series.length > 2 && <Sparkline values={series} tone={tone(series[series.length - 1] - series[0])} className="mt-auto w-full pt-4" height={36} />}
+      {series.length > 2 && <Sparkline values={series} tone={tone(series[series.length - 1] - series[0])} className="-mx-5 -mb-5 mt-auto w-[calc(100%+2.5rem)] pt-4" height={44} />}
     </Link>
   );
 }
