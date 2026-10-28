@@ -320,14 +320,29 @@
   .holo-tilt[data-visible="true"]:not([data-active="true"]) .holo-tilt-inner {
     animation: holo-drift 9s ease-in-out var(--holo-delay, 0s) infinite;
   }
+  /* Always on here (not just a brief hover), so everything is gentler. */
   .holo-tilt[data-visible="true"] .holo-shadow {
-    opacity: 0.8;
+    opacity: 0.6;
   }
   .holo-tilt[data-visible="true"] .holo-glare {
-    opacity: 0.85;
+    opacity: 0.45;
   }
   .holo-tilt[data-visible="true"] .holo-foil {
-    opacity: 0.7;
+    opacity: 0.3;
+  }
+}
+/* Phone cards are small, so the etching is finer and softer to keep the same look. */
+@media (hover: none) and (pointer: coarse) {
+  .card-texture.is-foil::before {
+    background-size: 90px 90px;
+    opacity: 0.4;
+  }
+  .holo-foil {
+    -webkit-mask-size: 90px 90px, 100% 100%;
+    mask-size: 90px 90px, 100% 100%;
+  }
+  .holo-foil::after {
+    opacity: 0.4;
   }
 }
 
