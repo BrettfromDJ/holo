@@ -36,7 +36,7 @@ function Big({ children, className }: { children: React.ReactNode; className?: s
 function ProductHero({ h }: { h: HoldingView }) {
   return (
     <HoloTilt max={14} radius="1.5rem" foil={false} className="mx-auto mt-8 aspect-square w-[62%] animate-pull-in sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:mt-0 sm:w-full sm:max-w-[340px] sm:self-center">
-      <ProductImage product={h.product} size="lg" className="h-full w-full rounded-3xl shadow-2xl shadow-black/50" />
+      <ProductImage product={h.product} grade={h.identity.grade} size="lg" className="h-full w-full rounded-3xl shadow-2xl shadow-black/50" />
     </HoloTilt>
   );
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { GRADERS } from "@/lib/graded";
+import { useSlabCerts } from "@/lib/store/grading";
 import { ChevronDown, ChevronLeft, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -22,7 +24,6 @@ import { cn } from "@/lib/utils";
 import { Field, MoneyInput, Stepper, SummaryRow, parseMoney } from "./fields";
 import { ProductSearch } from "./product-search";
 
-const GRADERS = ["PSA", "BGS", "CGC", "SGC", "TAG"];
 
 export function AddProductDialog() {
   const { addTarget, closeAdd, data } = useStore();
@@ -161,6 +162,8 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
   const [grader, setGrader] = useState("PSA");
   const [grade, setGrade] = useState("10");
   const [gradedValue, setGradedValue] = useState("");
+  const [cert, setCert] = useState("");
+  const { setCert: saveCert } = useSlabCerts();
   const [showExtras, setShowExtras] = useState(false);
   const [shipping, setShipping] = useState("");
   const [fees, setFees] = useState("");
@@ -222,6 +225,7 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
       if (portfolioOf(key) !== portfolioId) await move(key, portfolioId).catch(() => undefined);
       const gv = parseMoney(gradedValue);
       if (graded && gv !== null) await setManualValue(identity, gv);
+      if (graded && cert.trim()) saveCert(key, cert);
       if (fromWatchId) await removeWatch(fromWatchId);
       onDone();
       celebratePull({ product, quantity: qty, before });
@@ -318,7 +322,7 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
             <label className="flex items-center justify-between gap-3">
               <span>
                 <span className="block text-[14px] font-medium">Graded card</span>
-                <span className="block text-[12px] text-muted">Valued manually — graded prices aren&apos;t provided by the pricing source.</span>
+                <span className="block text-[12px] text-muted">Priced from graded sales (sample data for now). Add your own value to override it.</span>
               </span>
               <Switch checked={graded} onCheckedChange={setGraded} aria-label="Graded card" />
             </label>
@@ -341,8 +345,11 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
                 <Field label="Grade" htmlFor="grade">
                   <Input id="grade" value={grade} onChange={(e) => setGrade(e.target.value.slice(0, 6))} inputMode="decimal" />
                 </Field>
-                <Field label="Value est." htmlFor="graded-value">
+                <Field label="Your value" htmlFor="graded-value">
                   <MoneyInput id="graded-value" value={gradedValue} onChange={setGradedValue} placeholder="Optional" />
+                </Field>
+                <Field label="Cert number" htmlFor="graded-cert" className="col-span-3">
+                  <Input id="graded-cert" value={cert} onChange={(e) => setCert(e.target.value.slice(0, 20))} placeholder="Optional — for verifying the slab" inputMode="numeric" />
                 </Field>
               </div>
             )}

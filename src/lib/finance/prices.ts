@@ -1,4 +1,5 @@
 import { holdingKey, priceKey, type CollectionData, type HoldingIdentity, type ISODate, type PricePoint } from "../types";
+import { gradedPriceKey } from "../graded";
 import { addDays, daysBetween } from "./dates";
 
 /**
@@ -44,13 +45,15 @@ export class PriceResolver {
   ) {}
 
   resolve(identity: HoldingIdentity, date: ISODate): ResolvedPrice | null {
+    // A manual valuation of a graded slab is the owner's override and wins
+    // from its date on; otherwise graded prices resolve like raw ones, under
+    // their own key.
     if (identity.grade) {
       const manual = this.data.manualValues[holdingKey(identity)];
       if (manual && manual.date <= date) return { price: manual.value, observedOn: manual.date, origin: "manual" };
-      return null;
     }
 
-    const key = priceKey(identity.productId, identity.printing);
+    const key = identity.grade ? gradedPriceKey(identity.productId, identity.printing, identity.grade) : priceKey(identity.productId, identity.printing);
     const current = this.data.prices[key];
 
     if (date >= this.today && current && current.market !== null && current.status !== "unavailable") {

@@ -1,5 +1,6 @@
 "use client";
 
+import { withSampleGradedPrices } from "@/lib/graded";
 import type { User } from "@supabase/supabase-js";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { looksSealed } from "../catalog";
@@ -82,7 +83,8 @@ interface StoreActions {
   addWatch(productId: string, printing: string | null, targetPrice: number | null): Promise<void>;
   updateWatch(id: string, patch: Partial<Pick<WatchlistItem, "targetPrice" | "notes">>): Promise<void>;
   removeWatch(id: string): Promise<void>;
-  setManualValue(identity: HoldingIdentity, value: number): Promise<void>;
+  /** `null` clears the manual valuation (back to the graded market price). */
+  setManualValue(identity: HoldingIdentity, value: number | null): Promise<void>;
   refreshPrices(force?: boolean): Promise<void>;
   savePreferences(p: Partial<Preferences>): Promise<void>;
   resetDemo(): Promise<void>;
@@ -311,10 +313,15 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setManualValue = useCallback(
-    async (identity: HoldingIdentity, value: number) => {
+    async (identity: HoldingIdentity, value: number | null) => {
       const today = state.today;
       await repoRef.current.setManualValue(identity, value, today);
-      setState((s) => ({ ...s, data: { ...s.data, manualValues: { ...s.data.manualValues, [holdingKey(identity)]: { value, date: today } } } }));
+      setState((s) => {
+        const manualValues = { ...s.data.manualValues };
+        if (value === null) delete manualValues[holdingKey(identity)];
+        else manualValues[holdingKey(identity)] = { value, date: today };
+        return { ...s, data: { ...s.data, manualValues } };
+      });
     },
     [state.today],
   );
@@ -505,7 +512,9 @@ export interface PortfolioView {
   realized: RealizedEntry[];
 }
 
-function portfolioView(data: CollectionData, today: ISODate): PortfolioView {
+function portfolioView(raw: CollectionData, today: ISODate): PortfolioView {
+  // Graded slabs are priced from the graded source (sample data for now).
+  const data = withSampleGradedPrices(raw, today);
   const holdings = computeHoldings(data, today);
   const realized = totalRealized(data, today);
   return { holdings, summary: summarize(holdings, realized.total), timeline: computeTimeline(data, today), realized: realized.entries };

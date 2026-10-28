@@ -1,9 +1,10 @@
-import { Activity, ArrowLeftRight, BarChart3, BookOpen, Compass, Eye, LayoutGrid, LineChart, Settings, TrendingUp } from "lucide-react";
+import { Activity, ArrowLeftRight, Award, BarChart3, BookOpen, Compass, Eye, LayoutGrid, LineChart, Settings, TrendingUp } from "lucide-react";
 
 export const NAV = [
   { href: "/", label: "Overview", icon: LineChart },
   { href: "/collection", label: "Collection", icon: LayoutGrid },
   { href: "/binder", label: "Binder", icon: BookOpen },
+  { href: "/grading", label: "Grading", icon: Award },
   { href: "/explore", label: "Explore", icon: Compass },
   { href: "/watchlist", label: "Watchlist", icon: Eye },
   { href: "/trade", label: "Trade", icon: ArrowLeftRight },
@@ -19,7 +20,7 @@ const byHref = (href: string) => NAV.find((n) => n.href === href)!;
 
 /** Sidebar sections. Settings sits on its own at the bottom. */
 export const NAV_GROUPS: { label: string | null; items: NavItem[] }[] = [
-  { label: null, items: ["/", "/collection", "/binder"].map(byHref) },
+  { label: null, items: ["/", "/collection", "/binder", "/grading"].map(byHref) },
   { label: "Market", items: ["/explore", "/watchlist", "/trade"].map(byHref) },
   { label: "Insights", items: ["/gains", "/analytics", "/activity"].map(byHref) },
 ];

@@ -147,7 +147,7 @@ function MiniTile({ h, icon, label, metric }: { h: HoldingView; icon: React.Elem
         {label}
       </TileLabel>
       <div className="mt-4 flex items-center gap-4">
-        <ProductImage product={h.product} size="sm" className="size-16 shrink-0 rounded-xl transition-transform duration-500 group-hover:scale-105" />
+        <ProductImage product={h.product} grade={h.identity.grade} size="sm" className="size-16 shrink-0 rounded-xl transition-transform duration-500 group-hover:scale-105" />
         <div className="min-w-0">
           <p className="line-clamp-2 text-[15px] font-semibold leading-snug">{h.product?.name}</p>
           <p className="tabular mt-1 text-[14px]">{metric}</p>
@@ -179,7 +179,7 @@ export function Shelf({ holdings, title = "Your shelf", subtitle }: { holdings: 
         {items.map((h, i) => (
           <Link key={h.key} href={holdingHref(h)} className="group w-[168px] shrink-0 snap-start sm:w-[196px]">
             <div className="relative">
-              <ProductImage product={h.product} className="aspect-[4/5] w-full rounded-2xl transition-transform duration-500 ease-[var(--ease-apple)] group-hover:-translate-y-1" />
+              <ProductImage product={h.product} grade={h.identity.grade} className="aspect-[4/5] w-full rounded-2xl transition-transform duration-500 ease-[var(--ease-apple)] group-hover:-translate-y-1" />
               <span className="tabular absolute left-2.5 top-2.5 flex size-6 items-center justify-center rounded-full bg-background/80 text-[11px] font-semibold backdrop-blur">{i + 1}</span>
               {h.quantity > 1 && <span className="tabular absolute right-2.5 top-2.5 rounded-full bg-background/80 px-2 py-0.5 text-[11px] font-semibold backdrop-blur">×{h.quantity}</span>}
             </div>

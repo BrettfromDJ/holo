@@ -17,7 +17,7 @@ import { useStore } from "@/lib/store/collection-store";
 import type { Transaction } from "@/lib/types";
 import { Field, MoneyInput, Stepper, SummaryRow, parseMoney } from "./fields";
 
-function FormShell({ title, description, children, footer, onSubmit }: { title: string; description?: string; children: React.ReactNode; footer: React.ReactNode; onSubmit: (e: React.FormEvent) => void }) {
+export function FormShell({ title, description, children, footer, onSubmit }: { title: string; description?: string; children: React.ReactNode; footer: React.ReactNode; onSubmit: (e: React.FormEvent) => void }) {
   return (
     <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
       <DialogHeader>
@@ -363,7 +363,7 @@ export function ManualValueDialog({ holding, open, onOpenChange }: { holding: Ho
       <DialogContent>
         <FormShell
           title="Update valuation"
-          description={`Per-unit value for ${holding.identity.grade?.company} ${holding.identity.grade?.grade}. Recorded with today's date.`}
+          description={`Your own per-unit value for this ${holding.identity.grade?.company} ${holding.identity.grade?.grade}. It overrides the graded market price and is recorded with today's date.`}
           onSubmit={async (e) => {
             e.preventDefault();
             if (v === null) return;
@@ -372,9 +372,26 @@ export function ManualValueDialog({ holding, open, onOpenChange }: { holding: Ho
             onOpenChange(false);
           }}
           footer={
-            <Button type="submit" variant="primary" size="lg" className="w-full" disabled={v === null}>
-              Save valuation
-            </Button>
+            <div className="space-y-2">
+              <Button type="submit" variant="primary" size="lg" className="w-full" disabled={v === null}>
+                Save valuation
+              </Button>
+              {holding.priceOrigin === "manual" && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="lg"
+                  className="w-full"
+                  onClick={async () => {
+                    await setManualValue(holding.identity, null);
+                    toast.success("Using the graded market price");
+                    onOpenChange(false);
+                  }}
+                >
+                  Use the graded market price instead
+                </Button>
+              )}
+            </div>
           }
         >
           <Field label="Value per unit" htmlFor="manual-value">

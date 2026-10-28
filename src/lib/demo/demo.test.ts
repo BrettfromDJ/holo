@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { computeHoldings, computeTimeline, performanceOf, slicePoints, summarize, totalRealized } from "../finance/portfolio";
+import { withSampleGradedPrices } from "../graded";
 import { buildDemoData } from "./dataset";
 
 describe("sample dataset", () => {
@@ -12,6 +13,8 @@ describe("sample dataset", () => {
   });
 
   it("produces a coherent portfolio", () => {
+    // As in the app: graded slabs are priced from the (sample) graded source.
+    const data = withSampleGradedPrices(buildDemoData(today), today);
     const holdings = computeHoldings(data, today);
     const s = summarize(holdings, totalRealized(data, today).total);
     const tl = computeTimeline(data, today);

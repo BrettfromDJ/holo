@@ -99,7 +99,7 @@ function SharedTile({ h, showGains }: { h: HoldingView; showGains: boolean }) {
   return (
     <div className="flex flex-col">
       <div className="relative">
-        <ProductImage product={h.product} className="aspect-square w-full" />
+        <ProductImage product={h.product} grade={h.identity.grade} className="aspect-square w-full" />
         <span className="tabular absolute left-2.5 top-2.5 rounded-full bg-background/80 px-2 py-0.5 text-[11px] font-semibold backdrop-blur">×{h.quantity}</span>
         {grade && <span className="absolute right-2.5 top-2.5 rounded-full bg-background/80 px-2 py-0.5 text-[11px] font-medium text-muted backdrop-blur">{grade}</span>}
       </div>

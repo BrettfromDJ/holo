@@ -95,6 +95,8 @@ const PURCHASES: LotSpec[] = [
   { product: "mew-ex-gold", daysAgo: 470, qty: 2, unit: 43.5, shipping: 4, source: "TCGplayer", condition: "Near Mint" },
   { product: "giratina-v-alt", daysAgo: 400, qty: 1, unit: 228, shipping: 5, source: "Card show", condition: "Near Mint" },
   { product: "charizard-base", daysAgo: 380, qty: 1, unit: 1650, shipping: 25, fees: 0, source: "Heritage Auctions", condition: "Near Mint", grade: { company: "PSA", grade: "8" }, notes: "Cert verified." },
+  { product: "rayquaza-vmax-alt", daysAgo: 280, qty: 1, unit: 1380, shipping: 20, source: "PWCC", condition: "Near Mint", grade: { company: "PSA", grade: "10" } },
+  { product: "gengar-vmax-alt", daysAgo: 190, qty: 1, unit: 520, shipping: 15, source: "eBay", condition: "Near Mint", grade: { company: "CGC", grade: "9.5" } },
   { product: "tm-bb", daysAgo: 300, qty: 1, unit: 162, shipping: 12, source: "Online retailer" },
   { product: "ss-bb", daysAgo: 250, qty: 2, unit: 149.99, tax: 24.75, source: "Local game store" },
   { product: "pikachu-ex-ss", daysAgo: 210, qty: 1, unit: 289, shipping: 4.5, source: "TCGplayer", condition: "Near Mint" },

@@ -43,7 +43,8 @@ export interface Repository {
   addWatch(item: Omit<WatchlistItem, "id" | "addedAt">): Promise<WatchlistItem>;
   updateWatch(id: string, patch: Partial<Pick<WatchlistItem, "targetPrice" | "notes">>): Promise<void>;
   removeWatch(id: string): Promise<void>;
-  setManualValue(identity: HoldingIdentity, value: number, date: ISODate): Promise<void>;
+  /** `null` clears the manual valuation so the graded market price is used. */
+  setManualValue(identity: HoldingIdentity, value: number | null, date: ISODate): Promise<void>;
   /** Store refreshed prices (and today's snapshot) where the client owns storage. */
   savePrices(prices: NormalizedPrice[], today: ISODate): Promise<void>;
   savePreferences(p: Preferences): Promise<void>;
@@ -135,8 +136,9 @@ export class LocalRepository implements Repository {
     this.data.watchlist = this.data.watchlist.filter((w) => w.id !== id);
     this.save();
   }
-  async setManualValue(identity: HoldingIdentity, value: number, date: ISODate) {
-    this.data.manualValues[holdingKey(identity)] = { value, date };
+  async setManualValue(identity: HoldingIdentity, value: number | null, date: ISODate) {
+    if (value === null) delete this.data.manualValues[holdingKey(identity)];
+    else this.data.manualValues[holdingKey(identity)] = { value, date };
     this.save();
   }
   async savePrices(prices: NormalizedPrice[], today: ISODate) {
@@ -158,7 +160,8 @@ interface DemoOverlay {
   watchAdded: WatchlistItem[];
   watchRemoved: string[];
   watchPatches: Record<string, Partial<WatchlistItem>>;
-  manualValues: CollectionData["manualValues"];
+  /** `null` hides a sample manual valuation. */
+  manualValues: Record<string, { value: number; date: ISODate } | null>;
   preferences?: Preferences;
 }
 
@@ -181,7 +184,9 @@ export class DemoRepository implements Repository {
       ...base,
       transactions: [...base.transactions, ...this.overlay.transactions],
       watchlist,
-      manualValues: { ...base.manualValues, ...this.overlay.manualValues },
+      manualValues: Object.fromEntries(
+        Object.entries({ ...base.manualValues, ...this.overlay.manualValues }).filter((e): e is [string, { value: number; date: ISODate }] => e[1] !== null),
+      ),
       preferences: this.overlay.preferences ?? base.preferences,
     };
   }
@@ -215,8 +220,8 @@ export class DemoRepository implements Repository {
     this.overlay.watchAdded = this.overlay.watchAdded.filter((w) => w.id !== id);
     this.save();
   }
-  async setManualValue(identity: HoldingIdentity, value: number, date: ISODate) {
-    this.overlay.manualValues[holdingKey(identity)] = { value, date };
+  async setManualValue(identity: HoldingIdentity, value: number | null, date: ISODate) {
+    this.overlay.manualValues[holdingKey(identity)] = value === null ? null : { value, date };
     this.save();
   }
   async savePrices() {
@@ -342,9 +347,9 @@ export class CloudRepository implements Repository {
     if (error) throw error;
   }
 
-  async setManualValue(identity: HoldingIdentity, value: number, date: ISODate) {
+  async setManualValue(identity: HoldingIdentity, value: number | null, date: ISODate) {
     const holding = await this.holdingFor(identity);
-    const { error } = await this.client.from("holdings").update({ manual_value: value, manual_value_date: date }).eq("id", holding.id);
+    const { error } = await this.client.from("holdings").update({ manual_value: value, manual_value_date: value === null ? null : date }).eq("id", holding.id);
     if (error) throw error;
   }
 

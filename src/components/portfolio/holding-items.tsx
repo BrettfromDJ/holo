@@ -27,7 +27,7 @@ export function holdingLabel(h: HoldingView): string | null {
 export function HoldingMiniRow({ h, metric = "gain", change }: { h: HoldingView; metric?: "gain" | "value" | "change" | "added"; change?: number | null }) {
   return (
     <Link href={holdingHref(h)} className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-surface-2">
-      <ProductImage product={h.product} size="xs" className="size-11 shrink-0 rounded-lg" />
+      <ProductImage product={h.product} grade={h.identity.grade} size="xs" className="size-11 shrink-0 rounded-lg" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-[14px] font-medium">{h.product?.name ?? "Unknown product"}</p>
         <p className="tabular truncate text-[12px] text-muted">
@@ -56,7 +56,7 @@ export function HoldingListRow({ h }: { h: HoldingView }) {
       href={holdingHref(h)}
       className="group grid grid-cols-[3rem_1fr_auto] items-center gap-4 px-4 py-3 transition-colors hover:bg-surface-2 md:grid-cols-[3.5rem_minmax(0,2.4fr)_repeat(5,minmax(0,1fr))]"
     >
-      <ProductImage product={h.product} size="xs" className="size-12 rounded-lg md:size-14" />
+      <ProductImage product={h.product} grade={h.identity.grade} size="xs" className="size-12 rounded-lg md:size-14" />
       <div className="min-w-0">
         <p className="truncate text-[14px] font-medium">{h.product?.name ?? "Unknown product"}</p>
         <p className="mt-0.5 flex items-center gap-1.5 truncate text-[12px] text-muted">
@@ -104,7 +104,7 @@ export function HoldingTile({ h }: { h: HoldingView }) {
     <Link href={holdingHref(h)} className="group flex flex-col">
       <div className="relative">
         <HoloTilt max={8} foil={false} className="aspect-square w-full">
-          <ProductImage product={h.product} className="h-full w-full" />
+          <ProductImage product={h.product} grade={h.identity.grade} className="h-full w-full" />
         </HoloTilt>
         <span className="tabular absolute left-2.5 top-2.5 rounded-full bg-background/80 px-2 py-0.5 text-[11px] font-semibold backdrop-blur">×{h.quantity}</span>
         {holdingLabel(h) && <span className="absolute right-2.5 top-2.5 rounded-full bg-background/80 px-2 py-0.5 text-[11px] font-medium text-muted backdrop-blur">{holdingLabel(h)}</span>}

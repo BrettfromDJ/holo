@@ -1,5 +1,6 @@
 "use client";
 
+import { CertDialog, GradeChip, GradedPrices, SendToGraderDialog, SlabDetails, useAtGrader } from "@/components/grading/grading-items";
 import { Calculator, Check, ChevronDown, ChevronLeft, ExternalLink, Eye, EyeOff, Layers, Loader2, MoreHorizontal, Package, Plus, Tag } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -65,6 +66,7 @@ export default function ProductPage() {
   const printing = owned[0]?.identity.printing ?? product.printings?.[0] ?? null;
   const price = store.data.prices[priceKey(productId, printing)];
   const watch = store.data.watchlist.find((w) => w.productId === productId);
+  const slab = owned.length > 0 && owned.every((h) => h.identity.grade) ? owned[0].identity.grade : null;
 
   return (
     <div className="animate-fade-in">
@@ -80,7 +82,12 @@ export default function ProductPage() {
       )}
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,420px)_1fr] lg:gap-12">
-        {product.kind === "single" && product.imageUrl ? (
+        {slab ? (
+          // Only slabs of this card are owned: show it in its slab.
+          <HoloTilt radius="7% / 4.4%" foil={false} className="mx-auto aspect-[5/8] w-full max-w-[260px] animate-pop self-start sm:max-w-[340px] lg:sticky lg:top-10">
+            <ProductImage product={product} grade={slab} size="xl" priority className="h-full w-full" />
+          </HoloTilt>
+        ) : product.kind === "single" && product.imageUrl ? (
           // A bare card: no well or frame, just the card at its own proportions.
           <HoloTilt radius="4.5% / 3.2%" className="mx-auto aspect-[63/88] w-full max-w-[260px] animate-pop sm:max-w-[360px] self-start lg:sticky lg:top-10">
             <ProductImage product={product} size="xl" priority frame={false} className="h-full w-full rounded-[4.5%/3.2%] shadow-2xl shadow-black/50" />
@@ -107,6 +114,18 @@ export default function ProductPage() {
               {price?.market != null ? <AnimatedNumber key={productId} value={price.market} format={money} from={price.market * 0.85} /> : <span className="text-muted">No price</span>}
             </p>
             {product.kind === "sealed" && <PerPack product={product} price={price?.market ?? null} />}
+            {owned.some((h) => h.identity.grade) && (
+              <div className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] text-muted">
+                <span>Ungraded price.</span>
+                {owned
+                  .filter((h) => h.identity.grade && h.price !== null)
+                  .map((h) => (
+                    <span key={h.key} className="inline-flex items-center gap-1.5">
+                      Your <GradeChip grade={h.identity.grade!} /> <span className="tabular text-foreground">{money(h.price)}</span>
+                    </span>
+                  ))}
+              </div>
+            )}
             <div className="mt-3 flex flex-wrap items-center gap-2 text-[13px]">
               {(["24h", "7d", "30d"] as const).map((p) => {
                 const v = p === "24h" ? price?.change24hPct : p === "7d" ? price?.change7dPct : price?.change30dPct;
@@ -144,6 +163,12 @@ export default function ProductPage() {
           <Reveal delay={80}>
             <PriceHistory productId={productId} printing={printing} />
           </Reveal>
+
+          {product.kind === "single" && (
+            <Reveal>
+              <GradedPrices productId={productId} printing={printing} owned={owned.flatMap((h) => (h.identity.grade ? [h.identity.grade] : []))} />
+            </Reveal>
+          )}
 
           {owned.length > 0 && (
             <Reveal>
@@ -427,17 +452,28 @@ function Position({ holdings, realized }: { holdings: HoldingView[]; realized: n
 }
 
 function HoldingLine({ h }: { h: HoldingView }) {
-  const [dialog, setDialog] = useState<"sale" | "whatif" | "adjust" | "value" | null>(null);
+  const [dialog, setDialog] = useState<"sale" | "whatif" | "adjust" | "value" | "cert" | "grade" | null>(null);
+  const atGrader = useAtGrader().get(h.key) ?? 0;
+  const gradeable = !h.identity.grade && h.product?.kind === "single";
   return (
     <div className="flex items-center gap-3 py-3.5">
       <div className="min-w-0 flex-1">
-        <p className="text-[14px] font-medium">
-          {h.quantity} × {holdingLabel(h) ?? h.identity.condition}
+        <p className="flex flex-wrap items-center gap-2 text-[14px] font-medium">
+          {h.identity.grade ? (
+            <>
+              {h.quantity} × <GradeChip grade={h.identity.grade} />
+            </>
+          ) : (
+            <>
+              {h.quantity} × {holdingLabel(h) ?? h.identity.condition}
+            </>
+          )}
+          {atGrader > 0 && <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-muted">{atGrader} at the grader</span>}
         </p>
         <p className="tabular text-[12px] text-muted">
           {h.lots.length} open lot{h.lots.length === 1 ? "" : "s"} · avg {money(h.avgCost)}
-          {h.identity.grade && ` · valued ${money(h.price)} (manual)`}
         </p>
+        <SlabDetails h={h} onRevalue={() => setDialog("value")} onCert={() => setDialog("cert")} />
       </div>
       <MoveToPortfolio holdingKey={h.key} />
       <Delta value={h.unrealized} ratio={h.unrealizedPct} className="text-[13px]" />
@@ -451,13 +487,17 @@ function HoldingLine({ h }: { h: HoldingView }) {
           <DropdownMenuItem onSelect={() => setDialog("whatif")}>What if I sell?</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setDialog("sale")}>Record sale</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setDialog("adjust")}>Adjust quantity</DropdownMenuItem>
-          {h.identity.grade && <DropdownMenuItem onSelect={() => setDialog("value")}>Update valuation</DropdownMenuItem>}
+          {h.identity.grade && <DropdownMenuItem onSelect={() => setDialog("value")}>Set your own value</DropdownMenuItem>}
+          {h.identity.grade && <DropdownMenuItem onSelect={() => setDialog("cert")}>Cert number</DropdownMenuItem>}
+          {gradeable && <DropdownMenuItem onSelect={() => setDialog("grade")}>Send for grading</DropdownMenuItem>}
         </DropdownMenuContent>
       </DropdownMenu>
       <SellCalculatorDialog holding={h} open={dialog === "whatif"} onOpenChange={(o) => !o && setDialog(null)} />
       <SaleDialog holding={h} open={dialog === "sale"} onOpenChange={(o) => !o && setDialog(null)} />
       <AdjustDialog holding={h} open={dialog === "adjust"} onOpenChange={(o) => !o && setDialog(null)} />
       {h.identity.grade && <ManualValueDialog holding={h} open={dialog === "value"} onOpenChange={(o) => !o && setDialog(null)} />}
+      {h.identity.grade && <CertDialog holding={h} open={dialog === "cert"} onOpenChange={(o) => !o && setDialog(null)} />}
+      {gradeable && <SendToGraderDialog holding={h} open={dialog === "grade"} onOpenChange={(o) => !o && setDialog(null)} />}
     </div>
   );
 }

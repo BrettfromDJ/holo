@@ -3,7 +3,8 @@
 import { Layers, Package } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { categoryOf } from "@/lib/catalog";
-import type { Product } from "@/lib/types";
+import { slabStyle } from "@/lib/graded";
+import type { Grade, Product } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const HUES = [210, 265, 330, 20, 45, 160, 190, 290];
@@ -25,6 +26,7 @@ export function ProductImage({
   size = "md",
   priority,
   frame = true,
+  grade,
 }: {
   product:
     | Pick<Product, "name" | "imageUrl" | "kind" | "setName" | "productType">
@@ -34,6 +36,25 @@ export function ProductImage({
   priority?: boolean;
   /** False draws the image edge to edge with no well behind it (e.g. a bare card). */
   frame?: boolean;
+  /** A graded card is drawn inside a slab with its grading label. */
+  grade?: Grade | null;
+}) {
+  if (grade) return <Slab product={product} grade={grade} size={size} priority={priority} className={className} />;
+  return <ProductPhoto product={product} size={size} priority={priority} frame={frame} className={className} />;
+}
+
+function ProductPhoto({
+  product,
+  className,
+  size,
+  priority,
+  frame,
+}: {
+  product: Parameters<typeof ProductImage>[0]["product"];
+  className?: string;
+  size: NonNullable<Parameters<typeof ProductImage>[0]["size"]>;
+  priority?: boolean;
+  frame: boolean;
 }) {
   const [failed, setFailed] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -76,6 +97,48 @@ export function ProductImage({
       ) : (
         <Placeholder product={product} size={size} />
       )}
+    </div>
+  );
+}
+
+/** A grading slab: clear case, colored label with the company and grade, card inside. */
+function Slab({
+  product,
+  grade,
+  size,
+  priority,
+  className,
+}: {
+  product: Parameters<typeof ProductImage>[0]["product"];
+  grade: Grade;
+  size: NonNullable<Parameters<typeof ProductImage>[0]["size"]>;
+  priority?: boolean;
+  className?: string;
+}) {
+  const style = slabStyle(grade.company);
+  const tiny = size === "xs" || size === "sm";
+  const text = { xs: "", sm: "", md: "text-[10px]", lg: "text-[12px]", xl: "text-[15px]" }[size];
+  return (
+    <div className={cn("relative flex items-center justify-center", className)} role="img" aria-label={`${product?.name ?? "Card"}, ${grade.company} ${grade.grade}`}>
+      <div
+        className="flex aspect-[5/8] h-full max-w-full flex-col overflow-hidden rounded-[7%/4.4%] border border-white/15 p-[5%] shadow-[0_8px_24px_rgba(0,0,0,0.45)]"
+        style={{ background: "linear-gradient(160deg, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0.04) 45%, rgb(255 255 255 / 0.09))" }}
+      >
+        <div
+          className={cn("flex shrink-0 items-center justify-between rounded-[6%/30%] font-mono font-semibold leading-none", tiny ? "h-[13%]" : "h-[15%] px-[7%]", text)}
+          style={{ background: style.label, color: style.text, boxShadow: `inset 0 -2px 0 ${style.accent}55` }}
+        >
+          {!tiny && (
+            <>
+              <span>{grade.company}</span>
+              <span>{grade.grade}</span>
+            </>
+          )}
+        </div>
+        <div className="mt-[5%] min-h-0 flex-1">
+          <ProductPhoto product={product} size={size} priority={priority} frame={false} className="h-full w-full rounded-[4%]" />
+        </div>
+      </div>
     </div>
   );
 }

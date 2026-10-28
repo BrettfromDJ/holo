@@ -19,6 +19,7 @@ import {
   type Lot,
   type RealizedEntry,
 } from "./ledger";
+import { gradedPriceKey } from "../graded";
 import { PriceResolver, type ResolvedPrice } from "./prices";
 
 export type HoldingCategory = "sealed" | "single" | "graded";
@@ -75,9 +76,11 @@ export function computeHoldings(data: CollectionData, today: ISODate): HoldingVi
     const value = price === null ? null : price * quantity;
     const unrealized = value === null ? null : value - costBasis;
 
-    const np = data.prices[priceKey(pos.identity.productId, pos.identity.printing)];
+    const id = pos.identity;
+    const np = data.prices[id.grade ? gradedPriceKey(id.productId, id.printing, id.grade) : priceKey(id.productId, id.printing)];
+    const manual = resolved?.origin === "manual";
     let priceStatus: HoldingView["priceStatus"];
-    if (pos.identity.grade) priceStatus = resolved ? "manual" : "unavailable";
+    if (manual) priceStatus = "manual";
     else if (!resolved) priceStatus = "unavailable";
     else if (resolved.origin === "current" && np?.status === "live") priceStatus = "live";
     else priceStatus = "stale";
@@ -107,15 +110,15 @@ export function computeHoldings(data: CollectionData, today: ISODate): HoldingVi
       price,
       priceOrigin: resolved?.origin ?? null,
       priceStatus,
-      priceUpdatedAt: pos.identity.grade ? (resolved?.observedOn ?? null) : (np?.updatedAt ?? resolved?.observedOn ?? null),
+      priceUpdatedAt: manual ? (resolved?.observedOn ?? null) : (np?.updatedAt ?? resolved?.observedOn ?? null),
       value,
       unrealized,
       unrealizedPct: unrealized === null || costBasis <= 0 ? null : unrealized / costBasis,
       dayChange,
       dayChangePct,
       prevDayValue,
-      change7dPct: pos.identity.grade ? null : (np?.change7dPct ?? null),
-      change30dPct: pos.identity.grade ? null : (np?.change30dPct ?? null),
+      change7dPct: manual ? null : (np?.change7dPct ?? null),
+      change30dPct: manual ? null : (np?.change30dPct ?? null),
       firstAcquired: pos.firstAcquired,
       lastAcquired: pos.lastAcquired,
     });
