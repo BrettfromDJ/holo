@@ -3,7 +3,6 @@
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Delta } from "@/components/product/delta";
-import { AnimatedNumber } from "@/components/motion/animated-number";
 import { Reveal } from "@/components/motion/reveal";
 import { MoversBoard, RecentTimeline } from "@/components/overview/boards";
 import { BudgetCard } from "@/components/overview/budget-card";
@@ -11,7 +10,8 @@ import { PortfolioBanner, PortfolioSwitcher } from "@/components/portfolio/portf
 import { MarketPulse } from "@/components/overview/market-pulse";
 import { ReleaseReminders } from "@/components/overview/release-reminders";
 import { MetricStrip, Shelf, Spotlight } from "@/components/overview/sections";
-import { RecapButton, WeeklyRecap } from "@/components/overview/weekly-recap";
+import { HypeHeading, HypeHero } from "@/components/overview/hype-hero";
+import { WeeklyRecap } from "@/components/overview/weekly-recap";
 import { AllocationShowcase } from "@/components/portfolio/allocation-showcase";
 import { EmptyCollection } from "@/components/portfolio/empty-state";
 import { ErrorState } from "@/components/portfolio/error-state";
@@ -59,9 +59,7 @@ export default function OverviewPage() {
       <MarketPulse holdings={holdings} />
       <PortfolioSwitcher compact className="mb-4 lg:hidden" />
       <PortfolioBanner />
-      <div className="mb-8">
-        <RecapButton onClick={() => setRecapOpen(true)} />
-      </div>
+      <HypeHero holdings={holdings} summary={summary} onRecap={() => setRecapOpen(true)} />
       <WeeklyRecap open={recapOpen} onClose={() => setRecapOpen(false)} />
       <ReleaseReminders />
 
@@ -69,12 +67,16 @@ export default function OverviewPage() {
         timeline={timeline}
         header={(scrub) => (
           <div className="mb-3">
-            <div className="flex items-center gap-2">
-              <p className="text-[13px] font-medium text-muted">{scrub ? formatDate(scrub.date) : "Portfolio value"}</p>
-              {store.mode === "demo" && <Badge variant="sample">Sample data</Badge>}
-            </div>
-            <p className="tabular mt-1 text-[48px] font-semibold leading-none tracking-[-0.04em] sm:text-[64px]">
-              <AnimatedNumber value={scrub ? scrub.value : summary.marketValue} format={money} animate={!scrub} duration={1100} from={summary.marketValue * 0.9} />
+            <HypeHeading title="Performance" action={store.mode === "demo" ? <Badge variant="sample">Sample data</Badge> : undefined} />
+            {/* The hero already shows today's value; here it follows the scrubbed day. */}
+            <p className="tabular -mt-2 text-[13px] text-muted">
+              {scrub ? (
+                <>
+                  {formatDate(scrub.date)} · <span className="font-semibold text-foreground">{money(scrub.value)}</span>
+                </>
+              ) : (
+                "Drag across the chart to see any day"
+              )}
             </p>
           </div>
         )}
@@ -142,17 +144,7 @@ export default function OverviewPage() {
   );
 }
 
-function SectionHeading({ title, subtitle, action }: { title: string; subtitle?: string; action?: React.ReactNode }) {
-  return (
-    <div className="mb-4 flex items-end justify-between gap-4">
-      <div>
-        <h2 className="text-[20px] font-semibold tracking-[-0.01em]">{title}</h2>
-        {subtitle && <p className="mt-0.5 text-[13px] text-muted">{subtitle}</p>}
-      </div>
-      {action}
-    </div>
-  );
-}
+const SectionHeading = HypeHeading;
 
 function PriceFreshness() {
   const { mode, integrations, pricesRefreshedAt, refreshing, priceError, refreshPrices } = useStore();

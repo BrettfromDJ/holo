@@ -32,6 +32,7 @@
   --cat-1: #3987e5;
   --cat-2: #d95926;
   --cat-3: #199e70;
+  --lime: #d4ff3a;
   color-scheme: dark;
 }
 
@@ -57,6 +58,7 @@
   --cat-1: #2a78d6;
   --cat-2: #eb6834;
   --cat-3: #1baf7a;
+  --lime: #b5e000;
   color-scheme: light;
 }
 
@@ -83,6 +85,8 @@
   --color-cat-3: var(--cat-3);
   --font-sans: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
+  --font-display: var(--font-anton), Impact, "Arial Narrow", sans-serif;
+  --color-lime: var(--lime);
   --radius-card: 1.25rem;
   --ease-apple: cubic-bezier(0.32, 0.72, 0, 1);
 
@@ -423,6 +427,74 @@
   .shelf [data-shelf-item] {
     animation: shelf-sway 8s ease-in-out var(--drift-delay, 0s) infinite;
   }
+}
+
+/* Overview hype hero: lit grid, drifting glow, floating fanned cards, glowing CTA. */
+.hype-grid {
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--foreground) 6%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--foreground) 6%, transparent) 1px, transparent 1px);
+  background-size: 44px 44px;
+  -webkit-mask-image: radial-gradient(70% 70% at 50% 30%, black, transparent);
+  mask-image: radial-gradient(70% 70% at 50% 30%, black, transparent);
+  animation: hype-grid-pan 30s linear infinite;
+}
+@keyframes hype-grid-pan {
+  to { background-position: 44px 44px, 44px 44px; }
+}
+.hype-glow {
+  background:
+    radial-gradient(40% 50% at 35% 50%, color-mix(in srgb, var(--lime) 22%, transparent), transparent 70%),
+    radial-gradient(35% 45% at 68% 45%, rgb(236 72 153 / 0.18), transparent 70%);
+  filter: blur(20px);
+  animation: hype-glow-drift 12s ease-in-out infinite alternate;
+}
+@keyframes hype-glow-drift {
+  from { transform: translateX(-56%) scale(1); }
+  to { transform: translateX(-44%) scale(1.08); }
+}
+@property --bob { syntax: "<length>"; inherits: false; initial-value: 0px; }
+.hype-card {
+  transform: translateX(calc(-50% + var(--fx))) translateY(calc(var(--fy) + var(--bob))) rotate(var(--fr)) scale(var(--fs));
+  transform-origin: 50% 90%;
+  filter: drop-shadow(0 18px 26px rgb(0 0 0 / 0.55));
+  transition: transform 0.5s var(--ease-apple), filter 0.5s var(--ease-apple);
+  animation: hype-bob 5.5s ease-in-out infinite;
+}
+@media (min-width: 640px) {
+  .hype-card {
+    transform: translateX(calc(-50% + var(--fx-sm))) translateY(calc(var(--fy) + var(--bob))) rotate(var(--fr)) scale(var(--fs));
+  }
+}
+.hype-card:hover {
+  --bob: -14px;
+  animation-play-state: paused;
+  filter: drop-shadow(0 26px 34px rgb(0 0 0 / 0.6)) drop-shadow(0 0 22px color-mix(in srgb, var(--lime) 35%, transparent));
+  z-index: 10 !important;
+}
+@keyframes hype-bob {
+  0%, 100% { --bob: 0px; }
+  50% { --bob: -9px; }
+}
+.hype-cta {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--lime) 60%, white), 0 8px 30px color-mix(in srgb, var(--lime) 40%, transparent);
+  transition: transform 0.2s var(--ease-apple), box-shadow 0.3s var(--ease-apple), filter 0.2s;
+  animation: hype-pulse 2.8s ease-in-out infinite;
+}
+.hype-cta:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+.hype-cta:active {
+  transform: scale(0.98);
+}
+@keyframes hype-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px color-mix(in srgb, var(--lime) 60%, white), 0 8px 30px color-mix(in srgb, var(--lime) 35%, transparent); }
+  50% { box-shadow: 0 0 0 1px color-mix(in srgb, var(--lime) 60%, white), 0 8px 44px color-mix(in srgb, var(--lime) 60%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hype-grid, .hype-glow, .hype-card, .hype-cta { animation: none; }
+  .hype-glow { transform: translateX(-50%); }
 }
 
 /* Market pulse ticker */
