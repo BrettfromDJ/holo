@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Segmented } from "@/components/ui/segmented";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { ExploreProduct } from "@/lib/explore/types";
-import { money, pct, signedMoney } from "@/lib/format";
+import { money, pct } from "@/lib/format";
 import { usePortfolio } from "@/lib/store/collection-store";
 import { useSyncedState } from "@/lib/store/synced-state";
 import type { Product } from "@/lib/types";
@@ -105,6 +105,24 @@ export default function TradePage() {
     else update(side, [...trade[side], item]);
   };
 
+  const sides = (["give", "get"] as const).map((side) => (
+    <TradeMat
+      key={side}
+      side={side}
+      items={trade[side]}
+      total={side === "give" ? give : get}
+      rate={trade.rate[side]}
+      onRate={(r) => save({ ...trade, rate: { ...trade.rate, [side]: r } })}
+      onChange={(items) => update(side, items)}
+      onAdd={() => setPicking(side)}
+      onUseMarket={async (item) => {
+        const h = holdings.find((x) => `h:${x.key}` === item.key);
+        const latest = h ? h.price : await latestCatalogPrice(item).catch(() => undefined);
+        update(side, trade[side].map((i) => (i.key === item.key ? { ...i, custom: false, unit: latest === undefined ? i.unit : latest } : i)));
+      }}
+    />
+  ));
+
   return (
     <div className="animate-fade-in">
       <PageHeader
@@ -119,152 +137,224 @@ export default function TradePage() {
         }
       />
 
-      {/* Verdict */}
-      <section aria-live="polite" className="rounded-[var(--radius-card)] border border-border bg-surface p-5 sm:p-6">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-[12px] font-medium font-mono uppercase tracking-[0.06em] text-muted">{hasBoth ? "Verdict" : "Add items to both sides"}</p>
-            <p className="mt-2 text-[26px] font-semibold leading-tight tracking-[-0.02em] sm:text-[30px]">
-              {!hasBoth ? (
-                "—"
-              ) : even ? (
-                "Fair trade"
-              ) : diff > 0 ? (
-                <>
-                  You come out <span className="tabular text-up">{money(diff)}</span> ahead
-                </>
-              ) : (
-                <>
-                  You give up <span className="tabular text-down">{money(-diff)}</span> more
-                </>
-              )}
-            </p>
-            {hasBoth && (
-              <p className="tabular mt-1 text-[13px] text-muted">
-                {signedMoney(diff)} ({larger ? pct(diff / larger, 1) : "0%"}) · within {pct(FAIR, 0)} counts as even
-              </p>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_300px_minmax(0,1fr)] lg:items-start">
+        <div className="order-2 min-w-0 lg:order-1">{sides[0]}</div>
+
+        {/* The scale */}
+        <section aria-live="polite" className="order-1 flex flex-col items-center rounded-[var(--radius-card)] border border-border bg-surface px-5 pb-6 pt-5 text-center lg:order-2 lg:sticky lg:top-6">
+          <Scale give={give} get={get} />
+          <p className="mt-2 font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-subtle">{hasBoth ? "Verdict" : "Add items to both sides"}</p>
+          <p className="mt-2 text-balance text-[22px] font-semibold leading-tight tracking-[-0.02em]">
+            {!hasBoth ? (
+              "Load up the scale"
+            ) : even ? (
+              "Fair trade"
+            ) : diff > 0 ? (
+              <>
+                You come out <span className="tabular text-up">{money(diff)}</span> ahead
+              </>
+            ) : (
+              <>
+                You give up <span className="tabular text-down">{money(-diff)}</span> more
+              </>
             )}
-          </div>
-          <div className="tabular flex gap-6 text-right">
-            <div>
-              <p className="text-[12px] text-muted">You give</p>
-              <p className="text-[20px] font-semibold">{money(give)}</p>
-            </div>
-            <div>
-              <p className="text-[12px] text-muted">You get</p>
-              <p className="text-[20px] font-semibold">{money(get)}</p>
-            </div>
-          </div>
-        </div>
-        {/* Balance bar */}
-        <div className="mt-5 flex h-2.5 overflow-hidden rounded-full bg-surface-2" aria-hidden>
-          {larger > 0 && (
-            <>
-              <div className="h-full bg-[var(--cat-2)] transition-[flex-grow] duration-500" style={{ flexGrow: give }} />
-              <div className="w-[2px] bg-background" />
-              <div className="h-full bg-[var(--cat-1)] transition-[flex-grow] duration-500" style={{ flexGrow: get }} />
-            </>
+          </p>
+          {hasBoth ? (
+            <p className="tabular mt-2 text-[12px] text-muted">
+              {larger ? pct(Math.abs(diff) / larger, 1) : "0%"} apart · within {pct(FAIR, 0)} counts as even
+            </p>
+          ) : (
+            <p className="mt-2 text-[12px] text-muted">What you give on the left, what you get on the right.</p>
           )}
-        </div>
-      </section>
+        </section>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-2">
-        {(["give", "get"] as const).map((side) => (
-          <section key={side} className="min-w-0 rounded-[var(--radius-card)] border border-border bg-surface p-5 sm:p-6">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="flex items-center gap-2 text-[17px] font-semibold">
-                <span className="size-2.5 rounded-full" style={{ background: side === "give" ? "var(--cat-2)" : "var(--cat-1)" }} />
-                {side === "give" ? "You give" : "You get"}
-              </h2>
-              <Select value={String(trade.rate[side])} onValueChange={(v) => save({ ...trade, rate: { ...trade.rate, [side]: Number(v) } })}>
-                <SelectTrigger aria-label="Count at" className="h-8 w-[150px] text-[13px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent align="end">
-                  {RATES.map((r) => (
-                    <SelectItem key={r} value={String(r)}>
-                      {r === 1 ? "At market value" : `At ${pct(r, 0)} of market`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <ul className="mt-4 divide-y divide-border">
-              {trade[side].map((item) => (
-                <li key={item.key} className="flex items-center gap-3 py-3">
-                  <ProductImage product={item.product} size="xs" className="size-12 shrink-0 rounded-lg" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[14px] font-medium">{item.product.name}</p>
-                    <div className="mt-1 flex items-center gap-2">
-                      <div className="flex items-center rounded-full bg-surface-2">
-                        <button aria-label="Fewer" className="flex size-7 items-center justify-center text-muted hover:text-foreground disabled:opacity-30" disabled={item.qty <= 1} onClick={() => update(side, trade[side].map((i) => (i.key === item.key ? { ...i, qty: i.qty - 1 } : i)))}>
-                          <Minus className="size-3" />
-                        </button>
-                        <span className="tabular w-5 text-center text-[12px]">{item.qty}</span>
-                        <button
-                          aria-label="More"
-                          className="flex size-7 items-center justify-center text-muted hover:text-foreground disabled:opacity-30"
-                          disabled={item.maxQty !== undefined && item.qty >= item.maxQty}
-                          onClick={() => update(side, trade[side].map((i) => (i.key === item.key ? { ...i, qty: i.qty + 1 } : i)))}
-                        >
-                          <Plus className="size-3" />
-                        </button>
-                      </div>
-                      <label className="flex items-center gap-1 text-[12px] text-muted">
-                        ×
-                        <span className="relative">
-                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-subtle">$</span>
-                          <input
-                            inputMode="decimal"
-                            aria-label="Value each"
-                            value={item.unit ?? ""}
-                            placeholder="Value"
-                            onChange={(e) => {
-                              const v = e.target.value.replace(/[^0-9.]/g, "");
-                              update(side, trade[side].map((i) => (i.key === item.key ? { ...i, unit: v === "" ? null : Number(v), custom: true } : i)));
-                            }}
-                            className="tabular h-7 w-24 rounded-full bg-surface-2 pl-5 pr-2 text-[12px] text-foreground outline-none focus:bg-surface-3"
-                          />
-                        </span>
-                      </label>
-                      {item.custom && (
-                        <button
-                          className="text-[12px] text-subtle underline-offset-4 hover:text-foreground hover:underline"
-                          onClick={async () => {
-                            const h = holdings.find((x) => `h:${x.key}` === item.key);
-                            const latest = h ? h.price : await latestCatalogPrice(item).catch(() => undefined);
-                            update(side, trade[side].map((i) => (i.key === item.key ? { ...i, custom: false, unit: latest === undefined ? i.unit : latest } : i)));
-                          }}
-                        >
-                          Use market
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="tabular text-[14px] font-semibold">{item.unit === null ? <span className="text-subtle">—</span> : money(item.unit * item.qty)}</p>
-                    <button aria-label={`Remove ${item.product.name}`} className="mt-1 text-subtle hover:text-down" onClick={() => update(side, trade[side].filter((i) => i.key !== item.key))}>
-                      <Trash2 className="size-3.5" />
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-
-            <Button variant="secondary" className="mt-3 w-full" onClick={() => setPicking(side)}>
-              <Plus /> Add to “{side === "give" ? "You give" : "You get"}”
-            </Button>
-          </section>
-        ))}
+        <div className="order-3 min-w-0">{sides[1]}</div>
       </div>
 
       <p className="mt-5 flex items-center gap-2 text-[12px] text-subtle">
-        <ArrowLeftRight className="size-3.5" /> Uses Holo&apos;s latest saved prices, refreshed each time you open this page. Edit a value to use a price you agreed on.
+        <ArrowLeftRight className="size-3.5 shrink-0" /> Uses Holo&apos;s latest saved prices, refreshed each time you open this page. Edit a value to use a price you agreed on.
       </p>
 
       <PickerDialog side={picking} onClose={() => setPicking(null)} onPick={(item) => picking && add(picking, item)} />
     </div>
+  );
+}
+
+/* -------------------------------- Scale ---------------------------------- */
+
+/** A balance scale: the beam tips toward the side worth more. */
+function Scale({ give, get }: { give: number; get: number }) {
+  const larger = Math.max(give, get);
+  // Heavier side goes down; full tilt at a 40% difference.
+  const tilt = larger ? Math.max(-1, Math.min(1, (get - give) / larger / 0.4)) : 0;
+  const angle = tilt * 14;
+  const L = 92;
+  const rad = (angle * Math.PI) / 180;
+  const dx = L * Math.cos(rad);
+  const dy = L * Math.sin(rad);
+  const cx = 130;
+  const cy = 46;
+  const t = "transform 700ms cubic-bezier(0.32, 0.72, 0, 1)";
+  const pan = (x: number, y: number, label: string, weight: number) => (
+    <g style={{ transform: `translate(${x}px, ${y}px)`, transition: t }}>
+      <line x1={0} y1={0} x2={-26} y2={44} stroke="currentColor" strokeOpacity={0.35} strokeWidth={1} />
+      <line x1={0} y1={0} x2={26} y2={44} stroke="currentColor" strokeOpacity={0.35} strokeWidth={1} />
+      <path d="M-34 44 h68 a34 12 0 0 1 -68 0 Z" fill="currentColor" fillOpacity={weight > 0 ? 0.16 : 0.07} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1} />
+      <text x={0} y={76} textAnchor="middle" className="fill-[var(--subtle)] font-mono text-[9px] uppercase tracking-[0.08em]">
+        {label}
+      </text>
+    </g>
+  );
+  return (
+    <svg viewBox="0 0 260 150" className="w-full max-w-[280px] text-foreground" aria-hidden>
+      {/* Post and base */}
+      <path d={`M${cx} ${cy} L${cx} 128`} stroke="currentColor" strokeOpacity={0.5} strokeWidth={3} strokeLinecap="round" />
+      <path d={`M${cx - 34} 132 h68`} stroke="currentColor" strokeOpacity={0.5} strokeWidth={3} strokeLinecap="round" />
+      {pan(cx - dx, cy - dy, "Give", give)}
+      {pan(cx + dx, cy + dy, "Get", get)}
+      {/* Beam */}
+      <g style={{ transform: `rotate(${angle}deg)`, transformOrigin: `${cx}px ${cy}px`, transition: t }}>
+        <line x1={cx - L} y1={cy} x2={cx + L} y2={cy} stroke="currentColor" strokeWidth={3} strokeLinecap="round" />
+      </g>
+      <circle cx={cx} cy={cy} r={6} className="fill-[var(--surface)]" stroke="currentColor" strokeWidth={2.5} />
+    </svg>
+  );
+}
+
+/* --------------------------------- Mats ---------------------------------- */
+
+function TradeMat({
+  side,
+  items,
+  total,
+  rate,
+  onRate,
+  onChange,
+  onAdd,
+  onUseMarket,
+}: {
+  side: Side;
+  items: TradeItem[];
+  total: number;
+  rate: number;
+  onRate: (r: number) => void;
+  onChange: (items: TradeItem[]) => void;
+  onAdd: () => void;
+  onUseMarket: (item: TradeItem) => void;
+}) {
+  const label = side === "give" ? "You give" : "You get";
+  const fan = items.flatMap((i) => Array.from({ length: Math.min(i.qty, 3) }, () => i)).slice(0, 6);
+  const set = (key: string, patch: Partial<TradeItem>) => onChange(items.map((i) => (i.key === key ? { ...i, ...patch } : i)));
+  return (
+    <section className="min-w-0 overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface">
+      <div className="flex items-start justify-between gap-3 px-5 pt-5 sm:px-6">
+        <div>
+          <h2 className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-subtle">{label}</h2>
+          <p className="tabular mt-1 text-[26px] font-semibold leading-none tracking-[-0.02em]">{money(total)}</p>
+        </div>
+        <Select value={String(rate)} onValueChange={(v) => onRate(Number(v))}>
+          <SelectTrigger aria-label="Count at" className="h-8 w-[150px] text-[12px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent align="end">
+            {RATES.map((r) => (
+              <SelectItem key={r} value={String(r)}>
+                {r === 1 ? "At market value" : `At ${pct(r, 0)} of market`}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* The mat: items fanned out like a hand of cards. */}
+      <button
+        type="button"
+        onClick={onAdd}
+        className="group relative mx-5 mt-4 flex h-[168px] w-[calc(100%-2.5rem)] items-end justify-center overflow-hidden rounded-2xl sm:mx-6 sm:w-[calc(100%-3rem)]"
+        style={{ background: "radial-gradient(80% 90% at 50% 100%, color-mix(in srgb, var(--foreground) 7%, transparent), transparent), color-mix(in srgb, var(--background) 45%, var(--surface))" }}
+        aria-label={`Add to “${label}”`}
+      >
+        <span aria-hidden className="absolute inset-2 rounded-xl border border-dashed border-border-strong opacity-60 transition-opacity group-hover:opacity-100" />
+        {fan.length ? (
+          <span className="relative mb-4 flex h-[136px] items-end justify-center">
+            {fan.map((item, i) => {
+              const mid = (fan.length - 1) / 2;
+              return (
+                <span
+                  key={`${item.key}-${i}`}
+                  className="relative -mx-4 block h-[124px] w-[89px] origin-bottom transition-transform duration-500 ease-[var(--ease-apple)] group-hover:-translate-y-1"
+                  style={{ transform: `rotate(${(i - mid) * 7}deg) translateY(${Math.abs(i - mid) * 5}px)`, zIndex: i }}
+                >
+                  <ProductImage product={item.product} size="sm" frame={item.product.kind !== "single"} className="h-full w-full rounded-lg shadow-[0_10px_24px_rgba(0,0,0,0.5)]" />
+                </span>
+              );
+            })}
+          </span>
+        ) : (
+          <span className="relative mb-auto mt-auto flex flex-col items-center gap-2 text-muted transition-colors group-hover:text-foreground">
+            <span className="flex size-10 items-center justify-center rounded-full bg-surface-2 ring-1 ring-border">
+              <Plus className="size-4" />
+            </span>
+            <span className="text-[13px] font-medium">{side === "give" ? "Add what you're giving" : "Add what you're getting"}</span>
+          </span>
+        )}
+      </button>
+
+      {items.length > 0 && (
+        <ul className="mt-2 divide-y divide-border px-5 sm:px-6">
+          {items.map((item) => (
+            <li key={item.key} className="flex items-center gap-3 py-3">
+              <ProductImage product={item.product} size="xs" className="size-10 shrink-0 rounded-lg" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13px] font-medium">{item.product.name}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <div className="flex items-center rounded-full bg-surface-2">
+                    <button aria-label="Fewer" className="flex size-6 items-center justify-center text-muted hover:text-foreground disabled:opacity-30" disabled={item.qty <= 1} onClick={() => set(item.key, { qty: item.qty - 1 })}>
+                      <Minus className="size-3" />
+                    </button>
+                    <span className="tabular w-5 text-center text-[12px]">{item.qty}</span>
+                    <button aria-label="More" className="flex size-6 items-center justify-center text-muted hover:text-foreground disabled:opacity-30" disabled={item.maxQty !== undefined && item.qty >= item.maxQty} onClick={() => set(item.key, { qty: item.qty + 1 })}>
+                      <Plus className="size-3" />
+                    </button>
+                  </div>
+                  <span className="relative">
+                    <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[12px] text-subtle">$</span>
+                    <input
+                      inputMode="decimal"
+                      aria-label="Value each"
+                      value={item.unit ?? ""}
+                      placeholder="Value"
+                      onChange={(e) => {
+                        const v = e.target.value.replace(/[^0-9.]/g, "");
+                        set(item.key, { unit: v === "" ? null : Number(v), custom: true });
+                      }}
+                      className="tabular h-6 w-20 rounded-full bg-surface-2 pl-5 pr-2 text-[12px] text-foreground outline-none focus:bg-surface-3"
+                    />
+                  </span>
+                  {item.custom && (
+                    <button className="text-[11px] text-subtle underline-offset-4 hover:text-foreground hover:underline" onClick={() => onUseMarket(item)}>
+                      Use market
+                    </button>
+                  )}
+                </div>
+              </div>
+              <p className="tabular shrink-0 text-[14px] font-semibold">{item.unit === null ? <span className="text-subtle">—</span> : money(item.unit * item.qty)}</p>
+              <button aria-label={`Remove ${item.product.name}`} className="shrink-0 text-subtle hover:text-foreground" onClick={() => onChange(items.filter((i) => i.key !== item.key))}>
+                <Trash2 className="size-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="px-5 pb-5 pt-2 sm:px-6 sm:pb-6">
+        {items.length > 0 && (
+          <Button variant="secondary" className="w-full" onClick={onAdd}>
+            <Plus /> Add more
+          </Button>
+        )}
+      </div>
+    </section>
   );
 }
 
