@@ -93,11 +93,16 @@ export function AllocationShowcase({
                 className="flex min-w-0 items-center overflow-hidden px-2.5 transition-[flex-grow] duration-700 ease-[var(--ease-apple)]"
                 style={{
                   flexGrow: g.share,
-                  background: CATEGORY_META[g.category].color,
+                  // A faint tint of the category color; the number carries the color.
+                  background: `color-mix(in srgb, ${CATEGORY_META[g.category].color} 20%, transparent)`,
                 }}
               >
                 {g.share >= 0.12 && (
-                  <span className="tabular truncate text-[12px] font-semibold text-white/95">
+                  <span
+                    className="tabular truncate text-[12px] font-semibold"
+                    // Mixed toward the text color so it reads clearly in both themes.
+                    style={{ color: `color-mix(in srgb, ${CATEGORY_META[g.category].color} 70%, var(--foreground))` }}
+                  >
                     {pct(g.share, 0)}
                   </span>
                 )}
