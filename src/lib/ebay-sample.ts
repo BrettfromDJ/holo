@@ -36,12 +36,21 @@ function statsOf(sales: EbaySale[]): EbayStats {
   return { median: median(sales.map((s) => s.price)), count: sales.length, lastPrice: sales[0]?.price ?? null, lastSold: sales[0]?.soldDate ?? null };
 }
 
+/** Conditions sold, weighted toward Near Mint, with each one's share of the market price. */
 const CONDITIONS: [string, number][] = [
+  ["Mint", 1.08],
+  ["Near Mint", 1],
+  ["Near Mint", 1],
+  ["Near Mint", 1],
+  ["Near Mint", 1],
   ["Near Mint", 1],
   ["Near Mint", 1],
   ["Near Mint", 1],
   ["Lightly Played", 0.82],
+  ["Lightly Played", 0.82],
   ["Moderately Played", 0.66],
+  ["Heavily Played", 0.5],
+  ["Damaged", 0.35],
 ];
 
 /**

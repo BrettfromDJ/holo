@@ -191,7 +191,7 @@ export function EbaySales({
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[13px] text-foreground/85 group-hover:text-foreground">{s.title}</span>
                       <span className="mt-0.5 flex flex-wrap gap-1.5 text-[11px] text-muted">
-                        {s.condition && <span className="whitespace-nowrap rounded-full bg-surface-2 px-1.5">{s.condition}</span>}
+                        {s.condition && <ConditionTag condition={s.condition} />}
                         {s.bestOffer && <span className="whitespace-nowrap rounded-full bg-surface-2 px-1.5">Best offer</span>}
                         {s.bestOffer && s.listPrice !== null && <span className="tabular whitespace-nowrap">listed {money(s.listPrice)}</span>}
                       </span>
@@ -224,6 +224,29 @@ function EbayLogo({ className }: { className?: string }) {
       <span className="text-[#0064d2]">b</span>
       <span className="text-[#f5af02]">a</span>
       <span className="text-[#86b817]">y</span>
+    </span>
+  );
+}
+
+/** One hue per condition, best to worst; also matches the usual abbreviations. */
+const CONDITION_HUES: [RegExp, string][] = [
+  [/^(gem )?mint$|^m$/i, "#3ee8c5"],
+  [/near mint|^nm/i, "#8be04e"],
+  [/lightly played|^lp$|excellent/i, "#5aa9ff"],
+  [/moderately played|^mp$|very good/i, "#ffc53d"],
+  [/heavily played|^hp$|^good$|poor/i, "#ff8a3d"],
+  [/damaged|^dmg$/i, "#ff4d6d"],
+];
+
+function ConditionTag({ condition }: { condition: string }) {
+  const hue = CONDITION_HUES.find(([re]) => re.test(condition.trim()))?.[1];
+  return (
+    <span
+      className="whitespace-nowrap rounded-full bg-surface-2 px-1.5 font-medium"
+      // Tinted pill with matching text; the text leans toward the foreground so it stays readable in light mode.
+      style={hue ? { background: `color-mix(in srgb, ${hue} 16%, transparent)`, color: `color-mix(in srgb, ${hue} 82%, var(--foreground))` } : undefined}
+    >
+      {condition}
     </span>
   );
 }
