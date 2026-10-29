@@ -134,7 +134,7 @@ function MoverColumn({ title, rows, up, max, daily, inView }: { title: string; r
 export function RecentTimeline({ holdings }: { holdings: HoldingView[] }) {
   const [ref, inView] = useInView<HTMLOListElement>();
   return (
-    <div className="tint tint-blue hype-surface min-w-0 rounded-[var(--radius-card)] bg-surface p-6 sm:p-7">
+    <div className="tint tint-blue tint-borderless hype-surface min-w-0 rounded-[var(--radius-card)] bg-surface p-6 sm:p-7">
       <div className="mb-5 flex items-center justify-between">
         <h2 className="flex items-center gap-2.5 font-display text-[24px] uppercase leading-none tracking-[0.01em] sm:text-[28px]">
           <span aria-hidden className="h-[0.7em] w-1.5 rounded-full bg-lime shadow-[0_0_12px_var(--lime)]" />
