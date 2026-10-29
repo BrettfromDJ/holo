@@ -156,8 +156,9 @@ export default function ProductPage() {
             </p>
           </div>
 
-          <div className="mt-6 flex flex-wrap gap-1.5 sm:gap-2 max-sm:[&_button.size-10]:size-9 max-sm:[&_a.size-10]:size-9">
-            <Button variant="primary" onClick={() => store.openAdd({ productId })}>
+          <div className="mt-6 flex flex-wrap items-center gap-1.5 sm:gap-2 max-sm:[&_button.size-10]:size-9 max-sm:[&_a.size-10]:size-9">
+            {/* Same height as the round buttons beside it (they shrink a size on phones). */}
+            <Button variant="primary" className="max-sm:h-9" onClick={() => store.openAdd({ productId })}>
               <Plus /> {owned.length ? "Add more" : "Add to collection"}
             </Button>
             {owned.length > 0 && <SaleButton holdings={owned} />}
@@ -166,7 +167,7 @@ export default function ProductPage() {
             <ShelfMenu productId={productId} compact />
             {product.tcgplayerUrl && (
               <Hint content="View on TCGplayer">
-                <Button variant="ghost" size="icon" asChild>
+                <Button variant="secondary" size="icon" asChild>
                   <a href={product.tcgplayerUrl} target="_blank" rel="noreferrer" aria-label="View on TCGplayer">
                     <ExternalLink />
                   </a>
