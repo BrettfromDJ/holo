@@ -237,8 +237,9 @@ function Collection() {
         </div>
 
         <div
-          className="scrollbar-none -mx-1 mt-3 flex gap-1.5 overflow-x-auto px-1 pr-8"
-          // Fades at the right edge so it's clear the row scrolls.
+          className="scrollbar-none -mx-3 mt-1 -mb-2 flex gap-1.5 overflow-x-auto px-3 py-2 pr-8"
+          // Fades at the right edge so it's clear the row scrolls. The padding (offset by negative
+          // margins) leaves room for the active chip's glow, which the scroll box would otherwise clip.
           style={{ maskImage: "linear-gradient(90deg, black calc(100% - 40px), transparent)", WebkitMaskImage: "linear-gradient(90deg, black calc(100% - 40px), transparent)" }}
         >
           {KINDS.map((k) => (

@@ -1,6 +1,5 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- images come from arbitrary pricing-source CDNs */
-import { Layers, Package } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { categoryOf } from "@/lib/catalog";
 import { isFoilCard } from "@/components/motion/holo-tilt";
@@ -9,14 +8,6 @@ import { gradeDescriptor, slabStyle } from "@/lib/graded";
 import { useSlabBumpers, useSlabCerts } from "@/lib/store/grading";
 import type { Grade, Product } from "@/lib/types";
 import { cn } from "@/lib/utils";
-
-const HUES = [210, 265, 330, 20, 45, 160, 190, 290];
-
-function hueFor(text: string) {
-  let h = 0;
-  for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) >>> 0;
-  return HUES[h % HUES.length];
-}
 
 /**
  * Product photography in a neutral "well". When a product has no image (or
@@ -300,6 +291,7 @@ function Slab({
   );
 }
 
+/** No image: a plain card outline in lime, with the type and set underneath at larger sizes. */
 function Placeholder({
   product,
   size,
@@ -308,8 +300,6 @@ function Placeholder({
   size: string;
 }) {
   const name = product?.name ?? "Product";
-  const hue = hueFor(product?.setName ?? name);
-  const sealed = product?.kind === "sealed";
   const label = product
     ? categoryOf({
         name,
@@ -317,54 +307,25 @@ function Placeholder({
         kind: product.kind,
       })
     : "";
-  const Icon = sealed ? Package : Layers;
-  const tint = `hsl(${hue} 30% 60%)`;
+  const card = (
+    <span
+      aria-hidden
+      className="block aspect-[63/88] rounded-[9%/6.5%] border-[1.5px] border-[var(--lime)] bg-[color-mix(in_srgb,var(--lime)_10%,transparent)] shadow-[0_0_14px_-4px_var(--lime)]"
+    />
+  );
   if (size === "xs" || size === "sm") {
     return (
-      <div
-        className="flex h-full w-full items-center justify-center"
-        role="img"
-        aria-label={`${name} (no image available)`}
-      >
-        <Icon
-          className="size-[42%] max-h-6 max-w-6 opacity-80"
-          style={{ color: tint }}
-          strokeWidth={1.5}
-        />
+      <div className="flex h-full w-full items-center justify-center" role="img" aria-label={`${name} (no image available)`}>
+        <span className="h-[62%] max-h-9 [&>span]:h-full">{card}</span>
       </div>
     );
   }
   return (
-    <div
-      className="flex h-full w-full flex-col items-center justify-center gap-[6%] p-[12%]"
-      role="img"
-      aria-label={`${name} (no image available)`}
-    >
-      <div
-        className={cn(
-          "flex items-center justify-center border",
-          sealed
-            ? "aspect-[4/3] w-[62%] rounded-[12%]"
-            : "aspect-[63/88] w-[46%] rounded-[8%]",
-        )}
-        style={{
-          borderColor: `hsl(${hue} 20% 50% / 0.35)`,
-          background: `hsl(${hue} 25% 50% / 0.06)`,
-        }}
-      >
-        <Icon
-          className="size-[30%] opacity-70"
-          style={{ color: tint }}
-          strokeWidth={1.25}
-        />
-      </div>
+    <div className="flex h-full w-full flex-col items-center justify-center gap-[6%] p-[12%]" role="img" aria-label={`${name} (no image available)`}>
+      <span className="w-[40%]">{card}</span>
       <div className="max-w-full text-center">
-        <p className="truncate text-[10px] font-medium font-mono uppercase tracking-[0.06em] text-subtle">
-          {label}
-        </p>
-        <p className="mt-0.5 truncate text-[11px] text-muted">
-          {product?.setName ?? name}
-        </p>
+        <p className="truncate text-[10px] font-medium font-mono uppercase tracking-[0.06em] text-subtle">{label}</p>
+        <p className="mt-0.5 truncate text-[11px] text-muted">{product?.setName ?? name}</p>
       </div>
     </div>
   );
