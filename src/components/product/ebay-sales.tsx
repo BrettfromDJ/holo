@@ -72,6 +72,24 @@ function useEbay(productId: string, printing: string | null, active: boolean) {
   return load;
 }
 
+/**
+ * A card's eBay sales: made up on the device in sample mode (nothing fetched),
+ * otherwise loaded from TCG API once `active` (e.g. on screen).
+ */
+export function useEbayData(productId: string, printing: string | null, opts: { name?: string; market?: number | null; active: boolean }) {
+  const { data: store, today } = useStore();
+  const sampleMode = EBAY_SOURCE === "sample";
+  const { name, market, active } = opts;
+  const sample = useMemo(() => {
+    if (!sampleMode) return null;
+    const raw = market !== undefined ? market : (store.prices[priceKey(productId, printing)]?.market ?? null);
+    return sampleEbaySales(productId, name ?? store.products[productId]?.name ?? "Card", printing, raw, today);
+  }, [sampleMode, market, name, productId, printing, store.prices, store.products, today]);
+  const fetched = useEbay(productId, printing, active && !sampleMode);
+  const load: Load = sampleMode ? { state: "ready", data: sample } : fetched;
+  return { load, sampleMode };
+}
+
 const UNGRADED = "Ungraded";
 
 /**
@@ -98,16 +116,7 @@ export function EbaySales({
   market?: number | null;
 }) {
   const [ref, inView] = useInView<HTMLDivElement>("0px 0px 200px 0px");
-  const { data: store, today } = useStore();
-  const sampleMode = EBAY_SOURCE === "sample";
-  const sample = useMemo(() => {
-    if (!sampleMode) return null;
-    const raw = market !== undefined ? market : (store.prices[priceKey(productId, printing)]?.market ?? null);
-    return sampleEbaySales(productId, name ?? store.products[productId]?.name ?? "Card", printing, raw, today);
-  }, [sampleMode, market, name, productId, printing, store.prices, store.products, today]);
-  // Until TCG API Pro is connected, sales are made up here and nothing is fetched.
-  const fetched = useEbay(productId, printing, inView && !sampleMode);
-  const load: Load = sampleMode ? { state: "ready", data: sample } : fetched;
+  const { load, sampleMode } = useEbayData(productId, printing, { name, market, active: inView });
   const data = load.state === "ready" ? load.data : null;
   const labels = useMemo(() => (data ? Object.entries(data.graded).sort((a, b) => b[1].count - a[1].count).map(([l]) => l) : []), [data]);
   const preferred = grade ? `${grade.company} ${grade.grade}` : null;
@@ -238,8 +247,13 @@ const CONDITION_HUES: [RegExp, string][] = [
   [/damaged|^dmg$/i, "#ff4d6d"],
 ];
 
+/** The hue for a condition label or abbreviation, if it's one we know. */
+export function conditionHue(condition: string) {
+  return CONDITION_HUES.find(([re]) => re.test(condition.trim()))?.[1];
+}
+
 function ConditionTag({ condition }: { condition: string }) {
-  const hue = CONDITION_HUES.find(([re]) => re.test(condition.trim()))?.[1];
+  const hue = conditionHue(condition);
   return (
     <span
       className="whitespace-nowrap rounded-full bg-surface-2 px-1.5 font-medium"

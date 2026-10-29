@@ -3,7 +3,7 @@
 import { useHeroTarget } from "@/lib/motion/hero";
 import { Hint } from "@/components/ui/tooltip";
 import { WishButton } from "@/components/wishlist/wish-items";
-import { BumperButton, CertDialog, GradeChip, GradedPrices, SendToGraderDialog, SlabCard, useAtGrader } from "@/components/grading/grading-items";
+import { BumperButton, CertDialog, GradeChip, SendToGraderDialog, SlabCard, useAtGrader } from "@/components/grading/grading-items";
 import { Calculator, Check, ChevronDown, ChevronLeft, ExternalLink, Eye, EyeOff, Layers, Loader2, MoreHorizontal, Package, Plus, Tag } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, SectionTitle } from "@/components/ui/card";
 import { EbaySales } from "@/components/product/ebay-sales";
+import { WhatsItWorth } from "@/components/product/whats-it-worth";
 import { EBAY_SOURCE } from "@/lib/ebay-sample";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Segmented } from "@/components/ui/segmented";
@@ -184,9 +185,10 @@ export default function ProductPage() {
             </Reveal>
           )}
 
+          {/* What's it worth in any condition or grade; the full graded table opens from inside it. */}
           {product.kind === "single" && (
             <Reveal>
-              <GradedPrices productId={productId} printing={printing} owned={owned.flatMap((h) => (h.identity.grade ? [h.identity.grade] : []))} />
+              <WhatsItWorth productId={productId} printing={printing} name={product.name} nm={price?.market ?? null} owned={owned} />
             </Reveal>
           )}
 
