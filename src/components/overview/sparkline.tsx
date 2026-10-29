@@ -1,15 +1,20 @@
 import { useId } from "react";
 
-/** Tiny trend line for tiles. No axes, no interaction — just the shape. */
-export function Sparkline({ values, tone, className, height = 48 }: { values: number[]; tone: "up" | "down" | "flat"; className?: string; height?: number }) {
+/**
+ * Tiny trend line for tiles. No axes, no interaction — just the shape.
+ * `reference` draws a dashed level (such as what you paid) and is kept in range.
+ */
+export function Sparkline({ values, tone, reference, className, height = 48 }: { values: number[]; tone: "up" | "down" | "flat"; reference?: number | null; className?: string; height?: number }) {
   const gid = useId().replace(/[^a-zA-Z0-9]/g, "");
   if (values.length < 2) return null;
   const w = 200;
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  const all = reference != null ? [...values, reference] : values;
+  const min = Math.min(...all);
+  const max = Math.max(...all);
   const span = max - min || 1;
-  const pts = values.map((v, i) => [(i / (values.length - 1)) * w, height - 3 - ((v - min) / span) * (height - 6)] as const);
-  const line = pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const y = (v: number) => height - 3 - ((v - min) / span) * (height - 6);
+  const pts = values.map((v, i) => [(i / (values.length - 1)) * w, y(v)] as const);
+  const line = pts.map(([x, py], i) => `${i ? "L" : "M"}${x.toFixed(1)},${py.toFixed(1)}`).join(" ");
   const color = tone === "down" ? "var(--down)" : tone === "up" ? "var(--up)" : "var(--muted)";
   return (
     <svg viewBox={`0 0 ${w} ${height}`} preserveAspectRatio="none" className={className} style={{ height }} aria-hidden>
@@ -20,7 +25,11 @@ export function Sparkline({ values, tone, className, height = 48 }: { values: nu
         </linearGradient>
       </defs>
       <path d={`${line} L${w},${height} L0,${height} Z`} fill={`url(#sp-${gid})`} className="animate-fade-in" />
-      <path d={line} pathLength={1} fill="none" stroke={color} strokeWidth={2} vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" strokeDasharray={1} className="animate-draw" />
+      {reference != null && (
+        <line x1={0} x2={w} y1={y(reference)} y2={y(reference)} stroke="var(--muted)" strokeOpacity={0.7} strokeWidth={1} strokeDasharray="3 4" vectorEffect="non-scaling-stroke" />
+      )}
+      {/* Revealed left to right with a clip; a dash-based draw breaks once the SVG is stretched. */}
+      <path d={line} fill="none" stroke={color} strokeWidth={2} vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" className="animate-sweep" />
     </svg>
   );
 }

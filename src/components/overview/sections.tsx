@@ -187,7 +187,7 @@ export function Spotlight({ holdings }: { holdings: HoldingView[] }) {
 
       {mover && <MiniTile h={mover} icon={Flame} label="Biggest move today" value={mover.dayChange} ratio={mover.dayChangePct} />}
       {laggard ? (
-        <MiniTile h={laggard} icon={TrendingDown} label="Below what you paid" value={laggard.unrealized} ratio={laggard.unrealizedPct} />
+        <MiniTile h={laggard} icon={TrendingDown} label="Below what you paid" value={laggard.unrealized} ratio={laggard.unrealizedPct} paidLine />
       ) : (
         <div className="tint tint-lime hype-surface flex flex-col justify-center rounded-[var(--radius-card)] p-5">
           <TileLabel icon={TrendingDown} className="text-muted">
@@ -209,7 +209,7 @@ function StarStat({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function MiniTile({ h, icon: Icon, label, value, ratio }: { h: HoldingView; icon: React.ElementType; label: string; value: number | null; ratio: number | null }) {
+function MiniTile({ h, icon: Icon, label, value, ratio, paidLine }: { h: HoldingView; icon: React.ElementType; label: string; value: number | null; ratio: number | null; paidLine?: boolean }) {
   const series = useSeries(h, 30);
   const up = (value ?? 0) >= 0;
   return (
@@ -229,7 +229,10 @@ function MiniTile({ h, icon: Icon, label, value, ratio }: { h: HoldingView; icon
           </p>
         </div>
       </div>
-      {series.length > 2 && <Sparkline values={series} tone={tone(series[series.length - 1] - series[0])} className="-mx-5 -mb-5 mt-auto w-[calc(100%+2.5rem)] pt-4" height={44} />}
+      {/* Colored by what the tile measures, not the 30-day trend, so a loss never reads as a gain. */}
+      {series.length > 2 && (
+        <Sparkline values={series} tone={up ? "up" : "down"} reference={paidLine ? h.costBasis / h.quantity : null} className="-mx-5 -mb-5 mt-auto w-[calc(100%+2.5rem)] pt-4" height={44} />
+      )}
     </Link>
   );
 }
