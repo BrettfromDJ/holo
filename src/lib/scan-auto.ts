@@ -45,6 +45,10 @@ export const AUTO = {
   edge: 14,
   /** Share of a border's length that must be a clear edge. */
   line: 0.35,
+  /** Edge strength inside the card that its art and text always reach. */
+  detail: 10,
+  /** How much busier inside the card must be than around it. */
+  ratio: 1.4,
   /** Card width over height, as seen in the guide; slabs are narrower, so the range is wide. */
   aspect: [0.5, 0.95] as const,
   /** The rectangle must cover at least this much of the guide's height. */
@@ -107,6 +111,24 @@ export interface CardRead {
   aspect: number | null;
   /** How clearly each border shows (0–1): left, right, top, bottom. */
   borders: [number, number, number, number];
+  /** Mean edge strength inside the rectangle (a card's art and text), and how many times busier that is than around it. */
+  detail: number;
+  ratio: number;
+}
+
+/** Mean |gradient| over pixels inside (or outside) a box, and how many pixels that covered. */
+function detailIn(f: GrayFrame, box: { l: number; r: number; t: number; b: number }, inside: boolean) {
+  let s = 0;
+  let n = 0;
+  for (let y = 1; y < f.h - 1; y++) {
+    for (let x = 1; x < f.w - 1; x++) {
+      const isIn = x > box.l && x < box.r && y > box.t && y < box.b;
+      if (isIn !== inside) continue;
+      s += Math.abs(at(f, x + 1, y) - at(f, x - 1, y)) + Math.abs(at(f, x, y + 1) - at(f, x, y - 1));
+      n++;
+    }
+  }
+  return { mean: n ? s / n : 0, n };
 }
 
 /**
@@ -156,12 +178,23 @@ export function findCard(f: GrayFrame): CardRead {
   const edges = borders.every((v) => v >= AUTO.line);
   const aspect = b.at > t.at ? (r.at - l.at) / (b.at - t.at) : null;
   const shaped = aspect !== null && aspect >= AUTO.aspect[0] && aspect <= AUTO.aspect[1] && (b.at - t.at) / f.h >= AUTO.minSpan;
-  return { found: edges && shaped, aspect, borders };
+  // A card is busy inside (art, text) compared with what it sits on. Floor tiles,
+  // planks and tabletops make rectangles too, but they look the same inside and out.
+  const iw = (r.at - l.at) * 0.15;
+  const ih = (b.at - t.at) * 0.12;
+  const detail = detailIn(f, { l: l.at + iw, r: r.at - iw, t: t.at + ih, b: b.at - ih }, true).mean;
+  const around = detailIn(f, { l: l.at - 2, r: r.at + 2, t: t.at - 2, b: b.at + 2 }, false);
+  // With hardly anything outside the "card" (a texture that's lines everywhere), there's nothing to compare: not a card.
+  const ratio = around.n < f.w * f.h * 0.04 ? 1 : detail / Math.max(around.mean, 1);
+  const busy = detail >= AUTO.detail && ratio >= AUTO.ratio;
+  return { found: edges && shaped && busy, aspect, borders, detail, ratio };
 }
 
 export interface AutoDebug {
   borders: [number, number, number, number];
   aspect: number | null;
+  detail: number;
+  ratio: number;
   motion: number;
   sharp: number;
 }
@@ -172,7 +205,7 @@ export function autoStep(state: AutoState, frame: GrayFrame, now: number): { sta
   const motion = state.prev ? meanDiff(state.prev, view) : 255;
   const read = findCard(frame);
   const sharp = sharpness(frame);
-  const debug: AutoDebug = { borders: read.borders, aspect: read.aspect, motion, sharp };
+  const debug: AutoDebug = { borders: read.borders, aspect: read.aspect, detail: read.detail, ratio: read.ratio, motion, sharp };
   const next: AutoState = { ...state, prev: view };
   const out = (hint: AutoHint, progress = 0, patch: Partial<AutoState> = { streak: 0 }, fire = false) => ({ state: { ...next, ...patch }, fire, progress, hint, debug });
 

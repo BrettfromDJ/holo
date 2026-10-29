@@ -39,6 +39,17 @@ describe("scan auto-capture", () => {
     expect(findCard(frame({ x: 4, y: 30, w: 68, h: 40 })).found).toBe(false);
   });
 
+  it("ignores floor tiles, planks and other rectangles that aren't busy inside", () => {
+    // Tile grout: a card-sized rectangle of lines on a plain floor.
+    const tiles = frame(null);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if ([8, 9, 67, 68].includes(x) || [10, 11, 95, 96].includes(y)) tiles.data[y * W + x] = 200;
+    expect(findCard(tiles).found).toBe(false);
+    // Wood grain everywhere, with plank seams in the same place.
+    const wood = frame(null);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) wood.data[y * W + x] = [8, 67].includes(x) || [10, 96].includes(y) ? 20 : 70 + ((x * 3 + Math.floor(y / 2) * 5) % 4) * 9;
+    expect(findCard(wood).found).toBe(false);
+  });
+
   it("takes one photo once the card has been still for a moment", () => {
     const { fired } = run(Array.from({ length: 12 }, () => frame(card)));
     expect(fired).toEqual([AUTO.settle]);

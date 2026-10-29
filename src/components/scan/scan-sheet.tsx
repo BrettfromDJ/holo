@@ -220,7 +220,7 @@ export function ScanSheet({
         if (tick++ % 3 === 0) setDebug(r.debug);
         if (r.fire) captureRef.current();
       } catch (err) {
-        setDebug((d) => ({ ...(d ?? { borders: [0, 0, 0, 0], aspect: null, motion: 0, sharp: 0 }), error: (err as Error).message }));
+        setDebug((d) => ({ ...(d ?? { borders: [0, 0, 0, 0], aspect: null, detail: 0, ratio: 0, motion: 0, sharp: 0 }), error: (err as Error).message }));
       }
     }, 100);
     return () => {
@@ -325,7 +325,7 @@ export function ScanSheet({
                 <span className="tabular mt-0.5 block font-mono text-[10px] font-normal text-white/75">
                   {debug.error
                     ? `error: ${debug.error}`
-                    : `edges ${debug.borders.map((b) => b.toFixed(2)).join(" ")} · shape ${debug.aspect?.toFixed(2) ?? "–"} · move ${debug.motion.toFixed(1)} · sharp ${debug.sharp.toFixed(1)}`}
+                    : `edges ${debug.borders.map((b) => b.toFixed(2)).join(" ")} · shape ${debug.aspect?.toFixed(2) ?? "–"} · detail ${debug.detail.toFixed(0)}×${debug.ratio.toFixed(1)} · move ${debug.motion.toFixed(1)} · sharp ${debug.sharp.toFixed(1)}`}
                 </span>
               )}
             </button>
