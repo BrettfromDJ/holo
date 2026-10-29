@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { daysBetween } from "@/lib/finance/dates";
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { formatDate, money } from "@/lib/format";
+import { cachedEbay } from "@/lib/ebay-client";
 import { certLookupUrl, gradeDescriptor, gradedSampleFor, gradedLadder, gradeLabel, GRADERS, isStaleValue, liquidityLabel, liquidityNote, liquidityOf, sampleSalesPerYear } from "@/lib/graded";
 import { useStore } from "@/lib/store/collection-store";
 import { useGradingCosts, useGradingSubmissions, useSlabBumpers, useSlabCerts, type GradingSubmission } from "@/lib/store/grading";
@@ -77,7 +78,7 @@ export function GradedPrices({ productId, printing, owned }: { productId: string
               {money(r.price)}
               {ownedLabels.has(gradeLabel(r.grade)) && <span className="ml-1.5 text-[11px] font-normal text-muted">yours</span>}
             </span>
-            <SalesCell perYear={sampleSalesPerYear(productId, r.grade, raw)} />
+            <SalesCell perYear={salesPerYear(productId, printing, r.grade, raw!)} />
             <span className="tabular hidden text-right font-mono text-[12px] text-muted sm:block">{multipleLabel(r.multiple)}</span>
           </li>
         ))}
@@ -122,7 +123,7 @@ export function SlabCard({ h, actions, onRevalue, onCert, showBumper = true }: {
   const cert = certs[h.key];
   const manual = h.priceOrigin === "manual";
   const stale = manual && isStaleValue(h.priceUpdatedAt, today);
-  const sales = raw !== null ? sampleSalesPerYear(h.identity.productId, grade, raw) : null;
+  const sales = raw !== null ? salesPerYear(h.identity.productId, h.identity.printing, grade, raw) : null;
 
   return (
     <div className="flex gap-4 sm:gap-5">
@@ -494,4 +495,13 @@ export function formatSent(s: GradingSubmission, today: string) {
 export function slabSourceLabel(h: HoldingView) {
   if (gradedSampleFor(h.identity.productId)) return "Graded market · sample";
   return h.price === null ? "No recent eBay sales · set your value" : "eBay sold median";
+}
+
+/**
+ * How many of a grade sell a year: from the card's recent eBay sales (30 days,
+ * scaled to a year) when this device has them, else the sample estimate.
+ */
+function salesPerYear(productId: string, printing: string | null, grade: Grade, raw: number) {
+  const e = gradedSampleFor(productId) ? null : cachedEbay(productId, printing)?.value;
+  return e ? (e.graded[gradeLabel(grade)]?.count ?? 0) * 12 : sampleSalesPerYear(productId, grade, raw);
 }

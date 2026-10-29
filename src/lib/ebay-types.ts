@@ -40,3 +40,23 @@ export interface EbaySales {
   /** Days of the 30-day window the stored ungraded sales cover (30 = complete). */
   days: number | null;
 }
+
+/** A card's eBay summary without the listings (from the bulk endpoint). */
+export interface EbaySummary {
+  printing: string | null;
+  ungraded: EbayStats;
+  graded: Record<string, EbayStats>;
+  asOf: string;
+}
+
+/** A TCGplayer price for one condition, from live listings. */
+export interface ConditionPrice {
+  printing: string | null;
+  condition: string;
+  /** Median of sampled listing prices with shipping when there are 3+, else the lowest listing. */
+  price: number | null;
+  /** Which of the two `price` is. */
+  basis: "median" | "lowest";
+  samples: number;
+  updatedAt: string | null;
+}

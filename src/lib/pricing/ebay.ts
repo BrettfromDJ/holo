@@ -1,5 +1,5 @@
 import "server-only";
-import type { EbaySale, EbaySales, EbayStats } from "../ebay-types";
+import type { EbaySale, EbaySales, EbayStats, EbaySummary } from "../ebay-types";
 import { cached } from "./cache";
 import { PricingUnavailableError } from "./types";
 
@@ -53,5 +53,39 @@ export async function ebaySales(externalId: string, printing: string | null): Pr
       asOf: e.as_of,
       days: e.days ?? null,
     };
+  });
+}
+
+/**
+ * eBay summaries (no listings) for many cards in one call: GET /v1/bulk/prices
+ * with include=ebay, up to 500 cards a call, 1 credit plus 1 per card with
+ * eBay data. Keyed by card id; each card's rows are per printing.
+ */
+export async function ebaySummaries(externalIds: string[]): Promise<Record<string, EbaySummary[]>> {
+  const key = process.env.TCGAPI_KEY;
+  if (!key) throw new PricingUnavailableError("TCG API key is not configured.", "not_configured");
+  const ids = [...new Set(externalIds)].sort();
+  return cached(`ebay-bulk:${ids.join(",")}`, TTL, async () => {
+    const out: Record<string, EbaySummary[]> = {};
+    for (let i = 0; i < ids.length; i += 500) {
+      const url = new URL(`${BASE}/bulk/prices`);
+      url.searchParams.set("ids", ids.slice(i, i + 500).join(","));
+      url.searchParams.set("include", "ebay");
+      const res = await fetch(url, { headers: { "X-API-Key": key, Accept: "application/json", "User-Agent": "holo-collection-tracker" }, signal: AbortSignal.timeout(30_000) });
+      if (res.status === 403) throw new PricingUnavailableError("eBay data needs TCG API's Pro plan.", "tier");
+      if (res.status === 429) throw new PricingUnavailableError("TCG API's daily limit has been reached.", "rate_limited", Number(res.headers.get("retry-after")) || undefined);
+      if (!res.ok) throw new PricingUnavailableError("Couldn't load eBay data.", "upstream");
+      const body = (await res.json()) as { data?: { card_id: number; printing: string | null; ebay?: RawSummary | null }[] };
+      for (const row of body.data ?? []) {
+        if (!row.ebay) continue;
+        (out[String(row.card_id)] ??= []).push({
+          printing: row.printing ?? null,
+          ungraded: stats(row.ebay),
+          graded: Object.fromEntries(Object.entries(row.ebay.graded ?? {}).map(([k, v]) => [k, stats(v)])),
+          asOf: row.ebay.as_of,
+        });
+      }
+    }
+    return out;
   });
 }

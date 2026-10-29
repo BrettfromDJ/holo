@@ -12,6 +12,12 @@ describe("what's it worth", () => {
     expect(rawWorth(100, "DMG", null).price).toBe(35);
   });
 
+  it("uses TCGplayer's price for a condition first", () => {
+    const rows = [{ printing: "Holofoil", condition: "Lightly Played", price: 91.5, basis: "median" as const, samples: 6, updatedAt: null }];
+    expect(rawWorth(100, "LP", null, rows, "Holofoil")).toMatchObject({ price: 91.5, source: "market", detail: "TCGplayer Lightly Played listings · median of 6" });
+    expect(rawWorth(100, "MP", null, rows, "Holofoil").source).toBe("estimate");
+  });
+
   it("prefers real condition sales when there are enough", () => {
     const e = ebay({ sales: [sale(70, "Lightly Played"), sale(80, "Lightly Played"), sale(90, "Lightly Played")] });
     expect(rawWorth(100, "LP", e)).toMatchObject({ price: 80, source: "sales", sold: 3 });

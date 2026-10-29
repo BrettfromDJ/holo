@@ -1,10 +1,12 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { GradedPrices } from "@/components/grading/grading-items";
 import { Badge } from "@/components/ui/badge";
 import { Segmented } from "@/components/ui/segmented";
+import { loadConditions } from "@/lib/ebay-client";
+import type { ConditionPrice } from "@/lib/ebay-types";
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { money, signedMoney } from "@/lib/format";
 import { useGradingCosts } from "@/lib/store/grading";
@@ -33,13 +35,25 @@ export function WhatsItWorth({ productId, printing, name, nm, owned }: { product
   const { costs } = useGradingCosts();
   const { load, sampleMode } = useEbayData(productId, printing, { name, market: nm, active: true });
   const ebay = load.state === "ready" ? load.data : null;
+  // TCGplayer prices per condition, for real cards (Pro plan).
+  const [conditions, setConditions] = useState<ConditionPrice[] | null>(null);
+  useEffect(() => {
+    if (sampleMode || !productId.startsWith("tcgapi:")) return;
+    let cancelled = false;
+    loadConditions(productId, printing)
+      .then((rows) => !cancelled && setConditions(rows))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [productId, printing, sampleMode]);
 
   const grades = gradesFor(company);
   const gradeNow = grades.includes(grade) ? grade : "10";
   const worth: Worth | null = useMemo(() => {
     if (nm === null) return null;
-    return mode === "raw" ? rawWorth(nm, condition, ebay) : gradedWorth(productId, nm, { company, grade: gradeNow }, ebay, null, sampleMode);
-  }, [nm, mode, condition, ebay, productId, company, gradeNow, sampleMode]);
+    return mode === "raw" ? rawWorth(nm, condition, ebay, conditions, printing) : gradedWorth(productId, nm, { company, grade: gradeNow }, ebay, null, sampleMode);
+  }, [nm, mode, condition, ebay, productId, company, gradeNow, sampleMode, conditions, printing]);
   const gem = nm === null ? null : gradedWorth(productId, nm, { company: "PSA", grade: "10" }, ebay, null, sampleMode);
 
   if (nm === null || !worth) return null;

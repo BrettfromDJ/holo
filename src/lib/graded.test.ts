@@ -68,6 +68,14 @@ describe("graded prices", () => {
     expect(gradedLadder("p1", 100).length).toBeGreaterThan(3);
   });
 
+  it("uses eBay PSA 10 and 9 sales when the card has them", () => {
+    const o = gradingOutlook("tcgapi:1", 100, { fee: 25, shipping: 10 }, { psa10: 640, psa9: 210, psa10Count: 3 });
+    expect(o).toMatchObject({ psa10: 640, psa9: 210, psa10Sales: 36, source: "sales", upside10: 505 });
+    // A PSA 9 that hasn't sold falls back to the curve, and the outlook says it's an estimate.
+    expect(gradingOutlook("tcgapi:1", 100, { fee: 25, shipping: 10 }, { psa10: 640, psa9: null, psa10Count: 3 }).source).toBe("estimate");
+    expect(gradingOutlook("sample:p1", 100, { fee: 25, shipping: 10 }).source).toBe("sample");
+  });
+
   it("weighs grading costs", () => {
     const o = gradingOutlook("p1", 100, { fee: 25, shipping: 10 });
     expect(o.upside10).toBeCloseTo(o.psa10 - 135);

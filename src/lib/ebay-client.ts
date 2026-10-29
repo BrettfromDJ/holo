@@ -1,4 +1,4 @@
-import type { EbaySales } from "./ebay-types";
+import type { ConditionPrice, EbaySales, EbaySummary } from "./ebay-types";
 
 /**
  * Loads a card's eBay sales from the app's route (which caches upstream for
@@ -66,4 +66,67 @@ export function loadEbay(productId: string, printing: string | null): Promise<Eb
     .finally(() => inflight.delete(key));
   inflight.set(key, p);
   return p;
+}
+
+/* ------------------------- Summaries and conditions ------------------------ */
+
+function readStored<T>(key: string): T | undefined {
+  try {
+    const raw = localStorage.getItem(key);
+    const v = raw ? (JSON.parse(raw) as { at: number; value: T }) : null;
+    return v && Date.now() - v.at < TTL ? v.value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function store<T>(key: string, value: T) {
+  try {
+    localStorage.setItem(key, JSON.stringify({ at: Date.now(), value }));
+  } catch {
+    /* storage full or unavailable */
+  }
+}
+
+/**
+ * eBay summaries (no listings) for many cards, one bulk request for the ones
+ * not already on this device. Cards without eBay data come back as [].
+ */
+export async function loadSummaries(productIds: string[]): Promise<Record<string, EbaySummary[]>> {
+  const out: Record<string, EbaySummary[]> = {};
+  const missing: string[] = [];
+  for (const id of new Set(productIds)) {
+    const hit = readStored<EbaySummary[]>(`holo:ebaysum:${id}`);
+    if (hit) out[id] = hit;
+    else missing.push(id);
+  }
+  if (missing.length) {
+    const r = await fetch(`/api/tcg/ebay?ids=${encodeURIComponent(missing.sort().join(","))}`);
+    const body = await r.json().catch(() => null);
+    if (!r.ok) throw new EbayLoadError(body?.error?.message ?? "Couldn't load eBay data.", body?.error?.code === "tier");
+    for (const id of missing) {
+      out[id] = (body?.ebay?.[id] ?? []) as EbaySummary[];
+      store(`holo:ebaysum:${id}`, out[id]);
+    }
+  }
+  return out;
+}
+
+/** TCGplayer prices per condition for a card, from this device or the server. */
+export async function loadConditions(productId: string, printing: string | null): Promise<ConditionPrice[]> {
+  const key = `holo:conditions:${productId}:${printing ?? ""}`;
+  const hit = readStored<ConditionPrice[]>(key);
+  if (hit) return hit;
+  const r = await fetch(`/api/tcg/products/${encodeURIComponent(productId)}/conditions${printing ? `?printing=${encodeURIComponent(printing)}` : ""}`);
+  const body = await r.json().catch(() => null);
+  if (!r.ok) throw new EbayLoadError(body?.error?.message ?? "Couldn't load condition prices.", body?.error?.code === "tier");
+  const value = (body?.conditions ?? []) as ConditionPrice[];
+  store(key, value);
+  return value;
+}
+
+/** A summary's row for a printing, else the first one. */
+export function summaryFor(rows: EbaySummary[] | undefined, printing: string | null): EbaySummary | null {
+  if (!rows?.length) return null;
+  return rows.find((r) => r.printing === printing) ?? rows[0];
 }

@@ -14,6 +14,7 @@ import {
 } from "tcgapi";
 import { inferKind } from "../catalog";
 import { parseQuery, rankByQuery } from "../search-query";
+import type { ConditionPrice } from "../ebay-types";
 import type { NormalizedPrice, PriceStatus, Product, ProductKind } from "../types";
 import { cached } from "./cache";
 import {
@@ -333,6 +334,25 @@ export async function bulkPrices(externalIds: string[]): Promise<NormalizedPrice
     if (err instanceof PricingUnavailableError && err.code === "tier") return null;
     throw err;
   }
+}
+
+/**
+ * TCGplayer prices per condition from live listings (Pro+): one row per
+ * printing and condition. Cached 12 hours; TCG API refreshes rows older than
+ * a day within its own quota.
+ */
+export async function conditionPrices(externalId: string, printing: string | null): Promise<ConditionPrice[]> {
+  return cached(`conditions:${externalId}:${printing ?? ""}`, 12 * HOUR, async () => {
+    const res = await call((c) => c.cards.conditions(Number(externalId), printing ? { printing } : {}));
+    return res.data.map((r) => ({
+      printing: r.printing ?? null,
+      condition: r.condition,
+      price: r.median_with_shipping ?? r.low_price,
+      basis: r.median_with_shipping !== null ? ("median" as const) : ("lowest" as const),
+      samples: r.sample_count,
+      updatedAt: r.last_updated_at ?? null,
+    }));
+  });
 }
 
 /* ------------------------- Explore catalog sync -------------------------- */

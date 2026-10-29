@@ -93,6 +93,10 @@ Photos go to TCG API's `POST /v1/identify` (one prepaid scan each, separate from
 
 Slabs are valued from the same data (`GRADED_SOURCE = "ebay"` in `src/lib/graded.ts`): each slab gets the 30-day median for its exact grade (else the last sale), with history following the raw card's trend scaled to that price. A grade with no recent sales stays unpriced so you can set your own value. Scans ask for `include=ebay`, so a scanned slab is priced at its label's grade. The full graded price table and "What's it worth?" fall back to the typical grade curve, always labeled as an estimate, until a price guide like PriceCharting is connected.
 
+Worth grading (`/grading`) asks for eBay summaries for every real card on the page in one call (`GET /api/tcg/ebay?ids=…`, backed by `GET /v1/bulk/prices?include=ebay`: 1 credit plus 1 per card with sales, up to 500 cards), so its PSA 10 and PSA 9 figures and the "sells steadily / hard to sell" labels come from real sales. A grade with no sales falls back to the curve and is marked "≈ estimated".
+
+"What's it worth?" prices played conditions from TCGplayer's per-condition listings (`/api/tcg/products/:id/conditions`, `GET /v1/cards/:id/prices/conditions`): the listing median when there are 3+ listings, else the lowest one. Without those it uses eBay sales in that condition, then a labeled share of Near Mint. Both new routes are cached for 12 hours like the rest.
+
 ### Daily sync (`/api/cron/sync-prices`)
 
 1. Collects products owned or watched by any user.

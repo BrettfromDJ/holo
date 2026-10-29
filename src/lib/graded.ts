@@ -224,16 +224,42 @@ export interface GradingOutlook {
   psa10Sales: number;
   /** Upside at a 10, discounted when PSA 10s rarely sell. Used for ranking. */
   score: number;
+  /** Where the PSA prices came from: eBay sales, the usual grade curve on a real card, or demo sample data. */
+  source: "sales" | "estimate" | "sample";
 }
 
-/** What grading a raw card with PSA would likely be worth. */
-export function gradingOutlook(productId: string, raw: number, costs: GradingCosts): GradingOutlook {
+/** Recent eBay figures for a card's PSA 10 and PSA 9 (30-day medians and sales). */
+export interface GradedSales {
+  psa10: number | null;
+  psa9: number | null;
+  /** PSA 10 sales in the last 30 days. */
+  psa10Count: number;
+}
+
+/**
+ * What grading a raw card with PSA would likely be worth. With `sales`, the
+ * PSA 10 and 9 prices and sales pace come from eBay; a grade that hasn't sold
+ * falls back to the usual grade curve and the outlook is marked an estimate.
+ */
+export function gradingOutlook(productId: string, raw: number, costs: GradingCosts, sales?: GradedSales | null): GradingOutlook {
   const cost = costs.fee + costs.shipping;
-  const psa10 = round(raw * sampleMultiple(productId, { company: "PSA", grade: "10" }));
-  const psa9 = round(raw * sampleMultiple(productId, { company: "PSA", grade: "9" }));
-  const psa10Sales = sampleSalesPerYear(productId, { company: "PSA", grade: "10" }, raw);
+  const curve10 = round(raw * sampleMultiple(productId, { company: "PSA", grade: "10" }));
+  const curve9 = round(raw * sampleMultiple(productId, { company: "PSA", grade: "9" }));
+  const psa10 = sales?.psa10 ?? curve10;
+  const psa9 = sales?.psa9 ?? curve9;
+  // Sales pace: from eBay (30 days, scaled to a year) when known, else the sample estimate.
+  const psa10Sales = sales ? sales.psa10Count * 12 : sampleSalesPerYear(productId, { company: "PSA", grade: "10" }, raw);
   const upside10 = psa10 - raw - cost;
-  return { raw, cost, psa10, psa9, upside10, upside9: psa9 - raw - cost, psa10Sales, score: upside10 * LIQUIDITY_WEIGHT[liquidityOf(psa10Sales)] };
+  const source = !sales ? (gradedSampleFor(productId) ? "sample" : "estimate") : sales.psa10 !== null && sales.psa9 !== null ? "sales" : "estimate";
+  return { raw, cost, psa10, psa9, upside10, upside9: psa9 - raw - cost, psa10Sales, score: upside10 * LIQUIDITY_WEIGHT[liquidityOf(psa10Sales)], source };
+}
+
+/** A card's PSA 10 and 9 figures from its eBay summary. */
+export function gradedSalesFrom(summary: { graded: Record<string, { median: number | null; count: number; lastPrice: number | null }> } | null): GradedSales | null {
+  if (!summary) return null;
+  const g10 = summary.graded["PSA 10"];
+  const g9 = summary.graded["PSA 9"];
+  return { psa10: g10?.median ?? g10?.lastPrice ?? null, psa9: g9?.median ?? g9?.lastPrice ?? null, psa10Count: g10?.count ?? 0 };
 }
 
 /* ------------------------------ Sales volume ------------------------------ */

@@ -3,6 +3,8 @@
 import { MoreHorizontal, Send } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { loadSummaries, summaryFor } from "@/lib/ebay-client";
+import type { EbaySummary } from "@/lib/ebay-types";
 import { toast } from "sonner";
 import { Field, MoneyInput, parseMoney } from "@/components/flows/fields";
 import { FormShell } from "@/components/flows/transaction-dialogs";
@@ -22,7 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { daysBetween } from "@/lib/finance/dates";
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { formatDate, money, signedMoney } from "@/lib/format";
-import { gradedSampleFor, gradingOutlook, isStaleValue, liquidityLabel, liquidityOf, sampleSalesPerYear } from "@/lib/graded";
+import { gradedSalesFrom, gradedSampleFor, gradeLabel, gradingOutlook, isStaleValue, liquidityLabel, liquidityOf, sampleSalesPerYear } from "@/lib/graded";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
 import { useGradingCosts, useGradingSubmissions, type GradingSubmission } from "@/lib/store/grading";
 import { holdingKey, priceKey } from "@/lib/types";
@@ -42,15 +44,36 @@ export default function GradingPage() {
   const [showAll, setShowAll] = useState(false);
 
   const slabs = useMemo(() => holdings.filter((h) => h.identity.grade).sort((a, b) => (b.value ?? 0) - (a.value ?? 0)), [holdings]);
+
+  // Real cards (raw candidates and slabs) get eBay figures in one bulk request.
+  const realIds = useMemo(
+    () => [...new Set(holdings.filter((h) => h.product?.kind === "single" && !gradedSampleFor(h.identity.productId)).map((h) => h.identity.productId))].sort(),
+    [holdings],
+  );
+  const [summaries, setSummaries] = useState<Record<string, EbaySummary[]>>({});
+  useEffect(() => {
+    if (!realIds.length) return;
+    let cancelled = false;
+    loadSummaries(realIds)
+      .then((m) => !cancelled && setSummaries(m))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [realIds]);
+  const summaryOf = (h: HoldingView) => (gradedSampleFor(h.identity.productId) ? null : summaryFor(summaries[h.identity.productId], h.identity.printing));
+
   const candidates = useMemo(() => {
     const out: { h: HoldingView; outlook: ReturnType<typeof gradingOutlook> }[] = [];
     for (const h of holdings) {
       if (h.identity.grade || h.product?.kind !== "single" || h.price === null || h.price < MIN_RAW) continue;
-      out.push({ h, outlook: gradingOutlook(h.identity.productId, h.price, costs) });
+      const loaded = h.identity.productId in summaries;
+      const sales = loaded ? gradedSalesFrom(summaryFor(summaries[h.identity.productId], h.identity.printing)) ?? { psa10: null, psa9: null, psa10Count: 0 } : null;
+      out.push({ h, outlook: gradingOutlook(h.identity.productId, h.price, costs, gradedSampleFor(h.identity.productId) ? null : sales) });
     }
     // Ranked by upside, discounted when PSA 10s of the card rarely sell.
     return out.filter((c) => c.outlook.upside10 > 0).sort((a, b) => b.outlook.score - a.outlook.score);
-  }, [holdings, costs]);
+  }, [holdings, costs, summaries]);
 
   if (store.status === "loading") return <Skeleton className="h-[600px] w-full rounded-3xl" />;
   if (store.status === "error") return <ErrorState message={store.error} />;
@@ -164,7 +187,7 @@ export default function GradingPage() {
         {slabs.length ? (
           <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
             {slabs.map((h) => (
-              <SlabTile key={h.key} h={h} today={store.today} />
+              <SlabTile key={h.key} h={h} today={store.today} summary={summaryOf(h)} />
             ))}
           </div>
         ) : (
@@ -229,10 +252,14 @@ function CandidateRow({ h, outlook, away }: { h: HoldingView; outlook: ReturnTyp
           {h.product?.name ?? "Card"}
         </Link>
         <p className="tabular truncate text-[12px] text-muted">
-          Raw {money(outlook.raw)} · PSA 10 {money(outlook.psa10)} · PSA 9 {money(outlook.psa9)}
+          Raw {money(outlook.raw)} · PSA 10 {outlook.source === "estimate" ? "≈" : ""}
+          {money(outlook.psa10)} · PSA 9 {outlook.source === "estimate" ? "≈" : ""}
+          {money(outlook.psa9)}
         </p>
         <p className={cn("text-[11px]", liquidityOf(outlook.psa10Sales) === "rare" ? "text-subtle" : "text-muted")}>
           PSA 10s: {liquidityLabel(outlook.psa10Sales).toLowerCase()}
+          {outlook.source === "sales" && " · eBay"}
+          {outlook.source === "estimate" && " · estimated, few recent sales"}
         </p>
       </div>
       <div className="shrink-0 text-right">
@@ -255,7 +282,7 @@ function CandidateRow({ h, outlook, away }: { h: HoldingView; outlook: ReturnTyp
   );
 }
 
-function SlabTile({ h, today }: { h: HoldingView; today: string }) {
+function SlabTile({ h, today, summary }: { h: HoldingView; today: string; summary: EbaySummary | null }) {
   const { data } = useStore();
   const raw = data.prices[priceKey(h.identity.productId, h.identity.printing)]?.market ?? null;
   const manual = h.priceOrigin === "manual";
@@ -273,7 +300,7 @@ function SlabTile({ h, today }: { h: HoldingView; today: string }) {
       </p>
       {raw !== null && h.identity.grade && (
         <p className="text-[11px] text-subtle">
-          {liquidityLabel(sampleSalesPerYear(h.identity.productId, h.identity.grade, raw))}
+          {liquidityLabel(summary ? (summary.graded[gradeLabel(h.identity.grade)]?.count ?? 0) * 12 : sampleSalesPerYear(h.identity.productId, h.identity.grade, raw))}
         </p>
       )}
     </Link>

@@ -1,4 +1,4 @@
-import type { EbaySales } from "./ebay-types";
+import type { ConditionPrice, EbaySales } from "./ebay-types";
 import { sampleMultiple } from "./graded";
 import type { Grade } from "./types";
 
@@ -51,9 +51,19 @@ const round = (n: number) => Math.round(n * 100) / 100;
 /** A median needs at least this many sales to stand on its own. */
 const MIN_SALES = 2;
 
-export function rawWorth(nm: number, condition: RawCondition, ebay: EbaySales | null): Worth {
+/**
+ * A raw copy's worth. Near Mint is the market price; other conditions use
+ * TCGplayer's price for that condition, then eBay sales in it, then a share
+ * of Near Mint.
+ */
+export function rawWorth(nm: number, condition: RawCondition, ebay: EbaySales | null, conditions?: ConditionPrice[] | null, printing?: string | null): Worth {
   const c = RAW_CONDITIONS.find((x) => x.id === condition)!;
   if (condition === "NM") return { price: nm, source: "market", detail: "TCGplayer market price, Near Mint", sold: null };
+  const rows = (conditions ?? []).filter((r) => r.condition === c.label && r.price !== null);
+  const listed = rows.find((r) => r.printing === (printing ?? null)) ?? rows[0];
+  if (listed?.price != null) {
+    return { price: round(listed.price), source: "market", detail: listed.basis === "median" ? `TCGplayer ${c.label} listings · median of ${listed.samples}` : `Lowest TCGplayer ${c.label} listing`, sold: null };
+  }
   const sales = (ebay?.sales ?? []).filter((s) => s.grade === null && s.condition === c.label).map((s) => s.price);
   if (sales.length >= MIN_SALES + 1) {
     const sorted = [...sales].sort((a, b) => a - b);
