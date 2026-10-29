@@ -158,11 +158,11 @@ function Collection() {
       />
       {kind !== "watchlist" && (
         // What's in view right now: value first, then the gain (only its numbers colored) and the count.
-        // Like the product page's price: the same display face as the title, but half again its size so it clearly leads.
+        // Like the product page's price: the same display face as the title, but much larger so it clearly leads.
         <dl className="mb-6 grid grid-cols-2 items-end gap-x-8 gap-y-4 sm:flex">
           <div className="col-span-2">
             <dt className="font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-subtle">Value</dt>
-            <dd className="tabular mt-1.5 font-display text-[64px] leading-[0.95] sm:text-[84px]">{money(totals.value)}</dd>
+            <dd className="tabular mt-1.5 font-display text-[56px] leading-[0.95] sm:text-[68px]">{money(totals.value)}</dd>
           </div>
           <div>
             <dt className="font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-subtle">Gain</dt>
