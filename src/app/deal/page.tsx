@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DealPicker, type DealItem, type DealSide } from "@/components/deal/deal-picker";
 import { ScanSheet, type ScanOutcome, type ScanPick } from "@/components/scan/scan-sheet";
+import { EbaySales } from "@/components/product/ebay-sales";
 import { ProductImage } from "@/components/product/product-image";
 import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
@@ -70,6 +71,7 @@ export default function DealPage() {
   const [closing, setClosing] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [scanning, setScanning] = useState<DealSide | null>(null);
+  const [ebayItem, setEbayItem] = useState<DealItem | null>(null);
 
   const byKey = useMemo(() => new Map(holdings.map((h) => [h.key, h])), [holdings]);
   const kind = dealKind(deal.in.length, deal.out.length);
@@ -178,6 +180,7 @@ export default function DealPage() {
           onChange={(items) => update("in", items)}
           onAdd={() => setPicking("in")}
           onScan={() => setScanning("in")}
+          onEbay={setEbayItem}
         />
         <SideCard
           side="out"
@@ -190,6 +193,7 @@ export default function DealPage() {
           onChange={(items) => update("out", items)}
           onAdd={() => setPicking("out")}
           onScan={() => setScanning("out")}
+          onEbay={setEbayItem}
         />
       </div>
 
@@ -217,6 +221,17 @@ export default function DealPage() {
         description={scanning === "out" ? "Each card you scan from your stock joins the deal." : "Each card you scan joins the deal at the current rate."}
         onPick={(pick) => addScan(scanning ?? "in", pick)}
       />
+      <Dialog open={ebayItem !== null} onOpenChange={(o) => !o && setEbayItem(null)}>
+        <DialogContent className="sm:max-w-[560px]">
+          <DialogHeader>
+            <DialogTitle className="truncate pr-6">{ebayItem?.product.name}</DialogTitle>
+            <DialogDescription>What it&apos;s actually selling for.</DialogDescription>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
+            {ebayItem && <EbaySales bare productId={ebayItem.product.id} printing={ebayItem.printing ?? null} grade={ebayItem.grade ?? (ebayItem.holdingKey ? byKey.get(ebayItem.holdingKey)?.identity.grade : null) ?? null} />}
+          </div>
+        </DialogContent>
+      </Dialog>
       <HistoryDialog open={historyOpen} onOpenChange={setHistoryOpen} deals={log} />
       <CustomerView open={customer} onOpenChange={setCustomer} deal={deal} rate={rate} totals={totals} />
     </div>
@@ -292,6 +307,7 @@ function SideCard({
   onChange,
   onAdd,
   onScan,
+  onEbay,
 }: {
   side: DealSide;
   items: DealItem[];
@@ -303,6 +319,7 @@ function SideCard({
   onChange: (items: DealItem[]) => void;
   onAdd: () => void;
   onScan: () => void;
+  onEbay: (item: DealItem) => void;
 }) {
   const set = (key: string, patch: Partial<DealItem>) => onChange(items.map((i) => (i.key === key ? { ...i, ...patch } : i)));
   const Icon = side === "in" ? ArrowDownLeft : ArrowUpRight;
@@ -362,6 +379,14 @@ function SideCard({
                 <p className="tabular mt-0.5 text-[12px] text-muted">
                   Market {money(item.market)}
                   {item.grade && ` · ${item.grade.company} ${item.grade.grade}`}
+                  {item.product.source === "tcgapi" && (
+                    <>
+                      {" · "}
+                      <button type="button" onClick={() => onEbay(item)} className="font-medium text-foreground/80 underline-offset-2 hover:text-foreground hover:underline">
+                        eBay sold
+                      </button>
+                    </>
+                  )}
                 </p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <div className="flex items-center rounded-full bg-surface-2">

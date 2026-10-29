@@ -87,6 +87,10 @@ Unit tests: `src/lib/finance/__tests__/finance.test.ts` covers the "$1,000 box a
 
 Photos go to TCG API's `POST /v1/identify` (one prepaid scan each, separate from the daily request limit). The route keeps the key server-side, requires sign-in when Supabase is configured, and rate-limits each client so a burst of rapid scans works but nobody can drain the balance. `GET /api/scan` returns the scans left (free). Scanning is in Add to Collection ("Scan cards", for adding a stack at once), the Deal page and the Trade checker.
 
+### eBay sold listings (`/api/tcg/products/:id/ebay`)
+
+`GET /v1/cards/:id/prices?include=ebay_sales` (TCG API Pro plan and up, 2 request credits a call) gives the last 30 days of eBay sales: the median, count and last sale for ungraded copies and each grade, plus the listings. It's fetched only when the product page's eBay section scrolls into view (or from a Deal row), then cached for 12 hours in the server, at the CDN and on the device. Below Pro, the section says so instead.
+
 ### Daily sync (`/api/cron/sync-prices`)
 
 1. Collects products owned or watched by any user.
