@@ -66,6 +66,25 @@ export function SellCalculatorDialog({ holding, open, onOpenChange }: { holding:
     [holding.lots, qty, unitPrice, percent, fixed, shipCharged, shipCost],
   );
   const platformMeta = PLATFORMS.find((p) => p.id === platform)!;
+
+  // Break-even price per item on each marketplace, for the quantity and shipping entered.
+  // The selected platform uses the fees as edited; in person has no fees or shipping.
+  const breakEvens = useMemo(
+    () =>
+      PLATFORMS.filter((p) => p.id !== "custom").map((p) => {
+        const local = p.id === "local";
+        const fees = p.id === platform ? { percent: Number(percent) || 0, fixed: parseMoney(fixed) ?? 0 } : p.fees;
+        const e = estimateSale(holding.lots, {
+          quantity: qty,
+          unitPrice: 0,
+          fees,
+          shippingCharged: local ? 0 : (parseMoney(shipCharged) ?? 0),
+          shippingCost: local ? 0 : (parseMoney(shipCost) ?? 0),
+        });
+        return { id: p.id, label: p.label, price: e.breakEvenUnitPrice };
+      }),
+    [holding.lots, qty, platform, percent, fixed, shipCharged, shipCost],
+  );
   const ready = unitPrice !== null && qty >= 1;
   const tone = estimate.profit > 0.005 ? "up" : estimate.profit < -0.005 ? "down" : "flat";
 
@@ -108,6 +127,38 @@ export function SellCalculatorDialog({ holding, open, onOpenChange }: { holding:
         </DialogHeader>
 
         <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
+          {/* Break-even up front: what you'd have to sell for, per item, to get back what you paid. */}
+          <section aria-label="Break-even price">
+            <p className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-subtle">
+              Sell for at least this to break even{qty > 1 ? ` · each, for ${qty}` : ""}
+            </p>
+            <div className="mt-2 space-y-1.5">
+              {breakEvens.map((b) => {
+                const gap = b.price !== null && holding.price !== null ? holding.price - b.price : null;
+                const on = platform === b.id;
+                return (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => applyPlatform(b.id)}
+                    aria-pressed={on}
+                    className={cn("flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left transition-colors", on ? "bg-surface-3 ring-2 ring-[var(--lime)]" : "bg-surface-2 hover:bg-surface-3")}
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-[14px] font-medium">{b.label}</span>
+                      {gap !== null && (
+                        <span className="tabular block text-[12px] text-muted">
+                          Market is <span className={gap >= 0 ? "text-up" : "text-down"}>{signedMoney(gap)}</span> {gap >= 0 ? "above" : "below"}
+                        </span>
+                      )}
+                    </span>
+                    <span className="hype-num tabular shrink-0 text-[30px] leading-none">{b.price === null ? "—" : money(b.price)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
           <Segmented ariaLabel="Where you'd sell" value={platform} onChange={applyPlatform} options={PLATFORMS.map((p) => ({ value: p.id, label: p.label }))} />
 
           <div className="grid grid-cols-2 gap-3">
@@ -175,12 +226,6 @@ export function SellCalculatorDialog({ holding, open, onOpenChange }: { holding:
                 <dd className={tone === "up" ? "text-up" : tone === "down" ? "text-down" : ""}>{ready ? signedMoney(estimate.profit) : "—"}</dd>
               </div>
             </dl>
-            {estimate.breakEvenUnitPrice !== null && (
-              <p className="mt-3 text-[12px] text-muted">
-                Break-even: <span className="tabular font-medium text-foreground">{money(estimate.breakEvenUnitPrice)}</span> each
-                {holding.price !== null && <span> · market is {money(holding.price)}</span>}
-              </p>
-            )}
           </div>
         </div>
 
