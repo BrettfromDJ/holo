@@ -8,6 +8,7 @@ import { gradeDescriptor, slabStyle } from "@/lib/graded";
 import { useSlabBumpers, useSlabCerts } from "@/lib/store/grading";
 import type { Grade, Product } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { ProductSilhouette } from "./product-silhouette";
 
 /**
  * Product photography in a neutral "well". When a product has no image (or
@@ -291,7 +292,7 @@ function Slab({
   );
 }
 
-/** No image: a plain card outline in lime, with the type and set underneath at larger sizes. */
+/** No image: a lime line drawing of what the product is, with the type and set underneath at larger sizes. */
 function Placeholder({
   product,
   size,
@@ -300,31 +301,29 @@ function Placeholder({
   size: string;
 }) {
   const name = product?.name ?? "Product";
-  const label = product
+  const category = product
     ? categoryOf({
         name,
         productType: product.productType ?? null,
         kind: product.kind,
       })
-    : "";
-  const card = (
-    <span
-      aria-hidden
-      className="block aspect-[63/88] rounded-[9%/6.5%] border-[1.5px] border-[var(--lime)] bg-[color-mix(in_srgb,var(--lime)_10%,transparent)] shadow-[0_0_14px_-4px_var(--lime)]"
-    />
-  );
+    : "Card";
   if (size === "xs" || size === "sm") {
     return (
-      <div className="flex h-full w-full items-center justify-center" role="img" aria-label={`${name} (no image available)`}>
-        <span className="h-[62%] max-h-9 [&>span]:h-full">{card}</span>
+      <div className="flex h-full w-full items-center justify-center p-[18%]" role="img" aria-label={`${name} (no image available)`}>
+        <div className="flex h-full w-full items-center justify-center">
+          <ProductSilhouette category={category} />
+        </div>
       </div>
     );
   }
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-[6%] p-[12%]" role="img" aria-label={`${name} (no image available)`}>
-      <span className="w-[40%]">{card}</span>
+    <div className="flex h-full w-full flex-col items-center justify-center gap-[7%] p-[12%]" role="img" aria-label={`${name} (no image available)`}>
+      <div className="flex h-[46%] w-[72%] items-center justify-center">
+        <ProductSilhouette category={category} />
+      </div>
       <div className="max-w-full text-center">
-        <p className="truncate text-[10px] font-medium font-mono uppercase tracking-[0.06em] text-subtle">{label}</p>
+        <p className="truncate text-[10px] font-medium font-mono uppercase tracking-[0.06em] text-subtle">{category}</p>
         <p className="mt-0.5 truncate text-[11px] text-muted">{product?.setName ?? name}</p>
       </div>
     </div>
