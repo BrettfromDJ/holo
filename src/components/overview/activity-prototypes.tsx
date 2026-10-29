@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ArrowUpRight, CalendarDays } from "lucide-react";
+import { ArrowRight, ArrowUpRight, CalendarDays, Plus } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { holdingHref } from "@/components/portfolio/holding-items";
@@ -11,7 +11,9 @@ import { acquisitionCost } from "@/lib/finance/ledger";
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { formatDate, money, signedMoney, signedPct } from "@/lib/format";
 import { useStore } from "@/lib/store/collection-store";
+import { priceKey } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { Sparkline } from "./sparkline";
 
 /**
  * Five takes on the Overview "Recently added" box, for comparison on /lab/activity.
@@ -264,6 +266,226 @@ export function ActivityDeck({ holdings }: { holdings: HoldingView[] }) {
           ))}
         </ol>
       </div>
+    </div>
+  );
+}
+
+/* ----------------------------- F. Binder page ----------------------------- */
+
+/** A nine-pocket binder page: plastic sleeves with a sheen, ring holes, and a price sticker on each pocket. */
+export function ActivityBinder({ holdings }: { holdings: HoldingView[] }) {
+  const { openAdd } = useStore();
+  return (
+    <div className="tint tint-azure hype-surface min-w-0 rounded-[var(--radius-card)] p-6 sm:p-7">
+      <Heading />
+      <div className="relative rounded-2xl bg-[#0d0d10] p-3 pl-10 ring-1 ring-white/[0.06] sm:p-4 sm:pl-12">
+        {/* Ring holes */}
+        <div aria-hidden className="absolute inset-y-0 left-3 flex flex-col justify-around sm:left-4">
+          {[0, 1, 2].map((i) => (
+            <span key={i} className="size-3.5 rounded-full bg-background shadow-[inset_0_1px_2px_rgb(0_0_0/0.8)] ring-1 ring-white/10" />
+          ))}
+        </div>
+        <ol className="grid grid-cols-3 gap-2 sm:grid-cols-6 sm:gap-3">
+          {holdings.map((h) => (
+            <li key={h.key}>
+              <Link href={holdingHref(h)} className="sleeve group relative block rounded-lg p-1.5">
+                <ProductImage product={h.product} grade={h.identity.grade} slabKey={h.key} size="sm" frame={h.product?.kind !== "single"} className="aspect-[5/7] w-full rounded-md transition-transform duration-500 ease-[var(--ease-apple)] group-hover:-translate-y-1" />
+                <span className="tabular absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 -rotate-2 rounded-sm bg-[#f5f5f7] px-1.5 py-px font-mono text-[10px] font-bold text-[#0b0b0c] shadow">{money(h.value)}</span>
+              </Link>
+            </li>
+          ))}
+          <li>
+            <button type="button" onClick={() => openAdd()} className="sleeve flex aspect-[5/7] w-full flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-white/15 text-subtle transition-colors hover:text-foreground">
+              <Plus className="size-5" />
+              <span className="font-mono text-[10px] uppercase tracking-[0.06em]">Next pull</span>
+            </button>
+          </li>
+        </ol>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------ G. Hand fan ------------------------------- */
+
+/** The adds held like a hand of cards; hover or tap one to pull it up and read it. */
+export function ActivityHand({ holdings }: { holdings: HoldingView[] }) {
+  const [sel, setSel] = useState(0);
+  const n = holdings.length;
+  const h = holdings[Math.min(sel, n - 1)];
+  if (!h) return null;
+  const g = gainOf(h);
+  return (
+    <div className="tint tint-teal hype-surface min-w-0 overflow-hidden rounded-[var(--radius-card)] p-6 sm:p-7">
+      <Heading />
+      <div className="relative mx-auto h-[210px] max-w-[520px] sm:h-[250px]">
+        {holdings.map((x, i) => {
+          const t = n > 1 ? i / (n - 1) - 0.5 : 0;
+          const on = i === sel;
+          return (
+            <button
+              key={x.key}
+              type="button"
+              onMouseEnter={() => setSel(i)}
+              onFocus={() => setSel(i)}
+              onClick={() => setSel(i)}
+              aria-label={x.product?.name ?? "Holding"}
+              aria-pressed={on}
+              className="absolute bottom-0 left-1/2 w-[110px] origin-bottom transition-transform duration-500 ease-[var(--ease-apple)] sm:w-[140px]"
+              style={{ transform: `translateX(calc(-50% + ${t * 230}%)) translateY(${on ? -26 : Math.abs(t) * 30}px) rotate(${t * 34}deg)`, zIndex: on ? 10 : i }}
+            >
+              <ProductImage product={x.product} grade={x.identity.grade} slabKey={x.key} size="md" frame={x.product?.kind !== "single"} className="aspect-[5/7] w-full rounded-xl shadow-xl shadow-black/60" />
+            </button>
+          );
+        })}
+      </div>
+      <Link key={h.key} href={holdingHref(h)} className="animate-rise mt-6 flex items-end justify-between gap-4 border-t border-white/[0.08] pt-4">
+        <div className="min-w-0">
+          <p className="font-mono text-[10px] uppercase tracking-[0.06em] text-subtle">{formatDate(h.lastAcquired)}</p>
+          <p className="truncate font-display text-[22px] uppercase leading-tight tracking-[0.01em]">{h.product?.name}</p>
+        </div>
+        <div className="shrink-0 text-right">
+          <p className="hype-num tabular text-[20px]">{money(h.value)}</p>
+          <p className={cn("tabular text-[12px]", g === null ? "text-subtle" : g >= 0 ? "text-up" : "text-down")}>{g === null ? "—" : `${signedMoney(g)} since`}</p>
+        </div>
+      </Link>
+    </div>
+  );
+}
+
+/* --------------------------- H. Paid vs worth ----------------------------- */
+
+/** Two faint bars per add, paid against worth now; only the numbers carry color. */
+export function ActivityBars({ holdings }: { holdings: HoldingView[] }) {
+  const max = Math.max(1, ...holdings.flatMap((h) => [h.costBasis, h.value ?? 0]));
+  return (
+    <div className="tint tint-blue hype-surface min-w-0 rounded-[var(--radius-card)] p-6 sm:p-7">
+      <Heading />
+      <div className="mb-4 flex gap-4 font-mono text-[10px] uppercase tracking-[0.06em] text-subtle">
+        <span className="flex items-center gap-1.5"><span className="h-1.5 w-4 rounded-full bg-white/15" /> Paid</span>
+        <span className="flex items-center gap-1.5"><span className="h-1.5 w-4 rounded-full bg-[var(--lime)]/30" /> Worth now</span>
+      </div>
+      <ol className="space-y-4">
+        {holdings.map((h, i) => {
+          const g = gainOf(h);
+          const up = (g ?? 0) >= 0;
+          return (
+            <li key={h.key}>
+              <Link href={holdingHref(h)} className="group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5">
+                <p className="truncate text-[14px] font-medium">{h.product?.name}</p>
+                <p className={cn("hype-num tabular row-span-3 text-right text-[18px]", g === null ? "text-subtle" : up ? "text-up" : "text-down")}>{g === null ? "—" : signedMoney(g)}</p>
+                <span className="block h-1.5 rounded-full bg-white/15 animate-grow-x origin-left" style={{ width: `${(h.costBasis / max) * 100}%`, animationDelay: `${i * 80}ms` }} />
+                <span className={cn("block h-1.5 origin-left rounded-full animate-grow-x", up ? "bg-[var(--lime)]/30" : "bg-[var(--down)]/30")} style={{ width: `${((h.value ?? 0) / max) * 100}%`, animationDelay: `${i * 80 + 120}ms` }} />
+              </Link>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+/* ------------------------------ I. By period ------------------------------ */
+
+/** Adds grouped into This week, This month and Earlier, each with what went in and what it's worth now. */
+export function ActivityPeriods({ holdings }: { holdings: HoldingView[] }) {
+  const { today } = useStore();
+  const groups = useMemo(() => {
+    const out: { name: string; items: HoldingView[] }[] = [
+      { name: "This week", items: [] },
+      { name: "This month", items: [] },
+      { name: "Earlier", items: [] },
+    ];
+    for (const h of holdings) {
+      const d = h.lastAcquired ? daysBetween(h.lastAcquired, today) : Infinity;
+      out[d < 7 ? 0 : d < 31 ? 1 : 2].items.push(h);
+    }
+    return out.filter((g) => g.items.length);
+  }, [holdings, today]);
+  return (
+    <div className="tint tint-orange hype-surface min-w-0 rounded-[var(--radius-card)] p-6 sm:p-7">
+      <Heading />
+      <div className="grid gap-4 md:grid-cols-[repeat(var(--n),minmax(0,1fr))]" style={{ "--n": groups.length } as React.CSSProperties}>
+        {groups.map((grp) => {
+          const paid = grp.items.reduce((s, h) => s + h.costBasis, 0);
+          const worth = grp.items.reduce((s, h) => s + (h.value ?? 0), 0);
+          return (
+            <section key={grp.name} className="min-w-0 rounded-2xl bg-background/40 p-4 ring-1 ring-inset ring-white/[0.06]">
+              <div className="flex items-baseline justify-between gap-2">
+                <h3 className="font-display text-[18px] uppercase tracking-[0.01em]">{grp.name}</h3>
+                <span className={cn("hype-num tabular text-[15px]", worth >= paid ? "text-up" : "text-down")}>{signedMoney(worth - paid)}</span>
+              </div>
+              <p className="tabular mt-0.5 font-mono text-[10px] uppercase tracking-[0.06em] text-subtle">
+                {grp.items.length} add{grp.items.length === 1 ? "" : "s"} · {money(paid)} in
+              </p>
+              <ul className="mt-3 space-y-2">
+                {grp.items.map((h) => (
+                  <li key={h.key}>
+                    <Link href={holdingHref(h)} className="flex items-center gap-2.5 hover:text-foreground">
+                      <ProductImage product={h.product} size="xs" className="h-10 w-8 shrink-0 rounded-md" />
+                      <span className="min-w-0 flex-1 truncate text-[13px] text-foreground/85">{h.product?.name}</span>
+                      <span className="hype-num tabular text-[13px]">{money(h.value)}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* --------------------------- J. Since you bought -------------------------- */
+
+/** Each add's price from the day you bought it to today, with a dashed line at what you paid. */
+export function ActivitySince({ holdings }: { holdings: HoldingView[] }) {
+  const { data, today } = useStore();
+  const series = useMemo(
+    () =>
+      holdings.map((h) => {
+        if (h.priceOrigin === "manual") return [];
+        const key = priceKey(h.identity.productId, h.identity.printing);
+        const all = data.history[key] ?? [];
+        const from = h.lastAcquired ?? addDays(today, -30);
+        let pts = all.filter((p) => p.date >= from && p.date < today).map((p) => p.price);
+        if (pts.length < 3) pts = all.filter((p) => p.date >= addDays(today, -30) && p.date < today).map((p) => p.price);
+        // Slabs follow their card's raw trend, scaled to the slab's price.
+        const raw = data.prices[key]?.market;
+        if (h.identity.grade && h.price !== null && raw) pts = pts.map((p) => (p * h.price!) / raw);
+        if (h.price !== null) pts.push(h.price);
+        return pts;
+      }),
+    [holdings, data.history, data.prices, today],
+  );
+  return (
+    <div className="tint tint-lime hype-surface min-w-0 rounded-[var(--radius-card)] p-6 sm:p-7">
+      <Heading />
+      <ol className="divide-y divide-white/[0.06]">
+        {holdings.map((h, i) => {
+          const g = gainOf(h);
+          const up = (g ?? 0) >= 0;
+          return (
+            <li key={h.key}>
+              <Link href={holdingHref(h)} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 py-3 sm:grid-cols-[auto_minmax(0,1fr)_minmax(0,1.2fr)_auto]">
+                <ProductImage product={h.product} size="xs" className="h-12 w-9 rounded-md" />
+                <div className="min-w-0">
+                  <p className="truncate text-[14px] font-medium">{h.product?.name}</p>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.06em] text-subtle">Since {formatDate(h.lastAcquired)}</p>
+                </div>
+                <div className="hidden sm:block">
+                  {series[i].length > 2 ? <Sparkline values={series[i]} tone={up ? "up" : "down"} reference={h.avgCost} className="w-full" height={36} /> : <span className="text-[12px] text-subtle">No history yet</span>}
+                </div>
+                <div className="text-right">
+                  <p className={cn("hype-num tabular text-[16px]", g === null ? "text-subtle" : up ? "text-up" : "text-down")}>{g === null ? "—" : signedMoney(g)}</p>
+                  <p className="tabular text-[11px] text-muted">{money(h.value)}</p>
+                </div>
+              </Link>
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }
