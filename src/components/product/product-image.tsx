@@ -73,8 +73,9 @@ function ProductPhoto({
   return (
     <div
       className={cn(
-        "relative flex items-center justify-center overflow-hidden rounded-2xl",
-        !bare && "bg-image-well",
+        "relative flex items-center justify-center overflow-hidden",
+        // A bare card keeps a real card's corner (a small share of its size); a fixed radius over-rounds small cards.
+        bare ? "rounded-[4.5%/3.2%]" : "rounded-2xl bg-image-well",
         className,
       )}
     >
