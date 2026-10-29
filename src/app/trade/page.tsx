@@ -1,8 +1,9 @@
 "use client";
 
-import { ArrowLeftRight, Loader2, Minus, Plus, Search, Trash2 } from "lucide-react";
+import { ArrowLeftRight, Loader2, Minus, Plus, ScanLine, Search, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { ProductImage } from "@/components/product/product-image";
+import { ScanSheet, type ScanOutcome, type ScanPick } from "@/components/scan/scan-sheet";
 import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -61,6 +62,7 @@ export default function TradePage() {
   const [stored, setStored, ready] = useSyncedState<TradeState>("trade", EMPTY, { legacyKey: KEY });
   const trade: TradeState = { ...EMPTY, ...stored };
   const [picking, setPicking] = useState<Side | null>(null);
+  const [scanning, setScanning] = useState<Side | null>(null);
   const { holdings } = usePortfolio({ ignoreFilter: true });
 
   // Each visit, refresh every value that wasn't typed in to the latest saved price.
@@ -106,6 +108,22 @@ export default function TradePage() {
     else update(side, [...trade[side], item]);
   };
 
+  // Scans can land back to back, so each one builds on the latest trade.
+  const addScan = (side: Side, pick: ScanPick): ScanOutcome => {
+    const c = pick.candidate;
+    const owned = side === "give" ? holdings.find((h) => h.identity.productId === c.product.id && h.identity.printing === c.printing) : undefined;
+    const item: TradeItem = owned
+      ? { key: `h:${owned.key}`, product: owned.product!, unit: owned.price, qty: 1, maxQty: owned.quantity }
+      : { key: `p:${c.product.id}`, product: c.product, unit: c.market, qty: 1, printing: c.printing };
+    setStored((cur) => {
+      const t = { ...EMPTY, ...cur };
+      const existing = t[side].find((i) => i.key === item.key);
+      const items = existing ? t[side].map((i) => (i.key === item.key ? { ...i, qty: Math.min(i.qty + 1, i.maxQty ?? Infinity) } : i)) : [...t[side], item];
+      return { ...t, [side]: items };
+    });
+    return { ok: true, note: side === "give" ? "Added to what you give" : "Added to what you get" };
+  };
+
   const sides = (["give", "get"] as const).map((side) => (
     <TradeMat
       key={side}
@@ -116,6 +134,7 @@ export default function TradePage() {
       onRate={(r) => save({ ...trade, rate: { ...trade.rate, [side]: r } })}
       onChange={(items) => update(side, items)}
       onAdd={() => setPicking(side)}
+      onScan={() => setScanning(side)}
       onUseMarket={async (item) => {
         const h = holdings.find((x) => `h:${x.key}` === item.key);
         const latest = h ? h.price : await latestCatalogPrice(item).catch(() => undefined);
@@ -176,6 +195,13 @@ export default function TradePage() {
         <ArrowLeftRight className="size-3.5 shrink-0" /> Uses Holo&apos;s latest saved prices, refreshed each time you open this page. Edit a value to use a price you agreed on.
       </p>
 
+      <ScanSheet
+        open={scanning !== null}
+        onOpenChange={(o) => !o && setScanning(null)}
+        title={scanning === "give" ? "Scan your side" : "Scan their side"}
+        description="Each card you scan joins the trade at its market price."
+        onPick={(pick) => addScan(scanning ?? "get", pick)}
+      />
       <PickerDialog side={picking} onClose={() => setPicking(null)} onPick={(item) => picking && add(picking, item)} />
     </div>
   );
@@ -232,6 +258,7 @@ function TradeMat({
   onRate,
   onChange,
   onAdd,
+  onScan,
   onUseMarket,
 }: {
   side: Side;
@@ -241,6 +268,7 @@ function TradeMat({
   onRate: (r: number) => void;
   onChange: (items: TradeItem[]) => void;
   onAdd: () => void;
+  onScan: () => void;
   onUseMarket: (item: TradeItem) => void;
 }) {
   const label = side === "give" ? "You give" : "You get";
@@ -349,11 +377,16 @@ function TradeMat({
       )}
 
       <div className="px-5 pb-5 pt-2 sm:px-6 sm:pb-6">
-        {items.length > 0 && (
-          <Button variant="secondary" className="w-full" onClick={onAdd}>
-            <Plus /> Add more
+        <div className="flex gap-2">
+          {items.length > 0 && (
+            <Button variant="secondary" className="flex-1" onClick={onAdd}>
+              <Plus /> Add more
+            </Button>
+          )}
+          <Button variant="secondary" className={items.length ? undefined : "flex-1"} onClick={onScan}>
+            <ScanLine /> Scan
           </Button>
-        )}
+        </div>
       </div>
     </section>
   );

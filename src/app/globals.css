@@ -912,3 +912,15 @@
   background: var(--lime);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--lime) 25%, transparent), 0 2px 6px rgb(0 0 0 / 0.5);
 }
+
+/* Scanner: a card-shaped guide in the viewfinder, and a quick white flash per shot. */
+.scan-guide {
+  box-shadow: 0 0 0 9999px rgb(0 0 0 / 0.35);
+  outline: 2px solid color-mix(in srgb, var(--lime) 85%, transparent);
+  outline-offset: 0;
+}
+.scan-flash { animation: scan-flash 220ms ease-out both; }
+@keyframes scan-flash {
+  from { opacity: 0.7; }
+  to { opacity: 0; }
+}

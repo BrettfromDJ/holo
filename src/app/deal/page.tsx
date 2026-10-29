@@ -1,9 +1,10 @@
 "use client";
 
-import { AlertTriangle, ArrowDownLeft, ArrowUpRight, ChevronDown, Eye, History, Loader2, Minus, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowDownLeft, ArrowUpRight, ChevronDown, Eye, History, Loader2, Minus, ScanLine, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DealPicker, type DealItem, type DealSide } from "@/components/deal/deal-picker";
+import { ScanSheet, type ScanOutcome, type ScanPick } from "@/components/scan/scan-sheet";
 import { ProductImage } from "@/components/product/product-image";
 import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,7 @@ import { fifoCost } from "@/lib/finance/sell";
 import { money, pct, signedMoney } from "@/lib/format";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
 import { useSyncedState } from "@/lib/store/synced-state";
-import type { Condition, Product } from "@/lib/types";
+import type { Condition, Grade, Product } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 interface DealState {
@@ -68,6 +69,7 @@ export default function DealPage() {
   const [customer, setCustomer] = useState(false);
   const [closing, setClosing] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [scanning, setScanning] = useState<DealSide | null>(null);
 
   const byKey = useMemo(() => new Map(holdings.map((h) => [h.key, h])), [holdings]);
   const kind = dealKind(deal.in.length, deal.out.length);
@@ -86,11 +88,29 @@ export default function DealPage() {
   );
   const unpriced = [...deal.in.map((i) => unitPrice(i, rate.in)), ...deal.out.map((i) => unitPrice(i, rate.out))].some((p) => p === null);
 
-  const update = (side: DealSide, items: DealItem[]) => setDeal({ ...deal, [side]: items });
-  const add = (side: DealSide, item: DealItem) => {
-    const existing = deal[side].find((i) => i.key === item.key);
-    if (existing) update(side, deal[side].map((i) => (i.key === item.key ? { ...i, qty: Math.min(i.qty + 1, i.maxQty ?? Infinity) } : i)));
-    else update(side, [...deal[side], item]);
+  // Updates build on the latest deal, so rapid scans landing back to back all count.
+  const update = (side: DealSide, items: DealItem[]) => setDeal((cur) => ({ ...EMPTY, ...cur, [side]: items }));
+  const add = (side: DealSide, item: DealItem) =>
+    setDeal((cur) => {
+      const d = { ...EMPTY, ...cur };
+      const existing = d[side].find((i) => i.key === item.key);
+      const items = existing ? d[side].map((i) => (i.key === item.key ? { ...i, qty: Math.min(i.qty + 1, i.maxQty ?? Infinity) } : i)) : [...d[side], item];
+      return { ...d, [side]: items };
+    });
+
+  /** A scanned card: anything can come in; going out, it has to be something you hold. */
+  const addScan = (side: DealSide, pick: ScanPick): ScanOutcome => {
+    const c = pick.candidate;
+    if (side === "in") {
+      const h = holdings.find((x) => x.identity.productId === c.product.id && x.identity.printing === c.printing && sameGrade(x.identity.grade, pick.read?.grade ?? null));
+      add("in", h ? { key: `h:${h.key}`, product: h.product!, printing: h.identity.printing, market: h.price ?? c.market, qty: 1, price: null, holdingKey: h.key } : { key: `p:${c.product.id}:${c.printing ?? ""}:${gradeLabel(pick.read?.grade ?? null)}`, product: c.product, printing: c.printing, market: c.market, qty: 1, price: null, grade: pick.read?.grade ?? null });
+      return { ok: true, note: "Added to coming in" };
+    }
+    const owned = holdings.filter((x) => x.identity.productId === c.product.id);
+    const h = owned.find((x) => x.identity.printing === c.printing && sameGrade(x.identity.grade, pick.read?.grade ?? null)) ?? owned[0];
+    if (!h) return { ok: false, note: "Not in your inventory" };
+    add("out", { key: `h:${h.key}`, product: h.product!, printing: h.identity.printing, market: h.price, qty: 1, price: null, holdingKey: h.key, maxQty: h.quantity });
+    return { ok: true, note: "Added to going out" };
   };
 
   const todays = log.filter((d) => d.at.slice(0, 10) === today);
@@ -109,7 +129,7 @@ export default function DealPage() {
         const h = item.holdingKey ? byKey.get(item.holdingKey) : undefined;
         // Catalog items need saving before they can be held.
         if (!h && !data.products[item.product.id]) await importProduct(item.product.id, item.printing ?? null, item.product.kind);
-        const identity = h?.identity ?? { productId: item.product.id, printing: item.printing ?? null, condition: (item.product.kind === "sealed" ? "Sealed" : "Near Mint") as Condition, grade: null };
+        const identity = h?.identity ?? { productId: item.product.id, printing: item.printing ?? null, condition: (item.product.kind === "sealed" ? "Sealed" : "Near Mint") as Condition, grade: item.grade ?? null };
         // What you give for it becomes its cost, so later profit is measured from the deal.
         await addTransaction({ ...identity, type: "purchase", date: today, quantity: item.qty, unitPrice: unitPrice(item, rate.in)!, fees: 0, shipping: 0, tax: 0, source: "Card show", notes: note });
       }
@@ -154,9 +174,10 @@ export default function DealPage() {
           rate={rate.in}
           rateDefault={defaults.in}
           total={totals.inValue}
-          onRate={(r) => setDeal({ ...deal, rateIn: r })}
+          onRate={(r) => setDeal((cur) => ({ ...EMPTY, ...cur, rateIn: r }))}
           onChange={(items) => update("in", items)}
           onAdd={() => setPicking("in")}
+          onScan={() => setScanning("in")}
         />
         <SideCard
           side="out"
@@ -165,9 +186,10 @@ export default function DealPage() {
           rateDefault={defaults.out}
           total={totals.outValue}
           costOf={costOf}
-          onRate={(r) => setDeal({ ...deal, rateOut: r })}
+          onRate={(r) => setDeal((cur) => ({ ...EMPTY, ...cur, rateOut: r }))}
           onChange={(items) => update("out", items)}
           onAdd={() => setPicking("out")}
+          onScan={() => setScanning("out")}
         />
       </div>
 
@@ -188,6 +210,13 @@ export default function DealPage() {
 
       <DealPicker side={picking} onClose={() => setPicking(null)} onPick={(item) => picking && add(picking, item)} />
       <RatesDialog open={ratesOpen} onOpenChange={setRatesOpen} rates={{ ...DEFAULT_RATES, ...rates }} onSave={setRates} />
+      <ScanSheet
+        open={scanning !== null}
+        onOpenChange={(o) => !o && setScanning(null)}
+        title={scanning === "out" ? "Scan going out" : "Scan coming in"}
+        description={scanning === "out" ? "Each card you scan from your stock joins the deal." : "Each card you scan joins the deal at the current rate."}
+        onPick={(pick) => addScan(scanning ?? "in", pick)}
+      />
       <HistoryDialog open={historyOpen} onOpenChange={setHistoryOpen} deals={log} />
       <CustomerView open={customer} onOpenChange={setCustomer} deal={deal} rate={rate} totals={totals} />
     </div>
@@ -262,6 +291,7 @@ function SideCard({
   onRate,
   onChange,
   onAdd,
+  onScan,
 }: {
   side: DealSide;
   items: DealItem[];
@@ -272,6 +302,7 @@ function SideCard({
   onRate: (r: number | null) => void;
   onChange: (items: DealItem[]) => void;
   onAdd: () => void;
+  onScan: () => void;
 }) {
   const set = (key: string, patch: Partial<DealItem>) => onChange(items.map((i) => (i.key === key ? { ...i, ...patch } : i)));
   const Icon = side === "in" ? ArrowDownLeft : ArrowUpRight;
@@ -328,7 +359,10 @@ function SideCard({
                     <Trash2 className="size-3.5" />
                   </button>
                 </div>
-                <p className="tabular mt-0.5 text-[12px] text-muted">Market {money(item.market)}</p>
+                <p className="tabular mt-0.5 text-[12px] text-muted">
+                  Market {money(item.market)}
+                  {item.grade && ` · ${item.grade.company} ${item.grade.grade}`}
+                </p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <div className="flex items-center rounded-full bg-surface-2">
                     <button aria-label="Fewer" className="flex size-7 items-center justify-center text-muted hover:text-foreground disabled:opacity-30" disabled={item.qty <= 1} onClick={() => set(item.key, { qty: item.qty - 1 })}>
@@ -393,9 +427,14 @@ function SideCard({
           );
         })}
       </ul>
-      <Button variant="secondary" className="mt-2 w-full" onClick={onAdd}>
-        <Plus /> {side === "in" ? "Add what's coming in" : "Add from inventory"}
-      </Button>
+      <div className="mt-2 flex gap-2">
+        <Button variant="secondary" className="flex-1" onClick={onAdd}>
+          <Plus /> {side === "in" ? "Add what's coming in" : "Add from inventory"}
+        </Button>
+        <Button variant="secondary" onClick={onScan} aria-label={side === "in" ? "Scan what's coming in" : "Scan what's going out"}>
+          <ScanLine /> Scan
+        </Button>
+      </div>
     </section>
   );
 }
@@ -582,4 +621,12 @@ function HistoryDialog({ open, onOpenChange, deals }: { open: boolean; onOpenCha
       </DialogContent>
     </Dialog>
   );
+}
+
+function gradeLabel(g: Grade | null) {
+  return g ? `${g.company} ${g.grade}` : "";
+}
+
+function sameGrade(a: Grade | null, b: Grade | null) {
+  return (!a && !b) || (a?.company === b?.company && a?.grade === b?.grade);
 }

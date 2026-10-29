@@ -33,7 +33,7 @@ Copy `.env.example` to `.env.local`.
 
 | Variable | Scope | Purpose |
 |---|---|---|
-| `TCGAPI_KEY` | server | TCG API key. Enables live search, prices and history. Never sent to the browser. |
+| `TCGAPI_KEY` | server | TCG API key. Enables live search, prices, history and card scanning. Never sent to the browser. |
 | `TCGAPI_GAMES` | server | Optional comma-separated game slugs to search. By default every Pokémon catalog (English, Japanese, …) and Disney Lorcana found via `GET /games` is searchable; the search panel picks Pokémon, Lorcana or both. |
 | `TCGAPI_GAME` | server | Game slug for top movers, default `pokemon`. |
 | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | public | Supabase project. Data is protected by RLS. |
@@ -82,6 +82,10 @@ Unit tests: `src/lib/finance/__tests__/finance.test.ts` covers the "$1,000 box a
   - Tier errors (403) make history/bulk degrade gracefully instead of failing.
 - Products are stored as `${source}:${externalId}` with the exact printing; nothing is matched by name. Another source plugs in by implementing `PricingProvider` and registering it in `src/lib/pricing/index.ts` — the collection tables don't change.
 - Per-client token buckets protect the API routes that spend upstream quota.
+
+### Card scanning (`/api/scan`)
+
+Photos go to TCG API's `POST /v1/identify` (one prepaid scan each, separate from the daily request limit). The route keeps the key server-side, requires sign-in when Supabase is configured, and rate-limits each client so a burst of rapid scans works but nobody can drain the balance. `GET /api/scan` returns the scans left (free). Scanning is in Add to Collection ("Scan cards", for adding a stack at once), the Deal page and the Trade checker.
 
 ### Daily sync (`/api/cron/sync-prices`)
 

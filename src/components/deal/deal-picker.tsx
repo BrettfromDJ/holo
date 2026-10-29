@@ -9,7 +9,7 @@ import type { ExploreProduct } from "@/lib/explore/types";
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { money } from "@/lib/format";
 import { usePortfolio } from "@/lib/store/collection-store";
-import type { Product } from "@/lib/types";
+import type { Grade, Product } from "@/lib/types";
 
 export type DealSide = "in" | "out";
 
@@ -25,6 +25,8 @@ export interface DealItem {
   price: number | null;
   /** This item's own share of market, overriding the side's slider. */
   rate?: number | null;
+  /** A slab's grade, as scanned, for items coming in that aren't already held. */
+  grade?: Grade | null;
   /** The holding this came from, when picked from your inventory. */
   holdingKey?: string;
   maxQty?: number;

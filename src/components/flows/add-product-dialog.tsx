@@ -2,7 +2,7 @@
 
 import { GRADERS } from "@/lib/graded";
 import { useSlabCerts } from "@/lib/store/grading";
-import { ChevronDown, ChevronLeft, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronLeft, Loader2, ScanLine } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,7 @@ import { CONDITIONS, holdingKey, priceKey, type Condition } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Field, MoneyInput, Stepper, SummaryRow, parseMoney } from "./fields";
 import { ProductSearch } from "./product-search";
+import { ScanToCollection } from "@/components/scan/scan-to-collection";
 
 
 export function AddProductDialog() {
@@ -48,24 +49,40 @@ export function AddProductDialog() {
   }, [addTarget.open, addTarget.productId, addTarget.hit]);
 
   const watch = Boolean(addTarget.watch);
+  const [scanning, setScanning] = useState(false);
 
   return (
-    <Dialog open={addTarget.open} onOpenChange={(o) => !o && closeAdd()}>
-      <DialogContent className="h-[88dvh] sm:h-[640px] sm:max-w-[560px]" aria-describedby={undefined}>
-        {!hit ? (
-          <>
-            <div className="px-6 pt-6">
-              <DialogTitle>{watch ? "Add to Watchlist" : "Add to Collection"}</DialogTitle>
-            </div>
-            <ProductSearch onSelect={setHit} />
-          </>
-        ) : watch ? (
-          <WatchForm hit={hit} onBack={addTarget.productId || addTarget.hit ? undefined : () => setHit(null)} onDone={closeAdd} />
-        ) : (
-          <PurchaseForm hit={hit} fromWatchId={addTarget.fromWatchId} onBack={addTarget.productId || addTarget.hit ? undefined : () => setHit(null)} onDone={closeAdd} />
-        )}
-      </DialogContent>
-    </Dialog>
+    <>
+      <ScanToCollection open={scanning} onOpenChange={setScanning} />
+      <Dialog open={addTarget.open} onOpenChange={(o) => !o && closeAdd()}>
+        <DialogContent className="h-[88dvh] sm:h-[640px] sm:max-w-[560px]" aria-describedby={undefined}>
+          {!hit ? (
+            <>
+              <div className="flex items-center justify-between gap-3 px-6 pr-14 pt-6">
+                <DialogTitle>{watch ? "Add to Watchlist" : "Add to Collection"}</DialogTitle>
+                {!watch && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      closeAdd();
+                      setScanning(true);
+                    }}
+                  >
+                    <ScanLine /> Scan cards
+                  </Button>
+                )}
+              </div>
+              <ProductSearch onSelect={setHit} />
+            </>
+          ) : watch ? (
+            <WatchForm hit={hit} onBack={addTarget.productId || addTarget.hit ? undefined : () => setHit(null)} onDone={closeAdd} />
+          ) : (
+            <PurchaseForm hit={hit} fromWatchId={addTarget.fromWatchId} onBack={addTarget.productId || addTarget.hit ? undefined : () => setHit(null)} onDone={closeAdd} />
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
