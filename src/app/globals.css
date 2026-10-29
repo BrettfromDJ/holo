@@ -875,3 +875,14 @@
   0%, 100% { opacity: 0; }
   50% { opacity: 1; }
 }
+
+/* Prototype: the trade verdict as a foil card that flips in. */
+.verdict-pull {
+  background: conic-gradient(from 0deg, var(--foil), #fff 20%, var(--foil) 40%, color-mix(in srgb, var(--foil) 40%, #000) 60%, var(--foil) 80%, #fff 90%, var(--foil));
+  box-shadow: 0 0 40px -10px var(--foil), 0 24px 40px -20px rgb(0 0 0 / 0.8);
+  animation: verdict-flip 0.9s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@keyframes verdict-flip {
+  from { transform: perspective(800px) rotateY(180deg) scale(0.8); opacity: 0; }
+  to { transform: perspective(800px) rotateY(0) scale(1); opacity: 1; }
+}
