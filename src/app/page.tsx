@@ -7,6 +7,7 @@ import { Reveal } from "@/components/motion/reveal";
 import { MoversBoard, RecentTimeline } from "@/components/overview/boards";
 import { BudgetCard } from "@/components/overview/budget-card";
 import { PortfolioBanner, PortfolioSwitcher } from "@/components/portfolio/portfolio-controls";
+import { HomeSearch } from "@/components/overview/home-search";
 import { MarketPulse } from "@/components/overview/market-pulse";
 import { ReleaseReminders } from "@/components/overview/release-reminders";
 import { MetricStrip, Shelf, Spotlight } from "@/components/overview/sections";
@@ -57,6 +58,7 @@ export default function OverviewPage() {
   return (
     <div className="hype animate-fade-in">
       <MarketPulse holdings={holdings} />
+      <HomeSearch className="mb-5" />
       <PortfolioSwitcher compact className="mb-4 lg:hidden" />
       <PortfolioBanner />
       <HypeHero holdings={holdings} summary={summary} onRecap={() => setRecapOpen(true)} />

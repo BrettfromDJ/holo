@@ -3,43 +3,32 @@
 import { FlipGrid, FlipItem } from "@/components/motion/flip-grid";
 import { ArrowRight, Compass, Loader2, Search, X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { GameTile, ProductTile, useExploreIndex, useOwnedIds } from "@/components/explore/explore-items";
 import { ReleaseRow } from "@/components/explore/release-items";
 import { PageHeader } from "@/components/shell/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { ExploreProduct } from "@/lib/explore/types";
+import { SearchFilterBar } from "@/components/explore/search-filters";
+import { applyFilters, NO_FILTERS, type SearchFilters } from "@/lib/explore/filters";
+import { useCatalogSearch } from "@/lib/explore/use-catalog-search";
 import { relativeTime } from "@/lib/format";
 import { useStore } from "@/lib/store/collection-store";
-
-type Load<T> = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; data: T };
 
 export default function ExplorePage() {
   const index = useExploreIndex();
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<Load<ExploreProduct[]> | null>(null);
+  const results = useCatalogSearch(query);
   const owned = useOwnedIds();
-  const { today } = useStore();
+  const { today, data } = useStore();
+  const [filters, setFilters] = useState<SearchFilters>(NO_FILTERS);
+  const watched = useMemo(() => new Set(data.watchlist.map((w) => w.productId)), [data.watchlist]);
+  const shown = useMemo(() => (results?.status === "ready" ? applyFilters(results.data, filters, { owned, watched }) : []), [results, filters, owned, watched]);
 
-  // Debounced catalog search — served from Supabase, never the TCG API.
+  // Arriving from the home search ("/explore?q=…") starts with that query.
   useEffect(() => {
-    const q = query.trim();
-    if (q.length < 2) return setResults(null);
-    setResults({ status: "loading" });
-    const t = window.setTimeout(() => {
-      fetch(`/api/explore/search?q=${encodeURIComponent(q)}`)
-        .then(async (res) => {
-          const body = await res.json().catch(() => null);
-          if (!res.ok) throw new Error(body?.error?.message ?? "Search failed.");
-          return body.products as ExploreProduct[];
-        })
-        .then(
-          (data) => setResults({ status: "ready", data }),
-          (e: Error) => setResults({ status: "error", message: e.message }),
-        );
-    }, 300);
-    return () => window.clearTimeout(t);
-  }, [query]);
+    const q = new URLSearchParams(window.location.search).get("q");
+    if (q) setQuery(q);
+  }, []);
 
   const loaded = index.status === "ready" ? index.sets.filter((s) => s.loaded) : [];
   const upcoming = index.status === "ready" ? index.sets.filter((s) => s.releaseDate && s.releaseDate >= today).sort((a, b) => (a.releaseDate! < b.releaseDate! ? -1 : 1)).slice(0, 4) : [];
@@ -81,13 +70,28 @@ export default function ExplorePage() {
               <p className="mt-1 text-sm text-muted">The catalog fills in a few sets a day. Try another search, or add it from “Add to Collection”.</p>
             </div>
           ) : (
-            <FlipGrid className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
-              {results.data.map((item, i) => (
-                <FlipItem key={item.product.id} flipKey={item.product.id} index={i}>
-                  <ProductTile item={item} owned={owned.has(item.product.id)} showBrand />
-                </FlipItem>
-              ))}
-            </FlipGrid>
+            <>
+              <SearchFilterBar items={results.data} filters={filters} onChange={setFilters} />
+              <p className="tabular mt-3 text-[12px] text-subtle">
+                {shown.length === results.data.length ? `${results.data.length} result${results.data.length === 1 ? "" : "s"}` : `${shown.length} of ${results.data.length} results`}
+              </p>
+              {shown.length ? (
+                <FlipGrid className="mt-4 grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
+                  {shown.map((item, i) => (
+                    <FlipItem key={item.product.id} flipKey={item.product.id} index={i}>
+                      <ProductTile item={item} owned={owned.has(item.product.id)} showBrand />
+                    </FlipItem>
+                  ))}
+                </FlipGrid>
+              ) : (
+                <div className="py-16 text-center">
+                  <p className="font-medium">No results match these filters</p>
+                  <button type="button" onClick={() => setFilters({ ...NO_FILTERS, sort: filters.sort })} className="mt-2 text-sm font-medium text-muted underline underline-offset-4 hover:text-foreground">
+                    Clear filters
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </section>
       ) : index.status === "loading" ? (
