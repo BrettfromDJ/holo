@@ -87,6 +87,8 @@ Unit tests: `src/lib/finance/__tests__/finance.test.ts` covers the "$1,000 box a
 
 Photos go to TCG API's `POST /v1/identify` (one prepaid scan each, separate from the daily request limit). The route keeps the key server-side, requires sign-in when Supabase is configured, and rate-limits each client so a burst of rapid scans works but nobody can drain the balance. `GET /api/scan` returns the scans left (free). Scanning is in Add to Collection ("Scan cards", for adding a stack at once), the Deal page and the Trade checker.
 
+**Auto** (the switch beside the shutter, off by default and remembered per device) takes the photo itself: about 10 times a second the phone samples the card guide and looks for a card-shaped rectangle that is sharp and held still for half a second (`src/lib/scan-auto.ts`). This runs on the device and costs nothing. After each photo it waits for the view to clearly change (the card lifted away or swapped) before it can take another, so a card left in frame or jittering in the hand is scanned once.
+
 ### eBay sold listings (`/api/tcg/products/:id/ebay`)
 
 `GET /v1/cards/:id/prices?include=ebay_sales` (TCG API Pro plan and up, 2 request credits a call) gives the last 30 days of eBay sales: the median, count and last sale for ungraded copies and each grade, plus the listings. It's fetched only when needed and cached for 12 hours in the server, at the CDN and on the device. `EBAY_SOURCE` in `src/lib/ebay-sample.ts` is `"tcgapi"`; demo products always get sample sales.
@@ -125,7 +127,6 @@ supabase/migrations     schema + RLS
 ## Known limitations / next steps
 
 - **TCG API docs**: implementation follows the official `tcgapi` SDK's typed endpoints. TCG API's `price_change_*` fields are treated as percentages (as in the SDK's top-movers example); verify against your account.
-- **Card scanning** is not included: the official SDK exposes no identification endpoint, so it wasn't invented. The add flow is search-first; a scan step can be added behind `PricingProvider` once an endpoint is confirmed.
 - **Graded pricing** is manual (TCG API prices raw printings). The resolver already supports a separate graded source.
 - **Intraday** data isn't available; the 1D range shows yesterday's close vs. today.
 - Demo sealed products use neutral placeholders rather than photos; demo card images load from `images.pokemontcg.io`. Live mode uses TCG API's `image_url`.

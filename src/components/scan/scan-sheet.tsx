@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ProductImage } from "@/components/product/product-image";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { money } from "@/lib/format";
+import { AUTO_START, autoStep, type AutoHint, type AutoState, type GrayFrame } from "@/lib/scan-auto";
 import { scanValue, type ScanCandidate, type ScanResult } from "@/lib/scan-types";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +37,47 @@ interface Entry {
 const PARALLEL = 2;
 /** Longest edge sent to the scanner. Plenty for a card, and quick to upload. */
 const MAX_EDGE = 1400;
+/** Auto-capture samples the guide at this size, about 10 times a second. */
+const SAMPLE_W = 76;
+const SAMPLE_H = 106;
+const AUTO_KEY = "holo:scan-auto";
+const AUTO_HINTS: Record<AutoHint, string> = {
+  searching: "Line a card up in the frame",
+  steady: "Hold steady",
+  blurry: "Too blurry. Move closer or add light",
+  next: "Got it. Next card",
+};
+
+/**
+ * The card guide (plus a margin) as a small grayscale frame. The video is
+ * shown with object-cover, so the guide's on-screen box is mapped back into
+ * the video's own pixels.
+ */
+function sampleGuide(v: HTMLVideoElement, guide: HTMLElement, canvas: HTMLCanvasElement): GrayFrame | null {
+  const vw = v.videoWidth;
+  const vh = v.videoHeight;
+  if (!vw || !vh) return null;
+  const el = v.getBoundingClientRect();
+  const g = guide.getBoundingClientRect();
+  const scale = Math.max(el.width / vw, el.height / vh);
+  const offX = (vw * scale - el.width) / 2;
+  const offY = (vh * scale - el.height) / 2;
+  const mx = g.width * 0.08;
+  const my = g.height * 0.08;
+  const sx = (g.left - el.left - mx + offX) / scale;
+  const sy = (g.top - el.top - my + offY) / scale;
+  const sw = (g.width + 2 * mx) / scale;
+  const sh = (g.height + 2 * my) / scale;
+  canvas.width = SAMPLE_W;
+  canvas.height = SAMPLE_H;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return null;
+  ctx.drawImage(v, sx, sy, sw, sh, 0, 0, SAMPLE_W, SAMPLE_H);
+  const rgba = ctx.getImageData(0, 0, SAMPLE_W, SAMPLE_H).data;
+  const data = new Uint8Array(SAMPLE_W * SAMPLE_H);
+  for (let i = 0; i < data.length; i++) data[i] = (rgba[i * 4] * 77 + rgba[i * 4 + 1] * 150 + rgba[i * 4 + 2] * 29) >> 8;
+  return { data, w: SAMPLE_W, h: SAMPLE_H };
+}
 
 /**
  * Rapid card scanning. Tap the shutter (or press space) as fast as you like:
@@ -74,6 +116,22 @@ export function ScanSheet({
   const [blocked, setBlocked] = useState<string | null>(null);
   // On a phone the camera fills the screen and the tray shows the latest scan; expanding it trades camera for the full list.
   const [expanded, setExpanded] = useState(false);
+  // Auto-capture: off until turned on, then remembered on this device.
+  const guide = useRef<HTMLSpanElement>(null);
+  const [auto, setAuto] = useState(false);
+  const [lock, setLock] = useState<{ progress: number; hint: AutoHint }>({ progress: 0, hint: "searching" });
+  useEffect(() => {
+    try {
+      setAuto(localStorage.getItem(AUTO_KEY) === "1");
+    } catch {}
+  }, []);
+  const toggleAuto = () =>
+    setAuto((on) => {
+      try {
+        localStorage.setItem(AUTO_KEY, on ? "0" : "1");
+      } catch {}
+      return !on;
+    });
   const onPickRef = useRef(onPick);
   onPickRef.current = onPick;
 
@@ -133,6 +191,28 @@ export function ScanSheet({
     setExpanded(false);
     navigator.vibrate?.(12);
   }, [camera, enqueue, disabled]);
+
+  // Auto-capture loop: sample the guide ~10 times a second and take the photo when a card settles in it.
+  const captureRef = useRef(capture);
+  captureRef.current = capture;
+  useEffect(() => {
+    if (!open || !auto || camera !== "on" || disabled || blocked) return;
+    const canvas = document.createElement("canvas");
+    let state: AutoState = AUTO_START;
+    const id = window.setInterval(() => {
+      if (!video.current || !guide.current || document.hidden) return;
+      const frame = sampleGuide(video.current, guide.current, canvas);
+      if (!frame) return;
+      const r = autoStep(state, frame, performance.now());
+      state = r.state;
+      setLock((l) => (l.progress === r.progress && l.hint === r.hint ? l : { progress: r.progress, hint: r.hint }));
+      if (r.fire) captureRef.current();
+    }, 100);
+    return () => {
+      window.clearInterval(id);
+      setLock({ progress: 0, hint: "searching" });
+    };
+  }, [open, auto, camera, disabled, blocked]);
 
   // Space or Enter takes a photo on a laptop.
   useEffect(() => {
@@ -208,7 +288,20 @@ export function ScanSheet({
           style={{ containerType: "size" }}
         >
           <video ref={video} playsInline muted className={cn("absolute inset-0 size-full object-cover", camera !== "on" && "hidden")} />
-          {camera === "on" && <span aria-hidden className="scan-guide pointer-events-none absolute left-1/2 top-1/2 aspect-[63/88] h-[min(82cqh,120cqw)] -translate-x-1/2 -translate-y-1/2 rounded-xl" />}
+          {camera === "on" && <span ref={guide} aria-hidden className="scan-guide pointer-events-none absolute left-1/2 top-1/2 aspect-[63/88] h-[min(82cqh,120cqw)] -translate-x-1/2 -translate-y-1/2 rounded-xl" />}
+          {/* Lock-on: a brighter frame closes in on the guide as the card settles. */}
+          {camera === "on" && auto && (
+            <span
+              aria-hidden
+              className="pointer-events-none absolute left-1/2 top-1/2 aspect-[63/88] h-[min(82cqh,120cqw)] rounded-xl border-[3px] border-[var(--lime)] transition-[opacity,transform] duration-100"
+              style={{ opacity: lock.progress, transform: `translate(-50%, -50%) scale(${1.08 - 0.08 * lock.progress})` }}
+            />
+          )}
+          {camera === "on" && auto && !disabled && !blocked && (
+            <span aria-live="polite" data-auto-hint={lock.hint} className="absolute inset-x-0 bottom-3 mx-auto w-max max-w-[90%] rounded-full bg-black/60 px-3 py-1 text-center text-[12px] font-medium text-white backdrop-blur">
+              {AUTO_HINTS[lock.hint]}
+            </span>
+          )}
           {camera === "on" && flash > 0 && <span key={flash} aria-hidden className="scan-flash pointer-events-none absolute inset-0 bg-white" />}
           {camera === "starting" && (
             <p className="absolute inset-0 flex items-center justify-center gap-2 text-[13px] text-white/70">
@@ -243,7 +336,17 @@ export function ScanSheet({
           >
             <span className="size-[56px] rounded-full border-[3px] border-[#0b0b0c]/80" />
           </button>
-          <span className="size-11" />
+          <button
+            type="button"
+            onClick={toggleAuto}
+            disabled={camera !== "on"}
+            aria-pressed={auto}
+            aria-label="Take photos automatically"
+            title="Take the photo automatically when a card is in the frame"
+            className={cn("grid size-11 place-items-center rounded-full text-[11px] font-bold uppercase tracking-[0.04em] transition-colors disabled:opacity-40", auto ? "bg-[var(--lime)] text-[#0b0b0c]" : "bg-surface-2 text-muted hover:text-foreground")}
+          >
+            Auto
+          </button>
           <input
             ref={file}
             type="file"
