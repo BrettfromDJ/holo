@@ -49,14 +49,14 @@ export function MoversBoard({
 
   if (!gainers.length && !losers.length) {
     return (
-      <div className="rounded-[var(--radius-card)] border border-border bg-surface px-6 py-10 text-center text-[14px] text-muted">
+      <div className="py-6 text-[14px] text-muted">
         Nothing moved in this period.
       </div>
     );
   }
 
   return (
-    <div ref={ref} className="grid gap-3 lg:grid-cols-2">
+    <div ref={ref} className="grid gap-x-12 gap-y-8 lg:grid-cols-2">
       <MoverColumn title="Gainers" rows={gainers} up max={max} daily={daily} inView={inView} />
       <MoverColumn title="Losers" rows={[...losers].sort((a, b) => a.m - b.m)} up={false} max={max} daily={daily} inView={inView} />
     </div>
@@ -67,8 +67,8 @@ function MoverColumn({ title, rows, up, max, daily, inView }: { title: string; r
   const [all, setAll] = useState(false);
   const shown = all ? rows : rows.slice(0, COLLAPSED);
   return (
-    <div className={cn("tint hype-surface relative overflow-hidden rounded-[var(--radius-card)] p-2 sm:p-3", up ? "tint-lime" : "tint-pink")}>
-      <p className="relative flex items-center gap-2 px-2 pb-2 pt-2">
+    <div className="min-w-0">
+      <p className="flex items-center gap-2 pb-3">
         <span className="font-display text-[22px] uppercase leading-none tracking-[0.01em]">{title}</span>
         {rows.length > 0 && <span className={cn("tag-skew", up ? "tag-lime" : "tag-pink")}>{rows.length}</span>}
       </p>
@@ -80,7 +80,7 @@ function MoverColumn({ title, rows, up, max, daily, inView }: { title: string; r
               <li key={h.key}>
                 <Link
                   href={holdingHref(h)}
-                  className="group grid grid-cols-[2.25rem_minmax(0,1fr)_4.75rem] items-center gap-x-3 rounded-xl px-2 py-1.5 transition-colors hover:bg-surface-2/70 sm:grid-cols-[2.25rem_minmax(0,1fr)_5rem_5rem]"
+                  className="group -mx-2 grid grid-cols-[2.25rem_minmax(0,1fr)_4.75rem] items-center gap-x-3 rounded-xl px-2 py-1.5 transition-colors hover:bg-surface-2/70 sm:grid-cols-[2.25rem_minmax(0,1fr)_5rem_5rem]"
                 >
                   <ProductImage
                     product={h.product}
@@ -117,10 +117,10 @@ function MoverColumn({ title, rows, up, max, daily, inView }: { title: string; r
           })}
         </ol>
       ) : (
-        <p className="relative px-2 py-4 text-[13px] text-muted">{up ? "Nothing went up in this period." : "Nothing went down in this period."}</p>
+        <p className="py-4 text-[13px] text-muted">{up ? "Nothing went up in this period." : "Nothing went down in this period."}</p>
       )}
       {rows.length > COLLAPSED && (
-        <button type="button" onClick={() => setAll((v) => !v)} className="relative mt-1 px-2 pb-1 text-[12px] font-medium text-muted hover:text-foreground">
+        <button type="button" onClick={() => setAll((v) => !v)} className="mt-2 text-[12px] font-medium text-muted hover:text-foreground">
           {all ? "Show fewer" : `Show all ${rows.length}`}
         </button>
       )}
@@ -134,7 +134,7 @@ function MoverColumn({ title, rows, up, max, daily, inView }: { title: string; r
 export function RecentTimeline({ holdings }: { holdings: HoldingView[] }) {
   const [ref, inView] = useInView<HTMLOListElement>();
   return (
-    <div className="tint tint-blue tint-borderless hype-surface min-w-0 rounded-[var(--radius-card)] bg-surface p-6 sm:p-7">
+    <div className="min-w-0">
       <div className="mb-5 flex items-center justify-between">
         <h2 className="flex items-center gap-2.5 font-display text-[24px] uppercase leading-none tracking-[0.01em] sm:text-[28px]">
           <span aria-hidden className="h-[0.7em] w-1.5 rounded-full bg-lime shadow-[0_0_12px_var(--lime)]" />
@@ -167,7 +167,7 @@ export function RecentTimeline({ holdings }: { holdings: HoldingView[] }) {
             <span
               aria-hidden
               className={cn(
-                "absolute left-0 top-[22px] size-[11px] rounded-full border-2 border-surface",
+                "absolute left-0 top-[22px] size-[11px] rounded-full border-2 border-background",
                 i === 0
                   ? "bg-[var(--lime)] shadow-[0_0_0_4px_color-mix(in_srgb,var(--lime)_25%,transparent)]"
                   : "bg-surface-2 ring-1 ring-border",
