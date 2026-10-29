@@ -89,7 +89,9 @@ Photos go to TCG API's `POST /v1/identify` (one prepaid scan each, separate from
 
 ### eBay sold listings (`/api/tcg/products/:id/ebay`)
 
-`GET /v1/cards/:id/prices?include=ebay_sales` (TCG API Pro plan and up, 2 request credits a call) gives the last 30 days of eBay sales: the median, count and last sale for ungraded copies and each grade, plus the listings. It's fetched only when the product page's eBay section scrolls into view (or from a Deal row), then cached for 12 hours in the server, at the CDN and on the device. Below Pro, the section says so instead.
+`GET /v1/cards/:id/prices?include=ebay_sales` (TCG API Pro plan and up, 2 request credits a call) gives the last 30 days of eBay sales: the median, count and last sale for ungraded copies and each grade, plus the listings. It's fetched only when needed and cached for 12 hours in the server, at the CDN and on the device. `EBAY_SOURCE` in `src/lib/ebay-sample.ts` is `"tcgapi"`; demo products always get sample sales.
+
+Slabs are valued from the same data (`GRADED_SOURCE = "ebay"` in `src/lib/graded.ts`): each slab gets the 30-day median for its exact grade (else the last sale), with history following the raw card's trend scaled to that price. A grade with no recent sales stays unpriced so you can set your own value. Scans ask for `include=ebay`, so a scanned slab is priced at its label's grade. The full graded price table and "What's it worth?" fall back to the typical grade curve, always labeled as an estimate, until a price guide like PriceCharting is connected.
 
 ### Daily sync (`/api/cron/sync-prices`)
 

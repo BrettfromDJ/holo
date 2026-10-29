@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { Segmented } from "@/components/ui/segmented";
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { money, signedMoney } from "@/lib/format";
-import { GRADED_SOURCE } from "@/lib/graded";
 import { useGradingCosts } from "@/lib/store/grading";
 import { gradedWorth, gradesFor, rawWorth, RAW_CONDITIONS, WORTH_GRADERS, type RawCondition, type Worth, type WorthGrader } from "@/lib/worth";
 import { cn } from "@/lib/utils";
@@ -39,9 +38,9 @@ export function WhatsItWorth({ productId, printing, name, nm, owned }: { product
   const gradeNow = grades.includes(grade) ? grade : "10";
   const worth: Worth | null = useMemo(() => {
     if (nm === null) return null;
-    return mode === "raw" ? rawWorth(nm, condition, ebay) : gradedWorth(productId, nm, { company, grade: gradeNow }, ebay);
-  }, [nm, mode, condition, ebay, productId, company, gradeNow]);
-  const gem = nm === null ? null : gradedWorth(productId, nm, { company: "PSA", grade: "10" }, ebay);
+    return mode === "raw" ? rawWorth(nm, condition, ebay) : gradedWorth(productId, nm, { company, grade: gradeNow }, ebay, null, sampleMode);
+  }, [nm, mode, condition, ebay, productId, company, gradeNow, sampleMode]);
+  const gem = nm === null ? null : gradedWorth(productId, nm, { company: "PSA", grade: "10" }, ebay, null, sampleMode);
 
   if (nm === null || !worth) return null;
   const vsNm = worth.price - nm;
@@ -55,7 +54,7 @@ export function WhatsItWorth({ productId, printing, name, nm, owned }: { product
       <section className="mt-6 rounded-[var(--radius-card)] border border-border bg-surface p-5 sm:p-6">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-[15px] font-semibold">What&apos;s it worth?</h2>
-          {(sampleMode || GRADED_SOURCE === "sample") && <Badge variant="sample">Sample data</Badge>}
+          {sampleMode && <Badge variant="sample">Sample data</Badge>}
         </div>
 
         <div className="mt-3">

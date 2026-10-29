@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PriceResolver } from "./finance/prices";
-import { gradedLadder, gradedPriceKey, gradingOutlook, isStaleValue, liquidityLabel, liquidityOf, sampleMultiple, sampleSalesPerYear, withSampleGradedPrices } from "./graded";
+import { gradedLadder, gradedPriceKey, gradingOutlook, isStaleValue, liquidityLabel, liquidityOf, sampleMultiple, sampleSalesPerYear, withEbayGradedPrices, withSampleGradedPrices, ebayGradedTargets } from "./graded";
 import { priceKey, type CollectionData, type NormalizedPrice, type Transaction } from "./types";
 
 const today = "2026-10-28";
@@ -28,20 +28,39 @@ describe("graded prices", () => {
     expect(sampleMultiple("p1", { company: "PSA", grade: "10" })).toBe(ten);
   });
 
-  it("adds a price and history under the graded key", () => {
-    const out = withSampleGradedPrices(data(), today);
-    const key = gradedPriceKey("p1", null, slab.grade!);
+  // Demo products get sample graded prices; real ones are priced from eBay.
+  const demoSlab: Transaction = { ...slab, productId: "sample:p1" };
+  const demo = () => data({ transactions: [demoSlab], prices: { [priceKey("sample:p1", null)]: { ...raw, productId: "sample:p1" } }, history: { [priceKey("sample:p1", null)]: [{ date: "2026-10-01", price: 90 }] } });
+
+  it("adds a sample price and history under the graded key for demo products", () => {
+    const out = withSampleGradedPrices(demo(), today);
+    const key = gradedPriceKey("sample:p1", null, slab.grade!);
     expect(out.prices[key].market).toBeGreaterThan(100);
     expect(out.history[key].at(-1)?.date).toBe(today);
     expect(out.history[key]).toHaveLength(2);
+    // Real products aren't given made-up slab prices.
+    expect(withSampleGradedPrices(data(), today).prices[gradedPriceKey("p1", null, slab.grade!)]).toBeUndefined();
   });
 
   it("values a slab from the graded price, and a manual value overrides it", () => {
-    const priced = withSampleGradedPrices(data(), today);
-    const auto = new PriceResolver(priced, today).resolve(slab, today);
+    const priced = withSampleGradedPrices(demo(), today);
+    const auto = new PriceResolver(priced, today).resolve(demoSlab, today);
     expect(auto?.origin).toBe("current");
-    const manual = new PriceResolver({ ...priced, manualValues: { "p1||Near Mint|PSA 10": { value: 777, date: "2026-10-20" } } }, today).resolve(slab, today);
+    const manual = new PriceResolver({ ...priced, manualValues: { "sample:p1||Near Mint|PSA 10": { value: 777, date: "2026-10-20" } } }, today).resolve(demoSlab, today);
     expect(manual).toMatchObject({ price: 777, origin: "manual" });
+  });
+
+  it("prices real slabs from eBay sales for their grade, following the raw trend", () => {
+    const ebay = { [priceKey("p1", null)]: { printing: null, ungraded: { median: 100, count: 9, lastPrice: 100, lastSold: null }, graded: { "PSA 10": { median: 500, count: 4, lastPrice: 520, lastSold: "2026-10-27" } }, sales: [], asOf: today, days: 30 } };
+    expect(ebayGradedTargets(data())).toEqual([{ productId: "p1", printing: null }]);
+    const out = withEbayGradedPrices(data(), ebay, today);
+    const key = gradedPriceKey("p1", null, slab.grade!);
+    expect(out.prices[key]).toMatchObject({ market: 500, source: "tcgapi" });
+    // Raw was 90 on Oct 1 against 100 now; the slab history scales by 500 / 100.
+    expect(out.history[key]).toEqual([{ date: "2026-10-01", price: 450 }, { date: today, price: 500 }]);
+    // A grade that hasn't sold stays unpriced.
+    const psa9: Transaction = { ...slab, id: "t2", grade: { company: "PSA", grade: "9" } };
+    expect(withEbayGradedPrices(data({ transactions: [psa9] }), ebay, today).prices[gradedPriceKey("p1", null, psa9.grade!)]).toBeUndefined();
   });
 
   it("has no ladder without a raw price", () => {

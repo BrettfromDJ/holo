@@ -65,16 +65,18 @@ export function rawWorth(nm: number, condition: RawCondition, ebay: EbaySales | 
 }
 
 /**
- * A graded copy's worth. `guide` is the price guide's figure when one is
- * connected; without it, the sample graded curve stands in for the guide.
+ * A graded copy's worth. `guide` is a price guide's figure (PriceCharting)
+ * when one is connected. `curveIsGuide` lets the sample grade curve stand in
+ * for the guide on demo products; on real ones, without a guide or sales,
+ * the curve is an estimate and says so.
  */
-export function gradedWorth(productId: string, nm: number, grade: Grade, ebay: EbaySales | null, guide?: number | null): Worth {
+export function gradedWorth(productId: string, nm: number, grade: Grade, ebay: EbaySales | null, guide?: number | null, curveIsGuide = false): Worth {
   const label = `${grade.company} ${grade.grade}`;
   const sold = ebay?.graded[label];
   if (sold && sold.count >= MIN_SALES && sold.median !== null) {
     return { price: sold.median, source: "sales", detail: `Median of ${sold.count} ${label} eBay sales this month`, sold: sold.count };
   }
   const curve = round(nm * sampleMultiple(productId, grade));
-  if (guideCovers(grade)) return { price: guide ?? curve, source: "guide", detail: `Price guide for ${label}`, sold: null };
+  if (guideCovers(grade) && (guide != null || curveIsGuide)) return { price: guide ?? curve, source: "guide", detail: `Price guide for ${label}`, sold: null };
   return { price: curve, source: "estimate", detail: `No recent sales · from the usual grade curve`, sold: null };
 }

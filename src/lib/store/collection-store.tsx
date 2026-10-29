@@ -1,6 +1,9 @@
 "use client";
 
-import { withSampleGradedPrices } from "@/lib/graded";
+import { ebayGradedTargets, withEbayGradedPrices, withSampleGradedPrices } from "@/lib/graded";
+import { loadEbay } from "@/lib/ebay-client";
+import type { EbaySales } from "@/lib/ebay-types";
+import { mapLimit } from "@/lib/pricing/cache";
 import type { User } from "@supabase/supabase-js";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { looksSealed } from "../catalog";
@@ -484,11 +487,28 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
 
   // Portfolio math (holdings, timeline, realized) is computed once per data
   // change here and shared, instead of once per component that shows numbers.
-  const allView = useMemo(() => portfolioView(state.data, state.today), [state.data, state.today]);
+  // Slabs are valued from recent eBay sales for their grade. Each product held
+  // graded is loaded once (cached for 12 hours on the server, CDN and device).
+  const [ebayGraded, setEbayGraded] = useState<Record<string, EbaySales | null>>({});
+  const gradedTargets = useMemo(() => (state.status === "ready" ? ebayGradedTargets(state.data) : []), [state.status, state.data]);
+  useEffect(() => {
+    const todo = gradedTargets.filter((t) => !(priceKey(t.productId, t.printing) in ebayGraded));
+    if (!todo.length) return;
+    let cancelled = false;
+    void mapLimit(todo, 2, async (t) => {
+      const value = await loadEbay(t.productId, t.printing).catch(() => null);
+      if (!cancelled) setEbayGraded((m) => ({ ...m, [priceKey(t.productId, t.printing)]: value }));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [gradedTargets, ebayGraded]);
+
+  const allView = useMemo(() => portfolioView(state.data, state.today, ebayGraded), [state.data, state.today, ebayGraded]);
   const filtered = state.holdingFilter;
   const filteredView = useMemo(
-    () => (filtered ? portfolioView({ ...state.data, transactions: state.data.transactions.filter((t) => filtered(holdingKey(t))) }, state.today) : allView),
-    [state.data, state.today, filtered, allView],
+    () => (filtered ? portfolioView({ ...state.data, transactions: state.data.transactions.filter((t) => filtered(holdingKey(t))) }, state.today, ebayGraded) : allView),
+    [state.data, state.today, filtered, allView, ebayGraded],
   );
   const views = useMemo(() => ({ all: allView, filtered: filteredView }), [allView, filteredView]);
 
@@ -512,9 +532,9 @@ export interface PortfolioView {
   realized: RealizedEntry[];
 }
 
-function portfolioView(raw: CollectionData, today: ISODate): PortfolioView {
-  // Graded slabs are priced from the graded source (sample data for now).
-  const data = withSampleGradedPrices(raw, today);
+function portfolioView(raw: CollectionData, today: ISODate, ebay: Record<string, EbaySales | null>): PortfolioView {
+  // Slabs: real ones from eBay sales for their grade, demo ones from the sample curve.
+  const data = withSampleGradedPrices(withEbayGradedPrices(raw, ebay, today), today);
   const holdings = computeHoldings(data, today);
   const realized = totalRealized(data, today);
   return { holdings, summary: summarize(holdings, realized.total), timeline: computeTimeline(data, today), realized: realized.entries };

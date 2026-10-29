@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { daysBetween } from "@/lib/finance/dates";
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { formatDate, money } from "@/lib/format";
-import { certLookupUrl, GRADED_SOURCE, gradeDescriptor, gradedLadder, gradeLabel, GRADERS, isStaleValue, liquidityLabel, liquidityNote, liquidityOf, sampleSalesPerYear } from "@/lib/graded";
+import { certLookupUrl, gradeDescriptor, gradedSampleFor, gradedLadder, gradeLabel, GRADERS, isStaleValue, liquidityLabel, liquidityNote, liquidityOf, sampleSalesPerYear } from "@/lib/graded";
 import { useStore } from "@/lib/store/collection-store";
 import { useGradingCosts, useGradingSubmissions, useSlabBumpers, useSlabCerts, type GradingSubmission } from "@/lib/store/grading";
 import { BUMPERS, bumperById, GLITTER_SPECKS } from "@/lib/bumpers";
@@ -57,8 +57,8 @@ export function GradedPrices({ productId, printing, owned }: { productId: string
     <Card className="mt-6 p-5 sm:p-6">
       <SectionTitle
         title="Graded prices"
-        subtitle={`Raw ${money(raw)} · what slabs of this card sell for`}
-        action={GRADED_SOURCE === "sample" ? <Badge variant="sample">Sample data</Badge> : undefined}
+        subtitle={gradedSampleFor(productId) ? `Raw ${money(raw)} · what slabs of this card sell for` : `Raw ${money(raw)} · typical premiums for each grade, not sales`}
+        action={gradedSampleFor(productId) ? <Badge variant="sample">Sample data</Badge> : <Badge variant="sample">Estimates</Badge>}
       />
       <ul className="divide-y divide-border">
         {rows.map((r) => (
@@ -185,7 +185,7 @@ export function SlabCard({ h, actions, onRevalue, onCert, showBumper = true }: {
 
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12px] text-subtle">
           {showBumper && <BumperButton h={h} />}
-          <span>{manual ? "Your value" : GRADED_SOURCE === "sample" ? "Graded market · sample" : "Graded market"}</span>
+          <span>{manual ? "Your value" : slabSourceLabel(h)}</span>
           <span>
             {h.lots.length} lot{h.lots.length === 1 ? "" : "s"} · avg {money(h.avgCost)}
           </span>
@@ -488,4 +488,10 @@ export function useAtGrader() {
 export function formatSent(s: GradingSubmission, today: string) {
   const days = daysBetween(s.sentOn, today);
   return `${s.company} ${s.service} · sent ${formatDate(s.sentOn)}${days > 0 ? ` · ${days} day${days === 1 ? "" : "s"} ago` : ""}`;
+}
+
+/** Where an automatic slab value comes from: the sample curve, eBay sales, or nowhere yet. */
+export function slabSourceLabel(h: HoldingView) {
+  if (gradedSampleFor(h.identity.productId)) return "Graded market · sample";
+  return h.price === null ? "No recent eBay sales · set your value" : "eBay sold median";
 }

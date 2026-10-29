@@ -4,10 +4,15 @@ import { gradeLabel, LADDER, sampleMultiple, sampleSalesPerYear } from "./graded
 import type { Grade, ISODate } from "./types";
 
 /**
- * Where eBay sold listings come from. "sample" makes up believable sales for
- * every card until TCG API Pro is connected; switch to "tcgapi" then.
+ * Where eBay sold listings come from: "tcgapi" (Pro plan) for real cards, or
+ * "sample" to make up believable sales for every card.
  */
-export const EBAY_SOURCE: "sample" | "tcgapi" = "sample";
+export const EBAY_SOURCE: "sample" | "tcgapi" = "tcgapi";
+
+/** Whether a product's eBay sales are sample ones: always for demo products, which TCG API doesn't know. */
+export function ebaySampleFor(productId: string) {
+  return EBAY_SOURCE === "sample" || productId.startsWith("sample:");
+}
 
 /** Seeded random numbers, so a card's sample sales are the same on every visit. */
 function rng(seed: string) {

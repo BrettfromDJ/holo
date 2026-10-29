@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ProductImage } from "@/components/product/product-image";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { money } from "@/lib/format";
-import type { ScanCandidate, ScanResult } from "@/lib/scan-types";
+import { scanValue, type ScanCandidate, type ScanResult } from "@/lib/scan-types";
 import { cn } from "@/lib/utils";
 
 /** A confirmed scan: the product, its printing and price, and what the photo showed. */
@@ -310,7 +310,7 @@ function TrayRow({ entry, onConfirm, onRetry, extra }: { entry: Entry; onConfirm
             {entry.outcome?.note && <span className={cn("block text-[12px]", ok ? "text-muted" : "text-down")}>{entry.outcome.note}</span>}
           </span>
           <span className="shrink-0 text-right">
-            <span className="tabular block text-[14px] font-semibold">{money(c.market)}</span>
+            <span className="tabular block text-[14px] font-semibold">{money(scanValue(c, entry.result?.read ?? null))}</span>
             {ok && <Check className="ml-auto mt-0.5 size-3.5 text-up" />}
           </span>
         </div>

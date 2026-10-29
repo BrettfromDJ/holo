@@ -5,8 +5,8 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DealPicker, type DealItem, type DealSide } from "@/components/deal/deal-picker";
 import { ScanSheet, type ScanOutcome, type ScanPick } from "@/components/scan/scan-sheet";
+import { scanValue } from "@/lib/scan-types";
 import { EbaySales } from "@/components/product/ebay-sales";
-import { EBAY_SOURCE } from "@/lib/ebay-sample";
 import { ProductImage } from "@/components/product/product-image";
 import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
@@ -106,7 +106,7 @@ export default function DealPage() {
     const c = pick.candidate;
     if (side === "in") {
       const h = holdings.find((x) => x.identity.productId === c.product.id && x.identity.printing === c.printing && sameGrade(x.identity.grade, pick.read?.grade ?? null));
-      add("in", h ? { key: `h:${h.key}`, product: h.product!, printing: h.identity.printing, market: h.price ?? c.market, qty: 1, price: null, holdingKey: h.key } : { key: `p:${c.product.id}:${c.printing ?? ""}:${gradeLabel(pick.read?.grade ?? null)}`, product: c.product, printing: c.printing, market: c.market, qty: 1, price: null, grade: pick.read?.grade ?? null });
+      add("in", h ? { key: `h:${h.key}`, product: h.product!, printing: h.identity.printing, market: h.price ?? c.market, qty: 1, price: null, holdingKey: h.key } : { key: `p:${c.product.id}:${c.printing ?? ""}:${gradeLabel(pick.read?.grade ?? null)}`, product: c.product, printing: c.printing, market: scanValue(c, pick.read), qty: 1, price: null, grade: pick.read?.grade ?? null });
       return { ok: true, note: "Added to coming in" };
     }
     const owned = holdings.filter((x) => x.identity.productId === c.product.id);
@@ -380,7 +380,7 @@ function SideCard({
                 <p className="tabular mt-0.5 text-[12px] text-muted">
                   Market {money(item.market)}
                   {item.grade && ` · ${item.grade.company} ${item.grade.grade}`}
-                  {(item.product.source === "tcgapi" || EBAY_SOURCE === "sample") && (
+                  {(item.product.source === "tcgapi" || item.product.source === "sample") && (
                     <>
                       {" · "}
                       <button type="button" onClick={() => onEbay(item)} className="font-medium text-foreground/80 underline-offset-2 hover:text-foreground hover:underline">

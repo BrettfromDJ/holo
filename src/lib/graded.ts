@@ -1,16 +1,23 @@
+import type { EbaySales } from "./ebay-types";
 import { addDays, daysBetween } from "./finance/dates";
 import { priceKey, type CollectionData, type Grade, type HoldingIdentity, type ISODate, type NormalizedPrice, type PricePoint } from "./types";
 
 /**
  * Graded card prices.
  *
- * The pricing source only covers raw (ungraded) cards, so graded prices come
- * from a separate source. Until a real feed (e.g. PriceCharting) is wired up,
- * `GRADED_SOURCE` is "sample": prices are generated from the raw price with a
- * typical premium for each grade, so every screen can be built and tried.
- * A real feed only has to fill `prices`/`history` under `gradedPriceKey`.
+ * The raw pricing source doesn't price slabs. `GRADED_SOURCE` "ebay" prices
+ * each slab from the median of recent eBay sales for its exact grade (TCG
+ * API Pro), following the raw card's trend for history; a grade with no
+ * recent sales stays unpriced so you can enter your own value. Demo
+ * products, and everything when set to "sample", get generated prices: the
+ * raw price with a typical premium for each grade.
  */
-export const GRADED_SOURCE: "sample" | "pricecharting" = "sample";
+export const GRADED_SOURCE: "sample" | "ebay" = "ebay";
+
+/** Whether a slab of this product is priced from the sample curve. */
+export function gradedSampleFor(productId: string) {
+  return GRADED_SOURCE === "sample" || productId.startsWith("sample:");
+}
 
 export const GRADERS = ["PSA", "BGS", "CGC", "SGC", "TAG"] as const;
 
@@ -66,9 +73,8 @@ function round(n: number) {
 
 /** Adds sample graded prices and history for every graded identity in the collection. */
 export function withSampleGradedPrices(data: CollectionData, today: ISODate): CollectionData {
-  if (GRADED_SOURCE !== "sample") return data;
   const graded = new Map<string, HoldingIdentity>();
-  for (const t of data.transactions) if (t.grade) graded.set(gradedPriceKey(t.productId, t.printing, t.grade), t);
+  for (const t of data.transactions) if (t.grade && gradedSampleFor(t.productId)) graded.set(gradedPriceKey(t.productId, t.printing, t.grade), t);
   if (!graded.size) return data;
 
   const prices = { ...data.prices };
@@ -273,3 +279,54 @@ export function liquidityNote(perYear: number): string {
 
 /** How much a grading upside counts when ranking, by how often the PSA 10 sells. */
 export const LIQUIDITY_WEIGHT: Record<Liquidity, number> = { often: 1, regular: 0.8, rare: 0.4 };
+
+/* ------------------------------- eBay source ------------------------------ */
+
+/** Slabs to price from eBay: each real product and printing held graded. */
+export function ebayGradedTargets(data: CollectionData): { productId: string; printing: string | null }[] {
+  const seen = new Map<string, { productId: string; printing: string | null }>();
+  for (const t of data.transactions) if (t.grade && !gradedSampleFor(t.productId)) seen.set(priceKey(t.productId, t.printing), { productId: t.productId, printing: t.printing });
+  return [...seen.values()];
+}
+
+/**
+ * Prices slabs from recent eBay sales for their exact grade: the 30-day
+ * median, else the last sale. History follows the raw card's trend, scaled to
+ * that price. Grades with no sales are left unpriced.
+ */
+export function withEbayGradedPrices(data: CollectionData, ebay: Record<string, EbaySales | null>, today: ISODate): CollectionData {
+  if (GRADED_SOURCE !== "ebay") return data;
+  const prices = { ...data.prices };
+  const history = { ...data.history };
+  let changed = false;
+  for (const t of data.transactions) {
+    if (!t.grade || gradedSampleFor(t.productId)) continue;
+    const key = gradedPriceKey(t.productId, t.printing, t.grade);
+    if (prices[key]) continue;
+    const e = ebay[priceKey(t.productId, t.printing)];
+    const stats = e?.graded[gradeLabel(t.grade)];
+    const market = stats?.median ?? stats?.lastPrice ?? null;
+    if (market === null || !e) continue;
+    const rawKey = priceKey(t.productId, t.printing);
+    const raw = data.prices[rawKey]?.market ?? null;
+    const ratio = raw ? market / raw : null;
+    const points: PricePoint[] = ratio ? (data.history[rawKey] ?? []).filter((p) => p.date < today).map((p) => ({ date: p.date, price: round(p.price * ratio) })) : [];
+    points.push({ date: today, price: market });
+    history[key] = points;
+    prices[key] = {
+      productId: t.productId,
+      printing: t.printing,
+      market,
+      low: null,
+      change24hPct: null,
+      change7dPct: null,
+      change30dPct: null,
+      updatedAt: stats?.lastSold ?? e.asOf,
+      fetchedAt: null,
+      source: "tcgapi",
+      status: "live",
+    };
+    changed = true;
+  }
+  return changed ? { ...data, prices, history } : data;
+}

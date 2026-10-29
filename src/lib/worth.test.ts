@@ -20,8 +20,10 @@ describe("what's it worth", () => {
   it("uses graded sales, then the guide, then the curve", () => {
     const e = ebay({ graded: { "PSA 10": { median: 600, count: 4, lastPrice: 610, lastSold: null } } });
     expect(gradedWorth("p", 100, { company: "PSA", grade: "10" }, e)).toMatchObject({ price: 600, source: "sales" });
-    expect(gradedWorth("p", 100, { company: "PSA", grade: "9" }, e).source).toBe("guide");
+    expect(gradedWorth("p", 100, { company: "PSA", grade: "9" }, e, null, true).source).toBe("guide");
     expect(gradedWorth("p", 100, { company: "PSA", grade: "9" }, e, 222).price).toBe(222);
+    // Without a connected guide, a real card's curve value is an estimate.
+    expect(gradedWorth("p", 100, { company: "PSA", grade: "9" }, e).source).toBe("estimate");
     expect(gradedWorth("p", 100, { company: "PSA", grade: "3" }, e).source).toBe("estimate");
   });
 

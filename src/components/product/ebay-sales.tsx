@@ -4,71 +4,33 @@ import { ExternalLink, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useInView } from "@/components/motion/reveal";
 import { Badge } from "@/components/ui/badge";
-import { EBAY_SOURCE, sampleEbaySales } from "@/lib/ebay-sample";
+import { cachedEbay, EbayLoadError, loadEbay } from "@/lib/ebay-client";
+import { ebaySampleFor, sampleEbaySales } from "@/lib/ebay-sample";
 import type { EbaySales as EbayData } from "@/lib/ebay-types";
 import { formatShortDate, money, relativeTime } from "@/lib/format";
 import { useStore } from "@/lib/store/collection-store";
 import { priceKey, type Grade } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-/** Results kept on this device for 12 hours, so revisiting a card doesn't spend credits. */
-const TTL = 12 * 60 * 60 * 1000;
-const memory = new Map<string, { at: number; value: EbayData | null }>();
-
 type Load = { state: "idle" | "loading" } | { state: "ready"; data: EbayData | null } | { state: "error"; message: string; tier: boolean };
-
-function readCache(key: string) {
-  const hit = memory.get(key);
-  if (hit && Date.now() - hit.at < TTL) return hit;
-  try {
-    const raw = localStorage.getItem(`holo:ebay:${key}`);
-    const v = raw ? (JSON.parse(raw) as { at: number; value: EbayData | null }) : null;
-    if (v && Date.now() - v.at < TTL) {
-      memory.set(key, v);
-      return v;
-    }
-  } catch {
-    /* storage unavailable */
-  }
-  return null;
-}
-
-function writeCache(key: string, value: EbayData | null) {
-  const v = { at: Date.now(), value };
-  memory.set(key, v);
-  try {
-    localStorage.setItem(`holo:ebay:${key}`, JSON.stringify(v));
-  } catch {
-    /* storage full or unavailable */
-  }
-}
 
 /** Fetch a card's recent eBay sales once it's on screen. */
 function useEbay(productId: string, printing: string | null, active: boolean) {
-  const key = `${productId}:${printing ?? ""}`;
   // Starts idle on both server and client; the device cache is read after mount.
   const [load, setLoad] = useState<Load>({ state: "idle" });
   useEffect(() => {
-    const hit = readCache(key);
+    const hit = cachedEbay(productId, printing);
     if (hit) return setLoad({ state: "ready", data: hit.value });
     if (!active) return;
     let cancelled = false;
     setLoad({ state: "loading" });
-    fetch(`/api/tcg/products/${encodeURIComponent(productId)}/ebay${printing ? `?printing=${encodeURIComponent(printing)}` : ""}`)
-      .then(async (r) => {
-        const body = await r.json().catch(() => null);
-        if (!r.ok) throw Object.assign(new Error(body?.error?.message ?? "Couldn't load eBay sales."), { tier: body?.error?.code === "tier" });
-        return (body?.ebay ?? null) as EbayData | null;
-      })
-      .then((data) => {
-        writeCache(key, data);
-        if (!cancelled) setLoad({ state: "ready", data });
-      })
-      .catch((err: Error & { tier?: boolean }) => !cancelled && setLoad({ state: "error", message: err.message, tier: Boolean(err.tier) }));
+    loadEbay(productId, printing)
+      .then((data) => !cancelled && setLoad({ state: "ready", data }))
+      .catch((err: Error) => !cancelled && setLoad({ state: "error", message: err.message, tier: err instanceof EbayLoadError && err.tier }));
     return () => {
       cancelled = true;
     };
-  }, [key, productId, printing, active]);
+  }, [productId, printing, active]);
   return load;
 }
 
@@ -78,7 +40,8 @@ function useEbay(productId: string, printing: string | null, active: boolean) {
  */
 export function useEbayData(productId: string, printing: string | null, opts: { name?: string; market?: number | null; active: boolean }) {
   const { data: store, today } = useStore();
-  const sampleMode = EBAY_SOURCE === "sample";
+  // Demo products always get sample sales; real ones do until TCG API Pro is on.
+  const sampleMode = ebaySampleFor(productId);
   const { name, market, active } = opts;
   const sample = useMemo(() => {
     if (!sampleMode) return null;

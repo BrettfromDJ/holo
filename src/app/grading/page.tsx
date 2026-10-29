@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Field, MoneyInput, parseMoney } from "@/components/flows/fields";
 import { FormShell } from "@/components/flows/transaction-dialogs";
-import { formatSent, GradeChip, ReturnDialog, SendToGraderDialog, useAtGrader } from "@/components/grading/grading-items";
+import { formatSent, GradeChip, ReturnDialog, SendToGraderDialog, slabSourceLabel, useAtGrader } from "@/components/grading/grading-items";
 import { MetricStrip } from "@/components/overview/sections";
 import { EmptyCollection } from "@/components/portfolio/empty-state";
 import { ErrorState } from "@/components/portfolio/error-state";
@@ -22,7 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { daysBetween } from "@/lib/finance/dates";
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { formatDate, money, signedMoney } from "@/lib/format";
-import { GRADED_SOURCE, gradingOutlook, isStaleValue, liquidityLabel, liquidityOf, sampleSalesPerYear } from "@/lib/graded";
+import { gradedSampleFor, gradingOutlook, isStaleValue, liquidityLabel, liquidityOf, sampleSalesPerYear } from "@/lib/graded";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
 import { useGradingCosts, useGradingSubmissions, type GradingSubmission } from "@/lib/store/grading";
 import { holdingKey, priceKey } from "@/lib/types";
@@ -80,7 +80,7 @@ export default function GradingPage() {
       <PageHeader
         title="Grading"
         subtitle="Your slabs, cards at the grader, and what's worth sending in"
-        actions={GRADED_SOURCE === "sample" ? <Badge variant="sample">Sample graded prices</Badge> : undefined}
+        actions={slabs.some((h) => gradedSampleFor(h.identity.productId)) ? <Badge variant="sample">Sample graded prices</Badge> : undefined}
       />
 
       <MetricStrip
@@ -269,7 +269,7 @@ function SlabTile({ h, today }: { h: HoldingView; today: string }) {
         {raw !== null && h.price !== null && <span className="ml-1.5 font-mono text-[11px] font-normal text-muted">{(h.price / raw).toFixed(1)}× raw</span>}
       </p>
       <p className={cn("text-[11px]", stale ? "text-foreground/80" : "text-subtle")}>
-        {manual ? (stale ? `Your value · ${daysBetween(h.priceUpdatedAt!, today)} days old` : "Your value") : GRADED_SOURCE === "sample" ? "Graded market (sample)" : "Graded market"}
+        {manual ? (stale ? `Your value · ${daysBetween(h.priceUpdatedAt!, today)} days old` : "Your value") : slabSourceLabel(h)}
       </p>
       {raw !== null && h.identity.grade && (
         <p className="text-[11px] text-subtle">

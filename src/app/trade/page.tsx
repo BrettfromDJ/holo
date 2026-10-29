@@ -4,6 +4,7 @@ import { ArrowLeftRight, Loader2, Minus, Plus, ScanLine, Search, Trash2 } from "
 import { useEffect, useMemo, useState } from "react";
 import { ProductImage } from "@/components/product/product-image";
 import { ScanSheet, type ScanOutcome, type ScanPick } from "@/components/scan/scan-sheet";
+import { scanValue } from "@/lib/scan-types";
 import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -114,7 +115,7 @@ export default function TradePage() {
     const owned = side === "give" ? holdings.find((h) => h.identity.productId === c.product.id && h.identity.printing === c.printing) : undefined;
     const item: TradeItem = owned
       ? { key: `h:${owned.key}`, product: owned.product!, unit: owned.price, qty: 1, maxQty: owned.quantity }
-      : { key: `p:${c.product.id}`, product: c.product, unit: c.market, qty: 1, printing: c.printing };
+      : { key: `p:${c.product.id}`, product: c.product, unit: scanValue(c, pick.read), qty: 1, printing: c.printing };
     setStored((cur) => {
       const t = { ...EMPTY, ...cur };
       const existing = t[side].find((i) => i.key === item.key);

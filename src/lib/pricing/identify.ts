@@ -27,7 +27,7 @@ interface RawCandidate {
   printings: string[];
   suggested_printing: string | null;
   score: number;
-  prices?: { printing: string; market_price: number | null }[];
+  prices?: { printing: string; market_price: number | null; ebay?: { slab_grade?: { median_30d: number | null; last_price: number | null } | null } | null }[];
 }
 
 interface RawResult {
@@ -73,13 +73,15 @@ function toCandidate(c: RawCandidate, sealed: boolean): ScanCandidate {
     tcgplayerUrl: null,
     printings: c.printings,
   };
-  return { product, printing, printings: c.printings, market: price?.market_price ?? null, score: c.score };
+  const slab = price?.ebay?.slab_grade ?? c.prices?.find((p) => p.ebay?.slab_grade)?.ebay?.slab_grade;
+  return { product, printing, printings: c.printings, market: price?.market_price ?? null, slabMarket: slab ? (slab.median_30d ?? slab.last_price) : null, score: c.score };
 }
 
 /** Identify the card, slab or sealed product in one photo. Uses one scan. */
 export async function identifyPhoto(image: Blob, opts: { game?: string } = {}): Promise<ScanResult> {
   const url = new URL(`${BASE}/identify`);
-  url.searchParams.set("include", "prices");
+  // "ebay" implies prices, and on a slab adds eBay sold figures for the grade on its label (no extra charge).
+  url.searchParams.set("include", "ebay");
   if (opts.game) url.searchParams.set("game", opts.game);
   const form = new FormData();
   form.append("image", image, "photo");

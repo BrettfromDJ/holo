@@ -9,6 +9,7 @@ import { Segmented } from "@/components/ui/segmented";
 import { money } from "@/lib/format";
 import { useStore } from "@/lib/store/collection-store";
 import type { Condition } from "@/lib/types";
+import { scanValue } from "@/lib/scan-types";
 import { ScanSheet, type ScanPick } from "./scan-sheet";
 
 type Paid = "market" | "pulled";
@@ -27,7 +28,7 @@ export function ScanToCollection({ open, onOpenChange, onDone }: { open: boolean
   const costOf = (pick: ScanPick) => {
     const typed = parseMoney(paid[pick.entryId] ?? "");
     if (typed !== null) return typed;
-    return paidMode === "pulled" ? 0 : (pick.candidate.market ?? 0);
+    return paidMode === "pulled" ? 0 : (scanValue(pick.candidate, pick.read) ?? 0);
   };
 
   const addAll = async (picks: ScanPick[]) => {

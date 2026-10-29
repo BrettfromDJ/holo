@@ -26,7 +26,6 @@ import { Button } from "@/components/ui/button";
 import { Card, SectionTitle } from "@/components/ui/card";
 import { EbaySales } from "@/components/product/ebay-sales";
 import { WhatsItWorth } from "@/components/product/whats-it-worth";
-import { EBAY_SOURCE } from "@/lib/ebay-sample";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -179,7 +178,7 @@ export default function ProductPage() {
             <PriceHistory productId={productId} printing={printing} />
           </Reveal>
 
-          {(product.source === "tcgapi" || EBAY_SOURCE === "sample") && (
+          {(product.source === "tcgapi" || product.source === "sample") && (
             <Reveal>
               <EbaySales productId={productId} printing={printing} grade={owned.find((h) => h.identity.grade)?.identity.grade ?? null} className="mt-6" />
             </Reveal>
