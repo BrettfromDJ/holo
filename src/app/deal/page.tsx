@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, ArrowDownLeft, ArrowUpRight, Eye, Loader2, Minus, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowDownLeft, ArrowUpRight, ChevronDown, Eye, History, Loader2, Minus, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DealPicker, type DealItem, type DealSide } from "@/components/deal/deal-picker";
@@ -8,12 +8,12 @@ import { ProductImage } from "@/components/product/product-image";
 import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { DEFAULT_RATES, dealKind, dealTotals, defaultSideRates, unitPrice, type DealKind, type DealRates, type DealTotals } from "@/lib/deal";
+import { DEFAULT_RATES, dealKind, dealTotals, defaultSideRates, lineRate, unitPrice, type DealKind, type DealRates, type DealTotals } from "@/lib/deal";
 import { fifoCost } from "@/lib/finance/sell";
 import { money, pct, signedMoney } from "@/lib/format";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
 import { useSyncedState } from "@/lib/store/synced-state";
-import type { Condition } from "@/lib/types";
+import type { Condition, Product } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 interface DealState {
@@ -34,10 +34,22 @@ interface DealRecord {
   profit: number | null;
   equity: number;
   items: number;
+  /** What changed hands, for the history. Missing on deals closed before it was kept. */
+  lines?: DealRecordLine[];
+}
+
+interface DealRecordLine {
+  side: DealSide;
+  product: Pick<Product, "id" | "name" | "imageUrl" | "kind" | "setName" | "productType">;
+  qty: number;
+  /** Price per unit it went at. */
+  price: number;
 }
 
 const EMPTY: DealState = { in: [], out: [], rateIn: null, rateOut: null };
 const KIND_LABEL: Record<DealKind, string> = { buy: "Buying", sell: "Selling", trade: "Trade", empty: "New deal" };
+/** The deal as a noun: "Close buy", "Sale recorded". */
+const KIND_NOUN: Record<DealKind, string> = { buy: "Buy", sell: "Sale", trade: "Trade", empty: "Deal" };
 
 /**
  * Deal maker for card shows: what comes in and what goes out, each valued at
@@ -55,6 +67,7 @@ export default function DealPage() {
   const [ratesOpen, setRatesOpen] = useState(false);
   const [customer, setCustomer] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const byKey = useMemo(() => new Map(holdings.map((h) => [h.key, h])), [holdings]);
   const kind = dealKind(deal.in.length, deal.out.length);
@@ -67,8 +80,8 @@ export default function DealPage() {
     return h ? Math.round(fifoCost(h.lots, item.qty) * 100) / 100 : null;
   };
   const totals = dealTotals(
-    deal.in.map((i) => ({ market: i.market, qty: i.qty, price: i.price })),
-    deal.out.map((i) => ({ market: i.market, qty: i.qty, price: i.price, cost: costOf(i) })),
+    deal.in.map((i) => ({ market: i.market, qty: i.qty, price: i.price, rate: i.rate })),
+    deal.out.map((i) => ({ market: i.market, qty: i.qty, price: i.price, rate: i.rate, cost: costOf(i) })),
     rate,
   );
   const unpriced = [...deal.in.map((i) => unitPrice(i, rate.in)), ...deal.out.map((i) => unitPrice(i, rate.out))].some((p) => p === null);
@@ -85,7 +98,7 @@ export default function DealPage() {
   const close = async () => {
     if (unpriced || kind === "empty") return;
     setClosing(true);
-    const note = `Show deal (${KIND_LABEL[kind].toLowerCase()})`;
+    const note = `Show deal (${KIND_NOUN[kind].toLowerCase()})`;
     try {
       for (const item of deal.out) {
         const h = item.holdingKey ? byKey.get(item.holdingKey) : undefined;
@@ -100,9 +113,9 @@ export default function DealPage() {
         // What you give for it becomes its cost, so later profit is measured from the deal.
         await addTransaction({ ...identity, type: "purchase", date: today, quantity: item.qty, unitPrice: unitPrice(item, rate.in)!, fees: 0, shipping: 0, tax: 0, source: "Card show", notes: note });
       }
-      setLog([{ id: crypto.randomUUID(), at: new Date().toISOString(), kind, inValue: totals.inValue, outValue: totals.outValue, balance: totals.balance, profit: totals.profit, equity: totals.equity, items: deal.in.length + deal.out.length }, ...log].slice(0, 500));
+      setLog([{ id: crypto.randomUUID(), at: new Date().toISOString(), kind, inValue: totals.inValue, outValue: totals.outValue, balance: totals.balance, profit: totals.profit, equity: totals.equity, items: deal.in.length + deal.out.length, lines: recordLines(deal, rate) }, ...log].slice(0, 500));
       setDeal(EMPTY);
-      toast.success(`${KIND_LABEL[kind]} recorded`, { description: totals.profit !== null ? `Profit ${signedMoney(totals.profit)}` : undefined });
+      toast.success(`${KIND_NOUN[kind]} recorded`, { description: totals.profit !== null ? `Profit ${signedMoney(totals.profit)}` : undefined });
     } catch (err) {
       toast.error("Couldn't record the deal", { description: err instanceof Error ? err.message : undefined });
     } finally {
@@ -117,6 +130,9 @@ export default function DealPage() {
         subtitle="Buys, sells and trades at the table"
         actions={
           <div className="flex gap-1">
+            <Button variant="ghost" size="icon" aria-label="Closed deals" onClick={() => setHistoryOpen(true)}>
+              <History />
+            </Button>
             <Button variant="ghost" size="icon" aria-label="Default rates" onClick={() => setRatesOpen(true)}>
               <SlidersHorizontal />
             </Button>
@@ -127,7 +143,7 @@ export default function DealPage() {
         }
       />
 
-      {todays.length > 0 && <TodayStrip deals={todays} />}
+      {todays.length > 0 && <TodayStrip deals={todays} onOpen={() => setHistoryOpen(true)} />}
 
       <Balance totals={totals} kind={kind} />
 
@@ -164,7 +180,7 @@ export default function DealPage() {
             </Button>
             <Button variant="lime" size="lg" className="flex-1" disabled={unpriced || closing} onClick={() => void close()}>
               {closing && <Loader2 className="animate-spin" />}
-              {unpriced ? "Price every item to close" : `Close ${KIND_LABEL[kind].toLowerCase()}`}
+              {unpriced ? "Price every item to close" : `Close ${KIND_NOUN[kind].toLowerCase()}`}
             </Button>
           </div>
         </div>
@@ -172,6 +188,7 @@ export default function DealPage() {
 
       <DealPicker side={picking} onClose={() => setPicking(null)} onPick={(item) => picking && add(picking, item)} />
       <RatesDialog open={ratesOpen} onOpenChange={setRatesOpen} rates={{ ...DEFAULT_RATES, ...rates }} onSave={setRates} />
+      <HistoryDialog open={historyOpen} onOpenChange={setHistoryOpen} deals={log} />
       <CustomerView open={customer} onOpenChange={setCustomer} deal={deal} rate={rate} totals={totals} />
     </div>
   );
@@ -213,11 +230,11 @@ function Stat({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function TodayStrip({ deals }: { deals: DealRecord[] }) {
+function TodayStrip({ deals, onOpen }: { deals: DealRecord[]; onOpen: () => void }) {
   const cash = deals.reduce((s, d) => s + d.balance, 0);
   const profit = deals.reduce((s, d) => s + (d.profit ?? 0), 0);
   return (
-    <div className="tabular mb-4 flex flex-wrap items-center gap-x-5 gap-y-1 text-[13px] text-muted">
+    <button type="button" onClick={onOpen} className="tabular mb-4 flex w-full flex-wrap items-center gap-x-5 gap-y-1 text-left text-[13px] text-muted hover:text-foreground">
       <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-subtle">Today</span>
       <span>
         <span className="font-semibold text-foreground">{deals.length}</span> deal{deals.length === 1 ? "" : "s"}
@@ -228,7 +245,8 @@ function TodayStrip({ deals }: { deals: DealRecord[] }) {
       <span>
         Profit <span className={cn("font-semibold", profit >= 0 ? "text-up" : "text-down")}>{signedMoney(profit)}</span>
       </span>
-    </div>
+      <span className="ml-auto text-[12px] text-subtle">See all</span>
+    </button>
   );
 }
 
@@ -321,6 +339,22 @@ function SideCard({
                       <Plus className="size-3" />
                     </button>
                   </div>
+                  {/* This item's own rate: overrides the slider for just this row. Typing a price clears it, and vice versa. */}
+                  <span className="relative">
+                    <input
+                      inputMode="numeric"
+                      aria-label="Percent of market for this item"
+                      value={item.rate !== null && item.rate !== undefined ? String(Math.round(item.rate * 100)) : ""}
+                      placeholder={item.price !== null || item.market === null ? "—" : String(Math.round(lineRate(item, rate) * 100))}
+                      disabled={item.market === null}
+                      onChange={(e) => {
+                        const v = e.target.value.replace(/[^0-9]/g, "").slice(0, 3);
+                        set(item.key, { rate: v === "" ? null : Number(v) / 100, price: null });
+                      }}
+                      className={cn("tabular h-7 w-[3.75rem] rounded-full pl-2.5 pr-5 text-[13px] outline-none placeholder:text-foreground/70 focus:bg-surface-3 disabled:opacity-40", item.rate !== null && item.rate !== undefined ? "bg-surface-3 ring-1 ring-[var(--lime)]/60" : "bg-surface-2")}
+                    />
+                    <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[12px] text-subtle">%</span>
+                  </span>
                   <span className="relative">
                     <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[13px] text-subtle">$</span>
                     <input
@@ -330,12 +364,17 @@ function SideCard({
                       placeholder={p === null ? "Price" : p.toFixed(2)}
                       onChange={(e) => {
                         const v = e.target.value.replace(/[^0-9.]/g, "");
-                        set(item.key, { price: v === "" ? null : Number(v) });
+                        set(item.key, { price: v === "" ? null : Number(v), rate: null });
                       }}
-                      className={cn("tabular h-7 w-24 rounded-full pl-6 pr-2 text-[13px] outline-none placeholder:text-foreground/70 focus:bg-surface-3", item.price !== null ? "bg-surface-3 ring-1 ring-[var(--lime)]/50" : "bg-surface-2")}
+                      className={cn("tabular h-7 w-24 rounded-full pl-6 pr-2 text-[13px] outline-none placeholder:text-foreground/70 focus:bg-surface-3", item.price !== null ? "bg-surface-3 ring-1 ring-[var(--lime)]/60" : "bg-surface-2")}
                     />
                   </span>
                   <span className="text-[11px] text-subtle">each</span>
+                  {(item.price !== null || (item.rate !== null && item.rate !== undefined)) && (
+                    <button className="text-[11px] text-muted underline-offset-2 hover:text-foreground hover:underline" onClick={() => set(item.key, { price: null, rate: null })}>
+                      Use {pct(rate, 0)}
+                    </button>
+                  )}
                 </div>
                 {side === "out" && (
                   <p className="tabular mt-2 text-[12px] text-muted">
@@ -433,6 +472,112 @@ function CustomerView({ open, onOpenChange, deal, rate, totals }: { open: boolea
             <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-subtle">{even ? "Straight swap" : totals.balance > 0 ? "You pay" : "We pay you"}</p>
             <p className="hype-num tabular mt-1 text-[56px] leading-none">{money(Math.abs(totals.balance))}</p>
           </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* -------------------------------- History --------------------------------- */
+
+function recordLines(deal: DealState, rate: { in: number; out: number }): DealRecordLine[] {
+  const line = (side: DealSide, r: number) => (i: DealItem): DealRecordLine => ({
+    side,
+    product: { id: i.product.id, name: i.product.name, imageUrl: i.product.imageUrl, kind: i.product.kind, setName: i.product.setName, productType: i.product.productType },
+    qty: i.qty,
+    price: unitPrice(i, r) ?? 0,
+  });
+  return [...deal.in.map(line("in", rate.in)), ...deal.out.map(line("out", rate.out))];
+}
+
+/** Closed deals, newest first, grouped by day with each day's cash and profit. */
+function HistoryDialog({ open, onOpenChange, deals }: { open: boolean; onOpenChange: (o: boolean) => void; deals: DealRecord[] }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  const days = useMemo(() => {
+    const map = new Map<string, DealRecord[]>();
+    for (const d of deals) {
+      const day = new Date(d.at).toLocaleDateString("en-CA");
+      map.set(day, [...(map.get(day) ?? []), d]);
+    }
+    return [...map.entries()];
+  }, [deals]);
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="h-[85dvh] sm:h-[640px] sm:max-w-[560px]">
+        <DialogHeader>
+          <DialogTitle>Closed deals</DialogTitle>
+          <DialogDescription>Every deal you&apos;ve closed here. The sales and purchases are also in Activity.</DialogDescription>
+        </DialogHeader>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
+          {!days.length && <p className="py-16 text-center text-[14px] text-muted">No closed deals yet.</p>}
+          {days.map(([day, list]) => {
+            const cash = list.reduce((s, d) => s + d.balance, 0);
+            const profit = list.reduce((s, d) => s + (d.profit ?? 0), 0);
+            return (
+              <section key={day} className="mt-4 first:mt-1">
+                <div className="tabular flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-border pb-2">
+                  <h3 className="text-[14px] font-semibold">{new Date(`${day}T12:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}</h3>
+                  <p className="text-[12px] text-muted">
+                    {list.length} deal{list.length === 1 ? "" : "s"} · cash <span className={cash >= 0 ? "text-up" : "text-down"}>{signedMoney(cash)}</span> · profit{" "}
+                    <span className={profit >= 0 ? "text-up" : "text-down"}>{signedMoney(profit)}</span>
+                  </p>
+                </div>
+                <ul className="divide-y divide-border">
+                  {list.map((d) => {
+                    const expanded = openId === d.id;
+                    return (
+                      <li key={d.id}>
+                        <button type="button" onClick={() => setOpenId(expanded ? null : d.id)} aria-expanded={expanded} className="flex w-full items-center gap-3 py-3 text-left">
+                          <span className="w-16 shrink-0 text-[12px] text-muted">{new Date(d.at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-[14px] font-medium">
+                              {KIND_NOUN[d.kind]} · {d.items} item{d.items === 1 ? "" : "s"}
+                            </span>
+                            <span className="tabular block text-[12px] text-muted">
+                              {Math.abs(d.balance) < 0.005 ? "Even swap" : d.balance > 0 ? `They paid ${money(d.balance)}` : `You paid ${money(-d.balance)}`}
+                            </span>
+                          </span>
+                          {d.profit !== null && <span className={cn("tabular shrink-0 text-[14px] font-semibold", d.profit >= 0 ? "text-up" : "text-down")}>{signedMoney(d.profit)}</span>}
+                          <ChevronDown className={cn("size-4 shrink-0 text-subtle transition-transform", expanded && "rotate-180")} />
+                        </button>
+                        {expanded && (
+                          <div className="pb-3 pl-[4.75rem]">
+                            {d.lines?.length ? (
+                              (["in", "out"] as const).map((side) => {
+                                const rows = d.lines!.filter((l) => l.side === side);
+                                if (!rows.length) return null;
+                                return (
+                                  <div key={side} className="mt-1">
+                                    <p className="font-mono text-[10px] uppercase tracking-[0.06em] text-subtle">{side === "in" ? "Came in" : "Went out"}</p>
+                                    <ul className="mt-1 space-y-1.5">
+                                      {rows.map((l, i) => (
+                                        <li key={i} className="flex items-center gap-2.5">
+                                          <ProductImage product={l.product} size="xs" className="h-10 w-7 shrink-0 rounded-md" />
+                                          <span className="min-w-0 flex-1 truncate text-[13px]">
+                                            {l.product.name}
+                                            {l.qty > 1 && <span className="text-muted"> × {l.qty}</span>}
+                                          </span>
+                                          <span className="tabular shrink-0 text-[13px]">{money(l.price * l.qty)}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                );
+                              })
+                            ) : (
+                              <p className="text-[12px] text-muted">
+                                In {money(d.inValue)} · out {money(d.outValue)}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            );
+          })}
         </div>
       </DialogContent>
     </Dialog>

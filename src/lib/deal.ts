@@ -23,8 +23,10 @@ export interface DealLine {
   /** Market value per unit, if known. */
   market: number | null;
   qty: number;
-  /** Typed-in price per unit; overrides market × rate. */
+  /** Typed-in price per unit; overrides any rate. */
   price?: number | null;
+  /** This line's own share of market, overriding the side's rate. */
+  rate?: number | null;
   /** Your cost for the units going out (out-lines only). */
   cost?: number | null;
 }
@@ -41,10 +43,15 @@ export function defaultSideRates(kind: DealKind, rates: DealRates) {
   return { in: kind === "trade" ? rates.trade : rates.buy, out: rates.sell };
 }
 
-/** Price per unit a line counts at: the typed price, else market × rate. */
-export function unitPrice(line: DealLine, rate: number): number | null {
+/** The share of market a line counts at: its own rate if set, else the side's. */
+export function lineRate(line: DealLine, sideRate: number) {
+  return line.rate ?? sideRate;
+}
+
+/** Price per unit a line counts at: the typed price, else market × the line's rate. */
+export function unitPrice(line: DealLine, sideRate: number): number | null {
   if (line.price !== undefined && line.price !== null) return line.price;
-  return line.market === null ? null : round2(line.market * rate);
+  return line.market === null ? null : round2(line.market * lineRate(line, sideRate));
 }
 
 export function lineTotal(line: DealLine, rate: number) {

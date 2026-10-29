@@ -20,6 +20,14 @@ describe("deal maker", () => {
     expect(unitPrice({ market: null, qty: 1 }, 0.8)).toBeNull();
   });
 
+  it("lets one line keep its own rate", () => {
+    expect(unitPrice({ market: 500, qty: 1, rate: 0.9 }, 0.8)).toBe(450);
+    // A typed price still wins over a line rate.
+    expect(unitPrice({ market: 500, qty: 1, rate: 0.9, price: 420 }, 0.8)).toBe(420);
+    const t = dealTotals([{ market: 500, qty: 1, rate: 0.9 }, { market: 100, qty: 1 }], [], { in: 0.8, out: 1 });
+    expect(t.inValue).toBe(530);
+  });
+
   it("balances a trade with cash", () => {
     // Customer brings $200 of market at 80% = $160 credit; takes a $250 card at 100%.
     const t = dealTotals([{ market: 200, qty: 1 }], [{ market: 250, qty: 1, cost: 180 }], { in: 0.8, out: 1 });

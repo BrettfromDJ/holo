@@ -21,8 +21,10 @@ export interface DealItem {
   /** Market value per unit when added. */
   market: number | null;
   qty: number;
-  /** Negotiated price per unit; null means market × the side's rate. */
+  /** Negotiated price per unit; null means market × the rate. */
   price: number | null;
+  /** This item's own share of market, overriding the side's slider. */
+  rate?: number | null;
   /** The holding this came from, when picked from your inventory. */
   holdingKey?: string;
   maxQty?: number;
