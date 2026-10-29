@@ -25,6 +25,8 @@ import type { Product } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const PER_PAGE = 9;
+
+type Turn = { from: number; to: number; dir: 1 | -1 };
 type Show = "all" | "owned" | "missing";
 
 export default function BinderPage() {
@@ -127,7 +129,7 @@ function BinderBook({ set }: { set: OwnedSet }) {
   const { openAdd } = useStore();
   const [show, setShow] = useState<Show>("all");
   const [page, setPage] = useState(0);
-  const [dir, setDir] = useState<"next" | "prev">("next");
+  const [turn, setTurn] = useState<Turn | null>(null);
   const pagesPerView = useSpread();
 
   const slots: Slot[] = useMemo(() => {
@@ -150,7 +152,6 @@ function BinderBook({ set }: { set: OwnedSet }) {
   const perView = PER_PAGE * pagesPerView;
   const views = Math.max(1, Math.ceil(visible.length / perView));
   const current = Math.min(page, views - 1);
-  const pageSlots = visible.slice(current * perView, current * perView + perView);
 
   const missing = slots.filter((s) => !s.holdings.length);
   const missingPriced = missing.filter((s) => s.card.market !== null);
@@ -168,9 +169,14 @@ function BinderBook({ set }: { set: OwnedSet }) {
 
   const go = (d: 1 | -1) => {
     setOpened(true);
-    setDir(d === 1 ? "next" : "prev");
-    setPage((p) => Math.max(0, Math.min(views - 1, Math.min(p, views - 1) + d)));
+    const from = Math.min(page, views - 1);
+    const to = Math.max(0, Math.min(views - 1, from + d));
+    if (to === from) return;
+    setPage(to);
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) setTurn({ from, to, dir: d });
   };
+  const endTurn = () => setTurn(null);
+  const chunkAt = (view: number, p: number) => visible.slice(view * perView + p * PER_PAGE, view * perView + p * PER_PAGE + PER_PAGE);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -199,7 +205,8 @@ function BinderBook({ set }: { set: OwnedSet }) {
       tcgplayerUrl: null,
     };
     openAdd({ hit: { product, printing: null, market: card.market, priceUpdatedAt: null } });
-  };
+  };  const sheetProps = { sample, onAdd: addMissing };
+
 
   return (
     <div className="mt-8">
@@ -247,37 +254,51 @@ function BinderBook({ set }: { set: OwnedSet }) {
             ))}
           </div>
         ) : (
-          // One sheet on phones with the rings down its left edge; a two-page spread on desktop with the rings in the spine.
-          <div className="flex items-stretch">
+          // One sheet on phones with the rings down its left edge; a two-page spread on desktop with the rings in
+          // the spine. Turning a page swings a leaf around the rings: its front is the page you're leaving, its back
+          // the page you're turning to, over the pages that stay put underneath.
+          <div className="binder-stage flex items-stretch">
             {pagesPerView === 1 && <Rings />}
-            {Array.from({ length: pagesPerView }).map((_, p) => {
-              const chunk = pageSlots.slice(p * PER_PAGE, p * PER_PAGE + PER_PAGE);
-              const side = pagesPerView === 1 || p === 1 ? "left" : "right";
-              return (
-                <div key={p} className="contents">
-                  {p === 1 && <Rings />}
-                  <div
-                    key={`${show}-${current}`}
-                    className={cn("binder-sheet relative min-w-0 flex-1", side === "left" ? "rounded-r-xl pl-6 sm:pl-8" : "rounded-l-xl pr-6 sm:pr-8", dir === "next" ? "animate-page-next" : "animate-page-prev")}
-                  >
-                    {RING_AT.map((y) => (
-                      <span key={y} aria-hidden className={cn("binder-hole", side === "left" ? "left-2 sm:left-3" : "right-2 sm:right-3")} style={{ top: y }} />
-                    ))}
-                    <div className="grid grid-cols-3 content-start gap-1.5 p-2 sm:gap-2 sm:p-3">
-                      {Array.from({ length: PER_PAGE }).map((_, i) => {
-                        const slot = chunk[i];
-                        if (!slot) return <div key={i} className="binder-pocket aspect-[63/88]" />;
-                        return slot.holdings.length ? (
-                          <OwnedPocket key={slot.card.productId} slot={slot} />
-                        ) : (
-                          <EmptyPocket key={slot.card.productId} card={slot.card} sample={sample} onAdd={() => addMissing(slot.card)} />
-                        );
-                      })}
-                    </div>
-                  </div>
+            {pagesPerView === 1 ? (
+              <div className="relative min-w-0 flex-1">
+                <Sheet chunk={chunkAt(turn && turn.dir === -1 ? turn.from : current, 0)} rings="left" {...sheetProps} />
+                {turn && (
+                  <Leaf
+                    dir={turn.dir}
+                    single
+                    onDone={endTurn}
+                    front={<Sheet chunk={chunkAt(turn.dir === 1 ? turn.from : turn.to, 0)} rings="left" {...sheetProps} />}
+                    back={<div className="binder-sheet h-full rounded-l-xl" />}
+                  />
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="relative min-w-0 flex-1">
+                  <Sheet chunk={chunkAt(turn ? (turn.dir === 1 ? turn.from : turn.to) : current, 0)} rings="right" {...sheetProps} />
+                  {turn?.dir === -1 && (
+                    <Leaf
+                      dir={-1}
+                      onDone={endTurn}
+                      front={<Sheet chunk={chunkAt(turn.from, 0)} rings="right" {...sheetProps} />}
+                      back={<Sheet chunk={chunkAt(turn.to, 1)} rings="left" {...sheetProps} />}
+                    />
+                  )}
                 </div>
-              );
-            })}
+                <Rings />
+                <div className="relative min-w-0 flex-1">
+                  <Sheet chunk={chunkAt(turn ? (turn.dir === 1 ? turn.to : turn.from) : current, 1)} rings="left" {...sheetProps} />
+                  {turn?.dir === 1 && (
+                    <Leaf
+                      dir={1}
+                      onDone={endTurn}
+                      front={<Sheet chunk={chunkAt(turn.from, 1)} rings="left" {...sheetProps} />}
+                      back={<Sheet chunk={chunkAt(turn.to, 0)} rings="right" {...sheetProps} />}
+                    />
+                  )}
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -358,6 +379,41 @@ function EmptyPocket({ card, sample, onAdd }: { card: ChecklistCard; sample: boo
     <button onClick={onAdd} className={cn(cls, "transition-colors hover:bg-white/[0.05]")} aria-label={`Add ${card.name}`}>
       {inner}
     </button>
+  );
+}
+
+/** One plastic sheet of nine pockets, with holes punched on the side the rings go through. */
+function Sheet({ chunk, rings, sample, onAdd }: { chunk: Slot[]; rings: "left" | "right"; sample: boolean; onAdd: (card: ChecklistCard) => void }) {
+  return (
+    <div className={cn("binder-sheet relative h-full", rings === "left" ? "rounded-r-xl pl-6 sm:pl-8" : "rounded-l-xl pr-6 sm:pr-8")}>
+      {RING_AT.map((y) => (
+        <span key={y} aria-hidden className={cn("binder-hole", rings === "left" ? "left-2 sm:left-3" : "right-2 sm:right-3")} style={{ top: y }} />
+      ))}
+      <div className="grid grid-cols-3 content-start gap-1.5 p-2 sm:gap-2 sm:p-3">
+        {Array.from({ length: PER_PAGE }).map((_, i) => {
+          const slot = chunk[i];
+          if (!slot) return <div key={i} className="binder-pocket aspect-[63/88]" />;
+          return slot.holdings.length ? <OwnedPocket key={slot.card.productId} slot={slot} /> : <EmptyPocket key={slot.card.productId} card={slot.card} sample={sample} onAdd={() => onAdd(slot.card)} />;
+        })}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A page mid-turn: two faces back to back, swinging around the rings. Forward turns hinge on the right page's
+ * spine edge; back turns on the left page's. On phones the page swings off to the left and its back is blank.
+ */
+function Leaf({ dir, single, front, back, onDone }: { dir: 1 | -1; single?: boolean; front: React.ReactNode; back: React.ReactNode; onDone: () => void }) {
+  return (
+    <div
+      aria-hidden
+      className={cn("binder-leaf pointer-events-none absolute inset-0 z-10", dir === 1 ? "binder-leaf-next" : single ? "binder-leaf-back-single" : "binder-leaf-prev")}
+      onAnimationEnd={(e) => e.target === e.currentTarget && onDone()}
+    >
+      <div className="binder-face">{front}</div>
+      <div className="binder-face binder-face-back">{back}</div>
+    </div>
   );
 }
 

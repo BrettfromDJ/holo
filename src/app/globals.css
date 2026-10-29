@@ -713,23 +713,6 @@
 .animate-foil-sweep {
   animation: foil-sweep 1.6s 0.5s var(--ease-apple) both;
 }
-/* Binder page turns */
-@keyframes page-in-next {
-  from { opacity: 0; transform: perspective(1400px) rotateY(-16deg) translateX(28px); }
-  to { opacity: 1; transform: none; }
-}
-@keyframes page-in-prev {
-  from { opacity: 0; transform: perspective(1400px) rotateY(16deg) translateX(-28px); }
-  to { opacity: 1; transform: none; }
-}
-.animate-page-next {
-  animation: page-in-next 0.55s var(--ease-apple) both;
-  transform-origin: left center;
-}
-.animate-page-prev {
-  animation: page-in-prev 0.55s var(--ease-apple) both;
-  transform-origin: right center;
-}
 
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -848,4 +831,47 @@
 }
 @media (min-width: 640px) {
   .binder-ring { width: 60px; height: 16px; }
+}
+
+/* ---------- Binder page turn ---------- */
+
+.binder-stage { perspective: 2400px; }
+.binder-leaf {
+  transform-style: preserve-3d;
+  animation-duration: 0.75s;
+  animation-timing-function: cubic-bezier(0.45, 0.05, 0.25, 1);
+  animation-fill-mode: both;
+}
+/* Forward: the right page hinges on its spine edge (half the ring plate further in) and swings over to the left. */
+.binder-leaf-next { transform-origin: -12px 50%; animation-name: leaf-next; }
+/* Back: the left page swings over to the right. */
+.binder-leaf-prev { transform-origin: calc(100% + 12px) 50%; animation-name: leaf-prev; }
+/* Phones, going back: the previous page swings in from the left over the current one. */
+.binder-leaf-back-single { transform-origin: -8px 50%; animation-name: leaf-in-single; }
+@keyframes leaf-next { from { transform: rotateY(0deg); } to { transform: rotateY(-180deg); } }
+@keyframes leaf-prev { from { transform: rotateY(0deg); } to { transform: rotateY(180deg); } }
+@keyframes leaf-in-single { from { transform: rotateY(-180deg); } to { transform: rotateY(0deg); } }
+
+.binder-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  background: #141417;
+  border-radius: 0.75rem;
+}
+.binder-face-back { transform: rotateY(180deg); }
+/* Light falls off as the page bends up toward you, then comes back as it lays flat. */
+.binder-face::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgb(0 0 0 / 0.55), rgb(0 0 0 / 0.1) 60%, rgb(255 255 255 / 0.06));
+  animation: leaf-shade 0.75s cubic-bezier(0.45, 0.05, 0.25, 1) both;
+}
+@keyframes leaf-shade {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
 }
