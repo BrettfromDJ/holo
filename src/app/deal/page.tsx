@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { DealPicker, type DealItem, type DealSide } from "@/components/deal/deal-picker";
 import { ScanSheet, type ScanOutcome, type ScanPick } from "@/components/scan/scan-sheet";
 import { EbaySales } from "@/components/product/ebay-sales";
+import { EBAY_SOURCE } from "@/lib/ebay-sample";
 import { ProductImage } from "@/components/product/product-image";
 import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
@@ -228,7 +229,7 @@ export default function DealPage() {
             <DialogDescription>What it&apos;s actually selling for.</DialogDescription>
           </DialogHeader>
           <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
-            {ebayItem && <EbaySales bare productId={ebayItem.product.id} printing={ebayItem.printing ?? null} grade={ebayItem.grade ?? (ebayItem.holdingKey ? byKey.get(ebayItem.holdingKey)?.identity.grade : null) ?? null} />}
+            {ebayItem && <EbaySales bare productId={ebayItem.product.id} name={ebayItem.product.name} market={ebayItem.holdingKey ? undefined : ebayItem.market} printing={ebayItem.printing ?? null} grade={ebayItem.grade ?? (ebayItem.holdingKey ? byKey.get(ebayItem.holdingKey)?.identity.grade : null) ?? null} />}
           </div>
         </DialogContent>
       </Dialog>
@@ -379,7 +380,7 @@ function SideCard({
                 <p className="tabular mt-0.5 text-[12px] text-muted">
                   Market {money(item.market)}
                   {item.grade && ` · ${item.grade.company} ${item.grade.grade}`}
-                  {item.product.source === "tcgapi" && (
+                  {(item.product.source === "tcgapi" || EBAY_SOURCE === "sample") && (
                     <>
                       {" · "}
                       <button type="button" onClick={() => onEbay(item)} className="font-medium text-foreground/80 underline-offset-2 hover:text-foreground hover:underline">
