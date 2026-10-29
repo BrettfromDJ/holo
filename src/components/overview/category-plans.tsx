@@ -103,12 +103,8 @@ export function CategoryPlans({ holdings }: { holdings: HoldingView[] }) {
                 </ul>
               </div>
 
-              {/* Price row: what you paid struck through, what it's worth now */}
-              <div className="mt-5 flex flex-wrap items-baseline gap-x-2.5 px-3">
-                {g.cost > 0 && <span className="tabular font-display text-[24px] leading-none text-foreground/35 line-through decoration-2">{money(g.cost)}</span>}
-                <span className="tabular font-display text-[40px] leading-none">{money(g.value)}</span>
-                <span className="text-[13px] text-foreground/55">worth now</span>
-              </div>
+              {/* What it's worth now */}
+              <p className="tabular mt-5 px-3 font-display text-[40px] leading-none">{money(g.value)}</p>
 
               <Link href={p.href} className={cn("btn-3d mx-1 mt-5 flex h-12 items-center justify-center gap-2 rounded-xl text-[15px] font-semibold", `btn-3d-${p.color}`, `plan-btn-${p.color}`)}>
                 View {p.title.toLowerCase()} <ArrowRight className="size-4" />
