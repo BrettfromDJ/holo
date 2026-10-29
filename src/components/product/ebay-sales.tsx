@@ -121,17 +121,20 @@ export function EbaySales({
 
   return (
     <div ref={ref} className={cn(!bare && "rounded-[var(--radius-card)] border border-border bg-surface p-5 sm:p-6", className)}>
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <h2 className="flex items-center gap-2 text-[15px] font-semibold">
-          Recent eBay sales
-          {sampleMode && data && <Badge variant="sample">Sample data</Badge>}
-        </h2>
-        {data && (
-          <p className="text-[12px] text-muted">
-            Last 30 days · as of {formatShortDate(data.asOf)}
-            {data.days !== null && data.days < 30 && ` · ${data.days} days tracked`}
-          </p>
-        )}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="flex flex-wrap items-center gap-2 text-[15px] font-semibold">
+            Recent eBay sales
+            {sampleMode && data && <Badge variant="sample">Sample data</Badge>}
+          </h2>
+          {data && (
+            <p className="mt-0.5 text-[12px] text-muted">
+              Last 30 days · as of {formatShortDate(data.asOf)}
+              {data.days !== null && data.days < 30 && ` · ${data.days} days tracked`}
+            </p>
+          )}
+        </div>
+        <EbayLogo className="shrink-0" />
       </div>
 
       {(load.state === "idle" || load.state === "loading") && (
@@ -210,5 +213,17 @@ export function EbaySales({
         </>
       )}
     </div>
+  );
+}
+
+/** eBay's four-color wordmark, marking where these sales come from. */
+function EbayLogo({ className }: { className?: string }) {
+  return (
+    <span role="img" aria-label="eBay" className={cn("inline-flex select-none items-baseline font-sans text-[26px] font-bold leading-none tracking-[-0.07em]", className)}>
+      <span className="text-[#e53238]">e</span>
+      <span className="text-[#0064d2]">b</span>
+      <span className="text-[#f5af02]">a</span>
+      <span className="text-[#86b817]">y</span>
+    </span>
   );
 }
