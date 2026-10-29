@@ -32,21 +32,23 @@ export const AUTO_START: AutoState = { prev: null, shot: null, streak: 0, lastSh
 /** Tuning. Frames are sampled about 10 times a second. */
 export const AUTO = {
   /** Good frames in a row before the photo (about half a second). */
-  settle: 5,
-  /** Mean change per pixel (0–255) between frames that still counts as holding still. */
-  still: 7,
+  settle: 4,
+  /** Mean change between frames (in the coarse view) that still counts as holding still; a hand always shakes a little. */
+  still: 9,
   /** Mean change in the coarse view since the last photo that counts as a new card (jitter stays well under it). */
   change: 22,
   /** Block size for that coarse view. */
   block: 8,
   /** Mean edge strength below this is too blurry (or too dark) to read. */
-  sharp: 3.5,
-  /** An edge line must be this many times the typical column (or row) to count as a border. */
-  peak: 2,
+  sharp: 2.5,
+  /** Brightness step (0–255) between neighbouring pixels that counts as an edge. */
+  edge: 14,
+  /** Share of a border's length that must be a clear edge. */
+  line: 0.35,
   /** Card width over height, as seen in the guide; slabs are narrower, so the range is wide. */
   aspect: [0.5, 0.95] as const,
   /** The rectangle must cover at least this much of the guide's height. */
-  minSpan: 0.5,
+  minSpan: 0.45,
   cooldownMs: 900,
 };
 
@@ -87,60 +89,104 @@ export function sharpness(f: GrayFrame): number {
   return n ? s / n : 0;
 }
 
-function median(xs: number[]) {
-  const s = [...xs].sort((a, b) => a - b);
-  return s[Math.floor(s.length / 2)] || 1;
+/**
+ * The outermost clear line scanning inward over [from, to) (or from `to` down
+ * when `reverse`): the card's edge, not the busy art inside it. Falls back to
+ * the strongest line, so the score still says how close it came.
+ */
+function border(frac: number[], from: number, to: number, reverse = false) {
+  const idx = Array.from({ length: to - from }, (_, i) => (reverse ? to - 1 - i : from + i));
+  const hit = idx.find((i) => frac[i] >= AUTO.line);
+  if (hit !== undefined) return { at: hit, score: frac[hit] };
+  const best = idx.reduce((a, i) => (frac[i] > frac[a] ? i : a), idx[0]);
+  return { at: best, score: frac[best] ?? 0 };
 }
 
-/** Index of the strongest value in [from, to). */
-function argmax(xs: number[], from: number, to: number) {
-  let best = from;
-  for (let i = from; i < to; i++) if (xs[i] > xs[best]) best = i;
-  return best;
+export interface CardRead {
+  found: boolean;
+  aspect: number | null;
+  /** How clearly each border shows (0–1): left, right, top, bottom. */
+  borders: [number, number, number, number];
 }
 
-/** Whether a card-shaped rectangle fills the guide. */
-export function findCard(f: GrayFrame): { found: boolean; aspect: number | null } {
-  const cols = new Array<number>(f.w).fill(0);
-  const rows = new Array<number>(f.h).fill(0);
-  for (let y = 1; y < f.h - 1; y++) {
-    for (let x = 1; x < f.w - 1; x++) {
-      cols[x] += Math.abs(at(f, x + 1, y) - at(f, x - 1, y));
-      rows[y] += Math.abs(at(f, x, y + 1) - at(f, x, y - 1));
+/**
+ * Whether a card-shaped rectangle fills the guide. A border is a straight
+ * line where most of its length is a clear light/dark edge; a nearby column
+ * (or row) also counts, so a slightly tilted card still reads.
+ */
+export function findCard(f: GrayFrame): CardRead {
+  const T = AUTO.edge;
+  const R = 2;
+  const y0 = Math.round(f.h * 0.15);
+  const y1 = Math.round(f.h * 0.85);
+  const x0 = Math.round(f.w * 0.15);
+  const x1 = Math.round(f.w * 0.85);
+  const colFrac = new Array<number>(f.w).fill(0);
+  const rowFrac = new Array<number>(f.h).fill(0);
+  for (let x = 1; x < f.w - 1; x++) {
+    let hits = 0;
+    for (let y = y0; y < y1; y++) {
+      let hit = false;
+      for (let dx = -R; dx <= R && !hit; dx++) {
+        const xx = x + dx;
+        if (xx >= 1 && xx < f.w - 1 && Math.abs(at(f, xx + 1, y) - at(f, xx - 1, y)) > T) hit = true;
+      }
+      if (hit) hits++;
     }
+    colFrac[x] = hits / (y1 - y0);
   }
-  // Borders sit in the outer 40% on each side.
-  const l = argmax(cols, 1, Math.round(f.w * 0.4));
-  const r = argmax(cols, Math.round(f.w * 0.6), f.w - 1);
-  const t = argmax(rows, 1, Math.round(f.h * 0.4));
-  const b = argmax(rows, Math.round(f.h * 0.6), f.h - 1);
-  const mc = median(cols.slice(1, -1));
-  const mr = median(rows.slice(1, -1));
-  const edges = Math.min(cols[l], cols[r]) / mc >= AUTO.peak && Math.min(rows[t], rows[b]) / mr >= AUTO.peak;
-  const aspect = b > t ? (r - l) / (b - t) : null;
-  const shaped = aspect !== null && aspect >= AUTO.aspect[0] && aspect <= AUTO.aspect[1] && (b - t) / f.h >= AUTO.minSpan;
-  return { found: edges && shaped, aspect };
+  for (let y = 1; y < f.h - 1; y++) {
+    let hits = 0;
+    for (let x = x0; x < x1; x++) {
+      let hit = false;
+      for (let dy = -R; dy <= R && !hit; dy++) {
+        const yy = y + dy;
+        if (yy >= 1 && yy < f.h - 1 && Math.abs(at(f, x, yy + 1) - at(f, x, yy - 1)) > T) hit = true;
+      }
+      if (hit) hits++;
+    }
+    rowFrac[y] = hits / (x1 - x0);
+  }
+  // Borders sit in the outer 45% on each side.
+  const l = border(colFrac, 1, Math.round(f.w * 0.45));
+  const r = border(colFrac, Math.round(f.w * 0.55), f.w - 1, true);
+  const t = border(rowFrac, 1, Math.round(f.h * 0.45));
+  const b = border(rowFrac, Math.round(f.h * 0.55), f.h - 1, true);
+  const borders: CardRead["borders"] = [l.score, r.score, t.score, b.score];
+  const edges = borders.every((v) => v >= AUTO.line);
+  const aspect = b.at > t.at ? (r.at - l.at) / (b.at - t.at) : null;
+  const shaped = aspect !== null && aspect >= AUTO.aspect[0] && aspect <= AUTO.aspect[1] && (b.at - t.at) / f.h >= AUTO.minSpan;
+  return { found: edges && shaped, aspect, borders };
+}
+
+export interface AutoDebug {
+  borders: [number, number, number, number];
+  aspect: number | null;
+  motion: number;
+  sharp: number;
 }
 
 /** One sampled frame in, and whether to take the photo now. `progress` (0–1) drives the lock-on ring. */
-export function autoStep(state: AutoState, frame: GrayFrame, now: number): { state: AutoState; fire: boolean; progress: number; hint: AutoHint } {
-  const moved = state.prev ? meanDiff(state.prev, frame) : 255;
-  const card = findCard(frame).found;
-  const next: AutoState = { ...state, prev: frame };
+export function autoStep(state: AutoState, frame: GrayFrame, now: number): { state: AutoState; fire: boolean; progress: number; hint: AutoHint; debug: AutoDebug } {
+  const view = coarse(frame, 4);
+  const motion = state.prev ? meanDiff(state.prev, view) : 255;
+  const read = findCard(frame);
+  const sharp = sharpness(frame);
+  const debug: AutoDebug = { borders: read.borders, aspect: read.aspect, motion, sharp };
+  const next: AutoState = { ...state, prev: view };
+  const out = (hint: AutoHint, progress = 0, patch: Partial<AutoState> = { streak: 0 }, fire = false) => ({ state: { ...next, ...patch }, fire, progress, hint, debug });
 
-  // Just photographed: wait for the view to move on.
+  // Just photographed: wait for the view to move on. Only a real change re-arms it, not the detector briefly losing the card.
   if (state.shot) {
-    // Only a real change in view re-arms it: the detector briefly losing the card must not.
-    const movedOn = meanDiff(state.shot, coarse(frame)) >= AUTO.change;
-    if (!movedOn || now - state.lastShotAt < AUTO.cooldownMs) return { state: { ...next, streak: 0 }, fire: false, progress: 0, hint: "next" };
+    if (meanDiff(state.shot, coarse(frame)) < AUTO.change || now - state.lastShotAt < AUTO.cooldownMs) return out("next");
     next.shot = null;
   }
 
-  if (!card) return { state: { ...next, streak: 0 }, fire: false, progress: 0, hint: "searching" };
-  if (sharpness(frame) < AUTO.sharp) return { state: { ...next, streak: 0 }, fire: false, progress: 0, hint: "blurry" };
-  if (moved > AUTO.still) return { state: { ...next, streak: 0 }, fire: false, progress: 0, hint: "steady" };
+  if (!read.found) return out("searching");
+  if (sharp < AUTO.sharp) return out("blurry");
+  if (motion > AUTO.still) return out("steady");
 
   const streak = state.streak + 1;
-  if (streak >= AUTO.settle) return { state: { ...next, streak: 0, shot: coarse(frame), lastShotAt: now }, fire: true, progress: 1, hint: "next" };
-  return { state: { ...next, streak }, fire: false, progress: streak / AUTO.settle, hint: "steady" };
+  if (streak >= AUTO.settle) return out("next", 1, { streak: 0, shot: coarse(frame), lastShotAt: now }, true);
+  return out("steady", streak / AUTO.settle, { streak });
 }

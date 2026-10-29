@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ProductImage } from "@/components/product/product-image";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { money } from "@/lib/format";
-import { AUTO_START, autoStep, type AutoHint, type AutoState, type GrayFrame } from "@/lib/scan-auto";
+import { AUTO_START, autoStep, type AutoDebug, type AutoHint, type AutoState, type GrayFrame } from "@/lib/scan-auto";
 import { scanValue, type ScanCandidate, type ScanResult } from "@/lib/scan-types";
 import { cn } from "@/lib/utils";
 
@@ -68,11 +68,17 @@ function sampleGuide(v: HTMLVideoElement, guide: HTMLElement, canvas: HTMLCanvas
   const sy = (g.top - el.top - my + offY) / scale;
   const sw = (g.width + 2 * mx) / scale;
   const sh = (g.height + 2 * my) / scale;
+  // Keep the source box inside the video: Safari draws nothing (or throws) when it spills over.
+  const cx = Math.max(0, sx);
+  const cy = Math.max(0, sy);
+  const cw = Math.min(vw, sx + sw) - cx;
+  const ch = Math.min(vh, sy + sh) - cy;
+  if (cw <= 0 || ch <= 0) return null;
   canvas.width = SAMPLE_W;
   canvas.height = SAMPLE_H;
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) return null;
-  ctx.drawImage(v, sx, sy, sw, sh, 0, 0, SAMPLE_W, SAMPLE_H);
+  ctx.drawImage(v, cx, cy, cw, ch, 0, 0, SAMPLE_W, SAMPLE_H);
   const rgba = ctx.getImageData(0, 0, SAMPLE_W, SAMPLE_H).data;
   const data = new Uint8Array(SAMPLE_W * SAMPLE_H);
   for (let i = 0; i < data.length; i++) data[i] = (rgba[i * 4] * 77 + rgba[i * 4 + 1] * 150 + rgba[i * 4 + 2] * 29) >> 8;
@@ -120,6 +126,9 @@ export function ScanSheet({
   const guide = useRef<HTMLSpanElement>(null);
   const [auto, setAuto] = useState(false);
   const [lock, setLock] = useState<{ progress: number; hint: AutoHint }>({ progress: 0, hint: "searching" });
+  // Tap the hint to see what Auto is reading (for tuning on a real camera).
+  const [showDebug, setShowDebug] = useState(false);
+  const [debug, setDebug] = useState<(AutoDebug & { error?: string }) | null>(null);
   useEffect(() => {
     try {
       setAuto(localStorage.getItem(AUTO_KEY) === "1");
@@ -199,14 +208,20 @@ export function ScanSheet({
     if (!open || !auto || camera !== "on" || disabled || blocked) return;
     const canvas = document.createElement("canvas");
     let state: AutoState = AUTO_START;
+    let tick = 0;
     const id = window.setInterval(() => {
       if (!video.current || !guide.current || document.hidden) return;
-      const frame = sampleGuide(video.current, guide.current, canvas);
-      if (!frame) return;
-      const r = autoStep(state, frame, performance.now());
-      state = r.state;
-      setLock((l) => (l.progress === r.progress && l.hint === r.hint ? l : { progress: r.progress, hint: r.hint }));
-      if (r.fire) captureRef.current();
+      try {
+        const frame = sampleGuide(video.current, guide.current, canvas);
+        if (!frame) return;
+        const r = autoStep(state, frame, performance.now());
+        state = r.state;
+        setLock((l) => (l.progress === r.progress && l.hint === r.hint ? l : { progress: r.progress, hint: r.hint }));
+        if (tick++ % 3 === 0) setDebug(r.debug);
+        if (r.fire) captureRef.current();
+      } catch (err) {
+        setDebug((d) => ({ ...(d ?? { borders: [0, 0, 0, 0], aspect: null, motion: 0, sharp: 0 }), error: (err as Error).message }));
+      }
     }, 100);
     return () => {
       window.clearInterval(id);
@@ -298,9 +313,22 @@ export function ScanSheet({
             />
           )}
           {camera === "on" && auto && !disabled && !blocked && (
-            <span aria-live="polite" data-auto-hint={lock.hint} className="absolute inset-x-0 bottom-3 mx-auto w-max max-w-[90%] rounded-full bg-black/60 px-3 py-1 text-center text-[12px] font-medium text-white backdrop-blur">
+            <button
+              type="button"
+              onClick={() => setShowDebug((v) => !v)}
+              aria-live="polite"
+              data-auto-hint={lock.hint}
+              className="absolute inset-x-0 bottom-3 mx-auto w-max max-w-[92%] rounded-2xl bg-black/60 px-3 py-1 text-center text-[12px] font-medium text-white backdrop-blur"
+            >
               {AUTO_HINTS[lock.hint]}
-            </span>
+              {showDebug && debug && (
+                <span className="tabular mt-0.5 block font-mono text-[10px] font-normal text-white/75">
+                  {debug.error
+                    ? `error: ${debug.error}`
+                    : `edges ${debug.borders.map((b) => b.toFixed(2)).join(" ")} · shape ${debug.aspect?.toFixed(2) ?? "–"} · move ${debug.motion.toFixed(1)} · sharp ${debug.sharp.toFixed(1)}`}
+                </span>
+              )}
+            </button>
           )}
           {camera === "on" && flash > 0 && <span key={flash} aria-hidden className="scan-flash pointer-events-none absolute inset-0 bg-white" />}
           {camera === "starting" && (

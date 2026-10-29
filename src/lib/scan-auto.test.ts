@@ -45,7 +45,7 @@ describe("scan auto-capture", () => {
   });
 
   it("waits while the card is moving", () => {
-    const { fired } = run(Array.from({ length: 10 }, (_, i) => frame(card, i * 3)));
+    const { fired } = run(Array.from({ length: 10 }, (_, i) => frame({ ...card, x: 4 + (i % 3) * 4 })));
     expect(fired).toEqual([]);
   });
 
@@ -62,6 +62,25 @@ describe("scan auto-capture", () => {
   it("doesn't re-scan a card that jitters in the hand", () => {
     const { fired } = run(Array.from({ length: 40 }, (_, i) => frame({ ...card, x: card.x + (i % 4) }, i % 3)));
     expect(fired.length).toBeLessThanOrEqual(1);
+  });
+
+  it("works with a real camera: sensor noise, a soft image and a hand that shakes a pixel", () => {
+    let seed = 7;
+    const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const real = (i: number): GrayFrame => {
+      const f = frame({ ...card, x: card.x + (i % 2), y: card.y + ((i >> 1) % 2) });
+      const out = new Uint8Array(f.data.length);
+      for (let y = 0; y < H; y++)
+        for (let x = 0; x < W; x++) {
+          // 3x3 blur plus noise.
+          let s = 0;
+          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) s += f.data[Math.min(H - 1, Math.max(0, y + dy)) * W + Math.min(W - 1, Math.max(0, x + dx))];
+          out[y * W + x] = Math.max(0, Math.min(255, s / 9 + (rand() - 0.5) * 14));
+        }
+      return { data: out, w: W, h: H };
+    };
+    const { fired } = run(Array.from({ length: 30 }, (_, i) => real(i)));
+    expect(fired.length).toBe(1);
   });
 
   it("re-arms after the card is taken away", () => {
