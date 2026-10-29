@@ -239,7 +239,7 @@ function BinderBook({ set }: { set: OwnedSet }) {
 
       {error && <p className="mt-3 rounded-xl bg-surface px-4 py-3 text-[13px] text-muted">Couldn&apos;t load the full checklist ({error}). Showing the cards you own.</p>}
 
-      <div className="relative mt-5 rounded-[1.75rem] border border-border bg-[linear-gradient(180deg,var(--surface),color-mix(in_srgb,var(--surface)_70%,black))] p-3 shadow-2xl shadow-black/30 sm:p-5">
+      <div className="binder-cover relative mt-5 rounded-[1.75rem] p-3 sm:p-5">
         {loading ? (
           <div className="grid grid-cols-3 gap-2.5 sm:gap-3 lg:grid-cols-6">
             {Array.from({ length: perView }).map((_, i) => (
@@ -247,20 +247,34 @@ function BinderBook({ set }: { set: OwnedSet }) {
             ))}
           </div>
         ) : (
-          <div key={`${show}-${current}`} className={cn("grid gap-4 lg:grid-cols-2 lg:gap-0", dir === "next" ? "animate-page-next" : "animate-page-prev")}>
+          // One sheet on phones with the rings down its left edge; a two-page spread on desktop with the rings in the spine.
+          <div className="flex items-stretch">
+            {pagesPerView === 1 && <Rings />}
             {Array.from({ length: pagesPerView }).map((_, p) => {
               const chunk = pageSlots.slice(p * PER_PAGE, p * PER_PAGE + PER_PAGE);
+              const side = pagesPerView === 1 || p === 1 ? "left" : "right";
               return (
-                <div key={p} className={cn("grid grid-cols-3 content-start gap-2.5 sm:gap-3", pagesPerView === 2 && (p === 0 ? "lg:border-r lg:border-dashed lg:border-border lg:pr-5" : "lg:pl-5"))}>
-                  {Array.from({ length: PER_PAGE }).map((_, i) => {
-                    const slot = chunk[i];
-                    if (!slot) return <div key={i} className="aspect-[63/88] rounded-xl border border-dashed border-border/50" />;
-                    return slot.holdings.length ? (
-                      <OwnedPocket key={slot.card.productId} slot={slot} />
-                    ) : (
-                      <EmptyPocket key={slot.card.productId} card={slot.card} sample={sample} onAdd={() => addMissing(slot.card)} />
-                    );
-                  })}
+                <div key={p} className="contents">
+                  {p === 1 && <Rings />}
+                  <div
+                    key={`${show}-${current}`}
+                    className={cn("binder-sheet relative min-w-0 flex-1", side === "left" ? "rounded-r-xl pl-6 sm:pl-8" : "rounded-l-xl pr-6 sm:pr-8", dir === "next" ? "animate-page-next" : "animate-page-prev")}
+                  >
+                    {RING_AT.map((y) => (
+                      <span key={y} aria-hidden className={cn("binder-hole", side === "left" ? "left-2 sm:left-3" : "right-2 sm:right-3")} style={{ top: y }} />
+                    ))}
+                    <div className="grid grid-cols-3 content-start gap-1.5 p-2 sm:gap-2 sm:p-3">
+                      {Array.from({ length: PER_PAGE }).map((_, i) => {
+                        const slot = chunk[i];
+                        if (!slot) return <div key={i} className="binder-pocket aspect-[63/88]" />;
+                        return slot.holdings.length ? (
+                          <OwnedPocket key={slot.card.productId} slot={slot} />
+                        ) : (
+                          <EmptyPocket key={slot.card.productId} card={slot.card} sample={sample} onAdd={() => addMissing(slot.card)} />
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               );
             })}
@@ -313,12 +327,13 @@ function OwnedPocket({ slot }: { slot: Slot }) {
   const qty = slot.holdings.reduce((s, x) => s + x.quantity, 0);
   return (
     // Tapping a card lifts it out of its pocket, then it flies into the product page.
-    <Link href={href} onClick={(e) => hero(e, href)} className="group relative block" title={slot.card.name}>
-      <HoloTilt max={10} radius="0.75rem" className="aspect-[63/88] w-full">
-        <ProductImage product={h.product} grade={h.identity.grade} slabKey={h.key} size="sm" frame={false} className="h-full w-full rounded-xl" />
+    // The card sits inside a clear sleeve; the plastic's glare is drawn over it.
+    <Link href={href} onClick={(e) => hero(e, href)} className="binder-pocket group relative block p-[5%]" title={slot.card.name}>
+      <HoloTilt max={8} radius="4.5% / 3.2%" className="aspect-[63/88] w-full">
+        <ProductImage product={h.product} grade={h.identity.grade} slabKey={h.key} size="sm" frame={false} className="h-full w-full rounded-[4.5%/3.2%]" />
       </HoloTilt>
-      {qty > 1 && <span className="tabular absolute right-1.5 top-1.5 rounded-full bg-background/85 px-1.5 text-[10px] font-semibold backdrop-blur">×{qty}</span>}
-      {holdingLabel(h) && <span className="absolute bottom-1.5 left-1.5 rounded-full bg-background/85 px-1.5 text-[10px] font-medium backdrop-blur">{holdingLabel(h)}</span>}
+      {qty > 1 && <span className="tabular absolute right-2 top-2 z-[3] rounded-full bg-background/85 px-1.5 text-[10px] font-semibold backdrop-blur">×{qty}</span>}
+      {holdingLabel(h) && <span className="absolute bottom-2 left-2 z-[3] rounded-full bg-background/85 px-1.5 text-[10px] font-medium backdrop-blur">{holdingLabel(h)}</span>}
     </Link>
   );
 }
@@ -328,7 +343,7 @@ function EmptyPocket({ card, sample, onAdd }: { card: ChecklistCard; sample: boo
     <>
       {card.imageUrl && (
         // eslint-disable-next-line @next/next/no-img-element -- ghosted catalog image
-        <img src={card.imageUrl} alt="" loading="lazy" className="absolute inset-0 h-full w-full rounded-xl object-contain p-1 opacity-[0.12] grayscale transition-opacity group-hover:opacity-30" />
+        <img src={card.imageUrl} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-contain p-[6%] opacity-[0.12] grayscale transition-opacity group-hover:opacity-30" />
       )}
       <span className="tabular relative text-[11px] font-semibold text-subtle">#{card.number ?? "—"}</span>
       {!sample && <span className="relative mt-1 line-clamp-2 px-2 text-center text-[10px] leading-tight text-subtle">{card.name}</span>}
@@ -336,13 +351,27 @@ function EmptyPocket({ card, sample, onAdd }: { card: ChecklistCard; sample: boo
       {!sample && <Plus className="relative mt-1.5 size-3.5 text-subtle opacity-0 transition-opacity group-hover:opacity-100" />}
     </>
   );
-  const cls = "group relative flex aspect-[63/88] w-full flex-col items-center justify-center overflow-hidden rounded-xl border border-dashed border-border-strong/60 bg-background/40";
+  const cls = "binder-pocket group relative flex aspect-[63/88] w-full flex-col items-center justify-center overflow-hidden";
   return sample ? (
     <div className={cls}>{inner}</div>
   ) : (
-    <button onClick={onAdd} className={cn(cls, "transition-colors hover:border-foreground/30 hover:bg-surface-2/50")} aria-label={`Add ${card.name}`}>
+    <button onClick={onAdd} className={cn(cls, "transition-colors hover:bg-white/[0.05]")} aria-label={`Add ${card.name}`}>
       {inner}
     </button>
+  );
+}
+
+/** Where the three rings (and the holes punched for them) sit down the page. */
+const RING_AT = ["16%", "50%", "84%"];
+
+/** The ring mechanism: a brushed-metal plate down the spine with three rings looping over it into the sheets. */
+function Rings() {
+  return (
+    <div aria-hidden className="binder-spine relative w-4 shrink-0 sm:w-6">
+      {RING_AT.map((y) => (
+        <span key={y} className="binder-ring" style={{ top: y }} />
+      ))}
+    </div>
   );
 }
 
