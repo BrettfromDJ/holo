@@ -158,10 +158,11 @@ function Collection() {
       />
       {kind !== "watchlist" && (
         // What's in view right now: value first, then the gain (only its numbers colored) and the count.
+        // The value is set in the text face, not the display caps, so it doesn't compete with the page title.
         <dl className="mb-6 grid grid-cols-2 items-end gap-x-8 gap-y-4 sm:flex">
           <div className="col-span-2">
             <dt className="font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-subtle">Value</dt>
-            <dd className="tabular mt-1 font-display text-[44px] leading-none sm:text-[52px]">{money(totals.value)}</dd>
+            <dd className="tabular mt-1.5 text-[48px] font-semibold leading-none tracking-[-0.045em] sm:text-[60px]">{money(totals.value)}</dd>
           </div>
           <div>
             <dt className="font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-subtle">Gain</dt>
