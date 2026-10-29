@@ -105,9 +105,9 @@ export function HypeHero({ holdings, summary, onRecap }: { holdings: HoldingView
         <button
           type="button"
           onClick={() => openAdd()}
-          className="hype-cta btn-3d btn-3d-lime flex h-12 flex-[1.4] items-center justify-center gap-2 rounded-2xl bg-lime font-display text-[17px] uppercase tracking-[0.02em] text-[#0b0b0c]"
+          className="hype-cta btn-3d btn-3d-lime flex h-12 flex-[1.4] items-center justify-center gap-2 rounded-2xl bg-lime text-[14px] font-medium text-[#0b0b0c]"
         >
-          <Plus className="size-5" strokeWidth={2.6} /> Add to collection
+          <Plus className="size-4" strokeWidth={2.4} /> Add to Collection
         </button>
       </div>
     </section>
