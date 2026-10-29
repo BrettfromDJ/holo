@@ -132,7 +132,7 @@ export function SellCalculatorDialog({ holding, open, onOpenChange }: { holding:
             <p className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-subtle">
               Sell for at least this to break even{qty > 1 ? ` · each, for ${qty}` : ""}
             </p>
-            <div className="mt-2 space-y-1.5">
+            <div className="mt-2 grid grid-cols-3 gap-2">
               {breakEvens.map((b) => {
                 const gap = b.price !== null && holding.price !== null ? holding.price - b.price : null;
                 const on = platform === b.id;
@@ -142,21 +142,21 @@ export function SellCalculatorDialog({ holding, open, onOpenChange }: { holding:
                     type="button"
                     onClick={() => applyPlatform(b.id)}
                     aria-pressed={on}
-                    className={cn("flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left transition-colors", on ? "bg-surface-3 ring-2 ring-[var(--lime)]" : "bg-surface-2 hover:bg-surface-3")}
+                    className={cn("min-w-0 rounded-2xl px-2.5 py-3 text-left transition-colors", on ? "bg-surface-3 ring-2 ring-[var(--lime)]" : "bg-surface-2 hover:bg-surface-3")}
                   >
-                    <span className="min-w-0">
-                      <span className="block text-[14px] font-medium">{b.label}</span>
-                      {gap !== null && (
-                        <span className="tabular block text-[12px] text-muted">
-                          Market is <span className={gap >= 0 ? "text-up" : "text-down"}>{signedMoney(gap)}</span> {gap >= 0 ? "above" : "below"}
-                        </span>
-                      )}
-                    </span>
-                    <span className="hype-num tabular shrink-0 text-[30px] leading-none">{b.price === null ? "—" : money(b.price)}</span>
+                    <span className="block truncate text-[12px] font-medium text-muted">{b.label}</span>
+                    {/* Sized to fit three across on a phone without cutting the price off. */}
+                    <span className="tabular mt-1 block whitespace-nowrap text-[clamp(15px,4.6vw,22px)] font-semibold leading-none tracking-[-0.03em]">{b.price === null ? "—" : money(b.price)}</span>
+                    {gap !== null && (
+                      <span className="tabular mt-1.5 block whitespace-nowrap text-[11px] text-muted">
+                        <span className={gap >= 0 ? "text-up" : "text-down"}>{signedMoney(gap)}</span> mkt
+                      </span>
+                    )}
                   </button>
                 );
               })}
             </div>
+            <p className="mt-1.5 text-[11px] text-subtle">Each, after fees and shipping. The small number is how far the market price is above it.</p>
           </section>
 
           <Segmented ariaLabel="Where you'd sell" value={platform} onChange={applyPlatform} options={PLATFORMS.map((p) => ({ value: p.id, label: p.label }))} />
