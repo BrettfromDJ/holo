@@ -158,7 +158,7 @@ export default function ProductPage() {
             <Button variant="primary" onClick={() => store.openAdd({ productId })}>
               <Plus /> {owned.length ? "Add more" : "Add to collection"}
             </Button>
-            {owned.length === 1 && <SaleButton holding={owned[0]} />}
+            {owned.length > 0 && <SaleButton holdings={owned} />}
             <WatchButton productId={productId} printing={printing} watchId={watch?.id} />
             <WishButton product={product} price={price?.market ?? null} printing={printing} compact />
             <ShelfMenu productId={productId} compact />
@@ -240,22 +240,46 @@ function KindMenu({ productId, kind, label }: { productId: string; kind: Product
   );
 }
 
-function SaleButton({ holding }: { holding: HoldingView }) {
-  const [open, setOpen] = useState<"sale" | "whatif" | null>(null);
+/**
+ * What if I sell? and Record sale, up top. With more than one version held
+ * (say a raw copy and a PSA 10), each button first asks which one.
+ */
+function SaleButton({ holdings }: { holdings: HoldingView[] }) {
+  const [open, setOpen] = useState<{ kind: "sale" | "whatif"; key: string } | null>(null);
+  const target = holdings.find((h) => h.key === open?.key) ?? null;
+  const action = (kind: "sale" | "whatif", label: string, icon: React.ReactNode) =>
+    holdings.length === 1 ? (
+      <Hint content={label}>
+        <Button variant="secondary" size="icon" aria-label={label} onClick={() => setOpen({ kind, key: holdings[0].key })}>
+          {icon}
+        </Button>
+      </Hint>
+    ) : (
+      <DropdownMenu>
+        <Hint content={label}>
+          <DropdownMenuTrigger asChild>
+            <Button variant="secondary" size="icon" aria-label={label}>
+              {icon}
+            </Button>
+          </DropdownMenuTrigger>
+        </Hint>
+        <DropdownMenuContent align="start">
+          <DropdownMenuLabel>{label}</DropdownMenuLabel>
+          {holdings.map((h) => (
+            <DropdownMenuItem key={h.key} onSelect={() => setOpen({ kind, key: h.key })}>
+              <span className="flex-1">{h.identity.grade ? `${h.identity.grade.company} ${h.identity.grade.grade}` : (holdingLabel(h) ?? h.identity.condition)}</span>
+              <span className="tabular text-muted">× {h.quantity}</span>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
   return (
     <>
-      <Hint content="What if I sell?">
-        <Button variant="secondary" size="icon" aria-label="What if I sell?" onClick={() => setOpen("whatif")}>
-          <Calculator />
-        </Button>
-      </Hint>
-      <Hint content="Record sale">
-        <Button variant="secondary" size="icon" aria-label="Record sale" onClick={() => setOpen("sale")}>
-          <Tag />
-        </Button>
-      </Hint>
-      <SellCalculatorDialog holding={holding} open={open === "whatif"} onOpenChange={(o) => !o && setOpen(null)} />
-      <SaleDialog holding={holding} open={open === "sale"} onOpenChange={(o) => !o && setOpen(null)} />
+      {action("whatif", "What if I sell?", <Calculator />)}
+      {action("sale", "Record sale", <Tag />)}
+      {target && <SellCalculatorDialog holding={target} open={open?.kind === "whatif"} onOpenChange={(o) => !o && setOpen(null)} />}
+      {target && <SaleDialog holding={target} open={open?.kind === "sale"} onOpenChange={(o) => !o && setOpen(null)} />}
     </>
   );
 }
