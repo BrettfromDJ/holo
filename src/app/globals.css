@@ -742,3 +742,12 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Prototype: receipt paper with a torn zigzag bottom edge, and a barcode. */
+.receipt {
+  -webkit-mask: linear-gradient(black, black) top / 100% calc(100% - 10px) no-repeat, conic-gradient(from -45deg at bottom, transparent, black 1deg 89deg, transparent 90deg) bottom / 16px 10px repeat-x;
+  mask: linear-gradient(black, black) top / 100% calc(100% - 10px) no-repeat, conic-gradient(from -45deg at bottom, transparent, black 1deg 89deg, transparent 90deg) bottom / 16px 10px repeat-x;
+}
+.barcode {
+  background: repeating-linear-gradient(90deg, #0b0b0c 0 2px, transparent 2px 4px, #0b0b0c 4px 5px, transparent 5px 8px, #0b0b0c 8px 11px, transparent 11px 13px);
+}
