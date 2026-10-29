@@ -24,6 +24,11 @@ export function holdingLabel(h: HoldingView): string | null {
   return parts.length ? parts.join(" · ") : null;
 }
 
+/** Per-unit price; "≈" marks a played copy estimated from Near Mint. */
+export function unitPrice(h: HoldingView): string {
+  return h.conditionEstimate && h.price !== null ? `≈ ${money(h.price)}` : money(h.price);
+}
+
 /** Compact row for dashboard sections. `metric` picks the right-hand figure. */
 export function HoldingMiniRow({ h, metric = "gain", change }: { h: HoldingView; metric?: "gain" | "value" | "change" | "added"; change?: number | null }) {
   return (
@@ -32,7 +37,7 @@ export function HoldingMiniRow({ h, metric = "gain", change }: { h: HoldingView;
       <div className="min-w-0 flex-1">
         <p className="truncate text-[14px] font-medium">{h.product?.name ?? "Unknown product"}</p>
         <p className="tabular truncate text-[12px] text-muted">
-          {h.quantity} × {money(h.price)}
+          {h.quantity} × {unitPrice(h)}
           {holdingLabel(h) && <span> · {holdingLabel(h)}</span>}
         </p>
       </div>
@@ -73,7 +78,7 @@ export function HoldingListRow({ h }: { h: HoldingView }) {
       <div className="tabular hidden text-right text-[14px] text-muted md:block">{money(h.avgCost)}</div>
       <div className="tabular hidden items-center justify-end gap-1.5 text-right text-[14px] md:flex">
         <PriceStatus holding={h} />
-        {money(h.price)}
+        {unitPrice(h)}
       </div>
       <div className="tabular hidden text-right text-[14px] font-medium md:block">{money(h.value)}</div>
       <div className="text-right">
@@ -129,7 +134,7 @@ export function HoldingTile({ h }: { h: HoldingView }) {
           <div>
             <p className="hype-num tabular text-[20px] leading-none">{money(h.value)}</p>
             <p className="tabular flex items-center gap-1 text-[12px] text-muted">
-              {money(h.price)} ea
+              {unitPrice(h)} ea
               <PriceStatus holding={h} />
             </p>
           </div>

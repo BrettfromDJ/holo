@@ -24,7 +24,7 @@ import { ProductImage } from "@/components/product/product-image";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, SectionTitle } from "@/components/ui/card";
-import { EbaySales } from "@/components/product/ebay-sales";
+import { ConditionTag, EbaySales } from "@/components/product/ebay-sales";
 import { WhatsItWorth } from "@/components/product/whats-it-worth";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Segmented } from "@/components/ui/segmented";
@@ -70,6 +70,7 @@ export default function ProductPage() {
   if (!product) return <ErrorState message={loadError ?? "This product couldn't be found."} />;
 
   const owned = holdings.filter((h) => h.identity.productId === productId);
+  const yourCopies = owned.filter((h) => h.price !== null && (h.identity.grade || h.conditionEstimate));
   const realizedHere = realized.filter((r) => r.holdingKey.startsWith(`${productId}|`)).reduce((s, r) => s + r.gain, 0);
   const printing = owned[0]?.identity.printing ?? product.printings?.[0] ?? null;
   const price = store.data.prices[priceKey(productId, printing)];
@@ -125,16 +126,16 @@ export default function ProductPage() {
               {price?.market != null ? <AnimatedNumber key={productId} value={price.market} format={money} from={price.market * 0.85} /> : <span className="text-muted">No price</span>}
             </p>
             {product.kind === "sealed" && <PerPack product={product} price={price?.market ?? null} />}
-            {owned.some((h) => h.identity.grade) && (
+            {/* The headline is the card's Near Mint price; copies you own that differ get their own figure here. */}
+            {yourCopies.length > 0 && (
               <div className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] text-muted">
-                <span>Ungraded price.</span>
-                {owned
-                  .filter((h) => h.identity.grade && h.price !== null)
-                  .map((h) => (
-                    <span key={h.key} className="inline-flex items-center gap-1.5">
-                      Your <GradeChip grade={h.identity.grade!} /> <span className="tabular text-foreground">{money(h.price)}</span>
-                    </span>
-                  ))}
+                <span>{owned.some((h) => h.identity.grade) ? "Ungraded" : "Near Mint"} price.</span>
+                {yourCopies.map((h) => (
+                  <span key={h.key} className="inline-flex items-center gap-1.5">
+                    Your {h.identity.grade ? <GradeChip grade={h.identity.grade} /> : <ConditionTag condition={h.identity.condition} />}
+                    {h.quantity > 1 && <span className="tabular">×{h.quantity}</span>} <span className="tabular text-foreground">{h.conditionEstimate ? "≈ " : ""}{money(h.price)}</span>
+                  </span>
+                ))}
               </div>
             )}
             <div className="mt-3 flex flex-wrap items-center gap-2 text-[13px]">

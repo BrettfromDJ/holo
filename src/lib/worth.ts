@@ -1,6 +1,6 @@
 import type { ConditionPrice, EbaySales } from "./ebay-types";
 import { sampleMultiple } from "./graded";
-import type { Grade } from "./types";
+import type { Condition, Grade } from "./types";
 
 /**
  * "What's it worth?" for one card in one condition or grade, with where the
@@ -18,6 +18,11 @@ export const RAW_CONDITIONS: { id: RawCondition; label: string; share: number }[
   { id: "HP", label: "Heavily Played", share: 0.5 },
   { id: "DMG", label: "Damaged", share: 0.35 },
 ];
+
+/** Share of Near Mint a raw copy in this condition is estimated at (sealed and Near Mint are 1). */
+export function conditionShare(condition: Condition): number {
+  return RAW_CONDITIONS.find((c) => c.label === condition)?.share ?? 1;
+}
 
 export const WORTH_GRADERS = ["PSA", "BGS", "CGC", "SGC", "TAG"] as const;
 export type WorthGrader = (typeof WORTH_GRADERS)[number];

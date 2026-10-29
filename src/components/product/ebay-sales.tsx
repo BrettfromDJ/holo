@@ -215,7 +215,7 @@ export function conditionHue(condition: string) {
   return CONDITION_HUES.find(([re]) => re.test(condition.trim()))?.[1];
 }
 
-function ConditionTag({ condition }: { condition: string }) {
+export function ConditionTag({ condition }: { condition: string }) {
   const hue = conditionHue(condition);
   return (
     <span

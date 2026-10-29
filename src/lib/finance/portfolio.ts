@@ -39,6 +39,8 @@ export interface HoldingView {
   priceOrigin: ResolvedPrice["origin"] | null;
   priceStatus: "live" | "stale" | "unavailable" | "manual";
   priceUpdatedAt: string | null;
+  /** True when the price is an estimate from Near Mint for a played copy. */
+  conditionEstimate: boolean;
   value: number | null;
   unrealized: number | null;
   unrealizedPct: number | null;
@@ -109,6 +111,7 @@ export function computeHoldings(data: CollectionData, today: ISODate): HoldingVi
       realizedGain: realizedOf(pos),
       price,
       priceOrigin: resolved?.origin ?? null,
+      conditionEstimate: (resolved?.conditionShare ?? 1) < 1,
       priceStatus,
       priceUpdatedAt: manual ? (resolved?.observedOn ?? null) : (np?.updatedAt ?? resolved?.observedOn ?? null),
       value,
