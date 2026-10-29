@@ -92,13 +92,13 @@ export default function GradingPage() {
             sub: rawEquivalent > 0 ? `vs ${money(rawEquivalent)} raw` : "Slab value over raw",
           },
           { label: "At the grader", value: String(sentCount), sub: sent.length ? `${sent.length} submission${sent.length === 1 ? "" : "s"}` : "Nothing out" },
-          { label: "Values to refresh", value: String(stale), sub: "Your own values over 60 days old" },
+          { label: "Values to refresh", value: String(stale), sub: "Over 60 days old" },
         ]}
       />
 
       <div className="mt-8 grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
         <Card className="p-5 sm:p-6">
-          <SectionTitle title="At the grader" subtitle="Cards stay raw in your collection until they come back" />
+          <SectionTitle title="At the grader" subtitle="Cards stay raw until they come back" />
           {sent.length ? (
             <ul className="divide-y divide-border">
               {sent.map((s) => (
@@ -106,7 +106,13 @@ export default function GradingPage() {
               ))}
             </ul>
           ) : (
-            <p className="py-6 text-center text-[13px] text-muted">Nothing out for grading. Send a card from “Worth grading” or its product page.</p>
+            // Short and left-aligned, so the empty card stays compact instead of a tall box with a wrapped sentence.
+            <div className="flex items-center gap-3 rounded-2xl bg-surface-2/60 px-4 py-3.5">
+              <Send className="size-4 shrink-0 text-subtle" />
+              <p className="text-[13px] text-muted">
+                Nothing out for grading
+              </p>
+            </div>
           )}
           {returned.length > 0 && (
             <div className="mt-5 border-t border-border pt-4">
@@ -129,7 +135,7 @@ export default function GradingPage() {
         <Card className="p-5 sm:p-6">
           <SectionTitle
             title="Worth grading"
-            subtitle={`Raw cards with the most upside if they come back a PSA 10, after ${money(costs.fee + costs.shipping)} in costs. Cards whose PSA 10s rarely sell rank lower.`}
+            subtitle={`Most upside as a PSA 10, after ${money(costs.fee + costs.shipping)} in costs`}
             action={
               <Button variant="ghost" size="sm" onClick={() => setCostsOpen(true)}>
                 Costs
