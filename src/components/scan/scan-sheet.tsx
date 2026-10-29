@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Camera, Check, ImagePlus, Loader2, RotateCcw, ScanLine, X } from "lucide-react";
+import { AlertTriangle, Camera, Check, ChevronDown, ChevronUp, ImagePlus, Loader2, RotateCcw, ScanLine, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ProductImage } from "@/components/product/product-image";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -72,6 +72,8 @@ export function ScanSheet({
   const [flash, setFlash] = useState(0);
   const [left, setLeft] = useState<number | null>(null);
   const [blocked, setBlocked] = useState<string | null>(null);
+  // On a phone the camera fills the screen and the tray shows the latest scan; expanding it trades camera for the full list.
+  const [expanded, setExpanded] = useState(false);
   const onPickRef = useRef(onPick);
   onPickRef.current = onPick;
 
@@ -105,6 +107,7 @@ export function ScanSheet({
       cancelled = true;
       stream.current?.getTracks().forEach((t) => t.stop());
       stream.current = null;
+      setExpanded(false);
       setEntries((list) => {
         list.forEach((e) => URL.revokeObjectURL(e.thumb));
         return [];
@@ -127,6 +130,7 @@ export function ScanSheet({
     canvas.getContext("2d")!.drawImage(v, 0, 0, canvas.width, canvas.height);
     canvas.toBlob((b) => b && enqueue(b), "image/jpeg", 0.85);
     setFlash((n) => n + 1);
+    setExpanded(false);
     navigator.vibrate?.(12);
   }, [camera, enqueue, disabled]);
 
@@ -183,8 +187,8 @@ export function ScanSheet({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="h-[94dvh] sm:h-[760px] sm:max-w-[560px]">
-        <div className="flex items-start justify-between gap-3 px-5 pt-5">
+      <DialogContent className="top-0 h-dvh max-h-none rounded-none border-0 sm:top-[6vh] sm:h-[760px] sm:max-h-[88dvh] sm:max-w-[560px] sm:rounded-[1.5rem] sm:border">
+        <div className="flex items-start justify-between gap-3 px-5 pt-[max(1.25rem,env(safe-area-inset-top))]">
           <div className="min-w-0">
             <DialogTitle className="flex items-center gap-2">
               <ScanLine className="size-5" /> {title}
@@ -195,9 +199,16 @@ export function ScanSheet({
         </div>
 
         {/* Viewfinder */}
-        <div className="relative mx-5 mt-4 aspect-[4/3] shrink-0 overflow-hidden rounded-2xl bg-black">
+        <div
+          className={cn(
+            "relative mx-3 mt-3 min-h-0 flex-1 overflow-hidden rounded-2xl bg-black transition-[height] sm:mx-5 sm:mt-4 sm:aspect-[4/3] sm:flex-none",
+            expanded && "max-sm:h-[22dvh] max-sm:flex-none",
+          )}
+          // A size container, so the card guide fits whichever way the viewfinder is stretched.
+          style={{ containerType: "size" }}
+        >
           <video ref={video} playsInline muted className={cn("absolute inset-0 size-full object-cover", camera !== "on" && "hidden")} />
-          {camera === "on" && <span aria-hidden className="scan-guide pointer-events-none absolute left-1/2 top-1/2 aspect-[63/88] h-[82%] -translate-x-1/2 -translate-y-1/2 rounded-xl" />}
+          {camera === "on" && <span aria-hidden className="scan-guide pointer-events-none absolute left-1/2 top-1/2 aspect-[63/88] h-[min(82cqh,120cqw)] -translate-x-1/2 -translate-y-1/2 rounded-xl" />}
           {camera === "on" && flash > 0 && <span key={flash} aria-hidden className="scan-flash pointer-events-none absolute inset-0 bg-white" />}
           {camera === "starting" && (
             <p className="absolute inset-0 flex items-center justify-center gap-2 text-[13px] text-white/70">
@@ -253,21 +264,34 @@ export function ScanSheet({
           </p>
         )}
 
-        {/* Tray */}
-        <ul className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto px-5 pb-4">
-          {!entries.length && <li className="py-6 text-center text-[13px] text-muted">Scanned cards show up here.</li>}
-          {entries.map((e) => (
-            <TrayRow key={e.id} entry={e} onConfirm={(c) => confirm(e, c)} onRetry={() => retry(e.id)} extra={extra} />
+        {/* Tray. On a phone it shows the latest scan until you open the full list. */}
+        {entries.length > 1 && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
+            className="mx-5 mt-3 flex items-center justify-between rounded-xl bg-surface-2 px-3 py-2 text-[13px] font-medium sm:hidden"
+          >
+            <span className="tabular">{entries.length} scanned</span>
+            <span className="flex items-center gap-1 text-muted">
+              {expanded ? "Back to camera" : "Show all"} {expanded ? <ChevronDown className="size-4" /> : <ChevronUp className="size-4" />}
+            </span>
+          </button>
+        )}
+        <ul className={cn("mt-2 space-y-2 overflow-y-auto overscroll-contain px-5 pb-[max(1rem,env(safe-area-inset-bottom))] sm:mt-3 sm:min-h-0 sm:flex-1", expanded ? "min-h-0 flex-1" : "max-sm:max-h-[40dvh] max-sm:shrink-0")}>
+          {!entries.length && <li className="py-4 text-center text-[13px] text-muted sm:py-6">Scanned cards show up here.</li>}
+          {entries.map((e, i) => (
+            <TrayRow key={e.id} entry={e} onConfirm={(c) => confirm(e, c)} onRetry={() => retry(e.id)} extra={extra} className={cn(i > 0 && !expanded && "max-sm:hidden")} />
           ))}
         </ul>
 
-        {footer && picks.length > 0 && <div className="border-t border-border px-5 pb-5 pt-3">{footer(picks)}</div>}
+        {footer && picks.length > 0 && <div className="border-t border-border px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3">{footer(picks)}</div>}
       </DialogContent>
     </Dialog>
   );
 }
 
-function TrayRow({ entry, onConfirm, onRetry, extra }: { entry: Entry; onConfirm: (c: ScanCandidate) => void; onRetry: () => void; extra?: (pick: ScanPick) => React.ReactNode }) {
+function TrayRow({ entry, onConfirm, onRetry, extra, className }: { entry: Entry; onConfirm: (c: ScanCandidate) => void; onRetry: () => void; extra?: (pick: ScanPick) => React.ReactNode; className?: string }) {
   const r = entry.result;
   const thumb = (
     // eslint-disable-next-line @next/next/no-img-element -- local object URL of the photo just taken
@@ -275,7 +299,7 @@ function TrayRow({ entry, onConfirm, onRetry, extra }: { entry: Entry; onConfirm
   );
   if (entry.state === "queued" || entry.state === "reading") {
     return (
-      <li className="flex items-center gap-3 rounded-2xl bg-surface-2 p-2.5">
+      <li className={cn("flex items-center gap-3 rounded-2xl bg-surface-2 p-2.5", className)}>
         {thumb}
         <span className="flex items-center gap-2 text-[13px] text-muted">
           <Loader2 className="size-3.5 animate-spin" /> {entry.state === "reading" ? "Reading…" : "Waiting…"}
@@ -285,7 +309,7 @@ function TrayRow({ entry, onConfirm, onRetry, extra }: { entry: Entry; onConfirm
   }
   if (entry.state === "error") {
     return (
-      <li className="flex items-center gap-3 rounded-2xl bg-surface-2 p-2.5">
+      <li className={cn("flex items-center gap-3 rounded-2xl bg-surface-2 p-2.5", className)}>
         {thumb}
         <span className="min-w-0 flex-1 text-[13px] text-muted">{entry.error}</span>
         <button onClick={onRetry} aria-label="Try again" className="grid size-8 shrink-0 place-items-center rounded-full bg-surface-3 text-muted hover:text-foreground">
@@ -299,7 +323,7 @@ function TrayRow({ entry, onConfirm, onRetry, extra }: { entry: Entry; onConfirm
     const ok = entry.outcome?.ok !== false;
     const grade = entry.result?.read?.grade;
     return (
-      <li className={cn("rounded-2xl p-2.5", ok ? "bg-surface-2" : "bg-[color-mix(in_srgb,var(--down)_10%,var(--surface-2))]")}>
+      <li className={cn("rounded-2xl p-2.5", className, ok ? "bg-surface-2" : "bg-[color-mix(in_srgb,var(--down)_10%,var(--surface-2))]")}>
         <div className="flex items-center gap-3">
           <ProductImage product={c.product} size="xs" className="h-14 w-11 shrink-0 rounded-md" />
           <span className="min-w-0 flex-1">
@@ -321,7 +345,7 @@ function TrayRow({ entry, onConfirm, onRetry, extra }: { entry: Entry; onConfirm
   // Ambiguous, retake, not found: say so, and offer whatever the scanner suggested.
   const label = r?.status === "ambiguous" ? "Which one is it?" : r?.status === "retake" ? (r.message ?? "Couldn't read it clearly. Try again.") : r?.status === "unsupported" ? "That game or language isn't supported." : "No match found.";
   return (
-    <li className="rounded-2xl bg-surface-2 p-2.5">
+    <li className={cn("rounded-2xl bg-surface-2 p-2.5", className)}>
       <div className="flex items-center gap-3">
         {thumb}
         <span className={cn("min-w-0 flex-1 text-[13px]", r?.status === "ambiguous" ? "font-medium" : "text-muted")}>{label}</span>
