@@ -132,8 +132,7 @@ struct HomeView: View {
     private func refresh() async {
         let before = Dictionary(store.holdings.map { ($0.identity.key, $0.price ?? 0) }, uniquingKeysWith: { a, _ in a })
         await reload()
-        let changed = store.holdings.filter { h in before[h.identity.key].map { abs($0 - (h.price ?? 0)) > 0.005 } ?? false }.count
-        show(HomeBanner(title: "Prices updated", detail: changed == 0 ? "Nothing moved since you last looked." : "\(changed) price\(changed == 1 ? "" : "s") changed.", isMilestone: false))
+        _ = before // The "Prices updated" banner is off for now; the numbers still count to their new values.
     }
 
     private func show(_ b: HomeBanner) {
