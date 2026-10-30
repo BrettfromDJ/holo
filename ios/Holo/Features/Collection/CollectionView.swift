@@ -103,7 +103,9 @@ struct CollectionView: View {
         let monthChange = (month.last?.value ?? 0) - (month.first?.value ?? 0)
         let monthTone = monthChange < 0 ? Theme.planPink : Theme.lime
         return VStack(alignment: .leading, spacing: 18) {
-            PageHeader(title: "Collection")
+            PageHeader(title: "Collection", subtitle: sinceLine) {
+                FreshnessChip(refreshedAt: store.pricesRefreshedAt)
+            }
             // The value, counting up, with the all-time gain beside it.
             VStack(alignment: .leading, spacing: 8) {
                 MonoLabel(text: "Value")
@@ -139,6 +141,14 @@ struct CollectionView: View {
         .background(alignment: .top) {
             CollectionBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
         }
+    }
+
+    /// "13 products · collecting since Mar 2024".
+    private var sinceLine: String {
+        let first = store.transactions.map(\.date).min().flatMap { Format.isoDay.date(from: $0) }
+        let products = "\(store.holdings.count) product\(store.holdings.count == 1 ? "" : "s")"
+        guard let first else { return products }
+        return products + " · collecting since " + first.formatted(.dateTime.month(.abbreviated).year())
     }
 
     private func statTile(_ label: String, _ value: String, _ tint: Color) -> some View {
@@ -359,5 +369,39 @@ private struct CollectionBackdrop: View {
 
     private func glow(_ color: Color, _ strength: Double, at center: UnitPoint, r: CGFloat) -> some View {
         RadialGradient(colors: [color.opacity(strength), .clear], center: center, startRadius: 0, endRadius: r)
+    }
+}
+
+/// A glass chip with a breathing lime dot: how fresh the prices are.
+private struct FreshnessChip: View {
+    var refreshedAt: Date?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var ping = false
+
+    var body: some View {
+        HStack(spacing: 7) {
+            ZStack {
+                Circle().fill(Theme.lime.opacity(0.6)).scaleEffect(ping ? 2.2 : 1).opacity(ping ? 0 : 0.6)
+                Circle().fill(Theme.lime)
+            }
+            .frame(width: 7, height: 7)
+            Text(label).font(.mono(11, .medium)).tracking(0.6).foregroundStyle(Theme.muted)
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 32)
+        .liquidGlass(in: Capsule())
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeOut(duration: 1.2).repeatForever(autoreverses: false)) { ping = true }
+        }
+    }
+
+    private var label: String {
+        guard let d = refreshedAt else { return "LIVE" }
+        let minutes = Int(Date().timeIntervalSince(d) / 60)
+        if minutes < 60 { return "UPDATED \(max(minutes, 1))M AGO" }
+        let hours = minutes / 60
+        if hours < 24 { return "UPDATED \(hours)H AGO" }
+        return "UPDATED \(hours / 24)D AGO"
     }
 }
