@@ -518,6 +518,7 @@ struct DealHistoryView: View {
             .padding(.top, 8)
             .padding(.bottom, 40)
         }
+        .imageMaxPixel(360)
         // The lit grid sits behind the whole page (full width, under the bar), not just the numbers.
         .background {
             ZStack(alignment: .top) {

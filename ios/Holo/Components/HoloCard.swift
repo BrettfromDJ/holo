@@ -15,12 +15,14 @@ struct HoloCard<Content: View>: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var touch: CGPoint?
     @State private var size: CGSize = .zero
+    @State private var onScreen = true
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 30, paused: reduceMotion)) { context in
+        TimelineView(.animation(minimumInterval: 1 / 30, paused: reduceMotion || !onScreen)) { context in
             let lean = lean(at: context.date)
             card(lean: lean)
         }
+        .onVisibilityChange { onScreen = $0 }
         .onAppear { if !reduceMotion { Tilt.shared.start() } }
         .onDisappear { if !reduceMotion { Tilt.shared.stop() } }
         .sensoryFeedback(.impact(weight: .light), trigger: touch != nil) { _, touching in touching }
@@ -57,10 +59,16 @@ struct HoloCard<Content: View>: View {
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: touching)
             // The shadow falls away from the light.
             .background {
-                shape.fill(.black.opacity(0.55))
-                    .padding(.horizontal, 20)
-                    .blur(radius: 18)
-                    .offset(x: -lean.x * 22, y: 14 - lean.y * 16)
+                // A soft radial gradient, not a blur: it moves every frame, and a blur would be
+                // redrawn each time. Looks the same, costs next to nothing.
+                GeometryReader { geo in
+                    Ellipse()
+                        .fill(RadialGradient(colors: [.black.opacity(0.6), .black.opacity(0.28), .clear],
+                                             center: .center, startRadius: 0, endRadius: max(geo.size.width, geo.size.height) * 0.6))
+                        .frame(width: geo.size.width * 1.1, height: geo.size.height * 1.05)
+                        .position(x: geo.size.width / 2, y: geo.size.height / 2)
+                }
+                .offset(x: -lean.x * 22, y: 14 - lean.y * 16)
             }
             .simultaneousGesture(
                 DragGesture(minimumDistance: 0)
@@ -146,3 +154,4 @@ extension Product {
                           options: [.regularExpression, .caseInsensitive]) != nil
     }
 }
+

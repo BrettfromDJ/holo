@@ -72,15 +72,25 @@ final class CollectionStore {
         demo = nil
         if status != .ready { status = .loading }
         do {
-            let holdingRows: [HoldingRow] = try await all { a, b in
+            // Everything that doesn't depend on anything else is fetched side by side.
+            struct PrefRow: Decodable { var monthly_budget: Double? }
+            async let holdingsLoad: [HoldingRow] = self.all { a, b in
                 try await self.db.from("holdings").select().range(from: a, to: b).execute().value
             }
-            let txRows: [TransactionRow] = try await all { a, b in
+            async let txLoad: [TransactionRow] = self.all { a, b in
                 try await self.db.from("transactions").select().order("created_at").range(from: a, to: b).execute().value
             }
-            let watchRows: [WatchRow] = try await all { a, b in
+            async let watchLoad: [WatchRow] = self.all { a, b in
                 try await self.db.from("watchlist_items").select().order("created_at").range(from: a, to: b).execute().value
             }
+            // A missing wishlist is just empty; don't fail the whole load over it.
+            async let wishLoad: [WishItem]? = (try? await UserState.load("wishlist", as: [WishItem].self)) ?? nil
+            async let reminderLoad: [String]? = (try? await UserState.load("release-reminders", as: [String].self)) ?? nil
+            // An older database without the budget column just means no budget.
+            async let prefLoad: [PrefRow]? = try? await self.db.from("user_preferences").select("monthly_budget").execute().value
+            let holdingRows = try await holdingsLoad
+            let txRows = try await txLoad
+            let watchRows = try await watchLoad
 
             let byId = Dictionary(holdingRows.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
             let txns: [Txn] = txRows.compactMap { r in
@@ -92,23 +102,34 @@ final class CollectionStore {
                 if let v = h.manual_value, let d = h.manual_value_date { manual[h.identity.key] = ManualValue(value: v, date: d) }
             }
 
-            // Catalog rows for everything you hold or watch, 200 ids at a time.
+            // Catalog rows for everything you hold or watch, 200 ids at a time: every batch, and
+            // its products, prices and history, all at once rather than one after another.
             let ids = Array(Set(holdingRows.map(\.product_id) + watchRows.map(\.product_id)))
+            let chunks = stride(from: 0, to: ids.count, by: 200).map { Array(ids[$0..<min($0 + 200, ids.count)]) }
             var products: [String: Product] = [:]
             var prices: [String: Price] = [:]
             var history: [String: [PricePoint]] = [:]
-            for start in stride(from: 0, to: ids.count, by: 200) {
-                let chunk = Array(ids[start..<min(start + 200, ids.count)])
-                let productRows: [ProductRow] = try await all { a, b in
-                    try await self.db.from("products").select().in("id", values: chunk).range(from: a, to: b).execute().value
+            let batches = try await withThrowingTaskGroup(of: ([ProductRow], [PriceRow], [SnapshotRow]).self) { group in
+                for chunk in chunks {
+                    group.addTask {
+                        async let productRows: [ProductRow] = self.all { a, b in
+                            try await self.db.from("products").select().in("id", values: chunk).range(from: a, to: b).execute().value
+                        }
+                        async let priceRows: [PriceRow] = self.all { a, b in
+                            try await self.db.from("product_prices").select().in("product_id", values: chunk).range(from: a, to: b).execute().value
+                        }
+                        async let snapRows: [SnapshotRow] = self.all { a, b in
+                            try await self.db.from("price_snapshots").select("product_id,printing,snapshot_date,market_price")
+                                .in("product_id", values: chunk).order("snapshot_date").range(from: a, to: b).execute().value
+                        }
+                        return try await (productRows, priceRows, snapRows)
+                    }
                 }
-                let priceRows: [PriceRow] = try await all { a, b in
-                    try await self.db.from("product_prices").select().in("product_id", values: chunk).range(from: a, to: b).execute().value
-                }
-                let snapRows: [SnapshotRow] = try await all { a, b in
-                    try await self.db.from("price_snapshots").select("product_id,printing,snapshot_date,market_price")
-                        .in("product_id", values: chunk).order("snapshot_date").range(from: a, to: b).execute().value
-                }
+                var results: [([ProductRow], [PriceRow], [SnapshotRow])] = []
+                for try await batch in group { results.append(batch) }
+                return results
+            }
+            for (productRows, priceRows, snapRows) in batches {
                 for p in productRows { products[p.id] = p.product }
                 for p in priceRows { prices[priceKey(p.product_id, p.printing.isEmpty ? nil : p.printing)] = p.price }
                 for s in snapRows {
@@ -117,8 +138,7 @@ final class CollectionStore {
             }
             // One price per day, in order: duplicate snapshots made the charts' fill fold back.
             for (key, pts) in history { history[key] = Self.onePerDay(pts) }
-            // A missing wishlist is just empty; don't fail the whole load over it.
-            let wishes = (try? await UserState.load("wishlist", as: [WishItem].self)) ?? nil
+            let wishes = await wishLoad
 
             self.holdingRows = holdingRows
             self.transactions = txns
@@ -128,12 +148,10 @@ final class CollectionStore {
             self.history = history
             self.watchlist = watchRows
             self.wishlist = wishes ?? []
-            self.reminders = Set(((try? await UserState.load("release-reminders", as: [String].self)) ?? nil) ?? [])
-            // An older database without the budget column just means no budget.
-            struct PrefRow: Decodable { var monthly_budget: Double? }
-            let prefs: [PrefRow]? = try? await db.from("user_preferences").select("monthly_budget").execute().value
+            self.reminders = Set(await reminderLoad ?? [])
+            let prefs = await prefLoad
             self.monthlyBudget = prefs?.first?.monthly_budget
-            recompute()
+            recompute(timelineNow: true)
             status = .ready
             await loadSlabPrices()
         } catch {
@@ -157,11 +175,28 @@ final class CollectionStore {
         )
     }
 
-    private func recompute() {
+    @ObservationIgnored private var timelinePending = false
+
+    /// Holdings and totals update at once (screens read them right after a change). The
+    /// value-over-time history is the expensive part, so several changes in a row (a deal closing
+    /// many items) rebuild it once, just after the last one.
+    private func recompute(timelineNow: Bool = false) {
         holdings = Portfolio.holdings(transactions: transactions, products: products, prices: prices, manualValues: manualValues, ebayGraded: ebayGraded)
         let realized = Ledger(transactions).positions.values.reduce(0) { $0 + $1.realizedGain }
         summary = Portfolio.summary(holdings, realized: realized)
-        timeline = Timeline.compute(transactions: transactions, prices: prices, history: history, manualValues: manualValues, ebayGraded: ebayGraded, today: today)
+        if timelineNow {
+            timeline = Timeline.compute(transactions: transactions, prices: prices, history: history, manualValues: manualValues, ebayGraded: ebayGraded, today: today)
+            return
+        }
+        guard !timelinePending else { return }
+        timelinePending = true
+        Task { @MainActor in
+            // Long enough to catch the next write of a batch (they each wait on the network).
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            self.timelinePending = false
+            self.timeline = Timeline.compute(transactions: self.transactions, prices: self.prices, history: self.history,
+                                             manualValues: self.manualValues, ebayGraded: self.ebayGraded, today: self.today)
+        }
     }
 
     /// Price your slabs from recent eBay sales for their exact grade: one request for all of them.
@@ -283,7 +318,7 @@ final class CollectionStore {
         self.watchlist = []
         self.wishlist = []
         self.monthlyBudget = 500
-        recompute()
+        recompute(timelineNow: true)
         status = .ready
     }
 

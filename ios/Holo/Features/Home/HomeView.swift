@@ -35,6 +35,7 @@ struct HomeView: View {
                 }
             }
             .background(Theme.background)
+            .imageMaxPixel(720)
             .replaysAnimations()
             .tabBarClearance()
             .refreshable { await refresh() }
@@ -72,7 +73,9 @@ struct HomeView: View {
     }
 
     private var content: some View {
-        VStack(alignment: .leading, spacing: 44) {
+        // Lazy: sections below the screen (charts, shelf, movers) are only built as they scroll
+        // into view, so opening or coming back to Home is quick.
+        LazyVStack(alignment: .leading, spacing: 44) {
             VStack(spacing: 18) {
                 if let demo = store.demo {
                     // A reminder that this is a made-up collection (switch it in Account).
@@ -248,15 +251,18 @@ private struct CardFan: View {
     var holdings: [HoldingView]
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var onScreen = true
 
     var body: some View {
         // One clock drives every piece's bob, computed fresh each frame, so a picture that
         // finishes loading mid-animation moves with its frame instead of lagging behind it
         // (a looping withAnimation only animates what existed when it started).
-        TimelineView(.animation(minimumInterval: 1 / 30, paused: reduceMotion)) { context in
+        TimelineView(.animation(minimumInterval: 1 / 30, paused: reduceMotion || !onScreen)) { context in
             let t = context.date.timeIntervalSinceReferenceDate
             fan(t: reduceMotion ? 0 : t)
         }
+        // The clock stops while the fan is scrolled away or another tab is showing.
+        .onVisibilityChange { onScreen = $0 }
     }
 
     private func fan(t: Double) -> some View {

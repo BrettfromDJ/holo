@@ -257,8 +257,13 @@ struct Sheen: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .offset(x: across ? 600 : -600)
                 .allowsHitTesting(false)
-                .onAppear {
-                    withAnimation(.linear(duration: 4.5).repeatForever(autoreverses: false)) { across = true }
+                // Only runs while on screen.
+                .onVisibilityChange { on in
+                    if on {
+                        withAnimation(.linear(duration: 4.5).repeatForever(autoreverses: false)) { across = true }
+                    } else {
+                        stopLoop { across = false }
+                    }
                 }
         }
     }
@@ -283,8 +288,13 @@ struct ElectricGlow: ViewModifier {
                         .opacity(bright ? 0.55 : 0.15)
                         .allowsHitTesting(false)
                 )
-                .onAppear {
-                    withAnimation(.easeInOut(duration: 1.7).repeatForever(autoreverses: true)) { bright = true }
+                // Only breathes while on screen.
+                .onVisibilityChange { on in
+                    if on {
+                        withAnimation(.easeInOut(duration: 1.7).repeatForever(autoreverses: true)) { bright = true }
+                    } else {
+                        stopLoop { bright = false }
+                    }
                 }
         } else {
             content
@@ -751,8 +761,13 @@ struct ElectricBorder: View {
             }
         }
         .allowsHitTesting(false)
-        .onAppear {
-            withAnimation(.linear(duration: 3.2).repeatForever(autoreverses: false)) { spin = true }
+        // Only spins while on screen.
+        .onVisibilityChange { on in
+            if on {
+                withAnimation(.linear(duration: 3.2).repeatForever(autoreverses: false)) { spin = true }
+            } else {
+                stopLoop { spin = false }
+            }
         }
     }
 }

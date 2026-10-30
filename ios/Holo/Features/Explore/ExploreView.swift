@@ -29,6 +29,7 @@ struct ExploreView: View {
                 }
             }
             .background(Theme.background)
+            .imageMaxPixel(600)
             .replaysAnimations()
             .tabBarClearance()
             .navigationBarTitleDisplayMode(.inline)
@@ -200,6 +201,7 @@ private struct BrandView: View {
             .padding(.bottom, 40)
         }
         .background(Theme.background)
+        .imageMaxPixel(600)
         .replaysAnimations()
         .tabBarClearance()
         .navigationBarTitleDisplayMode(.inline)
@@ -320,6 +322,7 @@ private struct SetView: View {
             .padding(.bottom, 40)
         }
         .background(Theme.background)
+        .imageMaxPixel(600)
         .replaysAnimations()
         .tabBarClearance()
         .navigationBarTitleDisplayMode(.inline)
@@ -821,6 +824,7 @@ struct ReleaseCalendarView: View {
             .padding(.bottom, 40)
         }
         .background(Theme.background)
+        .imageMaxPixel(600)
         .replaysAnimations()
         .tabBarClearance()
         .navigationBarTitleDisplayMode(.inline)

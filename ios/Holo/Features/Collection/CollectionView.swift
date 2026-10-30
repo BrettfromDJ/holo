@@ -80,6 +80,7 @@ struct CollectionView: View {
                 }
             }
             .background(Theme.background)
+            .imageMaxPixel(600)
             .replaysAnimations()
             .tabBarClearance()
             .refreshable { await reload() }

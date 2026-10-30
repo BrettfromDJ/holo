@@ -268,3 +268,37 @@ extension View {
         modifier(TiltCard(amount: amount, foil: foil, cornerRadius: cornerRadius))
     }
 }
+
+// MARK: - On screen or not
+
+extension View {
+    /// Tells `action` whether this view is on screen: scrolled into view and on the tab you're
+    /// looking at. Looping animations use it to stop while nobody can see them.
+    func onVisibilityChange(_ action: @escaping (Bool) -> Void) -> some View {
+        modifier(VisibilityChange(action: action))
+    }
+}
+
+private struct VisibilityChange: ViewModifier {
+    var action: (Bool) -> Void
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18, *) {
+            content
+                .onScrollVisibilityChange(threshold: 0.01) { action($0) }
+                .onAppear { action(true) }
+                .onDisappear { action(false) }
+        } else {
+            content
+                .onAppear { action(true) }
+                .onDisappear { action(false) }
+        }
+    }
+}
+
+/// Stop a looping animation at once, without animating back.
+func stopLoop(_ change: () -> Void) {
+    var t = Transaction()
+    t.disablesAnimations = true
+    withTransaction(t, change)
+}

@@ -47,6 +47,8 @@ struct ProductDetailView: View {
             .padding(.bottom, 40)
         }
         .background(Theme.background)
+        // A card page shows its picture full size, even when opened from a list of thumbnails.
+        .environment(\.imageMaxPixel, nil)
         .replaysAnimations()
         .tabBarClearance()
         .navigationBarTitleDisplayMode(.inline)

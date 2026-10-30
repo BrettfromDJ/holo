@@ -5,6 +5,7 @@ import SwiftUI
 struct MarketPulse: View {
     var store: CollectionStore
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var onScreen = true
     @State private var rowWidth: CGFloat = 0
 
     struct Tick: Identifiable {
@@ -79,7 +80,7 @@ struct MarketPulse: View {
     }
 
     private func moving(_ ticks: [Tick], seconds: Double) -> some View {
-        TimelineView(.animation(paused: reduceMotion || rowWidth == 0)) { context in
+        TimelineView(.animation(paused: reduceMotion || rowWidth == 0 || !onScreen)) { context in
             let t = context.date.timeIntervalSinceReferenceDate
             let shift = reduceMotion || rowWidth == 0 ? 0 : CGFloat(t.truncatingRemainder(dividingBy: seconds) / seconds) * rowWidth
             HStack(spacing: 0) {
@@ -91,6 +92,8 @@ struct MarketPulse: View {
             .offset(x: -shift)
         }
         .onPreferenceChange(RowWidth.self) { rowWidth = $0 }
+        // The ticker stops while it's scrolled away or another tab is showing.
+        .onVisibilityChange { onScreen = $0 }
     }
 
     private func row(_ ticks: [Tick]) -> some View {

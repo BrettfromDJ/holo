@@ -60,6 +60,7 @@ struct DealView: View {
             }
             .scrollDismissesKeyboard(.interactively)
             .background(Theme.background)
+            .imageMaxPixel(360)
             .replaysAnimations()
             .animation(.easeInOut(duration: 0.3), value: warning)
             .tint(accent)
