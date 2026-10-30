@@ -73,7 +73,7 @@ struct DealView: View {
                     Button { customer = true } label: { Image(systemName: "eye") }
                         .accessibilityLabel("Customer view")
                         .disabled(deals.deal.kind == .empty)
-                    Button { settings = true } label: { Image(systemName: "slider.horizontal.3") }.accessibilityLabel("Default rates")
+                    Button { settings = true } label: { Image(systemName: "slider.horizontal.3") }.accessibilityLabel("Deal settings")
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -229,7 +229,8 @@ struct DealView: View {
             }
 
             ForEach(items) { item in
-                DealItemCard(item: item, rate: rate, cost: incoming ? nil : deals.cost(of: item, in: store), accent: accent,
+                DealItemCard(item: item, incoming: incoming, rate: rate, cost: incoming ? nil : deals.cost(of: item, in: store), accent: accent,
+                             tracked: deals.tracked(item, side: side), asksCost: deals.defaults.asksCost,
                              onEbay: { ebayItem = item },
                              onRemove: {
                                  withAnimation(.snappy) {
@@ -278,7 +279,10 @@ struct DealView: View {
         }
         let owned = store.holdings.filter { $0.identity.productId == c.product.id }
         guard let h = owned.first(where: { $0.identity.printing == c.printing && sameGrade($0.identity) }) ?? owned.first, let p = h.product else {
-            return (false, "Not in your inventory")
+            // Not in Holo: it still goes in the deal, marked so, with an optional "you paid".
+            let gradeLabel = grade.map { "\($0.company) \($0.grade)" } ?? ""
+            deals.add(DealItem(key: "p:\(c.product.id):\(c.printing ?? ""):\(gradeLabel)", product: c.product, printing: c.printing, market: c.value(for: read), grade: grade), to: .outgoing)
+            return (true, "Added · not in Holo")
         }
         deals.add(DealItem(key: "h:\(h.identity.key)", product: p, printing: h.identity.printing, market: h.price, holdingKey: h.identity.key, maxQty: Int(h.quantity)), to: .outgoing)
         return (true, "Added to going out")
@@ -466,6 +470,11 @@ private struct BalanceCard: View {
                 .contentTransition(.numericText())
                 .animation(.snappy, value: t.net)
             }
+            if t.uncosted > 0 {
+                Text("Profit unknown for \(t.uncosted) item\(t.uncosted == 1 ? "" : "s") not in Holo: add what you paid")
+                    .font(.geist(12, .medium)).foregroundStyle(ink.opacity(0.7))
+                    .padding(.top, 8)
+            }
 
             HStack(alignment: .lastTextBaseline) {
                 TermLabel(text: empty ? "Add items to start" : (abs(b) < 0.005 ? "Settled · no cash" : (b > 0 ? "Customer pays you" : "You pay the customer")), term: .cash, color: ink.opacity(0.7))
@@ -602,14 +611,20 @@ private struct RateCard: View {
 /// typed price, and for items going out what you have in it and the profit.
 private struct DealItemCard: View {
     var item: DealItem
+    var incoming: Bool
     var rate: Double
     var cost: Double?
     var accent: Color
+    /// Whether closing records this line in your collection.
+    var tracked: Bool
+    var asksCost: Bool
     var onEbay: () -> Void
     var onRemove: () -> Void
     var onChange: (DealItem) -> Void
     @State private var priceText = ""
     @State private var rateText = ""
+    @State private var costText = ""
+    @State private var showCost = false
 
     var body: some View {
         let unit = item.unitPrice(side: rate)
@@ -668,10 +683,13 @@ private struct DealItemCard: View {
                 }
                 .padding(.top, 10)
 
+                statusRow
+                    .padding(.top, 10)
+
                 HStack(spacing: 6) {
                     if let cost {
                         let profit = total - cost
-                        Text("You paid \(Format.money(cost)) ·").foregroundStyle(Theme.muted)
+                        if item.holdingKey != nil { Text("You paid \(Format.money(cost)) ·").foregroundStyle(Theme.muted) } else { Text("Profit").foregroundStyle(Theme.muted) }
                         Text(Format.signedMoney(profit)).foregroundStyle(Theme.tone(profit))
                         if profit < -0.005 { SkewTag(text: "Below cost", color: Theme.planPink, textColor: .white) }
                     }
@@ -688,10 +706,58 @@ private struct DealItemCard: View {
         .onAppear {
             if let p = item.price { priceText = String(format: "%.2f", p) }
             if let r = item.rate { rateText = "\(Int((r * 100).rounded()))" }
+            if let c = item.cost { costText = String(format: "%.2f", c) }
         }
         .onChange(of: item.price) { _, p in
             if let p, MoneyField.value(priceText) != p { priceText = String(format: "%.2f", p) }
         }
+    }
+
+    /// What happens to this line in your collection, and the switch or field that changes it.
+    @ViewBuilder private var statusRow: some View {
+        if item.isCustom {
+            tag("Custom · not tracked", icon: "square.and.pencil")
+        } else if incoming {
+            Toggle(isOn: Binding(get: { tracked }, set: { on in change { $0.track = on } })) {
+                Text("Add to collection").font(.geist(12, .medium)).foregroundStyle(tracked ? .white : Theme.muted)
+            }
+            .toggleStyle(.switch)
+            .controlSize(.mini)
+            .tint(accent)
+        } else if item.holdingKey == nil {
+            HStack(spacing: 8) {
+                tag(tracked ? "Not in Holo · will be added" : "Not in Holo · not tracked", icon: "exclamationmark.circle")
+                Spacer(minLength: 0)
+                if asksCost || showCost || item.cost != nil {
+                    HStack(spacing: 2) {
+                        Text("Paid $").foregroundStyle(Theme.subtle)
+                        TextField("each", text: $costText)
+                            .keyboardType(.decimalPad)
+                            .frame(width: 52)
+                            .onChange(of: costText) { _, text in
+                                let value = MoneyField.value(text)
+                                guard value != item.cost else { return }
+                                change { $0.cost = value }
+                            }
+                    }
+                    .font(.geist(12)).monospacedDigit()
+                    .padding(.horizontal, 9).frame(height: 28)
+                    .background(Capsule().fill(item.cost != nil ? Theme.surface3 : Theme.surface2))
+                    .overlay(Capsule().strokeBorder(item.cost != nil ? accent.opacity(0.6) : .clear))
+                } else {
+                    Button("Add what you paid") { showCost = true }
+                        .font(.geist(12, .medium)).foregroundStyle(.white).buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func tag(_ text: String, icon: String) -> some View {
+        Label(text, systemImage: icon)
+            .font(.geist(11, .semibold)).foregroundStyle(Theme.muted)
+            .padding(.horizontal, 8).frame(height: 22)
+            .background(Capsule().fill(Color.white.opacity(0.06)))
+            .lineLimit(1).fixedSize()
     }
 
     private var subtitle: String {

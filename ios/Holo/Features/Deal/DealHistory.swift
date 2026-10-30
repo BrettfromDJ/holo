@@ -881,7 +881,7 @@ struct DealRecordDetail: View {
                                     .frame(width: 40, height: 56)
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(line.product.name).font(.geist(14, .medium)).foregroundStyle(.white).lineLimit(2).multilineTextAlignment(.leading)
-                                    Text("\(Int(line.qty)) × \(Format.money(line.price))" + (line.product.setName.map { " · \($0)" } ?? ""))
+                                    Text("\(Int(line.qty)) × \(Format.money(line.price))" + (line.untracked == true ? " · not tracked" : (line.product.setName.map { " · \($0)" } ?? "")))
                                         .font(.geist(12)).foregroundStyle(Theme.muted).monospacedDigit().lineLimit(1)
                                 }
                                 Spacer(minLength: 8)

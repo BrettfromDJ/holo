@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Pick what's coming in (your inventory or anything in the catalog) or going out (only what you own).
+/// Pick what's coming in or going out: from your inventory, anything in the catalog (going out,
+/// that's something you have that isn't in Holo yet), or a custom line with just a name and price.
 struct DealPickerSheet: View {
     var side: DealSide
     @Environment(\.dismiss) private var dismiss
@@ -10,6 +11,7 @@ struct DealPickerSheet: View {
     @State private var results: [SearchHit] = []
     @State private var searching = false
     @State private var added: Set<String> = []
+    @State private var customOpen = false
 
     private var owned: [HoldingView] {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
@@ -24,6 +26,13 @@ struct DealPickerSheet: View {
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    Button { customOpen = true } label: {
+                        Label("Custom item: a name and a price", systemImage: "square.and.pencil").foregroundStyle(.white)
+                    }
+                } footer: {
+                    Text("For things that aren't in the catalog, like a bulk lot or a binder of commons. Counted in the deal, not tracked in your collection.")
+                }
                 Section(side == .outgoing ? "Your inventory" : "In your inventory") {
                     if owned.isEmpty { Text("Nothing matches.").foregroundStyle(Theme.muted) }
                     ForEach(owned) { h in
@@ -37,8 +46,8 @@ struct DealPickerSheet: View {
                         .buttonStyle(.plain)
                     }
                 }
-                if side == .incoming && query.count >= 2 {
-                    Section("Catalog") {
+                if query.count >= 2 {
+                    Section {
                         if searching && results.isEmpty { ProgressView() }
                         ForEach(results) { hit in
                             Button { addHit(hit) } label: {
@@ -49,16 +58,31 @@ struct DealPickerSheet: View {
                             }
                             .buttonStyle(.plain)
                         }
+                    } header: {
+                        Text(side == .incoming ? "Catalog" : "Not in Holo")
+                    } footer: {
+                        if side == .outgoing {
+                            Text("Something you have that isn't in Holo yet. Add what you paid on the deal and it's recorded properly; otherwise it's counted in the deal but not tracked.")
+                        }
                     }
                 }
             }
             .scrollContentBackground(.hidden)
             .background(Theme.background)
-            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: side == .incoming ? "Search any card or product" : "Search your inventory")
+            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: side == .incoming ? "Search any card or product" : "Search your inventory or any card")
             .navigationTitle(side == .incoming ? "Coming in" : "Going out")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
             .task(id: query) { await search() }
+            .sheet(isPresented: $customOpen) {
+                CustomItemSheet { name, price, qty in
+                    let id = UUID().uuidString.lowercased()
+                    let product = Product(id: "custom:\(id)", source: "custom", name: name, productType: "Custom", kind: "sealed")
+                    deals.add(DealItem(key: "c:\(id)", product: product, printing: nil, market: nil, qty: qty, price: price, custom: true), to: side)
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    dismiss()
+                }
+            }
         }
     }
 
@@ -74,13 +98,12 @@ struct DealPickerSheet: View {
     }
 
     private func addHit(_ hit: SearchHit) {
-        deals.add(DealItem(key: "p:\(hit.product.id):\(hit.printing ?? ""):", product: hit.product, printing: hit.printing, market: hit.market), to: .incoming)
+        deals.add(DealItem(key: "p:\(hit.product.id):\(hit.printing ?? ""):", product: hit.product, printing: hit.printing, market: hit.market), to: side)
         added.insert(hit.id)
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
     private func search() async {
-        guard side == .incoming else { return }
         let q = query.trimmingCharacters(in: .whitespaces)
         guard q.count >= 2 else {
             results = []
@@ -94,6 +117,41 @@ struct DealPickerSheet: View {
     }
 }
 
+/// A line that isn't in the catalog: a name, a price each and how many.
+private struct CustomItemSheet: View {
+    var onAdd: (String, Double, Int) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+    @State private var price = ""
+    @State private var qty = 1
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField("What is it? (Bulk lot, binder of commons…)", text: $name)
+                MoneyField(title: "Price each", text: $price, hint: "0.00")
+                Stepper("Quantity: \(qty)", value: $qty, in: 1...999)
+            }
+            .scrollContentBackground(.hidden)
+            .background(Theme.background)
+            .navigationTitle("Custom item")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add") {
+                        guard let value = MoneyField.value(price) else { return }
+                        onAdd(name.trimmingCharacters(in: .whitespaces), value, qty)
+                        dismiss()
+                    }
+                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || MoneyField.value(price) == nil)
+                }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+}
+
 /// The rates new deals start at.
 struct DealRatesSheet: View {
     @Environment(\.dismiss) private var dismiss
@@ -103,13 +161,20 @@ struct DealRatesSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    Toggle("Add what comes in to my collection", isOn: Binding(get: { rates.addsIncoming }, set: { rates.addIncoming = $0 }))
+                    Toggle("Ask what I paid for things not in Holo", isOn: Binding(get: { rates.asksCost }, set: { rates.askCost = $0 }))
+                } footer: {
+                    Text("You can still switch any single item in or out on the deal. Items going out that aren't in Holo are tracked when you add what you paid.")
+                }
+                .tint(Theme.lime)
                 rate("Buying", "What you pay for cards you buy", \.buy)
                 rate("Trade-in", "What you credit for cards taken in on trade", \.trade)
                 rate("Selling", "What you charge for cards going out", \.sell)
             }
             .scrollContentBackground(.hidden)
             .background(Theme.background)
-            .navigationTitle("Default rates")
+            .navigationTitle("Deal settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -212,6 +277,13 @@ struct DealCloseSheet: View {
                             if let profit = t.profit { pill("Profit", Format.signedMoney(profit), Theme.tone(profit)) }
                             if deal.kind != .sell, t.inValue > 0 { pill("Value gained", Format.signedMoney(t.equity), Theme.tone(t.equity)) }
                         }
+                        let fx = deals.effects(deal)
+                        Label {
+                            Text([fx.adds > 0 ? "Adds \(fx.adds) to your collection" : nil,
+                                  fx.sells > 0 ? "sells \(fx.sells) from it" : nil,
+                                  fx.untracked > 0 ? "\(fx.untracked) not tracked" : nil].compactMap { $0 }.joined(separator: " · ").capitalizedFirst)
+                        } icon: { Image(systemName: "square.stack.3d.up") }
+                        .font(.geist(14, .semibold)).foregroundStyle(.white)
                         Text(store.demo != nil
                              ? "This is a demo collection: closing updates it on this phone only, and nothing is saved to your account."
                              : "Sales and purchases are added to your collection, and the deal goes in your history.")
@@ -493,4 +565,8 @@ private struct SoftGlare: View {
         }
         .allowsHitTesting(false)
     }
+}
+
+private extension String {
+    var capitalizedFirst: String { prefix(1).uppercased() + dropFirst() }
 }

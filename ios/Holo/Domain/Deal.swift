@@ -37,6 +37,13 @@ struct DealRates: Codable, Equatable {
     var trade: Double = 0.8
     /// What you charge for items going out.
     var sell: Double = 1
+    /// Whether what comes in is added to your collection unless you switch an item off (default on).
+    var addIncoming: Bool?
+    /// Whether items going out that aren't in Holo ask what you paid (default on).
+    var askCost: Bool?
+
+    var addsIncoming: Bool { addIncoming ?? true }
+    var asksCost: Bool { askCost ?? true }
 }
 
 /// One row of a deal. Same JSON as the website's DealItem; unknowns are written as null.
@@ -56,12 +63,23 @@ struct DealItem: Codable, Identifiable, Hashable {
     /// The holding this came from (its key), when it's from your inventory.
     var holdingKey: String?
     var maxQty: Int?
+    /// Coming in: false keeps it out of your collection (nil follows your deal settings).
+    var track: Bool?
+    /// Going out but not in Holo: what you paid per unit, if you said. With it the deal records
+    /// the purchase and the sale; without it the line isn't tracked.
+    var cost: Double?
+    /// A line that isn't a catalog product ("Bulk lot"): a name and a price, never tracked.
+    var custom: Bool?
 
     var id: String { key }
+    var isCustom: Bool { custom == true }
 
-    enum CodingKeys: String, CodingKey { case key, product, printing, market, qty, price, rate, grade, holdingKey, maxQty }
+    enum CodingKeys: String, CodingKey { case key, product, printing, market, qty, price, rate, grade, holdingKey, maxQty, track, cost, custom }
 
-    init(key: String, product: Product, printing: String?, market: Double?, qty: Int = 1, price: Double? = nil, rate: Double? = nil, grade: ScanGrade? = nil, holdingKey: String? = nil, maxQty: Int? = nil) {
+    init(key: String, product: Product, printing: String?, market: Double?, qty: Int = 1, price: Double? = nil, rate: Double? = nil, grade: ScanGrade? = nil, holdingKey: String? = nil, maxQty: Int? = nil, track: Bool? = nil, cost: Double? = nil, custom: Bool? = nil) {
+        self.track = track
+        self.cost = cost
+        self.custom = custom
         self.key = key
         self.product = product
         self.printing = printing
@@ -86,6 +104,9 @@ struct DealItem: Codable, Identifiable, Hashable {
         grade = try c.decodeIfPresent(ScanGrade.self, forKey: .grade)
         holdingKey = try c.decodeIfPresent(String.self, forKey: .holdingKey)
         maxQty = (try c.decodeIfPresent(Double.self, forKey: .maxQty)).map { Int($0) }
+        track = try c.decodeIfPresent(Bool.self, forKey: .track)
+        cost = try c.decodeIfPresent(Double.self, forKey: .cost)
+        custom = try c.decodeIfPresent(Bool.self, forKey: .custom)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -101,6 +122,9 @@ struct DealItem: Codable, Identifiable, Hashable {
         try c.encodeIfPresent(grade, forKey: .grade)
         try c.encodeIfPresent(holdingKey, forKey: .holdingKey)
         try c.encodeIfPresent(maxQty, forKey: .maxQty)
+        try c.encodeIfPresent(track, forKey: .track)
+        try c.encodeIfPresent(cost, forKey: .cost)
+        try c.encodeIfPresent(custom, forKey: .custom)
     }
 
     /// The share of market this row counts at.
@@ -180,6 +204,8 @@ struct DealTotals {
     var equity: Double
     /// Outgoing rows priced below your cost.
     var belowCost: Int
+    /// Outgoing rows with no known cost (not in Holo and no "you paid"): their profit is unknown.
+    var uncosted: Int
 
     /// `cost` gives your cost for an outgoing row (nil when unknown).
     init(_ deal: DealState, rates: (in: Double, out: Double), cost: (DealItem) -> Double?) {
@@ -190,6 +216,7 @@ struct DealTotals {
         profit = costed.isEmpty ? nil : round2(costed.reduce(0) { $0 + $1.0.total(side: rates.out) - $1.1 })
         equity = round2(deal.incoming.reduce(0) { $0 + ($1.market ?? 0) * Double($1.qty) - $1.total(side: rates.in) })
         belowCost = costed.filter { $0.0.total(side: rates.out) < $0.1 - 0.005 }.count
+        uncosted = deal.outgoing.count - costed.count
         balance = round2(outValue - inValue)
     }
 }
@@ -211,6 +238,8 @@ struct DealRecord: Codable, Identifiable, Hashable {
         var qty: Double
         /// Price per unit it went at.
         var price: Double
+        /// Not recorded in the collection (left out on purpose, not in Holo, or custom).
+        var untracked: Bool? = nil
     }
 
     var id: String
