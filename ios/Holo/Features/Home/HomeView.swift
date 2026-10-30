@@ -61,8 +61,8 @@ struct HomeView: View {
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
             .sheet(isPresented: $account) { SettingsView() }
             .sheet(isPresented: $lists) { ListsView() }
-            .sheet(isPresented: $search) { ExploreView() }
-            .sheet(isPresented: $addSearch) { SearchView(asSheet: true) }
+            .fullScreenCover(isPresented: $search) { SearchScreen() }
+            .fullScreenCover(isPresented: $addSearch) { SearchScreen(mode: .add) }
             .fullScreenCover(isPresented: $recap) { WeeklyRecap(store: store) }
             .confirmationDialog("Add to your collection", isPresented: $adding) {
                 Button("Scan cards") { onScan() }
@@ -86,19 +86,9 @@ struct HomeView: View {
                     .buttonStyle(.plain)
                 }
                 MarketPulse(store: store)
-                Button { search = true } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "magnifyingglass").font(.system(size: 18)).foregroundStyle(Theme.muted)
-                        Text("Search any card or sealed product").font(.geist(16)).foregroundStyle(Theme.subtle)
-                        Spacer()
-                    }
-                    .padding(.horizontal, 18)
-                    .frame(height: 56)
-                    .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.surface))
-                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.border))
-                }
-                .buttonStyle(.plain)
-                .padding(.horizontal, 16)
+                // Opens search with the keyboard already up.
+                SearchFieldButton(prompt: "Search any card or sealed product") { search = true }
+                    .padding(.horizontal, 16)
                 Hero(store: store, onRecap: { recap = true }, onAdd: { adding = true })
             }
             PerformanceSection(store: store).padding(.horizontal, 16).reveal()

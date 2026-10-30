@@ -7,6 +7,7 @@ struct CollectionView: View {
     @Environment(CollectionStore.self) private var store
     @Environment(SessionModel.self) private var session
     @State private var adding = false
+    @FocusState private var searchFocused: Bool
     @State private var query = ""
     @State private var category: HoldingCategory?
     @State private var sort = Sort.value
@@ -88,7 +89,7 @@ struct CollectionView: View {
                 ToolbarItem(placement: .topBarTrailing) { FreshnessChip(refreshedAt: store.pricesRefreshedAt) }
             }
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
-            .sheet(isPresented: $adding) { SearchView(asSheet: true) }
+            .fullScreenCover(isPresented: $adding) { SearchScreen(mode: .add) }
             .onAppear { applyRequest() }
             .onChange(of: router.collectionCategory) { _, _ in applyRequest() }
         }
@@ -160,16 +161,7 @@ struct CollectionView: View {
     private var controls: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass").foregroundStyle(Theme.muted)
-                    TextField("Search", text: $query).font(.geist(16)).textInputAutocapitalization(.never).autocorrectionDisabled()
-                    if !query.isEmpty {
-                        Button { query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(Theme.muted) }
-                    }
-                }
-                .padding(.horizontal, 14)
-                .frame(height: 46)
-                .liquidGlass(in: Capsule())
+                HoloSearchField(text: $query, prompt: "Search your collection", focus: $searchFocused)
                 Menu {
                     Picker("Sort", selection: $sort) {
                         ForEach(Sort.allCases, id: \.self) { Text($0.rawValue).tag($0) }

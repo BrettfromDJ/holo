@@ -12,6 +12,7 @@ struct DealPickerSheet: View {
     @State private var searching = false
     @State private var added: Set<String> = []
     @State private var customOpen = false
+    @FocusState private var focused: Bool
 
     private var owned: [HoldingView] {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
@@ -69,11 +70,23 @@ struct DealPickerSheet: View {
             }
             .scrollContentBackground(.hidden)
             .background(Theme.background)
-            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: side == .incoming ? "Search any card or product" : "Search your inventory or any card")
+            .safeAreaInset(edge: .top, spacing: 0) {
+                HoloSearchField(text: $query, prompt: side == .incoming ? "Search any card or product" : "Search your inventory or any card",
+                                focus: $focused, loading: searching)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Theme.background)
+            }
+            .scrollDismissesKeyboard(.immediately)
             .navigationTitle(side == .incoming ? "Coming in" : "Going out")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
             .task(id: query) { await search() }
+            .task {
+                // Ready to type the moment it opens.
+                try? await Task.sleep(nanoseconds: 80_000_000)
+                focused = true
+            }
             .sheet(isPresented: $customOpen) {
                 CustomItemSheet { name, price, qty in
                     let id = UUID().uuidString.lowercased()

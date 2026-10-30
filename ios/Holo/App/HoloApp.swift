@@ -148,7 +148,7 @@ struct MainTabView: View {
             Button("Search and add") { searching = true }
         }
         .fullScreenCover(isPresented: $scanning) { ScanView() }
-        .sheet(isPresented: $searching) { SearchView(asSheet: true) }
+        .fullScreenCover(isPresented: $searching) { SearchScreen(mode: .add) }
         // A tapped price alert opens its card.
         .sheet(item: Binding(get: { router.product.map(OpenProduct.init) }, set: { router.product = $0?.id })) { open in
             NavigationStack {
