@@ -65,6 +65,16 @@ final class HoloAPI {
         return try decoder.decode(T.self, from: data)
     }
 
+    /// One page of the stored catalog's matches, with how many there are in all.
+    /// `count` is how many the server sent (before code cards are left out), for the next offset.
+    func searchPage(_ query: String, offset: Int, limit: Int) async throws -> (hits: [SearchHit], total: Int, count: Int) {
+        struct Page: Decodable { var products: [SearchHit]; var total: Int? }
+        let items = [URLQueryItem(name: "q", value: query), URLQueryItem(name: "offset", value: "\(offset)"), URLQueryItem(name: "limit", value: "\(limit)")]
+        let page = try await send(try await request("api/explore/search", query: items), as: Page.self)
+        let hits = page.products.filter { !$0.product.isCodeCard }
+        return (hits, page.total ?? (offset + page.products.count), page.products.count)
+    }
+
     /// Search the stored catalog first (free); fall back to a live search when it has nothing.
     func search(_ query: String) async throws -> [SearchHit] {
         struct Stored: Decodable { var products: [SearchHit] }

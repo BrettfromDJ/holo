@@ -127,6 +127,13 @@ struct SearchScreen: View {
     @Environment(CollectionStore.self) private var store
     @State private var query = ""
     @State private var results: [SearchHit] = []
+    /// How many match in all (results holds the pages loaded so far).
+    @State private var total = 0
+    @State private var loadingMore = false
+    /// Pages already fetched, by query, so going back to a query (or deleting a letter) is instant.
+    @State private var cache: [String: (hits: [SearchHit], total: Int, fetched: Int)] = [:]
+    /// How far into the server's list we've read (results can be shorter: code cards are left out).
+    @State private var fetched = 0
     @State private var searchedFor = ""
     @State private var searching = false
     @State private var error: String?
@@ -271,7 +278,7 @@ struct SearchScreen: View {
             }
         }
 
-        header(searching && results.isEmpty ? "Searching the catalog…" : (shown.count == results.count ? "\(results.count) in the catalog" : "\(shown.count) of \(results.count) in the catalog"))
+        header(searching && results.isEmpty ? "Searching the catalog…" : (shown.count == results.count ? "\(total) in the catalog" : "\(shown.count) of \(results.count) loaded match"))
             .padding(.top, mine.isEmpty ? 0 : 14)
         if !results.isEmpty {
             FilterBar(items: results, filters: $filters).padding(.bottom, 8)
@@ -296,6 +303,17 @@ struct SearchScreen: View {
                 store.seed(hit)
                 adding = hit
             })
+            // Near the end of what's loaded, fetch the next batch.
+            .onAppear { if hit.id == shown.dropLast(8).last?.id || hit.id == shown.last?.id { Task { await loadMore() } } }
+        }
+        if fetched < total {
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small).tint(Theme.muted)
+                Text("Loading more · \(results.count) of \(total)").font(.geist(13)).foregroundStyle(Theme.muted).monospacedDigit()
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .onAppear { Task { await loadMore() } }
         }
     }
 
@@ -322,23 +340,43 @@ struct SearchScreen: View {
         if mode == .add { adding = hit } else { path.append(hit.product.id) }
     }
 
+    private static let pageSize = 40
+
     private func search() async {
         let q = trimmed
         guard q.count >= 2 else {
             results = []
+            total = 0
+            fetched = 0
             error = nil
             searchedFor = ""
             return
         }
-        // Debounced: waits for a pause in typing; the old results stay up meanwhile.
-        try? await Task.sleep(nanoseconds: 250_000_000)
+        // Seen this query already: show it at once.
+        if let hit = cache[q.lowercased()] {
+            results = hit.hits
+            total = hit.total
+            fetched = hit.fetched
+            error = nil
+            searchedFor = q
+            return
+        }
+        // Debounced: a short pause in typing; the old results stay up meanwhile.
+        try? await Task.sleep(nanoseconds: 180_000_000)
         guard !Task.isCancelled else { return }
         searching = true
         defer { searching = false }
         do {
-            let hits = try await Backend.shared.api.search(q)
+            var page = try await Backend.shared.api.searchPage(q, offset: 0, limit: Self.pageSize)
+            // Nothing stored yet: ask the live catalog (one page, no more to load).
+            if page.hits.isEmpty, let live = try? await Backend.shared.api.search(q) { page = (live, live.count, live.count) }
             guard !Task.isCancelled else { return }
-            withAnimation(.snappy(duration: 0.2)) { results = hits }
+            withAnimation(.snappy(duration: 0.2)) {
+                results = page.hits
+                total = page.total
+            }
+            fetched = page.count
+            cache[q.lowercased()] = (page.hits, page.total, page.count)
             error = nil
             searchedFor = q
         } catch {
@@ -346,6 +384,22 @@ struct SearchScreen: View {
             self.error = "Couldn't search right now. Check your connection."
             searchedFor = q
         }
+    }
+
+    /// The next batch of results for the same query.
+    @MainActor
+    private func loadMore() async {
+        let q = trimmed
+        guard !loadingMore, !searching, fetched < total, q == searchedFor else { return }
+        loadingMore = true
+        defer { loadingMore = false }
+        guard let page = try? await Backend.shared.api.searchPage(q, offset: fetched, limit: Self.pageSize), q == trimmed else { return }
+        let seen = Set(results.map(\.id))
+        results += page.hits.filter { !seen.contains($0.id) }
+        // A short page means we've reached the end, whatever the total said.
+        fetched += page.count
+        if page.count == 0 { total = fetched }
+        cache[q.lowercased()] = (results, total, fetched)
     }
 }
 
