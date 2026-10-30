@@ -58,6 +58,15 @@ struct ProductDetailView: View {
                 }
                 .fixedSize()
             }
+            // Share the card's page on the website.
+            ToolbarItem(placement: .topBarTrailing) {
+                if let url = webURL {
+                    ShareLink(item: url, subject: Text(product?.name ?? "Card"), message: Text(shareText)) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .accessibilityLabel("Share")
+                }
+            }
         }
         .sheet(item: $managing) { h in HoldingSheet(identity: h.identity) }
         .sheet(item: $selling) { h in SellSheet(holding: h) }
@@ -83,10 +92,44 @@ struct ProductDetailView: View {
     // MARK: Picture
 
     /// A single card bare at its own shape (260 wide), a slab in its frame, sealed in a square.
+    private var webURL: URL? {
+        let id = productId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed.subtracting(CharacterSet(charactersIn: ":"))) ?? productId
+        return URL(string: "product/\(id)", relativeTo: AppConfig.apiBaseURL)?.absoluteURL
+    }
+
+    private var shareText: String {
+        [product?.name, price?.market.map { Format.money($0) }].compactMap { $0 }.joined(separator: " · ")
+    }
+
+    /// Above the piece: the set and number, and whether (and how many) you own.
+    private var stageHeader: some View {
+        let owns = owned.reduce(0) { $0 + $1.quantity }
+        let line = [product?.setName, product?.number.map { "#\($0)" }].compactMap { $0 }.joined(separator: " · ")
+        return VStack(spacing: 10) {
+            if !line.isEmpty { MonoLabel(text: line) }
+            if owns > 0 {
+                SkewTag(text: "In your collection" + (owns > 1 ? " ×\(Int(owns))" : ""), icon: "checkmark")
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
     /// The piece on a lit stage: the grid and glows behind it (lime when it's up over the month,
     /// pink when it's down), leaning with the phone like a real card in the light.
     @ViewBuilder private var hero: some View {
         let mood = (price?.change30dPct ?? 0) < 0 ? Theme.planPink : Theme.lime
+        VStack(spacing: 22) {
+            stageHeader
+            piece
+        }
+        .padding(.top, 20)
+        .padding(.bottom, 36)
+        .frame(maxWidth: .infinity)
+        .background { ProductStage(mood: mood).padding(.horizontal, -16) }
+        .modifier(Entrance())
+    }
+
+    @ViewBuilder private var piece: some View {
         Group {
             if let slab = owned.first(where: { $0.identity.isGraded }), owned.allSatisfy({ $0.identity.isGraded }) {
                 HoloCard(foil: false, textured: false, cornerRadius: 18) {
@@ -103,10 +146,7 @@ struct ProductDetailView: View {
                 }
             }
         }
-        .padding(.vertical, 36)
         .frame(maxWidth: .infinity)
-        .background { ProductStage(mood: mood).padding(.horizontal, -16) }
-        .modifier(Entrance())
     }
 
     // MARK: Title, price and changes
