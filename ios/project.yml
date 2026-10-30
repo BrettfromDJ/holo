@@ -1,0 +1,77 @@
+# Xcode project definition. Generate Holo.xcodeproj with `xcodegen` (see README.md).
+name: Holo
+options:
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+configFiles:
+  Debug: Config.xcconfig
+  Release: Config.xcconfig
+packages:
+  Supabase:
+    url: https://github.com/supabase/supabase-swift
+    from: 2.20.0
+targets:
+  Holo:
+    type: application
+    platform: iOS
+    sources:
+      - Holo
+    dependencies:
+      - package: Supabase
+        product: Supabase
+    info:
+      path: Holo/Info.plist
+      properties:
+        CFBundleDisplayName: Holo
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIUserInterfaceStyle: Dark
+        NSCameraUsageDescription: Holo uses the camera to scan your cards and look up their prices.
+        ITSAppUsesNonExemptEncryption: false
+        # Read by AppConfig.swift; values come from Config.xcconfig.
+        HoloAPIHost: $(HOLO_API_HOST)
+        SupabaseHost: $(SUPABASE_HOST)
+        SupabaseAnonKey: $(SUPABASE_ANON_KEY)
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(HOLO_BUNDLE_ID)
+        DEVELOPMENT_TEAM: $(HOLO_TEAM_ID)
+        CODE_SIGN_STYLE: Automatic
+        MARKETING_VERSION: 0.1.0
+        CURRENT_PROJECT_VERSION: 1
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_VERSION: "5.0"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ENABLE_PREVIEWS: YES
+  HoloTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - HoloTests
+    dependencies:
+      - target: Holo
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(HOLO_BUNDLE_ID).tests
+        DEVELOPMENT_TEAM: $(HOLO_TEAM_ID)
+        SWIFT_VERSION: "5.0"
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  Holo:
+    build:
+      targets:
+        Holo: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - HoloTests
+    archive:
+      config: Release

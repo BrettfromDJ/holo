@@ -108,6 +108,10 @@ Worth grading (`/grading`) asks for eBay summaries for every real card on the pa
 
 `profiles`, `user_preferences`, `products` (catalog cache), `product_prices` (latest), `price_snapshots` (daily history), `holdings` (product + printing + condition + grade), `transactions` (append-only: purchase / sale / adjustment / correction), `purchase_lots` (view over purchase transactions; remaining quantity derived by FIFO replay so it can't drift), `portfolio_snapshots`, `watchlist_items`. RLS restricts every user table to `auth.uid()`; the shared catalog is read-only to clients and written by the server with the service role.
 
+## iPhone app
+
+`ios/` holds a native SwiftUI app that uses the same Supabase account and collection, and calls this app's API with the user's login token (`getRequestUser` accepts either the website's cookie or `Authorization: Bearer`). See [ios/README.md](ios/README.md) for building in Xcode and shipping to TestFlight. `.github/workflows/ios.yml` compiles and tests it on a GitHub-hosted Mac.
+
 ## Project layout
 
 ```

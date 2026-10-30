@@ -1,0 +1,17 @@
+// Copy to Config.xcconfig (git-ignored) and fill in. No secrets go here:
+// the Supabase anon key is public by design, and the TCG API key stays on the server.
+//
+// Hosts only, no https:// — "//" starts a comment in xcconfig files.
+
+// Your deployed web app (it serves the API the app calls).
+HOLO_API_HOST = holo-bay.vercel.app
+
+// From NEXT_PUBLIC_SUPABASE_URL, without https://
+SUPABASE_HOST = your-project.supabase.co
+
+// NEXT_PUBLIC_SUPABASE_ANON_KEY (or the publishable key)
+SUPABASE_ANON_KEY = your-anon-key
+
+// A unique bundle id you own, and your Apple Developer Team ID (Xcode > Settings > Accounts).
+HOLO_BUNDLE_ID = com.yourname.holo
+HOLO_TEAM_ID = ABCDE12345

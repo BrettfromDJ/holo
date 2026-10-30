@@ -1,0 +1,6 @@
+Config.xcconfig
+Holo.xcodeproj/
+xcuserdata/
+DerivedData/
+build/
+*.ipa
