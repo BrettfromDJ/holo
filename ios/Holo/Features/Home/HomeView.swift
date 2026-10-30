@@ -520,22 +520,23 @@ private struct ShelfSection: View {
     var holdings: [HoldingView]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 14) {
             PageHeader(title: "Your shelf", subtitle: "Your most valuable pieces", size: 30).padding(.horizontal, 16)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .bottom, spacing: 18) {
                     ForEach(Array(holdings.enumerated()), id: \.element.id) { i, h in
                         NavigationLink(value: h.identity.productId) {
                             VStack(alignment: .leading, spacing: 0) {
+                                // A fixed stage: cards stand tall, wide boxes sit low and wide,
+                                // so one tall piece never pushes the whole row down.
                                 HoldingArt(product: h.product, identity: h.identity, cornerRadius: 12)
-                                    .frame(width: 150)
-                                    .frame(maxHeight: 210, alignment: .bottom)
+                                    .frame(width: 170, height: 150, alignment: .bottom)
                                     .shadow(color: .black.opacity(0.6), radius: 10, y: 8)
                                     .padding(.horizontal, 6)
                                 // The glass ledge.
                                 RoundedRectangle(cornerRadius: 2)
                                     .fill(LinearGradient(colors: [.white.opacity(0.18), .white.opacity(0.03)], startPoint: .top, endPoint: .bottom))
-                                    .frame(width: 162, height: 10)
+                                    .frame(width: 182, height: 10)
                                     .shadow(color: .white.opacity(0.08), radius: 8, y: -4)
                                 VStack(alignment: .leading, spacing: 6) {
                                     HStack(spacing: 6) {
@@ -548,9 +549,9 @@ private struct ShelfSection: View {
                                     }
                                 }
                                 .padding(12)
-                                .frame(width: 162, alignment: .leading)
+                                .frame(width: 182, alignment: .leading)
                                 .surface(radius: 12, padding: nil)
-                                .padding(.top, 14)
+                                .padding(.top, 10)
                             }
                         }
                         .buttonStyle(.plain)
