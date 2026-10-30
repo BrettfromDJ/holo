@@ -107,8 +107,8 @@ struct CollectionView: View {
         let monthChange = (month.last?.value ?? 0) - (month.first?.value ?? 0)
         let monthTone = monthChange < 0 ? Theme.planPink : Theme.lime
         return VStack(alignment: .leading, spacing: 18) {
-            // The value, counting up, with the all-time gain under it, centered under the title.
-            VStack(alignment: .center, spacing: 8) {
+            // The value, counting up, with the all-time gain under it.
+            VStack(alignment: .leading, spacing: 8) {
                 MonoLabel(text: "Value")
                 CountingText(value: s.value, format: { Format.money($0) })
                     .font(.display(56)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.5)
@@ -120,7 +120,7 @@ struct CollectionView: View {
                     Text("all time").font(.geist(13)).foregroundStyle(Theme.muted)
                 }
             }
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, 8)
             // The last 30 days, drawing itself in.
             if month.count > 1 {
