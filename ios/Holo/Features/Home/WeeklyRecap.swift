@@ -92,7 +92,7 @@ private struct Slide {
     var background: RadialGradient
     var content: AnyView
 
-    private static func glow(_ hex: UInt, _ mid: UInt, at: UnitPoint) -> RadialGradient {
+    private static func glow(_ hex: UInt32, _ mid: UInt32, at: UnitPoint) -> RadialGradient {
         RadialGradient(colors: [Color(hex: hex), Color(hex: mid), Color(hex: 0x0B0B0C)], center: at, startRadius: 0, endRadius: 620)
     }
 
