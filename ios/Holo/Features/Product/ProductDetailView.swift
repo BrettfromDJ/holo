@@ -106,9 +106,7 @@ struct ProductDetailView: View {
             HStack(spacing: 8) {
                 Badge(text: product?.isSealed == true ? (product?.productType ?? "Sealed") : "Card", filled: true)
                 if let rarity = product?.rarity {
-                    // Foil rarities catch the light now and then.
-                    Badge(text: rarity)
-                        .overlay { if product?.isFoil == true { Sheen(strength: 0.45).clipShape(Capsule()) } }
+                    RarityBadge(rarity: rarity)
                 }
             }
             DisplayText(text: (product?.name ?? "Loading…").uppercased(), size: 34)

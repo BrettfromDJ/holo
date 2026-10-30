@@ -16,6 +16,11 @@ final class ScreenshotTests: XCTestCase {
     // Graded slabs: Home, Collection and a slab's card page in the graded demo.
     func testGradedHome() { capture("graded-home", args: ["-HoloDemoKind", "graded"], pages: 6) }
     func testGradedCollection() { capture("graded-collection", args: ["-HoloDemoKind", "graded", "-HoloTab", "collection"], pages: 2) }
+    // Rarity pills: a Special Illustration Rare, a Hyper Rare and a Secret Rare.
+    func testRarityPills() {
+        capture("rarity-sir", args: ["-HoloDemoKind", "singles", "-HoloProduct", "sample:pikachu-ex-ss"], pages: 1)
+        capture("rarity-hyper", args: ["-HoloDemoKind", "singles", "-HoloProduct", "sample:mew-ex-gold"], pages: 1)
+    }
     func testGradedCardPage() { capture("graded-card", args: ["-HoloDemoKind", "graded", "-HoloProduct", "sample:pikachu-ex-ss"], pages: 2) }
 
     private func capture(_ name: String, args: [String], pages: Int) {
