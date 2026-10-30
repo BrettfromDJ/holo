@@ -35,7 +35,6 @@ struct HomeView: View {
             .tabBarClearance()
             .refreshable { await reload() }
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) { BrandMark() }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button { lists = true } label: { Image(systemName: "heart") }.accessibilityLabel("Watchlist and wishlist")
                     Button { account = true } label: { Image(systemName: "gearshape") }.accessibilityLabel("Account")
@@ -75,7 +74,7 @@ struct HomeView: View {
                 Hero(store: store, onRecap: { recap = true }, onAdd: { adding = true })
             }
             PerformanceSection(store: store).padding(.horizontal, 16)
-            MetricGrid(store: store).padding(.horizontal, 16)
+            MetricGrid(store: store, onReload: reload).padding(.horizontal, 16)
             Spotlight(store: store).padding(.horizontal, 16)
             ShelfSection(holdings: Array(store.holdings.prefix(10)))
             ValueSplit(store: store).padding(.horizontal, 16)
@@ -129,7 +128,7 @@ private struct Hero: View {
         let s = store.summary
         let top = Array(store.holdings.filter { ($0.value ?? 0) > 0 }.prefix(5))
         VStack(spacing: 10) {
-            CardFan(holdings: top).frame(height: 230)
+            CardFan(holdings: top).frame(height: 200)
             MonoLabel(text: "\(store.holdings.count) products · \(Int(s.items)) items")
             VStack(spacing: 6) {
                 Text("YOUR COLLECTION'S WORTH").font(.display(30)).displayTrim(30)
@@ -162,8 +161,12 @@ private struct Hero: View {
                         .buttonStyle(Button3D(kind: .lime, height: 48))
                 }
             }
-            .frame(height: 52)
-            .padding(8)
+            .frame(height: 48)
+            // The buttons rise 1pt and their 3D edge drops 3pt, so 9 above and 10 below
+            // leaves the same 8pt visible gap at the top and the bottom.
+            .padding(.horizontal, 8)
+            .padding(.top, 9)
+            .padding(.bottom, 10)
             .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             .shadow(color: .black.opacity(0.5), radius: 24, y: 12)
             .padding(.horizontal, 16)
@@ -186,32 +189,51 @@ private struct HeroBackdrop: View {
     }
 }
 
-/// Up to five pieces fanned like a hand of cards, the most valuable in front.
+/// Up to five pieces fanned like a hand of cards, the most valuable in front, each bobbing
+/// gently out of step with the others, like the website's hero.
 private struct CardFan: View {
     var holdings: [HoldingView]
 
+    /// The website's fan: sideways step (in card widths), tilt, drop, and scale per position.
+    private static let fan: [(x: CGFloat, r: Double, y: CGFloat, s: CGFloat)] = [
+        (0, 0, 0, 1), (-1, -9, 18, 0.86), (1, 9, 18, 0.86), (-2, -17, 46, 0.74), (2, 17, 46, 0.74),
+    ]
+
     var body: some View {
-        GeometryReader { geo in
-            // Kept within the middle of the screen: a tight hand, not a spread across the width.
-            let w = min(118, geo.size.width / 3.4)
-            ZStack {
-                ForEach(Array(holdings.enumerated().reversed()), id: \.element.id) { i, h in
-                    let side: CGFloat = i == 0 ? 0 : (i % 2 == 1 ? -1 : 1)
-                    let step = CGFloat((i + 1) / 2)
-                    NavigationLink(value: h.identity.productId) {
-                        HoldingArt(product: h.product, identity: h.identity, cornerRadius: 10, caption: i == 0)
-                            .frame(width: w, height: w * 88 / 63 + (h.identity.isGraded ? 34 : 0))
-                            .shadow(color: .black.opacity(0.6), radius: 14, y: 10)
-                    }
-                    .buttonStyle(.plain)
-                    .rotationEffect(.degrees(Double(side * step * 7)))
-                    .offset(x: side * step * w * 0.36, y: step * 10)
-                    .scaleEffect(i == 0 ? 1.06 : 1 - step * 0.08)
-                    .zIndex(Double(10 - i))
+        let w: CGFloat = 126, h: CGFloat = 176
+        ZStack(alignment: .top) {
+            ForEach(Array(holdings.prefix(5).enumerated()).reversed(), id: \.element.id) { i, item in
+                let f = Self.fan[i]
+                NavigationLink(value: item.identity.productId) {
+                    HoldingArt(product: item.product, identity: item.identity, cornerRadius: 6, caption: i == 0)
+                        .frame(width: w, height: h)
+                        .shadow(color: .black.opacity(0.55), radius: 13, y: 18)
                 }
+                .buttonStyle(.plain)
+                .modifier(Bob(delay: Double(i) * 1.1))
+                .scaleEffect(f.s, anchor: UnitPoint(x: 0.5, y: 0.9))
+                .rotationEffect(.degrees(f.r), anchor: UnitPoint(x: 0.5, y: 0.9))
+                .offset(x: f.x * w * 0.26, y: f.y)
+                .zIndex(Double(10 - i))
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .frame(maxWidth: .infinity, alignment: .top)
+    }
+}
+
+/// Floats a view up 9pt and back over 5.5s, forever. One offset animation, set once.
+private struct Bob: ViewModifier {
+    var delay: Double
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var up = false
+
+    func body(content: Content) -> some View {
+        content
+            .offset(y: up ? -9 : 0)
+            .onAppear {
+                guard !reduceMotion else { return }
+                withAnimation(.easeInOut(duration: 2.75).repeatForever(autoreverses: true).delay(delay)) { up = true }
+            }
     }
 }
 
@@ -328,45 +350,210 @@ private struct PerformanceSection: View {
 
 private struct MetricGrid: View {
     var store: CollectionStore
+    var onReload: () async -> Void
 
     var body: some View {
         let s = store.summary
         VStack(spacing: 12) {
             HStack(spacing: 12) {
-                card("Invested", Format.money(s.totalCost), sub: "incl. fees & shipping", tint: Theme.azure, valueTint: .white)
-                card("Unrealized", Format.signedMoney(s.gain), sub: "on what's priced", tint: Theme.lime, valueTint: Theme.tone(s.gain),
-                     tag: s.gainRatio.map { (Format.signedPercent($0), Theme.lime, Theme.ink) })
+                MetricCard(label: "Invested", value: Format.money(s.totalCost), valueTint: .white, sub: "incl. fees & shipping", tint: Theme.azure)
+                MetricCard(label: "Unrealized", value: Format.signedMoney(s.gain), valueTint: Theme.tone(s.gain), sub: nil,
+                           tint: s.gain >= 0 ? Theme.lime : Theme.planPink,
+                           tag: s.gainRatio.map { (pct($0, decimals: 0), s.gain >= 0 ? Theme.lime : Theme.planPink, s.gain >= 0 ? Theme.ink : .white) })
             }
             HStack(spacing: 12) {
-                card("Today", Format.signedMoney(s.dayChange), sub: nil, tint: Theme.lime, valueTint: Theme.tone(s.dayChange),
-                     tag: s.dayRatio.map { (Format.signedPercent($0), Theme.lime, Theme.ink) })
-                card("Collection", "\(Int(s.items)) items", sub: "\(store.holdings.count) products", tint: Theme.planBlue, valueTint: .white,
-                     tag: ("\(store.holdings.count) SKUs", Theme.planBlue, Color.white))
-            }
-            HStack(spacing: 12) {
-                Image(systemName: "wallet.pass").font(.system(size: 17)).foregroundStyle(Theme.muted)
-                    .frame(width: 40, height: 40).background(RoundedRectangle(cornerRadius: 12).fill(Theme.surface2))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Spent in \(Date().formatted(.dateTime.month(.wide)))").font(.geist(14)).foregroundStyle(Theme.muted)
-                    Text(Format.money(store.spentThisMonth)).font(.geist(17, .semibold)).monospacedDigit()
+                MetricCard(label: "Today", value: Format.signedMoney(s.dayChange), valueTint: Theme.tone(s.dayChange), sub: nil,
+                           tint: s.dayChange >= 0 ? Theme.lime : Theme.planPink,
+                           tag: s.dayRatio.map { (pct($0, decimals: 2), s.dayChange >= 0 ? Theme.lime : Theme.planPink, s.dayChange >= 0 ? Theme.ink : .white) })
+                Button {
+                    Router.shared.tabRequest = "collection"
+                } label: {
+                    MetricCard(label: "Collection", value: "\(Int(s.items)) items", valueTint: .white, sub: "\(store.holdings.count) products",
+                               tint: Theme.planBlue, tag: ("\(store.holdings.count) SKUs", Theme.planBlue, .white))
                 }
-                Spacer()
+                .buttonStyle(.plain)
             }
-            .surface()
+            BudgetCard(store: store)
+            PriceFreshness(refreshedAt: store.pricesRefreshedAt, onReload: onReload)
         }
     }
 
-    private func card(_ label: String, _ value: String, sub: String?, tint: Color, valueTint: Color, tag: (String, Color, Color)? = nil) -> some View {
-        // The label gets the full width on its own line; the tag sits under the value with the
-        // note, so nothing truncates on a phone.
-        VStack(alignment: .leading, spacing: 10) {
-            CardLabel(text: label)
-            Text(value).font(.display(30)).monospacedDigit().foregroundStyle(valueTint).lineLimit(1).minimumScaleFactor(0.6)
-            if let tag { SkewTag(text: tag.0, color: tag.1, textColor: tag.2) }
-            if let sub { Text(sub).font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1).minimumScaleFactor(0.8) }
+    /// "+10%" or "−0.99%", like the website's tags.
+    private func pct(_ r: Double, decimals: Int) -> String {
+        let v = String(format: "%.\(decimals)f%%", abs(r) * 100)
+        return r < 0 ? "−\(v)" : "+\(v)"
+    }
+}
+
+/// The website's metric card: an Anton label with its slanted tag on the right, the figure in
+/// Anton, a note under it, on the dark surface with a faint colored top edge.
+private struct MetricCard: View {
+    var label: String
+    var value: String
+    var valueTint: Color
+    var sub: String?
+    var tint: Color
+    var tag: (String, Color, Color)?
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .center, spacing: 8) {
+                Text(label.uppercased()).font(.display(15)).tracking(0.3).foregroundStyle(.white.opacity(0.85))
+                    .lineLimit(1).minimumScaleFactor(0.8).displayTrim(15)
+                Spacer(minLength: 4)
+                if let tag { SkewTag(text: tag.0, color: tag.1, textColor: tag.2) }
+            }
+            Text(value).font(.display(28)).monospacedDigit().foregroundStyle(valueTint)
+                .lineLimit(1).minimumScaleFactor(0.6).displayTrim(28)
+                .padding(.top, 16)
+            if let sub {
+                Text(sub).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1).padding(.top, 8)
+            }
         }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
         .frame(maxWidth: .infinity, minHeight: 104, alignment: .topLeading)
-        .tinted(tint, border: false)
+        .background(
+            ZStack {
+                shape.fill(Theme.surface)
+                shape.fill(LinearGradient(colors: [.white.opacity(0.035), .clear], startPoint: .top, endPoint: UnitPoint(x: 0.5, y: 0.45)))
+            }
+        )
+        .overlay(shape.strokeBorder(LinearGradient(colors: [tint.opacity(0.35), .clear], startPoint: .top, endPoint: UnitPoint(x: 0.5, y: 0.2)), lineWidth: 1))
+        .contentShape(shape)
+    }
+}
+
+/// Spent this month against an optional monthly budget, with a bar, like the website.
+private struct BudgetCard: View {
+    var store: CollectionStore
+    @State private var editing = false
+    @State private var draft = ""
+    @State private var error: String?
+
+    var body: some View {
+        let spent = store.spentThisMonth
+        let budget = store.monthlyBudget
+        let remaining = budget.map { $0 - spent }
+        let used = budget.flatMap { $0 > 0 ? spent / $0 : nil }
+        let over = (remaining ?? 0) < 0
+        let near = !over && (used ?? 0) >= 0.85
+        let tone = over ? Theme.down : near ? Color(hex: 0xF5B544) : Color.white
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                Image(systemName: "wallet.bifold").font(.system(size: 15)).foregroundStyle(Theme.muted)
+                    .frame(width: 36, height: 36).background(RoundedRectangle(cornerRadius: 12).fill(Theme.surface2))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Spent in \(Date().formatted(.dateTime.month(.wide)))").font(.geist(12, .medium)).foregroundStyle(Theme.muted)
+                    HStack(spacing: 4) {
+                        Text(Format.money(spent)).font(.geist(15, .semibold))
+                        if let budget { Text("of \(Format.money(budget))").font(.geist(15)).foregroundStyle(Theme.muted) }
+                    }
+                    .monospacedDigit().lineLimit(1).minimumScaleFactor(0.8)
+                }
+                Spacer(minLength: 0)
+            }
+            HStack(spacing: 12) {
+                if let remaining {
+                    (Text(Format.money(abs(remaining))).fontWeight(.medium).foregroundStyle(tone)
+                        + Text(over ? " over budget" : " left").foregroundStyle(Theme.muted))
+                        .font(.geist(13)).monospacedDigit()
+                }
+                Button {
+                    draft = budget.map { String(format: "%.0f", $0) } ?? ""
+                    editing = true
+                } label: {
+                    if budget != nil { Label("Edit", systemImage: "pencil") } else { Text("Set a monthly budget") }
+                }
+                .buttonStyle(Button3D(kind: .dark, fullWidth: false, height: 36))
+            }
+            if let used {
+                GeometryReader { geo in
+                    Capsule().fill(Theme.surface2)
+                        .overlay(alignment: .leading) {
+                            Capsule().fill(tone).frame(width: geo.size.width * min(1, used))
+                        }
+                }
+                .frame(height: 6)
+                let projected = projection(spent)
+                if !over, spent > 0, let budget, projected > budget {
+                    Text("At this pace you'll spend about \(Format.money(projected)) this month.").font(.geist(12)).foregroundStyle(Theme.subtle)
+                }
+            }
+            if let error { Text(error).font(.geist(12)).foregroundStyle(Theme.down) }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .surface(radius: 22, padding: nil)
+        .alert("Monthly budget", isPresented: $editing) {
+            TextField("500", text: $draft).keyboardType(.decimalPad)
+            Button("Save") { save(Double(draft.filter { "0123456789.".contains($0) })) }
+            if budget != nil { Button("Remove", role: .destructive) { save(nil) } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("How much you want to spend on cards each month.")
+        }
+    }
+
+    private func projection(_ spent: Double) -> Double {
+        let cal = Calendar.current
+        let day = cal.component(.day, from: Date())
+        let days = cal.range(of: .day, in: .month, for: Date())?.count ?? 30
+        return spent / Double(max(day, 1)) * Double(days)
+    }
+
+    private func save(_ value: Double?) {
+        let v = value.flatMap { $0 > 0 ? ($0 * 100).rounded() / 100 : nil }
+        Task {
+            do {
+                error = nil
+                try await store.setMonthlyBudget(v)
+            } catch {
+                self.error = "Couldn't save your budget: \(error.localizedDescription)"
+            }
+        }
+    }
+}
+
+/// "Prices from TCG API · refreshed 1d ago · updates daily · Refresh", like the website.
+private struct PriceFreshness: View {
+    var refreshedAt: Date?
+    var onReload: () async -> Void
+    @State private var refreshing = false
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text("Prices from TCG API · refreshed \(ago) · updates daily").lineLimit(2)
+            Button {
+                refreshing = true
+                Task { await onReload(); refreshing = false }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.clockwise").font(.system(size: 11, weight: .semibold))
+                        .rotationEffect(.degrees(refreshing ? 360 : 0))
+                        .animation(refreshing ? .linear(duration: 0.8).repeatForever(autoreverses: false) : .default, value: refreshing)
+                    Text("Refresh").fontWeight(.medium)
+                }
+                .foregroundStyle(Theme.muted)
+            }
+            .buttonStyle(.plain)
+            .disabled(refreshing)
+        }
+        .font(.geist(12))
+        .foregroundStyle(Theme.subtle)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var ago: String {
+        guard let d = refreshedAt else { return "never" }
+        let minutes = Int((Date().timeIntervalSince(d) / 60).rounded())
+        if minutes < 1 { return "just now" }
+        if minutes < 60 { return "\(minutes)m ago" }
+        let hours = Int((Double(minutes) / 60).rounded())
+        if hours < 24 { return "\(hours)h ago" }
+        return "\(Int((Double(hours) / 24).rounded()))d ago"
     }
 }
 
@@ -384,7 +571,8 @@ private struct Spotlight: View {
         VStack(spacing: 14) {
             if let star { StarCard(holding: star, series: store.series(star.identity)) }
             if let mover {
-                MiniTile(holding: mover, tag: "Biggest move today", icon: "flame.fill", color: Theme.lime, value: mover.dayChange,
+                // The card takes the move's color: lime up, pink down, never red on lime.
+                MiniTile(holding: mover, tag: "Biggest move today", icon: "flame.fill", color: (mover.dayChange ?? 0) < 0 ? Theme.planPink : Theme.lime, value: mover.dayChange,
                          line: Text(Format.signedPercent((mover.change24hPct ?? 0) / 100)).foregroundStyle(Theme.tone(mover.dayChange)) + Text(" today").foregroundStyle(Theme.muted),
                          series: store.series(mover.identity, days: 30))
             }

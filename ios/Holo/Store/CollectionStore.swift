@@ -21,6 +21,8 @@ final class CollectionStore {
     var reminders: Set<String> = []
     /// Slab prices from recent eBay sales, by holding key.
     var ebayGraded: [String: Double] = [:]
+    /// Your monthly spending budget (user_preferences.monthly_budget, shared with the website).
+    var monthlyBudget: Double?
 
     /// The full log, corrections included.
     private(set) var transactions: [Txn] = []
@@ -124,6 +126,10 @@ final class CollectionStore {
             self.watchlist = watchRows
             self.wishlist = wishes ?? []
             self.reminders = Set(((try? await UserState.load("release-reminders", as: [String].self)) ?? nil) ?? [])
+            // An older database without the budget column just means no budget.
+            struct PrefRow: Decodable { var monthly_budget: Double? }
+            let prefs: [PrefRow]? = try? await db.from("user_preferences").select("monthly_budget").execute().value
+            self.monthlyBudget = prefs?.first?.monthly_budget
             recompute()
             status = .ready
             await loadSlabPrices()
@@ -213,6 +219,31 @@ final class CollectionStore {
                 let price = unit[t.identity.key] ?? nil
                 return RecentPurchase(entry: t, product: products[t.identity.productId], value: price.map { $0 * t.quantity })
             }
+    }
+
+    /// The newest price refresh across everything you hold.
+    var pricesRefreshedAt: Date? {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let plain = ISO8601DateFormatter()
+        return prices.values.compactMap { $0.updatedAt }.compactMap { f.date(from: $0) ?? plain.date(from: $0) }.max()
+    }
+
+    /// Sets (or with nil, removes) the monthly budget, like the website.
+    func setMonthlyBudget(_ value: Double?) async throws {
+        guard let userId else { return }
+        struct Row: Encodable {
+            var user_id: String
+            var monthly_budget: Double?
+            // Write null explicitly so removing the budget clears it.
+            func encode(to encoder: Encoder) throws {
+                var c = encoder.container(keyedBy: CodingKeys.self)
+                try c.encode(user_id, forKey: .user_id)
+                try c.encode(monthly_budget, forKey: .monthly_budget)
+            }
+        }
+        try await db.from("user_preferences").upsert(Row(user_id: userId, monthly_budget: value)).execute()
+        monthlyBudget = value
     }
 
     /// What you spent on purchases this calendar month.

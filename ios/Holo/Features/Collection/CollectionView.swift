@@ -81,9 +81,6 @@ struct CollectionView: View {
             .background(Theme.background)
             .tabBarClearance()
             .refreshable { await reload() }
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) { BrandMark() }
-            }
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
             .sheet(isPresented: $adding) { SearchView(asSheet: true) }
