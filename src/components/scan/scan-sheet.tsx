@@ -325,7 +325,7 @@ export function ScanSheet({
                 <span className="tabular mt-0.5 block font-mono text-[10px] font-normal text-white/75">
                   {debug.error
                     ? `error: ${debug.error}`
-                    : `edges ${debug.borders.map((b) => b.toFixed(2)).join(" ")} · shape ${debug.aspect?.toFixed(2) ?? "–"} · detail ${debug.detail.toFixed(0)}×${debug.ratio.toFixed(1)} · move ${debug.motion.toFixed(1)} · sharp ${debug.sharp.toFixed(1)}`}
+                    : `edges ${debug.borders.map((b) => b.toFixed(2)).join(" ")} · shape ${debug.aspect?.toFixed(2) ?? "–"} · detail ${debug.detail.toFixed(0)}×${Number.isFinite(debug.ratio) ? debug.ratio.toFixed(1) : "–"} · move ${debug.motion.toFixed(1)} · sharp ${debug.sharp.toFixed(1)}`}
                 </span>
               )}
             </button>

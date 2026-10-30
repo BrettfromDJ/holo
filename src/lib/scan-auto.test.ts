@@ -94,6 +94,16 @@ describe("scan auto-capture", () => {
     expect(fired.length).toBe(1);
   });
 
+  it("takes a card that fills the guide, held by fingers, slightly tilted", () => {
+    const f = frame({ x: 5, y: 6, w: 66, h: 94 });
+    // Tilt: the card's right edge drifts 3px over its height.
+    for (let y = 6; y < 100; y++) for (let x = 71; x < 71 + Math.floor(((y - 6) / 94) * 3); x++) f.data[y * W + x] = 230;
+    // Fingers along the sides: blobs of skin with shading in the margin.
+    for (let y = 30; y < 80; y++) for (let x = 0; x < 6; x++) f.data[y * W + x] = 150 + ((x * 11 + y * 7) % 5) * 12;
+    for (let y = 40; y < 90; y++) for (let x = 73; x < W; x++) f.data[y * W + x] = 150 + ((x * 13 + y * 5) % 5) * 12;
+    expect(findCard(f).found).toBe(true);
+  });
+
   it("re-arms after the card is taken away", () => {
     const { fired } = run([...Array.from({ length: 12 }, () => frame(card)), ...Array.from({ length: 5 }, () => frame(null)), ...Array.from({ length: 10 }, () => frame(card))]);
     expect(fired.length).toBe(2);

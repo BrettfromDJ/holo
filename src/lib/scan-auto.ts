@@ -46,9 +46,9 @@ export const AUTO = {
   /** Share of a border's length that must be a clear edge. */
   line: 0.35,
   /** Edge strength inside the card that its art and text always reach. */
-  detail: 10,
+  detail: 8,
   /** How much busier inside the card must be than around it. */
-  ratio: 1.4,
+  ratio: 1.2,
   /** Card width over height, as seen in the guide; slabs are narrower, so the range is wide. */
   aspect: [0.5, 0.95] as const,
   /** The rectangle must cover at least this much of the guide's height. */
@@ -183,10 +183,14 @@ export function findCard(f: GrayFrame): CardRead {
   const iw = (r.at - l.at) * 0.15;
   const ih = (b.at - t.at) * 0.12;
   const detail = detailIn(f, { l: l.at + iw, r: r.at - iw, t: t.at + ih, b: b.at - ih }, true).mean;
-  const around = detailIn(f, { l: l.at - 2, r: r.at + 2, t: t.at - 2, b: b.at + 2 }, false);
-  // With hardly anything outside the "card" (a texture that's lines everywhere), there's nothing to compare: not a card.
-  const ratio = around.n < f.w * f.h * 0.04 ? 1 : detail / Math.max(around.mean, 1);
-  const busy = detail >= AUTO.detail && ratio >= AUTO.ratio;
+  // "Around" skips a band next to the border: a tilted edge, rounded corners and the fingers holding the card live there.
+  const pad = 6;
+  const around = detailIn(f, { l: l.at - pad, r: r.at + pad, t: t.at - pad, b: b.at + pad }, false);
+  // A card lined up to fill the guide leaves too little around it to judge; then the inside detail decides alone.
+  const ratio = around.n < f.w * f.h * 0.06 ? Infinity : detail / Math.max(around.mean, 1);
+  // A texture of lines everywhere (wood grain) puts the "card" at the very edge of the frame.
+  const atEdge = l.at <= 2 && r.at >= f.w - 3 && t.at <= 2 && b.at >= f.h - 3;
+  const busy = detail >= AUTO.detail && ratio >= AUTO.ratio && !atEdge;
   return { found: edges && shaped && busy, aspect, borders, detail, ratio };
 }
 
