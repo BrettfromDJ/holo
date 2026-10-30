@@ -2,7 +2,7 @@
 
 import { GRADERS } from "@/lib/graded";
 import { useSlabCerts } from "@/lib/store/grading";
-import { ChevronDown, ChevronLeft, Loader2, ScanLine } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Loader2, ScanLine } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -58,21 +58,32 @@ export function AddProductDialog() {
         <DialogContent className="h-[88dvh] sm:h-[640px] sm:max-w-[560px]" aria-describedby={undefined}>
           {!hit ? (
             <>
-              <div className="flex items-center justify-between gap-3 px-6 pr-14 pt-6">
+              <div className="px-6 pr-14 pt-6">
                 <DialogTitle>{watch ? "Add to Watchlist" : "Add to Collection"}</DialogTitle>
-                {!watch && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
+              </div>
+              {/* Scanning is the fastest way in, so it leads; search is right below. */}
+              {!watch && (
+                <div className="px-6 pt-4">
+                  <button
+                    type="button"
                     onClick={() => {
                       closeAdd();
                       setScanning(true);
                     }}
+                    className="btn-3d btn-3d-lime flex w-full items-center gap-3 rounded-2xl bg-lime px-4 py-3.5 text-left text-[#0b0b0c] transition-transform active:scale-[0.98]"
                   >
-                    <ScanLine /> Scan cards
-                  </Button>
-                )}
-              </div>
+                    <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#0b0b0c]/10">
+                      <ScanLine className="size-5" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[16px] font-semibold leading-tight">Scan cards</span>
+                      <span className="block text-[13px] leading-tight text-[#0b0b0c]/70">Point your camera at a card. Great for a whole stack.</span>
+                    </span>
+                    <ChevronRight className="size-5 shrink-0" />
+                  </button>
+                  <p className="mt-4 text-center text-[12px] font-medium text-subtle">or search</p>
+                </div>
+              )}
               <ProductSearch onSelect={setHit} />
             </>
           ) : watch ? (
