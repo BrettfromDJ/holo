@@ -199,41 +199,38 @@ private struct CardFan: View {
         (0, 0, 0, 1), (-1, -9, 18, 0.86), (1, 9, 18, 0.86), (-2, -17, 46, 0.74), (2, 17, 46, 0.74),
     ]
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
+        // One clock drives every piece's bob, computed fresh each frame, so a picture that
+        // finishes loading mid-animation moves with its frame instead of lagging behind it
+        // (a looping withAnimation only animates what existed when it started).
+        TimelineView(.animation(minimumInterval: 1 / 30, paused: reduceMotion)) { context in
+            let t = context.date.timeIntervalSinceReferenceDate
+            fan(t: reduceMotion ? 0 : t)
+        }
+    }
+
+    private func fan(t: Double) -> some View {
         let w: CGFloat = 126, h: CGFloat = 176
-        ZStack(alignment: .top) {
+        return ZStack(alignment: .top) {
             ForEach(Array(holdings.prefix(5).enumerated()).reversed(), id: \.element.id) { i, item in
                 let f = Self.fan[i]
+                // Up 9pt and back every 5.5s, each piece 1.1s out of step.
+                let bob = t == 0 ? 0 : -4.5 * (1 - cos((t + Double(i) * 1.1) / 5.5 * 2 * .pi))
                 NavigationLink(value: item.identity.productId) {
                     HoldingArt(product: item.product, identity: item.identity, cornerRadius: 6, caption: i == 0)
                         .frame(width: w, height: h)
                         .shadow(color: .black.opacity(0.55), radius: 13, y: 18)
                 }
                 .buttonStyle(.plain)
-                .modifier(Bob(delay: Double(i) * 1.1))
                 .scaleEffect(f.s, anchor: UnitPoint(x: 0.5, y: 0.9))
                 .rotationEffect(.degrees(f.r), anchor: UnitPoint(x: 0.5, y: 0.9))
-                .offset(x: f.x * w * 0.26, y: f.y)
+                .offset(x: f.x * w * 0.26, y: f.y + bob)
                 .zIndex(Double(10 - i))
             }
         }
         .frame(maxWidth: .infinity, alignment: .top)
-    }
-}
-
-/// Floats a view up 9pt and back over 5.5s, forever. One offset animation, set once.
-private struct Bob: ViewModifier {
-    var delay: Double
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var up = false
-
-    func body(content: Content) -> some View {
-        content
-            .offset(y: up ? -9 : 0)
-            .onAppear {
-                guard !reduceMotion else { return }
-                withAnimation(.easeInOut(duration: 2.75).repeatForever(autoreverses: true).delay(delay)) { up = true }
-            }
     }
 }
 
