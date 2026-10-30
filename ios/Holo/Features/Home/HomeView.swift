@@ -47,10 +47,7 @@ struct HomeView: View {
                 }
             }
             .sensoryFeedback(trigger: bannerTick) { _, _ in banner?.isMilestone == true ? .success : .impact(weight: .light) }
-            .task(id: store.status == .ready ? store.summary.value : -1) {
-                guard store.status == .ready else { return }
-                await checkMilestones()
-            }
+            // Milestone banners are off for now (they repeated); checkMilestones() is kept for later.
             .toolbar {
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button { lists = true } label: { Image(systemName: "heart") }.accessibilityLabel("Watchlist and wishlist")
