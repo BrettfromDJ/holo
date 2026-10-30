@@ -38,6 +38,7 @@ struct MarketPulse: View {
                 label
                 track(ticks)
             }
+            .frame(maxWidth: .infinity)
             .frame(height: 42)
             .background(Theme.surface.opacity(0.4))
             .overlay(alignment: .top) { Rectangle().fill(Theme.border).frame(height: 1) }
@@ -55,6 +56,7 @@ struct MarketPulse: View {
             .foregroundStyle(Theme.muted)
         }
         .padding(.horizontal, 16)
+        .fixedSize(horizontal: true, vertical: false)
         .frame(maxHeight: .infinity)
         .background(Theme.background)
         .overlay(alignment: .trailing) { Rectangle().fill(Theme.border).frame(width: 1) }
@@ -65,7 +67,19 @@ struct MarketPulse: View {
     /// computed from the clock every frame, so thumbnails that load late move with their row.
     private func track(_ ticks: [Tick]) -> some View {
         let seconds = max(30, Double(ticks.count) * 5)
-        return TimelineView(.animation(paused: reduceMotion || rowWidth == 0)) { context in
+        // The moving row sits in an overlay so its width (two copies of every tick) can never
+        // widen the page; the strip itself just takes whatever room is left beside the label.
+        return Color.clear
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .overlay(alignment: .leading) { moving(ticks, seconds: seconds) }
+            .clipped()
+            .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.04),
+                                         .init(color: .black, location: 0.96), .init(color: .clear, location: 1)],
+                                 startPoint: .leading, endPoint: .trailing))
+    }
+
+    private func moving(_ ticks: [Tick], seconds: Double) -> some View {
+        TimelineView(.animation(paused: reduceMotion || rowWidth == 0)) { context in
             let t = context.date.timeIntervalSinceReferenceDate
             let shift = reduceMotion || rowWidth == 0 ? 0 : CGFloat(t.truncatingRemainder(dividingBy: seconds) / seconds) * rowWidth
             HStack(spacing: 0) {
@@ -73,14 +87,10 @@ struct MarketPulse: View {
                     .background(GeometryReader { geo in Color.clear.preference(key: RowWidth.self, value: geo.size.width) })
                 row(ticks)
             }
+            .fixedSize()
             .offset(x: -shift)
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .onPreferenceChange(RowWidth.self) { rowWidth = $0 }
-        .clipped()
-        .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.04),
-                                     .init(color: .black, location: 0.96), .init(color: .clear, location: 1)],
-                             startPoint: .leading, endPoint: .trailing))
     }
 
     private func row(_ ticks: [Tick]) -> some View {
