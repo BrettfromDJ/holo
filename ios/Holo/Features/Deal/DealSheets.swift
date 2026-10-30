@@ -180,7 +180,7 @@ struct DealCloseSheet: View {
         }
     }
 
-    private var reviewBody: some View {
+    @ViewBuilder private var reviewBody: some View {
         let t = totals
         let b = t.balance
         VStack(alignment: .leading, spacing: 0) {
