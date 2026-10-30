@@ -340,27 +340,19 @@ private struct AllocationBar: View {
     }
 }
 
-/// The lit backdrop behind the top of Collection: the website's faint grid with lime, pink and
-/// blue glows drifting slowly across it, fading out toward the holdings.
+/// The lit backdrop behind the top of Collection: the website's faint grid with still lime, pink
+/// and blue glows, fading out toward the holdings.
 private struct CollectionBackdrop: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var drift = false
-
     var body: some View {
         ZStack {
             GridPattern(step: 36, opacity: 0.05)
-            // Each glow slides between two spots: one offset animation, set once, no redrawing.
-            glow(Theme.lime, 0.22, at: UnitPoint(x: 0.15, y: 0.42), r: 260).offset(x: drift ? 70 : -20, y: drift ? -30 : 30)
-            glow(Theme.planPink, 0.18, at: UnitPoint(x: 0.85, y: 0.18), r: 220).offset(x: drift ? 30 : -50, y: drift ? 40 : 0)
-            glow(Theme.planBlue, 0.18, at: UnitPoint(x: 0.75, y: 0.72), r: 220).offset(x: drift ? -60 : 20, y: drift ? 20 : -20)
+            glow(Theme.lime, 0.22, at: UnitPoint(x: 0.2, y: 0.42), r: 260)
+            glow(Theme.planPink, 0.18, at: UnitPoint(x: 0.85, y: 0.2), r: 220)
+            glow(Theme.planBlue, 0.18, at: UnitPoint(x: 0.75, y: 0.72), r: 220)
         }
         .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.7), .init(color: .clear, location: 1)],
                              startPoint: .top, endPoint: .bottom))
         .allowsHitTesting(false)
-        .onAppear {
-            guard !reduceMotion else { return }
-            withAnimation(.easeInOut(duration: 9).repeatForever(autoreverses: true)) { drift = true }
-        }
     }
 
     private func glow(_ color: Color, _ strength: Double, at center: UnitPoint, r: CGFloat) -> some View {
