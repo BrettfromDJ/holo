@@ -1,7 +1,8 @@
 import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
+import type { User } from "@supabase/supabase-js";
+import { cookies, headers } from "next/headers";
 import { SUPABASE_ANON_KEY, SUPABASE_URL, isSupabaseConfigured } from "./config";
 import type { Database } from "./database.types";
 
@@ -21,6 +22,24 @@ export async function getServerSupabase(): Promise<SupabaseClient<Database> | nu
       },
     },
   });
+}
+
+/**
+ * The signed-in user for this request, or null. The website signs in with
+ * cookies; the iOS app sends its Supabase access token as
+ * `Authorization: Bearer <token>`, which is verified with Supabase.
+ */
+export async function getRequestUser(): Promise<User | null> {
+  if (!isSupabaseConfigured()) return null;
+  const auth = (await headers()).get("authorization");
+  const token = auth?.match(/^Bearer\s+(.+)$/i)?.[1];
+  if (token) {
+    const client = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { data } = await client.auth.getUser(token);
+    return data.user ?? null;
+  }
+  const supabase = await getServerSupabase();
+  return supabase ? ((await supabase.auth.getUser()).data.user ?? null) : null;
 }
 
 /**

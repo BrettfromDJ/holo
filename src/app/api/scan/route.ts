@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { identifyPhoto, MAX_IMAGE_BYTES, ScanFailure, scanBalance } from "@/lib/pricing/identify";
 import { allowRequest, clientKey } from "@/lib/server/rate-limit";
-import { getServerSupabase } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { getRequestUser } from "@/lib/supabase/server";
 
 /**
  * Card scanning. Every call spends one prepaid TCG API scan, so when accounts
@@ -9,10 +10,8 @@ import { getServerSupabase } from "@/lib/supabase/server";
  * (bursty enough for rapid scanning, not for draining the balance).
  */
 async function authorized(): Promise<boolean> {
-  const supabase = await getServerSupabase();
-  if (!supabase) return true; // No accounts configured (local use).
-  const { data } = await supabase.auth.getUser();
-  return Boolean(data.user);
+  if (!isSupabaseConfigured()) return true; // No accounts configured (local use).
+  return Boolean(await getRequestUser());
 }
 
 function fail(code: string, message: string, status: number) {

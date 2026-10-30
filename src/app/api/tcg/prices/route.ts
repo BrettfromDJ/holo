@@ -6,7 +6,7 @@ import { errorResponse } from "@/lib/server/http";
 import { allowRequest, clientKey } from "@/lib/server/rate-limit";
 import type { NormalizedPrice } from "@/lib/types";
 import { priceToRow } from "@/lib/supabase/mappers";
-import { getAdminSupabase, getServerSupabase } from "@/lib/supabase/server";
+import { getAdminSupabase, getRequestUser } from "@/lib/supabase/server";
 
 const MAX_IDS = 60;
 
@@ -53,10 +53,8 @@ export async function POST(req: Request) {
 /** For signed-in users, keep the shared price tables current as a side effect. */
 async function persist(prices: NormalizedPrice[]) {
   const admin = getAdminSupabase();
-  const userClient = await getServerSupabase();
-  if (!admin || !userClient || !prices.length) return;
-  const { data } = await userClient.auth.getUser();
-  if (!data.user) return;
+  if (!admin || !prices.length) return;
+  if (!(await getRequestUser())) return;
   const today = new Date().toISOString().slice(0, 10);
   // Only products already in the catalog (imported via /api/catalog).
   const ids = [...new Set(prices.map((p) => p.productId))];

@@ -4,7 +4,7 @@ import { providerFor } from "@/lib/pricing";
 import { errorResponse } from "@/lib/server/http";
 import { selectAll } from "@/lib/server/paging";
 import { allowRequest, clientKey } from "@/lib/server/rate-limit";
-import { getAdminSupabase, getServerSupabase } from "@/lib/supabase/server";
+import { getAdminSupabase, getRequestUser } from "@/lib/supabase/server";
 
 /** History reaching back this far counts as already loaded. */
 const ENOUGH_DAYS = 60;
@@ -44,8 +44,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (reachesBack || fetchedRecently) return NextResponse.json({ points: existing, available: true, fetched: false });
 
     // Spending a TCG API request needs an account, so anonymous traffic can't drain the budget.
-    const userClient = await getServerSupabase();
-    const user = userClient ? (await userClient.auth.getUser()).data.user : null;
+    const user = await getRequestUser();
     if (!user) return NextResponse.json({ points: existing, available: false, reason: "Sign in to load the full price history.", fetched: false });
 
     const { data: product } = await admin.from("products").select("id").eq("id", id).maybeSingle();

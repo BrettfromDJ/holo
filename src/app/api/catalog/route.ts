@@ -3,7 +3,7 @@ import { providerFor } from "@/lib/pricing";
 import { PricingUnavailableError } from "@/lib/pricing/types";
 import { errorResponse } from "@/lib/server/http";
 import { allowRequest, clientKey } from "@/lib/server/rate-limit";
-import { getAdminSupabase, getServerSupabase } from "@/lib/supabase/server";
+import { getAdminSupabase, getRequestUser } from "@/lib/supabase/server";
 import { priceToRow, productToRow } from "@/lib/supabase/mappers";
 import type { PricePoint, Product, ProductKind } from "@/lib/types";
 
@@ -53,8 +53,7 @@ export async function POST(req: Request) {
     }
 
     // Persist to the shared catalog when signed in and the service role is configured.
-    const userClient = await getServerSupabase();
-    const user = userClient ? (await userClient.auth.getUser()).data.user : null;
+    const user = await getRequestUser();
     const admin = getAdminSupabase();
     if (user && admin) {
       await admin.from("products").upsert(productToRow(product));
@@ -87,8 +86,7 @@ export async function PATCH(req: Request) {
   const kind = body?.kind === "sealed" || body?.kind === "single" ? (body.kind as ProductKind) : null;
   if (!productId || !kind) return NextResponse.json({ error: { code: "bad_request", message: "productId and kind are required." } }, { status: 400 });
 
-  const userClient = await getServerSupabase();
-  const user = userClient ? (await userClient.auth.getUser()).data.user : null;
+  const user = await getRequestUser();
   const admin = getAdminSupabase();
   if (!user || !admin) return NextResponse.json({ error: { code: "unauthorized", message: "Sign in to change product types." } }, { status: 401 });
 
