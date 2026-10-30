@@ -166,7 +166,7 @@ struct DealCloseSheet: View {
     var body: some View {
         Group {
             if phase == .done {
-                RecordedScreen(totals: recorded ?? totals, deal: deal, demo: store.demo != nil) { dismiss() }
+                RecordedScreen(totals: recorded ?? totals, deal: deal, rates: rates, demo: store.demo != nil) { dismiss() }
             } else {
                 reviewBody
             }
@@ -304,14 +304,25 @@ struct DealCloseSheet: View {
 }
 
 /// The deal, recorded: the whole screen goes electric lime (pink if the equity taken in was
-/// negative), a check stamps in, the items fan in like a hand of cards and the profit counts up.
+/// negative). A check stamps in, the items fan in like a hand of cards, the headline number
+/// counts up (profit, or for a buy the equity you took in), and an ink receipt lists what
+/// changed hands and who paid. A broad soft glare passes over once.
 private struct RecordedScreen: View {
     var totals: DealTotals
     var deal: DealState
+    var rates: (in: Double, out: Double)
     var demo: Bool
     var onDone: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shown = false
+
+    private struct Row: Identifiable {
+        var id: String
+        var incoming: Bool
+        var name: String
+        var qty: Int
+        var total: Double
+    }
 
     var body: some View {
         let t = totals
@@ -319,56 +330,56 @@ private struct RecordedScreen: View {
         let fill = down ? Theme.planPink : Theme.lime
         let ink = down ? Color.white : Theme.ink
         let items = Array((deal.outgoing + deal.incoming).prefix(7))
-        let count = deal.incoming.reduce(0) { $0 + $1.qty } + deal.outgoing.reduce(0) { $0 + $1.qty }
+        // Profit when something went out; for a buy, the equity you took in.
+        let headline: (label: String, value: Double)? = t.profit.map { ("Profit", $0) } ?? (t.inValue > 0 ? ("Equity taken in", t.equity) : nil)
         VStack(spacing: 0) {
-            Spacer(minLength: 20)
-            VStack(spacing: 24) {
-                // The stamp.
+            Spacer(minLength: 12)
+            VStack(spacing: 20) {
                 Image(systemName: "checkmark")
-                    .font(.system(size: 40, weight: .black))
+                    .font(.system(size: 30, weight: .black))
                     .foregroundStyle(fill)
-                    .frame(width: 100, height: 100)
+                    .frame(width: 74, height: 74)
                     .background(Circle().fill(ink))
                     .scaleEffect(shown ? 1 : 0.3)
                     .rotationEffect(.degrees(shown ? 0 : -30))
                     .opacity(shown ? 1 : 0)
-                VStack(spacing: 8) {
-                    Text(demo ? "DEMO · NOTHING SAVED" : "IN YOUR COLLECTION").font(.mono(12)).tracking(1.6).foregroundStyle(ink.opacity(0.65))
-                    Text("\(t.kind.noun.uppercased())\nRECORDED").font(.display(64)).foregroundStyle(ink)
-                        .multilineTextAlignment(.center).lineSpacing(-14).minimumScaleFactor(0.6)
+                VStack(spacing: 10) {
+                    Text(demo ? "DEMO · NOTHING SAVED" : "IN YOUR COLLECTION").font(.mono(11)).tracking(1.6).foregroundStyle(ink.opacity(0.6))
+                    // Anton has tall built-in line spacing; trim each line so they sit tight.
+                    VStack(spacing: 6) {
+                        Text(t.kind.noun.uppercased()).font(.display(58)).displayTrim(58)
+                        Text("RECORDED").font(.display(58)).displayTrim(58)
+                    }
+                    .foregroundStyle(ink)
+                    .lineLimit(1).minimumScaleFactor(0.6)
                 }
-                // What changed hands, fanned out.
                 if !items.isEmpty {
                     ZStack {
                         ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
                             let off = Double(i) - Double(items.count - 1) / 2
                             HoldingArt(product: item.product, identity: nil, cornerRadius: 5, caption: false)
-                                .frame(width: 84, height: 117)
-                                .shadow(color: .black.opacity(0.35), radius: 10, y: 8)
+                                .frame(width: 72, height: 100)
+                                .shadow(color: .black.opacity(0.3), radius: 10, y: 8)
                                 .rotationEffect(.degrees(shown ? off * 9 : 0), anchor: .bottom)
-                                .offset(x: shown ? off * 40 : 0, y: shown ? abs(off) * 6 : 60)
+                                .offset(x: shown ? off * 36 : 0, y: shown ? abs(off) * 5 : 60)
                                 .opacity(shown ? 1 : 0)
                                 .animation(reduceMotion ? nil : .spring(response: 0.55, dampingFraction: 0.7).delay(0.15 + Double(i) * 0.06), value: shown)
                         }
                     }
-                    .frame(height: 140)
+                    .frame(height: 118)
                 }
-                if let profit = t.profit {
+                if let headline {
                     VStack(spacing: 6) {
-                        Text("PROFIT").font(.mono(12)).tracking(1.6).foregroundStyle(ink.opacity(0.65))
-                        CountingText(value: profit, format: { Format.signedMoney($0) })
-                            .font(.display(84)).monospacedDigit().foregroundStyle(ink).displayTrim(84)
+                        Text(headline.label.uppercased()).font(.mono(11)).tracking(1.6).foregroundStyle(ink.opacity(0.6))
+                        CountingText(value: headline.value, format: { Format.signedMoney($0) })
+                            .font(.display(72)).monospacedDigit().foregroundStyle(ink).displayTrim(72)
                             .lineLimit(1).minimumScaleFactor(0.5)
                     }
                 }
-                HStack(spacing: 6) {
-                    pill(abs(t.balance) < 0.005 ? "Even swap" : (t.balance > 0 ? "They paid \(Format.money(t.balance))" : "You paid \(Format.money(-t.balance))"), ink: ink, fill: fill)
-                    pill("\(count) item\(count == 1 ? "" : "s")", ink: ink, fill: fill)
-                    if !deal.photos.isEmpty { pill("\(deal.photos.count) photo\(deal.photos.count == 1 ? "" : "s")", ink: ink, fill: fill) }
-                }
+                receipt(t, ink: ink, fill: fill)
             }
             .padding(.horizontal, 20)
-            Spacer(minLength: 20)
+            Spacer(minLength: 12)
             Button(action: onDone) {
                 Text("Done").font(.geist(17, .semibold)).foregroundStyle(fill)
                     .frame(maxWidth: .infinity).frame(height: 56)
@@ -387,10 +398,10 @@ private struct RecordedScreen: View {
                     var path = Path()
                     stride(from: 0, through: size.width, by: 32).forEach { x in path.move(to: CGPoint(x: x, y: 0)); path.addLine(to: CGPoint(x: x, y: size.height)) }
                     stride(from: 0, through: size.height, by: 32).forEach { y in path.move(to: CGPoint(x: 0, y: y)); path.addLine(to: CGPoint(x: size.width, y: y)) }
-                    ctx.stroke(path, with: .color(.black.opacity(0.07)), lineWidth: 1)
+                    ctx.stroke(path, with: .color(.black.opacity(0.06)), lineWidth: 1)
                 }
-                RadialGradient(colors: [.white.opacity(0.4), .clear], center: .top, startRadius: 0, endRadius: 420)
-                Sheen(strength: 0.35)
+                RadialGradient(colors: [.white.opacity(0.35), .clear], center: .top, startRadius: 0, endRadius: 440)
+                SoftGlare()
             }
             .ignoresSafeArea()
         }
@@ -400,10 +411,82 @@ private struct RecordedScreen: View {
         }
     }
 
-    private func pill(_ text: String, ink: Color, fill: Color) -> some View {
-        Text(text).font(.geist(13, .semibold)).monospacedDigit().foregroundStyle(fill)
-            .lineLimit(1).fixedSize()
-            .padding(.horizontal, 12).frame(height: 32)
-            .background(Capsule().fill(ink))
+    /// An ink receipt: each item with its side, quantity and price, then who paid.
+    private func receipt(_ t: DealTotals, ink: Color, fill: Color) -> some View {
+        let rows: [Row] =
+            deal.outgoing.map { Row(id: "o" + $0.key, incoming: false, name: $0.product.name, qty: $0.qty, total: $0.total(side: rates.out)) } +
+            deal.incoming.map { Row(id: "i" + $0.key, incoming: true, name: $0.product.name, qty: $0.qty, total: $0.total(side: rates.in)) }
+        let shown = Array(rows.prefix(4))
+        return VStack(spacing: 0) {
+            ForEach(shown) { r in
+                HStack(spacing: 10) {
+                    Image(systemName: r.incoming ? "arrow.down.left" : "arrow.up.right")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(r.incoming ? Theme.lime : Theme.planPink)
+                    Text(r.name).font(.geist(14, .medium)).foregroundStyle(.white).lineLimit(1)
+                    if r.qty > 1 { Text("×\(r.qty)").font(.geist(13)).foregroundStyle(Theme.muted) }
+                    Spacer(minLength: 8)
+                    Text(Format.money(r.total)).font(.geist(14, .semibold)).monospacedDigit().foregroundStyle(.white)
+                }
+                .padding(.vertical, 9)
+            }
+            if rows.count > shown.count {
+                Text("+ \(rows.count - shown.count) more").font(.geist(12)).foregroundStyle(Theme.muted)
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 6)
+            }
+            // A perforated line, like a ticket.
+            PerforatedLine().stroke(Theme.muted.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [4, 4])).frame(height: 1).padding(.vertical, 8)
+            HStack {
+                Text(abs(t.balance) < 0.005 ? "Even swap" : (t.balance > 0 ? "They paid" : "You paid")).font(.geist(14, .semibold)).foregroundStyle(.white)
+                if !deal.photos.isEmpty {
+                    Label("\(deal.photos.count)", systemImage: "camera.fill").font(.geist(12, .semibold)).foregroundStyle(Theme.muted)
+                }
+                Spacer()
+                Text(Format.money(abs(t.balance))).font(.display(26)).monospacedDigit().foregroundStyle(fill).displayTrim(26)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Theme.ink))
+        .opacity(self.shown ? 1 : 0)
+        .offset(y: self.shown ? 0 : 30)
+        .animation(reduceMotion ? nil : .spring(response: 0.6, dampingFraction: 0.8).delay(0.35), value: self.shown)
+    }
+}
+
+private struct PerforatedLine: Shape {
+    func path(in r: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: r.minX, y: r.midY))
+        p.addLine(to: CGPoint(x: r.maxX, y: r.midY))
+        return p
+    }
+}
+
+/// A broad, soft band of light that sweeps across once (then rests), like light off a card.
+/// One offset animation on a wide gradient: no blur.
+private struct SoftGlare: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var across = false
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            LinearGradient(stops: [
+                .init(color: .white.opacity(0), location: 0),
+                .init(color: .white.opacity(0.12), location: 0.35),
+                .init(color: .white.opacity(0.28), location: 0.5),
+                .init(color: .white.opacity(0.12), location: 0.65),
+                .init(color: .white.opacity(0), location: 1),
+            ], startPoint: .leading, endPoint: .trailing)
+            .frame(width: w * 1.1, height: geo.size.height * 1.8)
+            .rotationEffect(.degrees(18))
+            .offset(x: across ? w * 1.2 : -w * 1.3, y: -geo.size.height * 0.4)
+            .onAppear {
+                guard !reduceMotion else { return }
+                withAnimation(.easeInOut(duration: 2.2).delay(0.3)) { across = true }
+            }
+        }
+        .allowsHitTesting(false)
     }
 }
