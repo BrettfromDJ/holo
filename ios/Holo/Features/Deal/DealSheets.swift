@@ -213,7 +213,7 @@ struct DealCloseSheet: View {
                             if deal.kind != .sell, t.inValue > 0 { pill("Value gained", Format.signedMoney(t.equity), Theme.tone(t.equity)) }
                         }
                         Text(store.demo != nil
-                             ? "This is a demo collection, so nothing is saved: closing just clears the deal."
+                             ? "This is a demo collection: closing updates it on this phone only, and nothing is saved to your account."
                              : "Sales and purchases are added to your collection, and the deal goes in your history.")
                             .font(.geist(13)).foregroundStyle(Theme.muted)
                         if let error {

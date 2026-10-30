@@ -379,6 +379,11 @@ final class CollectionStore {
     @MainActor
     func ensureInCatalog(_ product: Product, printing: String?) async throws {
         guard products[product.id] == nil else { return }
+        // A demo collection keeps everything on the phone.
+        if demo != nil {
+            products[product.id] = product
+            return
+        }
         let res = try await Backend.shared.api.importProduct(product, printing: printing)
         products[res.product.id] = res.product
         for price in res.prices { prices[priceKey(price.productId, price.printing)] = price }
@@ -422,6 +427,16 @@ final class CollectionStore {
         identity: HoldingIdentity, type: String, date: String, quantity: Double, unitPrice: Double,
         fees: Double = 0, shipping: Double = 0, tax: Double = 0, source: String? = nil, notes: String? = nil, correctsId: String? = nil
     ) async throws {
+        // A demo collection isn't saved anywhere: the entry is kept on the phone until you leave
+        // the demo, so adding, selling and deals all work while you try things out.
+        if demo != nil {
+            transactions.append(Txn(
+                id: "demo-\(UUID().uuidString.lowercased())", identity: identity, kind: Txn.Kind(rawValue: type) ?? .purchase, date: date,
+                quantity: quantity, unitPrice: unitPrice, fees: fees, shipping: shipping, tax: tax, correctsId: correctsId,
+                createdAt: ISO8601DateFormatter().string(from: Date()), source: source, notes: notes
+            ))
+            return
+        }
         guard let userId else { throw HoloError.signedOut }
         let holding = try await holdingRow(for: identity, userId: userId)
         let row = NewTransactionRow(

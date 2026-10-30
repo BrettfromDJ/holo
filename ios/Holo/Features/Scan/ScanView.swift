@@ -188,7 +188,8 @@ struct ScanView: View {
                 }
             }
             .buttonStyle(Button3D(kind: .lime, fullWidth: false, height: 44))
-            .frame(width: 84, alignment: .trailing)
+            .fixedSize()
+            .frame(minWidth: 84, alignment: .trailing)
             .opacity(model.entries.isEmpty ? 0 : 1)
             .disabled(model.entries.isEmpty)
         }

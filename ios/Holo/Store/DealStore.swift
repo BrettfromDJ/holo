@@ -121,9 +121,10 @@ final class DealStore {
         let note = "Show deal (\(kind.noun.lowercased()))"
         let today = Format.day()
 
-        // A demo collection has no account to save to: the deal is just logged here and cleared.
+        // A demo collection has no account: its entries stay on the phone (CollectionStore keeps
+        // them in memory) and the deal history isn't saved.
         let saving = store.demo == nil
-        for item in deal.outgoing where saving {
+        for item in deal.outgoing {
             guard let key = item.holdingKey, let h = store.holdings.first(where: { $0.identity.key == key }), let unit = item.unitPrice(side: rates.out) else { continue }
             try await store.sell(h.identity, quantity: Double(item.qty), unitPrice: unit, fees: 0, shipping: 0, date: today, source: "Card show", notes: note)
         }
@@ -144,7 +145,7 @@ final class DealStore {
                 notes: note
             ))
         }
-        if saving, !purchases.isEmpty { try await store.add(purchases) }
+        if !purchases.isEmpty { try await store.add(purchases) }
 
         let lines: [DealRecord.Line] =
             deal.incoming.map { line($0, side: .incoming, rate: rates.in) } + deal.outgoing.map { line($0, side: .outgoing, rate: rates.out) }
