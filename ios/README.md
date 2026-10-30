@@ -57,7 +57,7 @@ The web app must be deployed with the change that accepts the app's login token 
 3. When the Organizer opens, choose **Distribute App → App Store Connect → Upload**. Keep automatic signing.
 4. After processing (about 10–30 minutes), the build appears under TestFlight in App Store Connect. Add yourself as an internal tester and install with the TestFlight app.
 
-For each new build, bump `CURRENT_PROJECT_VERSION` in `project.yml`, run `xcodegen`, then archive again.
+For each new build: `git pull`, run `xcodegen`, then archive and upload again. The build number is set automatically from the date and time (a build step in `project.yml`), so it always goes up. To change the version people see (0.1.0), edit `MARKETING_VERSION` in `project.yml`.
 
 ## Continuous build
 
