@@ -1,3 +1,4 @@
+import AVFoundation
 import Charts
 import PhotosUI
 import Supabase
@@ -105,14 +106,15 @@ struct DealPhotosStrip: View {
     @State private var uploading = 0
     @State private var viewing: Int?
     @State private var failed = false
+    @State private var choosing = false
 
     private var hasCamera: Bool { UIImagePickerController.isSourceTypeAvailable(.camera) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
+            if !photos.isEmpty || uploading > 0 {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
-                    addTile
                     ForEach(0 ..< uploading, id: \.self) { _ in
                         RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.well)
                             .frame(width: 84, height: 84)
@@ -131,6 +133,18 @@ struct DealPhotosStrip: View {
                 }
                 .padding(.vertical, 2)
             }
+            }
+            // Same 3D button as "Add what's coming in".
+            Button {
+                if hasCamera { choosing = true } else { library = true }
+            } label: {
+                Label(photos.isEmpty ? "Add photos" : "Add more photos", systemImage: "camera.fill").frame(maxWidth: .infinity)
+            }
+            .buttonStyle(Button3D(kind: .dark, fullWidth: true, height: 46))
+            .confirmationDialog("Add photos", isPresented: $choosing) {
+                Button("Take photo") { camera = true }
+                Button("Choose from library") { library = true }
+            }
             if failed {
                 Text("A photo couldn't be saved. Check your connection and try again.").font(.geist(12)).foregroundStyle(Theme.warn)
             }
@@ -142,7 +156,7 @@ struct DealPhotosStrip: View {
             Task { await add(items: items) }
         }
         .fullScreenCover(isPresented: $camera) {
-            CameraPicker { image in Task { await add(images: [image]) } }.ignoresSafeArea()
+            DealCameraView { image in Task { await add(images: [image]) } }
         }
         .fullScreenCover(item: Binding(get: { viewing.map(ViewerStart.init) }, set: { viewing = $0?.index })) { start in
             DealPhotoViewer(photos: photos, start: start.index) { path in
@@ -155,24 +169,6 @@ struct DealPhotosStrip: View {
     private struct ViewerStart: Identifiable {
         var index: Int
         var id: Int { index }
-    }
-
-    @ViewBuilder private var addTile: some View {
-        let label = VStack(spacing: 6) {
-            Image(systemName: "camera.fill").font(.system(size: 20, weight: .semibold)).foregroundStyle(accent)
-            Text("Add photo").font(.geist(11, .semibold)).foregroundStyle(.white)
-        }
-        .frame(width: 84, height: 84)
-        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.surface))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(accent.opacity(0.45), style: StrokeStyle(lineWidth: 1.2, dash: [5, 4])))
-        if hasCamera {
-            Menu {
-                Button { camera = true } label: { Label("Take photo", systemImage: "camera") }
-                Button { library = true } label: { Label("Choose from library", systemImage: "photo.on.rectangle") }
-            } label: { label }
-        } else {
-            Button { library = true } label: { label }.buttonStyle(.plain)
-        }
     }
 
     private func add(items: [PhotosPickerItem]) async {
@@ -244,33 +240,228 @@ private struct DealPhotoViewer: View {
     }
 }
 
-/// The system camera, for one photo.
-private struct CameraPicker: UIViewControllerRepresentable {
-    var onImage: (UIImage) -> Void
+/// The camera for deal photos: the picture edge to edge, Liquid Glass controls floating over
+/// it, a lime shutter, and the shots piling up bottom-left. Take as many as you like; each one
+/// is added to the deal as it's taken.
+struct DealCameraView: View {
+    var onPhoto: (UIImage) -> Void
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var camera = DealCamera()
+    @State private var shots: [UIImage] = []
+    @State private var flashing = false
 
-    func makeUIViewController(context: Context) -> UIImagePickerController {
-        let picker = UIImagePickerController()
-        picker.sourceType = .camera
-        picker.delegate = context.coordinator
-        return picker
-    }
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            CameraPreview(session: camera.session).ignoresSafeArea()
+            if camera.denied {
+                VStack(spacing: 14) {
+                    Image(systemName: "camera.fill").font(.system(size: 30)).foregroundStyle(Theme.lime)
+                    Text("CAMERA IS OFF FOR HOLO").font(.display(22))
+                    Text("Turn it on in Settings to photograph deals.").font(.geist(14)).foregroundStyle(Theme.muted)
+                    Button("Open Settings") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+                    }
+                    .buttonStyle(Button3D(kind: .lime, fullWidth: false, height: 44))
+                }
+                .padding(28)
+                .liquidGlass(in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+                .padding(24)
+            }
+            // The shutter's flash.
+            Color.white.opacity(flashing ? 0.7 : 0).ignoresSafeArea().allowsHitTesting(false)
 
-    func updateUIViewController(_ controller: UIImagePickerController, context: Context) {}
-
-    func makeCoordinator() -> Coordinator { Coordinator(self) }
-
-    final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
-        let parent: CameraPicker
-        init(_ parent: CameraPicker) { self.parent = parent }
-
-        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
-            if let image = info[.originalImage] as? UIImage { parent.onImage(image) }
-            parent.dismiss()
+            VStack(spacing: 14) {
+                topBar
+                Spacer()
+                if shots.isEmpty {
+                    Text("Shoot the cards, the table, a receipt")
+                        .font(.geist(13, .medium)).foregroundStyle(.white)
+                        .padding(.horizontal, 14).frame(height: 34)
+                        .liquidGlass(in: Capsule())
+                } else {
+                    Button { dismiss() } label: {
+                        Text("Done · \(shots.count) photo\(shots.count == 1 ? "" : "s")")
+                    }
+                    .buttonStyle(Button3D(kind: .lime, fullWidth: false, height: 40))
+                    .transition(.scale.combined(with: .opacity))
+                }
+                tray
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 8)
         }
-
-        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) { parent.dismiss() }
+        .statusBarHidden()
+        .onAppear {
+            camera.onPhoto = { image in
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) { shots.append(image) }
+                onPhoto(image)
+            }
+            camera.start()
+        }
+        .onDisappear { camera.stop() }
     }
+
+    private var topBar: some View {
+        HStack {
+            glassCircle("xmark", label: "Close") { dismiss() }
+            Spacer()
+            Text("DEAL PHOTOS").font(.display(16)).tracking(0.6).foregroundStyle(.white)
+                .padding(.horizontal, 16).frame(height: 40)
+                .liquidGlass(in: Capsule())
+            Spacer()
+            glassCircle(camera.flash ? "bolt.fill" : "bolt.slash.fill", label: camera.flash ? "Flash on" : "Flash off", tint: camera.flash ? Theme.lime : .white) {
+                camera.flash.toggle()
+            }
+        }
+        .padding(.top, 6)
+    }
+
+    private var tray: some View {
+        HStack {
+            // The latest shot, with how many so far.
+            ZStack(alignment: .topTrailing) {
+                if let last = shots.last {
+                    Image(uiImage: last).resizable().scaledToFill()
+                        .frame(width: 56, height: 56)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.8), lineWidth: 2))
+                        .id(shots.count)
+                        .transition(.scale(scale: 0.3).combined(with: .opacity))
+                    Text("\(shots.count)").font(.geist(11, .bold)).monospacedDigit().foregroundStyle(Theme.ink)
+                        .frame(minWidth: 20, minHeight: 20).background(Circle().fill(Theme.lime))
+                        .offset(x: 7, y: -7)
+                } else {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.white.opacity(0.08)).frame(width: 56, height: 56)
+                }
+            }
+            .frame(width: 64, alignment: .leading)
+            Spacer()
+            Button {
+                camera.capture()
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                guard !reduceMotion else { return }
+                flashing = true
+                withAnimation(.easeOut(duration: 0.35)) { flashing = false }
+            } label: {
+                ZStack {
+                    Circle().strokeBorder(.white, lineWidth: 4).frame(width: 80, height: 80)
+                    Circle().fill(Theme.lime).frame(width: 64, height: 64)
+                        .shadow(color: Theme.lime.opacity(0.6), radius: 12)
+                }
+            }
+            .buttonStyle(ShutterStyle())
+            .accessibilityLabel("Take photo")
+            .disabled(camera.denied)
+            Spacer()
+            glassCircle("arrow.triangle.2.circlepath.camera", label: "Switch camera", size: 56) { camera.flip() }
+                .frame(width: 64, alignment: .trailing)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 14)
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 36, style: .continuous))
+    }
+
+    private func glassCircle(_ icon: String, label: String, tint: Color = .white, size: CGFloat = 44, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon).font(.system(size: size * 0.36, weight: .semibold)).foregroundStyle(tint)
+                .frame(width: size, height: size)
+                .liquidGlass(in: Circle(), interactive: true)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
+}
+
+/// The shutter sinks a little as you press it.
+private struct ShutterStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.88 : 1)
+            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
+    }
+}
+
+/// The capture session behind DealCameraView.
+@Observable
+final class DealCamera: NSObject, AVCapturePhotoCaptureDelegate {
+    let session = AVCaptureSession()
+    var flash = false
+    var denied = false
+    @ObservationIgnored var onPhoto: ((UIImage) -> Void)?
+    private let output = AVCapturePhotoOutput()
+    private let queue = DispatchQueue(label: "holo.deal-camera")
+    @ObservationIgnored private var input: AVCaptureDeviceInput?
+    @ObservationIgnored private var position = AVCaptureDevice.Position.back
+
+    func start() {
+        Task {
+            guard await AVCaptureDevice.requestAccess(for: .video) else {
+                await MainActor.run { denied = true }
+                return
+            }
+            queue.async {
+                self.configure(self.position)
+                self.session.startRunning()
+            }
+        }
+    }
+
+    func stop() { queue.async { self.session.stopRunning() } }
+
+    func flip() {
+        position = position == .back ? .front : .back
+        let p = position
+        queue.async { self.configure(p) }
+    }
+
+    func capture() {
+        let settings = AVCapturePhotoSettings()
+        let on = flash
+        queue.async {
+            if self.output.supportedFlashModes.contains(.on) { settings.flashMode = on ? .on : .off }
+            guard self.session.isRunning else { return }
+            self.output.capturePhoto(with: settings, delegate: self)
+        }
+    }
+
+    private func configure(_ position: AVCaptureDevice.Position) {
+        session.beginConfiguration()
+        session.sessionPreset = .photo
+        if let input { session.removeInput(input) }
+        if let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: position),
+           let new = try? AVCaptureDeviceInput(device: device), session.canAddInput(new) {
+            session.addInput(new)
+            input = new
+        }
+        if !session.outputs.contains(output), session.canAddOutput(output) { session.addOutput(output) }
+        session.commitConfiguration()
+    }
+
+    func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
+        guard let data = photo.fileDataRepresentation(), let image = UIImage(data: data) else { return }
+        DispatchQueue.main.async { self.onPhoto?(image) }
+    }
+}
+
+/// The live camera picture.
+private struct CameraPreview: UIViewRepresentable {
+    let session: AVCaptureSession
+
+    final class PreviewView: UIView {
+        override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
+        var preview: AVCaptureVideoPreviewLayer { layer as! AVCaptureVideoPreviewLayer }
+    }
+
+    func makeUIView(context: Context) -> PreviewView {
+        let view = PreviewView()
+        view.preview.session = session
+        view.preview.videoGravity = .resizeAspectFill
+        return view
+    }
+
+    func updateUIView(_ view: PreviewView, context: Context) {}
 }
 
 // MARK: - Closed deals
@@ -298,10 +489,10 @@ extension DealRecord.Line.Item {
     var product: Product { Product(id: id, name: name, setName: setName, productType: productType, kind: kind, imageUrl: imageUrl) }
 }
 
-/// Closed deals: totals that count up, profit by day as bars, a filter by kind, then each day's
-/// deals as cards (kind, items fanned out, photos, profit). Tap one for everything about it.
-struct DealHistorySheet: View {
-    @Environment(\.dismiss) private var dismiss
+/// Closed deals, as a page like the other tabs: all-time profit huge over a lit grid with the
+/// deal count, cash and items, profit climbing deal by deal, your best deal on an electric
+/// card, a filter by kind, then each day's deals as cards. Tap one for everything about it.
+struct DealHistoryView: View {
     @Environment(DealStore.self) private var deals
     @State private var filter: DealKind? = nil
 
@@ -315,13 +506,16 @@ struct DealHistorySheet: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 30) {
-                    if deals.log.isEmpty {
-                        empty
-                    } else {
-                        hero
+        ScrollView {
+            VStack(alignment: .leading, spacing: 34) {
+                if deals.log.isEmpty {
+                    empty
+                } else {
+                    hero
+                    if let best = shown.filter({ ($0.profit ?? 0) > 0 }).max(by: { ($0.profit ?? 0) < ($1.profit ?? 0) }), shown.count > 1 {
+                        NavigationLink(value: best) { BestDealCard(record: best) }.buttonStyle(.plain).reveal()
+                    }
+                    VStack(alignment: .leading, spacing: 26) {
                         ChipPicker(options: Self.filters, selection: $filter)
                         if days.isEmpty {
                             Text("No \(filter.map { $0.noun.lowercased() } ?? "deal")s yet.").font(.geist(14)).foregroundStyle(Theme.muted)
@@ -329,70 +523,69 @@ struct DealHistorySheet: View {
                         ForEach(days, id: \.day) { group in daySection(group.day, group.records).reveal() }
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-                .padding(.bottom, 40)
             }
-            .background(Theme.background)
-            .replaysAnimations()
-            .navigationBarTitleDisplayMode(.inline)
-            .pageTitle("Closed deals")
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
-            .navigationDestination(for: DealRecord.self) { DealRecordDetail(recordId: $0.id) }
-            .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 40)
         }
+        .background(Theme.background)
+        .replaysAnimations()
+        .tabBarClearance()
+        .navigationBarTitleDisplayMode(.inline)
+        .pageTitle("Closed deals")
+        .navigationDestination(for: DealRecord.self) { DealRecordDetail(recordId: $0.id) }
+        .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
     }
 
     private var empty: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "arrow.left.arrow.right").font(.system(size: 30, weight: .bold)).foregroundStyle(Theme.lime)
-                .frame(width: 72, height: 72).background(Circle().fill(Theme.lime.opacity(0.12)))
-            Text("NO CLOSED DEALS YET").font(.display(24))
-            Text("Every buy, sale and trade you close shows up here, with what changed hands and your photos.")
+        VStack(spacing: 14) {
+            Image(systemName: "arrow.left.arrow.right").font(.system(size: 30, weight: .bold)).foregroundStyle(Theme.ink)
+                .frame(width: 76, height: 76).background(Circle().fill(Theme.lime))
+                .shadow(color: Theme.lime.opacity(0.4), radius: 20)
+            Text("NO CLOSED DEALS YET").font(.display(28))
+            Text("Every buy, sale and trade you close lands here, with what changed hands, your profit and your photos.")
                 .font(.geist(14)).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 80)
+        .padding(.top, 90)
     }
 
-    // MARK: Totals and the profit chart
+    // MARK: The top: profit, counts, and profit over time
 
     private var hero: some View {
         let profit = shown.compactMap(\.profit).reduce(0, +)
         let cash = shown.reduce(0) { $0 + $1.balance }
-        return VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 8) {
-                tile("Deals", Double(shown.count), format: { "\(Int($0.rounded()))" }, tint: .white)
-                tile("Profit", profit, format: { Format.signedMoney($0) }, tint: Theme.tone(profit))
-                tile("Cash", cash, format: { Format.signedMoney($0) }, tint: Theme.tone(cash))
+        let items = shown.reduce(0) { $0 + $1.items }
+        return VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 8) {
+                MonoLabel(text: filter == nil ? "Profit from deals" : "Profit from \(filter!.noun.lowercased())s")
+                CountingText(value: profit, format: { Format.signedMoney($0) })
+                    .font(.display(72)).monospacedDigit().foregroundStyle(profit < 0 ? Theme.planPink : Theme.lime)
+                    .lineLimit(1).minimumScaleFactor(0.5).displayTrim(72)
+                    .shadow(color: (profit < 0 ? Theme.planPink : Theme.lime).opacity(0.35), radius: 18)
             }
-            ProfitBars(records: shown)
+            HStack(spacing: 8) {
+                StatPill(label: "Deals", value: "\(shown.count)")
+                StatPill(label: "Cash", value: Format.signedMoney(cash), tint: Theme.tone(cash))
+                if items > 0 { StatPill(label: "Items", value: "\(items)") }
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            ProfitClimb(records: shown)
         }
         .background(alignment: .top) {
             ZStack {
                 GridPattern(step: 36, opacity: 0.05)
-                RadialGradient(colors: [Theme.lime.opacity(0.18), .clear], center: UnitPoint(x: 0.2, y: 0.3), startRadius: 0, endRadius: 260)
-                RadialGradient(colors: [Theme.planBlue.opacity(0.18), .clear], center: UnitPoint(x: 0.9, y: 0.6), startRadius: 0, endRadius: 240)
+                RadialGradient(colors: [Theme.lime.opacity(0.22), .clear], center: UnitPoint(x: 0.2, y: 0.25), startRadius: 0, endRadius: 280)
+                RadialGradient(colors: [Theme.planBlue.opacity(0.2), .clear], center: UnitPoint(x: 0.95, y: 0.5), startRadius: 0, endRadius: 260)
             }
             .padding(.horizontal, -16)
-            .padding(.top, -120)
-            .padding(.bottom, -30)
-            .mask(LinearGradient(colors: [.black, .clear], startPoint: .center, endPoint: .bottom))
+            .padding(.top, -200)
+            .padding(.bottom, -60)
+            .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.6), .init(color: .clear, location: 1)],
+                                 startPoint: .top, endPoint: .bottom))
             .allowsHitTesting(false)
         }
-    }
-
-    private func tile(_ label: String, _ value: Double, format: @escaping (Double) -> String, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            MonoLabel(text: label)
-            CountingText(value: value, format: format)
-                .font(.display(24)).monospacedDigit().foregroundStyle(tint)
-                .lineLimit(1).minimumScaleFactor(0.5).displayTrim(24)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .liquidGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     // MARK: Days
@@ -403,14 +596,14 @@ struct DealHistorySheet: View {
         let title = date.map { Calendar.current.isDateInToday($0) ? "Today" : (Calendar.current.isDateInYesterday($0) ? "Yesterday" : $0.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())) } ?? day
         return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(title.uppercased()).font(.display(22))
+                Text(title.uppercased()).font(.display(24))
                 MonoLabel(text: "\(records.count) deal\(records.count == 1 ? "" : "s")")
                 Spacer()
                 if records.contains(where: { $0.profit != nil }) {
                     Text(Format.signedMoney(profit)).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(profit))
                 }
             }
-            VStack(spacing: 10) {
+            VStack(spacing: 12) {
                 ForEach(records) { r in
                     NavigationLink(value: r) { DealRecordCard(record: r) }.buttonStyle(.plain)
                 }
@@ -419,99 +612,152 @@ struct DealHistorySheet: View {
     }
 }
 
-/// Profit by day for the last two weeks, lime up and pink down, drawn in.
-private struct ProfitBars: View {
+/// Profit adding up deal by deal, drawn in lime (pink if it's under water), like Home's chart.
+private struct ProfitClimb: View {
     var records: [DealRecord]
 
-    private var days: [(date: Date, profit: Double)] {
-        let cal = Calendar.current
-        let today = cal.startOfDay(for: Date())
-        return (0 ..< 14).reversed().map { back in
-            let d = cal.date(byAdding: .day, value: -back, to: today) ?? today
-            let p = records.filter { cal.isDate($0.date, inSameDayAs: d) }.compactMap(\.profit).reduce(0, +)
-            return (d, p)
+    private var points: [(date: Date, total: Double)] {
+        var running = 0.0
+        return records.filter { $0.profit != nil }.sorted { $0.at < $1.at }.map { r in
+            running += r.profit ?? 0
+            return (r.date, running)
         }
     }
 
     var body: some View {
-        let data = days
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                MonoLabel(text: "Profit · last 14 days")
-                Spacer()
-                let total = data.reduce(0) { $0 + $1.profit }
-                Text(Format.signedMoney(total)).font(.geist(13, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(total))
+        let data = points
+        if data.count >= 2 {
+            let tint = (data.last?.total ?? 0) < 0 ? Theme.planPink : Theme.lime
+            Chart(Array(data.enumerated()), id: \.offset) { i, p in
+                AreaMark(x: .value("Deal", i), yStart: .value("Base", min(0, data.map(\.total).min() ?? 0)), yEnd: .value("Profit", p.total))
+                    .interpolationMethod(.monotone)
+                    .foregroundStyle(LinearGradient(colors: [tint.opacity(0.35), tint.opacity(0)], startPoint: .top, endPoint: .bottom))
+                LineMark(x: .value("Deal", i), y: .value("Profit", p.total))
+                    .interpolationMethod(.monotone)
+                    .foregroundStyle(tint)
+                    .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
             }
-            Chart(data, id: \.date) { d in
-                BarMark(x: .value("Day", d.date, unit: .day), y: .value("Profit", d.profit))
-                    .foregroundStyle(d.profit >= 0 ? Theme.lime : Theme.planPink)
-                    .cornerRadius(3)
-                RuleMark(y: .value("Zero", 0)).foregroundStyle(Theme.border)
-            }
-            .chartXAxis {
-                AxisMarks(values: .stride(by: .day, count: 3)) { _ in
-                    AxisValueLabel(format: .dateTime.month(.abbreviated).day()).foregroundStyle(Theme.subtle).font(.mono(9))
-                }
-            }
+            .chartXAxis(.hidden)
             .chartYAxis(.hidden)
-            .frame(height: 96)
+            .frame(height: 110)
             .drawIn()
         }
-        .padding(14)
-        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.surface))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Theme.border))
     }
 }
 
-/// A closed deal as a card: its kind, items and time, the items fanned out, photos, and profit.
+/// The deal that made the most, on an electric card.
+private struct BestDealCard: View {
+    var record: DealRecord
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
+        let lines = record.lines ?? []
+        HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 10) {
+                SkewTag(text: "Best deal", icon: "star.fill")
+                Text("\(record.kind.noun) · \(record.date.formatted(.dateTime.month(.abbreviated).day()))").font(.geist(15, .semibold)).foregroundStyle(.white)
+                Text(Format.signedMoney(record.profit)).font(.display(40)).monospacedDigit().foregroundStyle(Theme.lime).displayTrim(40)
+                    .shadow(color: Theme.lime.opacity(0.4), radius: 12)
+            }
+            Spacer(minLength: 0)
+            CardFanStack(lines: Array(lines.prefix(4)), size: CGSize(width: 54, height: 76))
+                .frame(width: 120, height: 100)
+        }
+        .padding(18)
+        .background {
+            ZStack {
+                shape.fill(Color(hex: 0x070707))
+                GridPattern(step: 28, opacity: 0.06)
+                RadialGradient(colors: [Theme.lime.opacity(0.2), .clear], center: .trailing, startRadius: 0, endRadius: 220)
+            }
+            .clipShape(shape)
+        }
+        .overlay(ElectricBorder(radius: 22))
+        .shadow(color: Theme.lime.opacity(0.18), radius: 18)
+    }
+}
+
+/// A few items fanned like a hand of cards.
+private struct CardFanStack: View {
+    var lines: [DealRecord.Line]
+    var size: CGSize
+
+    var body: some View {
+        ZStack {
+            ForEach(Array(lines.enumerated()), id: \.offset) { i, line in
+                let off = Double(i) - Double(lines.count - 1) / 2
+                HoldingArt(product: line.product.product, identity: nil, cornerRadius: 4, caption: false)
+                    .frame(width: size.width, height: size.height)
+                    .shadow(color: .black.opacity(0.5), radius: 6, y: 4)
+                    .rotationEffect(.degrees(off * 9), anchor: .bottom)
+                    .offset(x: off * size.width * 0.38, y: abs(off) * 4)
+            }
+        }
+    }
+}
+
+/// A closed deal as a card: its kind as a slanted tag, the time and photos, the items fanned
+/// out with the first photo beside them, and the profit big on the right.
 private struct DealRecordCard: View {
     var record: DealRecord
 
     var body: some View {
         let lines = record.lines ?? []
-        HStack(alignment: .center, spacing: 12) {
-            Image(systemName: record.kind.icon)
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(record.kind.color)
-                .frame(width: 40, height: 40)
-                .background(Circle().fill(record.kind.color.opacity(0.14)))
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 6) {
-                    Text(record.kind.noun).font(.geist(15, .semibold)).foregroundStyle(.white)
-                    Text("· \(record.items) item\(record.items == 1 ? "" : "s")").font(.geist(13)).foregroundStyle(Theme.muted)
+        let shape = RoundedRectangle(cornerRadius: 20, style: .continuous)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .center, spacing: 8) {
+                SkewTag(text: record.kind.noun, color: record.kind.color, textColor: record.kind == .buy ? Theme.ink : .white, icon: record.kind.icon)
+                Text(record.date.formatted(date: .omitted, time: .shortened)).font(.mono(11)).foregroundStyle(Theme.muted)
+                Spacer()
+                if let profit = record.profit {
+                    Text(Format.signedMoney(profit)).font(.display(24)).monospacedDigit().foregroundStyle(Theme.tone(profit)).displayTrim(24)
                 }
-                HStack(spacing: 8) {
-                    Text(record.date.formatted(date: .omitted, time: .shortened)).font(.mono(11)).foregroundStyle(Theme.subtle)
-                    if let n = record.photos?.count, n > 0 {
-                        Label("\(n)", systemImage: "camera.fill").font(.geist(11, .semibold)).foregroundStyle(Theme.muted)
-                    }
-                }
+            }
+            HStack(alignment: .bottom, spacing: 14) {
                 if !lines.isEmpty {
-                    HStack(spacing: -8) {
+                    HStack(spacing: -12) {
                         ForEach(Array(lines.prefix(6).enumerated()), id: \.offset) { _, line in
-                            HoldingArt(product: line.product.product, identity: nil, cornerRadius: 3, caption: false)
-                                .frame(width: 26, height: 36)
-                                .shadow(color: .black.opacity(0.5), radius: 3, x: 2)
+                            HoldingArt(product: line.product.product, identity: nil, cornerRadius: 4, caption: false)
+                                .frame(width: 40, height: 56)
+                                .shadow(color: .black.opacity(0.55), radius: 4, x: 3)
                         }
                         if lines.count > 6 {
-                            Text("+\(lines.count - 6)").font(.geist(11, .semibold)).foregroundStyle(Theme.muted).padding(.leading, 14)
+                            Text("+\(lines.count - 6)").font(.geist(12, .semibold)).foregroundStyle(Theme.muted).padding(.leading, 18)
                         }
                     }
-                    .padding(.top, 2)
+                }
+                Spacer(minLength: 0)
+                if let first = record.photos?.first {
+                    DealPhotoImage(path: first)
+                        .frame(width: 56, height: 56)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(alignment: .bottomTrailing) {
+                            if let n = record.photos?.count, n > 1 {
+                                Text("+\(n - 1)").font(.geist(10, .bold)).foregroundStyle(.white)
+                                    .padding(.horizontal, 5).padding(.vertical, 2)
+                                    .background(Capsule().fill(.black.opacity(0.7))).padding(4)
+                            }
+                        }
                 }
             }
-            Spacer(minLength: 6)
-            VStack(alignment: .trailing, spacing: 4) {
-                if let profit = record.profit {
-                    Text(Format.signedMoney(profit)).font(.display(20)).monospacedDigit().foregroundStyle(Theme.tone(profit)).displayTrim(20)
-                }
-                Text(balanceText).font(.geist(11)).foregroundStyle(Theme.muted).monospacedDigit()
+            HStack(spacing: 6) {
+                Text(balanceText)
+                Text("·")
+                Text("\(record.items) item\(record.items == 1 ? "" : "s")")
+                Spacer()
+                Image(systemName: "chevron.right").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.subtle)
             }
-            Image(systemName: "chevron.right").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.subtle)
+            .font(.geist(12)).foregroundStyle(Theme.muted).monospacedDigit()
         }
-        .padding(12)
-        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.surface))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Theme.border))
+        .padding(14)
+        .background {
+            ZStack {
+                shape.fill(Theme.surface)
+                RadialGradient(colors: [record.kind.color.opacity(0.14), .clear], center: .topLeading, startRadius: 0, endRadius: 240)
+            }
+            .clipShape(shape)
+        }
+        .overlay(shape.strokeBorder(record.kind.color.opacity(0.22)))
     }
 
     private var balanceText: String {

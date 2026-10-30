@@ -81,7 +81,7 @@ struct DealView: View {
             .sheet(isPresented: $confirming) { DealCloseSheet() }
             .sheet(item: $picking) { side in DealPickerSheet(side: side) }
             .sheet(isPresented: $settings) { DealRatesSheet() }
-            .sheet(isPresented: $history) { DealHistorySheet() }
+            .navigationDestination(isPresented: $history) { DealHistoryView() }
             .sheet(isPresented: $customer) { CustomerViewSheet(deal: deals.deal, rates: rates, totals: totals) }
             .sheet(item: $ebayItem) { item in
                 NavigationStack {
