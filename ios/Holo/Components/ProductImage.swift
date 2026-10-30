@@ -1,3 +1,4 @@
+import ImageIO
 import SwiftUI
 
 /// A product's picture, fading in once it has downloaded, or the website's lime line-art
@@ -27,6 +28,9 @@ struct CachedImage<Content: View, Placeholder: View>: View {
     var url: URL?
     @ViewBuilder var content: (Image) -> Content
     @ViewBuilder var placeholder: () -> Placeholder
+    /// Long lists set this (`.imageMaxPixel(…)`) so pictures are shrunk to thumbnail size off the
+    /// main thread instead of decoding full-size photos while you scroll.
+    @Environment(\.imageMaxPixel) private var maxPixel
     @State private var image: UIImage?
     @State private var failed = false
 
@@ -39,7 +43,7 @@ struct CachedImage<Content: View, Placeholder: View>: View {
 
     var body: some View {
         ZStack {
-            if let image = image ?? url.flatMap({ ImageCache.shared.cached($0) }) {
+            if let image = image ?? url.flatMap({ ImageCache.shared.cached($0, maxPixel: maxPixel) }) {
                 content(Image(uiImage: image)).transition(.opacity)
             } else if url == nil || failed {
                 placeholder()
@@ -48,9 +52,9 @@ struct CachedImage<Content: View, Placeholder: View>: View {
             }
         }
         .task(id: url) {
-            guard let url, image == nil else { return }
+            guard let url, image == nil, ImageCache.shared.cached(url, maxPixel: maxPixel) == nil else { return }
             failed = false
-            if let loaded = await ImageCache.shared.load(url) {
+            if let loaded = await ImageCache.shared.load(url, maxPixel: maxPixel) {
                 withAnimation(.easeOut(duration: 0.3)) { image = loaded }
             } else {
                 failed = true
@@ -70,31 +74,74 @@ final class ImageCache: @unchecked Sendable {
 
     init() { memory.countLimit = 400 }
 
-    func cached(_ url: URL) -> UIImage? { memory.object(forKey: url as NSURL) }
+    /// Thumbnails are cached apart from full-size pictures.
+    private func key(_ url: URL, _ maxPixel: CGFloat?) -> URL {
+        guard let maxPixel else { return url }
+        return URL(string: url.absoluteString + "#px\(Int(maxPixel))") ?? url
+    }
 
-    func load(_ url: URL) async -> UIImage? {
-        if let hit = cached(url) { return hit }
+    func cached(_ url: URL, maxPixel: CGFloat? = nil) -> UIImage? { memory.object(forKey: key(url, maxPixel) as NSURL) }
+
+    func load(_ url: URL, maxPixel: CGFloat? = nil) async -> UIImage? {
+        let cacheKey = key(url, maxPixel)
+        if let hit = memory.object(forKey: cacheKey as NSURL) { return hit }
         lock.lock()
         let task: Task<UIImage?, Never>
-        if let running = inFlight[url] {
+        if let running = inFlight[cacheKey] {
             task = running
         } else {
-            task = Task {
+            task = Task.detached(priority: .userInitiated) {
+                if let maxPixel {
+                    // Read the file and decode it straight to thumbnail size (ImageIO), never full size.
+                    let data: Data?
+                    if url.isFileURL { data = try? Data(contentsOf: url) } else { data = try? await URLSession.shared.data(from: url).0 }
+                    return data.flatMap { ImageCache.downsample($0, maxPixel: maxPixel) }
+                }
                 if url.isFileURL { return UIImage(contentsOfFile: url.path) }
                 guard let (data, _) = try? await URLSession.shared.data(from: url) else { return nil }
                 // Decode here, off the main thread, so scrolling a grid of new pictures stays smooth.
                 return await UIImage(data: data)?.byPreparingForDisplay() ?? UIImage(data: data)
             }
-            inFlight[url] = task
+            inFlight[cacheKey] = task
         }
         lock.unlock()
         let image = await task.value
         lock.lock()
-        inFlight[url] = nil
+        inFlight[cacheKey] = nil
         lock.unlock()
-        if let image { memory.setObject(image, forKey: url as NSURL) }
+        if let image { memory.setObject(image, forKey: cacheKey as NSURL) }
         return image
     }
+
+    /// Decode just a thumbnail: no full-size bitmap is ever made, and it comes out ready to draw.
+    static func downsample(_ data: Data, maxPixel: CGFloat) -> UIImage? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary) else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixel,
+        ]
+        guard let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
+        return UIImage(cgImage: cg)
+    }
+}
+
+private struct ImageMaxPixelKey: EnvironmentKey {
+    static let defaultValue: CGFloat? = nil
+}
+
+extension EnvironmentValues {
+    /// Pictures below are decoded at most this many pixels on their long side (nil: full size).
+    var imageMaxPixel: CGFloat? {
+        get { self[ImageMaxPixelKey.self] }
+        set { self[ImageMaxPixelKey.self] = newValue }
+    }
+}
+
+extension View {
+    /// Decode the pictures in this view as thumbnails (for long, scrolling lists).
+    func imageMaxPixel(_ pixels: CGFloat) -> some View { environment(\.imageMaxPixel, pixels) }
 }
 
 /// A holding's artwork: graded copies sit in a slab with their label, single cards stand bare,

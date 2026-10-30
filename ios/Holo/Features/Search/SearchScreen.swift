@@ -176,6 +176,8 @@ struct SearchScreen: View {
                     .padding(.bottom, 40)
                 }
                 .scrollDismissesKeyboard(.immediately)
+                // Thumbnails, decoded off the main thread: scrolling never decodes full-size photos.
+                .imageMaxPixel(360)
             }
             .background(Theme.background)
             .toolbar(.hidden, for: .navigationBar)
@@ -256,13 +258,16 @@ struct SearchScreen: View {
     }
 
     @ViewBuilder private var found: some View {
+        // Worked out once per update, not once per row.
         let owned = Set(store.holdings.map(\.identity.productId))
         let watched = Set(store.watchlist.map(\.product_id))
         let shown = filters.apply(results, owned: owned, watched: watched)
+        let mineNow = mine
+        let lastId = shown.last?.id
         // Your own copies first: instant, no waiting on the catalog.
-        if !mine.isEmpty {
+        if !mineNow.isEmpty {
             header("In your collection")
-            ForEach(mine) { h in
+            ForEach(mineNow) { h in
                 Button {
                     if let p = h.product { open(SearchHit(product: p, printing: h.identity.printing, market: h.price, priceUpdatedAt: nil, gameName: nil)) }
                 } label: {
@@ -284,7 +289,7 @@ struct SearchScreen: View {
         }
 
         header(searching && results.isEmpty ? "Searching the catalog…" : (shown.count == results.count ? "\(total) in the catalog" : "\(shown.count) of \(results.count) loaded match"))
-            .padding(.top, mine.isEmpty ? 0 : 14)
+            .padding(.top, mineNow.isEmpty ? 0 : 14)
         if !results.isEmpty {
             FilterBar(items: results, filters: $filters).padding(.bottom, 8)
         }
@@ -320,8 +325,9 @@ struct SearchScreen: View {
                 store.seed(hit)
                 adding = hit
             })
-            // Near the end of what's loaded, fetch the next batch.
-            .onAppear { if hit.id == shown.dropLast(8).last?.id || hit.id == shown.last?.id { Task { await loadMore() } } }
+            .equatable()
+            // At the end of what's loaded, fetch the next batch.
+            .onAppear { if hit.id == lastId { Task { await loadMore() } } }
         }
         if fetched < total {
             HStack(spacing: 8) {
@@ -437,11 +443,14 @@ struct SearchScreen: View {
 }
 
 /// One catalog result: its picture, name, brand · set · number, price, an "Owned" mark, and +.
-private struct ResultRow: View {
+/// Equatable, so a row only redraws when its own result changes, not on every list update.
+private struct ResultRow: View, Equatable {
     var hit: SearchHit
     var owned: Bool
     var onOpen: () -> Void
     var onAdd: () -> Void
+
+    static func == (a: ResultRow, b: ResultRow) -> Bool { a.hit == b.hit && a.owned == b.owned }
 
     var body: some View {
         HStack(spacing: 12) {
