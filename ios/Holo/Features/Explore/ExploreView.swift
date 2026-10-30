@@ -54,7 +54,7 @@ struct ExploreView: View {
                 if upcoming.count > 1 {
                     VStack(alignment: .leading, spacing: 14) {
                         HStack(alignment: .lastTextBaseline) {
-                            PageHeader(title: "Coming soon", subtitle: "New sets on the way", size: 30)
+                            PageHeader(title: "Coming soon", subtitle: "New sets on the way", size: 22)
                             Spacer()
                             NavigationLink { ReleaseCalendarView(sets: index.sets) } label: {
                                 HStack(spacing: 4) { Text("Calendar"); Image(systemName: "arrow.right").font(.system(size: 12, weight: .semibold)) }
@@ -68,13 +68,13 @@ struct ExploreView: View {
                 }
                 if !recent.isEmpty {
                     VStack(alignment: .leading, spacing: 14) {
-                        PageHeader(title: "Just released", subtitle: "The newest sets in the catalog", size: 30).padding(.horizontal, 16)
+                        PageHeader(title: "Just released", subtitle: "The newest sets in the catalog", size: 22).padding(.horizontal, 16)
                         SetCarousel(sets: Array(recent.prefix(12)), upcoming: false)
                     }
                     .reveal()
                 }
                 VStack(alignment: .leading, spacing: 14) {
-                    PageHeader(title: "Brands", subtitle: "Every game in the catalog", size: 30)
+                    PageHeader(title: "Brands", subtitle: "Every game in the catalog", size: 22)
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                         ForEach(Array(index.games.enumerated()), id: \.element.id) { i, g in
                             NavigationLink(value: g) { BrandCard(game: g, tint: BrandCard.tints[i % BrandCard.tints.count]) }
@@ -468,7 +468,8 @@ private struct NextRelease: View {
             HStack(alignment: .center, spacing: 16) {
                 VStack(alignment: .leading, spacing: 10) {
                     SkewTag(text: "Next release", icon: "sparkles")
-                    Text(set.name.uppercased()).font(.display(24)).lineLimit(2).displayTrim(24).foregroundStyle(.white)
+                    DisplayText(text: set.name.uppercased(), size: 24)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     Text([set.gameName, set.release?.formatted(date: .abbreviated, time: .omitted)].compactMap { $0 }.joined(separator: " · "))
                         .font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
                     Button {
@@ -481,22 +482,28 @@ private struct NextRelease: View {
                     .disabled(busy)
                 }
                 Spacer(minLength: 0)
-                VStack(spacing: 2) {
+                VStack(spacing: 6) {
                     CountingText(value: Double(days), format: { "\(Int($0.rounded()))" })
-                        .font(.display(64)).monospacedDigit().foregroundStyle(Theme.lime).displayTrim(64)
+                        .font(.display(60)).monospacedDigit().foregroundStyle(Theme.lime).displayTrim(60)
                         .shadow(color: Theme.lime.opacity(0.5), radius: 16)
-                    MonoLabel(text: days == 1 ? "day" : "days")
+                        .fixedSize()
+                    MonoLabel(text: days == 0 ? "today" : (days == 1 ? "day" : "days"))
                 }
+                .frame(minWidth: 70)
+                .padding(.trailing, 6)
             }
-            .padding(18)
+            .padding(.vertical, 18)
+            .padding(.leading, 18)
+            .padding(.trailing, 20)
             .background {
                 ZStack {
                     RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Color(hex: 0x070707))
-                    if let url = (set.imageUrl ?? set.iconUrl).flatMap(URL.init(string:)) {
-                        CachedImage(url: url) { img in img.resizable().scaledToFit() } placeholder: { Color.clear }
-                            .frame(width: 180)
-                            .opacity(0.18)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+                    if let url = (set.iconUrl ?? set.imageUrl).flatMap(URL.init(string:)) {
+                        // The set's banner, faded in from the right behind the countdown.
+                        CachedImage(url: url) { img in img.resizable().scaledToFill() } placeholder: { Color.clear }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .opacity(0.22)
+                            .mask(LinearGradient(colors: [.clear, .black], startPoint: .leading, endPoint: .trailing))
                             .clipped()
                     }
                     RadialGradient(colors: [Theme.lime.opacity(0.16), .clear], center: .trailing, startRadius: 0, endRadius: 220)
@@ -534,6 +541,11 @@ private struct SetTile: View {
     var upcoming: Bool
     @Environment(CollectionStore.self) private var store
 
+    private var placeholder: some View {
+        Image(systemName: "square.stack.3d.up").font(.system(size: 26)).foregroundStyle(Theme.lime.opacity(0.6))
+            .frame(width: 170, height: 113)
+    }
+
     private var days: Int? {
         guard let d = set.release else { return nil }
         return Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: Date()), to: d).day
@@ -543,11 +555,22 @@ private struct SetTile: View {
         VStack(alignment: .leading, spacing: 10) {
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.well)
-                CachedImage(url: (set.imageUrl ?? set.iconUrl).flatMap(URL.init(string:))) { img in
-                    img.resizable().scaledToFit().padding(14)
-                } placeholder: {
-                    Image(systemName: "square.stack.3d.up").font(.system(size: 28)).foregroundStyle(Theme.lime.opacity(0.7))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // The set's banner art (TCG API's set icon) fills the frame; without one, a
+                // sample product sits centered.
+                Group {
+                    if let banner = set.iconUrl.flatMap(URL.init(string:)) {
+                        CachedImage(url: banner) { img in img.resizable().scaledToFill() } placeholder: { placeholder }
+                            .frame(width: 170, height: 113)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    } else if let sample = set.imageUrl.flatMap(URL.init(string:)) {
+                        CachedImage(url: sample) { img in img.resizable().scaledToFit() } placeholder: { placeholder }
+                            .padding(12)
+                            .frame(width: 170, height: 113)
+                    } else {
+                        Text(set.name).font(.geist(13, .semibold)).foregroundStyle(Theme.subtle).multilineTextAlignment(.center)
+                            .padding(12)
+                            .frame(width: 170, height: 113)
+                    }
                 }
                 if upcoming, let days {
                     SkewTag(text: days <= 0 ? "Out today" : "In \(days) day\(days == 1 ? "" : "s")",
@@ -561,7 +584,7 @@ private struct SetTile: View {
                         .padding(8)
                 }
             }
-            .frame(width: 170, height: 120)
+            .frame(width: 170, height: 113)
             .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.border))
             VStack(alignment: .leading, spacing: 2) {
                 Text(set.name).font(.geist(14, .medium)).lineLimit(1).foregroundStyle(.white)
@@ -581,20 +604,22 @@ private struct BrandCard: View {
     static let tints: [Color] = [Theme.lime, Theme.planPink, Theme.planBlue, Theme.azure]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            CachedImage(url: game.logoUrl.flatMap(URL.init(string:))) { img in img.resizable().scaledToFit() } placeholder: {
+        VStack(alignment: .center, spacing: 12) {
+            CachedImage(url: game.logoUrl.flatMap(URL.init(string:))) { img in
+                img.resizable().scaledToFit().shadow(color: .black.opacity(0.5), radius: 9, y: 8)
+            } placeholder: {
                 Text(game.name.prefix(1).uppercased()).font(.display(26)).foregroundStyle(tint)
             }
-            .frame(height: 40, alignment: .leading)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(game.name).font(.geist(15, .semibold)).lineLimit(1).foregroundStyle(.white)
+            .frame(height: 44)
+            .frame(maxWidth: .infinity)
+            VStack(alignment: .center, spacing: 3) {
+                Text(game.name).font(.geist(15, .semibold)).lineLimit(1).minimumScaleFactor(0.85).foregroundStyle(.white)
                 Text("\(game.sets) sets" + (game.cardCount.map { " · \($0.formatted()) cards" } ?? ""))
                     .font(.geist(12)).foregroundStyle(Theme.muted).monospacedDigit().lineLimit(1).minimumScaleFactor(0.8)
             }
         }
         .padding(14)
-        .frame(maxWidth: .infinity, minHeight: 116, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: 124, alignment: .center)
         .tinted(tint)
     }
 }
