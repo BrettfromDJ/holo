@@ -54,6 +54,8 @@ enum Fonts {
         UISegmentedControl.appearance().selectedSegmentTintColor = UIColor(Theme.lime)
         UISegmentedControl.appearance().setTitleTextAttributes([.font: seg, .foregroundColor: UIColor(Theme.ink)], for: .selected)
         UISegmentedControl.appearance().backgroundColor = UIColor(Theme.surface2)
+        // Pull to refresh spins in lime.
+        UIRefreshControl.appearance().tintColor = UIColor(Theme.lime)
     }
 }
 

@@ -13,6 +13,9 @@ struct HomeView: View {
     @State private var recap = false
     @State private var adding = false
     @State private var addSearch = false
+    /// A moment worth a banner: a milestone reached, or prices just updated.
+    @State private var banner: HomeBanner?
+    @State private var bannerTick = 0
 
     var body: some View {
         NavigationStack {
@@ -33,7 +36,21 @@ struct HomeView: View {
             }
             .background(Theme.background)
             .tabBarClearance()
-            .refreshable { await reload() }
+            .refreshable { await refresh() }
+            .overlay(alignment: .top) {
+                if let banner {
+                    BannerView(banner: banner)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .onTapGesture { withAnimation(.spring) { self.banner = nil } }
+                }
+            }
+            .sensoryFeedback(trigger: bannerTick) { _, _ in banner?.isMilestone == true ? .success : .impact(weight: .light) }
+            .task(id: store.status == .ready ? store.summary.value : -1) {
+                guard store.status == .ready else { return }
+                await checkMilestones()
+            }
             .toolbar {
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button { lists = true } label: { Image(systemName: "heart") }.accessibilityLabel("Watchlist and wishlist")
@@ -74,13 +91,13 @@ struct HomeView: View {
                 .padding(.horizontal, 16)
                 Hero(store: store, onRecap: { recap = true }, onAdd: { adding = true })
             }
-            PerformanceSection(store: store).padding(.horizontal, 16)
-            MetricGrid(store: store, onReload: reload).padding(.horizontal, 16)
-            Spotlight(store: store).padding(.horizontal, 16)
-            ShelfSection(holdings: store.holdings)
-            ValueSplit(store: store).padding(.horizontal, 16)
-            MoversSection(holdings: store.holdings).padding(.horizontal, 16)
-            RecentSection(items: store.recentPurchases()).padding(.horizontal, 16)
+            PerformanceSection(store: store).padding(.horizontal, 16).reveal()
+            MetricGrid(store: store, onReload: refresh).padding(.horizontal, 16).reveal()
+            Spotlight(store: store).padding(.horizontal, 16).reveal()
+            ShelfSection(holdings: store.holdings).reveal()
+            ValueSplit(store: store).padding(.horizontal, 16).reveal()
+            MoversSection(holdings: store.holdings).padding(.horizontal, 16).reveal()
+            RecentSection(items: store.recentPurchases()).padding(.horizontal, 16).reveal()
         }
         .padding(.top, 4)
         .padding(.bottom, 40)
@@ -100,6 +117,41 @@ struct HomeView: View {
 
     private func reload() async {
         if case let .signedIn(userId, _) = session.state { await store.load(userId: userId) }
+    }
+
+    /// Pull to refresh: reload, then say what moved (the figures count to their new values).
+    private func refresh() async {
+        let before = Dictionary(store.holdings.map { ($0.identity.key, $0.price ?? 0) }, uniquingKeysWith: { a, _ in a })
+        await reload()
+        let changed = store.holdings.filter { h in before[h.identity.key].map { abs($0 - (h.price ?? 0)) > 0.005 } ?? false }.count
+        show(HomeBanner(title: "Prices updated", detail: changed == 0 ? "Nothing moved since you last looked." : "\(changed) price\(changed == 1 ? "" : "s") changed.", isMilestone: false))
+    }
+
+    private func show(_ b: HomeBanner) {
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) { banner = b }
+        bannerTick += 1
+        let id = b.id
+        Task {
+            try? await Task.sleep(for: .seconds(b.isMilestone ? 5 : 2.5))
+            if banner?.id == id { withAnimation(.easeOut) { banner = nil } }
+        }
+    }
+
+    /// Celebrates a new milestone once (shared with the website's "milestones-seen"). On the very
+    /// first run only the best one shows, so an existing collection isn't greeted by a flood.
+    private func checkMilestones() async {
+        let reached = Milestones.reached(summary: store.summary, holdings: store.holdings)
+        guard !reached.isEmpty else { return }
+        let stored = (try? await UserState.load("milestones-seen", as: [String].self)) ?? nil
+        let seen = Set(stored ?? [])
+        let fresh = reached.filter { !seen.contains($0.id) }.sorted { $0.rank > $1.rank }
+        guard !fresh.isEmpty else { return }
+        if let best = fresh.first {
+            show(HomeBanner(title: best.title, detail: best.detail, isMilestone: true))
+        }
+        if case let .signedIn(userId, _) = session.state {
+            try? await UserState.save("milestones-seen", Array(seen.union(fresh.map(\.id))), userId: userId)
+        }
     }
 }
 
@@ -133,7 +185,7 @@ private struct Hero: View {
             MonoLabel(text: "\(store.holdings.count) products · \(Int(s.items)) items")
             VStack(spacing: 6) {
                 Text("YOUR COLLECTION'S WORTH").font(.display(30)).displayTrim(30)
-                Text(Format.money(s.value))
+                CountingText(value: s.value, format: { Format.money($0) })
                     .font(.display(66))
                     .monospacedDigit()
                     .foregroundStyle(Theme.lime)
@@ -239,14 +291,24 @@ private struct FanPiece: View {
         return CGFloat(-4.5 * (1 - cos(phase)))
     }
 
+    private var isCard: Bool { holding.product?.isSealed == false && holding.product?.imageURL != nil && !holding.identity.isGraded }
+
+    private var art: some View {
+        HoldingArt(product: holding.product, identity: holding.identity, cornerRadius: 6, caption: index == 0)
+            .frame(width: Self.width, height: Self.height)
+            .shadow(color: .black.opacity(0.55), radius: 13, y: 18)
+    }
+
     var body: some View {
         let anchor = UnitPoint(x: 0.5, y: 0.9)
         let x: CGFloat = Self.steps[index] * Self.width * 0.26
         let y: CGFloat = Self.drops[index] + bob
         NavigationLink(value: holding.identity.productId) {
-            HoldingArt(product: holding.product, identity: holding.identity, cornerRadius: 6, caption: index == 0)
-                .frame(width: Self.width, height: Self.height)
-                .shadow(color: .black.opacity(0.55), radius: 13, y: 18)
+            if index == 0 {
+                art.tiltCard(12, foil: isCard, cornerRadius: 6)
+            } else {
+                art
+            }
         }
         .buttonStyle(.plain)
         .scaleEffect(Self.scales[index], anchor: anchor)
@@ -280,6 +342,9 @@ private struct PerformanceSection: View {
     var store: CollectionStore
     @State private var range = Range.month
     @State private var scrubbed: Date?
+    /// How much of the line is drawn, 0 to 1: it draws itself left to right on first sight.
+    @State private var drawn: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     enum Range: String, CaseIterable {
         case day = "1D", week = "1W", month = "1M", quarter = "3M", year = "1Y", all = "ALL"
@@ -353,6 +418,25 @@ private struct PerformanceSection: View {
                 .chartYScale(domain: .automatic(includesZero: false))
                 .chartXSelection(value: $scrubbed)
                 .frame(height: 230)
+                .mask(alignment: .leading) {
+                    GeometryReader { geo in Rectangle().frame(width: geo.size.width * drawn) }
+                }
+                .onFirstVisible {
+                    guard drawn == 0 else { return }
+                    if reduceMotion { drawn = 1 } else { withAnimation(.easeInOut(duration: 1.2)) { drawn = 1 } }
+                }
+                .onChange(of: range) { _, _ in
+                    guard !reduceMotion else { return }
+                    drawn = 0
+                    withAnimation(.easeInOut(duration: 0.8)) { drawn = 1 }
+                }
+                // A light tick for each day you scrub across; a firmer one on the range's high and low.
+                .sensoryFeedback(trigger: shown?.date) { _, new in
+                    guard let new, let point = points.first(where: { $0.date == new }) else { return nil }
+                    let values = points.map(\.value)
+                    if point.value == values.max() || point.value == values.min() { return .impact(weight: .medium, intensity: 0.9) }
+                    return .selection
+                }
                 if let end = points.last {
                     Text("Daily closing values · \(Format.money(end.value)) on \(end.day.formatted(date: .abbreviated, time: .omitted))")
                         .font(.geist(12)).foregroundStyle(Theme.muted)
@@ -374,19 +458,19 @@ private struct MetricGrid: View {
         let s = store.summary
         VStack(spacing: 12) {
             HStack(spacing: 12) {
-                MetricCard(label: "Invested", value: Format.money(s.totalCost), valueTint: .white, sub: "incl. fees & shipping", tint: Theme.azure)
-                MetricCard(label: "Unrealized", value: Format.signedMoney(s.gain), valueTint: Theme.tone(s.gain), sub: nil,
+                MetricCard(label: "Invested", amount: s.totalCost, format: { Format.money($0) }, valueTint: .white, sub: "incl. fees & shipping", tint: Theme.azure)
+                MetricCard(label: "Unrealized", amount: s.gain, format: { Format.signedMoney($0) }, valueTint: Theme.tone(s.gain), sub: nil,
                            tint: s.gain >= 0 ? Theme.lime : Theme.planPink,
                            tag: s.gainRatio.map { (pct($0, decimals: 0), s.gain >= 0 ? Theme.lime : Theme.planPink, s.gain >= 0 ? Theme.ink : .white) })
             }
             HStack(spacing: 12) {
-                MetricCard(label: "Today", value: Format.signedMoney(s.dayChange), valueTint: Theme.tone(s.dayChange), sub: nil,
+                MetricCard(label: "Today", amount: s.dayChange, format: { Format.signedMoney($0) }, valueTint: Theme.tone(s.dayChange), sub: nil,
                            tint: s.dayChange >= 0 ? Theme.lime : Theme.planPink,
                            tag: s.dayRatio.map { (pct($0, decimals: 2), s.dayChange >= 0 ? Theme.lime : Theme.planPink, s.dayChange >= 0 ? Theme.ink : .white) })
                 Button {
                     Router.shared.tabRequest = "collection"
                 } label: {
-                    MetricCard(label: "Collection", value: "\(Int(s.items)) items", valueTint: .white, sub: "\(store.holdings.count) products",
+                    MetricCard(label: "Collection", amount: s.items, format: { "\(Int($0.rounded())) items" }, valueTint: .white, sub: "\(store.holdings.count) products",
                                tint: Theme.planBlue, tag: ("\(store.holdings.count) SKUs", Theme.planBlue, .white))
                 }
                 .buttonStyle(.plain)
@@ -407,7 +491,9 @@ private struct MetricGrid: View {
 /// Anton, a note under it, on the dark surface with a faint colored top edge.
 private struct MetricCard: View {
     var label: String
-    var value: String
+    /// The figure, counted up when the card appears.
+    var amount: Double
+    var format: (Double) -> String
     var valueTint: Color
     var sub: String?
     var tint: Color
@@ -422,8 +508,9 @@ private struct MetricCard: View {
                 Spacer(minLength: 4)
                 if let tag { SkewTag(text: tag.0, color: tag.1, textColor: tag.2) }
             }
-            Text(value).font(.display(28)).monospacedDigit().foregroundStyle(valueTint)
+            CountingText(value: amount, format: format).font(.display(28)).monospacedDigit().foregroundStyle(valueTint)
                 .lineLimit(1).minimumScaleFactor(0.6).displayTrim(28)
+                .flashOnAppear(valueTint == .white ? .clear : valueTint)
                 .padding(.top, 16)
             if let sub {
                 Text(sub).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1).padding(.top, 8)
@@ -619,6 +706,7 @@ private struct StarCard: View {
                 // The website's stage: the piece centered, a soft floor shadow, a floating % chip.
                 HoldingArt(product: holding.product, identity: holding.identity, cornerRadius: 12)
                     .frame(width: artSize.width, height: artSize.height)
+                    .tiltCard(14, foil: holding.product?.isSealed == false && !holding.identity.isGraded, cornerRadius: 12)
                     .background(alignment: .bottom) {
                         Ellipse().fill(.black.opacity(0.6)).frame(width: artSize.width * 0.76, height: 30).blur(radius: 14).offset(y: 16)
                     }
@@ -640,7 +728,7 @@ private struct StarCard: View {
                 Text([holding.product?.setName, holding.label].compactMap { $0 }.joined(separator: " · "))
                     .font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
                     .padding(.top, 8)
-                Text(Format.signedMoney(holding.gain)).font(.display(40)).monospacedDigit().foregroundStyle(Theme.lime)
+                CountingText(value: holding.gain ?? 0, format: { Format.signedMoney($0) }).font(.display(40)).monospacedDigit().foregroundStyle(Theme.lime)
                     .displayTrim(40)
                     .padding(.top, 24)
                 HStack(spacing: 8) {
@@ -1112,13 +1200,82 @@ private struct RecentSection: View {
     }
 }
 
-private extension View {
-    /// Runs once when the view first scrolls into sight (iOS 18), or when it appears on iOS 17.
-    @ViewBuilder func onFirstVisible(_ action: @escaping () -> Void) -> some View {
-        if #available(iOS 18, *) {
-            onScrollVisibilityChange(threshold: 0.2) { visible in if visible { action() } }
-        } else {
-            onAppear(perform: action)
+// MARK: - Banners and milestones
+
+struct HomeBanner: Equatable {
+    var id = UUID()
+    var title: String
+    var detail: String?
+    var isMilestone: Bool
+}
+
+/// A slim card that drops in from the top: lime with a glow for milestones, glass for updates.
+private struct BannerView: View {
+    var banner: HomeBanner
+    @State private var glow = false
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: banner.isMilestone ? "sparkles" : "arrow.triangle.2.circlepath")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(banner.isMilestone ? Theme.ink : Theme.lime)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(banner.isMilestone ? banner.title.uppercased() : banner.title)
+                    .font(banner.isMilestone ? .display(17) : .geist(14, .semibold))
+                    .foregroundStyle(banner.isMilestone ? Theme.ink : .white)
+                    .lineLimit(2)
+                if let detail = banner.detail {
+                    Text(detail).font(.geist(12)).foregroundStyle(banner.isMilestone ? Theme.ink.opacity(0.7) : Theme.muted).lineLimit(2)
+                }
+            }
+            Spacer(minLength: 0)
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background {
+            if banner.isMilestone {
+                RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.lime)
+                    .shadow(color: Theme.lime.opacity(glow ? 0.8 : 0.3), radius: glow ? 24 : 10)
+            } else {
+                Color.clear.liquidGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            }
+        }
+        .onAppear {
+            guard banner.isMilestone else { return }
+            withAnimation(.easeOut(duration: 0.35)) { glow = true }
+            withAnimation(.easeIn(duration: 0.8).delay(0.4)) { glow = false }
+        }
+    }
+}
+
+/// The website's milestones: value steps, item counts, and holdings that doubled or more.
+enum Milestones {
+    struct Milestone { var id: String; var title: String; var detail: String?; var rank: Int }
+
+    private static let valueSteps: [Double] = [500, 1_000, 2_500, 5_000, 10_000, 25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000]
+    private static let itemSteps: [Double] = [10, 25, 50, 100, 250, 500, 1_000]
+    private static let gainSteps: [(Double, String)] = [
+        (1, "has doubled since you bought it"), (2, "has tripled since you bought it"),
+        (4, "is up 5× since you bought it"), (9, "is up 10× since you bought it"),
+    ]
+
+    static func reached(summary: PortfolioSummary, holdings: [HoldingView]) -> [Milestone] {
+        var out: [Milestone] = []
+        for (i, step) in valueSteps.enumerated() where summary.value >= step {
+            out.append(Milestone(id: "value:\(Int(step))", title: "Your collection just passed \(Format.money(step).replacingOccurrences(of: ".00", with: ""))",
+                                 detail: "Now worth \(Format.money(summary.value)).", rank: 100 + i))
+        }
+        for (i, step) in itemSteps.enumerated() where summary.items >= step {
+            out.append(Milestone(id: "items:\(Int(step))", title: "\(Int(step)) items in your collection", detail: nil, rank: 50 + i))
+        }
+        for h in holdings where !h.identity.isGraded {
+            guard let r = h.gainRatio, let name = h.product?.name else { continue }
+            for (i, step) in gainSteps.enumerated() where r >= step.0 {
+                let short = name.replacingOccurrences(of: #"\s*\(.*?\)\s*"#, with: " ", options: .regularExpression).trimmingCharacters(in: .whitespaces)
+                out.append(Milestone(id: "gain:\(h.identity.key):\(Int(step.0))", title: "\(short) \(step.1)",
+                                     detail: "Paid \(Format.money(h.costBasis)) · worth \(Format.money(h.value))", rank: 80 + i))
+            }
+        }
+        return out
     }
 }
