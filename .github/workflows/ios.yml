@@ -31,18 +31,35 @@ jobs:
         run: |
           UDID=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for k,v in d.items() if 'iOS' in k for x in v if x['name'].startswith('iPhone')))")
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
-      - name: Build and test
+      # Compile first, on its own, so a build error shows up plainly and quickly.
+      - name: Build
         run: |
           set -o pipefail
-          xcodebuild test \
+          xcodebuild build-for-testing \
             -project Holo.xcodeproj -scheme Holo \
             -destination "id=${{ steps.sim.outputs.udid }}" \
             CODE_SIGNING_ALLOWED=NO \
-            | tee build.log | grep -E "error:|warning: .*(deprecated|unused)|Test Case|\*\* (BUILD|TEST)" || true
-          grep -q "\*\* TEST SUCCEEDED \*\*" build.log
+            | tee build.log | grep --line-buffered -E "error:|\*\* (BUILD|TEST)" || true
+          grep -q "\*\* TEST BUILD SUCCEEDED \*\*" build.log
+      # Then run the tests, with a time limit so a stuck simulator fails fast instead of hanging.
+      - name: Test
+        timeout-minutes: 10
+        run: |
+          set -o pipefail
+          xcrun simctl boot "${{ steps.sim.outputs.udid }}" || true
+          xcodebuild test-without-building \
+            -project Holo.xcodeproj -scheme Holo \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -parallel-testing-enabled NO \
+            -test-timeouts-enabled YES -default-test-execution-time-allowance 60 \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee test.log | grep --line-buffered -E "error:|Test Case|Test Suite|\*\* TEST" || true
+          grep -q "\*\* TEST EXECUTE SUCCEEDED \*\*" test.log || grep -q "\*\* TEST SUCCEEDED \*\*" test.log
       - name: Upload log
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: xcodebuild-log
-          path: ios/build.log
+          path: |
+            ios/build.log
+            ios/test.log
