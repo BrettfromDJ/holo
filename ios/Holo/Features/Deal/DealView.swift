@@ -27,6 +27,14 @@ struct DealView: View {
         deals.deal.incoming.contains { $0.unitPrice(side: rates.in) == nil } || deals.deal.outgoing.contains { $0.unitPrice(side: rates.out) == nil }
     }
 
+    /// Equity taken in has gone negative: every lime accent on the page turns pink as a warning.
+    private var warning: Bool {
+        let t = totals
+        return t.kind != .sell && t.kind != .empty && t.inValue > 0 && t.equity < -0.005
+    }
+
+    private var accent: Color { warning ? Theme.planPink : Theme.lime }
+
     private var todays: [DealRecord] {
         deals.log.filter { Calendar.current.isDateInToday($0.date) }
     }
@@ -45,11 +53,13 @@ struct DealView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
                 .padding(.bottom, 24)
-                .background(alignment: .top) { DealBackdrop() }
+                .background(alignment: .top) { DealBackdrop(accent: accent) }
             }
             .scrollDismissesKeyboard(.interactively)
             .background(Theme.background)
             .replaysAnimations()
+            .animation(.easeInOut(duration: 0.3), value: warning)
+            .tint(accent)
             .navigationBarTitleDisplayMode(.inline)
             .pageTitle("Deal")
             .toolbar {
@@ -102,7 +112,7 @@ struct DealView: View {
                 Text(unpriced ? "Price every item to close" : "Close \(deals.deal.kind.noun.lowercased())")
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(Button3D(kind: .lime, fullWidth: true, height: 48))
+            .buttonStyle(Button3D(kind: warning ? .pink : .lime, fullWidth: true, height: 48))
             .disabled(unpriced)
             .opacity(unpriced ? 0.55 : 1)
         }
@@ -125,7 +135,7 @@ struct DealView: View {
                     HStack(spacing: 8) {
                         Image(systemName: incoming ? "arrow.down.left" : "arrow.up.right")
                             .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(incoming ? Theme.lime : Theme.planPink)
+                            .foregroundStyle(incoming ? accent : Theme.planPink)
                         Text(incoming ? "COMING IN" : "GOING OUT").font(.display(24)).displayTrim(24)
                     }
                     Text(incoming ? "What the customer hands you" : "What you hand over").font(.geist(12)).foregroundStyle(Theme.muted)
@@ -137,12 +147,12 @@ struct DealView: View {
                     .animation(.snappy, value: incoming ? totals.inValue : totals.outValue)
             }
 
-            RateCard(rate: rate, fallback: fallback) { r in
+            RateCard(rate: rate, fallback: fallback, accent: accent) { r in
                 deals.update { d in if incoming { d.rateIn = r } else { d.rateOut = r } }
             }
 
             ForEach(items) { item in
-                DealItemCard(item: item, rate: rate, cost: incoming ? nil : deals.cost(of: item, in: store),
+                DealItemCard(item: item, rate: rate, cost: incoming ? nil : deals.cost(of: item, in: store), accent: accent,
                              onEbay: { ebayItem = item },
                              onRemove: {
                                  withAnimation(.snappy) {
@@ -204,10 +214,12 @@ extension DealSide: Identifiable {
 
 /// The lit grid and soft glows behind the top of the page, like the other tabs.
 private struct DealBackdrop: View {
+    var accent: Color
+
     var body: some View {
         ZStack {
             GridPattern(step: 36, opacity: 0.05)
-            RadialGradient(colors: [Theme.lime.opacity(0.18), .clear], center: UnitPoint(x: 0.2, y: 0.3), startRadius: 0, endRadius: 260)
+            RadialGradient(colors: [accent.opacity(0.18), .clear], center: UnitPoint(x: 0.2, y: 0.3), startRadius: 0, endRadius: 260)
             RadialGradient(colors: [Theme.planBlue.opacity(0.18), .clear], center: UnitPoint(x: 0.9, y: 0.5), startRadius: 0, endRadius: 240)
         }
         .frame(height: 520)
@@ -323,6 +335,7 @@ private struct BalanceCard: View {
 private struct RateCard: View {
     var rate: Double
     var fallback: Double
+    var accent: Color
     var onChange: (Double?) -> Void
 
     var body: some View {
@@ -338,7 +351,7 @@ private struct RateCard: View {
             }
             .font(.geist(14, .medium)).monospacedDigit()
             Slider(value: Binding(get: { rate }, set: { onChange(($0 * 100).rounded() / 100) }), in: 0.4...1.2, step: 0.01)
-                .tint(Theme.lime)
+                .tint(accent)
                 .sensoryFeedback(.selection, trigger: Int((rate * 20).rounded()))
         }
         .padding(14)
@@ -353,6 +366,7 @@ private struct DealItemCard: View {
     var item: DealItem
     var rate: Double
     var cost: Double?
+    var accent: Color
     var onEbay: () -> Void
     var onRemove: () -> Void
     var onChange: (DealItem) -> Void
@@ -476,7 +490,7 @@ private struct DealItemCard: View {
         .padding(.horizontal, 9)
         .frame(height: 30)
         .background(Capsule().fill(on ? Theme.surface3 : Theme.surface2))
-        .overlay(Capsule().strokeBorder(on ? Theme.lime.opacity(0.6) : .clear))
+        .overlay(Capsule().strokeBorder(on ? accent.opacity(0.6) : .clear))
         .disabled(item.market == nil)
         .opacity(item.market == nil ? 0.4 : 1)
     }
@@ -503,7 +517,7 @@ private struct DealItemCard: View {
         .padding(.horizontal, 9)
         .frame(height: 30)
         .background(Capsule().fill(on ? Theme.surface3 : Theme.surface2))
-        .overlay(Capsule().strokeBorder(on ? Theme.lime.opacity(0.6) : .clear))
+        .overlay(Capsule().strokeBorder(on ? accent.opacity(0.6) : .clear))
     }
 
     private func change(_ edit: (inout DealItem) -> Void) {
