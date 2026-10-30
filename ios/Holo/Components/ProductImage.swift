@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// A product's picture, or the website's lime line-art silhouette while it loads or when there is none.
+/// A product's picture, fading in once it has downloaded, or the website's lime line-art
+/// silhouette when there is none.
 struct ProductImage: View {
     var product: Product?
     var cornerRadius: CGFloat = 8
@@ -20,11 +21,14 @@ struct ProductImage: View {
 /// A remote picture that's downloaded once and kept in memory. Unlike AsyncImage it shows a
 /// picture it already has immediately, so it survives views that redraw every frame (the
 /// floating fan, the ticker, the holo card) instead of restarting its download each time.
+/// While downloading it leaves the space empty and fades the picture in when it arrives; the
+/// placeholder only shows when there's no picture or it couldn't be downloaded.
 struct CachedImage<Content: View, Placeholder: View>: View {
     var url: URL?
     @ViewBuilder var content: (Image) -> Content
     @ViewBuilder var placeholder: () -> Placeholder
     @State private var image: UIImage?
+    @State private var failed = false
 
     init(url: URL?, @ViewBuilder content: @escaping (Image) -> Content, @ViewBuilder placeholder: @escaping () -> Placeholder) {
         self.url = url
@@ -34,16 +38,23 @@ struct CachedImage<Content: View, Placeholder: View>: View {
     }
 
     var body: some View {
-        Group {
+        ZStack {
             if let image = image ?? url.flatMap({ ImageCache.shared.cached($0) }) {
-                content(Image(uiImage: image))
-            } else {
+                content(Image(uiImage: image)).transition(.opacity)
+            } else if url == nil || failed {
                 placeholder()
+            } else {
+                Color.clear
             }
         }
         .task(id: url) {
             guard let url, image == nil else { return }
-            if let loaded = await ImageCache.shared.load(url) { image = loaded }
+            failed = false
+            if let loaded = await ImageCache.shared.load(url) {
+                withAnimation(.easeOut(duration: 0.3)) { image = loaded }
+            } else {
+                failed = true
+            }
         }
     }
 }
@@ -71,7 +82,8 @@ final class ImageCache: @unchecked Sendable {
             task = Task {
                 if url.isFileURL { return UIImage(contentsOfFile: url.path) }
                 guard let (data, _) = try? await URLSession.shared.data(from: url) else { return nil }
-                return UIImage(data: data)
+                // Decode here, off the main thread, so scrolling a grid of new pictures stays smooth.
+                return await UIImage(data: data)?.byPreparingForDisplay() ?? UIImage(data: data)
             }
             inFlight[url] = task
         }
