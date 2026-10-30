@@ -510,56 +510,6 @@ struct Silhouette: View {
     }
 }
 
-/// A graded slab: a glassy case with the grading company's label on top.
-struct SlabFrame<Content: View>: View {
-    var company: String
-    var grade: String
-    var product: Product?
-    @ViewBuilder var content: Content
-
-    private var labelColor: Color {
-        switch company.uppercased() {
-        case "PSA": return Color(hex: 0xD7282F)
-        case "CGC": return Color(hex: 0x1E5BB8)
-        case "BGS": return Color(hex: 0x8C8C8C)
-        case "SGC": return Color(hex: 0x111111)
-        default: return Color(hex: 0x333333)
-        }
-    }
-
-    var body: some View {
-        VStack(spacing: 6) {
-            // The label: set and name on the left, grade on the right.
-            HStack(alignment: .top, spacing: 4) {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text((product?.setName ?? "").uppercased()).font(.geist(6.5, .bold)).lineLimit(1)
-                    Text((product?.name ?? "").uppercased()).font(.geist(6.5, .bold)).lineLimit(1)
-                    Rectangle().fill(.black.opacity(0.7)).frame(height: 5).padding(.top, 2).padding(.trailing, 18)
-                }
-                Spacer(minLength: 2)
-                VStack(alignment: .trailing, spacing: 0) {
-                    Text(company.uppercased()).font(.geist(6, .heavy)).foregroundStyle(labelColor)
-                    Text(grade).font(.display(15)).foregroundStyle(.black)
-                }
-            }
-            .foregroundStyle(.black)
-            .padding(5)
-            .background(RoundedRectangle(cornerRadius: 3).fill(.white))
-            .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(labelColor, lineWidth: 2))
-            content
-                .clipShape(RoundedRectangle(cornerRadius: 4))
-                .padding(.horizontal, 4)
-                .padding(.bottom, 4)
-        }
-        .padding(6)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(LinearGradient(colors: [Color(hex: 0x3A3A3E), Color(hex: 0x1C1C1F)], startPoint: .topLeading, endPoint: .bottomTrailing))
-        )
-        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(.white.opacity(0.18), lineWidth: 1))
-    }
-}
-
 // MARK: - Category colors (Sealed blue, Singles pink, Graded lime, as on the website)
 
 enum HoldingCategory: String, CaseIterable, Identifiable {

@@ -31,9 +31,7 @@ struct HoldingArt: View {
 
     var body: some View {
         if let id = identity, id.isGraded, let company = id.gradeCompany, let grade = id.grade {
-            SlabFrame(company: company, grade: grade, product: product) {
-                ProductImage(product: product, cornerRadius: 4, caption: caption).aspectRatio(63.0 / 88.0, contentMode: .fit)
-            }
+            Slab(product: product, company: company, grade: grade)
         } else if product?.isSealed == false, product?.imageURL != nil {
             ProductImage(product: product, cornerRadius: cornerRadius, caption: caption)
         } else {

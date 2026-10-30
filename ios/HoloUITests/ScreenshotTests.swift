@@ -13,6 +13,10 @@ final class ScreenshotTests: XCTestCase {
     func testCardPage() { capture("card-single", args: ["-HoloProduct", "sample:umbreon-vmax-alt"], pages: 4) }
     func testSealedPage() { capture("card-sealed", args: ["-HoloProduct", "sample:es-bb"], pages: 3) }
     func testDeal() { capture("deal", args: ["-HoloTab", "deal"], pages: 1) }
+    // Graded slabs: Home, Collection and a slab's card page in the graded demo.
+    func testGradedHome() { capture("graded-home", args: ["-HoloDemoKind", "graded"], pages: 6) }
+    func testGradedCollection() { capture("graded-collection", args: ["-HoloDemoKind", "graded", "-HoloTab", "collection"], pages: 2) }
+    func testGradedCardPage() { capture("graded-card", args: ["-HoloDemoKind", "graded", "-HoloProduct", "sample:pikachu-ex-ss"], pages: 2) }
 
     private func capture(_ name: String, args: [String], pages: Int) {
         let app = XCUIApplication()
