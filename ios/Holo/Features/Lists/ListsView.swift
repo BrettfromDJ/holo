@@ -12,6 +12,9 @@ struct ListsView: View {
     var body: some View {
         NavigationStack {
             List {
+                PageHeader(title: which.rawValue, subtitle: which == .watchlist ? "Cards you're considering. Tracked separately, never part of your portfolio value." : "Cards and sealed you want to own.")
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
                 Picker("List", selection: $which) {
                     ForEach(Which.allCases, id: \.self) { Text($0.rawValue) }
                 }
@@ -28,7 +31,7 @@ struct ListsView: View {
             }
             .scrollContentBackground(.hidden)
             .background(Theme.background)
-            .navigationTitle("Lists")
+            .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
             .sheet(item: $editingWatch) { w in
                 if let p = store.products[w.product_id] {

@@ -22,6 +22,9 @@ struct DealView: View {
     var body: some View {
         NavigationStack {
             List {
+                Section { PageHeader(title: "Deal", subtitle: "Buys, sells and trades at the table") }
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 4, trailing: 0))
                 Section { BalanceCard(totals: totals) }
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
@@ -35,7 +38,7 @@ struct DealView: View {
             }
             .scrollContentBackground(.hidden)
             .background(Theme.background)
-            .navigationTitle(deals.deal.kind.label)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button { history = true } label: { Image(systemName: "clock.arrow.circlepath") }.accessibilityLabel("Closed deals")
@@ -114,11 +117,14 @@ struct DealView: View {
             .tint(.white)
             .listRowBackground(Color.clear)
         } header: {
-            HStack {
-                Text(incoming ? "Coming in" : "Going out")
+            HStack(alignment: .lastTextBaseline) {
+                Image(systemName: incoming ? "arrow.down.left" : "arrow.up.right").font(.system(size: 15, weight: .bold)).foregroundStyle(Theme.lime)
+                Text(incoming ? "COMING IN" : "GOING OUT").font(.display(26)).foregroundStyle(.white)
                 Spacer()
-                Text(Format.money(incoming ? totals.inValue : totals.outValue)).monospacedDigit()
+                Text(Format.money(incoming ? totals.inValue : totals.outValue)).font(.display(26)).monospacedDigit().foregroundStyle(.white)
             }
+            .textCase(nil)
+            .padding(.top, 10)
         } footer: {
             Text(incoming ? "What the customer hands you." : "What you hand over, from your inventory.")
         }
@@ -171,10 +177,11 @@ private struct BalanceCard: View {
     var body: some View {
         let b = totals.balance
         VStack(alignment: .leading, spacing: 10) {
-            Text(totals.kind == .empty ? "Add items to start" : (abs(b) < 0.005 ? "Even" : (b > 0 ? "Customer pays you" : "You pay the customer")))
-                .font(.caption.weight(.semibold)).foregroundStyle(Theme.muted).textCase(.uppercase)
+            SkewTag(text: totals.kind == .empty ? "New deal" : totals.kind.label, color: .white, textColor: Theme.ink)
+            MonoLabel(text: totals.kind == .empty ? "Add items to start" : (abs(b) < 0.005 ? "Even" : (b > 0 ? "Customer pays you" : "You pay the customer")))
+                .padding(.top, 8)
             Text(Format.money(abs(b)))
-                .font(.system(size: 44, weight: .heavy, design: .rounded)).monospacedDigit()
+                .font(.display(60)).monospacedDigit()
             HStack(spacing: 18) {
                 metric("Coming in", Format.money(totals.inValue), .primary)
                 metric("Going out", Format.money(totals.outValue), .primary)
@@ -188,18 +195,14 @@ private struct BalanceCard: View {
                     .font(.caption).foregroundStyle(Theme.warn)
             }
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            LinearGradient(colors: [Theme.lime.opacity(0.22), Theme.surface], startPoint: .topLeading, endPoint: .bottomTrailing),
-            in: RoundedRectangle(cornerRadius: 22, style: .continuous)
-        )
+        .padding(4)
+        .tinted(Theme.lime, radius: 24)
     }
 
     private func metric(_ label: String, _ value: String, _ tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(label).font(.caption2.weight(.medium)).foregroundStyle(Theme.muted).textCase(.uppercase)
-            Text(value).font(.subheadline.weight(.semibold)).monospacedDigit().foregroundStyle(tint)
+        VStack(alignment: .leading, spacing: 4) {
+            MonoLabel(text: label)
+            Text(value).font(.geist(19, .semibold)).monospacedDigit().foregroundStyle(tint)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

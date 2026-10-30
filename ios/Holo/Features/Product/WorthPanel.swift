@@ -38,7 +38,7 @@ struct WorthPanel: View {
                 let w = worth
                 HStack(alignment: .lastTextBaseline) {
                     Text((w.isEstimate ? "≈ " : "") + Format.money(w.price))
-                        .font(.system(size: 40, weight: .heavy, design: .rounded)).monospacedDigit()
+                        .font(.display(52)).monospacedDigit()
                         .foregroundStyle(Color.primary.opacity(w.isEstimate ? 0.85 : 1))
                         .contentTransition(.numericText())
                     Spacer()

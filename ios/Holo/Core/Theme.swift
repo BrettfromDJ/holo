@@ -32,29 +32,19 @@ extension Color {
     }
 }
 
-/// A rounded panel like the web app's cards.
+/// A card panel, styled like the website's (see Surface).
 struct Panel<Content: View>: View {
-    var padding: CGFloat = 16
+    var padding: CGFloat = 20
     @ViewBuilder var content: Content
 
     var body: some View {
-        content
-            .padding(padding)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color.white.opacity(0.06)))
+        content.surface(padding: padding)
     }
 }
 
-/// The lime call-to-action button.
+/// The lime call-to-action button (3D, like the website's).
 struct LimeButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 16, weight: .semibold))
-            .foregroundStyle(Theme.ink)
-            .frame(maxWidth: .infinity, minHeight: 50)
-            .background(Theme.lime, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .opacity(configuration.isPressed ? 0.85 : 1)
-            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+        Button3D(kind: .lime).makeBody(configuration: configuration)
     }
 }

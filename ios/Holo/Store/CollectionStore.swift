@@ -256,6 +256,9 @@ final class CollectionStore {
 
     func manualValue(_ identity: HoldingIdentity) -> ManualValue? { manualValues[identity.key] }
 
+    /// Whether an entry has been corrected since it was first recorded.
+    func wasEdited(_ t: Txn) -> Bool { transactions.contains { $0.kind == .correction && $0.correctsId == t.id } }
+
     func watch(for productId: String) -> WatchRow? { watchlist.first { $0.product_id == productId } }
     func wish(for productId: String) -> WishItem? { wishlist.first { $0.product.id == productId } }
 
