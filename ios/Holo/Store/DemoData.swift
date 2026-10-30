@@ -30,10 +30,65 @@ enum DemoData {
         Item(slug: "pikachu-ex-ss", name: "Pikachu ex - 238/191", set: "Surging Sparks", type: "Cards", sealed: false, start: 285, now: 371.5, image: card("sv8", "238"), number: "238/191", rarity: "Special Illustration Rare"),
         Item(slug: "charizard-base", name: "Charizard (Base Set)", set: "Base Set", type: "Cards", sealed: false, start: 520, now: 455, image: card("base1", "4"), number: "4/102", rarity: "Holo Rare"),
         Item(slug: "giratina-v-alt", name: "Giratina V (Alternate Full Art)", set: "Lost Origin", type: "Cards", sealed: false, start: 215, now: 318.4, image: card("swsh11", "186"), number: "186/196", rarity: "Ultra Rare"),
+        Item(slug: "rayquaza-vmax-alt", name: "Rayquaza VMAX (Alternate Full Art)", set: "Evolving Skies", type: "Cards", sealed: false, start: 270, now: 548, image: card("swsh7", "218"), number: "218/203", rarity: "Secret Rare"),
+        Item(slug: "mew-ex-gold", name: "Mew ex - 205/165", set: "Scarlet & Violet—151", type: "Cards", sealed: false, start: 44, now: 27.9, image: card("sv3pt5", "205"), number: "205/165", rarity: "Hyper Rare"),
+        Item(slug: "lugia-v-alt", name: "Lugia V (Alternate Full Art)", set: "Silver Tempest", type: "Cards", sealed: false, start: 190, now: 262, image: card("swsh12", "186"), number: "186/195", rarity: "Ultra Rare"),
+        Item(slug: "gengar-vmax-alt", name: "Gengar VMAX (Alternate Art Secret)", set: "Fusion Strike", type: "Cards", sealed: false, start: 310, now: 404, image: card("swsh8", "271"), number: "271/264", rarity: "Secret Rare"),
+        Item(slug: "espeon-vmax-alt", name: "Espeon VMAX (Alternate Art Secret)", set: "Evolving Skies", type: "Cards", sealed: false, start: 320, now: 512, image: card("swsh7", "270"), number: "270/203", rarity: "Secret Rare"),
+        Item(slug: "charizard-ex-of", name: "Charizard ex - 223/197", set: "Obsidian Flames", type: "Cards", sealed: false, start: 72, now: 58.3, image: card("sv3", "223"), number: "223/197", rarity: "Special Illustration Rare"),
+    ]
+
+    typealias Lot = (String, Int, Double, Double, String, String?, String?)
+
+    /// The made-up collection for each demo kind.
+    static func lots(_ kind: DemoKind) -> [Lot] {
+        switch kind {
+        case .mixed: return lots
+        case .sealed: return sealedLots
+        case .singles: return singlesLots
+        case .graded: return gradedLots
+        }
+    }
+
+    static let sealedLots: [Lot] = [
+        ("es-bb", 640, 2, 655, "Near Mint", nil, nil),
+        ("cel-upc", 520, 1, 215, "Near Mint", nil, nil),
+        ("151-upc", 300, 2, 120, "Near Mint", nil, nil),
+        ("ss-bb", 120, 1, 160, "Near Mint", nil, nil),
+        ("pe-etb", 90, 3, 140, "Near Mint", nil, nil),
+        ("cz-etb", 400, 2, 60, "Near Mint", nil, nil),
+        ("pf-tin", 200, 4, 26, "Near Mint", nil, nil),
+        ("jt-pack", 5, 12, 5.5, "Near Mint", nil, nil),
+    ]
+
+    static let singlesLots: [Lot] = [
+        ("umbreon-vmax-alt", 600, 1, 540, "Near Mint", nil, nil),
+        ("rayquaza-vmax-alt", 450, 1, 280, "Near Mint", nil, nil),
+        ("charizard-ex-151", 40, 2, 115, "Near Mint", nil, nil),
+        ("pikachu-ex-ss", 20, 1, 300, "Near Mint", nil, nil),
+        ("charizard-base", 700, 1, 480, "Lightly Played", nil, nil),
+        ("giratina-v-alt", 1, 1, 300, "Near Mint", nil, nil),
+        ("mew-ex-gold", 300, 3, 42, "Near Mint", nil, nil),
+        ("lugia-v-alt", 250, 1, 200, "Moderately Played", nil, nil),
+        ("gengar-vmax-alt", 380, 1, 320, "Near Mint", nil, nil),
+        ("espeon-vmax-alt", 500, 1, 330, "Near Mint", nil, nil),
+        ("charizard-ex-of", 60, 1, 75, "Near Mint", nil, nil),
+    ]
+
+    static let gradedLots: [Lot] = [
+        ("umbreon-vmax-alt", 600, 1, 540, "Near Mint", nil, nil),
+        ("umbreon-vmax-alt", 300, 1, 1900, "Near Mint", "PSA", "10"),
+        ("charizard-base", 700, 1, 2400, "Near Mint", "PSA", "9"),
+        ("pikachu-ex-ss", 3, 1, 330, "Near Mint", "PSA", "10"),
+        ("rayquaza-vmax-alt", 450, 1, 560, "Near Mint", "CGC", "9.5"),
+        ("charizard-ex-151", 40, 2, 115, "Near Mint", nil, nil),
+        ("gengar-vmax-alt", 380, 1, 900, "Near Mint", "BGS", "9.5"),
+        ("mew-ex-gold", 300, 2, 42, "Near Mint", nil, nil),
+        ("giratina-v-alt", 1, 1, 300, "Near Mint", nil, nil),
     ]
 
     /// (slug, days ago, quantity, unit price, condition, grade company, grade)
-    static let lots: [(String, Int, Double, Double, String, String?, String?)] = [
+    static let lots: [Lot] = [
         ("es-bb", 640, 2, 655, "Near Mint", nil, nil),
         ("cel-upc", 520, 1, 215, "Near Mint", nil, nil),
         ("151-upc", 300, 1, 120, "Near Mint", nil, nil),
@@ -85,5 +140,27 @@ private extension String {
         var h: UInt64 = 1469598103934665603
         for b in utf8 { h = (h ^ UInt64(b)) &* 1099511628211 }
         return Int(truncatingIfNeeded: h >> 1)
+    }
+}
+
+/// Which made-up collection demo mode shows.
+enum DemoKind: String, CaseIterable, Identifiable {
+    case mixed, sealed, singles, graded
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .mixed: return "Mixed"
+        case .sealed: return "Sealed only"
+        case .singles: return "Singles only"
+        case .graded: return "Singles + graded"
+        }
+    }
+
+    /// The demo chosen in Account (kept on this phone), or nil for your real collection.
+    static var selected: DemoKind? {
+        get { UserDefaults.standard.string(forKey: "holo.demoKind").flatMap(DemoKind.init(rawValue:)) }
+        set { UserDefaults.standard.set(newValue?.rawValue, forKey: "holo.demoKind") }
     }
 }

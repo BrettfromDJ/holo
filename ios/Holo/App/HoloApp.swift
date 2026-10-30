@@ -35,7 +35,7 @@ struct RootView: View {
                 // Screenshots and tryouts: the made-up collection, no account needed.
                 MainTabView()
                     .onAppear {
-                        store.loadDemo()
+                        store.loadDemo(Demo.value("-HoloDemoKind").flatMap(DemoKind.init(rawValue:)) ?? .mixed)
                         if let id = Demo.value("-HoloProduct") { Router.shared.product = id }
                     }
             } else if !AppConfig.isConfigured {
@@ -50,7 +50,7 @@ struct RootView: View {
                     MainTabView()
                         .task(id: userId) {
                             await PushRegistration.refreshIfAllowed()
-                            await store.load(userId: userId)
+                            if let kind = DemoKind.selected { store.loadDemo(kind) } else { await store.load(userId: userId) }
                             await deals.load(userId: userId)
                         }
                 }

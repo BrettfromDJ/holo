@@ -6,6 +6,7 @@ struct SettingsView: View {
     @State private var confirming = false
     @State private var testing = false
     @State private var testResult: String?
+    @State private var demo: DemoKind? = DemoKind.selected
 
     private var email: String? {
         if case let .signedIn(_, email) = session.state { return email }
@@ -37,6 +38,23 @@ struct SettingsView: View {
                     Text("Notifications")
                 } footer: {
                     Text("Price alerts arrive after the daily price check when a watched card is at or below your target.")
+                }
+                Section {
+                    Picker("Show", selection: $demo) {
+                        Text("My collection").tag(DemoKind?.none)
+                        ForEach(DemoKind.allCases) { kind in Text("Demo: \(kind.title)").tag(DemoKind?.some(kind)) }
+                    }
+                    .onChange(of: demo) { _, kind in
+                        DemoKind.selected = kind
+                        Task {
+                            if let kind { store.loadDemo(kind) }
+                            else if case let .signedIn(userId, _) = session.state { await store.load(userId: userId) }
+                        }
+                    }
+                } header: {
+                    Text("Demo collection")
+                } footer: {
+                    Text("See how the app looks with a made-up collection: sealed only, singles only, singles with graded slabs, or a mix. Prices are made up and nothing you do in a demo is saved. Pick My collection to go back.")
                 }
                 Section("Collection") {
                     LabeledContent("Items", value: "\(Int(store.summary.items))")

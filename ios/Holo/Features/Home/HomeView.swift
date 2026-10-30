@@ -75,6 +75,17 @@ struct HomeView: View {
     private var content: some View {
         VStack(alignment: .leading, spacing: 44) {
             VStack(spacing: 18) {
+                if let demo = store.demo {
+                    // A reminder that this is a made-up collection (switch it in Account).
+                    Button { account = true } label: {
+                        HStack(spacing: 6) {
+                            SkewTag(text: "Demo", color: Theme.planPink, textColor: .white)
+                            Text("\(demo.title) · made-up prices, nothing is saved").font(.geist(12)).foregroundStyle(Theme.muted)
+                            Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.subtle)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
                 MarketPulse(store: store)
                 Button { search = true } label: {
                     HStack(spacing: 10) {
@@ -116,6 +127,7 @@ struct HomeView: View {
     }
 
     private func reload() async {
+        if let kind = store.demo { store.loadDemo(kind); return }
         if case let .signedIn(userId, _) = session.state { await store.load(userId: userId) }
     }
 

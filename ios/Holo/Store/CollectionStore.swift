@@ -69,6 +69,7 @@ final class CollectionStore {
     @MainActor
     func load(userId: String) async {
         self.userId = userId
+        demo = nil
         if status != .ready { status = .loading }
         do {
             let holdingRows: [HoldingRow] = try await all { a, b in
@@ -222,7 +223,11 @@ final class CollectionStore {
     }
 
     /// Fills the store with the made-up demo collection (see DemoData), for screenshots.
-    func loadDemo() {
+    /// The demo collection on screen, or nil when it's your real one. Nothing is saved in a demo.
+    private(set) var demo: DemoKind?
+
+    func loadDemo(_ kind: DemoKind = .mixed) {
+        demo = kind
         var products: [String: Product] = [:]
         var prices: [String: Price] = [:]
         var history: [String: [PricePoint]] = [:]
@@ -243,7 +248,7 @@ final class CollectionStore {
             history[priceKey(p.id, printing)] = pts
         }
         var txns: [Txn] = []
-        for (n, lot) in DemoData.lots.enumerated() {
+        for (n, lot) in DemoData.lots(kind).enumerated() {
             let (slug, daysAgo, qty, unit, condition, company, grade) = lot
             let id = "sample:\(slug)"
             let date = Format.day(Calendar.current.date(byAdding: .day, value: -daysAgo, to: Date()) ?? Date())
@@ -251,10 +256,23 @@ final class CollectionStore {
                             kind: .purchase, date: date, quantity: qty, unitPrice: unit, shipping: 4, createdAt: "\(date)T12:00:00Z",
                             source: n % 3 == 0 ? "Card show" : "TCGplayer"))
         }
+        // Slabs are priced like recent eBay sales for their grade would put them.
+        var graded: [String: Double] = [:]
+        let multiple: [String: Double] = ["PSA 10": 3.2, "PSA 9": 1.6, "CGC 9.5": 1.8, "BGS 9.5": 2.1]
+        for t in txns {
+            guard let label = t.identity.gradeLabel, let m = multiple[label],
+                  let market = prices[priceKey(t.identity.productId, t.identity.printing)]?.market else { continue }
+            graded[t.identity.key] = (market * m * 100).rounded() / 100
+        }
         self.products = products
         self.prices = prices
         self.history = history
         self.transactions = txns
+        self.holdingRows = []
+        self.manualValues = [:]
+        self.ebayGraded = graded
+        self.watchlist = []
+        self.wishlist = []
         self.monthlyBudget = 500
         recompute()
         status = .ready
