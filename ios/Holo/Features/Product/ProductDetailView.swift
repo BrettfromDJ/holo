@@ -138,7 +138,7 @@ struct ProductDetailView: View {
                 }
                 .frame(width: 250, height: 400)
             } else if product?.isSealed == false, product?.imageURL != nil {
-                HoloCard(foil: product?.isFoil == true, textured: true, cornerRadius: 12) {
+                HoloCard(foil: product?.isFoil == true, textured: false, cornerRadius: 12) {
                     ProductImage(product: product, cornerRadius: 0).frame(width: 260, height: 363)
                 }
             } else {
