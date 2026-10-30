@@ -9,7 +9,7 @@ export const maxDuration = 300;
 /**
  * POST /api/admin/cutouts?set=<slug or part of a name>[&limit=N][&redo=1][&dry=1]
  * Removes the white background from a set's sealed product photos with Poof (one credit
- * each). Products that already have a cut-out are left alone unless `redo=1`. `dry=1` only
+ * each), as many as fit in one request at Poof's rate; `remaining` says how many are left. Products that already have a cut-out are left alone unless `redo=1`. `dry=1` only
  * lists what would be done. Needs `Authorization: Bearer <CRON_SECRET>`.
  */
 export async function POST(req: Request) {
@@ -43,11 +43,13 @@ export async function POST(req: Request) {
   if (dry) return NextResponse.json({ set, wouldProcess: todo.map((p) => ({ id: p.id, name: p.name, image: p.image_url })) });
   if (!isPoofConfigured()) return NextResponse.json({ error: "POOF_API_KEY is not set in Vercel." }, { status: 503 });
 
-  const results = await makeCutouts(admin, todo);
+  const { results, remaining } = await makeCutouts(admin, todo);
   return NextResponse.json({
     set,
     done: results.filter((r) => r.status === "done").length,
     failed: results.filter((r) => r.status === "failed").length,
-    results,
+    // Poof's free plan does 4 a minute, so a big set takes a few runs: run the same command again.
+    remaining,
+    failures: results.filter((r) => r.status === "failed"),
   });
 }

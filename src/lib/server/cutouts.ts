@@ -18,6 +18,8 @@ export function isCodeCard(p: Pick<ProductRow, "name" | "product_type" | "rarity
   return /\bcode\s*card\b|\bonline code\b/i.test(`${p.name} ${p.product_type ?? ""} ${p.rarity ?? ""}`);
 }
 
+class RateLimited extends Error {}
+
 /** Ask Poof for the product without its background: a WebP cropped to the product with a little room around it. */
 async function removeBackground(imageUrl: string): Promise<Uint8Array> {
   const form = new FormData();
@@ -28,10 +30,18 @@ async function removeBackground(imageUrl: string): Promise<Uint8Array> {
   const res = await fetch(POOF_URL, { method: "POST", headers: { "x-api-key": process.env.POOF_API_KEY! }, body: form });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
+    if (res.status === 429) throw new RateLimited(body.slice(0, 200));
     throw new Error(`Poof ${res.status}: ${body.slice(0, 200)}`);
   }
   return new Uint8Array(await res.arrayBuffer());
 }
+
+/** TCGplayer serves its product photos at 400px; ask for a bigger copy so cut-outs stay sharp on phones. */
+function largerImage(url: string): string {
+  return url.replace("/fit-in/400x400/", "/fit-in/1000x1000/");
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export interface CutoutResult {
   id: string;
@@ -45,7 +55,14 @@ export interface CutoutResult {
 export async function makeCutout(admin: SupabaseClient<Database>, p: ProductRow): Promise<CutoutResult> {
   if (!p.image_url) return { id: p.id, name: p.name, status: "skipped", error: "no image" };
   try {
-    const bytes = await removeBackground(p.image_url);
+    let bytes: Uint8Array;
+    try {
+      bytes = await removeBackground(largerImage(p.image_url));
+    } catch (e) {
+      // Too many requests is for the caller to wait out; anything else, try the original picture.
+      if (e instanceof RateLimited || largerImage(p.image_url) === p.image_url) throw e;
+      bytes = await removeBackground(p.image_url);
+    }
     const path = `${p.id.replace(/[^a-zA-Z0-9_-]/g, "_")}.webp`;
     const { error: upErr } = await admin.storage.from("cutouts").upload(path, bytes, { contentType: "image/webp", upsert: true });
     if (upErr) throw new Error(upErr.message);
@@ -55,21 +72,42 @@ export async function makeCutout(admin: SupabaseClient<Database>, p: ProductRow)
     if (dbErr) throw new Error(dbErr.message);
     return { id: p.id, name: p.name, status: "done", url };
   } catch (e) {
+    if (e instanceof RateLimited) throw e;
     return { id: p.id, name: p.name, status: "failed", error: (e as Error).message };
   }
 }
 
-/** Cut out a list of products a few at a time. */
-export async function makeCutouts(admin: SupabaseClient<Database>, rows: ProductRow[], concurrency = 4): Promise<CutoutResult[]> {
+/**
+ * Cut out a list of products one at a time, paced to Poof's per-minute limit (POOF_PER_MINUTE,
+ * 4 on the free plan), stopping before the request runs out of time. Run it again to carry on:
+ * finished products are skipped.
+ */
+export async function makeCutouts(
+  admin: SupabaseClient<Database>,
+  rows: ProductRow[],
+  { budgetMs = 270_000 }: { budgetMs?: number } = {},
+): Promise<{ results: CutoutResult[]; remaining: number }> {
+  const perMinute = Number(process.env.POOF_PER_MINUTE) || 4;
+  const gap = Math.ceil(60_000 / perMinute) + 500;
+  const started = Date.now();
   const results: CutoutResult[] = [];
-  let next = 0;
-  await Promise.all(
-    Array.from({ length: Math.min(concurrency, rows.length) }, async () => {
-      while (next < rows.length) {
-        const row = rows[next++];
-        results.push(await makeCutout(admin, row));
-      }
-    }),
-  );
-  return results;
+  let i = 0;
+  while (i < rows.length) {
+    const t = Date.now();
+    try {
+      results.push(await makeCutout(admin, rows[i]));
+      i++;
+    } catch {
+      // Rate limited: wait a whole minute and try the same product again.
+      if (Date.now() - started + 61_000 > budgetMs) break;
+      await sleep(61_000);
+      continue;
+    }
+    if (i < rows.length) {
+      const wait = Math.max(0, gap - (Date.now() - t));
+      if (Date.now() - started + wait + 20_000 > budgetMs) break;
+      await sleep(wait);
+    }
+  }
+  return { results, remaining: rows.length - i };
 }
