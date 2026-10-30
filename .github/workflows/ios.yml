@@ -13,6 +13,12 @@ on:
 permissions:
   contents: write
 
+# A newer push replaces a run that's still waiting or going, so there's never a queue of
+# outdated builds.
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: macos-15
@@ -22,6 +28,22 @@ jobs:
         working-directory: ios
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      # Swift packages (Supabase) are downloaded once and reused.
+      - uses: actions/cache@v4
+        with:
+          path: ios/SourcePackages
+          key: spm-${{ hashFiles('ios/project.yml') }}
+      # The unit tests check the money math; run them only when it (or the tests) changed.
+      - name: What changed
+        id: changed
+        run: |
+          if git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -qE '^ios/(Holo/Domain/|HoloTests/|project.yml)' || ! git rev-parse HEAD~1 >/dev/null 2>&1; then
+            echo "math=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "math=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode_16.4.app || sudo xcode-select -s "$(ls -d /Applications/Xcode_16*.app | sort -V | tail -1)"
       - name: Generate the Xcode project
@@ -42,11 +64,13 @@ jobs:
           xcodebuild build-for-testing \
             -project Holo.xcodeproj -scheme Holo \
             -destination "id=${{ steps.sim.outputs.udid }}" \
+            -clonedSourcePackagesDirPath SourcePackages \
             CODE_SIGNING_ALLOWED=NO \
             | tee build.log | grep --line-buffered -E "error:|\*\* (BUILD|TEST)" || true
           grep -q "\*\* TEST BUILD SUCCEEDED \*\*" build.log
       # Then run the tests, with a time limit so a stuck simulator fails fast instead of hanging.
       - name: Test
+        if: steps.changed.outputs.math == 'true'
         timeout-minutes: 10
         run: |
           set -o pipefail
