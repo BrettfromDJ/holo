@@ -106,6 +106,16 @@ export type WatchlistRow = {
   target_price: number | null;
   notes: string | null;
   created_at: string;
+  /** When the price alert last fired (migration 20261031000000); cleared once the price is back above target. */
+  alerted_at?: string | null;
+};
+
+/** An iPhone's push token (migration 20261031000000). */
+export type DeviceTokenRow = {
+  token: string;
+  user_id: string;
+  environment: "sandbox" | "production";
+  updated_at: string;
 };
 
 export type PreferencesRow = {
@@ -202,6 +212,7 @@ export type Database = {
       shelves: Table<ShelfRow>;
       portfolios: Table<PortfolioRow>;
       user_state: Table<UserStateRow>;
+      device_tokens: Table<DeviceTokenRow>;
       catalog_sets: Table<CatalogSetRow>;
       catalog_games: Table<CatalogGameRow>;
     };

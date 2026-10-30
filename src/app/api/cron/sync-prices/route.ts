@@ -7,6 +7,7 @@ import { PricingUnavailableError } from "@/lib/pricing/types";
 import { loadCollection } from "@/lib/supabase/load";
 import { priceToRow } from "@/lib/supabase/mappers";
 import { getAdminSupabase } from "@/lib/supabase/server";
+import { sendPriceAlerts } from "@/lib/server/price-alerts";
 import type { NormalizedPrice } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,7 @@ export const maxDuration = 300;
  *    product with low concurrency, stopping early if the daily limit is hit.
  * 3. Store current prices and today's price snapshot.
  * 4. Rebuild each user's daily portfolio snapshots from stored prices.
+ * 5. Push a notification for watched cards at or below their target price.
  */
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
@@ -109,7 +111,15 @@ export async function GET(req: Request) {
     }
   }
 
-  return NextResponse.json({ date: today, mode, products: productIds.length, pricesStored: prices.length, usersUpdated, failures });
+  // --- 5. Price alerts -------------------------------------------------------
+  let alerts: Awaited<ReturnType<typeof sendPriceAlerts>> | { error: string };
+  try {
+    alerts = await sendPriceAlerts(admin, prices);
+  } catch (err) {
+    alerts = { error: err instanceof Error ? err.message : "alerts failed" };
+  }
+
+  return NextResponse.json({ date: today, mode, products: productIds.length, pricesStored: prices.length, usersUpdated, alerts, failures });
 }
 
 function round(n: number) {

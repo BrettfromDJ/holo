@@ -39,6 +39,7 @@ Copy `.env.example` to `.env.local`.
 | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | public | Supabase project. Data is protected by RLS. |
 | `SUPABASE_SERVICE_ROLE_KEY` | server | Writes to the shared catalog/price tables and runs the daily sync. |
 | `CRON_SECRET` | server | Authenticates the Vercel Cron call to `/api/cron/sync-prices`. |
+| `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_BUNDLE_ID`, `APNS_PRIVATE_KEY` | server | Push notifications to the iPhone app (price targets hit). Optional; see [ios/README.md](ios/README.md). |
 
 ### Supabase
 

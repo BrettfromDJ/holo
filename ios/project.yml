@@ -29,6 +29,11 @@ targets:
           BUILD=$(date -u +%Y%m%d%H%M)
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD" "${TARGET_BUILD_DIR}/${INFOPLIST_PATH}"
           echo "Build number $BUILD"
+    entitlements:
+      path: Holo/Holo.entitlements
+      properties:
+        # Xcode switches this to production when exporting for TestFlight.
+        aps-environment: development
     info:
       path: Holo/Info.plist
       properties:

@@ -166,7 +166,7 @@ struct WatchSheet: View {
                     LabeledContent("Market now") { Text(Format.money(market)).monospacedDigit() }
                     MoneyField(title: "Target price", text: $target, hint: "Optional")
                 } footer: {
-                    Text("The watchlist shows when it drops to your target.")
+                    Text("With a target, you get a notification when the daily price check finds it at or below it.")
                 }
                 if let error { Section { Text(error).foregroundStyle(Theme.down) } }
             }
@@ -195,6 +195,8 @@ struct WatchSheet: View {
             } else {
                 try await store.addWatch(product, printing: printing, target: MoneyField.value(target))
             }
+            // A target means you'll want to hear when it's hit.
+            if MoneyField.value(target) != nil { await PushRegistration.enable() }
             dismiss()
         } catch {
             self.error = error.localizedDescription

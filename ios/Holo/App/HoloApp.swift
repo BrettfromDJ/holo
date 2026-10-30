@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct HoloApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var session = SessionModel()
     @State private var store = CollectionStore()
     @State private var deals = DealStore()
@@ -36,6 +37,7 @@ struct RootView: View {
                 case let .signedIn(userId, _):
                     MainTabView()
                         .task(id: userId) {
+                            await PushRegistration.refreshIfAllowed()
                             await store.load(userId: userId)
                             await deals.load(userId: userId)
                         }
@@ -70,6 +72,7 @@ struct NotConfiguredView: View {
 struct MainTabView: View {
     @State private var tab = HomeTab.home
     @State private var scanning = false
+    @State private var router = Router.shared
 
     enum HomeTab { case home, collection, scan, deal, explore }
 
@@ -99,5 +102,17 @@ struct MainTabView: View {
             }
         }
         .fullScreenCover(isPresented: $scanning) { ScanView() }
+        // A tapped price alert opens its card.
+        .sheet(item: Binding(get: { router.product.map(OpenProduct.init) }, set: { router.product = $0?.id })) { open in
+            NavigationStack {
+                ProductDetailView(productId: open.id)
+                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { router.product = nil } } }
+                    .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
+            }
+        }
     }
+}
+
+private struct OpenProduct: Identifiable {
+    var id: String
 }
