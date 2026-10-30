@@ -9,7 +9,9 @@ struct DealView: View {
     @State private var picking: DealSide?
     @State private var scanning: DealSide?
     @State private var settings = false
-    @State private var history = false
+    /// One path for everything the Deal tab pushes (closed deals, a deal, a card), so pages
+    /// stack properly instead of reopening each other.
+    @State private var path = NavigationPath()
     @State private var customer = false
     @State private var confirming = false
     @State private var ebayItem: DealItem?
@@ -40,11 +42,11 @@ struct DealView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 32) {
                     VStack(alignment: .leading, spacing: 14) {
-                        if !todays.isEmpty { TodayStrip(deals: todays) { history = true } }
+                        if !todays.isEmpty { TodayStrip(deals: todays) { path.append(DealRoute.history) } }
                         BalanceCard(totals: totals, roundTo: roundTarget, onRound: roundCash)
                     }
                     side(.incoming).reveal()
@@ -65,7 +67,7 @@ struct DealView: View {
             .pageTitle("Deal")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button { history = true } label: { Image(systemName: "clock.arrow.circlepath") }.accessibilityLabel("Closed deals")
+                    Button { path.append(DealRoute.history) } label: { Image(systemName: "clock.arrow.circlepath") }.accessibilityLabel("Closed deals")
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button { customer = true } label: { Image(systemName: "eye") }
@@ -81,9 +83,7 @@ struct DealView: View {
             .sheet(isPresented: $confirming) { DealCloseSheet() }
             .sheet(item: $picking) { side in DealPickerSheet(side: side) }
             .sheet(isPresented: $settings) { DealRatesSheet() }
-            .navigationDestination(isPresented: $history) { DealHistoryView() }
-            // Declared here at the root of the Deal stack: destinations declared on a pushed page
-            // (Closed deals) aren't reliably found, so tapping a deal did nothing.
+            .navigationDestination(for: DealRoute.self) { _ in DealHistoryView() }
             .navigationDestination(for: DealRecord.self) { DealRecordDetail(recordId: $0.id) }
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
             .sheet(isPresented: $customer) { CustomerViewSheet(deal: deals.deal, rates: rates, totals: totals) }
@@ -284,6 +284,9 @@ struct DealView: View {
         return (true, "Added to going out")
     }
 }
+
+/// Pages the Deal tab pushes besides deals and cards.
+enum DealRoute: Hashable { case history }
 
 extension DealSide: Identifiable {
     var id: String { rawValue }
@@ -490,8 +493,6 @@ private struct BalanceCard: View {
             }
             .padding(.top, 8)
 
-            if !empty { BalanceBar(totals: t, ink: ink).padding(.top, 16) }
-
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], alignment: .leading, spacing: 14) {
                 stat("Coming in", .comingIn, Format.money(t.inValue), ink)
                 stat("Going out", .goingOut, Format.money(t.outValue), ink)
@@ -552,68 +553,6 @@ private struct TermInfo: View {
             .padding(16)
             .frame(width: 280, alignment: .leading)
             .presentationCompactAdaptation(.popover)
-        }
-    }
-}
-
-/// What each side puts in, as two bars the same length: your cards (plus cash if you pay)
-/// against theirs (plus cash if they pay). The striped part is the cash that evens it out.
-private struct BalanceBar: View {
-    var totals: DealTotals
-    var ink: Color
-
-    var body: some View {
-        let t = totals
-        let b = t.balance
-        let full = max(t.inValue, t.outValue, 0.01)
-        VStack(alignment: .leading, spacing: 8) {
-            row("You give", items: t.outValue, cash: b < 0 ? -b : 0, full: full)
-            row("You get", items: t.inValue, cash: b > 0 ? b : 0, full: full)
-        }
-        .animation(.snappy, value: t.balance)
-    }
-
-    private func row(_ label: String, items: Double, cash: Double, full: Double) -> some View {
-        HStack(spacing: 10) {
-            Text(label.uppercased()).font(.mono(10)).tracking(1).foregroundStyle(ink.opacity(0.65))
-                .frame(width: 62, alignment: .leading)
-            GeometryReader { geo in
-                let w = geo.size.width
-                HStack(spacing: 2) {
-                    if items > 0 {
-                        RoundedRectangle(cornerRadius: 4, style: .continuous).fill(ink)
-                            .frame(width: max(4, w * items / full - (cash > 0 ? 2 : 0)))
-                    }
-                    if cash > 0.004 {
-                        Stripes(color: ink)
-                            .frame(width: max(4, w * cash / full))
-                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                            .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(ink, lineWidth: 1.2))
-                    }
-                }
-            }
-            .frame(height: 14)
-            Text(cash > 0.004 ? "+ \(Format.money(cash)) cash" : Format.money(items))
-                .font(.geist(11, .semibold)).monospacedDigit().foregroundStyle(ink)
-                .lineLimit(1).fixedSize()
-        }
-    }
-}
-
-/// Diagonal ink stripes: the cash part of a bar.
-private struct Stripes: View {
-    var color: Color
-
-    var body: some View {
-        Canvas { ctx, size in
-            var path = Path()
-            var x: CGFloat = -size.height
-            while x < size.width {
-                path.move(to: CGPoint(x: x, y: size.height))
-                path.addLine(to: CGPoint(x: x + size.height, y: 0))
-                x += 5
-            }
-            ctx.stroke(path, with: .color(color.opacity(0.7)), lineWidth: 1.5)
         }
     }
 }
