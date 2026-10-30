@@ -58,6 +58,7 @@ struct HomeView: View {
     private var content: some View {
         VStack(alignment: .leading, spacing: 44) {
             VStack(spacing: 18) {
+                MarketPulse(store: store)
                 Button { search = true } label: {
                     HStack(spacing: 10) {
                         Image(systemName: "magnifyingglass").font(.system(size: 18)).foregroundStyle(Theme.muted)
