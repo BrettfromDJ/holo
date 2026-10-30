@@ -375,7 +375,7 @@ struct DealCameraView: View {
 }
 
 /// The shutter sinks a little as you press it.
-private struct ShutterStyle: ButtonStyle {
+struct ShutterStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.88 : 1)
@@ -443,25 +443,6 @@ final class DealCamera: NSObject, AVCapturePhotoCaptureDelegate {
         guard let data = photo.fileDataRepresentation(), let image = UIImage(data: data) else { return }
         DispatchQueue.main.async { self.onPhoto?(image) }
     }
-}
-
-/// The live camera picture.
-private struct CameraPreview: UIViewRepresentable {
-    let session: AVCaptureSession
-
-    final class PreviewView: UIView {
-        override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
-        var preview: AVCaptureVideoPreviewLayer { layer as! AVCaptureVideoPreviewLayer }
-    }
-
-    func makeUIView(context: Context) -> PreviewView {
-        let view = PreviewView()
-        view.preview.session = session
-        view.preview.videoGravity = .resizeAspectFill
-        return view
-    }
-
-    func updateUIView(_ view: PreviewView, context: Context) {}
 }
 
 // MARK: - Closed deals

@@ -18,16 +18,7 @@ struct ScanView: View {
         ZStack {
             Color.black.ignoresSafeArea()
             CameraPreview(session: camera.session).ignoresSafeArea()
-            if flash { Color.white.ignoresSafeArea().transition(.opacity) }
-
-            // Shading so the controls read over any picture.
-            VStack {
-                LinearGradient(colors: [.black.opacity(0.6), .clear], startPoint: .top, endPoint: .bottom).frame(height: 160)
-                Spacer()
-                LinearGradient(colors: [.clear, .black.opacity(0.85)], startPoint: .top, endPoint: .bottom).frame(height: 300)
-            }
-            .ignoresSafeArea()
-            .allowsHitTesting(false)
+            if flash { Color.white.opacity(0.7).ignoresSafeArea().transition(.opacity).allowsHitTesting(false) }
 
             VStack(spacing: 0) {
                 topBar
@@ -47,25 +38,28 @@ struct ScanView: View {
         }
     }
 
+    // MARK: Top: close, what you're scanning, scans left (all Liquid Glass)
+
     private var topBar: some View {
-        HStack {
-            Button { dismiss() } label: {
-                Image(systemName: "xmark").font(.system(size: 16, weight: .bold)).frame(width: 40, height: 40).background(.black.opacity(0.45), in: Circle())
-            }
-            .accessibilityLabel("Close")
+        HStack(spacing: 8) {
+            glassCircle("xmark", label: "Close") { dismiss() }
             Spacer()
-            if let dealSide {
-                Text(dealSide == .incoming ? "Coming in" : "Going out")
-                    .font(.footnote.weight(.semibold))
-                    .padding(.horizontal, 12).padding(.vertical, 7)
-                    .background(Theme.lime.opacity(0.9), in: Capsule())
-                    .foregroundStyle(Theme.ink)
+            HStack(spacing: 8) {
+                Circle().fill(dealSide == .outgoing ? Theme.planPink : Theme.lime).frame(width: 7, height: 7)
+                Text(dealSide == nil ? "SCAN CARDS" : (dealSide == .incoming ? "COMING IN" : "GOING OUT"))
+                    .font(.display(16)).tracking(0.6)
             }
-            if let left = model.scansLeft {
-                Text("\(left.formatted()) scans left")
-                    .font(.footnote.weight(.medium)).monospacedDigit()
-                    .padding(.horizontal, 12).padding(.vertical, 7)
-                    .background(.black.opacity(0.45), in: Capsule())
+            .padding(.horizontal, 16).frame(height: 40)
+            .liquidGlass(in: Capsule())
+            Spacer()
+            Group {
+                if let left = model.scansLeft {
+                    Text("\(left.formatted()) left").font(.mono(12)).monospacedDigit()
+                        .padding(.horizontal, 12).frame(height: 40)
+                        .liquidGlass(in: Capsule())
+                } else {
+                    Color.clear.frame(width: 44, height: 40)
+                }
             }
         }
         .foregroundStyle(.white)
@@ -73,106 +67,140 @@ struct ScanView: View {
         .padding(.top, 8)
     }
 
-    /// The card outline, in the open space between the top bar and the controls.
+    // MARK: The card outline: lime corners with a light sweeping down
+
     private var guide: some View {
         GeometryReader { geo in
-            let h = min(geo.size.height * 0.9, geo.size.width * 0.86 * 88 / 63)
-            ZStack(alignment: .topLeading) {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(Theme.lime.opacity(0.9), lineWidth: 2)
-                    .frame(width: h * 63 / 88, height: h)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            let h = min(geo.size.height * 0.88, geo.size.width * 0.8 * 88 / 63)
+            let w = h * 63 / 88
+            ZStack {
+                ScanCorners(radius: 18)
+                    .stroke(Theme.lime, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                    .shadow(color: Theme.lime.opacity(0.7), radius: 8)
+                    .frame(width: w, height: h)
+                ScanSweep(height: h)
+                    .frame(width: w - 16, height: h)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 if model.busy > 0 {
-                    Label("\(model.busy) scanning", systemImage: "arrow.triangle.2.circlepath")
-                        .font(.footnote.weight(.medium))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 10).padding(.vertical, 6)
-                        .background(.black.opacity(0.55), in: Capsule())
-                        .padding(12)
+                    HStack(spacing: 6) {
+                        ProgressView().controlSize(.mini).tint(Theme.lime)
+                        Text("\(model.busy) reading").font(.geist(12, .semibold)).foregroundStyle(.white)
+                    }
+                    .padding(.horizontal, 12).frame(height: 30)
+                    .liquidGlass(in: Capsule())
+                    .frame(width: w, height: h, alignment: .bottom)
+                    .padding(.bottom, 14)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .padding(.vertical, 10)
         .overlay {
             if camera.state == .denied {
-                VStack(spacing: 10) {
-                    Text("Camera access is off").font(.headline)
-                    Text("Turn it on in Settings to scan cards.").font(.callout).foregroundStyle(.white.opacity(0.7))
+                VStack(spacing: 14) {
+                    Image(systemName: "camera.fill").font(.system(size: 30)).foregroundStyle(Theme.lime)
+                    Text("CAMERA IS OFF FOR HOLO").font(.display(22))
+                    Text("Turn it on in Settings to scan cards.").font(.geist(14)).foregroundStyle(Theme.muted)
                     Button("Open Settings") { if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) } }
+                        .buttonStyle(Button3D(kind: .lime, fullWidth: false, height: 44))
                 }
                 .foregroundStyle(.white)
+                .padding(28)
+                .liquidGlass(in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+                .padding(24)
             }
         }
     }
 
+    // MARK: Bottom: the scans so far, then the glass tray with the shutter
+
     private var bottom: some View {
         VStack(spacing: 12) {
             if let blocked = model.blocked {
-                Text(blocked).font(.footnote).foregroundStyle(.white).padding(10).frame(maxWidth: .infinity)
-                    .background(Theme.down.opacity(0.35), in: RoundedRectangle(cornerRadius: 12)).padding(.horizontal, 16)
+                Label(blocked, systemImage: "exclamationmark.triangle.fill")
+                    .font(.geist(13, .medium)).foregroundStyle(.white)
+                    .padding(12).frame(maxWidth: .infinity, alignment: .leading)
+                    .liquidGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), tint: Theme.planPink.opacity(0.4))
+                    .padding(.horizontal, 16)
             }
             if !model.entries.isEmpty {
-                HStack {
-                    Text("\(model.entries.count) scanned")
-                    Spacer()
-                    if !model.picks.isEmpty {
-                        Text("Total ").foregroundStyle(.white.opacity(0.7)) + Text(Format.money(model.total)).bold().foregroundStyle(.white)
-                    }
-                }
-                .font(.footnote).monospacedDigit().foregroundStyle(.white.opacity(0.7))
-                .padding(.horizontal, 20)
-
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: 8) {
-                        ForEach(model.entries) { e in
+                        ForEach(Array(model.entries.reversed())) { e in
                             ScanChip(entry: e) {
                                 if e.state == .failed { model.retry(e.id) } else { focused = e.id; reviewing = true }
                             }
+                            .transition(.scale(scale: 0.6).combined(with: .opacity))
                         }
                     }
                     .padding(.horizontal, 16)
                 }
                 .frame(height: 64)
             }
-
-            HStack {
-                Color.clear.frame(width: 88, height: 44)
-                Spacer()
-                Button(action: shoot) {
-                    ZStack {
-                        Circle().fill(Theme.lime).frame(width: 72, height: 72)
-                        Circle().stroke(Theme.ink.opacity(0.8), lineWidth: 3).frame(width: 58, height: 58)
-                    }
-                    .padding(5)
-                    .background(Theme.lime.opacity(0.25), in: Circle())
-                }
-                .disabled(camera.state != .running || model.blocked != nil)
-                .accessibilityLabel("Scan")
-                Spacer()
-                Button {
-                    // In a deal, scans are already in it: Done just closes the camera.
-                    if dealSide != nil {
-                        dismiss()
-                    } else {
-                        focused = nil
-                        reviewing = true
-                    }
-                } label: {
-                    HStack(spacing: 4) {
-                        Text(dealSide == nil ? "Next" : "Done")
-                        if dealSide == nil { Image(systemName: "arrow.right") }
-                    }
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 88, height: 44)
-                        .background(.black.opacity(0.45), in: Capsule())
-                        .overlay(Capsule().stroke(.white.opacity(0.25)))
-                }
-                .opacity(model.entries.isEmpty ? 0 : 1)
-                .disabled(model.entries.isEmpty)
-            }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 12)
+            tray
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
         }
+        .animation(.spring(response: 0.4, dampingFraction: 0.75), value: model.entries.count)
+    }
+
+    private var tray: some View {
+        HStack {
+            // How many so far and their total.
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(model.entries.count)").font(.display(26)).monospacedDigit().foregroundStyle(.white).displayTrim(26)
+                    .contentTransition(.numericText())
+                Text(model.picks.isEmpty ? "scanned" : Format.money(model.total)).font(.geist(12, .semibold)).monospacedDigit()
+                    .foregroundStyle(model.picks.isEmpty ? Theme.muted : Theme.lime)
+                    .lineLimit(1).minimumScaleFactor(0.7)
+            }
+            .frame(width: 84, alignment: .leading)
+            Spacer()
+            Button(action: shoot) {
+                ZStack {
+                    Circle().strokeBorder(.white, lineWidth: 4).frame(width: 80, height: 80)
+                    Circle().fill(Theme.lime).frame(width: 64, height: 64)
+                        .shadow(color: Theme.lime.opacity(0.6), radius: 12)
+                    Image(systemName: "viewfinder").font(.system(size: 22, weight: .bold)).foregroundStyle(Theme.ink)
+                }
+            }
+            .buttonStyle(ShutterStyle())
+            .disabled(camera.state != .running || model.blocked != nil)
+            .opacity(camera.state != .running || model.blocked != nil ? 0.5 : 1)
+            .accessibilityLabel("Scan")
+            Spacer()
+            Button {
+                // In a deal, scans are already in it: Done just closes the camera.
+                if dealSide != nil {
+                    dismiss()
+                } else {
+                    focused = nil
+                    reviewing = true
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(dealSide == nil ? "Next" : "Done")
+                    if dealSide == nil { Image(systemName: "arrow.right").font(.system(size: 12, weight: .bold)) }
+                }
+            }
+            .buttonStyle(Button3D(kind: .lime, fullWidth: false, height: 44))
+            .frame(width: 84, alignment: .trailing)
+            .opacity(model.entries.isEmpty ? 0 : 1)
+            .disabled(model.entries.isEmpty)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 14)
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 36, style: .continuous))
+    }
+
+    private func glassCircle(_ icon: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon).font(.system(size: 16, weight: .semibold))
+                .frame(width: 44, height: 44)
+                .liquidGlass(in: Circle(), interactive: true)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 
     private func shoot() {
@@ -186,6 +214,58 @@ struct ScanView: View {
             } catch {
                 UINotificationFeedbackGenerator().notificationOccurred(.error)
             }
+        }
+    }
+}
+
+/// Just the four corners of a rounded card outline.
+private struct ScanCorners: Shape {
+    var radius: CGFloat
+
+    func path(in r: CGRect) -> Path {
+        let len = min(r.width, r.height) * 0.16
+        var p = Path()
+        // Top left
+        p.move(to: CGPoint(x: r.minX, y: r.minY + radius + len))
+        p.addLine(to: CGPoint(x: r.minX, y: r.minY + radius))
+        p.addQuadCurve(to: CGPoint(x: r.minX + radius, y: r.minY), control: CGPoint(x: r.minX, y: r.minY))
+        p.addLine(to: CGPoint(x: r.minX + radius + len, y: r.minY))
+        // Top right
+        p.move(to: CGPoint(x: r.maxX - radius - len, y: r.minY))
+        p.addLine(to: CGPoint(x: r.maxX - radius, y: r.minY))
+        p.addQuadCurve(to: CGPoint(x: r.maxX, y: r.minY + radius), control: CGPoint(x: r.maxX, y: r.minY))
+        p.addLine(to: CGPoint(x: r.maxX, y: r.minY + radius + len))
+        // Bottom right
+        p.move(to: CGPoint(x: r.maxX, y: r.maxY - radius - len))
+        p.addLine(to: CGPoint(x: r.maxX, y: r.maxY - radius))
+        p.addQuadCurve(to: CGPoint(x: r.maxX - radius, y: r.maxY), control: CGPoint(x: r.maxX, y: r.maxY))
+        p.addLine(to: CGPoint(x: r.maxX - radius - len, y: r.maxY))
+        // Bottom left
+        p.move(to: CGPoint(x: r.minX + radius + len, y: r.maxY))
+        p.addLine(to: CGPoint(x: r.minX + radius, y: r.maxY))
+        p.addQuadCurve(to: CGPoint(x: r.minX, y: r.maxY - radius), control: CGPoint(x: r.minX, y: r.maxY))
+        p.addLine(to: CGPoint(x: r.minX, y: r.maxY - radius - len))
+        return p
+    }
+}
+
+/// A soft lime light sweeping down the card outline: one repeating offset animation.
+private struct ScanSweep: View {
+    var height: CGFloat
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var down = false
+
+    var body: some View {
+        if !reduceMotion {
+            LinearGradient(colors: [.clear, Theme.lime.opacity(0.28), .clear], startPoint: .top, endPoint: .bottom)
+                .frame(height: 70)
+                .overlay(Rectangle().fill(Theme.lime.opacity(0.7)).frame(height: 1.5))
+                .offset(y: down ? height / 2 : -height / 2)
+                .frame(maxHeight: .infinity)
+                .allowsHitTesting(false)
+                .onAppear {
+                    withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) { down = true }
+                }
         }
     }
 }
@@ -207,8 +287,7 @@ struct ScanChip: View {
             }
             .padding(8)
             .frame(width: 188, height: 64)
-            .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(.white.opacity(0.15)))
+            .liquidGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
     }
