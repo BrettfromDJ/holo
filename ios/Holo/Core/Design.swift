@@ -725,7 +725,7 @@ enum ChartTicks {
     static func domain(_ values: [Double]) -> ClosedRange<Double> {
         guard let lo = values.min(), let hi = values.max() else { return 0 ... 1 }
         let span = max(hi - lo, max(abs(hi) * 0.02, 1))
-        return max(0, lo - span * 0.18) ... hi + span * 0.08
+        return max(0, lo - span * 0.18) ... hi + span * 0.14
     }
 
     /// "$1,234" under ten thousand, "$12.3K" above, like the website.

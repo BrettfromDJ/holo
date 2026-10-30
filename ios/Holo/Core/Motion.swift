@@ -68,7 +68,7 @@ extension View {
     /// Runs once when the view first scrolls into sight (iOS 18), or when it appears on iOS 17.
     @ViewBuilder func onFirstVisible(_ action: @escaping () -> Void) -> some View {
         if #available(iOS 18, *) {
-            onScrollVisibilityChange(threshold: 0.15) { visible in if visible { action() } }
+            onScrollVisibilityChange(threshold: 0.01) { visible in if visible { action() } }
         } else {
             onAppear(perform: action)
         }
