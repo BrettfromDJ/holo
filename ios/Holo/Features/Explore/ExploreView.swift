@@ -18,11 +18,6 @@ struct ExploreView: View {
     var body: some View {
         NavigationStack {
             List {
-                if query.trimmingCharacters(in: .whitespaces).count < 2 {
-                    PageHeader(title: "Explore", subtitle: "Every brand, set, sealed product and single")
-                        .listRowBackground(Color.clear)
-                        .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
-                }
                 if query.trimmingCharacters(in: .whitespaces).count >= 2 {
                     searchResults
                 } else if let failed {
@@ -63,6 +58,7 @@ struct ExploreView: View {
             .background(Theme.background)
             .tabBarClearance()
             .navigationBarTitleDisplayMode(.inline)
+            .pageTitle("Explore")
             .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search cards and sealed, any brand")
             .task { await loadIndex() }
             .task(id: query) { await search() }

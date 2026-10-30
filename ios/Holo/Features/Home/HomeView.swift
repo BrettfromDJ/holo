@@ -57,6 +57,7 @@ struct HomeView: View {
             }
             .toolbarBackground(.hidden, for: .navigationBar)
             .navigationBarTitleDisplayMode(.inline)
+            .pageTitle("Overview")
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
             .sheet(isPresented: $account) { SettingsView() }
             .sheet(isPresented: $lists) { ListsView() }

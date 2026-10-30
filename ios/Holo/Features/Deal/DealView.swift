@@ -22,9 +22,6 @@ struct DealView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section { PageHeader(title: "Deal", subtitle: "Buys, sells and trades at the table") }
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 4, trailing: 0))
                 Section { BalanceCard(totals: totals) }
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
@@ -39,6 +36,7 @@ struct DealView: View {
             .scrollContentBackground(.hidden)
             .background(Theme.background)
             .navigationBarTitleDisplayMode(.inline)
+            .pageTitle("Deal")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button { history = true } label: { Image(systemName: "clock.arrow.circlepath") }.accessibilityLabel("Closed deals")

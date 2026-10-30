@@ -97,6 +97,17 @@ struct PageHeader<Trailing: View>: View {
     }
 }
 
+extension View {
+    /// The page's title, small and centered in the top bar (Anton, uppercase).
+    func pageTitle(_ title: String) -> some View {
+        toolbar {
+            ToolbarItem(placement: .principal) {
+                Text(title.uppercased()).font(.display(19)).tracking(0.6).foregroundStyle(.white)
+            }
+        }
+    }
+}
+
 extension PageHeader where Trailing == EmptyView {
     init(title: String, subtitle: String? = nil, size: CGFloat = 34) {
         self.init(title: title, subtitle: subtitle, size: size, trailing: { EmptyView() })
