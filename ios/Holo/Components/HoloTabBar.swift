@@ -21,7 +21,7 @@ struct HoloTabBar<Tab: Hashable>: View {
         }
         .padding(.horizontal, 6)
         .frame(height: 64)
-        .liquidGlass(in: Capsule(), tint: Theme.background.opacity(0.4), interactive: true)
+        .liquidGlass(in: Capsule(), tint: Theme.background.opacity(0.4))
         .shadow(color: .black.opacity(0.45), radius: 18, y: 8)
         // Drawn over the bar, not inside the glass, so the bar's edge never shows through it.
         .overlay {
@@ -40,7 +40,7 @@ struct HoloTabBar<Tab: Hashable>: View {
                         }
                         .compositingGroup()
                     )
-                    .modifier(ElectricGlow(color: Theme.lime))
+                    .modifier(ElectricGlow(color: Theme.lime, radius: 32))
             }
             .accessibilityLabel("Add")
             .offset(y: -18)
