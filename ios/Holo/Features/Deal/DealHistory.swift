@@ -216,14 +216,16 @@ private struct DealPhotoViewer: View {
             .tabViewStyle(.page(indexDisplayMode: photos.count > 1 ? .always : .never))
             HStack {
                 Button { dismiss() } label: {
-                    Image(systemName: "xmark").font(.system(size: 15, weight: .bold)).frame(width: 40, height: 40).liquidGlass(in: Circle())
+                    Image(systemName: "xmark").font(.system(size: 15, weight: .bold)).frame(width: 40, height: 40).contentShape(Circle())
                 }
+                .background { Color.clear.liquidGlass(in: Circle()).allowsHitTesting(false) }
                 Spacer()
                 Text("\(min(index + 1, photos.count)) of \(photos.count)").font(.geist(13, .semibold)).monospacedDigit().foregroundStyle(.white.opacity(0.8))
                 Spacer()
                 Button { confirmDelete = true } label: {
-                    Image(systemName: "trash").font(.system(size: 15, weight: .bold)).frame(width: 40, height: 40).liquidGlass(in: Circle())
+                    Image(systemName: "trash").font(.system(size: 15, weight: .bold)).frame(width: 40, height: 40).contentShape(Circle())
                 }
+                .background { Color.clear.liquidGlass(in: Circle()).allowsHitTesting(false) }
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 16)
@@ -293,6 +295,10 @@ struct DealCameraView: View {
             .padding(.bottom, 8)
         }
         .statusBarHidden()
+        // Swipe down anywhere to close, as well as the X.
+        .simultaneousGesture(DragGesture(minimumDistance: 30).onEnded { g in
+            if g.translation.height > 120 && abs(g.translation.width) < g.translation.height { dismiss() }
+        })
         .onAppear {
             camera.onPhoto = { image in
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) { shots.append(image) }
@@ -367,10 +373,11 @@ struct DealCameraView: View {
         Button(action: action) {
             Image(systemName: icon).font(.system(size: size * 0.36, weight: .semibold)).foregroundStyle(tint)
                 .frame(width: size, height: size)
-                .liquidGlass(in: Circle())
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
+        // The glass sits behind the button and never takes the touch itself.
+        .background { Color.clear.liquidGlass(in: Circle()).allowsHitTesting(false) }
         .accessibilityLabel(label)
     }
 }

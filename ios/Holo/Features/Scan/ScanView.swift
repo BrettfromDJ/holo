@@ -27,6 +27,10 @@ struct ScanView: View {
             }
         }
         .statusBarHidden()
+        // Swipe down anywhere to close, as well as the X.
+        .simultaneousGesture(DragGesture(minimumDistance: 30).onEnded { g in
+            if g.translation.height > 120 && abs(g.translation.width) < g.translation.height { dismiss() }
+        })
         .onAppear { camera.start() }
         .onDisappear { camera.stop() }
         .task {
@@ -197,10 +201,11 @@ struct ScanView: View {
         Button(action: action) {
             Image(systemName: icon).font(.system(size: 16, weight: .semibold))
                 .frame(width: 44, height: 44)
-                .liquidGlass(in: Circle())
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
+        // The glass sits behind the button and never takes the touch itself.
+        .background { Color.clear.liquidGlass(in: Circle()).allowsHitTesting(false) }
         .accessibilityLabel(label)
     }
 
