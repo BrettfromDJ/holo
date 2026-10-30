@@ -443,7 +443,9 @@ private struct SetView: View {
                         HStack(spacing: 8) {
                             StatTile(label: "Singles", value: Double(singles.count))
                             StatTile(label: "Sealed", value: Double(sealed.count))
-                            StatTile(label: "Set value", value: singles.compactMap(\.market).reduce(0, +), money: true)
+                            if !singles.isEmpty {
+                                StatTile(label: "Set value", value: singles.compactMap(\.market).reduce(0, +), money: true)
+                            }
                         }
                         .padding(.horizontal, 16)
                         if ownedCount > 0 {
@@ -627,7 +629,7 @@ private struct SetHero: View {
         let date = set.release?.formatted(date: .abbreviated, time: .omitted)
         return [
             date.map { upcoming ? "Out \($0)" : "Released \($0)" },
-            productCount > 0 ? "\(productCount) products" : nil,
+            productCount > 0 ? "\(productCount) product\(productCount == 1 ? "" : "s")" : nil,
             ownedCount > 0 ? "\(ownedCount) owned" : nil,
             agoText(updatedAt).map { "prices from \($0)" },
         ].compactMap { $0 }.joined(separator: " · ")
@@ -1129,8 +1131,8 @@ private struct SetArt: View {
                 CachedImage(url: sample) { img in img.resizable().scaledToFit() } placeholder: { icon }
                     .padding(12)
             } else {
-                Text(set.name).font(.geist(12, .semibold)).foregroundStyle(Theme.subtle).multilineTextAlignment(.center)
-                    .lineLimit(3).padding(8)
+                // No art yet (usually an upcoming set): just the mark, since the name is right below.
+                icon
             }
         }
     }
@@ -1322,7 +1324,7 @@ private struct SetTile: View {
     private var subtitle: String {
         let date = set.release?.formatted(.dateTime.month(.abbreviated).day().year())
         if showGame { return [set.gameName, date].compactMap { $0 }.joined(separator: " · ") }
-        let count = set.loaded ? set.productCount.flatMap { $0 > 0 ? "\($0) products" : nil } : nil
+        let count = set.loaded ? set.productCount.flatMap { $0 > 0 ? "\($0) product\($0 == 1 ? "" : "s")" : nil } : nil
         return [date ?? "Undated", count].compactMap { $0 }.joined(separator: " · ")
     }
 
