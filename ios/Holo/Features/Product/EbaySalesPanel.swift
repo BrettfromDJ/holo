@@ -41,15 +41,17 @@ struct EbaySalesPanel: View {
                     if let e = ebay, !e.sales.isEmpty {
                         summary(e)
                         ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 6) {
+                            HStack(spacing: 2) {
                                 ForEach(["All", "Raw"] + grades, id: \.self) { f in
                                     Button(f) { filter = f }
                                         .font(.caption.weight(.semibold))
                                         .padding(.horizontal, 10).padding(.vertical, 6)
-                                        .background(filter == f ? Color.white : Theme.surface2, in: Capsule())
-                                        .foregroundStyle(filter == f ? Theme.ink : .primary)
+                                        .background(filter == f ? Color.white : Color.clear, in: Capsule())
+                                        .foregroundStyle(filter == f ? Theme.ink : Theme.muted)
                                 }
                             }
+                            .padding(3)
+                            .liquidGlass(in: Capsule())
                         }
                         ForEach(Array(shown.prefix(showAll ? 50 : 6))) { s in SaleRow(sale: s) }
                         if shown.count > 6 {

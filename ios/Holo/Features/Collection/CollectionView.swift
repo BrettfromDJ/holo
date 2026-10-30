@@ -150,20 +150,22 @@ struct CollectionView: View {
                 .menuStyle(.button)
                 .buttonStyle(IconButton3D(size: 46))
                 HStack(spacing: 2) {
-                    Button { grid = true } label: { Image(systemName: "square.grid.2x2") }.buttonStyle(IconButton3D(size: 40, active: grid))
-                    Button { grid = false } label: { Image(systemName: "list.bullet") }.buttonStyle(IconButton3D(size: 40, active: !grid))
+                    Button { grid = true } label: { Image(systemName: "square.grid.2x2") }.buttonStyle(IconButton3D(size: 40, active: grid, inTrack: true))
+                    Button { grid = false } label: { Image(systemName: "list.bullet") }.buttonStyle(IconButton3D(size: 40, active: !grid, inTrack: true))
                 }
                 .padding(3)
                 .liquidGlass(in: Capsule())
             }
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
+                HStack(spacing: 2) {
                     Chip(title: "All", selected: category == nil, count: store.holdings.count) { category = nil }
                     ForEach(HoldingCategory.allCases) { c in
                         let n = store.holdings.filter { $0.category == c }.count
                         if n > 0 { Chip(title: c.rawValue, selected: category == c, count: n) { category = c } }
                     }
                 }
+                .padding(4)
+                .liquidGlass(in: Capsule())
                 // Room for the selected chip's glow, which the scroll view would otherwise clip.
                 .padding(.vertical, 12)
                 .padding(.horizontal, 16)

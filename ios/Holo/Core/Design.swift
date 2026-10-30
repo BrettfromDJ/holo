@@ -228,18 +228,23 @@ struct Button3D: ButtonStyle {
 struct IconButton3D: ButtonStyle {
     var size: CGFloat = 44
     var active = false
+    /// One of a set of tabs in a track: when not active it's just the icon, no button behind it.
+    var inTrack = false
 
     func makeBody(configuration: Configuration) -> some View {
         let pressed = configuration.isPressed
+        let bare = inTrack && !active
         configuration.label
             .font(.system(size: 17, weight: .medium))
-            .foregroundStyle(active ? Theme.ink : .white)
+            .foregroundStyle(active ? Theme.ink : (inTrack ? Theme.muted : .white))
             .frame(width: size, height: size)
             .background(
                 ZStack {
-                    Circle().fill(Color(hex: 0x0D0D0F)).offset(y: pressed ? 0 : 3)
-                    Circle().fill(active ? Theme.lime : Theme.surface2)
-                    Circle().fill(LinearGradient(colors: [.white.opacity(0.07), .clear], startPoint: .top, endPoint: .center))
+                    if !bare {
+                        Circle().fill(Color(hex: active ? 0x7A9200 : 0x0D0D0F)).offset(y: pressed ? 0 : 3)
+                        Circle().fill(active ? Theme.lime : Theme.surface2)
+                        Circle().fill(LinearGradient(colors: [.white.opacity(0.07), .clear], startPoint: .top, endPoint: .center))
+                    }
                 }
             )
             .offset(y: pressed ? 2 : -1)
@@ -303,6 +308,7 @@ struct StatPill: View {
 }
 
 /// A selectable chip; the selected one is lime with a 3D edge (website segmented controls).
+/// Put chips in a track (`ChipPicker`, or `.liquidGlass(in: Capsule())` on their row).
 struct Chip: View {
     var title: String
     var selected: Bool
@@ -324,7 +330,8 @@ struct Chip: View {
                         Capsule().fill(Color(hex: 0x7A9200)).offset(y: 2)
                         Capsule().fill(Theme.lime)
                     } else {
-                        Capsule().fill(Theme.surface2)
+                        // Unselected chips are just text; the track behind them shows through.
+                        Capsule().fill(Color.clear)
                     }
                 }
             )

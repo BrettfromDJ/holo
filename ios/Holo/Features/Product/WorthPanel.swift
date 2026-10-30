@@ -60,15 +60,17 @@ struct WorthPanel: View {
                     }
                     .pickerStyle(.segmented)
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 6) {
+                        HStack(spacing: 2) {
                             ForEach(WorthCalc.grades(for: company).reversed(), id: \.self) { g in
                                 Button(g) { grade = g }
                                     .font(.footnote.weight(.semibold)).monospacedDigit()
-                                    .frame(minWidth: 38, minHeight: 34)
-                                    .background(grade == g ? Theme.lime : Theme.surface2, in: RoundedRectangle(cornerRadius: 9))
-                                    .foregroundStyle(grade == g ? Theme.ink : .primary)
+                                    .frame(minWidth: 38, minHeight: 32)
+                                    .background(grade == g ? Theme.lime : Color.clear, in: Capsule())
+                                    .foregroundStyle(grade == g ? Theme.ink : Theme.muted)
                             }
                         }
+                        .padding(3)
+                        .liquidGlass(in: Capsule())
                     }
                 } else {
                     HStack(spacing: 6) {
