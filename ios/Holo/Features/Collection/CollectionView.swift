@@ -98,30 +98,60 @@ struct CollectionView: View {
 
     private var header: some View {
         let s = store.summary
-        return VStack(alignment: .leading, spacing: 14) {
+        let month = Array(store.timeline.suffix(31))
+        let monthChange = (month.last?.value ?? 0) - (month.first?.value ?? 0)
+        let monthTone = monthChange < 0 ? Theme.planPink : Theme.lime
+        return VStack(alignment: .leading, spacing: 18) {
             PageHeader(title: "Collection") {
                 Button { adding = true } label: { Label("Add", systemImage: "plus") }
                     .buttonStyle(Button3D(kind: .dark, fullWidth: false, height: 40))
             }
-            VStack(alignment: .leading, spacing: 4) {
+            // The value, counting up, with the all-time gain beside it.
+            VStack(alignment: .leading, spacing: 8) {
                 MonoLabel(text: "Value")
-                Text(Format.money(s.value)).font(.display(56)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.5)
+                CountingText(value: s.value, format: { Format.money($0) })
+                    .font(.display(56)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.5)
+                    .displayTrim(56)
+                    .shadow(color: .white.opacity(0.12), radius: 18)
+                HStack(spacing: 8) {
+                    DeltaPill(ratio: s.gainRatio, size: 13)
+                    Text(Format.signedMoney(s.gain)).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(s.gain))
+                    Text("all time").font(.geist(13)).foregroundStyle(Theme.muted)
+                }
             }
-            HStack(alignment: .top, spacing: 40) {
-                VStack(alignment: .leading, spacing: 4) {
-                    MonoLabel(text: "Gain")
-                    HStack(spacing: 6) {
-                        Text(Format.signedMoney(s.gain)).font(.geist(18, .semibold)).foregroundStyle(Theme.tone(s.gain))
-                        Text(Format.signedPercent(s.gainRatio)).font(.geist(15, .medium)).foregroundStyle(Theme.tone(s.gain))
+            // The last 30 days, drawing itself in.
+            if month.count > 1 {
+                VStack(alignment: .leading, spacing: 6) {
+                    Sparkline(points: month, color: monthTone).frame(height: 54)
+                    HStack {
+                        MonoLabel(text: "Last 30 days")
+                        Spacer()
+                        Text(Format.signedMoney(monthChange)).font(.geist(12, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(monthChange))
                     }
-                    .monospacedDigit()
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    MonoLabel(text: "Holdings")
-                    Text("\(store.holdings.count)").font(.geist(18, .semibold)).monospacedDigit()
                 }
             }
+            // Glass stat tiles.
+            HStack(spacing: 8) {
+                statTile("Today", Format.signedMoney(s.dayChange), Theme.tone(s.dayChange))
+                statTile("Items", "\(Int(s.items))", .white)
+                statTile("Paid", Format.money(s.totalCost), .white)
+            }
+            AllocationBar(holdings: store.holdings, total: s.value)
         }
+        .background(alignment: .top) {
+            CollectionBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
+        }
+    }
+
+    private func statTile(_ label: String, _ value: String, _ tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            MonoLabel(text: label)
+            Text(value).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(tint).lineLimit(1).minimumScaleFactor(0.7)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private var controls: some View {
@@ -262,5 +292,78 @@ private struct HoldingListRow: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .contentShape(Rectangle())
+    }
+}
+
+/// How the collection's value splits between sealed, singles and graded: one bar that grows in,
+/// in each kind's color, with the shares underneath.
+private struct AllocationBar: View {
+    var holdings: [HoldingView]
+    var total: Double
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var grown = false
+
+    private var parts: [(HoldingCategory, Double)] {
+        guard total > 0 else { return [] }
+        return HoldingCategory.allCases.compactMap { c in
+            let v = holdings.filter { $0.category == c }.reduce(0) { $0 + ($1.value ?? 0) }
+            return v > 0 ? (c, v / total) : nil
+        }
+    }
+
+    var body: some View {
+        let parts = self.parts
+        if !parts.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                GeometryReader { geo in
+                    HStack(spacing: 3) {
+                        ForEach(parts, id: \.0) { c, share in
+                            Capsule().fill(c.color)
+                                .frame(width: max(6, (geo.size.width - CGFloat(parts.count - 1) * 3) * share * (grown || reduceMotion ? 1 : 0)))
+                                .shadow(color: c.color.opacity(0.5), radius: 6)
+                        }
+                    }
+                }
+                .frame(height: 10)
+                HStack(spacing: 14) {
+                    ForEach(parts, id: \.0) { c, share in
+                        HStack(spacing: 6) {
+                            Circle().fill(c.color).frame(width: 7, height: 7)
+                            Text(c.rawValue).font(.geist(12, .medium)).foregroundStyle(Theme.muted)
+                            Text("\(Int((share * 100).rounded()))%").font(.geist(12, .semibold)).monospacedDigit().foregroundStyle(.white)
+                        }
+                    }
+                }
+            }
+            .onAppear { withAnimation(.spring(response: 0.9, dampingFraction: 0.85).delay(0.2)) { grown = true } }
+        }
+    }
+}
+
+/// The lit backdrop behind the top of Collection: the website's faint grid with lime, pink and
+/// blue glows drifting slowly across it, fading out toward the holdings.
+private struct CollectionBackdrop: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var drift = false
+
+    var body: some View {
+        ZStack {
+            GridPattern(step: 36, opacity: 0.05)
+            // Each glow slides between two spots: one offset animation, set once, no redrawing.
+            glow(Theme.lime, 0.22, at: UnitPoint(x: 0.15, y: 0.42), r: 260).offset(x: drift ? 70 : -20, y: drift ? -30 : 30)
+            glow(Theme.planPink, 0.18, at: UnitPoint(x: 0.85, y: 0.18), r: 220).offset(x: drift ? 30 : -50, y: drift ? 40 : 0)
+            glow(Theme.planBlue, 0.18, at: UnitPoint(x: 0.75, y: 0.72), r: 220).offset(x: drift ? -60 : 20, y: drift ? 20 : -20)
+        }
+        .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.7), .init(color: .clear, location: 1)],
+                             startPoint: .top, endPoint: .bottom))
+        .allowsHitTesting(false)
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 9).repeatForever(autoreverses: true)) { drift = true }
+        }
+    }
+
+    private func glow(_ color: Color, _ strength: Double, at center: UnitPoint, r: CGFloat) -> some View {
+        RadialGradient(colors: [color.opacity(strength), .clear], center: center, startRadius: 0, endRadius: r)
     }
 }
