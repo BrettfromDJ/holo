@@ -16,6 +16,7 @@ export function productFromRow(r: ProductRow): Product {
     productType: r.product_type,
     kind: r.kind,
     imageUrl: r.image_url,
+    cutoutUrl: r.cutout_url ?? null,
     tcgplayerId: r.tcgplayer_id,
     tcgplayerUrl: r.tcgplayer_url,
     printings: r.printings ?? [],
