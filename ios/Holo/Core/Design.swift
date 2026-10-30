@@ -538,7 +538,8 @@ extension View {
     func displayTrim(_ size: CGFloat) -> some View { padding(.vertical, -size * 0.27) }
 }
 
-/// A multi-line Anton heading with the website's tight leading (about 0.98).
+/// A multi-line Anton heading with the website's tight leading (about 0.98), wrapped in
+/// balanced lines like the website's `text-wrap: balance`, so a lone word never hangs on the last line.
 struct DisplayText: View {
     var text: String
     var size: CGFloat
@@ -553,13 +554,14 @@ struct DisplayText: View {
     }
 }
 
-/// Lays words out left to right, wrapping onto new lines.
+/// Lays words out left to right, wrapping onto new lines of balanced length: the narrowest width
+/// that still needs no more lines than the full width does.
 private struct WordFlow: Layout {
     var spacing: CGFloat
     var lineGap: CGFloat
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let rows = arrange(width: proposal.width ?? .infinity, subviews: subviews)
+        let rows = balanced(width: proposal.width ?? .infinity, subviews: subviews)
         let width = rows.map { $0.width }.max() ?? 0
         let height = rows.map { $0.height }.reduce(0, +) + lineGap * CGFloat(max(rows.count - 1, 0))
         return CGSize(width: proposal.width.map { min($0, width) } ?? width, height: height)
@@ -567,7 +569,7 @@ private struct WordFlow: Layout {
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         var y = bounds.minY
-        for row in arrange(width: bounds.width, subviews: subviews) {
+        for row in balanced(width: bounds.width, subviews: subviews) {
             var x = bounds.minX
             for i in row.items {
                 let size = subviews[i].sizeThatFits(.unspecified)
@@ -579,6 +581,19 @@ private struct WordFlow: Layout {
     }
 
     private struct Row { var items: [Int] = []; var width: CGFloat = 0; var height: CGFloat = 0 }
+
+    private func balanced(width: CGFloat, subviews: Subviews) -> [Row] {
+        let full = arrange(width: width, subviews: subviews)
+        guard full.count > 1, width.isFinite else { return full }
+        var low = subviews.map { $0.sizeThatFits(.unspecified).width }.max() ?? 0
+        var high = width
+        guard low < high else { return full }
+        while high - low > 1 {
+            let mid = (low + high) / 2
+            if arrange(width: mid, subviews: subviews).count > full.count { low = mid } else { high = mid }
+        }
+        return arrange(width: high, subviews: subviews)
+    }
 
     private func arrange(width: CGFloat, subviews: Subviews) -> [Row] {
         var rows: [Row] = [Row()]

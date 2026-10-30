@@ -81,7 +81,8 @@ struct ProductDetailView: View {
                 Badge(text: product?.isSealed == true ? (product?.productType ?? "Sealed") : "Card", filled: true)
                 if let rarity = product?.rarity { Badge(text: rarity) }
             }
-            Text((product?.name ?? "Loading…").uppercased()).font(.display(42)).lineLimit(4).minimumScaleFactor(0.6)
+            DisplayText(text: (product?.name ?? "Loading…").uppercased(), size: 42)
+                .frame(maxWidth: .infinity, alignment: .leading)
             Text([product?.setName, product?.number.map { "#\($0)" }, printing == "Normal" ? nil : printing].compactMap { $0 }.joined(separator: " · "))
                 .font(.geist(16)).foregroundStyle(Theme.muted)
             Text(Format.money(price?.market)).font(.display(64)).monospacedDigit().padding(.top, 6)
