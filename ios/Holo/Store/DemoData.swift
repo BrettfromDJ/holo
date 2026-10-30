@@ -130,6 +130,48 @@ enum DemoData {
         }
     }
 
+    // MARK: Explore (screenshots only: the real catalog needs the website's API)
+
+    /// The demo sets: (name, pokemontcg.io code, release date). Three made-up sets are upcoming.
+    private static let demoSets: [(String, String?, String)] = [
+        ("Journey Together", "sv9", "2025-03-28"), ("Prismatic Evolutions", "sv8pt5", "2025-01-17"),
+        ("Surging Sparks", "sv8", "2024-11-08"), ("Paldean Fates", "sv4pt5", "2024-01-26"),
+        ("Scarlet & Violet—151", "sv3pt5", "2023-09-22"), ("Obsidian Flames", "sv3", "2023-08-11"),
+        ("Crown Zenith", "swsh12pt5", "2023-01-20"), ("Silver Tempest", "swsh12", "2022-11-11"),
+        ("Lost Origin", "swsh11", "2022-09-09"), ("Fusion Strike", "swsh8", "2021-11-12"),
+        ("Celebrations", "cel25", "2021-10-08"), ("Evolving Skies", "swsh7", "2021-08-27"),
+        ("Base Set", "base1", "1999-01-09"),
+    ]
+
+    static func slug(_ name: String) -> String {
+        name.lowercased().map { $0.isLetter || $0.isNumber ? String($0) : "-" }.joined()
+    }
+
+    static var exploreIndex: ExploreIndex {
+        let day = { (n: Int) in Format.day(Calendar.current.date(byAdding: .day, value: n, to: Date()) ?? Date()) }
+        let upcoming = [("Crystal Tides", 5), ("Starfall Legends", 26), ("Ember Crown", 61)].map { name, days in
+            ExploreSet(slug: slug(name), gameSlug: "pokemon", gameName: "Pokémon", name: name, releaseDate: day(days),
+                       imageUrl: nil, iconUrl: nil, productCount: nil, loaded: false)
+        }
+        let sets = demoSets.map { name, code, date in
+            ExploreSet(slug: slug(name), gameSlug: "pokemon", gameName: "Pokémon", name: name, releaseDate: date,
+                       imageUrl: code.map { "https://images.pokemontcg.io/\($0)/logo.png" }, iconUrl: nil,
+                       productCount: items.filter { $0.set == name }.count, loaded: true)
+        }
+        let game = ExploreGame(slug: "pokemon", name: "Pokémon", logoUrl: "https://images.pokemontcg.io/base1/logo.png",
+                               sets: sets.count + upcoming.count, loadedSets: sets.count, cardCount: items.filter { !$0.sealed }.count)
+        return ExploreIndex(games: [game], sets: upcoming + sets)
+    }
+
+    static func exploreSet(_ slug: String) -> ExploreSetDetail? {
+        guard let set = exploreIndex.sets.first(where: { $0.slug == slug }) else { return nil }
+        let now = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-3 * 3600))
+        let hits = items.filter { $0.set == set.name }.map { i in
+            SearchHit(product: product(i), printing: product(i).printings?.first, market: series(i).last?.price, priceUpdatedAt: now, gameName: "Pokémon")
+        }
+        return ExploreSetDetail(set: set, products: hits)
+    }
+
     private static func local(_ name: String) -> String? { Bundle.main.url(forResource: name, withExtension: "jpg")?.absoluteString }
     private static func card(_ set: String, _ num: String) -> String { "https://images.pokemontcg.io/\(set)/\(num)_hires.png" }
 }

@@ -27,6 +27,11 @@ final class ScreenshotTests: XCTestCase {
     }
 
     func testExplore() { capture("explore", args: ["-HoloTab", "explore"], pages: 3) }
+    // Explore's inner pages, on the made-up catalog.
+    func testExploreSet() { capture("explore-set", args: ["-HoloTab", "explore", "-HoloExplore", "set:evolving-skies"], pages: 4) }
+    func testExploreSealedSet() { capture("explore-set-sealed", args: ["-HoloTab", "explore", "-HoloExplore", "set:prismatic-evolutions"], pages: 2) }
+    func testExploreBrand() { capture("explore-brand", args: ["-HoloTab", "explore", "-HoloExplore", "brand:pokemon"], pages: 3) }
+    func testExploreCalendar() { capture("explore-calendar", args: ["-HoloTab", "explore", "-HoloExplore", "calendar"], pages: 2) }
 
     func testDeal() { capture("deal", args: ["-HoloTab", "deal"], pages: 1) }
     // Graded slabs: Home, Collection and a slab's card page in the graded demo.
