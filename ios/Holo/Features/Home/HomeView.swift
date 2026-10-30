@@ -151,14 +151,18 @@ private struct Hero: View {
             ])
             .padding(.horizontal, 16)
             // The website's floating action bar: your week's recap and the lime add button.
-            HStack(spacing: 8) {
-                Button(action: onRecap) { Label("Your week", systemImage: "play.fill") }
-                    .buttonStyle(Button3D(kind: .dark, height: 48))
-                Button(action: onAdd) { Label("Add to Collection", systemImage: "plus") }
-                    .buttonStyle(Button3D(kind: .lime, height: 48))
-                    .frame(maxWidth: .infinity)
-                    .layoutPriority(1.4)
+            // Widths split 1 : 1.4 like the website, on one line each.
+            GeometryReader { geo in
+                let week = (geo.size.width - 8) / 2.4
+                HStack(spacing: 8) {
+                    Button(action: onRecap) { Label("Your week", systemImage: "play.fill").lineLimit(1) }
+                        .buttonStyle(Button3D(kind: .dark, height: 48))
+                        .frame(width: week)
+                    Button(action: onAdd) { Label("Add to Collection", systemImage: "plus").lineLimit(1) }
+                        .buttonStyle(Button3D(kind: .lime, height: 48))
+                }
             }
+            .frame(height: 52)
             .padding(8)
             .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             .shadow(color: .black.opacity(0.5), radius: 24, y: 12)
@@ -236,7 +240,6 @@ private struct PerformanceSection: View {
     var store: CollectionStore
     @State private var range = Range.month
     @State private var scrubbed: Date?
-    @State private var showCost = false
 
     enum Range: String, CaseIterable {
         case day = "1D", week = "1W", month = "1M", quarter = "3M", year = "1Y", all = "ALL"
@@ -288,19 +291,7 @@ private struct PerformanceSection: View {
                 Text(range.phrase).foregroundStyle(Theme.muted)
             }
             .font(.geist(16, .medium)).monospacedDigit()
-            HStack {
-                Button { showCost.toggle() } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: showCost ? "checkmark.square.fill" : "square").foregroundStyle(showCost ? Theme.lime : Theme.muted)
-                        Text("Cost basis").foregroundStyle(Theme.muted)
-                    }
-                    .font(.geist(13, .medium))
-                }
-                .buttonStyle(.plain)
-                Spacer()
-                ChipPicker(options: Range.allCases.map { ($0, $0.rawValue) }, selection: $range)
-                    .scaleEffect(0.86, anchor: .trailing)
-            }
+            ChipPicker(options: Range.allCases.map { ($0, $0.rawValue) }, selection: $range)
             if points.count > 1 {
                 Chart {
                     ForEach(points) { p in
@@ -311,11 +302,6 @@ private struct PerformanceSection: View {
                             .foregroundStyle(Theme.lime)
                             .lineStyle(StrokeStyle(lineWidth: 2.5))
                             .interpolationMethod(.monotone)
-                        if showCost {
-                            LineMark(x: .value("Day", p.day), y: .value("Cost", p.cost), series: .value("Line", "Cost"))
-                                .foregroundStyle(.white.opacity(0.5))
-                                .lineStyle(StrokeStyle(lineWidth: 1.2, dash: [4, 4]))
-                        }
                     }
                     if let shown {
                         RuleMark(x: .value("Day", shown.day)).foregroundStyle(.white.opacity(0.3))
@@ -371,13 +357,13 @@ private struct MetricGrid: View {
     }
 
     private func card(_ label: String, _ value: String, sub: String?, tint: Color, valueTint: Color, tag: (String, Color, Color)? = nil) -> some View {
+        // The label gets the full width on its own line; the tag sits under the value with the
+        // note, so nothing truncates on a phone.
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                CardLabel(text: label)
-                if let tag { SkewTag(text: tag.0, color: tag.1, textColor: tag.2) }
-            }
+            CardLabel(text: label)
             Text(value).font(.display(30)).monospacedDigit().foregroundStyle(valueTint).lineLimit(1).minimumScaleFactor(0.6)
-            if let sub { Text(sub).font(.geist(13)).foregroundStyle(Theme.muted) }
+            if let tag { SkewTag(text: tag.0, color: tag.1, textColor: tag.2) }
+            if let sub { Text(sub).font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1).minimumScaleFactor(0.8) }
         }
         .frame(maxWidth: .infinity, minHeight: 104, alignment: .topLeading)
         .tinted(tint, border: false)
@@ -650,7 +636,7 @@ private struct CategoryCard: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: -24) {
                     ForEach(Array(items.prefix(3).enumerated()), id: \.element.id) { i, h in
-                        HoldingArt(product: h.product, identity: h.identity, cornerRadius: 8, caption: false)
+                        HoldingArt(product: h.product, identity: h.identity, cornerRadius: 3, caption: false)
                             .frame(width: 70, height: 96)
                             .rotationEffect(.degrees(Double(i - 1) * 8))
                             .zIndex(i == 1 ? 1 : 0)
@@ -759,45 +745,84 @@ private struct MoversSection: View {
 
 private struct RecentSection: View {
     var items: [CollectionStore.RecentPurchase]
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shown = false
+    @State private var pulse = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             PageHeader(title: "Recently added", size: 30)
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
+                    let delay = Double(i) * 0.12
                     NavigationLink(value: item.entry.identity.productId) {
                         HStack(alignment: .top, spacing: 14) {
-                            // The timeline: a line with a dot per entry, the newest lit.
+                            // The timeline: the line draws down entry by entry, each dot pops in as
+                            // it's reached, and the newest keeps a soft lime pulse.
                             VStack(spacing: 0) {
-                                Circle()
-                                    .strokeBorder(i == 0 ? Theme.lime : Theme.subtle, lineWidth: 2)
-                                    .background(Circle().fill(i == 0 ? Theme.lime.opacity(0.35) : Theme.background))
-                                    .frame(width: 14, height: 14)
-                                    .padding(.top, 22)
-                                Rectangle().fill(Theme.border).frame(width: 1).frame(maxHeight: .infinity)
+                                ZStack {
+                                    if i == 0 {
+                                        Circle().stroke(Theme.lime.opacity(0.6), lineWidth: 1.5)
+                                            .frame(width: 14, height: 14)
+                                            .scaleEffect(pulse ? 2.2 : 1)
+                                            .opacity(pulse ? 0 : 0.9)
+                                    }
+                                    Circle()
+                                        .strokeBorder(i == 0 ? Theme.lime : Theme.subtle, lineWidth: 2)
+                                        .background(Circle().fill(i == 0 ? Theme.lime.opacity(0.35) : Theme.background))
+                                        .frame(width: 14, height: 14)
+                                        .scaleEffect(shown ? 1 : 0.2)
+                                        .animation(.spring(response: 0.4, dampingFraction: 0.55).delay(delay), value: shown)
+                                }
+                                .padding(.top, 22)
+                                Rectangle().fill(i == 0 ? Theme.lime.opacity(0.5) : Theme.border).frame(width: i == 0 ? 1.5 : 1)
+                                    .frame(maxHeight: .infinity)
+                                    .scaleEffect(x: 1, y: shown ? 1 : 0, anchor: .top)
+                                    .animation(.easeOut(duration: 0.35).delay(delay + 0.08), value: shown)
                             }
                             .frame(width: 14)
-                            HoldingArt(product: item.product, identity: item.entry.identity, cornerRadius: 8, caption: false)
-                                .frame(width: 48, height: 64)
+                            Group {
+                                HoldingArt(product: item.product, identity: item.entry.identity, cornerRadius: 4, caption: false)
+                                    .frame(width: 48, height: 64)
+                                    .padding(.top, 10)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    MonoLabel(text: Format.isoDay.date(from: item.entry.date)?.formatted(.dateTime.month(.abbreviated).day().year()) ?? item.entry.date)
+                                    Text(item.product?.name ?? "").font(.geist(16, .medium)).lineLimit(1).foregroundStyle(.white)
+                                    Text("\(Int(item.entry.quantity)) × \(Format.money(item.entry.unitPrice)) paid").font(.geist(13)).foregroundStyle(Theme.muted)
+                                }
                                 .padding(.top, 10)
-                            VStack(alignment: .leading, spacing: 3) {
-                                MonoLabel(text: Format.isoDay.date(from: item.entry.date)?.formatted(.dateTime.month(.abbreviated).day().year()) ?? item.entry.date)
-                                Text(item.product?.name ?? "").font(.geist(16, .medium)).lineLimit(1).foregroundStyle(.white)
-                                Text("\(Int(item.entry.quantity)) × \(Format.money(item.entry.unitPrice)) paid").font(.geist(13)).foregroundStyle(Theme.muted)
+                                Spacer(minLength: 4)
+                                VStack(alignment: .trailing, spacing: 3) {
+                                    Text(Format.money(item.value)).font(.display(19)).monospacedDigit().foregroundStyle(.white)
+                                    Text(Format.signedPercent(item.change)).font(.geist(13, .medium)).monospacedDigit().foregroundStyle(Theme.tone(item.change))
+                                }
+                                .padding(.top, 12)
                             }
-                            .padding(.top, 10)
-                            Spacer(minLength: 4)
-                            VStack(alignment: .trailing, spacing: 3) {
-                                Text(Format.money(item.value)).font(.display(19)).monospacedDigit().foregroundStyle(.white)
-                                Text(Format.signedPercent(item.change)).font(.geist(13, .medium)).monospacedDigit().foregroundStyle(Theme.tone(item.change))
-                            }
-                            .padding(.top, 12)
+                            .opacity(shown ? 1 : 0)
+                            .offset(x: shown ? 0 : 24)
+                            .animation(.spring(response: 0.5, dampingFraction: 0.85).delay(delay + 0.04), value: shown)
                         }
                         .frame(minHeight: 92)
                     }
                     .buttonStyle(.plain)
                 }
             }
+            .onFirstVisible { shown = true }
+            .onAppear {
+                if reduceMotion { shown = true; return }
+                withAnimation(.easeOut(duration: 1.6).repeatForever(autoreverses: false)) { pulse = true }
+            }
+        }
+    }
+}
+
+private extension View {
+    /// Runs once when the view first scrolls into sight (iOS 18), or when it appears on iOS 17.
+    @ViewBuilder func onFirstVisible(_ action: @escaping () -> Void) -> some View {
+        if #available(iOS 18, *) {
+            onScrollVisibilityChange(threshold: 0.2) { visible in if visible { action() } }
+        } else {
+            onAppear(perform: action)
         }
     }
 }
