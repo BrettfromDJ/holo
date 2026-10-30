@@ -398,9 +398,10 @@ private struct PerformanceSection: View {
             .font(.geist(16, .medium)).monospacedDigit()
             ChipPicker(options: Range.allCases.map { ($0, $0.rawValue) }, selection: $range)
             if points.count > 1 {
+                let domain = ChartTicks.domain(points.map(\.value))
                 Chart {
                     ForEach(points) { p in
-                        AreaMark(x: .value("Day", p.day), y: .value("Value", p.value))
+                        AreaMark(x: .value("Day", p.day), yStart: .value("Floor", domain.lowerBound), yEnd: .value("Value", p.value))
                             .foregroundStyle(LinearGradient(colors: [Theme.lime.opacity(0.25), Theme.lime.opacity(0)], startPoint: .top, endPoint: .bottom))
                             .interpolationMethod(.monotone)
                         LineMark(x: .value("Day", p.day), y: .value("Value", p.value), series: .value("Line", "Value"))
@@ -415,7 +416,7 @@ private struct PerformanceSection: View {
                 }
                 .chartXAxis(.hidden)
                 .insideYAxis()
-                .chartYScale(domain: .automatic(includesZero: false))
+                .chartYScale(domain: domain)
                 .chartXSelection(value: $scrubbed)
                 .frame(height: 230)
                 .mask(alignment: .leading) {
@@ -812,9 +813,10 @@ struct Sparkline: View {
     var baseline: Double?
 
     var body: some View {
+        let domain = ChartTicks.domain(points.map(\.value) + (baseline.map { [$0] } ?? []))
         Chart {
             ForEach(points) { p in
-                AreaMark(x: .value("Day", p.day), y: .value("Value", p.value))
+                AreaMark(x: .value("Day", p.day), yStart: .value("Floor", domain.lowerBound), yEnd: .value("Value", p.value))
                     .foregroundStyle(LinearGradient(colors: [color.opacity(0.22), .clear], startPoint: .top, endPoint: .bottom))
                     .interpolationMethod(.monotone)
                 LineMark(x: .value("Day", p.day), y: .value("Value", p.value)).foregroundStyle(color).interpolationMethod(.monotone)
@@ -825,7 +827,7 @@ struct Sparkline: View {
         }
         .chartXAxis(.hidden)
         .chartYAxis(.hidden)
-        .chartYScale(domain: .automatic(includesZero: false))
+        .chartYScale(domain: domain)
     }
 }
 
@@ -1013,7 +1015,7 @@ private struct CategoryCard: View {
         let count = items.reduce(0) { $0 + $1.quantity }
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
-                CardLabel(text: category.rawValue, color: category.color)
+                Text(category.rawValue.uppercased()).font(.display(34)).displayTrim(34)
                 SkewTag(text: "\(Int((value / total * 100).rounded()))% of value", color: category.color, textColor: category == .graded ? Theme.ink : .white)
             }
             Text(category.blurb).font(.geist(14)).foregroundStyle(Theme.muted)

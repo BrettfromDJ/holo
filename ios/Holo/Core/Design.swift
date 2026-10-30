@@ -318,8 +318,9 @@ struct SkewTag: View {
     var body: some View {
         HStack(spacing: 4) {
             if let icon { Image(systemName: icon).font(.system(size: 9, weight: .black)) }
-            Text(text.uppercased()).font(.geist(11, .bold)).italic().tracking(0.2)
+            Text(text.uppercased()).font(.geist(11, .bold)).italic().tracking(0.2).lineLimit(1)
         }
+        .fixedSize()
         .foregroundStyle(textColor)
         .padding(.leading, 8)
         .padding(.trailing, 10)
@@ -355,6 +356,8 @@ struct StatPill: View {
             Text(value).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(tint)
             if let extra { Text(extra).font(.geist(15, .medium)).monospacedDigit().foregroundStyle(tint.opacity(0.85)) }
         }
+        .lineLimit(1)
+        .fixedSize()
         .padding(.horizontal, 14)
         .frame(height: 38)
         .liquidGlass(in: Capsule())
@@ -421,6 +424,8 @@ struct DeltaPill: View {
         Text(Format.signedPercent(ratio))
             .font(.geist(size, .semibold)).monospacedDigit()
             .foregroundStyle(t)
+            .lineLimit(1)
+            .fixedSize()
             .padding(.horizontal, 7).padding(.vertical, 3)
             .background(RoundedRectangle(cornerRadius: 6).fill(t.opacity(0.12)))
     }
@@ -715,8 +720,17 @@ enum ChartTicks {
         return out
     }
 
+    /// The chart's vertical range: the data with a little room below and above, never to zero,
+    /// so the line uses the height instead of hugging the top.
+    static func domain(_ values: [Double]) -> ClosedRange<Double> {
+        guard let lo = values.min(), let hi = values.max() else { return 0 ... 1 }
+        let span = max(hi - lo, max(abs(hi) * 0.02, 1))
+        return max(0, lo - span * 0.18) ... hi + span * 0.08
+    }
+
     /// "$1,234" under ten thousand, "$12.3K" above, like the website.
     static func label(_ v: Double) -> String {
+        let v = abs(v) < 0.5 ? 0 : v
         if abs(v) < 10000 { return Format.moneyWhole(v) }
         let (scaled, suffix) = abs(v) >= 1_000_000 ? (v / 1_000_000, "M") : (v / 1000, "K")
         let digits = abs(scaled) >= 100 ? "%.0f" : "%.1f"
@@ -785,12 +799,8 @@ struct CardLabel: View {
     var color: Color = Theme.lime
 
     var body: some View {
-        HStack(spacing: 8) {
-            Circle().fill(color).frame(width: 6, height: 6)
-                .shadow(color: color, radius: 4)
-                .shadow(color: color.opacity(0.6), radius: 8)
-            Text(text.uppercased()).font(.roboto(11)).tracking(1.4).foregroundStyle(.white.opacity(0.5)).lineLimit(1)
-        }
+        // The website's card title: plain, no dot.
+        Text(text).font(.geist(15, .semibold)).foregroundStyle(.white).lineLimit(1)
     }
 }
 

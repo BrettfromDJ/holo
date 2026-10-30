@@ -358,9 +358,10 @@ private struct PriceHistoryCard: View {
                 .scaleEffect(0.86, anchor: .leading)
                 .padding(.top, 12)
             if points.count > 1 {
+                let domain = ChartTicks.domain(points.map(\.price) + buys.map(\.unitPrice))
                 Chart {
                     ForEach(points) { p in
-                        AreaMark(x: .value("Day", p.day), y: .value("Price", p.price))
+                        AreaMark(x: .value("Day", p.day), yStart: .value("Floor", domain.lowerBound), yEnd: .value("Price", p.price))
                             .foregroundStyle(LinearGradient(colors: [Theme.lime.opacity(0.22), .clear], startPoint: .top, endPoint: .bottom))
                             .interpolationMethod(.monotone)
                         LineMark(x: .value("Day", p.day), y: .value("Price", p.price))
@@ -376,7 +377,7 @@ private struct PriceHistoryCard: View {
                 }
                 .chartXAxis(.hidden)
                 .insideYAxis()
-                .chartYScale(domain: .automatic(includesZero: false))
+                .chartYScale(domain: domain)
                 .frame(height: 220)
                 .padding(.top, 12)
             } else {
