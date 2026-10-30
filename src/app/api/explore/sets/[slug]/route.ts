@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
+import { refreshSetIfStale } from "@/lib/server/catalog-sync";
 import { EXPLORE_CACHE, setFromRow, withPrices } from "@/lib/server/explore";
 import { selectAll } from "@/lib/server/paging";
 import type { ProductRow } from "@/lib/supabase/database.types";
@@ -11,6 +12,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   if (!admin) return NextResponse.json({ error: { message: "Explore needs Supabase to be configured." } }, { status: 503 });
   const { data: set } = await admin.from("catalog_sets").select("*").eq("slug", slug).maybeSingle();
   if (!set) return NextResponse.json({ error: { message: "Set not found." } }, { status: 404 });
+  // Prices more than a day old: refresh this set after answering, so the next look is current.
+  after(() => refreshSetIfStale(admin, set).catch(() => {}));
   if (new URL(req.url).searchParams.get("meta")) return NextResponse.json({ set: setFromRow(set) }, { headers: { "cache-control": EXPLORE_CACHE } });
   let rows: ProductRow[];
   try {

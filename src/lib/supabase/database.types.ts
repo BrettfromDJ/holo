@@ -163,6 +163,11 @@ export type CatalogSetRow = {
   products_synced_at: string | null;
 };
 
+export type CatalogSyncUsageRow = {
+  day: string;
+  calls: number;
+};
+
 export type CatalogGameRow = {
   slug: string;
   name: string;
@@ -215,6 +220,7 @@ export type Database = {
       device_tokens: Table<DeviceTokenRow>;
       catalog_sets: Table<CatalogSetRow>;
       catalog_games: Table<CatalogGameRow>;
+      catalog_sync_usage: Table<CatalogSyncUsageRow>;
     };
     Views: {
       purchase_lots: {

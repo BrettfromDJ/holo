@@ -455,6 +455,9 @@ private struct ResultRow: View, Equatable {
                             .font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
                         HStack(spacing: 6) {
                             Text(Format.money(hit.market)).font(.geist(14, .semibold)).monospacedDigit().foregroundStyle(.white)
+                            if let age = Format.priceAge(hit.priceUpdatedAt) {
+                                Text(age).font(.geist(11)).foregroundStyle(Theme.subtle)
+                            }
                             if owned {
                                 Label("Owned", systemImage: "checkmark").font(.geist(11, .semibold)).foregroundStyle(Theme.lime)
                             }

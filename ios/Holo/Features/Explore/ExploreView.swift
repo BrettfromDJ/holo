@@ -745,6 +745,7 @@ private struct SetProductTile: View {
                     Text("No price").font(.geist(13)).foregroundStyle(Theme.subtle)
                 }
                 if let perPack { Text("\(Format.money(perPack))/pack").font(.geist(12)).foregroundStyle(Theme.muted) }
+                if let age = Format.priceAge(hit.priceUpdatedAt) { Text(age).font(.geist(11)).foregroundStyle(Theme.subtle) }
             }
             .lineLimit(1)
             .padding(.top, 6)
