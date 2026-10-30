@@ -470,21 +470,20 @@ private struct BudgetCard: View {
                     }
                     .monospacedDigit().lineLimit(1).minimumScaleFactor(0.8)
                 }
-                Spacer(minLength: 0)
-            }
-            HStack(spacing: 12) {
-                if let remaining {
-                    (Text(Format.money(abs(remaining))).fontWeight(.medium).foregroundStyle(tone)
-                        + Text(over ? " over budget" : " left").foregroundStyle(Theme.muted))
-                        .font(.geist(13)).monospacedDigit()
-                }
+                Spacer(minLength: 8)
+                // Edit sits in the card's top-right corner.
                 Button {
                     draft = budget.map { String(format: "%.0f", $0) } ?? ""
                     editing = true
                 } label: {
-                    if budget != nil { Label("Edit", systemImage: "pencil") } else { Text("Set a monthly budget") }
+                    if budget != nil { Label("Edit", systemImage: "pencil") } else { Text("Set budget") }
                 }
-                .buttonStyle(Button3D(kind: .dark, fullWidth: false, height: 36))
+                .buttonStyle(Button3D(kind: .dark, fullWidth: false, height: 34))
+            }
+            if let remaining {
+                (Text(Format.money(abs(remaining))).fontWeight(.medium).foregroundStyle(tone)
+                    + Text(over ? " over budget" : " left").foregroundStyle(Theme.muted))
+                    .font(.geist(13)).monospacedDigit()
             }
             if let used {
                 GeometryReader { geo in
