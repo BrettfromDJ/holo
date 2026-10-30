@@ -451,10 +451,27 @@ private struct PriceHistoryCard: View {
                 .frame(height: 220)
                 .padding(.top, 12)
             } else {
-                VStack(spacing: 4) {
-                    Text("Not enough price history yet").font(.geist(13, .medium))
-                    Text("Holo stores a daily snapshot for products you own or watch, so this chart fills in over time. Missing days are never filled with estimates.")
-                        .font(.geist(13)).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
+                let load = store.historyLoad[priceKey(productId, printing)]
+                VStack(spacing: 8) {
+                    if load == .loading {
+                        HStack(spacing: 8) {
+                            ProgressView().controlSize(.small).tint(Theme.muted)
+                            Text("Loading price history…").font(.geist(13, .medium))
+                        }
+                    } else {
+                        if case let .note(note) = load {
+                            Text(note).font(.geist(13, .medium)).multilineTextAlignment(.center)
+                        } else {
+                            Text("Not enough price history yet").font(.geist(13, .medium))
+                        }
+                        Text("Holo stores a daily snapshot for products you own or watch, so this chart fills in over time. Missing days are never filled with estimates.")
+                            .font(.geist(13)).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
+                        if case let .failed(message) = load {
+                            Text(message).font(.geist(12)).foregroundStyle(Theme.warn).multilineTextAlignment(.center)
+                            Button("Try again") { Task { await store.loadFullHistory(productId, printing: printing, retry: true) } }
+                                .buttonStyle(Button3D(kind: .dark, fullWidth: false, height: 36))
+                        }
+                    }
                 }
                 .padding(.horizontal, 24)
                 .frame(maxWidth: .infinity, minHeight: 220)

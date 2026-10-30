@@ -230,18 +230,39 @@ final class CollectionStore {
     /// TCG API call the first time anyone asks, then keeps it for everyone.
     @ObservationIgnored private var historyAsked: Set<String> = []
 
+    enum HistoryLoad: Equatable { case loading, failed(String), note(String) }
+    /// What's happening with a price history being fetched, by price key, for the chart to show.
+    var historyLoad: [String: HistoryLoad] = [:]
+
     @MainActor
-    func loadFullHistory(_ id: String, printing: String?) async {
-        guard demo == nil, id.hasPrefix("tcgapi:") else { return }
+    func loadFullHistory(_ id: String, printing: String?, retry: Bool = false) async {
+        // Prices are shared by everyone, so this works in a demo collection too; only the
+        // screenshot demo (no server) skips it.
+        guard !Demo.isOn, id.hasPrefix("tcgapi:") else { return }
         let key = priceKey(id, printing)
         let have = history[key] ?? []
         // Already reaches back two months: nothing to fetch.
         if let first = have.first?.date, let start = Format.isoDay.date(from: first),
            start <= Calendar.current.date(byAdding: .day, value: -60, to: Date()) ?? Date() { return }
-        guard !historyAsked.contains(key) else { return }
+        guard retry || !historyAsked.contains(key) else { return }
         historyAsked.insert(key)
-        guard let res = try? await Backend.shared.api.priceHistory(id, printing: printing), !res.points.isEmpty else { return }
-        history[key] = Self.onePerDay((history[key] ?? []) + res.points)
+        historyLoad[key] = .loading
+        do {
+            let res = try await Backend.shared.api.priceHistory(id, printing: printing)
+            if !res.available {
+                historyLoad[key] = .note(res.reason ?? "Price history isn't available right now.")
+                return
+            }
+            guard !res.points.isEmpty else {
+                historyLoad[key] = .note("No price history is available for this product yet.")
+                return
+            }
+            historyLoad[key] = nil
+            history[key] = Self.onePerDay((history[key] ?? []) + res.points)
+        } catch {
+            historyLoad[key] = .failed(error.localizedDescription)
+            return
+        }
         // It may change what your collection was worth on past days.
         if holdings.contains(where: { $0.identity.productId == id }) { recompute() }
     }

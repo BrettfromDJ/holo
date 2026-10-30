@@ -7,7 +7,7 @@ import { BumperButton, CertDialog, GradeChip, SendToGraderDialog, SlabCard, useA
 import { Calculator, Check, ChevronDown, ChevronLeft, ExternalLink, Eye, EyeOff, Layers, Loader2, MoreHorizontal, Package, Plus, Tag } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ScrubChart, type ChartMarker } from "@/components/charts/scrub-chart";
 import { SellCalculatorDialog } from "@/components/flows/sell-calculator";
@@ -348,39 +348,42 @@ function PerPack({ product, price }: { product: Product; price: number | null })
   );
 }
 
-/** Fetch a product's full price history once (one TCG API request, then stored for everyone). */
-function LoadHistoryButton({ productId, printing }: { productId: string; printing: string | null }) {
+/**
+ * Load a product's full price history automatically when the page opens and Holo has less
+ * than two months of it (the app does the same). The server answers from storage when it can
+ * and otherwise makes one TCG API request, then stores it for everyone. Asked once per
+ * product and printing per visit.
+ */
+const askedHistory = new Set<string>();
+function useFullHistory(productId: string, printing: string | null, needed: boolean) {
   const { mergeHistory } = useStore();
-  const [state, setState] = useState<"idle" | "loading" | "done">("idle");
-  return (
-    <Button
-      variant="secondary"
-      size="sm"
-      disabled={state !== "idle"}
-      onClick={async () => {
-        setState("loading");
-        try {
-          const res = await fetch(`/api/explore/products/${encodeURIComponent(productId)}/history`, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ printing }),
-          });
-          const body = await res.json().catch(() => null);
-          if (!res.ok) throw new Error(body?.error?.message ?? "Couldn't load price history.");
-          mergeHistory(productId, printing, body.points ?? []);
-          if (!body.available) toast(body.reason ?? "Your TCG API plan doesn't include price history.");
-          else if (!body.points?.length) toast("No price history is available for this product.");
-          setState("done");
-        } catch (e) {
-          toast.error((e as Error).message);
-          setState("idle");
-        }
-      }}
-    >
-      {state === "loading" ? <Loader2 className="animate-spin" /> : null}
-      {state === "done" ? "History loaded" : "Load full price history"}
-    </Button>
-  );
+  const [state, setState] = useState<{ status: "idle" | "loading" | "done" | "error"; note?: string }>({ status: "idle" });
+  const load = useCallback(async () => {
+    setState({ status: "loading" });
+    try {
+      const res = await fetch(`/api/explore/products/${encodeURIComponent(productId)}/history`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ printing }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error?.message ?? "Couldn't load price history.");
+      mergeHistory(productId, printing, body.points ?? []);
+      setState({
+        status: "done",
+        note: !body.available ? (body.reason ?? "Price history isn't available right now.") : !body.points?.length ? "No price history is available for this product." : undefined,
+      });
+    } catch (e) {
+      setState({ status: "error", note: (e as Error).message });
+    }
+  }, [productId, printing, mergeHistory]);
+  useEffect(() => {
+    const key = `${productId}|${printing ?? ""}`;
+    if (!needed || askedHistory.has(key)) return;
+    askedHistory.add(key);
+    void load();
+  }, [productId, printing, needed, load]);
+  return { ...state, retry: load };
 }
 
 function PriceHistory({ productId, printing }: { productId: string; printing: string | null }) {
@@ -404,6 +407,7 @@ function PriceHistory({ productId, printing }: { productId: string; printing: st
 
   // Few stored days and a real catalog product: offer the one-time full history fetch.
   const canLoadHistory = productId.startsWith("tcgapi:") && !(series[0] && series[0].date <= addDays(today, -60));
+  const full = useFullHistory(productId, printing, canLoadHistory);
   const first = sliced[0];
   const at = scrub !== null && sliced[scrub] ? sliced[scrub] : sliced[sliced.length - 1];
   const change = first && at ? at.price - first.price : null;
@@ -444,14 +448,22 @@ function PriceHistory({ productId, printing }: { productId: string; printing: st
           <ScrubChart data={sliced.map((p) => ({ date: p.date, value: p.price }))} tone={tone(sliced[sliced.length - 1].price - sliced[0].price)} baseline={sliced[0].price} onScrub={setScrub} height={220} markers={markers} />
         ) : (
           <div className="flex h-[220px] flex-col items-center justify-center rounded-2xl border border-dashed border-border px-6 text-center text-[13px] text-muted">
-            <p className="font-medium text-foreground">Not enough price history yet</p>
-            <p className="mt-1 max-w-sm">
-              Holo stores a daily snapshot for products you own or watch, so this chart fills in over time. Missing days are never filled with estimates.
-            </p>
-            {canLoadHistory && (
-              <div className="mt-4">
-                <LoadHistoryButton productId={productId} printing={printing} />
-              </div>
+            {full.status === "loading" ? (
+              <p className="flex items-center gap-2 font-medium text-foreground">
+                <Loader2 className="size-4 animate-spin" /> Loading price history…
+              </p>
+            ) : (
+              <>
+                <p className="font-medium text-foreground">{full.note ?? "Not enough price history yet"}</p>
+                <p className="mt-1 max-w-sm">
+                  Holo stores a daily snapshot for products you own or watch, so this chart fills in over time. Missing days are never filled with estimates.
+                </p>
+                {full.status === "error" && (
+                  <Button variant="secondary" size="sm" className="mt-4" onClick={() => void full.retry()}>
+                    Try again
+                  </Button>
+                )}
+              </>
             )}
           </div>
         )}
@@ -469,10 +481,10 @@ function PriceHistory({ productId, printing }: { productId: string; printing: st
         )}
         {isSample ? "Sample series for demonstration — not market data." : `${series.length} daily observation${series.length === 1 ? "" : "s"} · gaps are shown as-is, never interpolated`}
       </p>
-      {canLoadHistory && sliced.length > 1 && (
-        <div className="mt-3">
-          <LoadHistoryButton productId={productId} printing={printing} />
-        </div>
+      {full.status === "loading" && sliced.length > 1 && (
+        <p className="mt-2 flex items-center gap-1.5 text-[12px] text-muted">
+          <Loader2 className="size-3 animate-spin" /> Loading the full history…
+        </p>
       )}
     </Card>
   );
