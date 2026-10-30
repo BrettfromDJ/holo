@@ -164,15 +164,30 @@ struct DealCloseSheet: View {
     private var totals: DealTotals { DealTotals(deal, rates: rates, cost: { deals.cost(of: $0, in: store) }) }
 
     var body: some View {
+        Group {
+            if phase == .done {
+                RecordedScreen(totals: recorded ?? totals, deal: deal, demo: store.demo != nil) { dismiss() }
+            } else {
+                reviewBody
+            }
+        }
+        .presentationDetents([.large])
+        .presentationDragIndicator(.hidden)
+        .interactiveDismissDisabled(phase == .recording)
+        .onAppear {
+            deal = deals.deal
+            rates = deals.rates
+        }
+    }
+
+    private var reviewBody: some View {
         let t = totals
         let b = t.balance
         VStack(alignment: .leading, spacing: 0) {
             Capsule().fill(Color.white.opacity(0.2)).frame(width: 40, height: 5).frame(maxWidth: .infinity).padding(.top, 8)
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
-                    if phase == .done {
-                        RecordedCard(totals: recorded ?? t, deal: deal, demo: store.demo != nil)
-                    } else {
+                    Group {
                         VStack(alignment: .leading, spacing: 8) {
                             SkewTag(text: t.kind.label)
                             DisplayText(text: "CLOSE THIS \(t.kind.noun.uppercased())?", size: 30)
@@ -208,9 +223,7 @@ struct DealCloseSheet: View {
                 .padding(.bottom, 16)
             }
             VStack(spacing: 8) {
-                if phase == .done {
-                    Button("Done") { dismiss() }.buttonStyle(Button3D(kind: .dark))
-                } else {
+                Group {
                     Button { Task { await close() } } label: {
                         HStack(spacing: 8) {
                             if phase == .recording { ProgressView().tint(Theme.ink) }
@@ -228,13 +241,6 @@ struct DealCloseSheet: View {
             .padding(.bottom, 12)
         }
         .background(Theme.background)
-        .presentationDetents([.large])
-        .presentationDragIndicator(.hidden)
-        .interactiveDismissDisabled(phase == .recording)
-        .onAppear {
-            deal = deals.deal
-            rates = deals.rates
-        }
     }
 
     private func sideRow(_ side: DealSide, _ items: [DealItem], _ value: Double) -> some View {
@@ -297,12 +303,13 @@ struct DealCloseSheet: View {
     }
 }
 
-/// The deal, recorded: an electric-lime card (pink if the equity taken in was negative) that
-/// stamps a check, fans the items in like a hand of cards and counts the profit up.
-private struct RecordedCard: View {
+/// The deal, recorded: the whole screen goes electric lime (pink if the equity taken in was
+/// negative), a check stamps in, the items fan in like a hand of cards and the profit counts up.
+private struct RecordedScreen: View {
     var totals: DealTotals
     var deal: DealState
     var demo: Bool
+    var onDone: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shown = false
 
@@ -312,83 +319,91 @@ private struct RecordedCard: View {
         let fill = down ? Theme.planPink : Theme.lime
         let ink = down ? Color.white : Theme.ink
         let items = Array((deal.outgoing + deal.incoming).prefix(7))
-        let shape = RoundedRectangle(cornerRadius: 30, style: .continuous)
-        VStack(spacing: 22) {
-            // The stamp.
-            Image(systemName: "checkmark")
-                .font(.system(size: 34, weight: .black))
-                .foregroundStyle(fill)
-                .frame(width: 84, height: 84)
-                .background(Circle().fill(ink))
-                .scaleEffect(shown ? 1 : 0.4)
-                .rotationEffect(.degrees(shown ? 0 : -25))
-                .opacity(shown ? 1 : 0)
-            VStack(spacing: 6) {
-                Text(demo ? "DEMO · NOTHING SAVED" : "IN YOUR COLLECTION").font(.mono(11)).tracking(1.4).foregroundStyle(ink.opacity(0.65))
-                Text("\(t.kind.noun.uppercased()) RECORDED").font(.display(42)).foregroundStyle(ink)
-                    .multilineTextAlignment(.center).displayTrim(42)
-            }
-            // What changed hands, fanned out.
-            if !items.isEmpty {
-                ZStack {
-                    ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
-                        let mid = Double(items.count - 1) / 2
-                        let off = Double(i) - mid
-                        HoldingArt(product: item.product, identity: nil, cornerRadius: 4, caption: false)
-                            .frame(width: 62, height: 86)
-                            .shadow(color: .black.opacity(0.35), radius: 8, y: 6)
-                            .rotationEffect(.degrees(shown ? off * 8 : 0), anchor: .bottom)
-                            .offset(x: shown ? off * 30 : 0, y: shown ? abs(off) * 5 : 40)
-                            .opacity(shown ? 1 : 0)
-                            .animation(reduceMotion ? nil : .spring(response: 0.55, dampingFraction: 0.7).delay(0.15 + Double(i) * 0.05), value: shown)
+        let count = deal.incoming.reduce(0) { $0 + $1.qty } + deal.outgoing.reduce(0) { $0 + $1.qty }
+        VStack(spacing: 0) {
+            Spacer(minLength: 20)
+            VStack(spacing: 24) {
+                // The stamp.
+                Image(systemName: "checkmark")
+                    .font(.system(size: 40, weight: .black))
+                    .foregroundStyle(fill)
+                    .frame(width: 100, height: 100)
+                    .background(Circle().fill(ink))
+                    .scaleEffect(shown ? 1 : 0.3)
+                    .rotationEffect(.degrees(shown ? 0 : -30))
+                    .opacity(shown ? 1 : 0)
+                VStack(spacing: 8) {
+                    Text(demo ? "DEMO · NOTHING SAVED" : "IN YOUR COLLECTION").font(.mono(12)).tracking(1.6).foregroundStyle(ink.opacity(0.65))
+                    Text("\(t.kind.noun.uppercased())\nRECORDED").font(.display(64)).foregroundStyle(ink)
+                        .multilineTextAlignment(.center).lineSpacing(-14).minimumScaleFactor(0.6)
+                }
+                // What changed hands, fanned out.
+                if !items.isEmpty {
+                    ZStack {
+                        ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
+                            let off = Double(i) - Double(items.count - 1) / 2
+                            HoldingArt(product: item.product, identity: nil, cornerRadius: 5, caption: false)
+                                .frame(width: 84, height: 117)
+                                .shadow(color: .black.opacity(0.35), radius: 10, y: 8)
+                                .rotationEffect(.degrees(shown ? off * 9 : 0), anchor: .bottom)
+                                .offset(x: shown ? off * 40 : 0, y: shown ? abs(off) * 6 : 60)
+                                .opacity(shown ? 1 : 0)
+                                .animation(reduceMotion ? nil : .spring(response: 0.55, dampingFraction: 0.7).delay(0.15 + Double(i) * 0.06), value: shown)
+                        }
+                    }
+                    .frame(height: 140)
+                }
+                if let profit = t.profit {
+                    VStack(spacing: 6) {
+                        Text("PROFIT").font(.mono(12)).tracking(1.6).foregroundStyle(ink.opacity(0.65))
+                        CountingText(value: profit, format: { Format.signedMoney($0) })
+                            .font(.display(84)).monospacedDigit().foregroundStyle(ink).displayTrim(84)
+                            .lineLimit(1).minimumScaleFactor(0.5)
                     }
                 }
-                .frame(height: 110)
-            }
-            if let profit = t.profit {
-                VStack(spacing: 4) {
-                    Text("PROFIT").font(.mono(11)).tracking(1.4).foregroundStyle(ink.opacity(0.65))
-                    CountingText(value: profit, format: { Format.signedMoney($0) })
-                        .font(.display(64)).monospacedDigit().foregroundStyle(ink).displayTrim(64)
-                        .lineLimit(1).minimumScaleFactor(0.5)
+                HStack(spacing: 6) {
+                    pill(abs(t.balance) < 0.005 ? "Even swap" : (t.balance > 0 ? "They paid \(Format.money(t.balance))" : "You paid \(Format.money(-t.balance))"), ink: ink, fill: fill)
+                    pill("\(count) item\(count == 1 ? "" : "s")", ink: ink, fill: fill)
+                    if !deal.photos.isEmpty { pill("\(deal.photos.count) photo\(deal.photos.count == 1 ? "" : "s")", ink: ink, fill: fill) }
                 }
             }
-            // The rest, as ink pills.
-            HStack(spacing: 6) {
-                pill(abs(t.balance) < 0.005 ? "Even swap" : (t.balance > 0 ? "They paid \(Format.money(t.balance))" : "You paid \(Format.money(-t.balance))"), ink: ink, fill: fill)
-                let count = deal.incoming.reduce(0) { $0 + $1.qty } + deal.outgoing.reduce(0) { $0 + $1.qty }
-                pill("\(count) item\(count == 1 ? "" : "s")", ink: ink, fill: fill)
-                if !deal.photos.isEmpty { pill("\(deal.photos.count) photo\(deal.photos.count == 1 ? "" : "s")", ink: ink, fill: fill) }
+            .padding(.horizontal, 20)
+            Spacer(minLength: 20)
+            Button(action: onDone) {
+                Text("Done").font(.geist(17, .semibold)).foregroundStyle(fill)
+                    .frame(maxWidth: .infinity).frame(height: 56)
+                    .background(Capsule().fill(ink))
+                    .contentShape(Capsule())
             }
+            .buttonStyle(ShutterStyle())
+            .padding(.horizontal, 20)
+            .padding(.bottom, 12)
         }
-        .padding(.vertical, 30)
-        .padding(.horizontal, 18)
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background {
             ZStack {
-                shape.fill(fill)
+                fill
                 Canvas { ctx, size in
                     var path = Path()
-                    stride(from: 0, through: size.width, by: 28).forEach { x in path.move(to: CGPoint(x: x, y: 0)); path.addLine(to: CGPoint(x: x, y: size.height)) }
-                    stride(from: 0, through: size.height, by: 28).forEach { y in path.move(to: CGPoint(x: 0, y: y)); path.addLine(to: CGPoint(x: size.width, y: y)) }
+                    stride(from: 0, through: size.width, by: 32).forEach { x in path.move(to: CGPoint(x: x, y: 0)); path.addLine(to: CGPoint(x: x, y: size.height)) }
+                    stride(from: 0, through: size.height, by: 32).forEach { y in path.move(to: CGPoint(x: 0, y: y)); path.addLine(to: CGPoint(x: size.width, y: y)) }
                     ctx.stroke(path, with: .color(.black.opacity(0.07)), lineWidth: 1)
                 }
-                RadialGradient(colors: [.white.opacity(0.35), .clear], center: .top, startRadius: 0, endRadius: 280)
-                Sheen(strength: 0.4)
+                RadialGradient(colors: [.white.opacity(0.4), .clear], center: .top, startRadius: 0, endRadius: 420)
+                Sheen(strength: 0.35)
             }
-            .clipShape(shape)
-            .shadow(color: fill.opacity(0.45), radius: 30)
+            .ignoresSafeArea()
         }
-        .scaleEffect(shown ? 1 : 0.92)
+        .presentationBackground(fill)
         .onAppear {
-            if reduceMotion { shown = true } else { withAnimation(.spring(response: 0.5, dampingFraction: 0.62)) { shown = true } }
+            if reduceMotion { shown = true } else { withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) { shown = true } }
         }
     }
 
     private func pill(_ text: String, ink: Color, fill: Color) -> some View {
         Text(text).font(.geist(13, .semibold)).monospacedDigit().foregroundStyle(fill)
             .lineLimit(1).fixedSize()
-            .padding(.horizontal, 12).frame(height: 30)
+            .padding(.horizontal, 12).frame(height: 32)
             .background(Capsule().fill(ink))
     }
 }

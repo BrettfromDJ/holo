@@ -513,11 +513,26 @@ struct DealHistoryView: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 16)
             .padding(.top, 8)
             .padding(.bottom, 40)
         }
-        .background(Theme.background)
+        // The lit grid sits behind the whole page (full width, under the bar), not just the numbers.
+        .background {
+            ZStack(alignment: .top) {
+                Theme.background
+                ZStack {
+                    GridPattern(step: 36, opacity: 0.05)
+                    RadialGradient(colors: [Theme.lime.opacity(0.2), .clear], center: UnitPoint(x: 0.2, y: 0.35), startRadius: 0, endRadius: 300)
+                    RadialGradient(colors: [Theme.planBlue.opacity(0.2), .clear], center: UnitPoint(x: 0.95, y: 0.55), startRadius: 0, endRadius: 280)
+                }
+                .frame(height: 520)
+                .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.55), .init(color: .clear, location: 1)],
+                                     startPoint: .top, endPoint: .bottom))
+            }
+            .ignoresSafeArea()
+        }
         .replaysAnimations()
         .tabBarClearance()
         .navigationBarTitleDisplayMode(.inline)
@@ -562,19 +577,7 @@ struct DealHistoryView: View {
             .minimumScaleFactor(0.8)
             ProfitClimb(records: shown)
         }
-        .background(alignment: .top) {
-            ZStack {
-                GridPattern(step: 36, opacity: 0.05)
-                RadialGradient(colors: [Theme.lime.opacity(0.22), .clear], center: UnitPoint(x: 0.2, y: 0.25), startRadius: 0, endRadius: 280)
-                RadialGradient(colors: [Theme.planBlue.opacity(0.2), .clear], center: UnitPoint(x: 0.95, y: 0.5), startRadius: 0, endRadius: 260)
-            }
-            .padding(.horizontal, -16)
-            .padding(.top, -200)
-            .padding(.bottom, -60)
-            .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.6), .init(color: .clear, location: 1)],
-                                 startPoint: .top, endPoint: .bottom))
-            .allowsHitTesting(false)
-        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: Days
