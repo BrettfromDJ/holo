@@ -132,6 +132,19 @@ final class HoloAPI {
         return detail
     }
 
+    /// A product's full price history. Free when Holo already has it; otherwise the server asks
+    /// TCG API once (signed in only) and saves it for everyone, so it's never paid for twice.
+    func priceHistory(_ id: String, printing: String?) async throws -> (points: [PricePoint], available: Bool, reason: String?) {
+        struct Body: Encodable { var printing: String? }
+        struct Reply: Decodable { var points: [PricePoint]?; var available: Bool?; var reason: String? }
+        var req = try await request("api/explore/products/\(id)/history")
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONEncoder().encode(Body(printing: printing))
+        let reply = try await send(req, as: Reply.self)
+        return (reply.points ?? [], reply.available ?? true, reply.reason)
+    }
+
     func catalogProduct(_ id: String) async throws -> CatalogProduct {
         // appendingPathComponent escapes what needs escaping; ":" is fine in a path.
         return try await send(try await request("api/explore/products/\(id)"), as: CatalogProduct.self)

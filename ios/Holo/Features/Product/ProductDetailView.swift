@@ -89,7 +89,11 @@ struct ProductDetailView: View {
             Text("Your totals update as if it never happened. The original stays in the record.")
         }
         // Cards you don't own aren't loaded with your collection: fetch them from the catalog.
-        .task(id: productId) { await store.showCatalogProduct(productId) }
+        .task(id: productId) {
+            await store.showCatalogProduct(productId)
+            // Then the full price history, if Holo doesn't have it yet (like the website).
+            await store.loadFullHistory(productId, printing: printing)
+        }
     }
 
     // MARK: Picture

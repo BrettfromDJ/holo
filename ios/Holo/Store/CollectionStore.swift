@@ -225,6 +225,27 @@ final class CollectionStore {
         for (key, pts) in res.history where history[key] == nil { history[key] = Self.onePerDay(pts) }
     }
 
+    /// Fill in a product's price history when Holo only has a little of it (cards you don't own
+    /// or watch have none). Asked for once per product per session; the server only spends a
+    /// TCG API call the first time anyone asks, then keeps it for everyone.
+    @ObservationIgnored private var historyAsked: Set<String> = []
+
+    @MainActor
+    func loadFullHistory(_ id: String, printing: String?) async {
+        guard demo == nil, id.hasPrefix("tcgapi:") else { return }
+        let key = priceKey(id, printing)
+        let have = history[key] ?? []
+        // Already reaches back two months: nothing to fetch.
+        if let first = have.first?.date, let start = Format.isoDay.date(from: first),
+           start <= Calendar.current.date(byAdding: .day, value: -60, to: Date()) ?? Date() { return }
+        guard !historyAsked.contains(key) else { return }
+        historyAsked.insert(key)
+        guard let res = try? await Backend.shared.api.priceHistory(id, printing: printing), !res.points.isEmpty else { return }
+        history[key] = Self.onePerDay((history[key] ?? []) + res.points)
+        // It may change what your collection was worth on past days.
+        if holdings.contains(where: { $0.identity.productId == id }) { recompute() }
+    }
+
     /// Keep a search result's product and price so its page opens instantly, even if it isn't stored yet.
     func seed(_ hit: SearchHit) {
         if products[hit.product.id] == nil { products[hit.product.id] = hit.product }
