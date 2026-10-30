@@ -76,7 +76,7 @@ struct HomeView: View {
             PerformanceSection(store: store).padding(.horizontal, 16)
             MetricGrid(store: store, onReload: reload).padding(.horizontal, 16)
             Spotlight(store: store).padding(.horizontal, 16)
-            ShelfSection(holdings: Array(store.holdings.prefix(10)))
+            ShelfSection(holdings: store.holdings)
             ValueSplit(store: store).padding(.horizontal, 16)
             MoversSection(holdings: store.holdings).padding(.horizontal, 16)
             RecentSection(items: store.recentPurchases()).padding(.horizontal, 16)
@@ -747,46 +747,137 @@ struct Sparkline: View {
 private struct ShelfSection: View {
     var holdings: [HoldingView]
 
+    /// Item and stage sizes, as on the website's phone layout.
+    static let itemWidth: CGFloat = 150
+    static let stageHeight: CGFloat = 200
+    static let topPad: CGFloat = 24
+
+    private var items: [HoldingView] {
+        Array(holdings.filter { $0.value != nil }.sorted { ($0.value ?? 0) > ($1.value ?? 0) }.prefix(14))
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            PageHeader(title: "Your shelf", subtitle: "Your most valuable pieces", size: 30).padding(.horizontal, 16)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .lastTextBaseline) {
+                PageHeader(title: "Your shelf", subtitle: "Your most valuable pieces", size: 30)
+                Spacer()
+                Button {
+                    Router.shared.tabRequest = "collection"
+                } label: {
+                    HStack(spacing: 4) { Text("See all"); Image(systemName: "arrow.right").font(.system(size: 12, weight: .semibold)) }
+                        .font(.geist(13, .medium)).foregroundStyle(Theme.muted)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 16)
+
+            // No box: the shelf runs edge to edge and fades into the page on every side.
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .bottom, spacing: 18) {
-                    ForEach(Array(holdings.enumerated()), id: \.element.id) { i, h in
-                        NavigationLink(value: h.identity.productId) {
-                            VStack(alignment: .leading, spacing: 0) {
-                                // A fixed stage: cards stand tall, wide boxes sit low and wide,
-                                // so one tall piece never pushes the whole row down.
-                                HoldingArt(product: h.product, identity: h.identity, cornerRadius: 12)
-                                    .frame(width: 170, height: 150, alignment: .bottom)
-                                    .shadow(color: .black.opacity(0.6), radius: 10, y: 8)
-                                    .padding(.horizontal, 6)
-                                // The glass ledge.
-                                RoundedRectangle(cornerRadius: 2)
-                                    .fill(LinearGradient(colors: [.white.opacity(0.18), .white.opacity(0.03)], startPoint: .top, endPoint: .bottom))
-                                    .frame(width: 182, height: 10)
-                                    .shadow(color: .white.opacity(0.08), radius: 8, y: -4)
-                                VStack(alignment: .leading, spacing: 6) {
-                                    HStack(spacing: 6) {
-                                        Text(String(format: "%02d", i + 1)).font(.mono(11)).foregroundStyle(Theme.muted)
-                                        Text(h.product?.name ?? "").font(.geist(14, .medium)).lineLimit(1).foregroundStyle(.white)
-                                    }
-                                    HStack(spacing: 8) {
-                                        Text(Format.money(h.value)).font(.display(19)).monospacedDigit().foregroundStyle(.white)
-                                        DeltaPill(ratio: h.gainRatio, size: 12)
-                                    }
-                                }
-                                .padding(12)
-                                .frame(width: 182, alignment: .leading)
-                                .surface(radius: 12, padding: nil)
-                                .padding(.top, 10)
-                            }
-                        }
-                        .buttonStyle(.plain)
+                HStack(alignment: .top, spacing: 24) {
+                    ForEach(Array(items.enumerated()), id: \.element.id) { i, h in
+                        ShelfItem(holding: h, rank: i + 1)
                     }
                 }
-                .padding(.horizontal, 16)
+                .padding(.horizontal, 24)
+                .padding(.top, Self.topPad)
+                .padding(.bottom, 16)
+                // The ledge runs the full length of the scroll, right where the pieces stand.
+                .background(alignment: .topLeading) {
+                    VStack(spacing: 0) {
+                        Rectangle()
+                            .fill(LinearGradient(colors: [.white.opacity(0.22), .white.opacity(0.08)], startPoint: .top, endPoint: .bottom))
+                            .overlay(alignment: .top) { Rectangle().fill(.white.opacity(0.4)).frame(height: 1) }
+                            .frame(height: 12)
+                        Rectangle().fill(.white.opacity(0.05)).frame(height: 8)
+                        LinearGradient(colors: [.black.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom).frame(height: 40)
+                    }
+                    .padding(.top, Self.topPad + Self.stageHeight)
+                    .allowsHitTesting(false)
+                }
             }
+            // Pieces fade out at the edges as they scroll away.
+            .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.05),
+                                         .init(color: .black, location: 0.95), .init(color: .clear, location: 1)],
+                                 startPoint: .leading, endPoint: .trailing))
+            // Soft light from above, falling away to the page background.
+            .background(
+                RadialGradient(colors: [.white.opacity(0.06), .clear], center: UnitPoint(x: 0.5, y: 0.45), startRadius: 0, endRadius: 300)
+                    .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.3),
+                                                 .init(color: .black, location: 0.7), .init(color: .clear, location: 1)],
+                                         startPoint: .top, endPoint: .bottom))
+                    .allowsHitTesting(false)
+            )
+        }
+    }
+}
+
+/// One piece standing on the shelf under its own spotlight, with its price tag hanging below.
+private struct ShelfItem: View {
+    var holding: HoldingView
+    var rank: Int
+
+    private var isCard: Bool { holding.product?.isSealed == false && holding.product?.imageURL != nil && !holding.identity.isGraded }
+
+    var body: some View {
+        NavigationLink(value: holding.identity.productId) {
+            VStack(alignment: .leading, spacing: 0) {
+                ZStack(alignment: .bottom) {
+                    // Spotlight from above.
+                    RadialGradient(colors: [.white.opacity(0.08), .clear], center: UnitPoint(x: 0.5, y: 0.35), startRadius: 0, endRadius: 110)
+                        .frame(width: 220, height: 240)
+                        .offset(y: -24)
+                        .frame(width: ShelfSection.itemWidth, height: ShelfSection.stageHeight, alignment: .top)
+                        .allowsHitTesting(false)
+                    // Contact shadow where it meets the ledge.
+                    Ellipse().fill(.black.opacity(0.6)).frame(width: ShelfSection.itemWidth * 0.7, height: 12).blur(radius: 6).offset(y: 6)
+                    art
+                }
+                .frame(width: ShelfSection.itemWidth, height: ShelfSection.stageHeight, alignment: .bottom)
+                .overlay(alignment: .topTrailing) {
+                    if holding.quantity > 1 {
+                        Text("×\(Int(holding.quantity))").font(.geist(11, .semibold)).monospacedDigit()
+                            .padding(.horizontal, 8).padding(.vertical, 2)
+                            .background(Capsule().fill(Theme.background.opacity(0.8)))
+                            .overlay(Capsule().strokeBorder(Theme.border))
+                    }
+                }
+
+                // The price tag, hanging under the ledge.
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(String(format: "%02d", rank)).font(.mono(10, .medium)).foregroundStyle(Theme.subtle)
+                        Text(holding.product?.name ?? "").font(.geist(13, .medium)).lineLimit(1).foregroundStyle(.white)
+                    }
+                    HStack(spacing: 8) {
+                        Text(Format.money(holding.value)).font(.display(17)).monospacedDigit().foregroundStyle(.white)
+                            .lineLimit(1).minimumScaleFactor(0.7)
+                        Spacer(minLength: 0)
+                        DeltaPill(ratio: holding.gainRatio, size: 12)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .frame(width: ShelfSection.itemWidth, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Theme.background.opacity(0.6)))
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.border))
+                .padding(.top, 26)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Cards stand at 82% of the stage; sealed and slabs fill it, all resting on the ledge.
+    @ViewBuilder private var art: some View {
+        if holding.identity.isGraded {
+            HoldingArt(product: holding.product, identity: holding.identity, caption: false)
+                .frame(width: ShelfSection.itemWidth, height: ShelfSection.stageHeight, alignment: .bottom)
+        } else if isCard {
+            ProductImage(product: holding.product, cornerRadius: 5)
+                .frame(width: ShelfSection.itemWidth, height: ShelfSection.stageHeight * 0.82, alignment: .bottom)
+                .shadow(color: .black.opacity(0.45), radius: 12, y: 8)
+        } else {
+            ProductImage(product: holding.product, cornerRadius: 10)
+                .frame(width: ShelfSection.itemWidth, height: ShelfSection.stageHeight, alignment: .bottom)
         }
     }
 }
