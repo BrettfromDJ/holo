@@ -12,6 +12,20 @@ final class ScreenshotTests: XCTestCase {
     func testCollection() { capture("collection", args: ["-HoloTab", "collection"], pages: 3) }
     func testCardPage() { capture("card-single", args: ["-HoloProduct", "sample:umbreon-vmax-alt"], pages: 4) }
     func testSealedPage() { capture("card-sealed", args: ["-HoloProduct", "sample:es-bb"], pages: 3) }
+    /// Leave Home for another tab and come back: pictures and animations should all be there.
+    func testReturnToHome() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-HoloDemo", "-HoloDemoKind", "singles"]
+        app.launch()
+        sleep(5)
+        save(app.screenshot(), "return-home-0-before")
+        app.buttons["Collection"].firstMatch.tap()
+        sleep(2)
+        app.buttons["Overview"].firstMatch.tap()
+        sleep(3)
+        save(app.screenshot(), "return-home-1-after")
+    }
+
     func testDeal() { capture("deal", args: ["-HoloTab", "deal"], pages: 1) }
     // Graded slabs: Home, Collection and a slab's card page in the graded demo.
     func testGradedHome() { capture("graded-home", args: ["-HoloDemoKind", "graded"], pages: 6) }
