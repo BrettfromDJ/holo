@@ -335,3 +335,97 @@ struct UserStateRow<Value: Codable>: Codable {
 struct UserStateValue<Value: Decodable>: Decodable {
     var value: Value
 }
+
+// MARK: - Explore (/api/explore)
+
+struct ExploreGame: Codable, Identifiable, Hashable {
+    var slug: String
+    var name: String
+    var logoUrl: String?
+    var sets: Int
+    var loadedSets: Int
+    var cardCount: Int?
+    var id: String { slug }
+}
+
+struct ExploreSet: Codable, Identifiable, Hashable {
+    var slug: String
+    var gameSlug: String
+    var gameName: String
+    var name: String
+    /// yyyy-MM-dd
+    var releaseDate: String?
+    var imageUrl: String?
+    var iconUrl: String?
+    var productCount: Int?
+    /// False until the daily catalog sync has loaded this set's products.
+    var loaded: Bool
+    var id: String { slug }
+
+    var release: Date? { releaseDate.flatMap { Format.isoDay.date(from: String($0.prefix(10))) } }
+}
+
+struct ExploreIndex: Codable {
+    var games: [ExploreGame]
+    var sets: [ExploreSet]
+}
+
+struct ExploreSetDetail: Codable {
+    var set: ExploreSet
+    var products: [SearchHit]
+}
+
+/// GET /api/explore/products/:id — a catalog product with its prices and history, by printing key.
+struct CatalogProduct: Codable {
+    var product: Product
+    var prices: [Price]
+    var history: [String: [PricePoint]]
+}
+
+// MARK: - eBay and condition prices
+
+struct EbayStats: Codable, Hashable {
+    var median: Double?
+    var count: Int
+    var lastPrice: Double?
+    var lastSold: String?
+}
+
+struct EbaySale: Codable, Hashable, Identifiable {
+    var soldDate: String
+    var price: Double
+    var bestOffer: Bool
+    var listPrice: Double?
+    /// "PSA 10", or nil when ungraded.
+    var grade: String?
+    /// Condition from the title, ungraded sales only.
+    var condition: String?
+    var title: String
+    var url: String
+    var id: String { url + soldDate + String(price) }
+}
+
+struct EbaySales: Codable, Hashable {
+    var printing: String?
+    var ungraded: EbayStats
+    var graded: [String: EbayStats]
+    var sales: [EbaySale]
+    var asOf: String
+}
+
+struct EbaySummary: Codable, Hashable {
+    var printing: String?
+    var ungraded: EbayStats
+    var graded: [String: EbayStats]
+    var asOf: String
+}
+
+/// A TCGplayer price for one condition, from live listings.
+struct ConditionPrice: Codable, Hashable {
+    var printing: String?
+    var condition: String
+    var price: Double?
+    /// "median" (of 3+ listings) or "lowest".
+    var basis: String
+    var samples: Int
+}

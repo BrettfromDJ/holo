@@ -71,7 +71,7 @@ struct MainTabView: View {
     @State private var tab = HomeTab.home
     @State private var scanning = false
 
-    enum HomeTab { case home, collection, scan, deal, lists }
+    enum HomeTab { case home, collection, scan, deal, explore }
 
     var body: some View {
         TabView(selection: $tab) {
@@ -85,12 +85,12 @@ struct MainTabView: View {
             Color.clear
                 .tabItem { Label("Scan", systemImage: "viewfinder") }
                 .tag(HomeTab.scan)
+            ExploreView()
+                .tabItem { Label("Explore", systemImage: "safari") }
+                .tag(HomeTab.explore)
             DealView()
                 .tabItem { Label("Deal", systemImage: "arrow.left.arrow.right") }
                 .tag(HomeTab.deal)
-            ListsView()
-                .tabItem { Label("Lists", systemImage: "heart.text.square") }
-                .tag(HomeTab.lists)
         }
         .onChange(of: tab) { old, new in
             if new == .scan {

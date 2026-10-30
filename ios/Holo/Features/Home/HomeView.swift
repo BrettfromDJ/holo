@@ -9,6 +9,7 @@ struct HomeView: View {
     @State private var range = Range.month
     @State private var scrubbed: Date?
     @State private var account = false
+    @State private var lists = false
 
     enum Range: String, CaseIterable {
         case week = "1W", month = "1M", quarter = "3M", year = "1Y", all = "All"
@@ -56,12 +57,14 @@ struct HomeView: View {
             .refreshable { await reload() }
             .navigationTitle("Holo")
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button { lists = true } label: { Image(systemName: "heart.text.square") }.accessibilityLabel("Watchlist and wishlist")
                     Button { account = true } label: { Image(systemName: "person.crop.circle") }.accessibilityLabel("Account")
                 }
             }
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
             .sheet(isPresented: $account) { SettingsView() }
+            .sheet(isPresented: $lists) { ListsView() }
         }
     }
 

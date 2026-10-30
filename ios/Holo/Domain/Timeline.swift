@@ -21,6 +21,7 @@ enum Timeline {
         prices: [String: Price],
         history: [String: [PricePoint]],
         manualValues: [String: ManualValue],
+        ebayGraded: [String: Double] = [:],
         today: String
     ) -> [TimelinePoint] {
         let txs = Ledger.effective(transactions).filter { $0.date <= today }
@@ -38,7 +39,7 @@ enum Timeline {
             var cost = 0.0
             for pos in ledger.positions.values {
                 let q = pos.quantity
-                guard q > 1e-9, let price = price(pos.identity, on: day, today: today, prices: prices, history: history, manual: manualValues) else { continue }
+                guard q > 1e-9, let price = price(pos.identity, on: day, today: today, prices: prices, history: history, manual: manualValues, ebay: ebayGraded) else { continue }
                 value += q * price
                 cost += pos.costBasis
             }
@@ -50,13 +51,18 @@ enum Timeline {
     /// Per-unit price of a position on a day, or nil when unknown.
     static func price(
         _ id: HoldingIdentity, on day: String, today: String,
-        prices: [String: Price], history: [String: [PricePoint]], manual: [String: ManualValue]
+        prices: [String: Price], history: [String: [PricePoint]], manual: [String: ManualValue], ebay: [String: Double] = [:]
     ) -> Double? {
-        if id.isGraded {
-            guard let m = manual[id.key], m.date <= day else { return nil }
-            return m.value
-        }
         let key = priceKey(id.productId, id.printing)
+        if id.isGraded {
+            if let m = manual[id.key], m.date <= day { return m.value }
+            // An eBay-priced slab follows the raw card's trend, scaled to its price today (as on the web).
+            guard manual[id.key] == nil, let slab = ebay[id.key] else { return nil }
+            if day >= today { return slab }
+            guard let rawNow = prices[key]?.market, rawNow > 0, let pts = history[key], let p = lastAtOrBefore(pts, day),
+                  daysBetween(p.date, day) <= maxCarryDays else { return nil }
+            return p.price * slab / rawNow
+        }
         var nm: Double?
         if day >= today, let p = prices[key], let market = p.market, p.status != "unavailable" {
             nm = market

@@ -82,13 +82,13 @@ struct PortfolioSummary {
 enum Portfolio {
     /// Value every open position. Raw copies use the Near Mint market price,
     /// times their condition's share when played (marked as an estimate);
-    /// graded copies use the owner's manual value, as the eBay pricing that
-    /// the web app uses for slabs isn't in this first version.
+    /// graded copies use the owner's value, else recent eBay sales for the grade.
     static func holdings(
         transactions: [Txn],
         products: [String: Product],
         prices: [String: Price],
-        manualValues: [String: ManualValue]
+        manualValues: [String: ManualValue],
+        ebayGraded: [String: Double] = [:]
     ) -> [HoldingView] {
         let ledger = Ledger(transactions)
         return ledger.positions.values.compactMap { pos -> HoldingView? in
@@ -100,9 +100,12 @@ enum Portfolio {
             var manual = false
             var change: Double?
             if id.isGraded {
+                // Your own value wins; else the median of recent eBay sales for that exact grade.
                 if let m = manualValues[id.key] {
                     price = m.value
                     manual = true
+                } else if let e = ebayGraded[id.key] {
+                    price = e
                 }
             } else if let p = prices[priceKey(id.productId, id.printing)], let market = p.market, p.status != "unavailable" {
                 let share = CardCondition.share(for: id.condition)

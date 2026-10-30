@@ -58,6 +58,13 @@ struct ProductDetailView: View {
                     }
                 }
 
+                if let product, !product.isSealed, let nm = price?.market {
+                    WorthPanel(productId: productId, printing: printing, nm: nm, owned: owned)
+                }
+                if productId.hasPrefix("tcgapi:") {
+                    EbaySalesPanel(productId: productId, printing: printing, grade: owned.first(where: { $0.identity.isGraded })?.identity.gradeLabel)
+                }
+
                 if !owned.isEmpty {
                     Panel {
                         VStack(alignment: .leading, spacing: 12) {
@@ -138,6 +145,8 @@ struct ProductDetailView: View {
         .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $managing) { h in HoldingSheet(identity: h.identity) }
+        // Cards you don't own aren't loaded with your collection: fetch them from the catalog.
+        .task(id: productId) { await store.showCatalogProduct(productId) }
     }
 
     private func run(_ work: () async throws -> Void) async {

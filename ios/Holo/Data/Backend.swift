@@ -107,6 +107,41 @@ final class HoloAPI {
         return try await send(req, as: ScanResult.self)
     }
 
+    // MARK: Explore and market data (stored catalog; eBay and conditions are cached 12h at the CDN)
+
+    func exploreIndex() async throws -> ExploreIndex {
+        try await send(try await request("api/explore"), as: ExploreIndex.self)
+    }
+
+    func exploreSet(_ slug: String) async throws -> ExploreSetDetail {
+        try await send(try await request("api/explore/sets/\(slug)"), as: ExploreSetDetail.self)
+    }
+
+    func catalogProduct(_ id: String) async throws -> CatalogProduct {
+        // appendingPathComponent escapes what needs escaping; ":" is fine in a path.
+        return try await send(try await request("api/explore/products/\(id)"), as: CatalogProduct.self)
+    }
+
+    func ebaySales(_ productId: String, printing: String?) async throws -> EbaySales? {
+        struct Body: Decodable { var ebay: EbaySales? }
+        let q = printing.map { [URLQueryItem(name: "printing", value: $0)] } ?? []
+        return try await send(try await request("api/tcg/products/\(productId)/ebay", query: q), as: Body.self).ebay
+    }
+
+    func conditionPrices(_ productId: String, printing: String?) async throws -> [ConditionPrice] {
+        struct Body: Decodable { var conditions: [ConditionPrice] }
+        let q = printing.map { [URLQueryItem(name: "printing", value: $0)] } ?? []
+        return try await send(try await request("api/tcg/products/\(productId)/conditions", query: q), as: Body.self).conditions
+    }
+
+    /// eBay summaries for many cards in one request (by product id).
+    func ebaySummaries(_ productIds: [String]) async throws -> [String: [EbaySummary]] {
+        struct Body: Decodable { var ebay: [String: [EbaySummary]] }
+        guard !productIds.isEmpty else { return [:] }
+        let q = [URLQueryItem(name: "ids", value: productIds.sorted().joined(separator: ","))]
+        return try await send(try await request("api/tcg/ebay", query: q), as: Body.self).ebay
+    }
+
     /// Scans left on the account (free to ask).
     func scansRemaining() async -> Int? {
         struct Balance: Decodable { var scansRemaining: Int? }

@@ -17,6 +17,10 @@ final class CollectionStore {
     var timeline: [TimelinePoint] = []
     var watchlist: [WatchRow] = []
     var wishlist: [WishItem] = []
+    /// Slugs of sets you want a reminder for (shared with the website's "release-reminders").
+    var reminders: Set<String> = []
+    /// Slab prices from recent eBay sales, by holding key.
+    var ebayGraded: [String: Double] = [:]
 
     /// The full log, corrections included.
     private(set) var transactions: [Txn] = []
@@ -37,6 +41,8 @@ final class CollectionStore {
         timeline = []
         watchlist = []
         wishlist = []
+        reminders = []
+        ebayGraded = [:]
         transactions = []
         holdingRows = []
         manualValues = [:]
@@ -117,8 +123,10 @@ final class CollectionStore {
             self.history = history
             self.watchlist = watchRows
             self.wishlist = wishes ?? []
+            self.reminders = Set(((try? await UserState.load("release-reminders", as: [String].self)) ?? nil) ?? [])
             recompute()
             status = .ready
+            await loadSlabPrices()
         } catch {
             status = .failed(error.localizedDescription)
         }
@@ -134,10 +142,57 @@ final class CollectionStore {
     }
 
     private func recompute() {
-        holdings = Portfolio.holdings(transactions: transactions, products: products, prices: prices, manualValues: manualValues)
+        holdings = Portfolio.holdings(transactions: transactions, products: products, prices: prices, manualValues: manualValues, ebayGraded: ebayGraded)
         let realized = Ledger(transactions).positions.values.reduce(0) { $0 + $1.realizedGain }
         summary = Portfolio.summary(holdings, realized: realized)
-        timeline = Timeline.compute(transactions: transactions, prices: prices, history: history, manualValues: manualValues, today: today)
+        timeline = Timeline.compute(transactions: transactions, prices: prices, history: history, manualValues: manualValues, ebayGraded: ebayGraded, today: today)
+    }
+
+    /// Price your slabs from recent eBay sales for their exact grade: one request for all of them.
+    @MainActor
+    private func loadSlabPrices() async {
+        let graded = holdings.filter { $0.identity.isGraded && $0.identity.productId.hasPrefix("tcgapi:") }
+        guard !graded.isEmpty, let summaries = try? await Backend.shared.api.ebaySummaries(Array(Set(graded.map(\.identity.productId)))) else { return }
+        var found: [String: Double] = [:]
+        for h in graded {
+            let s = summaryFor(summaries[h.identity.productId], printing: h.identity.printing)
+            if let label = h.identity.gradeLabel, let stats = s?.graded[label], let price = stats.median ?? stats.lastPrice {
+                found[h.identity.key] = price
+            }
+        }
+        guard !found.isEmpty else { return }
+        ebayGraded = found
+        recompute()
+    }
+
+    /// Bring a catalog product (one you don't own) in for its page: details, prices and history.
+    @MainActor
+    func showCatalogProduct(_ id: String) async {
+        guard products[id] == nil, let res = try? await Backend.shared.api.catalogProduct(id) else { return }
+        products[id] = res.product
+        for p in res.prices { prices[priceKey(p.productId, p.printing)] = p }
+        for (key, pts) in res.history where history[key] == nil { history[key] = pts }
+    }
+
+    /// Keep a search result's product and price so its page opens instantly, even if it isn't stored yet.
+    func seed(_ hit: SearchHit) {
+        if products[hit.product.id] == nil { products[hit.product.id] = hit.product }
+        let key = priceKey(hit.product.id, hit.printing)
+        if prices[key] == nil, let market = hit.market {
+            prices[key] = Price(productId: hit.product.id, printing: hit.printing, market: market, status: "live")
+        }
+    }
+
+    // MARK: Writing: release reminders
+
+    @MainActor
+    func setReminder(_ set: ExploreSet, on: Bool) async throws {
+        guard let userId else { throw HoloError.signedOut }
+        var next = reminders
+        if on { next.insert(set.slug) } else { next.remove(set.slug) }
+        try await UserState.save("release-reminders", Array(next).sorted(), userId: userId)
+        reminders = next
+        if on { await Notifications.scheduleRelease(set) } else { Notifications.cancelRelease(set.slug) }
     }
 
     // MARK: Reading
