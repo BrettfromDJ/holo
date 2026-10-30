@@ -122,6 +122,16 @@ export function ScanSheet({
   const [blocked, setBlocked] = useState<string | null>(null);
   // On a phone the camera fills the screen and the tray shows the latest scan; expanding it trades camera for the full list.
   const [expanded, setExpanded] = useState(false);
+  // On a phone the camera fills the screen and the controls float over its bottom; the guide sits in the space above them.
+  const bottom = useRef<HTMLDivElement>(null);
+  const [bottomH, setBottomH] = useState(240);
+  useEffect(() => {
+    const el = bottom.current;
+    if (!open || !el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => setBottomH(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [open]);
   // Auto-capture: off until turned on, then remembered on this device.
   const guide = useRef<HTMLSpanElement>(null);
   const [auto, setAuto] = useState(false);
@@ -282,27 +292,28 @@ export function ScanSheet({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="top-0 h-dvh max-h-none rounded-none border-0 sm:top-[6vh] sm:h-[760px] sm:max-h-[88dvh] sm:max-w-[560px] sm:rounded-[1.5rem] sm:border">
-        <div className="flex items-start justify-between gap-3 px-5 pt-[max(1.25rem,env(safe-area-inset-top))]">
+      <DialogContent
+        className="top-0 h-dvh max-h-none rounded-none border-0 max-sm:bg-black max-sm:[&>button:last-child]:z-20 max-sm:[&>button:last-child]:bg-black/40 max-sm:[&>button:last-child]:text-white sm:top-[6vh] sm:h-[760px] sm:max-h-[88dvh] sm:max-w-[560px] sm:rounded-[1.5rem] sm:border"
+        style={{ ["--scan-bottom" as string]: `${bottomH}px` }}
+      >
+        <div className="relative z-10 flex items-start justify-between gap-3 px-5 pt-[max(1.25rem,env(safe-area-inset-top))]">
           <div className="min-w-0">
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 max-sm:text-white">
               <ScanLine className="size-5" /> {title}
             </DialogTitle>
-            <DialogDescription className="mt-0.5">{description ?? "Tap the shutter for each card. Keep going, they scan in the background."}</DialogDescription>
+            <DialogDescription className="mt-0.5 max-sm:text-white/75">{description ?? "Tap the shutter for each card. Keep going, they scan in the background."}</DialogDescription>
           </div>
-          {left !== null && <span className="tabular mr-8 shrink-0 rounded-full bg-surface-2 px-2.5 py-1 text-[12px] text-muted">{left.toLocaleString()} scans left</span>}
+          {left !== null && <span className="tabular mr-8 shrink-0 rounded-full bg-surface-2 px-2.5 py-1 text-[12px] text-muted max-sm:bg-black/45 max-sm:text-white/85 max-sm:backdrop-blur">{left.toLocaleString()} scans left</span>}
         </div>
 
         {/* Viewfinder */}
-        <div
-          className={cn(
-            "relative mx-3 mt-3 min-h-0 flex-1 overflow-hidden rounded-2xl bg-black transition-[height] sm:mx-5 sm:mt-4 sm:aspect-[4/3] sm:flex-none",
-            expanded && "max-sm:h-[22dvh] max-sm:flex-none",
-          )}
-          // A size container, so the card guide fits whichever way the viewfinder is stretched.
-          style={{ containerType: "size" }}
-        >
+        <div className="overflow-hidden bg-black max-sm:absolute max-sm:inset-0 sm:relative sm:mx-5 sm:mt-4 sm:aspect-[4/3] sm:shrink-0 sm:rounded-2xl">
           <video ref={video} playsInline muted className={cn("absolute inset-0 size-full object-cover", camera !== "on" && "hidden")} />
+          {/* Shade behind the title and the controls so they read over any picture. */}
+          <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-black/70 to-transparent sm:hidden" />
+          <span aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-[calc(var(--scan-bottom)+4rem)] bg-gradient-to-t from-black/85 via-black/60 to-transparent sm:hidden" />
+          {/* The free space for the guide: on a phone, between the title and the controls. A size container so the guide fits it. */}
+          <div className="absolute inset-0 max-sm:top-[calc(env(safe-area-inset-top)+5.5rem)] max-sm:bottom-[var(--scan-bottom)]" style={{ containerType: "size" }}>
           {camera === "on" && <span ref={guide} aria-hidden className="scan-guide pointer-events-none absolute left-1/2 top-1/2 aspect-[63/88] h-[min(82cqh,120cqw)] -translate-x-1/2 -translate-y-1/2 rounded-xl" />}
           {/* Lock-on: a brighter frame closes in on the guide as the card settles. */}
           {camera === "on" && auto && (
@@ -330,6 +341,12 @@ export function ScanSheet({
               )}
             </button>
           )}
+          {busy > 0 && (
+            <span className="tabular absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-[12px] text-white backdrop-blur">
+              <Loader2 className="size-3 animate-spin" /> {busy} scanning
+            </span>
+          )}
+          </div>
           {camera === "on" && flash > 0 && <span key={flash} aria-hidden className="scan-flash pointer-events-none absolute inset-0 bg-white" />}
           {camera === "starting" && (
             <p className="absolute inset-0 flex items-center justify-center gap-2 text-[13px] text-white/70">
@@ -343,13 +360,12 @@ export function ScanSheet({
               <span className="text-[12px] text-white/50">Camera isn&apos;t available here, so photos open instead</span>
             </button>
           )}
-          {busy > 0 && (
-            <span className="tabular absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-[12px] text-white backdrop-blur">
-              <Loader2 className="size-3 animate-spin" /> {busy} scanning
-            </span>
-          )}
         </div>
 
+        {/* On a phone, the camera shows through here. */}
+        <div aria-hidden className={cn("sm:hidden", expanded ? "h-[18dvh] shrink-0" : "min-h-0 flex-1")} />
+
+        <div ref={bottom} className={cn("relative z-10 flex flex-col sm:min-h-0 sm:flex-1", expanded && "max-sm:min-h-0 max-sm:flex-1 max-sm:rounded-t-3xl max-sm:bg-surface")}>
         <div className="mt-3 flex items-center justify-center gap-6 px-5">
           <button type="button" onClick={() => file.current?.click()} disabled={disabled} aria-label="Choose photos" className="grid size-11 disabled:opacity-40 place-items-center rounded-full bg-surface-2 text-muted hover:text-foreground">
             <ImagePlus className="size-5" />
@@ -410,13 +426,14 @@ export function ScanSheet({
           </button>
         )}
         <ul className={cn("mt-2 space-y-2 overflow-y-auto overscroll-contain px-5 pb-[max(1rem,env(safe-area-inset-bottom))] sm:mt-3 sm:min-h-0 sm:flex-1", expanded ? "min-h-0 flex-1" : "max-sm:max-h-[40dvh] max-sm:shrink-0")}>
-          {!entries.length && <li className="py-4 text-center text-[13px] text-muted sm:py-6">Scanned cards show up here.</li>}
+          {!entries.length && <li className="py-4 text-center text-[13px] text-muted max-sm:text-white/70 sm:py-6">Scanned cards show up here.</li>}
           {entries.map((e, i) => (
             <TrayRow key={e.id} entry={e} onConfirm={(c) => confirm(e, c)} onRetry={() => retry(e.id)} extra={extra} className={cn(i > 0 && !expanded && "max-sm:hidden")} />
           ))}
         </ul>
 
-        {footer && picks.length > 0 && <div className="border-t border-border px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3">{footer(picks)}</div>}
+        {footer && picks.length > 0 && <div className="border-t border-border px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 max-sm:bg-surface">{footer(picks)}</div>}
+        </div>
       </DialogContent>
     </Dialog>
   );
