@@ -103,10 +103,7 @@ struct CollectionView: View {
         let monthChange = (month.last?.value ?? 0) - (month.first?.value ?? 0)
         let monthTone = monthChange < 0 ? Theme.planPink : Theme.lime
         return VStack(alignment: .leading, spacing: 18) {
-            PageHeader(title: "Collection") {
-                Button { adding = true } label: { Label("Add", systemImage: "plus") }
-                    .buttonStyle(Button3D(kind: .dark, fullWidth: false, height: 40))
-            }
+            PageHeader(title: "Collection")
             // The value, counting up, with the all-time gain beside it.
             VStack(alignment: .leading, spacing: 8) {
                 MonoLabel(text: "Value")
