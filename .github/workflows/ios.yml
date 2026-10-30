@@ -9,6 +9,10 @@ on:
     paths: ["ios/**", ".github/workflows/ios.yml"]
   workflow_dispatch:
 
+# Lets the screenshot step publish its pictures to the ci-screenshots branch.
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-15
@@ -78,6 +82,24 @@ jobs:
           name: screenshots
           path: ios/screenshots
           if-no-files-found: warn
+      # Also publish them (scaled down) to the ci-screenshots branch, one folder per commit,
+      # replacing the branch each time so it stays small.
+      - name: Publish screenshots
+        if: always() && github.event_name == 'push'
+        continue-on-error: true
+        run: |
+          [ -n "$(ls screenshots 2>/dev/null)" ] || exit 0
+          for f in screenshots/*.png; do sips -Z 1000 "$f" >/dev/null; done
+          OUT=$(mktemp -d)
+          mkdir -p "$OUT/${GITHUB_SHA::7}"
+          cp screenshots/*.png "$OUT/${GITHUB_SHA::7}/"
+          cd "$OUT"
+          git init -q -b ci-screenshots
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -A
+          git commit -qm "Screenshots for ${GITHUB_SHA::7}"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" ci-screenshots
       - name: Upload log
         if: failure()
         uses: actions/upload-artifact@v4
