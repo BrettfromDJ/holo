@@ -385,7 +385,7 @@ private struct FreshnessChip: View {
         .fixedSize()
         .padding(.horizontal, 12)
         .frame(height: 32)
-        .liquidGlass(in: Capsule())
+        .modifier(BarGlass())
         .onAppear {
             guard !reduceMotion else { return }
             withAnimation(.easeOut(duration: 1.2).repeatForever(autoreverses: false)) { ping = true }
@@ -395,9 +395,21 @@ private struct FreshnessChip: View {
     private var label: String {
         guard let d = refreshedAt else { return "LIVE" }
         let minutes = Int(Date().timeIntervalSince(d) / 60)
-        if minutes < 60 { return "UPDATED \(max(minutes, 1))M AGO" }
+        if minutes < 60 { return "\(max(minutes, 1))M AGO" }
         let hours = minutes / 60
-        if hours < 24 { return "UPDATED \(hours)H AGO" }
-        return "UPDATED \(hours / 24)D AGO"
+        if hours < 24 { return "\(hours)H AGO" }
+        return "\(hours / 24)D AGO"
+    }
+}
+
+/// In the top bar iOS 26 already puts the item on Liquid Glass, so the chip adds nothing of its
+/// own there; older iOS gets the frosted capsule.
+private struct BarGlass: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26, *) {
+            content
+        } else {
+            content.liquidGlass(in: Capsule())
+        }
     }
 }
