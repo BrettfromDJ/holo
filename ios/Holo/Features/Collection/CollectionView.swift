@@ -103,7 +103,7 @@ struct CollectionView: View {
         let monthChange = (month.last?.value ?? 0) - (month.first?.value ?? 0)
         let monthTone = monthChange < 0 ? Theme.planPink : Theme.lime
         return VStack(alignment: .leading, spacing: 18) {
-            PageHeader(title: "Collection", subtitle: sinceLine) {
+            PageHeader(title: "Collection") {
                 FreshnessChip(refreshedAt: store.pricesRefreshedAt)
             }
             // The value, counting up, with the all-time gain beside it.
@@ -141,14 +141,6 @@ struct CollectionView: View {
         .background(alignment: .top) {
             CollectionBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
         }
-    }
-
-    /// "13 products · collecting since Mar 2024".
-    private var sinceLine: String {
-        let first = store.transactions.map(\.date).min().flatMap { Format.isoDay.date(from: $0) }
-        let products = "\(store.holdings.count) product\(store.holdings.count == 1 ? "" : "s")"
-        guard let first else { return products }
-        return products + " · collecting since " + first.formatted(.dateTime.month(.abbreviated).year())
     }
 
     private func statTile(_ label: String, _ value: String, _ tint: Color) -> some View {
@@ -387,6 +379,7 @@ private struct FreshnessChip: View {
             .frame(width: 7, height: 7)
             Text(label).font(.mono(11, .medium)).tracking(0.6).foregroundStyle(Theme.muted)
         }
+        .fixedSize()
         .padding(.horizontal, 12)
         .frame(height: 32)
         .liquidGlass(in: Capsule())
