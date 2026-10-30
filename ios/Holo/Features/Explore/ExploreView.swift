@@ -443,7 +443,7 @@ private struct SetView: View {
                         HStack(spacing: 8) {
                             StatTile(label: "Singles", value: Double(singles.count))
                             StatTile(label: "Sealed", value: Double(sealed.count))
-                            StatTile(label: "Set value", value: products.compactMap(\.market).reduce(0, +), money: true)
+                            StatTile(label: "Set value", value: singles.compactMap(\.market).reduce(0, +), money: true)
                         }
                         .padding(.horizontal, 16)
                         if ownedCount > 0 {
