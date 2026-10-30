@@ -45,7 +45,7 @@ struct DealView: View {
                 VStack(alignment: .leading, spacing: 32) {
                     VStack(alignment: .leading, spacing: 14) {
                         if !todays.isEmpty { TodayStrip(deals: todays) { history = true } }
-                        BalanceCard(totals: totals)
+                        BalanceCard(totals: totals, roundTo: roundTarget, onRound: roundCash)
                     }
                     side(.incoming).reveal()
                     side(.outgoing).reveal()
@@ -108,6 +108,19 @@ struct DealView: View {
     // MARK: Close bar
 
     private var closeBar: some View {
+        VStack(spacing: 8) {
+        // The answer, always on screen: who pays and whether you come out ahead.
+        HStack(spacing: 6) {
+            Text(totals.cashLine).foregroundStyle(.white)
+            if let net = totals.net {
+                Text("·").foregroundStyle(Theme.muted)
+                Text(net >= 0 ? "You're \(Format.signedMoney(net))" : "You're \(Format.signedMoney(net))").foregroundStyle(Theme.tone(net))
+            }
+        }
+        .font(.geist(13, .semibold)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.75)
+        .contentTransition(.numericText())
+        .animation(.snappy, value: totals.balance)
+        .padding(.top, 4)
         HStack(spacing: 8) {
             Button("Clear") {
                 let photos = deals.deal.photos
@@ -124,10 +137,47 @@ struct DealView: View {
             .disabled(unpriced)
             .opacity(unpriced ? 0.55 : 1)
         }
+        }
         .padding(8)
         .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
+    }
+
+    // MARK: Rounding the cash
+
+    /// The cash rounded to the nearest $5, when it isn't already.
+    private var roundTarget: Double? {
+        let b = totals.balance
+        let r = (abs(b) / 5).rounded() * 5
+        guard deals.deal.kind != .empty, r >= 5, abs(abs(b) - r) > 0.004 else { return nil }
+        return b < 0 ? -r : r
+    }
+
+    /// Round the cash by nudging the price of the biggest item: one going out if there is one,
+    /// else one coming in. It becomes a typed price on that item, so you can see and undo it.
+    private func roundCash() {
+        guard let target = roundTarget else { return }
+        let delta = target - totals.balance
+        let r = rates
+        withAnimation(.snappy) {
+            deals.update { d in
+                if let i = d.outgoing.indices.max(by: { d.outgoing[$0].total(side: r.out) < d.outgoing[$1].total(side: r.out) }) {
+                    let item = d.outgoing[i]
+                    let newTotal = item.total(side: r.out) + delta
+                    guard newTotal > 0 else { return }
+                    d.outgoing[i].price = round2(newTotal / Double(item.qty))
+                    d.outgoing[i].rate = nil
+                } else if let i = d.incoming.indices.max(by: { d.incoming[$0].total(side: r.in) < d.incoming[$1].total(side: r.in) }) {
+                    let item = d.incoming[i]
+                    let newTotal = item.total(side: r.in) - delta
+                    guard newTotal > 0 else { return }
+                    d.incoming[i].price = round2(newTotal / Double(item.qty))
+                    d.incoming[i].rate = nil
+                }
+            }
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
     // MARK: Photos
@@ -174,7 +224,7 @@ struct DealView: View {
                     .animation(.snappy, value: incoming ? totals.inValue : totals.outValue)
             }
 
-            RateCard(rate: rate, fallback: fallback, accent: accent) { r in
+            RateCard(rate: rate, fallback: fallback, accent: accent, result: deals.deal.kind == .empty ? nil : totals.summary) { r in
                 deals.update { d in if incoming { d.rateIn = r } else { d.rateOut = r } }
             }
 
@@ -289,41 +339,166 @@ private struct TodayStrip: View {
     }
 }
 
-/// Who pays whom, and what you make, on a solid electric-lime card. When the equity taken in
-/// is negative the whole card goes pink, so there's never pink on lime.
+extension DealTotals {
+    /// Equity only means something when something comes in.
+    var showsEquity: Bool { !(kind == .sell || kind == .empty || inValue == 0) }
+
+    /// How much better off you are, at market: your profit on what goes out plus the value
+    /// you gain on what comes in. Nil when neither is known.
+    var net: Double? {
+        if profit == nil && !showsEquity { return nil }
+        return (profit ?? 0) + (showsEquity ? equity : 0)
+    }
+
+    var cashLine: String {
+        abs(balance) < 0.005 ? "Even swap" : (balance > 0 ? "Customer pays you \(Format.money(balance))" : "You pay \(Format.money(-balance))")
+    }
+
+    var verdict: String? {
+        net.map { n in abs(n) < 0.005 ? "You break even" : (n > 0 ? "You come out \(Format.money(n)) ahead" : "You come out \(Format.money(-n)) behind") }
+    }
+
+    /// "Customer pays you $40 · you're +$58", for under the slider.
+    var summary: String {
+        cashLine + (net.map { " · you're \(Format.signedMoney($0))" } ?? "")
+    }
+}
+
+/// What each number means, one sentence each (tap a label to read it).
+enum DealTerm: String {
+    case verdict, cash, comingIn, goingOut, profit, value, rate
+
+    var title: String {
+        switch self {
+        case .verdict: return "Ahead or behind"
+        case .cash: return "Cash"
+        case .comingIn: return "Coming in"
+        case .goingOut: return "Going out"
+        case .profit: return "Your profit"
+        case .value: return "Value gained"
+        case .rate: return "Share of market"
+        }
+    }
+
+    var explanation: String {
+        switch self {
+        case .verdict: return "Your profit on what you hand over plus the value you gain on what comes in: how much better off you are after this deal, at market prices."
+        case .cash: return "The difference between the two sides, paid in cash so the deal comes out even."
+        case .comingIn: return "What the customer's cards count for in this deal, at the prices you set."
+        case .goingOut: return "What your cards count for in this deal, at the prices you set."
+        case .profit: return "What your cards go for in this deal, minus what you paid for them."
+        case .value: return "Market value of what comes in, minus what you're giving for it: how far below market you're getting it."
+        case .rate: return "Each item counts for this share of its market price. Drag to counter-offer, or set one item's own % or price."
+        }
+    }
+}
+
+/// A small caps label you can tap to read what it means.
+private struct TermLabel: View {
+    var text: String
+    var term: DealTerm
+    var color: Color
+    @State private var open = false
+
+    var body: some View {
+        Button { open = true } label: {
+            HStack(spacing: 4) {
+                Text(text.uppercased()).font(.mono(10)).tracking(1.1)
+                Image(systemName: "info.circle").font(.system(size: 9, weight: .semibold)).opacity(0.7)
+            }
+            .foregroundStyle(color)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $open) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(term.title).font(.geist(15, .semibold))
+                Text(term.explanation).font(.geist(13)).foregroundStyle(Theme.muted).fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(16)
+            .frame(width: 280, alignment: .leading)
+            .presentationCompactAdaptation(.popover)
+        }
+    }
+}
+
+/// The deal at a glance on a solid electric-lime card: whether you come out ahead, who pays
+/// whom (with a one-tap round to $5), a bar showing what each side puts in, and the four numbers
+/// in plain words (tap any for what it means). When the value gained is negative the whole card
+/// goes pink, so there's never pink on lime.
 private struct BalanceCard: View {
     var totals: DealTotals
+    var roundTo: Double?
+    var onRound: () -> Void
+
     var body: some View {
-        let b = totals.balance
-        let empty = totals.kind == .empty
-        let showsEquity = !(totals.kind == .sell || empty || totals.inValue == 0)
-        let down = showsEquity && totals.equity < -0.005
+        let t = totals
+        let b = t.balance
+        let empty = t.kind == .empty
+        let down = t.showsEquity && t.equity < -0.005
         let fill = down ? Theme.planPink : Theme.lime
         let ink = down ? Color.white : Theme.ink
         let shape = RoundedRectangle(cornerRadius: 24, style: .continuous)
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                SkewTag(text: empty ? "New deal" : totals.kind.label, color: down ? .white : Theme.ink, textColor: down ? Theme.ink : Theme.lime)
+                SkewTag(text: empty ? "New deal" : t.kind.label, color: down ? .white : Theme.ink, textColor: down ? Theme.ink : Theme.lime)
                 Spacer()
-                if totals.belowCost > 0 {
-                    Label("\(totals.belowCost) below cost", systemImage: "exclamationmark.triangle.fill")
+                if t.belowCost > 0 {
+                    Label("\(t.belowCost) below cost", systemImage: "exclamationmark.triangle.fill")
                         .font(.geist(12, .semibold)).foregroundStyle(ink)
                 }
             }
-            Text((empty ? "Add items to start" : (abs(b) < 0.005 ? "Settled" : (b > 0 ? "Customer pays you" : "You pay the customer"))).uppercased())
-                .font(.mono(11)).tracking(1.2).foregroundStyle(ink.opacity(0.7))
-                .padding(.top, 18)
-            CountingText(value: abs(b), format: { Format.money($0) })
-                .font(.display(60)).monospacedDigit().foregroundStyle(ink).lineLimit(1).minimumScaleFactor(0.5)
-                .displayTrim(60)
-                .padding(.top, 10)
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], alignment: .leading, spacing: 14) {
-                stat("Coming in", Format.money(totals.inValue), ink)
-                stat("Going out", Format.money(totals.outValue), ink)
-                stat("Profit on sale", totals.profit.map { Format.signedMoney($0) } ?? "—", ink)
-                stat("Equity taken in", showsEquity ? Format.signedMoney(totals.equity) : "—", ink)
+
+            // The verdict, in plain English.
+            if let verdict = t.verdict {
+                HStack(spacing: 8) {
+                    Image(systemName: (t.net ?? 0) >= 0 ? "arrow.up.right" : "arrow.down.right").font(.system(size: 13, weight: .black))
+                    Text(verdict).font(.geist(15, .bold)).lineLimit(1).minimumScaleFactor(0.7)
+                    TermInfo(term: .verdict, color: fill)
+                }
+                .foregroundStyle(fill)
+                .padding(.horizontal, 14).frame(height: 36)
+                .background(Capsule().fill(ink))
+                .padding(.top, 16)
+                .contentTransition(.numericText())
+                .animation(.snappy, value: t.net)
             }
-            .padding(.top, 20)
+
+            HStack(alignment: .lastTextBaseline) {
+                TermLabel(text: empty ? "Add items to start" : (abs(b) < 0.005 ? "Settled · no cash" : (b > 0 ? "Customer pays you" : "You pay the customer")), term: .cash, color: ink.opacity(0.7))
+                Spacer()
+            }
+            .padding(.top, 16)
+            HStack(alignment: .center, spacing: 10) {
+                CountingText(value: abs(b), format: { Format.money($0) })
+                    .font(.display(60)).monospacedDigit().foregroundStyle(ink).lineLimit(1).minimumScaleFactor(0.5)
+                    .displayTrim(60)
+                Spacer(minLength: 0)
+                if let roundTo {
+                    Button(action: onRound) {
+                        VStack(spacing: 1) {
+                            Text("Round to").font(.geist(10, .semibold)).opacity(0.7)
+                            Text(Format.money(abs(roundTo))).font(.geist(14, .bold)).monospacedDigit()
+                        }
+                        .foregroundStyle(fill)
+                        .padding(.horizontal, 12).frame(height: 44)
+                        .background(Capsule().fill(ink))
+                    }
+                    .buttonStyle(ShutterStyle())
+                    .transition(.scale.combined(with: .opacity))
+                }
+            }
+            .padding(.top, 8)
+
+            if !empty { BalanceBar(totals: t, ink: ink).padding(.top, 16) }
+
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], alignment: .leading, spacing: 14) {
+                stat("Coming in", .comingIn, Format.money(t.inValue), ink)
+                stat("Going out", .goingOut, Format.money(t.outValue), ink)
+                stat("Your profit", .profit, t.profit.map { Format.signedMoney($0) } ?? "—", ink)
+                stat("Value gained", .value, t.showsEquity ? Format.signedMoney(t.equity) : "—", ink)
+            }
+            .padding(.top, 18)
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -337,38 +512,126 @@ private struct BalanceCard: View {
                     stride(from: 0, through: size.height, by: 28).forEach { y in path.move(to: CGPoint(x: 0, y: y)); path.addLine(to: CGPoint(x: size.width, y: y)) }
                     ctx.stroke(path, with: .color(.black.opacity(0.06)), lineWidth: 1)
                 }
-                Sheen(strength: 0.35)
             }
             .clipShape(shape)
             .shadow(color: fill.opacity(0.4), radius: 22)
         }
         .animation(.easeInOut(duration: 0.3), value: down)
-        // A warning buzz the moment equity taken in goes negative (and a light tap when it recovers).
+        .animation(.snappy, value: roundTo)
+        // A warning buzz the moment value gained goes negative (and a light tap when it recovers).
         .sensoryFeedback(trigger: down) { was, now in
             now && !was ? .warning : (was && !now ? .impact(weight: .light) : nil)
         }
     }
 
-    private func stat(_ label: String, _ value: String, _ ink: Color) -> some View {
+    private func stat(_ label: String, _ term: DealTerm, _ value: String, _ ink: Color) -> some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text(label.uppercased()).font(.mono(10)).tracking(1.1).foregroundStyle(ink.opacity(0.65))
+            TermLabel(text: label, term: term, color: ink.opacity(0.65))
             Text(value).font(.geist(17, .semibold)).monospacedDigit().foregroundStyle(ink).lineLimit(1).minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
-/// The side's share of market, adjustable for this deal (the counter-offer slider).
+/// Just the info mark, for inside the verdict pill.
+private struct TermInfo: View {
+    var term: DealTerm
+    var color: Color
+    @State private var open = false
+
+    var body: some View {
+        Button { open = true } label: {
+            Image(systemName: "info.circle").font(.system(size: 12, weight: .semibold)).foregroundStyle(color.opacity(0.75))
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $open) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(term.title).font(.geist(15, .semibold))
+                Text(term.explanation).font(.geist(13)).foregroundStyle(Theme.muted).fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(16)
+            .frame(width: 280, alignment: .leading)
+            .presentationCompactAdaptation(.popover)
+        }
+    }
+}
+
+/// What each side puts in, as two bars the same length: your cards (plus cash if you pay)
+/// against theirs (plus cash if they pay). The striped part is the cash that evens it out.
+private struct BalanceBar: View {
+    var totals: DealTotals
+    var ink: Color
+
+    var body: some View {
+        let t = totals
+        let b = t.balance
+        let full = max(t.inValue, t.outValue, 0.01)
+        VStack(alignment: .leading, spacing: 8) {
+            row("You give", items: t.outValue, cash: b < 0 ? -b : 0, full: full)
+            row("You get", items: t.inValue, cash: b > 0 ? b : 0, full: full)
+        }
+        .animation(.snappy, value: t.balance)
+    }
+
+    private func row(_ label: String, items: Double, cash: Double, full: Double) -> some View {
+        HStack(spacing: 10) {
+            Text(label.uppercased()).font(.mono(10)).tracking(1).foregroundStyle(ink.opacity(0.65))
+                .frame(width: 62, alignment: .leading)
+            GeometryReader { geo in
+                let w = geo.size.width
+                HStack(spacing: 2) {
+                    if items > 0 {
+                        RoundedRectangle(cornerRadius: 4, style: .continuous).fill(ink)
+                            .frame(width: max(4, w * items / full - (cash > 0 ? 2 : 0)))
+                    }
+                    if cash > 0.004 {
+                        Stripes(color: ink)
+                            .frame(width: max(4, w * cash / full))
+                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(ink, lineWidth: 1.2))
+                    }
+                }
+            }
+            .frame(height: 14)
+            Text(cash > 0.004 ? "+ \(Format.money(cash)) cash" : Format.money(items))
+                .font(.geist(11, .semibold)).monospacedDigit().foregroundStyle(ink)
+                .lineLimit(1).fixedSize()
+        }
+    }
+}
+
+/// Diagonal ink stripes: the cash part of a bar.
+private struct Stripes: View {
+    var color: Color
+
+    var body: some View {
+        Canvas { ctx, size in
+            var path = Path()
+            var x: CGFloat = -size.height
+            while x < size.width {
+                path.move(to: CGPoint(x: x, y: size.height))
+                path.addLine(to: CGPoint(x: x + size.height, y: 0))
+                x += 5
+            }
+            ctx.stroke(path, with: .color(color.opacity(0.7)), lineWidth: 1.5)
+        }
+    }
+}
+
+/// The side's share of market, adjustable for this deal (the counter-offer slider), with what it
+/// does to the deal shown live underneath as you drag.
 private struct RateCard: View {
     var rate: Double
     var fallback: Double
     var accent: Color
+    var result: String?
     var onChange: (Double?) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
                 Text("At ").foregroundColor(Theme.muted) + Text("\(Int((rate * 100).rounded()))%").foregroundColor(.white) + Text(" of market").foregroundColor(Theme.muted)
+                TermInfo(term: .rate, color: .white)
                 Spacer()
                 if abs(rate - fallback) > 0.0001 {
                     Button("Reset to \(Int((fallback * 100).rounded()))%") { onChange(nil) }
@@ -380,6 +643,15 @@ private struct RateCard: View {
             Slider(value: Binding(get: { rate }, set: { onChange(($0 * 100).rounded() / 100) }), in: 0.4...1.2, step: 0.01)
                 .tint(accent)
                 .sensoryFeedback(.selection, trigger: Int((rate * 20).rounded()))
+            if let result {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.turn.down.right").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.subtle)
+                    Text(result).font(.geist(12, .medium)).foregroundStyle(Theme.muted).monospacedDigit()
+                        .lineLimit(1).minimumScaleFactor(0.8)
+                        .contentTransition(.numericText())
+                        .animation(.snappy, value: result)
+                }
+            }
         }
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.surface))
@@ -417,8 +689,19 @@ private struct DealItemCard: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel("Remove \(item.product.name)")
                 }
-                HStack(spacing: 4) {
-                    Text(subtitle).foregroundStyle(Theme.muted)
+                HStack(spacing: 5) {
+                    if let market = item.market, let unit, abs(unit - market) > 0.004 {
+                        Text(Format.money(market)).strikethrough().foregroundStyle(Theme.subtle)
+                        Image(systemName: "arrow.right").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.subtle)
+                        Text(Format.money(unit)).foregroundStyle(.white).fontWeight(.semibold)
+                        Text("\(Int((unit / market * 100).rounded()))%")
+                            .font(.geist(10, .bold)).foregroundStyle(Theme.ink)
+                            .padding(.horizontal, 5).frame(height: 16)
+                            .background(Capsule().fill(accent))
+                    } else {
+                        Text(subtitle).foregroundStyle(Theme.muted)
+                    }
+                    if let g = item.grade { Text("· \(g.company) \(g.grade)").foregroundStyle(Theme.muted) }
                     if item.product.source == "tcgapi" || item.product.source == "sample" {
                         Text("·").foregroundStyle(Theme.muted)
                         Button("eBay sold", action: onEbay).foregroundStyle(.white.opacity(0.85)).buttonStyle(.plain)
@@ -449,7 +732,7 @@ private struct DealItemCard: View {
                 HStack(spacing: 6) {
                     if let cost {
                         let profit = total - cost
-                        Text("In it \(Format.money(cost)) ·").foregroundStyle(Theme.muted)
+                        Text("You paid \(Format.money(cost)) ·").foregroundStyle(Theme.muted)
                         Text(Format.signedMoney(profit)).foregroundStyle(Theme.tone(profit))
                         if profit < -0.005 { SkewTag(text: "Below cost", color: Theme.planPink, textColor: .white) }
                     }
@@ -467,11 +750,13 @@ private struct DealItemCard: View {
             if let p = item.price { priceText = String(format: "%.2f", p) }
             if let r = item.rate { rateText = "\(Int((r * 100).rounded()))" }
         }
+        .onChange(of: item.price) { _, p in
+            if let p, MoneyField.value(priceText) != p { priceText = String(format: "%.2f", p) }
+        }
     }
 
     private var subtitle: String {
-        [item.market.map { "Market \(Format.money($0))" } ?? "No market price", item.grade.map { "\($0.company) \($0.grade)" }]
-            .compactMap { $0 }.joined(separator: " · ")
+        item.market.map { "Market \(Format.money($0))" } ?? "No market price"
     }
 
     private var stepper: some View {

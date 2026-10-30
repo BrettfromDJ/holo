@@ -202,11 +202,15 @@ struct DealCloseSheet: View {
                         .padding(18)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                        if let verdict = t.verdict {
+                            Label(verdict, systemImage: (t.net ?? 0) >= 0 ? "arrow.up.right" : "arrow.down.right")
+                                .font(.geist(16, .bold)).foregroundStyle(Theme.tone(t.net))
+                        }
                         if !deal.incoming.isEmpty { sideRow(.incoming, deal.incoming, t.inValue) }
                         if !deal.outgoing.isEmpty { sideRow(.outgoing, deal.outgoing, t.outValue) }
                         HStack(spacing: 8) {
                             if let profit = t.profit { pill("Profit", Format.signedMoney(profit), Theme.tone(profit)) }
-                            if deal.kind != .sell, t.inValue > 0 { pill("Equity in", Format.signedMoney(t.equity), Theme.tone(t.equity)) }
+                            if deal.kind != .sell, t.inValue > 0 { pill("Value gained", Format.signedMoney(t.equity), Theme.tone(t.equity)) }
                         }
                         Text(store.demo != nil
                              ? "This is a demo collection, so nothing is saved: closing just clears the deal."
@@ -331,7 +335,7 @@ private struct RecordedScreen: View {
         let ink = down ? Color.white : Theme.ink
         let items = Array((deal.outgoing + deal.incoming).prefix(7))
         // Profit when something went out; for a buy, the equity you took in.
-        let headline: (label: String, value: Double)? = t.profit.map { ("Profit", $0) } ?? (t.inValue > 0 ? ("Equity taken in", t.equity) : nil)
+        let headline: (label: String, value: Double)? = t.profit.map { ("Profit", $0) } ?? (t.inValue > 0 ? ("Value gained", t.equity) : nil)
         VStack(spacing: 0) {
             Spacer(minLength: 12)
             VStack(spacing: 20) {

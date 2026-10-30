@@ -767,7 +767,7 @@ private struct DealRecordCard: View {
     /// Profit when something went out; for a buy, the equity taken in.
     private var headline: (String, Double?) {
         if let p = record.profit { return ("Profit", p) }
-        if record.inValue > 0 { return ("Equity", record.equity) }
+        if record.inValue > 0 { return ("Value gained", record.equity) }
         return ("Profit", nil)
     }
 
@@ -837,7 +837,7 @@ struct DealRecordDetail: View {
                 stat("Came in", Format.money(r.inValue), .white)
                 stat("Went out", Format.money(r.outValue), .white)
                 stat("Profit", r.profit.map { Format.signedMoney($0) } ?? "—", r.profit == nil ? Theme.muted : Theme.tone(r.profit))
-                stat("Equity taken in", r.kind == .sell ? "—" : Format.signedMoney(r.equity), r.kind == .sell ? Theme.muted : Theme.tone(r.equity))
+                stat("Value gained", r.kind == .sell ? "—" : Format.signedMoney(r.equity), r.kind == .sell ? Theme.muted : Theme.tone(r.equity))
             }
             .padding(.top, 20)
         }
