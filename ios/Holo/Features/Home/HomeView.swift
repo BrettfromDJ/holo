@@ -129,7 +129,7 @@ private struct Hero: View {
         let s = store.summary
         let top = Array(store.holdings.filter { ($0.value ?? 0) > 0 }.prefix(5))
         VStack(spacing: 10) {
-            CardFan(holdings: top).frame(height: 200)
+            CardFan(holdings: top).frame(height: 236)
             MonoLabel(text: "\(store.holdings.count) products · \(Int(s.items)) items")
             VStack(spacing: 6) {
                 Text("YOUR COLLECTION'S WORTH").font(.display(30)).displayTrim(30)
