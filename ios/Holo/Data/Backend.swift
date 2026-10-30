@@ -71,12 +71,12 @@ final class HoloAPI {
         struct Live: Decodable { var hits: [SearchHit] }
         let q = URLQueryItem(name: "q", value: query)
         let stored = try? await send(try await request("api/explore/search", query: [q]), as: Stored.self)
-        if let hits = stored?.products, !hits.isEmpty { return hits }
+        if let hits = stored?.products.filter({ !$0.product.isCodeCard }), !hits.isEmpty { return hits }
         let live = try await send(
             try await request("api/tcg/search", query: [q, URLQueryItem(name: "type", value: "all"), URLQueryItem(name: "game", value: "all")]),
             as: Live.self
         )
-        return live.hits
+        return live.hits.filter { !$0.product.isCodeCard }
     }
 
     /// Save a product to the shared catalog (needed before it can be added) and get its prices.
@@ -114,7 +114,9 @@ final class HoloAPI {
     }
 
     func exploreSet(_ slug: String) async throws -> ExploreSetDetail {
-        try await send(try await request("api/explore/sets/\(slug)"), as: ExploreSetDetail.self)
+        var detail = try await send(try await request("api/explore/sets/\(slug)"), as: ExploreSetDetail.self)
+        detail.products.removeAll { $0.product.isCodeCard }
+        return detail
     }
 
     func catalogProduct(_ id: String) async throws -> CatalogProduct {

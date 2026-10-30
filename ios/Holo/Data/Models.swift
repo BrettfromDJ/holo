@@ -21,6 +21,10 @@ struct Product: Codable, Identifiable, Hashable {
     var printings: [String]?
 
     var isSealed: Bool { kind == "sealed" }
+    /// Online game code cards ("Code Card - Surging Sparks Booster Pack"): kept out of the app.
+    var isCodeCard: Bool {
+        "\(name) \(productType ?? "") \(rarity ?? "")".range(of: #"\bcode\s*card\b|\bonline code\b"#, options: [.regularExpression, .caseInsensitive]) != nil
+    }
     var imageURL: URL? { imageUrl.flatMap(URL.init(string:)) }
 
     /// "Evolving Skies · #215/203"
