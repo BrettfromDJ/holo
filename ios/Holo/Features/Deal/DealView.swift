@@ -304,6 +304,10 @@ private struct BalanceCard: View {
             .shadow(color: fill.opacity(0.4), radius: 22)
         }
         .animation(.easeInOut(duration: 0.3), value: down)
+        // A warning buzz the moment equity taken in goes negative (and a light tap when it recovers).
+        .sensoryFeedback(trigger: down) { was, now in
+            now && !was ? .warning : (was && !now ? .impact(weight: .light) : nil)
+        }
     }
 
     private func stat(_ label: String, _ value: String, _ ink: Color) -> some View {
