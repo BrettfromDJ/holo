@@ -367,7 +367,8 @@ struct DealCameraView: View {
         Button(action: action) {
             Image(systemName: icon).font(.system(size: size * 0.36, weight: .semibold)).foregroundStyle(tint)
                 .frame(width: size, height: size)
-                .liquidGlass(in: Circle(), interactive: true)
+                .liquidGlass(in: Circle())
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)

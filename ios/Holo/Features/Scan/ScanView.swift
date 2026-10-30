@@ -197,7 +197,8 @@ struct ScanView: View {
         Button(action: action) {
             Image(systemName: icon).font(.system(size: 16, weight: .semibold))
                 .frame(width: 44, height: 44)
-                .liquidGlass(in: Circle(), interactive: true)
+                .liquidGlass(in: Circle())
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
