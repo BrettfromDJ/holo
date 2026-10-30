@@ -20,6 +20,8 @@ struct HoldingView: Identifiable, Hashable {
     /// True when the price is the owner's own valuation (graded slabs).
     var isManual: Bool
     var change24hPct: Double?
+    var change7dPct: Double?
+    var change30dPct: Double?
     var lastAcquired: String?
     /// Units still held, oldest first (what a sale consumes).
     var lots: [Lot] = []
@@ -99,6 +101,8 @@ enum Portfolio {
             var estimate = false
             var manual = false
             var change: Double?
+            var change7: Double?
+            var change30: Double?
             if id.isGraded {
                 // Your own value wins; else the median of recent eBay sales for that exact grade.
                 if let m = manualValues[id.key] {
@@ -112,11 +116,13 @@ enum Portfolio {
                 price = (market * share * 100).rounded() / 100
                 estimate = share < 1
                 change = p.change24hPct
+                change7 = p.change7dPct
+                change30 = p.change30dPct
             }
             return HoldingView(
                 identity: id, product: products[id.productId], quantity: qty, costBasis: pos.costBasis,
                 realizedGain: pos.realizedGain, price: price, isConditionEstimate: estimate, isManual: manual,
-                change24hPct: change, lastAcquired: pos.lastAcquired, lots: pos.lots
+                change24hPct: change, change7dPct: change7, change30dPct: change30, lastAcquired: pos.lastAcquired, lots: pos.lots
             )
         }
         .sorted { ($0.value ?? -1) > ($1.value ?? -1) }

@@ -45,6 +45,15 @@ targets:
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         UIUserInterfaceStyle: Dark
+        # Geist and Anton, the website's typefaces (Resources/Fonts, SIL Open Font License).
+        UIAppFonts:
+          - Geist-Regular.ttf
+          - Geist-Medium.ttf
+          - Geist-SemiBold.ttf
+          - Geist-Bold.ttf
+          - GeistMono-Regular.ttf
+          - GeistMono-Medium.ttf
+          - Anton-Regular.ttf
         NSCameraUsageDescription: Holo uses the camera to scan your cards and look up their prices.
         ITSAppUsesNonExemptEncryption: false
         # Read by AppConfig.swift; values come from Config.xcconfig.

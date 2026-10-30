@@ -7,6 +7,10 @@ struct HoloApp: App {
     @State private var store = CollectionStore()
     @State private var deals = DealStore()
 
+    init() {
+        Fonts.applyAppearance()
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()
@@ -15,6 +19,7 @@ struct HoloApp: App {
                 .environment(deals)
                 .preferredColorScheme(.dark)
                 .tint(Theme.lime)
+                .font(.geist(15))
         }
     }
 }
@@ -72,36 +77,50 @@ struct NotConfiguredView: View {
 struct MainTabView: View {
     @State private var tab = HomeTab.home
     @State private var scanning = false
+    @State private var adding = false
+    @State private var searching = false
     @State private var router = Router.shared
 
-    enum HomeTab { case home, collection, scan, deal, explore }
+    enum HomeTab { case home, collection, explore, deal }
 
     var body: some View {
         TabView(selection: $tab) {
             HomeView(onScan: { scanning = true })
-                .tabItem { Label("Home", systemImage: "chart.line.uptrend.xyaxis") }
                 .tag(HomeTab.home)
+                .toolbar(.hidden, for: .tabBar)
             CollectionView(onScan: { scanning = true })
-                .tabItem { Label("Collection", systemImage: "square.grid.2x2.fill") }
                 .tag(HomeTab.collection)
-            // Scan is an action, not a page: picking it opens the camera and keeps you where you were.
-            Color.clear
-                .tabItem { Label("Scan", systemImage: "viewfinder") }
-                .tag(HomeTab.scan)
+                .toolbar(.hidden, for: .tabBar)
             ExploreView()
-                .tabItem { Label("Explore", systemImage: "safari") }
                 .tag(HomeTab.explore)
+                .toolbar(.hidden, for: .tabBar)
             DealView()
-                .tabItem { Label("Deal", systemImage: "arrow.left.arrow.right") }
                 .tag(HomeTab.deal)
+                .toolbar(.hidden, for: .tabBar)
         }
-        .onChange(of: tab) { old, new in
-            if new == .scan {
-                tab = old
-                scanning = true
-            }
+        // The website's bar: Overview, Collection, the lime +, Explore, Deal.
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            HoloTabBar(
+                items: [
+                    .init(tab: .home, title: "Overview", icon: "chart.line.uptrend.xyaxis"),
+                    .init(tab: .collection, title: "Collection", icon: "square.grid.2x2"),
+                    .init(tab: .explore, title: "Explore", icon: "safari"),
+                    .init(tab: .deal, title: "Deal", icon: "arrow.left.arrow.right"),
+                ],
+                selection: $tab,
+                onPlus: { adding = true }
+            )
+        }
+        .onChange(of: router.tabRequest) { _, request in
+            if request == "collection" { tab = .collection }
+            router.tabRequest = nil
+        }
+        .confirmationDialog("Add to your collection", isPresented: $adding) {
+            Button("Scan cards") { scanning = true }
+            Button("Search and add") { searching = true }
         }
         .fullScreenCover(isPresented: $scanning) { ScanView() }
+        .sheet(isPresented: $searching) { SearchView(asSheet: true) }
         // A tapped price alert opens its card.
         .sheet(item: Binding(get: { router.product.map(OpenProduct.init) }, set: { router.product = $0?.id })) { open in
             NavigationStack {

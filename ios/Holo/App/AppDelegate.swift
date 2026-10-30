@@ -37,7 +37,12 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 @Observable
 final class Router {
     static let shared = Router()
+    /// A card to open (from a tapped notification).
     var product: String?
+    /// A tab another screen asked to switch to ("collection").
+    var tabRequest: String?
+    /// The category the Collection tab should show (from Home's "View sealed" and friends).
+    var collectionCategory: HoldingCategory?
 }
 
 enum PushRegistration {

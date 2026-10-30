@@ -183,6 +183,44 @@ final class CollectionStore {
         }
     }
 
+    /// One position's value per unit over the last `days` days (for sparklines).
+    func series(_ identity: HoldingIdentity, days: Int = 90) -> [TimelinePoint] {
+        let today = Format.day()
+        let start = Format.day(Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date())
+        return Timeline.days(from: start, to: today).compactMap { day in
+            Timeline.price(identity, on: day, today: today, prices: prices, history: history, manual: manualValues, ebay: ebayGraded)
+                .map { TimelinePoint(date: day, value: $0, cost: 0) }
+        }
+    }
+
+    /// Recent purchases, newest first, with what they're worth now.
+    struct RecentPurchase: Identifiable {
+        var entry: Txn
+        var product: Product?
+        var value: Double?
+        var id: String { entry.id }
+        var cost: Double { entry.acquisitionCost }
+        var change: Double? { value.map { cost > 0 ? ($0 - cost) / cost : 0 } }
+    }
+
+    func recentPurchases(_ limit: Int = 6) -> [RecentPurchase] {
+        let unit = Dictionary(holdings.map { ($0.identity.key, $0.price) }, uniquingKeysWith: { a, _ in a })
+        return Ledger.effective(transactions)
+            .filter { $0.kind == .purchase }
+            .sorted { $0.date != $1.date ? $0.date > $1.date : $0.createdAt > $1.createdAt }
+            .prefix(limit)
+            .map { t in
+                let price = unit[t.identity.key] ?? nil
+                return RecentPurchase(entry: t, product: products[t.identity.productId], value: price.map { $0 * t.quantity })
+            }
+    }
+
+    /// What you spent on purchases this calendar month.
+    var spentThisMonth: Double {
+        let month = String(Format.day().prefix(7))
+        return Ledger.effective(transactions).filter { $0.kind == .purchase && $0.date.hasPrefix(month) }.reduce(0) { $0 + $1.acquisitionCost }
+    }
+
     // MARK: Writing: release reminders
 
     @MainActor
