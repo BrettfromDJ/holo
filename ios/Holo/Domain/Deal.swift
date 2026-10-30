@@ -122,11 +122,13 @@ struct DealState: Codable, Equatable {
     /// Rates moved off the defaults for this deal; nil follows the presets.
     var rateIn: Double?
     var rateOut: Double?
+    /// Photos documenting the deal (storage paths, see DealPhotos).
+    var photos: [String] = []
 
     enum CodingKeys: String, CodingKey {
         case incoming = "in"
         case outgoing = "out"
-        case rateIn, rateOut
+        case rateIn, rateOut, photos
     }
 
     init() {}
@@ -137,6 +139,7 @@ struct DealState: Codable, Equatable {
         outgoing = try c.decodeIfPresent([DealItem].self, forKey: .outgoing) ?? []
         rateIn = try c.decodeIfPresent(Double.self, forKey: .rateIn)
         rateOut = try c.decodeIfPresent(Double.self, forKey: .rateOut)
+        photos = try c.decodeIfPresent([String].self, forKey: .photos) ?? []
     }
 
     func encode(to encoder: Encoder) throws {
@@ -145,6 +148,7 @@ struct DealState: Codable, Equatable {
         try c.encode(outgoing, forKey: .outgoing)
         try c.encode(rateIn, forKey: .rateIn)
         try c.encode(rateOut, forKey: .rateOut)
+        if !photos.isEmpty { try c.encode(photos, forKey: .photos) }
     }
 
     var kind: DealKind {
@@ -219,6 +223,8 @@ struct DealRecord: Codable, Identifiable, Hashable {
     var equity: Double
     var items: Int
     var lines: [Line]?
+    /// Photos documenting the deal (storage paths, see DealPhotos).
+    var photos: [String]? = nil
 
     var date: Date { ISO8601DateFormatter.withFraction.date(from: at) ?? ISO8601DateFormatter().date(from: at) ?? Date() }
 }

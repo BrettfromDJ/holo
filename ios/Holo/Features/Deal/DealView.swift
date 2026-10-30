@@ -49,6 +49,7 @@ struct DealView: View {
                     }
                     side(.incoming).reveal()
                     side(.outgoing).reveal()
+                    photosSection.reveal()
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
@@ -105,7 +106,10 @@ struct DealView: View {
     private var closeBar: some View {
         HStack(spacing: 8) {
             Button("Clear") {
+                let photos = deals.deal.photos
                 withAnimation(.snappy) { deals.update { $0 = DealState() } }
+                // The deal's photos go with it.
+                Task { for p in photos { await DealPhotos.delete(p) } }
             }
             .buttonStyle(Button3D(kind: .dark, fullWidth: false, height: 48))
             Button { confirming = true } label: {
@@ -120,6 +124,25 @@ struct DealView: View {
         .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
+    }
+
+    // MARK: Photos
+
+    /// Photos documenting the deal (the cards on the table, a receipt); they're kept with it when it closes.
+    private var photosSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    Image(systemName: "camera.fill").font(.system(size: 14, weight: .bold)).foregroundStyle(accent)
+                    Text("PHOTOS").font(.display(24)).displayTrim(24)
+                    if !deals.deal.photos.isEmpty { MonoLabel(text: "\(deals.deal.photos.count)") }
+                }
+                Text("Document the deal: the cards on the table, a receipt, the customer's binder").font(.geist(12)).foregroundStyle(Theme.muted)
+            }
+            DealPhotosStrip(photos: deals.deal.photos, accountId: store.demo == nil ? deals.accountId : nil, accent: accent) { photos in
+                deals.update { $0.photos = photos }
+            }
+        }
     }
 
     // MARK: A side of the deal

@@ -39,6 +39,19 @@ final class DealStore {
 
     var rates: (in: Double, out: Double) { deal.rates(defaults) }
 
+    /// The signed-in account photos are stored under (nil keeps them on the phone, as in a demo).
+    var accountId: String? { userId }
+
+    /// Replace a closed deal's photos and save the history.
+    @MainActor
+    func setPhotos(_ photos: [String], forRecord id: String) {
+        guard let i = log.firstIndex(where: { $0.id == id }) else { return }
+        log[i].photos = photos.isEmpty ? nil : photos
+        guard let userId else { return }
+        let snapshot = log
+        Task { try? await UserState.save("deals", snapshot, userId: userId) }
+    }
+
     // MARK: Editing (each change saves shortly after, so quick taps make one write)
 
     @MainActor
@@ -138,7 +151,8 @@ final class DealStore {
         let record = DealRecord(
             id: UUID().uuidString.lowercased(), at: ISO8601DateFormatter.withFraction.string(from: Date()), kind: kind,
             inValue: totals.inValue, outValue: totals.outValue, balance: totals.balance, profit: totals.profit,
-            equity: totals.equity, items: deal.incoming.count + deal.outgoing.count, lines: lines
+            equity: totals.equity, items: deal.incoming.count + deal.outgoing.count, lines: lines,
+            photos: deal.photos.isEmpty ? nil : deal.photos
         )
         log = Array(([record] + log).prefix(500))
         deal = DealState()

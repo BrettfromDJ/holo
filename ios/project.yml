@@ -56,7 +56,7 @@ targets:
           - RobotoMono-Regular.ttf
           - RobotoMono-Medium.ttf
           - Anton-Regular.ttf
-        NSCameraUsageDescription: Holo uses the camera to scan your cards and look up their prices.
+        NSCameraUsageDescription: Holo uses the camera to scan your cards and look up their prices, and to photograph deals.
         ITSAppUsesNonExemptEncryption: false
         # Read by AppConfig.swift; values come from Config.xcconfig.
         HoloAPIHost: $(HOLO_API_HOST)
