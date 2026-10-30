@@ -66,7 +66,7 @@ struct CollectionView: View {
                             } else {
                                 VStack(spacing: 0) {
                                     ForEach(shown) { h in
-                                        NavigationLink(value: h.identity.productId) { HoldingRow(holding: h) }.buttonStyle(.plain)
+                                        NavigationLink(value: h.identity.productId) { HoldingListRow(holding: h) }.buttonStyle(.plain)
                                         Divider().overlay(Theme.border)
                                     }
                                 }
@@ -230,7 +230,7 @@ struct HoldingTile: View {
 }
 
 /// The list view's row.
-private struct HoldingRow: View {
+private struct HoldingListRow: View {
     var holding: HoldingView
 
     var body: some View {
