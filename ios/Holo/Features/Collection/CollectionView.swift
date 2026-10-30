@@ -79,6 +79,7 @@ struct CollectionView: View {
                 }
             }
             .background(Theme.background)
+            .tabBarClearance()
             .refreshable { await reload() }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { BrandMark() }

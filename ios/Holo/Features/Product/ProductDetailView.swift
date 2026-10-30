@@ -50,6 +50,7 @@ struct ProductDetailView: View {
             .padding(.bottom, 40)
         }
         .background(Theme.background)
+        .tabBarClearance()
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $managing) { h in HoldingSheet(identity: h.identity) }
         .sheet(item: $selling) { h in SellSheet(holding: h) }

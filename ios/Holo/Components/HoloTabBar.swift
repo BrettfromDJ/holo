@@ -15,6 +15,16 @@ struct HoloTabBar<Tab: Hashable>: View {
     var body: some View {
         HStack(spacing: 0) {
             ForEach(Array(items.prefix(2).enumerated()), id: \.offset) { _, item in button(item) }
+            // The + sits above the glass (below), so this only holds its place.
+            Color.clear.frame(maxWidth: .infinity)
+            ForEach(Array(items.suffix(2).enumerated()), id: \.offset) { _, item in button(item) }
+        }
+        .padding(.horizontal, 6)
+        .frame(height: 64)
+        .liquidGlass(in: Capsule(), tint: Theme.background.opacity(0.4), interactive: true)
+        .shadow(color: .black.opacity(0.45), radius: 18, y: 8)
+        // Drawn over the bar, not inside the glass, so the bar's edge never shows through it.
+        .overlay {
             Button(action: onPlus) {
                 Image(systemName: "plus")
                     .font(.system(size: 26, weight: .medium))
@@ -26,18 +36,13 @@ struct HoloTabBar<Tab: Hashable>: View {
                             Circle().fill(Theme.lime)
                             Circle().fill(LinearGradient(colors: [.white.opacity(0.25), .clear], startPoint: .top, endPoint: .center))
                         }
+                        .compositingGroup()
                     )
                     .shadow(color: Theme.lime.opacity(0.45), radius: 14, y: 2)
             }
             .accessibilityLabel("Add")
             .offset(y: -18)
-            .frame(maxWidth: .infinity)
-            ForEach(Array(items.suffix(2).enumerated()), id: \.offset) { _, item in button(item) }
         }
-        .padding(.horizontal, 6)
-        .frame(height: 64)
-        .liquidGlass(in: Capsule(), tint: Theme.background.opacity(0.4), interactive: true)
-        .shadow(color: .black.opacity(0.45), radius: 18, y: 8)
         .padding(.horizontal, 14)
         .padding(.bottom, 2)
         .ignoresSafeArea(.keyboard)
@@ -54,11 +59,20 @@ struct HoloTabBar<Tab: Hashable>: View {
             VStack(spacing: 4) {
                 Image(systemName: item.icon).font(.system(size: 21, weight: on ? .semibold : .regular))
                     .foregroundStyle(on ? Theme.lime : Theme.muted)
+                    .frame(height: 26)
                 Text(item.title).font(.geist(11, .medium)).foregroundStyle(on ? .white : Theme.muted)
             }
             .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+extension View {
+    /// Leaves room under a pushed page's content for the floating tab bar. Root pages get this
+    /// from the tab view; a page pushed onto a navigation stack has to ask for it itself.
+    func tabBarClearance() -> some View {
+        safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: HoloTabBar<Int>.clearance) }
     }
 }

@@ -61,6 +61,7 @@ struct ExploreView: View {
             }
             .scrollContentBackground(.hidden)
             .background(Theme.background)
+            .tabBarClearance()
             .navigationBarTitleDisplayMode(.inline)
             .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search cards and sealed, any brand")
             .task { await loadIndex() }
@@ -282,6 +283,7 @@ private struct BrandView: View {
         }
         .scrollContentBackground(.hidden)
         .background(Theme.background)
+        .tabBarClearance()
         .navigationTitle(game.name)
     }
 }
@@ -332,6 +334,7 @@ private struct SetView: View {
             .padding(16)
         }
         .background(Theme.background)
+        .tabBarClearance()
         .navigationTitle(set.name)
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -372,6 +375,7 @@ struct ReleaseCalendarView: View {
         }
         .scrollContentBackground(.hidden)
         .background(Theme.background)
+        .tabBarClearance()
         .navigationTitle("Release calendar")
     }
 

@@ -62,6 +62,7 @@ struct DealView: View {
                     .padding(.bottom, 8)
                 }
             }
+            .tabBarClearance()
             .confirmationDialog(confirmTitle, isPresented: $confirming, titleVisibility: .visible) {
                 Button("Close \(deals.deal.kind.noun.lowercased())") { Task { await close() } }
             } message: {

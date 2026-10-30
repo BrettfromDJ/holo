@@ -86,19 +86,15 @@ struct MainTabView: View {
     var body: some View {
         TabView(selection: $tab) {
             HomeView(onScan: { scanning = true })
-                .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: HoloTabBar<HomeTab>.clearance) }
                 .tag(HomeTab.home)
                 .toolbar(.hidden, for: .tabBar)
             CollectionView(onScan: { scanning = true })
-                .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: HoloTabBar<HomeTab>.clearance) }
                 .tag(HomeTab.collection)
                 .toolbar(.hidden, for: .tabBar)
             ExploreView()
-                .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: HoloTabBar<HomeTab>.clearance) }
                 .tag(HomeTab.explore)
                 .toolbar(.hidden, for: .tabBar)
             DealView()
-                .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: HoloTabBar<HomeTab>.clearance) }
                 .tag(HomeTab.deal)
                 .toolbar(.hidden, for: .tabBar)
         }
