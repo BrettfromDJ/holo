@@ -378,6 +378,7 @@ private struct PriceHistoryCard: View {
                 .chartXAxis(.hidden)
                 .insideYAxis()
                 .chartYScale(domain: domain)
+                .drawIn(replay: range)
                 .frame(height: 220)
                 .padding(.top, 12)
             } else {

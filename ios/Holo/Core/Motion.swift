@@ -94,6 +94,37 @@ private struct Reveal: ViewModifier {
     }
 }
 
+// MARK: - Charts drawing in
+
+extension View {
+    /// Draws a chart in left to right the first time it scrolls into view (and again whenever
+    /// `replay` changes, e.g. a new range), like the Performance chart.
+    func drawIn<T: Equatable>(replay: T, duration: Double = 1.2) -> some View { modifier(DrawIn(replay: replay, duration: duration)) }
+    func drawIn(duration: Double = 1.2) -> some View { modifier(DrawIn(replay: 0, duration: duration)) }
+}
+
+private struct DrawIn<T: Equatable>: ViewModifier {
+    var replay: T
+    var duration: Double
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var drawn: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        content
+            .mask(alignment: .leading) {
+                GeometryReader { geo in Rectangle().frame(width: geo.size.width * (reduceMotion ? 1 : drawn)) }
+            }
+            .onFirstVisible {
+                guard drawn == 0 else { return }
+                withAnimation(.easeInOut(duration: duration)) { drawn = 1 }
+            }
+            .onChange(of: replay) { _, _ in
+                drawn = 0
+                withAnimation(.easeInOut(duration: duration * 0.7)) { drawn = 1 }
+            }
+    }
+}
+
 // MARK: - Tilt
 
 /// The phone's tilt, smoothed, for cards that lean as you move it. Runs only while something

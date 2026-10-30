@@ -342,9 +342,6 @@ private struct PerformanceSection: View {
     var store: CollectionStore
     @State private var range = Range.month
     @State private var scrubbed: Date?
-    /// How much of the line is drawn, 0 to 1: it draws itself left to right on first sight.
-    @State private var drawn: CGFloat = 0
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     enum Range: String, CaseIterable {
         case day = "1D", week = "1W", month = "1M", quarter = "3M", year = "1Y", all = "ALL"
@@ -419,18 +416,7 @@ private struct PerformanceSection: View {
                 .chartYScale(domain: domain)
                 .chartXSelection(value: $scrubbed)
                 .frame(height: 230)
-                .mask(alignment: .leading) {
-                    GeometryReader { geo in Rectangle().frame(width: geo.size.width * drawn) }
-                }
-                .onFirstVisible {
-                    guard drawn == 0 else { return }
-                    if reduceMotion { drawn = 1 } else { withAnimation(.easeInOut(duration: 1.2)) { drawn = 1 } }
-                }
-                .onChange(of: range) { _, _ in
-                    guard !reduceMotion else { return }
-                    drawn = 0
-                    withAnimation(.easeInOut(duration: 0.8)) { drawn = 1 }
-                }
+                .drawIn(replay: range)
                 // A light tick for each day you scrub across; a firmer one on the range's high and low.
                 .sensoryFeedback(trigger: shown?.date) { _, new in
                     guard let new, let point = points.first(where: { $0.date == new }) else { return nil }
@@ -828,6 +814,7 @@ struct Sparkline: View {
         .chartXAxis(.hidden)
         .chartYAxis(.hidden)
         .chartYScale(domain: domain)
+        .drawIn(duration: 1.0)
     }
 }
 
