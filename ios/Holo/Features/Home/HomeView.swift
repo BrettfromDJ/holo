@@ -194,11 +194,6 @@ private struct HeroBackdrop: View {
 private struct CardFan: View {
     var holdings: [HoldingView]
 
-    /// The website's fan: sideways step (in card widths), tilt, drop, and scale per position.
-    private static let fan: [(x: CGFloat, r: Double, y: CGFloat, s: CGFloat)] = [
-        (0, 0, 0, 1), (-1, -9, 18, 0.86), (1, 9, 18, 0.86), (-2, -17, 46, 0.74), (2, 17, 46, 0.74),
-    ]
-
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -212,25 +207,50 @@ private struct CardFan: View {
     }
 
     private func fan(t: Double) -> some View {
-        let w: CGFloat = 126, h: CGFloat = 176
-        return ZStack(alignment: .top) {
-            ForEach(Array(holdings.prefix(5).enumerated()).reversed(), id: \.element.id) { i, item in
-                let f = Self.fan[i]
-                // Up 9pt and back every 5.5s, each piece 1.1s out of step.
-                let bob = t == 0 ? 0 : -4.5 * (1 - cos((t + Double(i) * 1.1) / 5.5 * 2 * .pi))
-                NavigationLink(value: item.identity.productId) {
-                    HoldingArt(product: item.product, identity: item.identity, cornerRadius: 6, caption: i == 0)
-                        .frame(width: w, height: h)
-                        .shadow(color: .black.opacity(0.55), radius: 13, y: 18)
-                }
-                .buttonStyle(.plain)
-                .scaleEffect(f.s, anchor: UnitPoint(x: 0.5, y: 0.9))
-                .rotationEffect(.degrees(f.r), anchor: UnitPoint(x: 0.5, y: 0.9))
-                .offset(x: f.x * w * 0.26, y: f.y + bob)
-                .zIndex(Double(10 - i))
+        ZStack(alignment: .top) {
+            ForEach(Array(holdings.prefix(5).enumerated()).reversed(), id: \.element.id) { pair in
+                FanPiece(holding: pair.element, index: pair.offset, time: t)
+                    .zIndex(Double(10 - pair.offset))
             }
         }
         .frame(maxWidth: .infinity, alignment: .top)
+    }
+}
+
+/// One piece of the hero fan at its slot, bobbing with the shared clock.
+private struct FanPiece: View {
+    var holding: HoldingView
+    var index: Int
+    var time: Double
+
+    /// The website's fan: sideways step (in card widths), tilt, drop, and scale per position.
+    private static let steps: [CGFloat] = [0, -1, 1, -2, 2]
+    private static let tilts: [Double] = [0, -9, 9, -17, 17]
+    private static let drops: [CGFloat] = [0, 18, 18, 46, 46]
+    private static let scales: [CGFloat] = [1, 0.86, 0.86, 0.74, 0.74]
+    private static let width: CGFloat = 126
+    private static let height: CGFloat = 176
+
+    /// Up 9pt and back every 5.5s, each piece 1.1s out of step.
+    private var bob: CGFloat {
+        guard time != 0 else { return 0 }
+        let phase: Double = (time + Double(index) * 1.1) / 5.5 * 2 * Double.pi
+        return CGFloat(-4.5 * (1 - cos(phase)))
+    }
+
+    var body: some View {
+        let anchor = UnitPoint(x: 0.5, y: 0.9)
+        let x: CGFloat = Self.steps[index] * Self.width * 0.26
+        let y: CGFloat = Self.drops[index] + bob
+        NavigationLink(value: holding.identity.productId) {
+            HoldingArt(product: holding.product, identity: holding.identity, cornerRadius: 6, caption: index == 0)
+                .frame(width: Self.width, height: Self.height)
+                .shadow(color: .black.opacity(0.55), radius: 13, y: 18)
+        }
+        .buttonStyle(.plain)
+        .scaleEffect(Self.scales[index], anchor: anchor)
+        .rotationEffect(.degrees(Self.tilts[index]), anchor: anchor)
+        .offset(x: x, y: y)
     }
 }
 
