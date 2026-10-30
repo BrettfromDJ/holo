@@ -299,7 +299,11 @@ struct SearchScreen: View {
         }
     }
 
-    private func header<Trailing: View>(_ title: String, @ViewBuilder trailing: () -> Trailing = { EmptyView() }) -> some View {
+    private func header(_ title: String) -> some View {
+        header(title) { EmptyView() }
+    }
+
+    private func header<Trailing: View>(_ title: String, @ViewBuilder trailing: () -> Trailing) -> some View {
         HStack {
             MonoLabel(text: title)
             Spacer()
