@@ -500,11 +500,12 @@ private struct NextRelease: View {
                     RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Color(hex: 0x070707))
                     if let url = (set.iconUrl ?? set.imageUrl).flatMap(URL.init(string:)) {
                         // The set's banner, faded in from the right behind the countdown.
-                        CachedImage(url: url) { img in img.resizable().scaledToFill() } placeholder: { Color.clear }
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        // Sized to the card, not the picture: the picture fills it and is cut at its edges.
+                        Color.clear
+                            .overlay { CachedImage(url: url) { img in img.resizable().scaledToFill() } placeholder: { Color.clear } }
+                            .clipped()
                             .opacity(0.22)
                             .mask(LinearGradient(colors: [.clear, .black], startPoint: .leading, endPoint: .trailing))
-                            .clipped()
                     }
                     RadialGradient(colors: [Theme.lime.opacity(0.16), .clear], center: .trailing, startRadius: 0, endRadius: 220)
                 }
@@ -559,8 +560,9 @@ private struct SetTile: View {
                 // sample product sits centered.
                 Group {
                     if let banner = set.iconUrl.flatMap(URL.init(string:)) {
-                        CachedImage(url: banner) { img in img.resizable().scaledToFill() } placeholder: { placeholder }
+                        Color.clear
                             .frame(width: 170, height: 113)
+                            .overlay { CachedImage(url: banner) { img in img.resizable().scaledToFill() } placeholder: { placeholder } }
                             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     } else if let sample = set.imageUrl.flatMap(URL.init(string:)) {
                         CachedImage(url: sample) { img in img.resizable().scaledToFit() } placeholder: { placeholder }
