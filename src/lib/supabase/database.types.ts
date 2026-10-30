@@ -23,8 +23,6 @@ export type ProductRow = {
   product_type: string | null;
   kind: "single" | "sealed";
   image_url: string | null;
-  /** The sealed photo with its background removed, when one has been made. */
-  cutout_url?: string | null;
   tcgplayer_id: number | null;
   tcgplayer_url: string | null;
   printings: string[];

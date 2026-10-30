@@ -26,7 +26,7 @@ export function ProductImage({
   bumper,
 }: {
   product:
-    | (Pick<Product, "name" | "imageUrl" | "kind" | "setName" | "productType"> & Partial<Pick<Product, "number" | "rarity" | "cutoutUrl">>)
+    | (Pick<Product, "name" | "imageUrl" | "kind" | "setName" | "productType"> & Partial<Pick<Product, "number" | "rarity">>)
     | undefined;
   className?: string;
   size?: "xs" | "sm" | "md" | "lg" | "xl";
@@ -98,7 +98,7 @@ function ProductPhoto({
       ) : showImage ? (
         <img
           ref={imgRef}
-          src={(product.kind === "sealed" && product.cutoutUrl) || product.imageUrl!}
+          src={product.imageUrl!}
           alt={product.name}
           loading={priority ? "eager" : "lazy"}
           decoding="async"

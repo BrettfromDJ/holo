@@ -29,8 +29,6 @@ export interface Product {
   productType: string | null;
   kind: ProductKind;
   imageUrl: string | null;
-  /** Sealed photo with its white background removed (shown instead of imageUrl when set). */
-  cutoutUrl?: string | null;
   tcgplayerId: number | null;
   tcgplayerUrl: string | null;
   /** Printings the source knows about (e.g. "Normal", "Holofoil"). */

@@ -19,16 +19,13 @@ struct Product: Codable, Identifiable, Hashable {
     var tcgplayerId: Int?
     var tcgplayerUrl: String?
     var printings: [String]?
-    /// Sealed photo with its white background removed (made once on the server with Poof).
-    var cutoutUrl: String? = nil
 
     var isSealed: Bool { kind == "sealed" }
     /// Online game code cards ("Code Card - Surging Sparks Booster Pack"): kept out of the app.
     var isCodeCard: Bool {
         "\(name) \(productType ?? "") \(rarity ?? "")".range(of: #"\bcode\s*card\b|\bonline code\b"#, options: [.regularExpression, .caseInsensitive]) != nil
     }
-    /// The picture to show: a sealed product's cut-out when there is one.
-    var imageURL: URL? { ((isSealed ? cutoutUrl : nil) ?? imageUrl).flatMap(URL.init(string:)) }
+    var imageURL: URL? { imageUrl.flatMap(URL.init(string:)) }
 
     /// "Evolving Skies · #215/203"
     var subtitle: String {
@@ -135,7 +132,6 @@ struct ProductRow: Codable {
     var product_type: String?
     var kind: String
     var image_url: String?
-    var cutout_url: String?
     var tcgplayer_id: Int?
     var tcgplayer_url: String?
     var printings: [String]?
@@ -144,7 +140,7 @@ struct ProductRow: Codable {
         Product(
             id: id, source: source, externalId: external_id, name: name, setName: set_name, setId: set_id,
             number: number, rarity: rarity, productType: product_type, kind: kind, imageUrl: image_url,
-            tcgplayerId: tcgplayer_id, tcgplayerUrl: tcgplayer_url, printings: printings, cutoutUrl: cutout_url
+            tcgplayerId: tcgplayer_id, tcgplayerUrl: tcgplayer_url, printings: printings
         )
     }
 }
