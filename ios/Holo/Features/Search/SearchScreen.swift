@@ -406,7 +406,15 @@ struct SearchScreen: View {
         guard q.count >= 2, !liveSearching, liveFor != q else { return }
         liveSearching = true
         defer { liveSearching = false }
-        let hits = (try? await Backend.shared.api.liveSearch(q)) ?? []
+        let hits: [SearchHit]
+        do {
+            hits = try await Backend.shared.api.liveSearch(q)
+        } catch {
+            // Usually today's limit for live searches; say so rather than "nothing found".
+            guard q == trimmed else { return }
+            self.error = error.localizedDescription
+            return
+        }
         guard q == trimmed else { return }
         liveFor = q
         withAnimation(.snappy(duration: 0.2)) {

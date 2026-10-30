@@ -163,6 +163,19 @@ export type CatalogSetRow = {
   products_synced_at: string | null;
 };
 
+export type ApiCacheRow = {
+  key: string;
+  value: unknown;
+  expires_at: string;
+};
+
+export type ApiQuotaRow = {
+  who: string;
+  day: string;
+  action: string;
+  count: number;
+};
+
 export type CatalogSyncUsageRow = {
   day: string;
   calls: number;
@@ -221,6 +234,8 @@ export type Database = {
       catalog_sets: Table<CatalogSetRow>;
       catalog_games: Table<CatalogGameRow>;
       catalog_sync_usage: Table<CatalogSyncUsageRow>;
+      api_cache: Table<ApiCacheRow>;
+      api_quota: Table<ApiQuotaRow>;
     };
     Views: {
       purchase_lots: {
@@ -239,7 +254,9 @@ export type Database = {
         Relationships: [];
       };
     };
-    Functions: { [_ in never]: never };
+    Functions: {
+      take_quota: { Args: { p_who: string; p_action: string; p_limit: number }; Returns: boolean };
+    };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };

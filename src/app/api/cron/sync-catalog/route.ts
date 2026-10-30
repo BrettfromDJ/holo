@@ -29,6 +29,13 @@ export async function GET(req: Request) {
   const dailyCalls = Number(process.env.CATALOG_SYNC_DAILY_CALLS) || 7000;
   const url = new URL(req.url);
   const hop = Number(url.searchParams.get("hop")) || 0;
+  // Once a night: clear expired shared answers and old per-person counters.
+  if (hop === 0) {
+    const now = new Date();
+    await admin.from("api_cache").delete().lt("expires_at", now.toISOString()).then(() => undefined, () => undefined);
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    await admin.from("api_quota").delete().lt("day", weekAgo).then(() => undefined, () => undefined);
+  }
   const result = await syncCatalog(admin, { maxCalls, dailyCalls });
 
   // More sets are due and there's budget left: start the next run once this one has answered.

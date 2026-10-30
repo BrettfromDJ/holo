@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ebaySummaries } from "@/lib/pricing/ebay";
+import { dbCached } from "@/lib/server/api-cache";
 import { errorResponse } from "@/lib/server/http";
 import { allowRequest, clientKey } from "@/lib/server/rate-limit";
 
@@ -18,7 +19,8 @@ export async function GET(req: Request) {
     .slice(0, 1000);
   if (!ids.length) return NextResponse.json({ ebay: {} });
   try {
-    const byId = await ebaySummaries(ids);
+    // The same list asked for again today (a collection doesn't change much) costs nothing.
+    const byId = await dbCached(`ebay-bulk:${[...ids].sort().join(",")}`, () => ebaySummaries(ids));
     const ebay = Object.fromEntries(Object.entries(byId).map(([id, rows]) => [`tcgapi:${id}`, rows]));
     return NextResponse.json({ ebay }, { headers: { "Cache-Control": "public, s-maxage=43200, stale-while-revalidate=86400" } });
   } catch (err) {

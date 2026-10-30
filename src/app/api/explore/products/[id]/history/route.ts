@@ -3,6 +3,7 @@ import { addDays } from "@/lib/finance/dates";
 import { providerFor } from "@/lib/pricing";
 import { errorResponse } from "@/lib/server/http";
 import { selectAll } from "@/lib/server/paging";
+import { overLimit, takeQuota } from "@/lib/server/api-cache";
 import { allowRequest, clientKey } from "@/lib/server/rate-limit";
 import { getAdminSupabase, getRequestUser } from "@/lib/supabase/server";
 
@@ -50,6 +51,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { data: product } = await admin.from("products").select("id").eq("id", id).maybeSingle();
     if (!product) return NextResponse.json({ error: { message: "Not in the catalog." } }, { status: 404 });
 
+    // Only this path spends a TCG API call, so only it counts toward the daily limit.
+    if (!(await takeQuota(req, "history"))) return NextResponse.json({ points: existing, available: false, reason: overLimit("price history loads").error.message, fetched: false });
     const { provider, externalId } = providerFor(id);
     recentlyFetched.set(fetchKey, Date.now());
     const h = await provider.getHistory(externalId, printing, "all");

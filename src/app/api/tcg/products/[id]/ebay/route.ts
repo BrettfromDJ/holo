@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ebaySales } from "@/lib/pricing/ebay";
+import { dbCached } from "@/lib/server/api-cache";
 import { errorResponse } from "@/lib/server/http";
 import { allowRequest, clientKey } from "@/lib/server/rate-limit";
 
@@ -16,7 +17,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   }
   const printing = new URL(req.url).searchParams.get("printing") || null;
   try {
-    const ebay = await ebaySales(productId.slice("tcgapi:".length), printing);
+    // Shared for a day across every server: each card's sales are paid for at most once a day.
+    const ebay = await dbCached(`ebay:${productId}:${printing ?? ""}`, () => ebaySales(productId.slice("tcgapi:".length), printing));
     return NextResponse.json({ ebay }, { headers: { "Cache-Control": "public, s-maxage=43200, stale-while-revalidate=86400" } });
   } catch (err) {
     return errorResponse(err);

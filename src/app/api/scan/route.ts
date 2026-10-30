@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { identifyPhoto, MAX_IMAGE_BYTES, ScanFailure, scanBalance } from "@/lib/pricing/identify";
+import { overLimit, takeQuota } from "@/lib/server/api-cache";
 import { allowRequest, clientKey } from "@/lib/server/rate-limit";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getRequestUser } from "@/lib/supabase/server";
@@ -32,6 +33,8 @@ export async function POST(req: Request) {
   }
   if (!image || !/^image\/(jpeg|png|webp)$/.test(image.type)) return fail("bad_image", "Send a JPEG, PNG or WebP photo.", 400);
   if (image.size > MAX_IMAGE_BYTES) return fail("bad_image", "That photo is over 8 MB.", 400);
+  // Each scan is paid for, so each person has a daily allowance.
+  if (!(await takeQuota(req, "scan"))) return NextResponse.json(overLimit("scans"), { status: 429 });
 
   try {
     const game = new URL(req.url).searchParams.get("game") ?? undefined;
