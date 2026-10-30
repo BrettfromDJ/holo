@@ -26,7 +26,7 @@ struct ProductDetailView: View {
             // price history card and 24 between the cards after it.
             VStack(alignment: .leading, spacing: 0) {
                 hero.padding(.top, 8)
-                titleBlock.padding(.top, 32)
+                titleBlock.padding(.top, 12)
                 actions.padding(.top, 24)
                 PriceHistoryCard(productId: productId, printing: printing, owned: owned).padding(.top, 32)
                 if productId.hasPrefix("tcgapi:") {
@@ -73,20 +73,30 @@ struct ProductDetailView: View {
     // MARK: Picture
 
     /// A single card bare at its own shape (260 wide), a slab in its frame, sealed in a square.
+    /// The piece on a lit stage: the grid and glows behind it (lime when it's up over the month,
+    /// pink when it's down), leaning with the phone like a real card in the light.
     @ViewBuilder private var hero: some View {
+        let mood = (price?.change30dPct ?? 0) < 0 ? Theme.planPink : Theme.lime
         Group {
             if let slab = owned.first(where: { $0.identity.isGraded }), owned.allSatisfy({ $0.identity.isGraded }) {
-                HoldingArt(product: product, identity: slab.identity).frame(width: 260, height: 416)
+                HoloCard(foil: false, textured: false, cornerRadius: 18) {
+                    HoldingArt(product: product, identity: slab.identity)
+                }
+                .frame(width: 250, height: 400)
             } else if product?.isSealed == false, product?.imageURL != nil {
-                ProductImage(product: product, cornerRadius: 12).frame(width: 260, height: 363)
+                HoloCard(foil: product?.isFoil == true, textured: true, cornerRadius: 12) {
+                    ProductImage(product: product, cornerRadius: 0).frame(width: 260, height: 363)
+                }
             } else {
-                SealedWell(product: product, cornerRadius: 28, caption: true)
-                    .aspectRatio(1, contentMode: .fit)
-                    .frame(maxWidth: .infinity)
+                HoloCard(foil: false, textured: false, cornerRadius: 28) {
+                    SealedWell(product: product, cornerRadius: 28, caption: true).frame(width: 280, height: 280)
+                }
             }
         }
-        .shadow(color: .black.opacity(0.5), radius: 24, y: 14)
+        .padding(.vertical, 36)
         .frame(maxWidth: .infinity)
+        .background { ProductStage(mood: mood).padding(.horizontal, -16) }
+        .modifier(Entrance())
     }
 
     // MARK: Title, price and changes
@@ -95,7 +105,11 @@ struct ProductDetailView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
                 Badge(text: product?.isSealed == true ? (product?.productType ?? "Sealed") : "Card", filled: true)
-                if let rarity = product?.rarity { Badge(text: rarity) }
+                if let rarity = product?.rarity {
+                    // Foil rarities catch the light now and then.
+                    Badge(text: rarity)
+                        .overlay { if product?.isFoil == true { Sheen(strength: 0.45).clipShape(Capsule()) } }
+                }
             }
             DisplayText(text: (product?.name ?? "Loading…").uppercased(), size: 34)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -103,7 +117,14 @@ struct ProductDetailView: View {
             Text([product?.setName, product?.number.map { "#\($0)" }, printing == "Normal" ? nil : printing].compactMap { $0 }.joined(separator: " · "))
                 .font(.geist(15)).foregroundStyle(Theme.muted)
                 .padding(.top, 6)
-            Text(Format.money(price?.market)).font(.display(52)).monospacedDigit().displayTrim(52).padding(.top, 24)
+            Group {
+                if let market = price?.market {
+                    CountingText(value: market, format: { Format.money($0) })
+                } else {
+                    Text(Format.money(nil))
+                }
+            }
+            .font(.display(52)).monospacedDigit().displayTrim(52).padding(.top, 24)
             // The headline is the Near Mint (ungraded) price; copies you own that differ are listed here.
             let differing = owned.filter { $0.identity.isGraded || $0.isConditionEstimate }
             if !differing.isEmpty {
@@ -121,9 +142,9 @@ struct ProductDetailView: View {
                 .padding(.top, 8)
             }
             HStack(spacing: 8) {
-                change("24h", price?.change24hPct)
-                change("7d", price?.change7dPct)
-                change("30d", price?.change30dPct)
+                change("24h", price?.change24hPct).modifier(PopIn(delay: 0.35))
+                change("7d", price?.change7dPct).modifier(PopIn(delay: 0.45))
+                change("30d", price?.change30dPct).modifier(PopIn(delay: 0.55))
             }
             .padding(.top, 12)
             Text(price == nil ? "No market price available. Not counted as $0." : "Market price via TCG API" + (price?.updatedAt.flatMap(relative).map { " · updated \($0)" } ?? ""))
@@ -403,5 +424,58 @@ private struct PriceHistoryCard: View {
             .padding(.top, 8)
         }
         .surface(padding: 20)
+    }
+}
+
+/// The lit stage behind a product: the website's faint grid with a glow in the product's mood
+/// and a pink one opposite, fading out at the top and bottom.
+private struct ProductStage: View {
+    var mood: Color
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var breathe = false
+
+    var body: some View {
+        ZStack {
+            GridPattern(step: 36, opacity: 0.055)
+            RadialGradient(colors: [mood.opacity(breathe ? 0.30 : 0.2), .clear], center: UnitPoint(x: 0.5, y: 0.5), startRadius: 0, endRadius: 240)
+            RadialGradient(colors: [Theme.planPink.opacity(0.14), .clear], center: UnitPoint(x: 0.9, y: 0.2), startRadius: 0, endRadius: 200)
+            RadialGradient(colors: [Theme.planBlue.opacity(0.12), .clear], center: UnitPoint(x: 0.1, y: 0.85), startRadius: 0, endRadius: 200)
+        }
+        .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.2),
+                                     .init(color: .black, location: 0.8), .init(color: .clear, location: 1)],
+                             startPoint: .top, endPoint: .bottom))
+        .allowsHitTesting(false)
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) { breathe = true }
+        }
+    }
+}
+
+/// The piece rises into place with a little spring when the page opens.
+private struct Entrance: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shown = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(shown || reduceMotion ? 1 : 0)
+            .scaleEffect(shown || reduceMotion ? 1 : 0.9)
+            .offset(y: shown || reduceMotion ? 0 : 24)
+            .onAppear { withAnimation(.spring(response: 0.6, dampingFraction: 0.75)) { shown = true } }
+    }
+}
+
+/// A small piece that pops in after a delay.
+private struct PopIn: ViewModifier {
+    var delay: Double
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shown = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(shown || reduceMotion ? 1 : 0)
+            .scaleEffect(shown || reduceMotion ? 1 : 0.7)
+            .onAppear { withAnimation(.spring(response: 0.4, dampingFraction: 0.6).delay(delay)) { shown = true } }
     }
 }
