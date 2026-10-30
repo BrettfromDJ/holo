@@ -22,25 +22,23 @@ struct ProductDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                ProductImage(product: product, cornerRadius: 20, caption: true)
-                    .frame(width: 270, height: 375)
-                    .frame(maxWidth: .infinity)
-                    .shadow(color: .black.opacity(0.55), radius: 26, y: 14)
-                    .padding(.top, 8)
-
-                titleBlock
-                actions
-                PriceHistoryCard(productId: productId, printing: printing, owned: owned)
+            // The website's spacing: 32 under the picture, 24 between the blocks, 32 above the
+            // price history card and 24 between the cards after it.
+            VStack(alignment: .leading, spacing: 0) {
+                hero.padding(.top, 8)
+                titleBlock.padding(.top, 32)
+                actions.padding(.top, 24)
+                PriceHistoryCard(productId: productId, printing: printing, owned: owned).padding(.top, 32)
                 if productId.hasPrefix("tcgapi:") {
                     EbaySalesPanel(productId: productId, printing: printing, grade: owned.first(where: { $0.identity.isGraded })?.identity.gradeLabel)
+                        .padding(.top, 24)
                 }
                 if let product, !product.isSealed, let nm = price?.market {
-                    WorthPanel(productId: productId, printing: printing, nm: nm, owned: owned)
+                    WorthPanel(productId: productId, printing: printing, nm: nm, owned: owned).padding(.top, 24)
                 }
                 if !owned.isEmpty {
-                    position
-                    history
+                    position.padding(.top, 24)
+                    history.padding(.top, 24)
                     notes
                 }
                 if let error { Text(error).font(.geist(14)).foregroundStyle(Theme.down) }
@@ -72,19 +70,40 @@ struct ProductDetailView: View {
         .task(id: productId) { await store.showCatalogProduct(productId) }
     }
 
+    // MARK: Picture
+
+    /// A single card bare at its own shape (260 wide), a slab in its frame, sealed in a square.
+    @ViewBuilder private var hero: some View {
+        Group {
+            if let slab = owned.first(where: { $0.identity.isGraded }), owned.allSatisfy({ $0.identity.isGraded }) {
+                HoldingArt(product: product, identity: slab.identity).frame(width: 260, height: 416)
+            } else if product?.isSealed == false, product?.imageURL != nil {
+                ProductImage(product: product, cornerRadius: 12).frame(width: 260, height: 363)
+            } else {
+                SealedWell(product: product, cornerRadius: 28, caption: true)
+                    .aspectRatio(1, contentMode: .fit)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+        .shadow(color: .black.opacity(0.5), radius: 24, y: 14)
+        .frame(maxWidth: .infinity)
+    }
+
     // MARK: Title, price and changes
 
     private var titleBlock: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
                 Badge(text: product?.isSealed == true ? (product?.productType ?? "Sealed") : "Card", filled: true)
                 if let rarity = product?.rarity { Badge(text: rarity) }
             }
-            DisplayText(text: (product?.name ?? "Loading…").uppercased(), size: 42)
+            DisplayText(text: (product?.name ?? "Loading…").uppercased(), size: 34)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 12)
             Text([product?.setName, product?.number.map { "#\($0)" }, printing == "Normal" ? nil : printing].compactMap { $0 }.joined(separator: " · "))
-                .font(.geist(16)).foregroundStyle(Theme.muted)
-            Text(Format.money(price?.market)).font(.display(64)).monospacedDigit().padding(.top, 6)
+                .font(.geist(15)).foregroundStyle(Theme.muted)
+                .padding(.top, 6)
+            Text(Format.money(price?.market)).font(.display(52)).monospacedDigit().displayTrim(52).padding(.top, 24)
             // The headline is the Near Mint (ungraded) price; copies you own that differ are listed here.
             let differing = owned.filter { $0.identity.isGraded || $0.isConditionEstimate }
             if !differing.isEmpty {
@@ -99,24 +118,28 @@ struct ProductDetailView: View {
                     }
                 }
                 .font(.geist(13)).monospacedDigit()
+                .padding(.top, 8)
             }
             HStack(spacing: 8) {
                 change("24h", price?.change24hPct)
                 change("7d", price?.change7dPct)
                 change("30d", price?.change30dPct)
             }
+            .padding(.top, 12)
             Text(price == nil ? "No market price available. Not counted as $0." : "Market price via TCG API" + (price?.updatedAt.flatMap(relative).map { " · updated \($0)" } ?? ""))
-                .font(.geist(13)).foregroundStyle(Theme.subtle)
+                .font(.geist(12)).foregroundStyle(Theme.subtle)
+                .padding(.top, 12)
         }
     }
 
     private func change(_ label: String, _ pct: Double?) -> some View {
         HStack(spacing: 6) {
-            Text(label).font(.geist(13)).foregroundStyle(Theme.subtle)
-            Text(Format.signedPercent(pct.map { $0 / 100 })).font(.geist(13, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(pct))
+            Text(label).foregroundStyle(Theme.subtle)
+            Text(Format.signedPercent(pct.map { $0 / 100 })).fontWeight(.semibold).monospacedDigit().foregroundStyle(Theme.tone(pct))
         }
-        .padding(.horizontal, 12)
-        .frame(height: 30)
+        .font(.geist(13))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
         .background(Capsule().fill(Theme.surface))
     }
 
@@ -124,40 +147,45 @@ struct ProductDetailView: View {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         guard let d = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return nil }
-        return RelativeDateTimeFormatter().localizedString(for: d, relativeTo: Date())
+        let minutes = Int((Date().timeIntervalSince(d) / 60).rounded())
+        if minutes < 1 { return "just now" }
+        if minutes < 60 { return "\(minutes)m ago" }
+        let hours = Int((Double(minutes) / 60).rounded())
+        if hours < 24 { return "\(hours)h ago" }
+        return "\(Int((Double(hours) / 24).rounded()))d ago"
     }
 
     // MARK: The action row
 
     private var actions: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             Button { adding = true } label: { Label(owned.isEmpty ? "Add to collection" : "Add more", systemImage: "plus") }
-                .buttonStyle(Button3D(kind: .light, fullWidth: false, height: 46))
+                .buttonStyle(Button3D(kind: .light, fullWidth: false, height: 36))
             if !owned.isEmpty {
                 if owned.count == 1 {
-                    Button { selling = owned.first } label: { Image(systemName: "tag") }.buttonStyle(IconButton3D()).accessibilityLabel("Sell")
+                    Button { selling = owned.first } label: { Image(systemName: "tag") }.buttonStyle(IconButton3D(size: 36)).accessibilityLabel("Sell")
                 } else {
                     Menu {
                         ForEach(owned) { h in Button("\(h.label ?? "Near Mint") ×\(Int(h.quantity))") { selling = h } }
                     } label: { Image(systemName: "tag") }
-                        .menuStyle(.button).buttonStyle(IconButton3D()).accessibilityLabel("Sell")
+                        .menuStyle(.button).buttonStyle(IconButton3D(size: 36)).accessibilityLabel("Sell")
                 }
             }
             let watch = store.watch(for: productId)
             Button {
                 if let watch { Task { await run { try await store.removeWatch(watch.id) } } } else { watching = true }
             } label: { Image(systemName: watch == nil ? "eye" : "eye.fill") }
-                .buttonStyle(IconButton3D(active: watch != nil))
+                .buttonStyle(IconButton3D(size: 36, active: watch != nil))
                 .accessibilityLabel(watch == nil ? "Watch price" : "Stop watching")
             let wish = store.wish(for: productId)
             Button {
                 guard let product else { return }
                 Task { await run { if let wish { try await store.removeWish(wish.id) } else { try await store.addWish(product, printing: printing, price: price?.market) } } }
             } label: { Image(systemName: wish == nil ? "heart" : "heart.fill") }
-                .buttonStyle(IconButton3D(active: wish != nil))
+                .buttonStyle(IconButton3D(size: 36, active: wish != nil))
                 .accessibilityLabel(wish == nil ? "Add to wishlist" : "Remove from wishlist")
             if let url = product?.tcgplayerUrl.flatMap(URL.init(string:)) {
-                Link(destination: url) { Image(systemName: "arrow.up.right.square") }.buttonStyle(IconButton3D()).accessibilityLabel("View on TCGplayer")
+                Link(destination: url) { Image(systemName: "arrow.up.right.square") }.buttonStyle(IconButton3D(size: 36)).accessibilityLabel("View on TCGplayer")
             }
         }
     }
@@ -171,9 +199,9 @@ struct ProductDetailView: View {
         let pricedCost = owned.filter { $0.value != nil }.reduce(0) { $0 + $1.costBasis }
         let gain = value - pricedCost
         let realized = owned.reduce(0) { $0 + $1.realizedGain }
-        return VStack(alignment: .leading, spacing: 16) {
-            CardLabel(text: "Your position")
-            LazyVGrid(columns: [GridItem(.flexible(), alignment: .leading), GridItem(.flexible(), alignment: .leading)], spacing: 16) {
+        return VStack(alignment: .leading, spacing: 0) {
+            PageHeader(title: "Your position", size: 22).padding(.bottom, 16)
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 24, alignment: .leading), GridItem(.flexible(), alignment: .leading)], spacing: 20) {
                 stat("Quantity", qty.formatted(), .white)
                 stat("Holding value", Format.money(value), .white)
                 stat("Cost basis", Format.money(cost), .white)
@@ -181,18 +209,20 @@ struct ProductDetailView: View {
                 stat("Unrealized", Format.signedMoney(gain) + (pricedCost > 0 ? " (\(Format.signedPercent(gain / pricedCost)))" : ""), Theme.tone(gain))
                 stat("Realized", Format.money(realized), realized == 0 ? Theme.muted : Theme.tone(realized))
             }
-            Divider().overlay(Theme.border)
-            ForEach(owned) { h in
+            Rectangle().fill(Theme.border).frame(height: 1).padding(.top, 24)
+            ForEach(Array(owned.enumerated()), id: \.element.id) { i, h in
+                if i > 0 { Rectangle().fill(Theme.border).frame(height: 1) }
                 Button { managing = h } label: {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("\(Int(h.quantity)) × \(h.label ?? (product?.isSealed == true ? "Sealed" : "Near Mint"))").font(.geist(16, .medium))
-                            Text("\(h.lots.count) open lot\(h.lots.count == 1 ? "" : "s") · avg \(Format.money(h.avgCost))").font(.geist(13)).foregroundStyle(Theme.muted)
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("\(Int(h.quantity)) × \(h.label ?? (product?.isSealed == true ? "Sealed" : "Near Mint"))").font(.geist(14, .medium))
+                            Text("\(h.lots.count) open lot\(h.lots.count == 1 ? "" : "s") · avg \(Format.money(h.avgCost))").font(.geist(12)).foregroundStyle(Theme.muted).monospacedDigit()
                         }
                         Spacer()
-                        Text(Format.signedMoney(h.gain) + " (\(Format.signedPercent(h.gainRatio)))").font(.geist(14, .medium)).monospacedDigit().foregroundStyle(Theme.tone(h.gain))
-                        Image(systemName: "ellipsis").foregroundStyle(Theme.muted).padding(.leading, 6)
+                        Text(Format.signedMoney(h.gain) + " (\(Format.signedPercent(h.gainRatio)))").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.tone(h.gain))
+                        Image(systemName: "ellipsis").font(.system(size: 13)).foregroundStyle(Theme.muted)
                     }
+                    .padding(.vertical, 14)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -203,8 +233,8 @@ struct ProductDetailView: View {
 
     private func stat(_ label: String, _ value: String, _ tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(label).font(.geist(14)).foregroundStyle(Theme.muted)
-            Text(value).font(.geist(19, .semibold)).monospacedDigit().foregroundStyle(tint).lineLimit(1).minimumScaleFactor(0.7)
+            Text(label).font(.geist(12)).foregroundStyle(Theme.muted)
+            Text(value).font(.geist(17, .semibold)).monospacedDigit().foregroundStyle(tint).lineLimit(1).minimumScaleFactor(0.7)
         }
     }
 
@@ -213,29 +243,31 @@ struct ProductDetailView: View {
     private var entries: [Txn] { owned.flatMap { store.entries(for: $0.identity) }.sorted { $0.date > $1.date } }
 
     private var history: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            CardLabel(text: "Purchase history")
+        VStack(alignment: .leading, spacing: 0) {
+            PageHeader(title: "Purchase history", size: 22).padding(.bottom, 16)
             ForEach(entries, id: \.id) { t in
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        HStack(spacing: 6) {
-                            Text(t.kind == .sale ? "Sale" : "Purchase").font(.geist(16, .semibold))
-                            Text("· \(Int(abs(t.quantity))) × \(Format.money(t.unitPrice))").font(.geist(15)).foregroundStyle(Theme.muted).monospacedDigit()
-                            if store.wasEdited(t) { Tag(text: "Edited", tint: Theme.muted) }
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 4) {
+                            Text(t.kind == .sale ? "Sale" : "Purchase").font(.geist(14, .medium))
+                            Text("· \(Int(abs(t.quantity))) × \(Format.money(t.unitPrice))").font(.geist(14)).foregroundStyle(Theme.muted).monospacedDigit()
+                            if store.wasEdited(t) { Tag(text: "Edited", tint: Theme.muted).padding(.leading, 4) }
                         }
+                        .lineLimit(1)
                         Text([Format.isoDay.date(from: t.date)?.formatted(date: .abbreviated, time: .omitted), t.source].compactMap { $0 }.joined(separator: " · "))
-                            .font(.geist(13)).foregroundStyle(Theme.muted)
+                            .font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
                     }
-                    Spacer()
-                    Text(Format.money(t.kind == .sale ? t.saleProceeds : t.acquisitionCost)).font(.geist(16, .medium)).monospacedDigit()
+                    Spacer(minLength: 0)
+                    Text((t.kind == .sale ? "+" : "") + Format.money(t.kind == .sale ? t.saleProceeds : t.acquisitionCost)).font(.geist(14)).monospacedDigit()
                     Menu {
                         Button { editing = t } label: { Label("Edit", systemImage: "pencil") }
                         Button(role: .destructive) { deleting = t } label: { Label("Delete", systemImage: "trash") }
                     } label: {
-                        Image(systemName: "ellipsis").foregroundStyle(Theme.muted).frame(width: 30, height: 24)
+                        Image(systemName: "ellipsis").font(.system(size: 13)).foregroundStyle(Theme.muted).frame(width: 28, height: 24)
                     }
                 }
-                if t.id != entries.last?.id { Divider().overlay(Theme.border) }
+                .padding(.vertical, 12)
+                if t.id != entries.last?.id { Rectangle().fill(Theme.border).frame(height: 1) }
             }
         }
         .surface(padding: 20)
@@ -244,16 +276,17 @@ struct ProductDetailView: View {
     @ViewBuilder private var notes: some View {
         let withNotes = entries.filter { !($0.notes ?? "").isEmpty }
         if !withNotes.isEmpty {
-            VStack(alignment: .leading, spacing: 14) {
-                CardLabel(text: "Notes")
+            VStack(alignment: .leading, spacing: 12) {
+                PageHeader(title: "Notes", size: 22).padding(.bottom, 4)
                 ForEach(withNotes, id: \.id) { t in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(t.notes ?? "").font(.geist(16))
-                        Text(Format.isoDay.date(from: t.date)?.formatted(date: .abbreviated, time: .omitted) ?? t.date).font(.geist(13)).foregroundStyle(Theme.muted)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(t.notes ?? "").font(.geist(14))
+                        Text(Format.isoDay.date(from: t.date)?.formatted(date: .abbreviated, time: .omitted) ?? t.date).font(.geist(12)).foregroundStyle(Theme.subtle)
                     }
                 }
             }
             .surface(padding: 20)
+            .padding(.top, 24)
         }
     }
 
@@ -274,11 +307,13 @@ struct Badge: View {
 
     var body: some View {
         Text(text)
-            .font(.geist(13, .medium))
-            .padding(.horizontal, 10)
-            .frame(height: 26)
+            .font(.geist(12, .medium))
+            .foregroundStyle(Theme.muted)
+            .lineLimit(1)
+            .padding(.horizontal, 9)
+            .frame(height: 22)
             .background(Capsule().fill(filled ? Theme.surface2 : .clear))
-            .overlay(Capsule().strokeBorder(Theme.borderStrong))
+            .overlay(Capsule().strokeBorder(filled ? .clear : Theme.borderStrong))
     }
 }
 
@@ -302,18 +337,26 @@ private struct PriceHistoryCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            CardLabel(text: "Market price history")
-            if let first = points.first, let last = points.last {
-                let diff = last.price - first.price
-                HStack(spacing: 5) {
-                    Text(Format.money(last.price)).fontWeight(.semibold)
-                    Text("\(Format.signedMoney(diff)) (\(Format.signedPercent(first.price > 0 ? diff / first.price : nil)))").foregroundStyle(Theme.tone(diff))
-                    Text("since \(first.day.formatted(date: .abbreviated, time: .omitted))").foregroundStyle(Theme.muted)
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Market price history").font(.geist(15, .semibold))
+            Group {
+                if let first = points.first, let last = points.last {
+                    let diff = last.price - first.price
+                    HStack(spacing: 4) {
+                        Text(Format.money(last.price)).fontWeight(.medium)
+                        Text("\(Format.signedMoney(diff)) (\(Format.signedPercent(first.price > 0 ? diff / first.price : nil)))").foregroundStyle(Theme.tone(diff))
+                        Text("since \(first.day.formatted(date: .abbreviated, time: .omitted))").foregroundStyle(Theme.muted)
+                    }
+                    .lineLimit(1).minimumScaleFactor(0.7)
+                } else {
+                    Text("No history").foregroundStyle(Theme.muted)
                 }
-                .font(.geist(15)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
             }
+            .font(.geist(13)).monospacedDigit()
+            .padding(.top, 4)
             ChipPicker(options: [(30, "1M"), (90, "3M"), (365, "1Y"), (0, "ALL")], selection: $range)
+                .scaleEffect(0.86, anchor: .leading)
+                .padding(.top, 12)
             if points.count > 1 {
                 Chart {
                     ForEach(points) { p in
@@ -334,16 +377,28 @@ private struct PriceHistoryCard: View {
                 .chartXAxis(.hidden)
                 .insideYAxis()
                 .chartYScale(domain: .automatic(includesZero: false))
-                .frame(height: 210)
-                if !buys.isEmpty {
-                    HStack(spacing: 6) {
-                        Circle().fill(.white).frame(width: 8, height: 8)
-                        Text("Your purchases").font(.geist(13)).foregroundStyle(Theme.muted)
-                    }
-                }
+                .frame(height: 220)
+                .padding(.top, 12)
             } else {
-                Text("No price history stored yet.").font(.geist(14)).foregroundStyle(Theme.muted).padding(.vertical, 20)
+                VStack(spacing: 4) {
+                    Text("Not enough price history yet").font(.geist(13, .medium))
+                    Text("Holo stores a daily snapshot for products you own or watch, so this chart fills in over time. Missing days are never filled with estimates.")
+                        .font(.geist(13)).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
+                }
+                .padding(.horizontal, 24)
+                .frame(maxWidth: .infinity, minHeight: 220)
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [4, 4])))
+                .padding(.top, 16)
             }
+            HStack(spacing: 6) {
+                if !buys.isEmpty {
+                    Circle().fill(.white).frame(width: 8, height: 8)
+                    Text("Your purchases").foregroundStyle(Theme.muted).padding(.trailing, 6)
+                }
+                Text("\(all.count) daily observation\(all.count == 1 ? "" : "s") · gaps are shown as-is, never interpolated").foregroundStyle(Theme.subtle)
+            }
+            .font(.geist(11))
+            .padding(.top, 8)
         }
         .surface(padding: 20)
     }

@@ -20,7 +20,9 @@ struct ProductImage: View {
     }
 }
 
-/// A holding's artwork: graded copies sit in a slab with their label, everything else as is.
+/// A holding's artwork: graded copies sit in a slab with their label, single cards stand bare,
+/// and sealed products sit inside a dark rounded well that fills the space they're given (a
+/// card-shaped space makes a card-shaped well), like the website.
 struct HoldingArt: View {
     var product: Product?
     var identity: HoldingIdentity?
@@ -32,8 +34,30 @@ struct HoldingArt: View {
             SlabFrame(company: company, grade: grade, product: product) {
                 ProductImage(product: product, cornerRadius: 4, caption: caption).aspectRatio(63.0 / 88.0, contentMode: .fit)
             }
-        } else {
+        } else if product?.isSealed == false, product?.imageURL != nil {
             ProductImage(product: product, cornerRadius: cornerRadius, caption: caption)
+        } else {
+            SealedWell(product: product, cornerRadius: cornerRadius, caption: caption)
+        }
+    }
+}
+
+/// A sealed product (or anything without a card picture) inside the website's image well.
+struct SealedWell: View {
+    var product: Product?
+    var cornerRadius: CGFloat = 14
+    var caption = true
+
+    var body: some View {
+        GeometryReader { geo in
+            let side = min(geo.size.width, geo.size.height)
+            let radius = max(cornerRadius, side * 0.12)
+            ZStack {
+                RoundedRectangle(cornerRadius: radius, style: .continuous).fill(Theme.well)
+                ProductImage(product: product, cornerRadius: 3, caption: caption)
+                    .padding(side * 0.14)
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
         }
     }
 }

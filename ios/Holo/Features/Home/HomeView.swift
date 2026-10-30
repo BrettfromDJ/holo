@@ -10,6 +10,9 @@ struct HomeView: View {
     @State private var account = false
     @State private var lists = false
     @State private var search = false
+    @State private var recap = false
+    @State private var adding = false
+    @State private var addSearch = false
 
     var body: some View {
         NavigationStack {
@@ -44,6 +47,12 @@ struct HomeView: View {
             .sheet(isPresented: $account) { SettingsView() }
             .sheet(isPresented: $lists) { ListsView() }
             .sheet(isPresented: $search) { ExploreView() }
+            .sheet(isPresented: $addSearch) { SearchView(asSheet: true) }
+            .fullScreenCover(isPresented: $recap) { WeeklyRecap(store: store) }
+            .confirmationDialog("Add to your collection", isPresented: $adding) {
+                Button("Scan cards") { onScan() }
+                Button("Search and add") { addSearch = true }
+            }
         }
     }
 
@@ -63,7 +72,7 @@ struct HomeView: View {
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 16)
-                Hero(store: store)
+                Hero(store: store, onRecap: { recap = true }, onAdd: { adding = true })
             }
             PerformanceSection(store: store).padding(.horizontal, 16)
             MetricGrid(store: store).padding(.horizontal, 16)
@@ -113,6 +122,8 @@ struct BrandMark: View {
 /// Your most valuable pieces fanned out over a glowing grid, then the worth in giant lime Anton.
 private struct Hero: View {
     var store: CollectionStore
+    var onRecap: () -> Void
+    var onAdd: () -> Void
 
     var body: some View {
         let s = store.summary
@@ -139,6 +150,20 @@ private struct Hero: View {
                 ("Invested", Format.money(s.totalCost), Color.white, nil),
             ])
             .padding(.horizontal, 16)
+            // The website's floating action bar: your week's recap and the lime add button.
+            HStack(spacing: 8) {
+                Button(action: onRecap) { Label("Your week", systemImage: "play.fill") }
+                    .buttonStyle(Button3D(kind: .dark, height: 48))
+                Button(action: onAdd) { Label("Add to Collection", systemImage: "plus") }
+                    .buttonStyle(Button3D(kind: .lime, height: 48))
+                    .frame(maxWidth: .infinity)
+                    .layoutPriority(1.4)
+            }
+            .padding(8)
+            .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .shadow(color: .black.opacity(0.5), radius: 24, y: 12)
+            .padding(.horizontal, 16)
+            .padding(.top, 18)
         }
         .padding(.vertical, 12)
         .background(HeroBackdrop())
@@ -390,43 +415,52 @@ private struct StarCard: View {
     var holding: HoldingView
     var series: [TimelinePoint]
 
+    /// Sealed sits in a square well, a card at its own shape, a slab in its frame.
+    private var artSize: CGSize {
+        if holding.identity.isGraded { return CGSize(width: 150, height: 240) }
+        if holding.product?.isSealed == false, holding.product?.imageURL != nil { return CGSize(width: 150, height: 209) }
+        return CGSize(width: 150, height: 150)
+    }
+
     var body: some View {
         NavigationLink(value: holding.identity.productId) {
-            VStack(alignment: .leading, spacing: 14) {
-                ZStack(alignment: .topTrailing) {
-                    HoldingArt(product: holding.product, identity: holding.identity, cornerRadius: 12)
-                        .frame(height: 230)
-                        .frame(maxWidth: .infinity)
-                        .shadow(color: .black.opacity(0.6), radius: 16, y: 10)
-                    Text(Format.signedPercent(holding.gainRatio).replacingOccurrences(of: ".00", with: ""))
-                        .font(.geist(15, .bold)).foregroundStyle(Theme.ink)
-                        .padding(.horizontal, 12).padding(.vertical, 7)
-                        .background(Capsule().fill(Theme.lime))
-                        .shadow(color: Theme.lime.opacity(0.5), radius: 10)
-                        .offset(x: -8, y: 8)
-                }
-                .overlay(alignment: .bottomLeading) {
-                    if let label = holding.label {
-                        Text(label).font(.geist(15, .semibold)).foregroundStyle(Theme.ink)
-                            .padding(.horizontal, 12).padding(.vertical, 7)
-                            .background(Capsule().fill(.white))
-                            .offset(x: 30, y: -40)
+            VStack(alignment: .leading, spacing: 0) {
+                // The website's stage: the piece centered, a soft floor shadow, a floating % chip.
+                HoldingArt(product: holding.product, identity: holding.identity, cornerRadius: 12)
+                    .frame(width: artSize.width, height: artSize.height)
+                    .background(alignment: .bottom) {
+                        Ellipse().fill(.black.opacity(0.6)).frame(width: artSize.width * 0.76, height: 30).blur(radius: 14).offset(y: 16)
                     }
-                }
-                SkewTag(text: "Star of the collection", icon: "sparkles")
-                DisplayText(text: (holding.product?.name ?? "").uppercased(), size: 32)
+                    .overlay(alignment: .topTrailing) {
+                        if let r = holding.gainRatio {
+                            Text(Format.signedPercent(r).replacingOccurrences(of: #"\.\d+%"#, with: "%", options: .regularExpression))
+                                .font(.display(15)).foregroundStyle(Theme.ink)
+                                .padding(.horizontal, 12).padding(.vertical, 6)
+                                .background(Capsule().fill(Theme.lime))
+                                .shadow(color: Theme.lime.opacity(0.6), radius: 12, y: 6)
+                                .offset(x: 16, y: artSize.height * 0.08)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                SkewTag(text: "Star of the collection", icon: "sparkles").padding(.top, 28)
+                DisplayText(text: (holding.product?.name ?? "").uppercased(), size: 30)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.top, 4)
-                Text([holding.product?.setName, holding.label].compactMap { $0 }.joined(separator: " · ")).font(.geist(15)).foregroundStyle(Theme.muted)
-                Text(Format.signedMoney(holding.gain)).font(.display(48)).monospacedDigit().foregroundStyle(Theme.lime)
+                    .padding(.top, 16)
+                Text([holding.product?.setName, holding.label].compactMap { $0 }.joined(separator: " · "))
+                    .font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
+                    .padding(.top, 8)
+                Text(Format.signedMoney(holding.gain)).font(.display(40)).monospacedDigit().foregroundStyle(Theme.lime)
+                    .displayTrim(40)
+                    .padding(.top, 24)
                 HStack(spacing: 8) {
                     stat("Paid", Format.money(holding.costBasis), .white)
                     stat("Worth", Format.money(holding.value), .white)
                     stat("Return", Format.signedPercent(holding.gainRatio), Theme.tone(holding.gainRatio))
                 }
+                .padding(.top, 24)
                 if series.count > 1 {
-                    Sparkline(points: series, color: Theme.lime).frame(height: 60)
-                    MonoLabel(text: "Last 90 days")
+                    Sparkline(points: series, color: Theme.lime).frame(height: 52).padding(.top, 24)
+                    Text("LAST 90 DAYS").font(.mono(10)).tracking(0.6).foregroundStyle(Theme.subtle).padding(.top, 4)
                 }
             }
             .padding(20)
@@ -447,13 +481,14 @@ private struct StarCard: View {
 
     private func stat(_ label: String, _ value: String, _ tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            MonoLabel(text: label)
-            Text(value).font(.geist(16, .semibold)).monospacedDigit().foregroundStyle(tint).lineLimit(1).minimumScaleFactor(0.7)
+            Text(label.uppercased()).font(.mono(10, .medium)).tracking(0.6).foregroundStyle(Theme.subtle)
+            Text(value).font(.geist(14, .semibold)).monospacedDigit().foregroundStyle(tint).lineLimit(1).minimumScaleFactor(0.7)
         }
-        .padding(12)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 14).fill(Theme.surface.opacity(0.9)))
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border))
+        .background(RoundedRectangle(cornerRadius: 12).fill(Theme.background.opacity(0.4)))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.white.opacity(0.06)))
     }
 }
 
