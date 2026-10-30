@@ -235,6 +235,7 @@ final class CollectionStore {
         struct Row: Encodable {
             var user_id: String
             var monthly_budget: Double?
+            enum CodingKeys: String, CodingKey { case user_id, monthly_budget }
             // Write null explicitly so removing the budget clears it.
             func encode(to encoder: Encoder) throws {
                 var c = encoder.container(keyedBy: CodingKeys.self)
