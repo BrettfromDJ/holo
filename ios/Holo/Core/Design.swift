@@ -81,13 +81,7 @@ struct PageHeader<Trailing: View>: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 10) {
-                    Capsule()
-                        .fill(Theme.lime)
-                        .frame(width: 5, height: size * 0.72)
-                        .shadow(color: Theme.lime.opacity(0.8), radius: 6)
-                    Text(title.uppercased()).font(.display(size)).tracking(0.2).lineLimit(2).minimumScaleFactor(0.7).displayTrim(size)
-                }
+                Text(title.uppercased()).font(.display(size)).tracking(0.2).lineLimit(2).minimumScaleFactor(0.7).displayTrim(size)
                 if let subtitle {
                     Text(subtitle).font(.geist(15)).foregroundStyle(Theme.muted)
                 }
