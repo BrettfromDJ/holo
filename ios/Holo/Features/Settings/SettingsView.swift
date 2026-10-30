@@ -4,6 +4,8 @@ struct SettingsView: View {
     @Environment(SessionModel.self) private var session
     @Environment(CollectionStore.self) private var store
     @State private var confirming = false
+    @State private var testing = false
+    @State private var testResult: String?
 
     private var email: String? {
         if case let .signedIn(_, email) = session.state { return email }
@@ -16,6 +18,25 @@ struct SettingsView: View {
                 Section("Account") {
                     LabeledContent("Signed in as", value: email ?? "—")
                     Button("Sign out", role: .destructive) { confirming = true }
+                }
+                Section {
+                    Button {
+                        Task { await sendTest() }
+                    } label: {
+                        HStack {
+                            Text(testing ? "Sending…" : "Send a test notification")
+                            Spacer()
+                            if testing { ProgressView() }
+                        }
+                    }
+                    .disabled(testing)
+                    if let testResult {
+                        Text(testResult).font(.footnote).foregroundStyle(Theme.muted)
+                    }
+                } header: {
+                    Text("Notifications")
+                } footer: {
+                    Text("Price alerts arrive after the daily price check when a watched card is at or below your target.")
                 }
                 Section("Collection") {
                     LabeledContent("Items", value: "\(Int(store.summary.items))")
@@ -34,9 +55,41 @@ struct SettingsView: View {
             .scrollContentBackground(.hidden)
             .background(Theme.background)
             .navigationTitle("Account")
+            .toolbar { ToolbarItem(placement: .confirmationAction) { DoneButton() } }
             .confirmationDialog("Sign out of Holo?", isPresented: $confirming, titleVisibility: .visible) {
                 Button("Sign out", role: .destructive) { Task { await session.signOut() } }
             }
         }
+    }
+
+    private func sendTest() async {
+        testing = true
+        testResult = nil
+        defer { testing = false }
+        // Make sure this phone is registered; the token is saved a moment after permission is given.
+        await PushRegistration.enable()
+        try? await Task.sleep(nanoseconds: 2_000_000_000)
+        do {
+            let r = try await Backend.shared.api.testPush()
+            if r.sent > 0 {
+                testResult = "Sent. It should appear in a few seconds."
+            } else {
+                testResult = "Apple didn't accept it: \(r.reasons.joined(separator: ", "))."
+            }
+        } catch let error as HoloError where error.code == "no_devices" {
+            testResult = "This phone isn't registered yet. Check notifications are allowed for Holo in Settings, then try again."
+        } catch {
+            testResult = error.localizedDescription
+        }
+    }
+}
+
+/// Closes a sheet; hidden when the view isn't presented as one.
+private struct DoneButton: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.isPresented) private var isPresented
+
+    var body: some View {
+        if isPresented { Button("Done") { dismiss() } }
     }
 }

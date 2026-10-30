@@ -142,6 +142,19 @@ final class HoloAPI {
         return try await send(try await request("api/tcg/ebay", query: q), as: Body.self).ebay
     }
 
+    struct PushTestResult: Decodable {
+        var sent: Int
+        var failed: Int
+        var reasons: [String]
+    }
+
+    /// Ask the server to send a test notification to your phones.
+    func testPush() async throws -> PushTestResult {
+        var req = try await request("api/push/test")
+        req.httpMethod = "POST"
+        return try await send(req, as: PushTestResult.self)
+    }
+
     /// Scans left on the account (free to ask).
     func scansRemaining() async -> Int? {
         struct Balance: Decodable { var scansRemaining: Int? }
