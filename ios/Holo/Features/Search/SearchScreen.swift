@@ -237,14 +237,6 @@ struct SearchScreen: View {
                 .padding(.horizontal, 16)
             }
         }
-        VStack(alignment: .leading, spacing: 8) {
-            MonoLabel(text: "Try")
-            ForEach(["A card name: Umbreon VMAX", "A set: Evolving Skies", "A number: 215/203", "Sealed: booster box"], id: \.self) { tip in
-                Text(tip).font(.geist(14)).foregroundStyle(Theme.muted)
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 26)
     }
 
     // MARK: While typing

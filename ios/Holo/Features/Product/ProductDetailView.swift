@@ -19,6 +19,19 @@ struct ProductDetailView: View {
     private var owned: [HoldingView] { store.holdings(for: productId) }
     private var printing: String? { owned.first?.identity.printing ?? product?.printings?.first }
     private var price: Price? { store.marketPrice(productId, printing: printing) }
+    /// The price history, oldest first.
+    private var hist: [PricePoint] { (store.history[priceKey(productId, printing)] ?? []).sorted { $0.date < $1.date } }
+    /// The current price, or, for products without one, the latest point in its price history.
+    private var headline: Double? { price?.market ?? hist.last?.price }
+
+    /// The change over `days` from the price history, for products without a current price.
+    private func histChange(_ days: Int) -> Double? {
+        guard let last = hist.last, let lastDay = Format.isoDay.date(from: last.date),
+              let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: lastDay) else { return nil }
+        let cut = Format.day(cutoff)
+        guard let base = hist.last(where: { $0.date <= cut }), base.price > 0 else { return nil }
+        return (last.price - base.price) / base.price * 100
+    }
 
     var body: some View {
         ScrollView {
@@ -75,10 +88,10 @@ struct ProductDetailView: View {
         .sheet(item: $selling) { h in SellSheet(holding: h) }
         .sheet(item: $editing) { t in EntryEditSheet(entry: t) }
         .sheet(isPresented: $adding) {
-            if let product { AddPurchaseSheet(hit: SearchHit(product: product, printing: printing, market: price?.market)) }
+            if let product { AddPurchaseSheet(hit: SearchHit(product: product, printing: printing, market: headline)) }
         }
         .sheet(isPresented: $watching) {
-            if let product { WatchSheet(product: product, printing: printing, market: price?.market) }
+            if let product { WatchSheet(product: product, printing: printing, market: headline) }
         }
         .confirmationDialog("Delete this entry?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
@@ -105,7 +118,7 @@ struct ProductDetailView: View {
     }
 
     private var shareText: String {
-        [product?.name, price?.market.map { Format.money($0) }].compactMap { $0 }.joined(separator: " · ")
+        [product?.name, headline.map { Format.money($0) }].compactMap { $0 }.joined(separator: " · ")
     }
 
     /// Above the piece: the set and number, and whether (and how many) you own.
@@ -166,7 +179,7 @@ struct ProductDetailView: View {
                 .font(.geist(15)).foregroundStyle(Theme.muted)
                 .padding(.top, 6)
             Group {
-                if let market = price?.market {
+                if let market = headline {
                     CountingText(value: market, format: { Format.money($0) })
                 } else {
                     Text(Format.money(nil))
@@ -190,12 +203,14 @@ struct ProductDetailView: View {
                 .padding(.top, 8)
             }
             HStack(spacing: 8) {
-                change("24h", price?.change24hPct).modifier(PopIn(delay: 0.35))
-                change("7d", price?.change7dPct).modifier(PopIn(delay: 0.45))
-                change("30d", price?.change30dPct).modifier(PopIn(delay: 0.55))
+                change("24h", price?.change24hPct ?? histChange(1)).modifier(PopIn(delay: 0.35))
+                change("7d", price?.change7dPct ?? histChange(7)).modifier(PopIn(delay: 0.45))
+                change("30d", price?.change30dPct ?? histChange(30)).modifier(PopIn(delay: 0.55))
             }
             .padding(.top, 12)
-            Text(price == nil ? "No market price available. Not counted as $0." : "Market price via TCG API" + (price?.updatedAt.flatMap(relative).map { " · updated \($0)" } ?? ""))
+            Text(price != nil
+                 ? "Market price via TCG API" + (price?.updatedAt.flatMap(relative).map { " · updated \($0)" } ?? "")
+                 : (hist.last.map { "Last market price \($0.day.formatted(date: .abbreviated, time: .omitted)) · no current price yet" } ?? "No market price available. Not counted as $0."))
                 .font(.geist(12)).foregroundStyle(Theme.subtle)
                 .padding(.top, 12)
         }

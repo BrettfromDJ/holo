@@ -74,6 +74,17 @@ export default function ProductPage() {
   const realizedHere = realized.filter((r) => r.holdingKey.startsWith(`${productId}|`)).reduce((s, r) => s + r.gain, 0);
   const printing = owned[0]?.identity.printing ?? product.printings?.[0] ?? null;
   const price = store.data.prices[priceKey(productId, printing)];
+  // No current price (older or unsynced products): fall back to the latest point in its price
+  // history, labelled with its date, and work the 24h/7d/30d changes out from the history.
+  const hist = [...(store.data.history[priceKey(productId, printing)] ?? [])].sort((a, b) => (a.date < b.date ? -1 : 1));
+  const lastPoint = hist.length ? hist[hist.length - 1] : null;
+  const headline = price?.market ?? lastPoint?.price ?? null;
+  const histChange = (days: number): number | null => {
+    if (!lastPoint) return null;
+    const cutoff = addDays(lastPoint.date, -days);
+    const base = [...hist].reverse().find((p) => p.date <= cutoff);
+    return base && base.price > 0 ? ((lastPoint.price - base.price) / base.price) * 100 : null;
+  };
   const watch = store.data.watchlist.find((w) => w.productId === productId);
   const slab = owned.length > 0 && owned.every((h) => h.identity.grade) ? owned[0].identity.grade : null;
 
@@ -123,9 +134,9 @@ export default function ProductPage() {
 
           <div className="mt-6">
             <p className="tabular font-display text-[52px] leading-none sm:text-[60px]">
-              {price?.market != null ? <AnimatedNumber key={productId} value={price.market} format={money} from={price.market * 0.85} /> : <span className="text-muted">No price</span>}
+              {headline != null ? <AnimatedNumber key={productId} value={headline} format={money} from={headline * 0.85} /> : <span className="text-muted">No price</span>}
             </p>
-            {product.kind === "sealed" && <PerPack product={product} price={price?.market ?? null} />}
+            {product.kind === "sealed" && <PerPack product={product} price={headline} />}
             {/* The headline is the card's Near Mint price; copies you own that differ get their own figure here. */}
             {yourCopies.length > 0 && (
               <div className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] text-muted">
@@ -140,7 +151,7 @@ export default function ProductPage() {
             )}
             <div className="mt-3 flex flex-wrap items-center gap-2 text-[13px]">
               {(["24h", "7d", "30d"] as const).map((p) => {
-                const v = p === "24h" ? price?.change24hPct : p === "7d" ? price?.change7dPct : price?.change30dPct;
+                const v = p === "24h" ? (price?.change24hPct ?? histChange(1)) : p === "7d" ? (price?.change7dPct ?? histChange(7)) : (price?.change30dPct ?? histChange(30));
                 return (
                   <span key={p} className="inline-flex items-center gap-1.5 rounded-full bg-surface px-2.5 py-1">
                     <span className="text-subtle">{p}</span>
@@ -152,7 +163,9 @@ export default function ProductPage() {
             <p className="mt-3 text-[12px] text-subtle">
               {price
                 ? `${price.source === "sample" ? "Sample price" : "Market price via TCG API"} · ${price.status === "stale" ? "stale · " : ""}updated ${relativeTime(price.updatedAt)}`
-                : "No market price available — not counted as $0."}
+                : lastPoint
+                  ? `Last market price ${formatDate(lastPoint.date)} · no current price yet`
+                  : "No market price available — not counted as $0."}
             </p>
           </div>
 
