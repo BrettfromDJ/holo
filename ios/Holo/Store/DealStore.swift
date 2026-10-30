@@ -108,7 +108,9 @@ final class DealStore {
         let note = "Show deal (\(kind.noun.lowercased()))"
         let today = Format.day()
 
-        for item in deal.outgoing {
+        // A demo collection has no account to save to: the deal is just logged here and cleared.
+        let saving = store.demo == nil
+        for item in deal.outgoing where saving {
             guard let key = item.holdingKey, let h = store.holdings.first(where: { $0.identity.key == key }), let unit = item.unitPrice(side: rates.out) else { continue }
             try await store.sell(h.identity, quantity: Double(item.qty), unitPrice: unit, fees: 0, shipping: 0, date: today, source: "Card show", notes: note)
         }
@@ -129,7 +131,7 @@ final class DealStore {
                 notes: note
             ))
         }
-        if !purchases.isEmpty { try await store.add(purchases) }
+        if saving, !purchases.isEmpty { try await store.add(purchases) }
 
         let lines: [DealRecord.Line] =
             deal.incoming.map { line($0, side: .incoming, rate: rates.in) } + deal.outgoing.map { line($0, side: .outgoing, rate: rates.out) }
@@ -141,7 +143,7 @@ final class DealStore {
         log = Array(([record] + log).prefix(500))
         deal = DealState()
         saveTask?.cancel()
-        if let userId {
+        if saving, let userId {
             try? await UserState.save("deals", log, userId: userId)
             try? await UserState.save("deal", deal, userId: userId)
         }

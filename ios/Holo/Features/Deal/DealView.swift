@@ -12,9 +12,7 @@ struct DealView: View {
     @State private var history = false
     @State private var customer = false
     @State private var confirming = false
-    @State private var closing = false
     @State private var ebayItem: DealItem?
-    @State private var message: String?
 
     private var rates: (in: Double, out: Double) { deals.rates }
     private var defaultRates: (in: Double, out: Double) {
@@ -40,9 +38,6 @@ struct DealView: View {
                     VStack(alignment: .leading, spacing: 14) {
                         if !todays.isEmpty { TodayStrip(deals: todays) { history = true } }
                         BalanceCard(totals: totals)
-                        if let message {
-                            Text(message).font(.geist(13)).foregroundStyle(Theme.muted)
-                        }
                     }
                     side(.incoming).reveal()
                     side(.outgoing).reveal()
@@ -72,11 +67,7 @@ struct DealView: View {
                 if deals.deal.kind != .empty { closeBar }
             }
             .tabBarClearance()
-            .confirmationDialog(confirmTitle, isPresented: $confirming, titleVisibility: .visible) {
-                Button("Close \(deals.deal.kind.noun.lowercased())") { Task { await close() } }
-            } message: {
-                Text("Sales and purchases are added to your collection.")
-            }
+            .sheet(isPresented: $confirming) { DealCloseSheet() }
             .sheet(item: $picking) { side in DealPickerSheet(side: side) }
             .sheet(isPresented: $settings) { DealRatesSheet() }
             .sheet(isPresented: $history) { DealHistorySheet() }
@@ -108,23 +99,17 @@ struct DealView: View {
             }
             .buttonStyle(Button3D(kind: .dark, fullWidth: false, height: 48))
             Button { confirming = true } label: {
-                Text(closing ? "Recording…" : (unpriced ? "Price every item to close" : "Close \(deals.deal.kind.noun.lowercased())"))
+                Text(unpriced ? "Price every item to close" : "Close \(deals.deal.kind.noun.lowercased())")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(Button3D(kind: .lime, fullWidth: true, height: 48))
-            .disabled(unpriced || closing)
+            .disabled(unpriced)
             .opacity(unpriced ? 0.55 : 1)
         }
         .padding(8)
         .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
-    }
-
-    private var confirmTitle: String {
-        let b = totals.balance
-        if abs(b) < 0.005 { return "Even trade" }
-        return b > 0 ? "Customer pays you \(Format.money(b))" : "You pay the customer \(Format.money(-b))"
     }
 
     // MARK: A side of the deal
@@ -211,19 +196,6 @@ struct DealView: View {
         deals.add(DealItem(key: "h:\(h.identity.key)", product: p, printing: h.identity.printing, market: h.price, holdingKey: h.identity.key, maxQty: Int(h.quantity)), to: .outgoing)
         return (true, "Added to going out")
     }
-
-    private func close() async {
-        closing = true
-        defer { closing = false }
-        do {
-            let kind = deals.deal.kind
-            let t = try await deals.close(using: store)
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
-            message = "\(kind.noun) recorded" + (t.profit.map { " · profit \(Format.signedMoney($0))" } ?? "")
-        } catch {
-            message = "Couldn't record the deal: \(error.localizedDescription)"
-        }
-    }
 }
 
 extension DealSide: Identifiable {
@@ -278,48 +250,66 @@ private struct TodayStrip: View {
     }
 }
 
-/// Who pays whom, and what you make. The card goes pink when the deal loses money.
+/// Who pays whom, and what you make, on a solid electric-lime card. When the equity taken in
+/// is negative the whole card goes pink, so there's never pink on lime.
 private struct BalanceCard: View {
     var totals: DealTotals
-
     var body: some View {
         let b = totals.balance
         let empty = totals.kind == .empty
-        let losing = (totals.profit ?? 0) < -0.005
-        let tint = losing ? Theme.planPink : Theme.lime
+        let showsEquity = !(totals.kind == .sell || empty || totals.inValue == 0)
+        let down = showsEquity && totals.equity < -0.005
+        let fill = down ? Theme.planPink : Theme.lime
+        let ink = down ? Color.white : Theme.ink
+        let shape = RoundedRectangle(cornerRadius: 24, style: .continuous)
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                SkewTag(text: empty ? "New deal" : totals.kind.label, color: .white, textColor: Theme.ink)
+                SkewTag(text: empty ? "New deal" : totals.kind.label, color: down ? .white : Theme.ink, textColor: down ? Theme.ink : Theme.lime)
                 Spacer()
                 if totals.belowCost > 0 {
                     Label("\(totals.belowCost) below cost", systemImage: "exclamationmark.triangle.fill")
-                        .font(.geist(12, .semibold)).foregroundStyle(Theme.planPink)
+                        .font(.geist(12, .semibold)).foregroundStyle(ink)
                 }
             }
-            MonoLabel(text: empty ? "Add items to start" : (abs(b) < 0.005 ? "Settled" : (b > 0 ? "Customer pays you" : "You pay the customer")))
+            Text((empty ? "Add items to start" : (abs(b) < 0.005 ? "Settled" : (b > 0 ? "Customer pays you" : "You pay the customer"))).uppercased())
+                .font(.mono(11)).tracking(1.2).foregroundStyle(ink.opacity(0.7))
                 .padding(.top, 18)
             CountingText(value: abs(b), format: { Format.money($0) })
-                .font(.display(60)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.5)
+                .font(.display(60)).monospacedDigit().foregroundStyle(ink).lineLimit(1).minimumScaleFactor(0.5)
                 .displayTrim(60)
                 .padding(.top, 10)
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], alignment: .leading, spacing: 14) {
-                stat("Coming in", Format.money(totals.inValue), .white)
-                stat("Going out", Format.money(totals.outValue), .white)
-                stat("Profit on sale", totals.profit.map { Format.signedMoney($0) } ?? "—", totals.profit == nil ? Theme.muted : Theme.tone(totals.profit))
-                stat("Equity taken in", totals.kind == .sell || empty ? "—" : Format.signedMoney(totals.equity),
-                     totals.kind == .sell || empty ? Theme.muted : Theme.tone(totals.equity))
+                stat("Coming in", Format.money(totals.inValue), ink)
+                stat("Going out", Format.money(totals.outValue), ink)
+                stat("Profit on sale", totals.profit.map { Format.signedMoney($0) } ?? "—", ink)
+                stat("Equity taken in", showsEquity ? Format.signedMoney(totals.equity) : "—", ink)
             }
             .padding(.top, 20)
         }
-        .padding(4)
-        .tinted(tint, radius: 24)
-        .animation(.easeInOut(duration: 0.3), value: losing)
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            ZStack {
+                shape.fill(fill)
+                // A faint ink grid, like the other tabs' backdrops, printed on the card.
+                Canvas { ctx, size in
+                    var path = Path()
+                    stride(from: 0, through: size.width, by: 28).forEach { x in path.move(to: CGPoint(x: x, y: 0)); path.addLine(to: CGPoint(x: x, y: size.height)) }
+                    stride(from: 0, through: size.height, by: 28).forEach { y in path.move(to: CGPoint(x: 0, y: y)); path.addLine(to: CGPoint(x: size.width, y: y)) }
+                    ctx.stroke(path, with: .color(.black.opacity(0.06)), lineWidth: 1)
+                }
+                Sheen(strength: 0.35)
+            }
+            .clipShape(shape)
+            .shadow(color: fill.opacity(0.4), radius: 22)
+        }
+        .animation(.easeInOut(duration: 0.3), value: down)
     }
 
-    private func stat(_ label: String, _ value: String, _ tint: Color) -> some View {
+    private func stat(_ label: String, _ value: String, _ ink: Color) -> some View {
         VStack(alignment: .leading, spacing: 5) {
-            MonoLabel(text: label)
-            Text(value).font(.geist(17, .semibold)).monospacedDigit().foregroundStyle(tint).lineLimit(1).minimumScaleFactor(0.7)
+            Text(label.uppercased()).font(.mono(10)).tracking(1.1).foregroundStyle(ink.opacity(0.65))
+            Text(value).font(.geist(17, .semibold)).monospacedDigit().foregroundStyle(ink).lineLimit(1).minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -369,7 +359,7 @@ private struct DealItemCard: View {
         let unit = item.unitPrice(side: rate)
         let total = item.total(side: rate)
         HStack(alignment: .top, spacing: 12) {
-            HoldingArt(product: item.product, identity: nil, cornerRadius: 10, caption: false)
+            HoldingArt(product: item.product, identity: nil, cornerRadius: 4, caption: false)
                 .frame(width: 52, height: 72)
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .top, spacing: 8) {
@@ -555,7 +545,7 @@ private struct CustomerViewSheet: View {
             MonoLabel(text: title)
             ForEach(items) { i in
                 HStack(spacing: 12) {
-                    HoldingArt(product: i.product, identity: nil, cornerRadius: 8, caption: false).frame(width: 40, height: 56)
+                    HoldingArt(product: i.product, identity: nil, cornerRadius: 3, caption: false).frame(width: 40, height: 56)
                     (Text(i.product.name) + Text(i.qty > 1 ? " × \(i.qty)" : "").foregroundColor(Theme.muted))
                         .font(.geist(15, .medium))
                     Spacer(minLength: 8)

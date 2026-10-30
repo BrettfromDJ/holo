@@ -218,3 +218,183 @@ private struct DealRecordRow: View {
         }
     }
 }
+
+/// Before a deal closes: who pays whom in big numbers, what changes hands on each side, the
+/// profit, and one lime button. Recording happens here, so a problem shows right on the sheet,
+/// and it ends on a confirmation with what was recorded.
+struct DealCloseSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(CollectionStore.self) private var store
+    @Environment(DealStore.self) private var deals
+    /// The deal as it was when the sheet opened (closing clears the live one).
+    @State private var deal: DealState
+    @State private var rates: (in: Double, out: Double)
+    @State private var phase = Phase.review
+    @State private var error: String?
+
+    enum Phase { case review, recording, done }
+
+    init() {
+        _deal = State(initialValue: DealState())
+        _rates = State(initialValue: (0, 0))
+    }
+
+    private var totals: DealTotals { DealTotals(deal, rates: rates, cost: { deals.cost(of: $0, in: store) }) }
+
+    var body: some View {
+        let t = totals
+        let b = t.balance
+        VStack(alignment: .leading, spacing: 0) {
+            Capsule().fill(Color.white.opacity(0.2)).frame(width: 40, height: 5).frame(maxWidth: .infinity).padding(.top, 8)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    if phase == .done {
+                        doneView(t)
+                    } else {
+                        VStack(alignment: .leading, spacing: 8) {
+                            SkewTag(text: t.kind.label)
+                            DisplayText(text: "CLOSE THIS \(t.kind.noun.uppercased())?", size: 30)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        // Who pays whom, big enough to turn the phone around.
+                        VStack(alignment: .leading, spacing: 8) {
+                            MonoLabel(text: abs(b) < 0.005 ? "Even trade" : (b > 0 ? "Customer pays you" : "You pay the customer"))
+                            Text(Format.money(abs(b))).font(.display(56)).monospacedDigit().displayTrim(56)
+                                .lineLimit(1).minimumScaleFactor(0.5)
+                        }
+                        .padding(18)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                        if !deal.incoming.isEmpty { sideRow(.incoming, deal.incoming, t.inValue) }
+                        if !deal.outgoing.isEmpty { sideRow(.outgoing, deal.outgoing, t.outValue) }
+                        HStack(spacing: 8) {
+                            if let profit = t.profit { pill("Profit", Format.signedMoney(profit), Theme.tone(profit)) }
+                            if deal.kind != .sell, t.inValue > 0 { pill("Equity in", Format.signedMoney(t.equity), Theme.tone(t.equity)) }
+                        }
+                        Text(store.demo != nil
+                             ? "This is a demo collection, so nothing is saved: closing just clears the deal."
+                             : "Sales and purchases are added to your collection, and the deal goes in your history.")
+                            .font(.geist(13)).foregroundStyle(Theme.muted)
+                        if let error {
+                            Label(error, systemImage: "exclamationmark.triangle.fill")
+                                .font(.geist(13, .medium)).foregroundStyle(Theme.warn)
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 14)
+                .padding(.bottom, 16)
+            }
+            VStack(spacing: 8) {
+                if phase == .done {
+                    Button("Done") { dismiss() }.buttonStyle(Button3D(kind: .lime))
+                } else {
+                    Button { Task { await close() } } label: {
+                        HStack(spacing: 8) {
+                            if phase == .recording { ProgressView().tint(Theme.ink) }
+                            Text(phase == .recording ? "Recording…" : "Close \(t.kind.noun.lowercased())")
+                        }
+                    }
+                    .buttonStyle(Button3D(kind: .lime))
+                    .disabled(phase == .recording)
+                    Button("Keep editing") { dismiss() }
+                        .buttonStyle(Button3D(kind: .dark))
+                        .disabled(phase == .recording)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 12)
+        }
+        .background(Theme.background)
+        .presentationDetents([.large])
+        .presentationDragIndicator(.hidden)
+        .interactiveDismissDisabled(phase == .recording)
+        .onAppear {
+            deal = deals.deal
+            rates = deals.rates
+        }
+    }
+
+    private func sideRow(_ side: DealSide, _ items: [DealItem], _ value: Double) -> some View {
+        let incoming = side == .incoming
+        let count = items.reduce(0) { $0 + $1.qty }
+        return HStack(spacing: 12) {
+            Image(systemName: incoming ? "arrow.down.left" : "arrow.up.right")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(incoming ? Theme.lime : Theme.planPink)
+                .frame(width: 30, height: 30)
+                .background(Circle().fill(Color.white.opacity(0.06)))
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text(incoming ? "Coming in" : "Going out").font(.geist(15, .semibold))
+                    Text("\(count) item\(count == 1 ? "" : "s")").font(.geist(13)).foregroundStyle(Theme.muted)
+                    Spacer()
+                    Text(Format.money(value)).font(.geist(15, .semibold)).monospacedDigit()
+                }
+                // The items themselves, overlapping like a hand of cards.
+                HStack(spacing: -10) {
+                    ForEach(items.prefix(8)) { i in
+                        HoldingArt(product: i.product, identity: nil, cornerRadius: 3, caption: false)
+                            .frame(width: 34, height: 48)
+                            .shadow(color: .black.opacity(0.5), radius: 4, x: 2)
+                    }
+                    if items.count > 8 {
+                        Text("+\(items.count - 8)").font(.geist(12, .semibold)).foregroundStyle(Theme.muted).padding(.leading, 16)
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.surface))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Theme.border))
+    }
+
+    private func pill(_ label: String, _ value: String, _ tint: Color) -> some View {
+        HStack(spacing: 8) {
+            MonoLabel(text: label)
+            Text(value).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(tint)
+        }
+        .lineLimit(1)
+        .padding(.horizontal, 14)
+        .frame(height: 38)
+        .liquidGlass(in: Capsule())
+    }
+
+    private func doneView(_ t: DealTotals) -> some View {
+        VStack(spacing: 14) {
+            Image(systemName: "checkmark")
+                .font(.system(size: 30, weight: .black))
+                .foregroundStyle(Theme.ink)
+                .frame(width: 72, height: 72)
+                .background(Circle().fill(Theme.lime))
+                .shadow(color: Theme.lime.opacity(0.5), radius: 18)
+                .transition(.scale.combined(with: .opacity))
+            DisplayText(text: "\(t.kind.noun.uppercased()) RECORDED", size: 30)
+            if let profit = t.profit {
+                HStack(spacing: 6) {
+                    Text("Profit").foregroundStyle(Theme.muted)
+                    Text(Format.signedMoney(profit)).foregroundStyle(Theme.tone(profit))
+                }
+                .font(.geist(16, .semibold)).monospacedDigit()
+            }
+            Text(store.demo != nil ? "Demo collection: nothing was saved." : "It's in your collection and in Closed deals.")
+                .font(.geist(13)).foregroundStyle(Theme.muted)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 60)
+    }
+
+    private func close() async {
+        error = nil
+        phase = .recording
+        do {
+            _ = try await deals.close(using: store)
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            withAnimation(.spring(duration: 0.45)) { phase = .done }
+        } catch {
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            self.error = "Couldn't record it: \(error.localizedDescription)"
+            phase = .review
+        }
+    }
+}
