@@ -86,20 +86,25 @@ struct MainTabView: View {
     var body: some View {
         TabView(selection: $tab) {
             HomeView(onScan: { scanning = true })
+                .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: HoloTabBar<HomeTab>.clearance) }
                 .tag(HomeTab.home)
                 .toolbar(.hidden, for: .tabBar)
             CollectionView(onScan: { scanning = true })
+                .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: HoloTabBar<HomeTab>.clearance) }
                 .tag(HomeTab.collection)
                 .toolbar(.hidden, for: .tabBar)
             ExploreView()
+                .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: HoloTabBar<HomeTab>.clearance) }
                 .tag(HomeTab.explore)
                 .toolbar(.hidden, for: .tabBar)
             DealView()
+                .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: HoloTabBar<HomeTab>.clearance) }
                 .tag(HomeTab.deal)
                 .toolbar(.hidden, for: .tabBar)
         }
-        // The website's bar: Overview, Collection, the lime +, Explore, Deal.
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+        // The website's bar: Overview, Collection, the lime +, Explore, Deal. It floats over the
+        // pages (each page leaves room under its last card), so content shows through the glass.
+        .overlay(alignment: .bottom) {
             HoloTabBar(
                 items: [
                     .init(tab: .home, title: "Overview", icon: "chart.line.uptrend.xyaxis"),

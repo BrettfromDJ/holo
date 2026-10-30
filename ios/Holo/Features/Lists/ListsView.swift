@@ -89,7 +89,7 @@ struct ListsView: View {
 
     private func empty(_ title: String, _ body: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.headline)
+            Text(title).font(.geist(17, .semibold))
             Text(body).font(.callout).foregroundStyle(Theme.muted)
         }
         .padding(.vertical, 8)

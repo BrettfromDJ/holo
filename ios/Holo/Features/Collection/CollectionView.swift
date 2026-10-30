@@ -138,7 +138,7 @@ struct CollectionView: View {
                 }
                 .padding(.horizontal, 14)
                 .frame(height: 46)
-                .background(Capsule().fill(Theme.surface2))
+                .liquidGlass(in: Capsule())
                 Menu {
                     Picker("Sort", selection: $sort) {
                         ForEach(Sort.allCases, id: \.self) { Text($0.rawValue).tag($0) }
@@ -153,7 +153,7 @@ struct CollectionView: View {
                     Button { grid = false } label: { Image(systemName: "list.bullet") }.buttonStyle(IconButton3D(size: 40, active: !grid))
                 }
                 .padding(3)
-                .background(Capsule().fill(Theme.surface))
+                .liquidGlass(in: Capsule())
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -163,8 +163,12 @@ struct CollectionView: View {
                         if n > 0 { Chip(title: c.rawValue, selected: category == c, count: n) { category = c } }
                     }
                 }
-                .padding(.vertical, 4)
+                // Room for the selected chip's glow, which the scroll view would otherwise clip.
+                .padding(.vertical, 12)
+                .padding(.horizontal, 16)
             }
+            .padding(.horizontal, -16)
+            .padding(.vertical, -8)
             if sort != .value {
                 Text("Sorted by \(sort.rawValue.lowercased())").font(.geist(13)).foregroundStyle(Theme.muted)
             }

@@ -27,6 +27,11 @@ extension Font {
     static func mono(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
         .custom(weight == .regular ? "GeistMono-Regular" : "GeistMono-Medium", size: size)
     }
+
+    /// Roboto Mono, for the small all-caps card headings.
+    static func roboto(_ size: CGFloat, _ weight: Font.Weight = .medium) -> Font {
+        .custom(weight == .regular ? "RobotoMono-Regular" : "RobotoMono-Medium", size: size)
+    }
 }
 
 enum Fonts {
@@ -81,7 +86,7 @@ struct PageHeader<Trailing: View>: View {
                         .fill(Theme.lime)
                         .frame(width: 5, height: size * 0.72)
                         .shadow(color: Theme.lime.opacity(0.8), radius: 6)
-                    Text(title.uppercased()).font(.display(size)).tracking(0.2).lineLimit(2).minimumScaleFactor(0.7)
+                    Text(title.uppercased()).font(.display(size)).tracking(0.2).lineLimit(2).minimumScaleFactor(0.7).displayTrim(size)
                 }
                 if let subtitle {
                     Text(subtitle).font(.geist(15)).foregroundStyle(Theme.muted)
@@ -293,8 +298,7 @@ struct StatPill: View {
         }
         .padding(.horizontal, 14)
         .frame(height: 38)
-        .background(Capsule().fill(Theme.background.opacity(0.6)))
-        .overlay(Capsule().strokeBorder(Theme.borderStrong))
+        .liquidGlass(in: Capsule())
     }
 }
 
@@ -342,7 +346,7 @@ struct ChipPicker<T: Hashable>: View {
             }
         }
         .padding(4)
-        .background(Capsule().fill(Theme.surface))
+        .liquidGlass(in: Capsule())
     }
 }
 
@@ -391,8 +395,8 @@ struct Silhouette: View {
     var body: some View {
         GeometryReader { geo in
             let s = min(geo.size.width, geo.size.height)
-            VStack(spacing: s * 0.05) {
-                art.frame(width: s * 0.36, height: s * 0.42)
+            VStack(spacing: s * 0.06) {
+                art.frame(width: s * 0.62, height: s * 0.72)
                 if showCaption && s > 120 {
                     VStack(spacing: 3) {
                         Text(caption).font(.mono(max(8, s * 0.045))).tracking(1).foregroundStyle(Theme.muted).lineLimit(1)
@@ -523,5 +527,221 @@ extension HoldingView {
     var category: HoldingCategory {
         if identity.isGraded { return .graded }
         return product?.isSealed == true ? .sealed : .singles
+    }
+}
+
+// MARK: - Display type
+
+extension View {
+    /// Anton's line box is about 1.5× its size, with a third of an em of air above the capitals
+    /// and below the baseline. This trims that air so headings sit as tight as the website's.
+    func displayTrim(_ size: CGFloat) -> some View { padding(.vertical, -size * 0.27) }
+}
+
+/// A multi-line Anton heading with the website's tight leading (about 0.98).
+struct DisplayText: View {
+    var text: String
+    var size: CGFloat
+    var color: Color = .white
+
+    var body: some View {
+        WordFlow(spacing: size * 0.2, lineGap: size * 0.08) {
+            ForEach(Array(text.split(separator: " ").enumerated()), id: \.offset) { _, word in
+                Text(word).font(.display(size)).foregroundStyle(color).displayTrim(size)
+            }
+        }
+    }
+}
+
+/// Lays words out left to right, wrapping onto new lines.
+private struct WordFlow: Layout {
+    var spacing: CGFloat
+    var lineGap: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let rows = arrange(width: proposal.width ?? .infinity, subviews: subviews)
+        let width = rows.map { $0.width }.max() ?? 0
+        let height = rows.map { $0.height }.reduce(0, +) + lineGap * CGFloat(max(rows.count - 1, 0))
+        return CGSize(width: proposal.width.map { min($0, width) } ?? width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var y = bounds.minY
+        for row in arrange(width: bounds.width, subviews: subviews) {
+            var x = bounds.minX
+            for i in row.items {
+                let size = subviews[i].sizeThatFits(.unspecified)
+                subviews[i].place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+                x += size.width + spacing
+            }
+            y += row.height + lineGap
+        }
+    }
+
+    private struct Row { var items: [Int] = []; var width: CGFloat = 0; var height: CGFloat = 0 }
+
+    private func arrange(width: CGFloat, subviews: Subviews) -> [Row] {
+        var rows: [Row] = [Row()]
+        for i in subviews.indices {
+            let size = subviews[i].sizeThatFits(.unspecified)
+            let extra = rows[rows.count - 1].items.isEmpty ? size.width : size.width + spacing
+            if rows[rows.count - 1].width + extra > width, !rows[rows.count - 1].items.isEmpty {
+                rows.append(Row())
+            }
+            let isFirst = rows[rows.count - 1].items.isEmpty
+            rows[rows.count - 1].items.append(i)
+            rows[rows.count - 1].width += isFirst ? size.width : size.width + spacing
+            rows[rows.count - 1].height = max(rows[rows.count - 1].height, size.height)
+        }
+        return rows
+    }
+}
+
+// MARK: - Charts
+
+extension View {
+    /// The website's chart axis: value labels inside the plot along the right edge, just above
+    /// a faint gridline, so the line runs the full width with no gutter. Use on a Chart.
+    func insideYAxis(count: Int = 4) -> some View {
+        chartYAxis(.hidden).chartOverlay { proxy in
+            GeometryReader { geo in
+                if let anchor = proxy.plotFrame {
+                    let frame = geo[anchor]
+                    let top = proxy.value(atY: frame.minY, as: Double.self) ?? 0
+                    let bottom = proxy.value(atY: frame.maxY, as: Double.self) ?? 0
+                    ForEach(ChartTicks.values(from: bottom, to: top, count: count), id: \.self) { v in
+                        if let y = proxy.position(forY: v), y > 14, y <= frame.height {
+                            Rectangle().fill(Color.white.opacity(0.05)).frame(width: frame.width, height: 1)
+                                .position(x: frame.midX, y: frame.minY + y)
+                            Text(ChartTicks.label(v))
+                                .font(.geist(11)).monospacedDigit().foregroundStyle(Theme.subtle)
+                                .frame(width: frame.width - 4, alignment: .trailing)
+                                .position(x: frame.midX - 2, y: frame.minY + y - 9)
+                        }
+                    }
+                }
+            }
+            .allowsHitTesting(false)
+        }
+    }
+}
+
+enum ChartTicks {
+    /// Round values between two ends: 1, 2, 2.5 or 5 times a power of ten.
+    static func values(from low: Double, to high: Double, count: Int) -> [Double] {
+        guard high > low, low.isFinite, high.isFinite else { return [] }
+        let raw = (high - low) / Double(max(count, 1))
+        let power = pow(10, floor(log10(raw)))
+        let step = [1, 2, 2.5, 5, 10].map { $0 * power }.first { $0 >= raw } ?? raw
+        var v = ceil(low / step) * step
+        var out: [Double] = []
+        while v < high { out.append(v); v += step }
+        return out
+    }
+
+    /// "$1,234" under ten thousand, "$12.3K" above, like the website.
+    static func label(_ v: Double) -> String {
+        if abs(v) < 10000 { return Format.moneyWhole(v) }
+        return v.formatted(.currency(code: "USD").notation(.compactName).precision(.fractionLength(0 ... 1)))
+    }
+}
+
+// MARK: - Backdrops
+
+/// A faint square grid, the website's hero and spotlight backdrop.
+struct GridPattern: View {
+    var step: CGFloat = 32
+    var opacity: Double = 0.035
+
+    var body: some View {
+        Canvas { ctx, size in
+            var path = Path()
+            stride(from: 0, through: size.width, by: step).forEach { x in path.move(to: CGPoint(x: x, y: 0)); path.addLine(to: CGPoint(x: x, y: size.height)) }
+            stride(from: 0, through: size.height, by: step).forEach { y in path.move(to: CGPoint(x: 0, y: y)); path.addLine(to: CGPoint(x: size.width, y: y)) }
+            ctx.stroke(path, with: .color(.white.opacity(opacity)), lineWidth: 1)
+        }
+    }
+}
+
+/// A bolt of lime light that runs around a rounded border, over a steady neon edge.
+struct ElectricBorder: View {
+    var radius: CGFloat
+    var color: Color = Theme.lime
+    @State private var spin = false
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        GeometryReader { geo in
+            let side = hypot(geo.size.width, geo.size.height)
+            let bolt = Rectangle()
+                .fill(AngularGradient(
+                    stops: [
+                        .init(color: .clear, location: 0),
+                        .init(color: .clear, location: 0.6),
+                        .init(color: color.opacity(0.5), location: 0.8),
+                        .init(color: color, location: 0.9),
+                        .init(color: .white, location: 0.95),
+                        .init(color: .clear, location: 1),
+                    ],
+                    center: .center
+                ))
+                .frame(width: side, height: side)
+                .rotationEffect(.degrees(spin ? 360 : 0))
+                .position(x: geo.size.width / 2, y: geo.size.height / 2)
+            ZStack {
+                shape.strokeBorder(color.opacity(0.5), lineWidth: 1.5)
+                bolt.mask(shape.strokeBorder(lineWidth: 3))
+                bolt.mask(shape.strokeBorder(lineWidth: 8)).blur(radius: 10)
+            }
+        }
+        .allowsHitTesting(false)
+        .onAppear {
+            withAnimation(.linear(duration: 3.2).repeatForever(autoreverses: false)) { spin = true }
+        }
+    }
+}
+
+/// A card's heading: a glowing lime dot and faded all-caps Roboto Mono.
+struct CardLabel: View {
+    var text: String
+    var color: Color = Theme.lime
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Circle().fill(color).frame(width: 6, height: 6)
+                .shadow(color: color, radius: 4)
+                .shadow(color: color.opacity(0.6), radius: 8)
+            Text(text.uppercased()).font(.roboto(11)).tracking(1.4).foregroundStyle(.white.opacity(0.5)).lineLimit(1)
+        }
+    }
+}
+
+// MARK: - Liquid glass
+
+extension View {
+    /// iOS 26's Liquid Glass in a shape, tinted dark so it sits in the app's palette. Older iOS,
+    /// and builds with an older Xcode, get frosted material with a fine light edge instead.
+    @ViewBuilder
+    func liquidGlass<S: InsettableShape>(in shape: S, tint: Color? = nil, interactive: Bool = false) -> some View {
+        #if compiler(>=6.2)
+        if #available(iOS 26, *) {
+            glassEffect(Glass.regular.tint(tint).interactive(interactive), in: shape)
+        } else {
+            frosted(in: shape, tint: tint)
+        }
+        #else
+        frosted(in: shape, tint: tint)
+        #endif
+    }
+
+    private func frosted<S: InsettableShape>(in shape: S, tint: Color?) -> some View {
+        background(
+            ZStack {
+                shape.fill(.ultraThinMaterial)
+                shape.fill((tint ?? Theme.background).opacity(0.35))
+                shape.fill(LinearGradient(colors: [.white.opacity(0.08), .clear], startPoint: .top, endPoint: .center))
+            }
+        )
+        .overlay(shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.22), .white.opacity(0.05)], startPoint: .top, endPoint: .bottom), lineWidth: 1))
     }
 }

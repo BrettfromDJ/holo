@@ -28,7 +28,7 @@ struct EbaySalesPanel: View {
         Panel {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Text("Recent eBay sales").font(.headline)
+                    CardLabel(text: "Recent eBay sales")
                     Spacer()
                     Text("eBay").font(.system(size: 15, weight: .heavy)).foregroundStyle(.white.opacity(0.85))
                 }
@@ -106,7 +106,7 @@ private struct SaleRow: View {
         Link(destination: URL(string: sale.url) ?? URL(string: "https://www.ebay.com")!) {
             HStack(alignment: .top, spacing: 10) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(sale.title).font(.caption).lineLimit(2).multilineTextAlignment(.leading).foregroundStyle(.primary)
+                    Text(sale.title).font(.caption).lineLimit(2).multilineTextAlignment(.leading).foregroundStyle(Color.white)
                     HStack(spacing: 6) {
                         if let g = sale.grade {
                             Tag(text: g, tint: .white)
@@ -118,7 +118,7 @@ private struct SaleRow: View {
                     }
                 }
                 Spacer()
-                Text(Format.money(sale.price)).font(.subheadline.weight(.semibold)).monospacedDigit().foregroundStyle(.primary)
+                Text(Format.money(sale.price)).font(.subheadline.weight(.semibold)).monospacedDigit().foregroundStyle(Theme.lime)
             }
         }
     }

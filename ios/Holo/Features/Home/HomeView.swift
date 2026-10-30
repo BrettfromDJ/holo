@@ -119,15 +119,19 @@ private struct Hero: View {
         VStack(spacing: 10) {
             CardFan(holdings: top).frame(height: 230)
             MonoLabel(text: "\(store.holdings.count) products · \(Int(s.items)) items")
-            Text("YOUR COLLECTION'S WORTH").font(.display(30))
-            Text(Format.money(s.value))
-                .font(.display(66))
-                .monospacedDigit()
-                .foregroundStyle(Theme.lime)
-                .minimumScaleFactor(0.5)
-                .lineLimit(1)
-                .shadow(color: Theme.lime.opacity(0.45), radius: 24)
-                .padding(.horizontal, 16)
+            VStack(spacing: 6) {
+                Text("YOUR COLLECTION'S WORTH").font(.display(30)).displayTrim(30)
+                Text(Format.money(s.value))
+                    .font(.display(66))
+                    .monospacedDigit()
+                    .foregroundStyle(Theme.lime)
+                    .minimumScaleFactor(0.5)
+                    .lineLimit(1)
+                    .displayTrim(66)
+                    .shadow(color: Theme.lime.opacity(0.45), radius: 24)
+                    .padding(.horizontal, 16)
+            }
+            .padding(.vertical, 8)
             FlowPills(pills: [
                 ("Today", Format.signedMoney(s.dayChange), Theme.tone(s.dayChange), Format.signedPercent(s.dayRatio)),
                 ("All time", Format.signedMoney(s.gain), Theme.tone(s.gain), nil),
@@ -144,13 +148,7 @@ private struct Hero: View {
 private struct HeroBackdrop: View {
     var body: some View {
         ZStack {
-            Canvas { ctx, size in
-                let step: CGFloat = 32
-                var path = Path()
-                stride(from: 0, through: size.width, by: step).forEach { x in path.move(to: CGPoint(x: x, y: 0)); path.addLine(to: CGPoint(x: x, y: size.height)) }
-                stride(from: 0, through: size.height, by: step).forEach { y in path.move(to: CGPoint(x: 0, y: y)); path.addLine(to: CGPoint(x: size.width, y: y)) }
-                ctx.stroke(path, with: .color(.white.opacity(0.035)), lineWidth: 1)
-            }
+            GridPattern()
             RadialGradient(colors: [Theme.lime.opacity(0.22), .clear], center: UnitPoint(x: 0.3, y: 0.55), startRadius: 0, endRadius: 260)
             RadialGradient(colors: [Theme.planPink.opacity(0.16), .clear], center: UnitPoint(x: 0.85, y: 0.3), startRadius: 0, endRadius: 220)
         }
@@ -298,11 +296,7 @@ private struct PerformanceSection: View {
                     }
                 }
                 .chartXAxis(.hidden)
-                .chartYAxis {
-                    AxisMarks(position: .trailing, values: .automatic(desiredCount: 3)) { _ in
-                        AxisValueLabel().font(.geist(11)).foregroundStyle(Theme.muted)
-                    }
-                }
+                .insideYAxis()
                 .chartYScale(domain: .automatic(includesZero: false))
                 .chartXSelection(value: $scrubbed)
                 .frame(height: 230)
@@ -350,9 +344,9 @@ private struct MetricGrid: View {
     }
 
     private func card(_ label: String, _ value: String, sub: String?, tint: Color, valueTint: Color, tag: (String, Color, Color)? = nil) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                Text(label.uppercased()).font(.display(17))
+                CardLabel(text: label)
                 if let tag { SkewTag(text: tag.0, color: tag.1, textColor: tag.2) }
             }
             Text(value).font(.display(30)).monospacedDigit().foregroundStyle(valueTint).lineLimit(1).minimumScaleFactor(0.6)
@@ -418,7 +412,9 @@ private struct StarCard: View {
                     }
                 }
                 SkewTag(text: "Star of the collection", icon: "sparkles")
-                Text((holding.product?.name ?? "").uppercased()).font(.display(34)).lineLimit(3).foregroundStyle(.white)
+                DisplayText(text: (holding.product?.name ?? "").uppercased(), size: 32)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 4)
                 Text([holding.product?.setName, holding.label].compactMap { $0 }.joined(separator: " · ")).font(.geist(15)).foregroundStyle(Theme.muted)
                 Text(Format.signedMoney(holding.gain)).font(.display(48)).monospacedDigit().foregroundStyle(Theme.lime)
                 HStack(spacing: 8) {
@@ -435,12 +431,14 @@ private struct StarCard: View {
             .background(
                 ZStack {
                     RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color(hex: 0x050505))
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .fill(RadialGradient(colors: [Theme.lime.opacity(0.14), .clear], center: .center, startRadius: 0, endRadius: 320))
+                    GridPattern(step: 28, opacity: 0.06)
+                        .mask(RadialGradient(colors: [.black, .black.opacity(0.25)], center: .top, startRadius: 0, endRadius: 520))
+                    RadialGradient(colors: [Theme.lime.opacity(0.16), .clear], center: UnitPoint(x: 0.5, y: 0.25), startRadius: 0, endRadius: 320)
                 }
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
             )
-            .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(Theme.lime.opacity(0.9), lineWidth: 2))
-            .shadow(color: Theme.lime.opacity(0.35), radius: 22)
+            .overlay(ElectricBorder(radius: 24))
+            .shadow(color: Theme.lime.opacity(0.25), radius: 22)
         }
         .buttonStyle(.plain)
     }
@@ -522,15 +520,16 @@ private struct ShelfSection: View {
     var holdings: [HoldingView]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 4) {
             PageHeader(title: "Your shelf", subtitle: "Your most valuable pieces", size: 30).padding(.horizontal, 16)
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .top, spacing: 18) {
+                HStack(alignment: .bottom, spacing: 18) {
                     ForEach(Array(holdings.enumerated()), id: \.element.id) { i, h in
                         NavigationLink(value: h.identity.productId) {
                             VStack(alignment: .leading, spacing: 0) {
                                 HoldingArt(product: h.product, identity: h.identity, cornerRadius: 12)
-                                    .frame(width: 150, height: 200, alignment: .bottom)
+                                    .frame(width: 150)
+                                    .frame(maxHeight: 210, alignment: .bottom)
                                     .shadow(color: .black.opacity(0.6), radius: 10, y: 8)
                                     .padding(.horizontal, 6)
                                 // The glass ledge.
@@ -606,7 +605,7 @@ private struct CategoryCard: View {
         let count = items.reduce(0) { $0 + $1.quantity }
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
-                Text(category.rawValue.uppercased()).font(.display(34))
+                CardLabel(text: category.rawValue, color: category.color)
                 SkewTag(text: "\(Int((value / total * 100).rounded()))% of value", color: category.color, textColor: category == .graded ? Theme.ink : .white)
             }
             Text(category.blurb).font(.geist(14)).foregroundStyle(Theme.muted)
@@ -687,7 +686,7 @@ private struct MoversSection: View {
         if !rows.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 10) {
-                    Text(title.uppercased()).font(.display(24))
+                    CardLabel(text: title, color: tag)
                     SkewTag(text: "\(rows.count)", color: tag, textColor: tag == Theme.lime ? Theme.ink : .white)
                 }
                 ForEach(Array(rows.prefix(all.wrappedValue ? 20 : 3)), id: \.0.id) { h, pct in

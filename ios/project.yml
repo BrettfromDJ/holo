@@ -53,6 +53,8 @@ targets:
           - Geist-Bold.ttf
           - GeistMono-Regular.ttf
           - GeistMono-Medium.ttf
+          - RobotoMono-Regular.ttf
+          - RobotoMono-Medium.ttf
           - Anton-Regular.ttf
         NSCameraUsageDescription: Holo uses the camera to scan your cards and look up their prices.
         ITSAppUsesNonExemptEncryption: false

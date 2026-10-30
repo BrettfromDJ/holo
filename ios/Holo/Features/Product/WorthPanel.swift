@@ -25,7 +25,7 @@ struct WorthPanel: View {
         Panel {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
-                    Text("What's it worth?").font(.headline)
+                    CardLabel(text: "What's it worth?")
                     Spacer()
                     if !loaded { ProgressView().controlSize(.small) }
                 }

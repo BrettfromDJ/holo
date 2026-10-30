@@ -171,7 +171,7 @@ struct ProductDetailView: View {
         let gain = value - pricedCost
         let realized = owned.reduce(0) { $0 + $1.realizedGain }
         return VStack(alignment: .leading, spacing: 16) {
-            PageHeader(title: "Your position", size: 24)
+            CardLabel(text: "Your position")
             LazyVGrid(columns: [GridItem(.flexible(), alignment: .leading), GridItem(.flexible(), alignment: .leading)], spacing: 16) {
                 stat("Quantity", qty.formatted(), .white)
                 stat("Holding value", Format.money(value), .white)
@@ -213,7 +213,7 @@ struct ProductDetailView: View {
 
     private var history: some View {
         VStack(alignment: .leading, spacing: 14) {
-            PageHeader(title: "Purchase history", size: 24)
+            CardLabel(text: "Purchase history")
             ForEach(entries, id: \.id) { t in
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 3) {
@@ -244,7 +244,7 @@ struct ProductDetailView: View {
         let withNotes = entries.filter { !($0.notes ?? "").isEmpty }
         if !withNotes.isEmpty {
             VStack(alignment: .leading, spacing: 14) {
-                PageHeader(title: "Notes", size: 24)
+                CardLabel(text: "Notes")
                 ForEach(withNotes, id: \.id) { t in
                     VStack(alignment: .leading, spacing: 4) {
                         Text(t.notes ?? "").font(.geist(16))
@@ -302,7 +302,7 @@ private struct PriceHistoryCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Market price history").font(.geist(19, .semibold))
+            CardLabel(text: "Market price history")
             if let first = points.first, let last = points.last {
                 let diff = last.price - first.price
                 HStack(spacing: 5) {
@@ -331,11 +331,7 @@ private struct PriceHistoryCard: View {
                     }
                 }
                 .chartXAxis(.hidden)
-                .chartYAxis {
-                    AxisMarks(position: .trailing, values: .automatic(desiredCount: 3)) { _ in
-                        AxisValueLabel().font(.geist(11)).foregroundStyle(Theme.muted)
-                    }
-                }
+                .insideYAxis()
                 .chartYScale(domain: .automatic(includesZero: false))
                 .frame(height: 210)
                 if !buys.isEmpty {

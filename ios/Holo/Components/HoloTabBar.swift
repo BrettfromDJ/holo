@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The website's bottom bar: four tabs around a raised lime + button.
+/// The website's bottom bar: four tabs around a raised lime + button, floating on Liquid Glass.
 struct HoloTabBar<Tab: Hashable>: View {
     struct Item {
         var tab: Tab
@@ -34,15 +34,17 @@ struct HoloTabBar<Tab: Hashable>: View {
             .frame(maxWidth: .infinity)
             ForEach(Array(items.suffix(2).enumerated()), id: \.offset) { _, item in button(item) }
         }
-        .padding(.horizontal, 8)
-        .frame(height: 60)
-        .background(
-            Theme.background.opacity(0.94)
-                .background(.ultraThinMaterial)
-                .overlay(alignment: .top) { Rectangle().fill(Theme.border).frame(height: 1) }
-                .ignoresSafeArea(edges: .bottom)
-        )
+        .padding(.horizontal, 6)
+        .frame(height: 64)
+        .liquidGlass(in: Capsule(), tint: Theme.background.opacity(0.4), interactive: true)
+        .shadow(color: .black.opacity(0.45), radius: 18, y: 8)
+        .padding(.horizontal, 14)
+        .padding(.bottom, 2)
+        .ignoresSafeArea(.keyboard)
     }
+
+    /// Room to leave under each page so its last card scrolls clear of the bar.
+    static var clearance: CGFloat { 96 }
 
     private func button(_ item: Item) -> some View {
         let on = selection == item.tab
