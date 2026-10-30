@@ -418,13 +418,7 @@ private struct TermLabel: View {
         }
         .buttonStyle(.plain)
         .popover(isPresented: $open) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(term.title).font(.geist(15, .semibold))
-                Text(term.explanation).font(.geist(13)).foregroundStyle(Theme.muted).fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(16)
-            .frame(width: 280, alignment: .leading)
-            .presentationCompactAdaptation(.popover)
+            TermTip(term: term)
         }
     }
 }
@@ -543,6 +537,24 @@ private struct BalanceCard: View {
     }
 }
 
+/// A term's explanation: a solid dark tip with small corners and bright, readable text.
+private struct TermTip: View {
+    var term: DealTerm
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(term.title).font(.geist(15, .semibold)).foregroundStyle(.white)
+            Text(term.explanation).font(.geist(14)).foregroundStyle(.white.opacity(0.85))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .frame(width: 280, alignment: .leading)
+        .presentationCompactAdaptation(.popover)
+        .presentationBackground(Theme.surface2)
+        .presentationCornerRadius(12)
+    }
+}
+
 /// Just the info mark, for inside the verdict pill.
 private struct TermInfo: View {
     var term: DealTerm
@@ -555,13 +567,7 @@ private struct TermInfo: View {
         }
         .buttonStyle(.plain)
         .popover(isPresented: $open) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(term.title).font(.geist(15, .semibold))
-                Text(term.explanation).font(.geist(13)).foregroundStyle(Theme.muted).fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(16)
-            .frame(width: 280, alignment: .leading)
-            .presentationCompactAdaptation(.popover)
+            TermTip(term: term)
         }
     }
 }
