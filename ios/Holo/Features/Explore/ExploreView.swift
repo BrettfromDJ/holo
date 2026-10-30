@@ -15,47 +15,22 @@ struct ExploreView: View {
         (index?.sets ?? []).filter { ($0.releaseDate ?? "") >= today }.sorted { ($0.releaseDate ?? "") < ($1.releaseDate ?? "") }
     }
 
+    private var recent: [ExploreSet] {
+        (index?.sets ?? []).filter { ($0.releaseDate ?? "") < today }.sorted { ($0.releaseDate ?? "") > ($1.releaseDate ?? "") }
+    }
+
     var body: some View {
         NavigationStack {
-            List {
+            Group {
                 if query.trimmingCharacters(in: .whitespaces).count >= 2 {
-                    searchResults
-                } else if let failed {
-                    Text(failed).foregroundStyle(Theme.muted)
-                } else if let index {
-                    if !upcoming.isEmpty {
-                        Section {
-                            ForEach(upcoming.prefix(4)) { s in
-                                NavigationLink(value: s) { ReleaseRow(set: s) }
-                            }
-                            NavigationLink { ReleaseCalendarView(sets: index.sets) } label: {
-                                Label("Release calendar", systemImage: "calendar").foregroundStyle(Theme.lime)
-                            }
-                        } header: { Text("Coming soon") }
-                    }
-                    Section("Brands") {
-                        ForEach(index.games) { g in
-                            NavigationLink(value: g) {
-                                HStack(spacing: 12) {
-                                    AsyncImage(url: g.logoUrl.flatMap(URL.init(string:))) { img in img.resizable().scaledToFit() } placeholder: {
-                                        RoundedRectangle(cornerRadius: 8).fill(Theme.surface2)
-                                    }
-                                    .frame(width: 56, height: 32)
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(g.name).font(.subheadline.weight(.semibold))
-                                        Text("\(g.sets) sets" + (g.cardCount.map { " · \($0.formatted()) cards" } ?? ""))
-                                            .font(.caption).foregroundStyle(Theme.muted)
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    List { searchResults }
+                        .scrollContentBackground(.hidden)
                 } else {
-                    ProgressView().frame(maxWidth: .infinity).listRowBackground(Color.clear)
+                    ScrollView { landing }
                 }
             }
-            .scrollContentBackground(.hidden)
             .background(Theme.background)
+            .replaysAnimations()
             .tabBarClearance()
             .navigationBarTitleDisplayMode(.inline)
             .pageTitle("Explore")
@@ -65,6 +40,54 @@ struct ExploreView: View {
             .navigationDestination(for: ExploreGame.self) { g in BrandView(game: g, sets: (index?.sets ?? []).filter { $0.gameSlug == g.slug }) }
             .navigationDestination(for: ExploreSet.self) { SetView(set: $0) }
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
+        }
+    }
+
+    // MARK: The landing page
+
+    @ViewBuilder private var landing: some View {
+        if let failed {
+            Text(failed).font(.geist(14)).foregroundStyle(Theme.muted).padding(32)
+        } else if let index {
+            VStack(alignment: .leading, spacing: 40) {
+                CatalogHero(index: index, next: upcoming.first)
+                if upcoming.count > 1 {
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack(alignment: .lastTextBaseline) {
+                            PageHeader(title: "Coming soon", subtitle: "New sets on the way", size: 30)
+                            Spacer()
+                            NavigationLink { ReleaseCalendarView(sets: index.sets) } label: {
+                                HStack(spacing: 4) { Text("Calendar"); Image(systemName: "arrow.right").font(.system(size: 12, weight: .semibold)) }
+                                    .font(.geist(13, .medium)).foregroundStyle(Theme.muted)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        SetCarousel(sets: Array(upcoming.dropFirst().prefix(12)), upcoming: true)
+                    }
+                    .reveal()
+                }
+                if !recent.isEmpty {
+                    VStack(alignment: .leading, spacing: 14) {
+                        PageHeader(title: "Just released", subtitle: "The newest sets in the catalog", size: 30).padding(.horizontal, 16)
+                        SetCarousel(sets: Array(recent.prefix(12)), upcoming: false)
+                    }
+                    .reveal()
+                }
+                VStack(alignment: .leading, spacing: 14) {
+                    PageHeader(title: "Brands", subtitle: "Every game in the catalog", size: 30)
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                        ForEach(Array(index.games.enumerated()), id: \.element.id) { i, g in
+                            NavigationLink(value: g) { BrandCard(game: g, tint: BrandCard.tints[i % BrandCard.tints.count]) }
+                                .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .reveal()
+            }
+            .padding(.bottom, 40)
+        } else {
+            ProgressView().padding(.top, 160).frame(maxWidth: .infinity)
         }
     }
 
@@ -228,7 +251,7 @@ struct ReleaseRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            AsyncImage(url: (set.iconUrl ?? set.imageUrl).flatMap(URL.init(string:))) { img in img.resizable().scaledToFit() } placeholder: {
+            CachedImage(url: (set.iconUrl ?? set.imageUrl).flatMap(URL.init(string:))) { img in img.resizable().scaledToFit() } placeholder: {
                 RoundedRectangle(cornerRadius: 6).fill(Theme.surface2)
             }
             .frame(width: 40, height: 40)
@@ -377,5 +400,201 @@ struct ReleaseCalendarView: View {
 
     private func monthTitle(_ ym: String) -> String {
         Format.isoDay.date(from: ym + "-01")?.formatted(.dateTime.month(.wide).year()) ?? ym
+    }
+}
+
+// MARK: - Explore landing pieces
+
+/// The top of Explore: the catalog's size counting up over a lit grid, and the next release as
+/// a big card with a countdown and its reminder bell.
+private struct CatalogHero: View {
+    var index: ExploreIndex
+    var next: ExploreSet?
+
+    var body: some View {
+        let cards = index.games.compactMap(\.cardCount).reduce(0, +)
+        VStack(alignment: .leading, spacing: 22) {
+            HStack(spacing: 8) {
+                stat("Brands", Double(index.games.count))
+                stat("Sets", Double(index.sets.count))
+                stat("Cards", Double(cards))
+            }
+            if let next { NextRelease(set: next) }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .background(alignment: .top) {
+            ZStack {
+                GridPattern(step: 36, opacity: 0.05)
+                RadialGradient(colors: [Theme.lime.opacity(0.22), .clear], center: UnitPoint(x: 0.2, y: 0.3), startRadius: 0, endRadius: 260)
+                RadialGradient(colors: [Theme.planBlue.opacity(0.22), .clear], center: UnitPoint(x: 0.9, y: 0.55), startRadius: 0, endRadius: 240)
+                RadialGradient(colors: [Theme.planPink.opacity(0.16), .clear], center: UnitPoint(x: 0.6, y: 0.05), startRadius: 0, endRadius: 200)
+            }
+            .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.7), .init(color: .clear, location: 1)],
+                                 startPoint: .top, endPoint: .bottom))
+            .padding(.top, -160)
+            .padding(.bottom, -40)
+            .allowsHitTesting(false)
+        }
+    }
+
+    private func stat(_ label: String, _ value: Double) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            MonoLabel(text: label)
+            CountingText(value: value, format: { $0 >= 10_000 ? String(format: "%.0fK", $0 / 1000) : Int($0.rounded()).formatted() })
+                .font(.display(28)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7).displayTrim(28)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+/// The next set to come out: its art, name and date, a big day countdown in lime, and a bell.
+private struct NextRelease: View {
+    var set: ExploreSet
+    @Environment(CollectionStore.self) private var store
+    @State private var busy = false
+
+    private var days: Int {
+        guard let d = set.release else { return 0 }
+        return max(0, Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: Date()), to: d).day ?? 0)
+    }
+
+    var body: some View {
+        let on = store.reminders.contains(set.slug)
+        NavigationLink(value: set) {
+            HStack(alignment: .center, spacing: 16) {
+                VStack(alignment: .leading, spacing: 10) {
+                    SkewTag(text: "Next release", icon: "sparkles")
+                    Text(set.name.uppercased()).font(.display(24)).lineLimit(2).displayTrim(24).foregroundStyle(.white)
+                    Text([set.gameName, set.release?.formatted(date: .abbreviated, time: .omitted)].compactMap { $0 }.joined(separator: " · "))
+                        .font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
+                    Button {
+                        busy = true
+                        Task { try? await store.setReminder(set, on: !on); busy = false }
+                    } label: {
+                        Label(on ? "Reminder on" : "Remind me", systemImage: on ? "bell.fill" : "bell")
+                    }
+                    .buttonStyle(Button3D(kind: on ? .lime : .dark, fullWidth: false, height: 36))
+                    .disabled(busy)
+                }
+                Spacer(minLength: 0)
+                VStack(spacing: 2) {
+                    CountingText(value: Double(days), format: { "\(Int($0.rounded()))" })
+                        .font(.display(64)).monospacedDigit().foregroundStyle(Theme.lime).displayTrim(64)
+                        .shadow(color: Theme.lime.opacity(0.5), radius: 16)
+                    MonoLabel(text: days == 1 ? "day" : "days")
+                }
+            }
+            .padding(18)
+            .background {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Color(hex: 0x070707))
+                    if let url = (set.imageUrl ?? set.iconUrl).flatMap(URL.init(string:)) {
+                        CachedImage(url: url) { img in img.resizable().scaledToFit() } placeholder: { Color.clear }
+                            .frame(width: 180)
+                            .opacity(0.18)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+                            .clipped()
+                    }
+                    RadialGradient(colors: [Theme.lime.opacity(0.16), .clear], center: .trailing, startRadius: 0, endRadius: 220)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            }
+            .overlay(ElectricBorder(radius: 22))
+            .shadow(color: Theme.lime.opacity(0.2), radius: 18)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// A sideways row of sets as tiles: the set's art on a dark well, its name, the date, and for
+/// upcoming sets an "in N days" tag and a reminder bell.
+private struct SetCarousel: View {
+    var sets: [ExploreSet]
+    var upcoming: Bool
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(alignment: .top, spacing: 12) {
+                ForEach(sets) { s in
+                    NavigationLink(value: s) { SetTile(set: s, upcoming: upcoming) }.buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 4)
+        }
+    }
+}
+
+private struct SetTile: View {
+    var set: ExploreSet
+    var upcoming: Bool
+    @Environment(CollectionStore.self) private var store
+
+    private var days: Int? {
+        guard let d = set.release else { return nil }
+        return Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: Date()), to: d).day
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ZStack(alignment: .topLeading) {
+                RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.well)
+                CachedImage(url: (set.imageUrl ?? set.iconUrl).flatMap(URL.init(string:))) { img in
+                    img.resizable().scaledToFit().padding(14)
+                } placeholder: {
+                    Image(systemName: "square.stack.3d.up").font(.system(size: 28)).foregroundStyle(Theme.lime.opacity(0.7))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                if upcoming, let days {
+                    SkewTag(text: days <= 0 ? "Out today" : "In \(days) day\(days == 1 ? "" : "s")",
+                            color: days <= 7 ? Theme.lime : Theme.planBlue, textColor: days <= 7 ? Theme.ink : .white)
+                        .padding(10)
+                }
+                if upcoming, store.reminders.contains(set.slug) {
+                    Image(systemName: "bell.fill").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.ink)
+                        .frame(width: 24, height: 24).background(Circle().fill(Theme.lime))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                        .padding(8)
+                }
+            }
+            .frame(width: 170, height: 120)
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.border))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(set.name).font(.geist(14, .medium)).lineLimit(1).foregroundStyle(.white)
+                Text([set.gameName, set.release?.formatted(.dateTime.month(.abbreviated).day().year())].compactMap { $0 }.joined(separator: " · "))
+                    .font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
+            }
+            .frame(width: 170, alignment: .leading)
+        }
+    }
+}
+
+/// A brand as a tinted card: its logo, name, and how many sets and cards it has.
+private struct BrandCard: View {
+    var game: ExploreGame
+    var tint: Color
+
+    static let tints: [Color] = [Theme.lime, Theme.planPink, Theme.planBlue, Theme.azure]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            CachedImage(url: game.logoUrl.flatMap(URL.init(string:))) { img in img.resizable().scaledToFit() } placeholder: {
+                Text(game.name.prefix(1).uppercased()).font(.display(26)).foregroundStyle(tint)
+            }
+            .frame(height: 40, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(game.name).font(.geist(15, .semibold)).lineLimit(1).foregroundStyle(.white)
+                Text("\(game.sets) sets" + (game.cardCount.map { " · \($0.formatted()) cards" } ?? ""))
+                    .font(.geist(12)).foregroundStyle(Theme.muted).monospacedDigit().lineLimit(1).minimumScaleFactor(0.8)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 116, alignment: .topLeading)
+        .tinted(tint)
     }
 }

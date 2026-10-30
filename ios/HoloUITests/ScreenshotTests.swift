@@ -26,6 +26,8 @@ final class ScreenshotTests: XCTestCase {
         save(app.screenshot(), "return-home-1-after")
     }
 
+    func testExplore() { capture("explore", args: ["-HoloTab", "explore"], pages: 3) }
+
     func testDeal() { capture("deal", args: ["-HoloTab", "deal"], pages: 1) }
     // Graded slabs: Home, Collection and a slab's card page in the graded demo.
     func testGradedHome() { capture("graded-home", args: ["-HoloDemoKind", "graded"], pages: 6) }
