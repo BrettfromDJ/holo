@@ -8,15 +8,80 @@ struct ProductImage: View {
     var caption = false
 
     var body: some View {
-        AsyncImage(url: product?.imageURL) { phase in
-            switch phase {
-            case let .success(image):
-                image.resizable().aspectRatio(contentMode: .fit)
-            default:
-                Silhouette(product: product, showCaption: caption)
-            }
+        CachedImage(url: product?.imageURL) { image in
+            image.resizable().aspectRatio(contentMode: .fit)
+        } placeholder: {
+            Silhouette(product: product, showCaption: caption)
         }
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+    }
+}
+
+/// A remote picture that's downloaded once and kept in memory. Unlike AsyncImage it shows a
+/// picture it already has immediately, so it survives views that redraw every frame (the
+/// floating fan, the ticker, the holo card) instead of restarting its download each time.
+struct CachedImage<Content: View, Placeholder: View>: View {
+    var url: URL?
+    @ViewBuilder var content: (Image) -> Content
+    @ViewBuilder var placeholder: () -> Placeholder
+    @State private var image: UIImage?
+
+    init(url: URL?, @ViewBuilder content: @escaping (Image) -> Content, @ViewBuilder placeholder: @escaping () -> Placeholder) {
+        self.url = url
+        self.content = content
+        self.placeholder = placeholder
+        _image = State(initialValue: url.flatMap { ImageCache.shared.cached($0) })
+    }
+
+    var body: some View {
+        Group {
+            if let image = image ?? url.flatMap({ ImageCache.shared.cached($0) }) {
+                content(Image(uiImage: image))
+            } else {
+                placeholder()
+            }
+        }
+        .task(id: url) {
+            guard let url, image == nil else { return }
+            if let loaded = await ImageCache.shared.load(url) { image = loaded }
+        }
+    }
+}
+
+/// Downloads each picture once (sharing one download between everything asking for it) and
+/// keeps them in memory.
+final class ImageCache: @unchecked Sendable {
+    static let shared = ImageCache()
+
+    private let memory = NSCache<NSURL, UIImage>()
+    private var inFlight: [URL: Task<UIImage?, Never>] = [:]
+    private let lock = NSLock()
+
+    init() { memory.countLimit = 400 }
+
+    func cached(_ url: URL) -> UIImage? { memory.object(forKey: url as NSURL) }
+
+    func load(_ url: URL) async -> UIImage? {
+        if let hit = cached(url) { return hit }
+        lock.lock()
+        let task: Task<UIImage?, Never>
+        if let running = inFlight[url] {
+            task = running
+        } else {
+            task = Task {
+                if url.isFileURL { return UIImage(contentsOfFile: url.path) }
+                guard let (data, _) = try? await URLSession.shared.data(from: url) else { return nil }
+                return UIImage(data: data)
+            }
+            inFlight[url] = task
+        }
+        lock.unlock()
+        let image = await task.value
+        lock.lock()
+        inFlight[url] = nil
+        lock.unlock()
+        if let image { memory.setObject(image, forKey: url as NSURL) }
+        return image
     }
 }
 

@@ -115,6 +115,8 @@ final class CollectionStore {
                     history[priceKey(s.product_id, s.printing.isEmpty ? nil : s.printing), default: []].append(PricePoint(date: s.snapshot_date, price: s.market_price))
                 }
             }
+            // One price per day, in order: duplicate snapshots made the charts' fill fold back.
+            for (key, pts) in history { history[key] = Self.onePerDay(pts) }
             // A missing wishlist is just empty; don't fail the whole load over it.
             let wishes = (try? await UserState.load("wishlist", as: [WishItem].self)) ?? nil
 
@@ -137,6 +139,13 @@ final class CollectionStore {
         } catch {
             status = .failed(error.localizedDescription)
         }
+    }
+
+    /// Sorts a price history by day and keeps the last price for each day.
+    static func onePerDay(_ points: [PricePoint]) -> [PricePoint] {
+        var byDay: [String: PricePoint] = [:]
+        for p in points { byDay[p.date] = p }
+        return byDay.values.sorted { $0.date < $1.date }
     }
 
     private static func txn(_ r: TransactionRow, identity: HoldingIdentity) -> Txn? {
@@ -178,7 +187,7 @@ final class CollectionStore {
         guard products[id] == nil, let res = try? await Backend.shared.api.catalogProduct(id) else { return }
         products[id] = res.product
         for p in res.prices { prices[priceKey(p.productId, p.printing)] = p }
-        for (key, pts) in res.history where history[key] == nil { history[key] = pts }
+        for (key, pts) in res.history where history[key] == nil { history[key] = Self.onePerDay(pts) }
     }
 
     /// Keep a search result's product and price so its page opens instantly, even if it isn't stored yet.
@@ -373,7 +382,7 @@ final class CollectionStore {
         let res = try await Backend.shared.api.importProduct(product, printing: printing)
         products[res.product.id] = res.product
         for price in res.prices { prices[priceKey(price.productId, price.printing)] = price }
-        if !res.history.isEmpty { history[priceKey(res.product.id, printing ?? res.prices.first?.printing)] = res.history }
+        if !res.history.isEmpty { history[priceKey(res.product.id, printing ?? res.prices.first?.printing)] = Self.onePerDay(res.history) }
     }
 
     /// Add purchases: save each product to the catalog, find or create its holding, log the transaction.
