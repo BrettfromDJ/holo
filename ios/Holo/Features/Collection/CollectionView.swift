@@ -200,18 +200,22 @@ struct HoldingTile: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ZStack(alignment: .topLeading) {
-                HoldingArt(product: holding.product, identity: holding.identity, cornerRadius: holding.product?.imageURL == nil ? 22 : 12)
-                    .frame(maxWidth: .infinity)
+            // A fixed 5:7 stage the art is sized into. Sizing the image itself by aspect ratio let
+            // photos fall back to their tiny pixel size.
+            Color.clear
                 .aspectRatio(0.72, contentMode: .fit)
-                if holding.quantity > 1 {
-                    Text("×\(Int(holding.quantity))").font(.geist(12, .semibold))
-                        .padding(.horizontal, 8).padding(.vertical, 4)
-                        .background(Capsule().fill(Theme.background.opacity(0.85)))
-                        .overlay(Capsule().strokeBorder(Theme.border))
-                        .padding(10)
+                .overlay {
+                    HoldingArt(product: holding.product, identity: holding.identity, cornerRadius: holding.product?.imageURL == nil ? 22 : 12)
                 }
-            }
+                .overlay(alignment: .topLeading) {
+                    if holding.quantity > 1 {
+                        Text("×\(Int(holding.quantity))").font(.geist(12, .semibold))
+                            .padding(.horizontal, 8).padding(.vertical, 4)
+                            .background(Capsule().fill(Theme.background.opacity(0.85)))
+                            .overlay(Capsule().strokeBorder(Theme.border))
+                            .padding(10)
+                    }
+                }
             Text(holding.product?.name ?? "Unknown").font(.geist(16, .medium)).lineLimit(1).padding(.top, 8)
             Text(subtitle).font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
             HStack(alignment: .top) {

@@ -24,8 +24,7 @@ struct ProductDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 ProductImage(product: product, cornerRadius: 20, caption: true)
-                    .frame(maxWidth: 270)
-                    .aspectRatio(0.72, contentMode: .fit)
+                    .frame(width: 270, height: 375)
                     .frame(maxWidth: .infinity)
                     .shadow(color: .black.opacity(0.55), radius: 26, y: 14)
                     .padding(.top, 8)
