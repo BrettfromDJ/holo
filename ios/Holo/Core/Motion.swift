@@ -1,6 +1,46 @@
 import CoreMotion
 import SwiftUI
 
+// MARK: - Replaying when a page comes back
+
+private struct ReplayKey: EnvironmentKey { static let defaultValue = 0 }
+
+extension EnvironmentValues {
+    /// Goes up each time the page comes back into view (switching tabs, or back from a pushed
+    /// page). Animations watch it and play again. 0 means the page hasn't appeared yet.
+    var replay: Int {
+        get { self[ReplayKey.self] }
+        set { self[ReplayKey.self] = newValue }
+    }
+}
+
+extension View {
+    /// Put on a page: its count-ups, reveals, charts and entrances replay every time it reappears.
+    func replaysAnimations() -> some View { modifier(ReplayOnAppear()) }
+
+    /// Runs `action` when the page comes back (not on its first appearance).
+    func onReplay(_ action: @escaping () -> Void) -> some View { modifier(OnReplay(action: action)) }
+}
+
+private struct ReplayOnAppear: ViewModifier {
+    @State private var token = 0
+
+    func body(content: Content) -> some View {
+        content
+            .environment(\.replay, token)
+            .onAppear { token += 1 }
+    }
+}
+
+private struct OnReplay: ViewModifier {
+    var action: () -> Void
+    @Environment(\.replay) private var replay
+
+    func body(content: Content) -> some View {
+        content.onChange(of: replay) { old, _ in if old > 0 { action() } }
+    }
+}
+
 // MARK: - Counting numbers
 
 /// A number that counts to its value: up from 85% when it first appears, and from the old
@@ -23,6 +63,11 @@ struct CountingText: View {
             .onChange(of: value) { _, new in
                 if reduceMotion { shown = new; return }
                 withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 0.9)) { shown = new }
+            }
+            .onReplay {
+                guard !reduceMotion else { return }
+                shown = value * 0.85
+                withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: duration)) { shown = value }
             }
     }
 }
@@ -51,6 +96,11 @@ struct FlashOnAppear: ViewModifier {
             .shadow(color: color.opacity(lit ? 0.9 : 0), radius: lit ? 14 : 0)
             .brightness(lit ? 0.12 : 0)
             .onAppear {
+                guard !reduceMotion else { return }
+                withAnimation(.easeOut(duration: 0.25).delay(delay)) { lit = true }
+                withAnimation(.easeIn(duration: 0.6).delay(delay + 0.3)) { lit = false }
+            }
+            .onReplay {
                 guard !reduceMotion else { return }
                 withAnimation(.easeOut(duration: 0.25).delay(delay)) { lit = true }
                 withAnimation(.easeIn(duration: 0.6).delay(delay + 0.3)) { lit = false }
@@ -91,6 +141,11 @@ private struct Reveal: ViewModifier {
                 guard !shown else { return }
                 withAnimation(.spring(response: 0.6, dampingFraction: 0.85)) { shown = true }
             }
+            .onReplay {
+                guard shown, !reduceMotion else { return }
+                shown = false
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.85).delay(0.05)) { shown = true }
+            }
     }
 }
 
@@ -121,6 +176,11 @@ private struct DrawIn<T: Equatable>: ViewModifier {
             .onChange(of: replay) { _, _ in
                 drawn = 0
                 withAnimation(.easeInOut(duration: duration * 0.7)) { drawn = 1 }
+            }
+            .onReplay {
+                guard drawn > 0, !reduceMotion else { return }
+                drawn = 0
+                withAnimation(.easeInOut(duration: duration)) { drawn = 1 }
             }
     }
 }

@@ -47,6 +47,7 @@ struct ProductDetailView: View {
             .padding(.bottom, 40)
         }
         .background(Theme.background)
+        .replaysAnimations()
         .tabBarClearance()
         .navigationBarTitleDisplayMode(.inline)
         // The type and rarity pills sit at the top center, where a page title would go.
@@ -507,6 +508,11 @@ private struct Entrance: ViewModifier {
             .scaleEffect(shown || reduceMotion ? 1 : 0.9)
             .offset(y: shown || reduceMotion ? 0 : 24)
             .onAppear { withAnimation(.spring(response: 0.6, dampingFraction: 0.75)) { shown = true } }
+            .onReplay {
+                guard !reduceMotion else { return }
+                shown = false
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.75).delay(0.05)) { shown = true }
+            }
     }
 }
 
@@ -521,5 +527,10 @@ private struct PopIn: ViewModifier {
             .opacity(shown || reduceMotion ? 1 : 0)
             .scaleEffect(shown || reduceMotion ? 1 : 0.7)
             .onAppear { withAnimation(.spring(response: 0.4, dampingFraction: 0.6).delay(delay)) { shown = true } }
+            .onReplay {
+                guard !reduceMotion else { return }
+                shown = false
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.6).delay(delay)) { shown = true }
+            }
     }
 }

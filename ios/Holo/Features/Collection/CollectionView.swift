@@ -79,6 +79,7 @@ struct CollectionView: View {
                 }
             }
             .background(Theme.background)
+            .replaysAnimations()
             .tabBarClearance()
             .refreshable { await reload() }
             .navigationBarTitleDisplayMode(.inline)
@@ -336,6 +337,10 @@ private struct AllocationBar: View {
                 }
             }
             .onAppear { withAnimation(.spring(response: 0.9, dampingFraction: 0.85).delay(0.2)) { grown = true } }
+            .onReplay {
+                grown = false
+                withAnimation(.spring(response: 0.9, dampingFraction: 0.85).delay(0.15)) { grown = true }
+            }
         }
     }
 }

@@ -35,6 +35,7 @@ struct HomeView: View {
                 }
             }
             .background(Theme.background)
+            .replaysAnimations()
             .tabBarClearance()
             .refreshable { await refresh() }
             .overlay(alignment: .top) {
@@ -1189,6 +1190,11 @@ private struct RecentSection: View {
                 }
             }
             .onFirstVisible { shown = true }
+            .onReplay {
+                guard shown, !reduceMotion else { return }
+                shown = false
+                DispatchQueue.main.async { shown = true }
+            }
             .onAppear {
                 if reduceMotion { shown = true; return }
                 withAnimation(.easeOut(duration: 1.6).repeatForever(autoreverses: false)) { pulse = true }
