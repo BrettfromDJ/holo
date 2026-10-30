@@ -61,6 +61,22 @@ final class DealStore {
         }
     }
 
+    /// Screenshots (`-HoloDealDemo`): two items coming in from the catalog and one going out
+    /// from the demo collection. Never saved: there's no account in demo mode.
+    @MainActor
+    func loadDemo(from store: CollectionStore) {
+        var d = DealState()
+        for slug in ["charizard-ex-151", "cz-etb"] {
+            guard let item = DemoData.items.first(where: { $0.slug == slug }) else { continue }
+            let p = DemoData.product(item)
+            d.incoming.append(DealItem(key: "p:\(p.id)", product: p, printing: p.printings?.first, market: DemoData.series(item).last?.price, qty: slug == "cz-etb" ? 2 : 1))
+        }
+        if let h = store.holdings.first(where: { $0.identity.productId == "sample:umbreon-vmax-alt" }) ?? store.holdings.first, let p = h.product {
+            d.outgoing.append(DealItem(key: "h:\(h.identity.key)", product: p, printing: h.identity.printing, market: h.price, holdingKey: h.identity.key, maxQty: Int(h.quantity)))
+        }
+        deal = d
+    }
+
     @MainActor
     func setDefaults(_ rates: DealRates) {
         defaults = rates

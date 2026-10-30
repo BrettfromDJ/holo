@@ -34,6 +34,7 @@ final class ScreenshotTests: XCTestCase {
     func testExploreCalendar() { capture("explore-calendar", args: ["-HoloTab", "explore", "-HoloExplore", "calendar"], pages: 2) }
 
     func testDeal() { capture("deal", args: ["-HoloTab", "deal"], pages: 1) }
+    func testDealFilled() { capture("deal-filled", args: ["-HoloTab", "deal", "-HoloDealDemo"], pages: 3) }
     // Graded slabs: Home, Collection and a slab's card page in the graded demo.
     func testGradedHome() { capture("graded-home", args: ["-HoloDemoKind", "graded"], pages: 6) }
     func testGradedCollection() { capture("graded-collection", args: ["-HoloDemoKind", "graded", "-HoloTab", "collection"], pages: 2) }

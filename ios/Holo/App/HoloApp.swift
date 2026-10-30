@@ -37,6 +37,7 @@ struct RootView: View {
                     .onAppear {
                         store.loadDemo(Demo.value("-HoloDemoKind").flatMap(DemoKind.init(rawValue:)) ?? .mixed)
                         if let id = Demo.value("-HoloProduct") { Router.shared.product = id }
+                        if ProcessInfo.processInfo.arguments.contains("-HoloDealDemo") { deals.loadDemo(from: store) }
                     }
             } else if !AppConfig.isConfigured {
                 NotConfiguredView()
