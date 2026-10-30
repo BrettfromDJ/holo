@@ -163,7 +163,8 @@ private struct CardFan: View {
 
     var body: some View {
         GeometryReader { geo in
-            let w = min(132, geo.size.width / 3)
+            // Kept within the middle of the screen: a tight hand, not a spread across the width.
+            let w = min(118, geo.size.width / 3.4)
             ZStack {
                 ForEach(Array(holdings.enumerated().reversed()), id: \.element.id) { i, h in
                     let side: CGFloat = i == 0 ? 0 : (i % 2 == 1 ? -1 : 1)
@@ -174,9 +175,9 @@ private struct CardFan: View {
                             .shadow(color: .black.opacity(0.6), radius: 14, y: 10)
                     }
                     .buttonStyle(.plain)
-                    .rotationEffect(.degrees(Double(side * step * 9)))
-                    .offset(x: side * step * w * 0.62, y: step * 14)
-                    .scaleEffect(i == 0 ? 1.06 : 1 - step * 0.06)
+                    .rotationEffect(.degrees(Double(side * step * 7)))
+                    .offset(x: side * step * w * 0.36, y: step * 10)
+                    .scaleEffect(i == 0 ? 1.06 : 1 - step * 0.08)
                     .zIndex(Double(10 - i))
                 }
             }
