@@ -89,6 +89,20 @@ targets:
         DEVELOPMENT_TEAM: $(HOLO_TEAM_ID)
         SWIFT_VERSION: "5.0"
         GENERATE_INFOPLIST_FILE: YES
+  HoloUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - HoloUITests
+    dependencies:
+      - target: Holo
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(HOLO_BUNDLE_ID).uitests
+        DEVELOPMENT_TEAM: $(HOLO_TEAM_ID)
+        SWIFT_VERSION: "5.0"
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Holo
 schemes:
   Holo:
     build:
@@ -100,5 +114,6 @@ schemes:
       config: Debug
       targets:
         - HoloTests
+        - HoloUITests
     archive:
       config: Release

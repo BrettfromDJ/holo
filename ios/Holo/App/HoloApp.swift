@@ -31,7 +31,14 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            if !AppConfig.isConfigured {
+            if Demo.isOn {
+                // Screenshots and tryouts: the made-up collection, no account needed.
+                MainTabView()
+                    .onAppear {
+                        store.loadDemo()
+                        if let id = Demo.value("-HoloProduct") { Router.shared.product = id }
+                    }
+            } else if !AppConfig.isConfigured {
                 NotConfiguredView()
             } else {
                 switch session.state {
@@ -49,7 +56,7 @@ struct RootView: View {
                 }
             }
         }
-        .onAppear { if AppConfig.isConfigured { session.start() } }
+        .onAppear { if AppConfig.isConfigured, !Demo.isOn { session.start() } }
         .onChange(of: session.state) { _, state in
             if state == .signedOut {
                 store.reset()
@@ -74,8 +81,27 @@ struct NotConfiguredView: View {
     }
 }
 
+/// Launch arguments for demo mode: `-HoloDemo`, then optionally `-HoloTab collection` or
+/// `-HoloProduct sample:es-bb` to open on a screen (used by the screenshot tests).
+enum Demo {
+    static var isOn: Bool { ProcessInfo.processInfo.arguments.contains("-HoloDemo") }
+
+    static func value(_ flag: String) -> String? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: flag), i + 1 < args.count else { return nil }
+        return args[i + 1]
+    }
+}
+
 struct MainTabView: View {
-    @State private var tab = HomeTab.home
+    @State private var tab: HomeTab = {
+        switch Demo.value("-HoloTab") {
+        case "collection": return .collection
+        case "explore": return .explore
+        case "deal": return .deal
+        default: return .home
+        }
+    }()
     @State private var scanning = false
     @State private var adding = false
     @State private var searching = false

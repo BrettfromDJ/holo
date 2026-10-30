@@ -221,6 +221,45 @@ final class CollectionStore {
             }
     }
 
+    /// Fills the store with the made-up demo collection (see DemoData), for screenshots.
+    func loadDemo() {
+        var products: [String: Product] = [:]
+        var prices: [String: Price] = [:]
+        var history: [String: [PricePoint]] = [:]
+        let now = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-3 * 3600))
+        for item in DemoData.items {
+            let p = DemoData.product(item)
+            let printing = p.printings?.first
+            let pts = DemoData.series(item)
+            func change(_ back: Int) -> Double? {
+                guard pts.count > back, let last = pts.last?.price else { return nil }
+                let then = pts[pts.count - 1 - back].price
+                return then > 0 ? (last - then) / then * 100 : nil
+            }
+            products[p.id] = p
+            prices[priceKey(p.id, printing)] = Price(productId: p.id, printing: printing, market: pts.last?.price, low: nil,
+                                                     change24hPct: change(1), change7dPct: change(7), change30dPct: change(30),
+                                                     updatedAt: now, status: "fresh")
+            history[priceKey(p.id, printing)] = pts
+        }
+        var txns: [Txn] = []
+        for (n, lot) in DemoData.lots.enumerated() {
+            let (slug, daysAgo, qty, unit, condition, company, grade) = lot
+            let id = "sample:\(slug)"
+            let date = Format.day(Calendar.current.date(byAdding: .day, value: -daysAgo, to: Date()) ?? Date())
+            txns.append(Txn(id: "demo-\(n)", identity: HoldingIdentity(productId: id, printing: products[id]?.printings?.first, condition: condition, gradeCompany: company, grade: grade),
+                            kind: .purchase, date: date, quantity: qty, unitPrice: unit, shipping: 4, createdAt: "\(date)T12:00:00Z",
+                            source: n % 3 == 0 ? "Card show" : "TCGplayer"))
+        }
+        self.products = products
+        self.prices = prices
+        self.history = history
+        self.transactions = txns
+        self.monthlyBudget = 500
+        recompute()
+        status = .ready
+    }
+
     /// The newest price refresh across everything you hold.
     var pricesRefreshedAt: Date? {
         let f = ISO8601DateFormatter()

@@ -50,11 +50,34 @@ jobs:
           xcodebuild test-without-building \
             -project Holo.xcodeproj -scheme Holo \
             -destination "id=${{ steps.sim.outputs.udid }}" \
+            -only-testing:HoloTests \
             -parallel-testing-enabled NO \
             -test-timeouts-enabled YES -default-test-execution-time-allowance 60 \
             CODE_SIGNING_ALLOWED=NO \
             | tee test.log | grep --line-buffered -E "error:|Test Case|Test Suite|\*\* TEST" || true
           grep -q "\*\* TEST EXECUTE SUCCEEDED \*\*" test.log || grep -q "\*\* TEST SUCCEEDED \*\*" test.log
+      # Opens the app in demo mode on each main screen and saves screenshots, so changes can be
+      # looked at, not just compiled. Pictures only: this step never fails the build.
+      - name: Screenshots
+        timeout-minutes: 12
+        continue-on-error: true
+        run: |
+          mkdir -p screenshots
+          TEST_RUNNER_SCREENSHOT_DIR="$PWD/screenshots" xcodebuild test-without-building \
+            -project Holo.xcodeproj -scheme Holo \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -only-testing:HoloUITests \
+            -parallel-testing-enabled NO \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee ui.log | grep --line-buffered -E "error:|Test Case|\*\* TEST" || true
+          ls -la screenshots
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: ios/screenshots
+          if-no-files-found: warn
       - name: Upload log
         if: failure()
         uses: actions/upload-artifact@v4
@@ -63,3 +86,4 @@ jobs:
           path: |
             ios/build.log
             ios/test.log
+            ios/ui.log
