@@ -6,6 +6,9 @@ struct ProductDetailView: View {
     var productId: String
     @Environment(CollectionStore.self) private var store
     @State private var adding = false
+    @State private var managing: HoldingView?
+    @State private var watching = false
+    @State private var error: String?
 
     private var product: Product? { store.products[productId] }
     private var owned: [HoldingView] { store.holdings(for: productId) }
@@ -60,26 +63,32 @@ struct ProductDetailView: View {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Your copies").font(.headline)
                             ForEach(owned) { h in
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        HStack(spacing: 6) {
-                                            Text(h.label ?? (product?.isSealed == true ? "Sealed" : "Near Mint")).font(.subheadline.weight(.medium))
-                                            Text("×\(Int(h.quantity))").font(.subheadline).foregroundStyle(Theme.muted)
+                                Button { managing = h } label: {
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            HStack(spacing: 6) {
+                                                Text(h.label ?? (product?.isSealed == true ? "Sealed" : "Near Mint")).font(.subheadline.weight(.medium))
+                                                Text("×\(Int(h.quantity))").font(.subheadline).foregroundStyle(Theme.muted)
+                                            }
+                                            Text("Paid \(Format.money(h.costBasis))").font(.caption).foregroundStyle(Theme.muted)
                                         }
-                                        Text("Paid \(Format.money(h.costBasis))").font(.caption).foregroundStyle(Theme.muted)
+                                        Spacer()
+                                        VStack(alignment: .trailing, spacing: 2) {
+                                            Text((h.isConditionEstimate ? "≈ " : "") + Format.money(h.value)).font(.subheadline.weight(.semibold)).monospacedDigit()
+                                            Text(Format.signedMoney(h.gain)).font(.caption.weight(.medium)).monospacedDigit().foregroundStyle(Theme.tone(h.gain))
+                                        }
+                                        Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
                                     }
-                                    Spacer()
-                                    VStack(alignment: .trailing, spacing: 2) {
-                                        Text((h.isConditionEstimate ? "≈ " : "") + Format.money(h.value)).font(.subheadline.weight(.semibold)).monospacedDigit()
-                                        Text(Format.signedMoney(h.gain)).font(.caption.weight(.medium)).monospacedDigit().foregroundStyle(Theme.tone(h.gain))
-                                    }
+                                    .contentShape(Rectangle())
                                 }
+                                .buttonStyle(.plain)
                             }
+                            Text("Tap a copy to sell it, set its value or edit what you paid.").font(.caption).foregroundStyle(Theme.muted)
                             if owned.contains(where: \.isConditionEstimate) {
                                 Text("≈ Played copies are estimated from the Near Mint price.").font(.caption).foregroundStyle(Theme.muted)
                             }
                             if owned.contains(where: { $0.identity.isGraded && $0.price == nil }) {
-                                Text("Graded copies show a value once you set one on the website.").font(.caption).foregroundStyle(Theme.muted)
+                                Text("Graded copies show a value once you set one.").font(.caption).foregroundStyle(Theme.muted)
                             }
                         }
                     }
@@ -91,7 +100,32 @@ struct ProductDetailView: View {
                         .sheet(isPresented: $adding) {
                             AddPurchaseSheet(hit: SearchHit(product: product, printing: printing, market: price?.market))
                         }
+                    HStack(spacing: 10) {
+                        let watch = store.watch(for: productId)
+                        Button {
+                            if let watch { Task { await run { try await store.removeWatch(watch.id) } } } else { watching = true }
+                        } label: {
+                            Label(watch == nil ? "Watch price" : "Watching", systemImage: watch == nil ? "eye" : "eye.fill")
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                        }
+                        .buttonStyle(.bordered)
+                        let wish = store.wish(for: productId)
+                        Button {
+                            Task {
+                                await run {
+                                    if let wish { try await store.removeWish(wish.id) } else { try await store.addWish(product, printing: printing, price: price?.market) }
+                                }
+                            }
+                        } label: {
+                            Label(wish == nil ? "Wishlist" : "On wishlist", systemImage: wish == nil ? "heart" : "heart.fill")
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    .tint(.white)
+                    .sheet(isPresented: $watching) { WatchSheet(product: product, printing: printing, market: price?.market) }
                 }
+                if let error { Text(error).font(.callout).foregroundStyle(Theme.down) }
                 if let url = product?.tcgplayerUrl.flatMap(URL.init(string:)) {
                     Link(destination: url) { Label("View on TCGplayer", systemImage: "arrow.up.right.square") }
                         .font(.callout)
@@ -103,6 +137,16 @@ struct ProductDetailView: View {
         }
         .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $managing) { h in HoldingSheet(identity: h.identity) }
+    }
+
+    private func run(_ work: () async throws -> Void) async {
+        do {
+            error = nil
+            try await work()
+        } catch {
+            self.error = error.localizedDescription
+        }
     }
 
     private func change(_ label: String, _ pct: Double?) -> some View {

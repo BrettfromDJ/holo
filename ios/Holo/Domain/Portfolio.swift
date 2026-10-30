@@ -1,5 +1,11 @@
 import Foundation
 
+/// The owner's own valuation of a graded slab, from a date on.
+struct ManualValue: Hashable {
+    var value: Double
+    var date: String
+}
+
 /// One position as the app shows it: what you hold, what it cost, what it's worth.
 struct HoldingView: Identifiable, Hashable {
     var identity: HoldingIdentity
@@ -15,6 +21,8 @@ struct HoldingView: Identifiable, Hashable {
     var isManual: Bool
     var change24hPct: Double?
     var lastAcquired: String?
+    /// Units still held, oldest first (what a sale consumes).
+    var lots: [Lot] = []
 
     var id: String { identity.key }
     var value: Double? { price.map { $0 * quantity } }
@@ -24,6 +32,18 @@ struct HoldingView: Identifiable, Hashable {
         return g / costBasis
     }
     var avgCost: Double { quantity > 0 ? costBasis / quantity : 0 }
+
+    /// Cost of the oldest `qty` units: what selling that many would take off the books.
+    func fifoCost(_ qty: Double) -> Double {
+        var remaining = qty
+        var cost = 0.0
+        for lot in lots where remaining > 0 {
+            let take = min(lot.quantity, remaining)
+            cost += take * lot.unitCost
+            remaining -= take
+        }
+        return cost
+    }
 
     /// "Lightly Played", "PSA 10", or nil for Near Mint / sealed.
     var label: String? {
@@ -68,7 +88,7 @@ enum Portfolio {
         transactions: [Txn],
         products: [String: Product],
         prices: [String: Price],
-        manualValues: [String: Double]
+        manualValues: [String: ManualValue]
     ) -> [HoldingView] {
         let ledger = Ledger(transactions)
         return ledger.positions.values.compactMap { pos -> HoldingView? in
@@ -81,7 +101,7 @@ enum Portfolio {
             var change: Double?
             if id.isGraded {
                 if let m = manualValues[id.key] {
-                    price = m
+                    price = m.value
                     manual = true
                 }
             } else if let p = prices[priceKey(id.productId, id.printing)], let market = p.market, p.status != "unavailable" {
@@ -93,7 +113,7 @@ enum Portfolio {
             return HoldingView(
                 identity: id, product: products[id.productId], quantity: qty, costBasis: pos.costBasis,
                 realizedGain: pos.realizedGain, price: price, isConditionEstimate: estimate, isManual: manual,
-                change24hPct: change, lastAcquired: pos.lastAcquired
+                change24hPct: change, lastAcquired: pos.lastAcquired, lots: pos.lots
             )
         }
         .sorted { ($0.value ?? -1) > ($1.value ?? -1) }

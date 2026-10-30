@@ -2,8 +2,8 @@ import Foundation
 import Observation
 import Supabase
 
-/// Your collection, loaded from Supabase into the same shape the web app uses,
-/// and the writes that change it (adding purchases).
+/// Your collection, watchlist and wishlist, loaded from Supabase into the same shape
+/// the web app uses, and every write that changes them.
 @Observable
 final class CollectionStore {
     enum Status: Equatable { case idle, loading, ready, failed(String) }
@@ -14,13 +14,18 @@ final class CollectionStore {
     var history: [String: [PricePoint]] = [:]
     var holdings: [HoldingView] = []
     var summary = PortfolioSummary()
+    var timeline: [TimelinePoint] = []
+    var watchlist: [WatchRow] = []
+    var wishlist: [WishItem] = []
 
-    private var transactions: [Txn] = []
+    /// The full log, corrections included.
+    private(set) var transactions: [Txn] = []
     private var holdingRows: [HoldingRow] = []
-    private var manualValues: [String: Double] = [:]
-    private var userId: String?
+    private var manualValues: [String: ManualValue] = [:]
+    private(set) var userId: String?
 
     private var db: SupabaseClient { Backend.shared.supabase }
+    private var today: String { Format.day() }
 
     func reset() {
         status = .idle
@@ -29,6 +34,9 @@ final class CollectionStore {
         history = [:]
         holdings = []
         summary = PortfolioSummary()
+        timeline = []
+        watchlist = []
+        wishlist = []
         transactions = []
         holdingRows = []
         manualValues = [:]
@@ -61,22 +69,22 @@ final class CollectionStore {
             let txRows: [TransactionRow] = try await all { a, b in
                 try await self.db.from("transactions").select().order("created_at").range(from: a, to: b).execute().value
             }
+            let watchRows: [WatchRow] = try await all { a, b in
+                try await self.db.from("watchlist_items").select().order("created_at").range(from: a, to: b).execute().value
+            }
 
             let byId = Dictionary(holdingRows.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
             let txns: [Txn] = txRows.compactMap { r in
-                guard let h = byId[r.holding_id], let kind = Txn.Kind(rawValue: r.type) else { return nil }
-                return Txn(
-                    id: r.id, identity: h.identity, kind: kind, date: r.trade_date, quantity: r.quantity, unitPrice: r.unit_price,
-                    fees: r.fees, shipping: r.shipping, tax: r.tax, correctsId: r.corrects_id, createdAt: r.created_at
-                )
+                guard let h = byId[r.holding_id] else { return nil }
+                return Self.txn(r, identity: h.identity)
             }
-            var manual: [String: Double] = [:]
+            var manual: [String: ManualValue] = [:]
             for h in holdingRows {
-                if let v = h.manual_value, h.manual_value_date != nil { manual[h.identity.key] = v }
+                if let v = h.manual_value, let d = h.manual_value_date { manual[h.identity.key] = ManualValue(value: v, date: d) }
             }
 
-            // Catalog rows for everything you hold, 200 ids at a time.
-            let ids = Array(Set(holdingRows.map(\.product_id)))
+            // Catalog rows for everything you hold or watch, 200 ids at a time.
+            let ids = Array(Set(holdingRows.map(\.product_id) + watchRows.map(\.product_id)))
             var products: [String: Product] = [:]
             var prices: [String: Price] = [:]
             var history: [String: [PricePoint]] = [:]
@@ -98,6 +106,8 @@ final class CollectionStore {
                     history[priceKey(s.product_id, s.printing.isEmpty ? nil : s.printing), default: []].append(PricePoint(date: s.snapshot_date, price: s.market_price))
                 }
             }
+            // A missing wishlist is just empty; don't fail the whole load over it.
+            let wishes = (try? await UserState.load("wishlist", as: [WishItem].self)) ?? nil
 
             self.holdingRows = holdingRows
             self.transactions = txns
@@ -105,6 +115,8 @@ final class CollectionStore {
             self.products = products
             self.prices = prices
             self.history = history
+            self.watchlist = watchRows
+            self.wishlist = wishes ?? []
             recompute()
             status = .ready
         } catch {
@@ -112,15 +124,31 @@ final class CollectionStore {
         }
     }
 
+    private static func txn(_ r: TransactionRow, identity: HoldingIdentity) -> Txn? {
+        guard let kind = Txn.Kind(rawValue: r.type) else { return nil }
+        return Txn(
+            id: r.id, identity: identity, kind: kind, date: r.trade_date, quantity: r.quantity, unitPrice: r.unit_price,
+            fees: r.fees, shipping: r.shipping, tax: r.tax, correctsId: r.corrects_id, createdAt: r.created_at,
+            source: r.source, notes: r.notes
+        )
+    }
+
     private func recompute() {
         holdings = Portfolio.holdings(transactions: transactions, products: products, prices: prices, manualValues: manualValues)
         let realized = Ledger(transactions).positions.values.reduce(0) { $0 + $1.realizedGain }
         summary = Portfolio.summary(holdings, realized: realized)
+        timeline = Timeline.compute(transactions: transactions, prices: prices, history: history, manualValues: manualValues, today: today)
     }
+
+    // MARK: Reading
 
     /// Copies you hold of one product.
     func holdings(for productId: String) -> [HoldingView] {
         holdings.filter { $0.identity.productId == productId }
+    }
+
+    func holding(_ identity: HoldingIdentity) -> HoldingView? {
+        holdings.first { $0.identity.key == identity.key }
     }
 
     /// The Near Mint market price for a product, from the catalog.
@@ -128,7 +156,17 @@ final class CollectionStore {
         prices[priceKey(productId, printing)]
     }
 
-    // MARK: Writing
+    /// One position's entries as they count now (edits applied, deleted ones gone), newest first.
+    func entries(for identity: HoldingIdentity) -> [Txn] {
+        Array(Ledger.effective(transactions).filter { $0.identity.key == identity.key }.reversed())
+    }
+
+    func manualValue(_ identity: HoldingIdentity) -> ManualValue? { manualValues[identity.key] }
+
+    func watch(for productId: String) -> WatchRow? { watchlist.first { $0.product_id == productId } }
+    func wish(for productId: String) -> WishItem? { wishlist.first { $0.product.id == productId } }
+
+    // MARK: Writing: purchases and sales
 
     struct Purchase {
         var product: Product
@@ -140,33 +178,64 @@ final class CollectionStore {
         var unitPrice: Double
         var date: String
         var source: String? = "ios"
+        var notes: String?
     }
 
-    /// Add a purchase: save the product to the catalog, find or create the holding, then log the transaction.
+    /// Save products to the shared catalog before they can be held or watched, and keep their prices.
+    @MainActor
+    func ensureInCatalog(_ product: Product, printing: String?) async throws {
+        guard products[product.id] == nil else { return }
+        let res = try await Backend.shared.api.importProduct(product, printing: printing)
+        products[res.product.id] = res.product
+        for price in res.prices { prices[priceKey(price.productId, price.printing)] = price }
+        if !res.history.isEmpty { history[priceKey(res.product.id, printing ?? res.prices.first?.printing)] = res.history }
+    }
+
+    /// Add purchases: save each product to the catalog, find or create its holding, log the transaction.
     @MainActor
     func add(_ purchases: [Purchase]) async throws {
-        guard let userId else { throw HoloError.signedOut }
-        var imported = Set<String>()
         for p in purchases {
-            if !imported.contains(p.product.id) {
-                let res = try await Backend.shared.api.importProduct(p.product, printing: p.printing)
-                products[res.product.id] = res.product
-                for price in res.prices { prices[priceKey(price.productId, price.printing)] = price }
-                imported.insert(p.product.id)
-            }
+            try await ensureInCatalog(p.product, printing: p.printing)
             let identity = HoldingIdentity(productId: p.product.id, printing: p.printing, condition: p.condition, gradeCompany: p.gradeCompany, grade: p.grade)
-            let holding = try await holdingRow(for: identity, userId: userId)
-            let row = NewTransactionRow(
-                user_id: userId, holding_id: holding.id, type: "purchase", trade_date: p.date, quantity: p.quantity,
-                unit_price: p.unitPrice, fees: 0, shipping: 0, tax: 0, source: p.source, notes: nil
-            )
-            let saved: TransactionRow = try await db.from("transactions").insert(row).select().single().execute().value
-            transactions.append(Txn(
-                id: saved.id, identity: identity, kind: .purchase, date: saved.trade_date, quantity: saved.quantity,
-                unitPrice: saved.unit_price, createdAt: saved.created_at
-            ))
+            try await log(identity: identity, type: "purchase", date: p.date, quantity: p.quantity, unitPrice: p.unitPrice, source: p.source, notes: p.notes)
         }
         recompute()
+    }
+
+    /// Record a sale. Proceeds are price × quantity less fees and shipping; cost comes off the oldest units first.
+    @MainActor
+    func sell(_ identity: HoldingIdentity, quantity: Double, unitPrice: Double, fees: Double, shipping: Double, date: String, source: String? = "ios", notes: String? = nil) async throws {
+        try await log(identity: identity, type: "sale", date: date, quantity: quantity, unitPrice: unitPrice, fees: fees, shipping: shipping, source: source, notes: notes)
+        recompute()
+    }
+
+    /// Change an entry. Recorded as a correction, never by editing the original, so history stays intact.
+    @MainActor
+    func correct(_ entry: Txn, date: String, quantity: Double, unitPrice: Double, fees: Double, shipping: Double) async throws {
+        try await log(identity: entry.identity, type: "correction", date: date, quantity: quantity, unitPrice: unitPrice, fees: fees, shipping: shipping, tax: entry.tax, correctsId: entry.id)
+        recompute()
+    }
+
+    /// Delete an entry: a correction with quantity 0 voids it.
+    @MainActor
+    func delete(_ entry: Txn) async throws {
+        try await log(identity: entry.identity, type: "correction", date: entry.date, quantity: 0, unitPrice: 0, correctsId: entry.id)
+        recompute()
+    }
+
+    @MainActor
+    private func log(
+        identity: HoldingIdentity, type: String, date: String, quantity: Double, unitPrice: Double,
+        fees: Double = 0, shipping: Double = 0, tax: Double = 0, source: String? = nil, notes: String? = nil, correctsId: String? = nil
+    ) async throws {
+        guard let userId else { throw HoloError.signedOut }
+        let holding = try await holdingRow(for: identity, userId: userId)
+        let row = NewTransactionRow(
+            user_id: userId, holding_id: holding.id, type: type, trade_date: date, quantity: quantity, unit_price: unitPrice,
+            fees: fees, shipping: shipping, tax: tax, source: source, notes: notes, corrects_id: correctsId
+        )
+        let saved: TransactionRow = try await db.from("transactions").insert(row).select().single().execute().value
+        if let t = Self.txn(saved, identity: identity) { transactions.append(t) }
     }
 
     private func holdingRow(for identity: HoldingIdentity, userId: String) async throws -> HoldingRow {
@@ -178,5 +247,78 @@ final class CollectionStore {
         let row: HoldingRow = try await db.from("holdings").insert(new).select().single().execute().value
         holdingRows.append(row)
         return row
+    }
+
+    /// Your own value for a graded slab (nil clears it).
+    @MainActor
+    func setManualValue(_ identity: HoldingIdentity, _ value: Double?) async throws {
+        guard let row = holdingRows.first(where: { $0.identity.key == identity.key }) else { return }
+        let update = ManualValueUpdate(manual_value: value, manual_value_date: value == nil ? nil : today)
+        try await db.from("holdings").update(update).eq("id", value: row.id).execute()
+        if let value { manualValues[identity.key] = ManualValue(value: value, date: today) } else { manualValues[identity.key] = nil }
+        recompute()
+    }
+
+    // MARK: Writing: watchlist
+
+    @MainActor
+    func addWatch(_ product: Product, printing: String?, target: Double?) async throws {
+        guard let userId else { throw HoloError.signedOut }
+        try await ensureInCatalog(product, printing: printing)
+        let row: WatchRow = try await db.from("watchlist_items")
+            .insert(NewWatchRow(user_id: userId, product_id: product.id, printing: printing, target_price: target))
+            .select().single().execute().value
+        watchlist.append(row)
+    }
+
+    @MainActor
+    func setWatchTarget(_ id: String, _ target: Double?) async throws {
+        try await db.from("watchlist_items").update(WatchTargetUpdate(target_price: target)).eq("id", value: id).execute()
+        if let i = watchlist.firstIndex(where: { $0.id == id }) { watchlist[i].target_price = target }
+    }
+
+    @MainActor
+    func removeWatch(_ id: String) async throws {
+        try await db.from("watchlist_items").delete().eq("id", value: id).execute()
+        watchlist.removeAll { $0.id == id }
+    }
+
+    // MARK: Writing: wishlist (shared JSON with the website)
+
+    @MainActor
+    func addWish(_ product: Product, printing: String?, price: Double?, priority: WishItem.Priority = .want) async throws {
+        guard !wishlist.contains(where: { $0.product.id == product.id }) else { return }
+        var next = wishlist
+        next.append(WishItem(id: UUID().uuidString.lowercased(), product: product, printing: printing, priority: priority, target: nil, price: price, addedAt: ISO8601DateFormatter().string(from: Date())))
+        try await saveWishlist(next)
+    }
+
+    @MainActor
+    func updateWish(_ id: String, priority: WishItem.Priority? = nil, target: Double?? = nil) async throws {
+        var next = wishlist
+        guard let i = next.firstIndex(where: { $0.id == id }) else { return }
+        if let priority { next[i].priority = priority }
+        if let target { next[i].target = target }
+        try await saveWishlist(next)
+    }
+
+    @MainActor
+    func removeWish(_ id: String) async throws {
+        try await saveWishlist(wishlist.filter { $0.id != id })
+    }
+
+    @MainActor
+    private func saveWishlist(_ items: [WishItem]) async throws {
+        guard let userId else { throw HoloError.signedOut }
+        // Pick up changes made on the website since loading, so neither side overwrites the other's additions.
+        if let remote = try? await UserState.load("wishlist", as: [WishItem].self) {
+            let known = Set(wishlist.map(\.id))
+            let addedElsewhere = remote.filter { !known.contains($0.id) }
+            try await UserState.save("wishlist", items + addedElsewhere, userId: userId)
+            wishlist = items + addedElsewhere
+        } else {
+            try await UserState.save("wishlist", items, userId: userId)
+            wishlist = items
+        }
     }
 }

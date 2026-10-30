@@ -17,6 +17,8 @@ struct Txn: Hashable {
     var correctsId: String?
     /// ISO timestamp; breaks ties between same-day entries.
     var createdAt: String
+    var source: String?
+    var notes: String?
 
     /// Loaded cost of a purchase (or positive adjustment), extras included.
     var acquisitionCost: Double { abs(quantity) * unitPrice + fees + shipping + tax }
@@ -61,6 +63,8 @@ struct Ledger {
     private(set) var positions: [String: Position] = [:]
     private static let eps = 1e-9
 
+    init() {}
+
     init(_ transactions: [Txn], asOf: String? = nil) {
         for t in Ledger.effective(transactions) {
             if let asOf, t.date > asOf { break }
@@ -104,6 +108,7 @@ struct Ledger {
             e.fees = c.fees
             e.shipping = c.shipping
             e.tax = c.tax
+            e.notes = c.notes ?? t.notes
             out.append(e)
         }
         return out.sorted(by: Ledger.replayOrder)
@@ -117,7 +122,8 @@ struct Ledger {
         return a.createdAt < b.createdAt
     }
 
-    private mutating func apply(_ t: Txn) {
+    /// Apply one effective transaction (in replay order).
+    mutating func apply(_ t: Txn) {
         let key = t.identity.key
         var p = positions[key] ?? Position(identity: t.identity)
 

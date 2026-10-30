@@ -16,7 +16,7 @@ struct ScanReviewSheet: View {
             ScrollViewReader { proxy in
                 List {
                     ForEach($model.entries) { $entry in
-                        ReviewRow(entry: $entry, onPick: { model.pick($0, for: entry.id) }, onRetry: { model.retry(entry.id) })
+                        ReviewRow(entry: $entry, inDeal: model.onPick != nil, onPick: { model.pick($0, for: entry.id) }, onRetry: { model.retry(entry.id) })
                             .id(entry.id)
                             .listRowBackground(Theme.surface)
                             .swipeActions { Button("Remove", role: .destructive) { model.remove(entry.id) } }
@@ -34,7 +34,13 @@ struct ScanReviewSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Back to camera") { dismiss() } }
             }
-            .safeAreaInset(edge: .bottom) { footer }
+            .safeAreaInset(edge: .bottom) {
+                if model.onPick == nil {
+                    footer
+                } else {
+                    Button("Done") { dismiss() }.buttonStyle(LimeButtonStyle()).padding(16).background(.bar)
+                }
+            }
         }
         .presentationDragIndicator(.visible)
     }
@@ -80,6 +86,7 @@ struct ScanReviewSheet: View {
 
 private struct ReviewRow: View {
     @Binding var entry: ScanModel.Entry
+    var inDeal = false
     var onPick: (ScanCandidate) -> Void
     var onRetry: () -> Void
 
@@ -139,7 +146,10 @@ private struct ReviewRow: View {
                 }
             }
 
-            if let picked = entry.picked {
+            if let note = entry.note {
+                Text(note).font(.caption.weight(.medium)).foregroundStyle(entry.rejected ? Theme.down : Theme.muted)
+            }
+            if let picked = entry.picked, !inDeal {
                 HStack(spacing: 10) {
                     if !picked.product.isSealed && entry.result?.read?.kind != "slab" {
                         Picker("Condition", selection: $entry.condition) {

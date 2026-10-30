@@ -221,6 +221,12 @@ struct NewTransactionRow: Codable {
     var tax: Double
     var source: String?
     var notes: String?
+    var corrects_id: String?
+}
+
+struct ManualValueUpdate: Codable {
+    var manual_value: Double?
+    var manual_value_date: String?
 }
 
 // MARK: - Shared keys
@@ -280,3 +286,52 @@ enum CardCondition: String, CaseIterable, Identifiable {
 }
 
 let gradingCompanies = ["PSA", "BGS", "CGC", "SGC", "TAG"]
+
+// MARK: - Watchlist, wishlist and per-user state
+
+struct WatchRow: Codable, Identifiable {
+    var id: String
+    var product_id: String
+    var printing: String?
+    var target_price: Double?
+    var notes: String?
+    var created_at: String
+}
+
+struct NewWatchRow: Codable {
+    var user_id: String
+    var product_id: String
+    var printing: String?
+    var target_price: Double?
+}
+
+struct WatchTargetUpdate: Codable {
+    var target_price: Double?
+}
+
+/// A wishlist entry, stored as JSON in user_state ("wishlist"), shared with the website.
+struct WishItem: Codable, Identifiable, Hashable {
+    enum Priority: String, Codable, CaseIterable { case grail, want, maybe }
+
+    var id: String
+    var product: Product
+    var printing: String?
+    var priority: Priority
+    /// Price you'd happily pay.
+    var target: Double?
+    /// Latest known market price.
+    var price: Double?
+    var addedAt: String
+}
+
+/// One row of user_state: a JSON value per key, per user.
+struct UserStateRow<Value: Codable>: Codable {
+    var user_id: String
+    var key: String
+    var value: Value
+    var updated_at: String
+}
+
+struct UserStateValue<Value: Decodable>: Decodable {
+    var value: Value
+}

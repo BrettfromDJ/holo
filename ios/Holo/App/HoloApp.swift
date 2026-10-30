@@ -4,12 +4,14 @@ import SwiftUI
 struct HoloApp: App {
     @State private var session = SessionModel()
     @State private var store = CollectionStore()
+    @State private var deals = DealStore()
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environment(session)
                 .environment(store)
+                .environment(deals)
                 .preferredColorScheme(.dark)
                 .tint(Theme.lime)
         }
@@ -19,6 +21,7 @@ struct HoloApp: App {
 struct RootView: View {
     @Environment(SessionModel.self) private var session
     @Environment(CollectionStore.self) private var store
+    @Environment(DealStore.self) private var deals
 
     var body: some View {
         Group {
@@ -32,13 +35,19 @@ struct RootView: View {
                     SignInView()
                 case let .signedIn(userId, _):
                     MainTabView()
-                        .task(id: userId) { await store.load(userId: userId) }
+                        .task(id: userId) {
+                            await store.load(userId: userId)
+                            await deals.load(userId: userId)
+                        }
                 }
             }
         }
         .onAppear { if AppConfig.isConfigured { session.start() } }
         .onChange(of: session.state) { _, state in
-            if state == .signedOut { store.reset() }
+            if state == .signedOut {
+                store.reset()
+                deals.reset()
+            }
         }
     }
 }
@@ -59,35 +68,35 @@ struct NotConfiguredView: View {
 }
 
 struct MainTabView: View {
-    @State private var tab = HomeTab.collection
+    @State private var tab = HomeTab.home
     @State private var scanning = false
 
-    enum HomeTab { case collection, search, account }
+    enum HomeTab { case home, collection, scan, deal, lists }
 
     var body: some View {
         TabView(selection: $tab) {
+            HomeView(onScan: { scanning = true })
+                .tabItem { Label("Home", systemImage: "chart.line.uptrend.xyaxis") }
+                .tag(HomeTab.home)
             CollectionView(onScan: { scanning = true })
                 .tabItem { Label("Collection", systemImage: "square.grid.2x2.fill") }
                 .tag(HomeTab.collection)
-            SearchView()
-                .tabItem { Label("Search", systemImage: "magnifyingglass") }
-                .tag(HomeTab.search)
-            SettingsView()
-                .tabItem { Label("Account", systemImage: "person.crop.circle") }
-                .tag(HomeTab.account)
+            // Scan is an action, not a page: picking it opens the camera and keeps you where you were.
+            Color.clear
+                .tabItem { Label("Scan", systemImage: "viewfinder") }
+                .tag(HomeTab.scan)
+            DealView()
+                .tabItem { Label("Deal", systemImage: "arrow.left.arrow.right") }
+                .tag(HomeTab.deal)
+            ListsView()
+                .tabItem { Label("Lists", systemImage: "heart.text.square") }
+                .tag(HomeTab.lists)
         }
-        // The scanner opens full screen from the floating button, like a camera app.
-        .overlay(alignment: .bottom) {
-            Button { scanning = true } label: {
-                Image(systemName: "viewfinder")
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundStyle(Theme.ink)
-                    .frame(width: 60, height: 60)
-                    .background(Theme.lime, in: Circle())
-                    .shadow(color: Theme.lime.opacity(0.35), radius: 14, y: 4)
+        .onChange(of: tab) { old, new in
+            if new == .scan {
+                tab = old
+                scanning = true
             }
-            .accessibilityLabel("Scan cards")
-            .padding(.bottom, 58)
         }
         .fullScreenCover(isPresented: $scanning) { ScanView() }
     }

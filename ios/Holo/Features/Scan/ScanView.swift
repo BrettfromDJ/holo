@@ -3,6 +3,10 @@ import SwiftUI
 /// Full-screen scanner. Shoot card after card; each lands in a slim strip you can
 /// swipe through. Next opens the review, where you set what you paid and add them all.
 struct ScanView: View {
+    /// When scanning into a deal: which side, and where each match goes.
+    var dealSide: DealSide?
+    var onPick: (@MainActor (ScanCandidate, ScanRead?) -> (ok: Bool, note: String))?
+
     @Environment(\.dismiss) private var dismiss
     @StateObject private var camera = Camera()
     @State private var model = ScanModel()
@@ -34,7 +38,10 @@ struct ScanView: View {
         .statusBarHidden()
         .onAppear { camera.start() }
         .onDisappear { camera.stop() }
-        .task { await model.refreshBalance() }
+        .task {
+            model.onPick = onPick
+            await model.refreshBalance()
+        }
         .sheet(isPresented: $reviewing) {
             ScanReviewSheet(model: model, focus: focused, onAdded: { dismiss() })
         }
@@ -47,6 +54,13 @@ struct ScanView: View {
             }
             .accessibilityLabel("Close")
             Spacer()
+            if let dealSide {
+                Text(dealSide == .incoming ? "Coming in" : "Going out")
+                    .font(.footnote.weight(.semibold))
+                    .padding(.horizontal, 12).padding(.vertical, 7)
+                    .background(Theme.lime.opacity(0.9), in: Capsule())
+                    .foregroundStyle(Theme.ink)
+            }
             if let left = model.scansLeft {
                 Text("\(left.formatted()) scans left")
                     .font(.footnote.weight(.medium)).monospacedDigit()
@@ -135,10 +149,18 @@ struct ScanView: View {
                 .accessibilityLabel("Scan")
                 Spacer()
                 Button {
-                    focused = nil
-                    reviewing = true
+                    // In a deal, scans are already in it: Done just closes the camera.
+                    if dealSide != nil {
+                        dismiss()
+                    } else {
+                        focused = nil
+                        reviewing = true
+                    }
                 } label: {
-                    HStack(spacing: 4) { Text("Next"); Image(systemName: "arrow.right") }
+                    HStack(spacing: 4) {
+                        Text(dealSide == nil ? "Next" : "Done")
+                        if dealSide == nil { Image(systemName: "arrow.right") }
+                    }
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(width: 88, height: 44)
@@ -218,7 +240,9 @@ struct ScanChip: View {
         case .failed:
             Label("Try again", systemImage: "arrow.clockwise").foregroundStyle(.white.opacity(0.7))
         case .done:
-            if let p = entry.picked {
+            if entry.rejected, let note = entry.note {
+                Text(note).foregroundStyle(Theme.down)
+            } else if let p = entry.picked {
                 (Text(p.product.number.map { "#\($0) · " } ?? "").foregroundStyle(.white.opacity(0.7))
                     + Text(Format.money(entry.value)).bold().foregroundStyle(.white))
                     .monospacedDigit()

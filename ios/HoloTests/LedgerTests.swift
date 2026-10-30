@@ -49,3 +49,39 @@ final class LedgerTests: XCTestCase {
         XCTAssertTrue(h.isConditionEstimate)
     }
 }
+
+/// Deal math matches the web app's (src/lib/deal.test.ts).
+final class DealTests: XCTestCase {
+    private let card = Product(id: "p1", name: "Card", kind: "single")
+
+    func testRatesAndBalance() {
+        var deal = DealState()
+        deal.incoming = [DealItem(key: "a", product: card, printing: nil, market: 100)]
+        deal.outgoing = [DealItem(key: "b", product: card, printing: nil, market: 50, holdingKey: "h")]
+        let rates = deal.rates(DealRates())
+        XCTAssertEqual(rates.in, 0.8) // a trade uses the trade-in rate
+        let t = DealTotals(deal, rates: rates, cost: { _ in 20 })
+        XCTAssertEqual(t.inValue, 80)
+        XCTAssertEqual(t.outValue, 50)
+        XCTAssertEqual(t.balance, -30)
+        XCTAssertEqual(t.profit, 30)
+        XCTAssertEqual(t.equity, 20)
+    }
+
+    func testTypedPriceWinsAndUnknownMarketIsUnpriced() {
+        var item = DealItem(key: "a", product: card, printing: nil, market: nil)
+        XCTAssertNil(item.unitPrice(side: 0.7))
+        item.price = 12
+        XCTAssertEqual(item.unitPrice(side: 0.7), 12)
+    }
+
+    func testDealJSONMatchesTheWebsite() throws {
+        var deal = DealState()
+        deal.incoming = [DealItem(key: "a", product: card, printing: nil, market: nil)]
+        let json = String(data: try JSONEncoder().encode(deal), encoding: .utf8)!
+        XCTAssertTrue(json.contains("\"in\""))
+        XCTAssertTrue(json.contains("\"market\":null"))
+        let back = try JSONDecoder().decode(DealState.self, from: Data(json.utf8))
+        XCTAssertEqual(back.incoming.count, 1)
+    }
+}

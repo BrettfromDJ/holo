@@ -20,6 +20,9 @@ final class ScanModel {
         /// What you paid each, as typed; blank uses the default below.
         var paid = ""
         var condition = CardCondition.nearMint.rawValue
+        /// In a deal: what happened when it was added ("Added to coming in", "Not in your inventory").
+        var note: String?
+        var rejected = false
 
         var value: Double? { picked?.value(for: result?.read) }
     }
@@ -31,7 +34,10 @@ final class ScanModel {
 
     private let parallel = 2
 
-    var picks: [Entry] { entries.filter { $0.picked != nil } }
+    /// Set when scanning into a deal: each confirmed match is handed over straight away.
+    var onPick: (@MainActor (ScanCandidate, ScanRead?) -> (ok: Bool, note: String))?
+
+    var picks: [Entry] { entries.filter { $0.picked != nil && !$0.rejected } }
     var busy: Int { entries.filter { $0.state == .queued || $0.state == .reading }.count }
     var total: Double { picks.reduce(0) { $0 + ($1.value ?? 0) } }
 
@@ -59,7 +65,19 @@ final class ScanModel {
     @MainActor
     func pick(_ candidate: ScanCandidate, for id: UUID) {
         guard let i = entries.firstIndex(where: { $0.id == id }) else { return }
+        // In a deal, each scan is handed over once.
+        if onPick != nil, entries[i].picked != nil, !entries[i].rejected { return }
         entries[i].picked = candidate
+        hand(i)
+    }
+
+    @MainActor
+    private func hand(_ i: Int) {
+        guard let onPick, let c = entries[i].picked else { return }
+        let result = onPick(c, entries[i].result?.read)
+        entries[i].note = result.note
+        entries[i].rejected = !result.ok
+        UINotificationFeedbackGenerator().notificationOccurred(result.ok ? .success : .warning)
     }
 
     @MainActor
@@ -95,7 +113,10 @@ final class ScanModel {
         guard let i = entries.firstIndex(where: { $0.id == id }) else { return pump() }
         entries[i].state = .done
         entries[i].result = result
-        if result.status == "matched", let top = result.candidates.first { entries[i].picked = top }
+        if result.status == "matched", let top = result.candidates.first {
+            entries[i].picked = top
+            hand(i)
+        }
         pump()
     }
 

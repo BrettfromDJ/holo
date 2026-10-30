@@ -5,17 +5,20 @@ A native SwiftUI app that uses the same account and collection as the website. I
 - **Supabase**: sign-in (email + 6-digit code) and your collection, protected per user.
 - **The web app's API** (your Vercel deployment): scanning, search and catalog import. It sends your login token, so the TCG API key stays on the server.
 
-## What's in this first version
+## What's in it
 
-- Sign in with the same email as the website.
-- Collection: total value, today's change, all-time gain, and every item. Played copies are estimated from the Near Mint price (marked ≈), the same as on the web.
-- Card page: market price, 24h/7d/30d change, price history chart, your copies.
-- Search any card or sealed product and add a purchase (printing, condition or grade, quantity, price, date).
-- Scanner: a full-screen camera with rapid shooting, a swipeable strip of scans, and a review step to set what you paid and add them all.
+- **Sign in** with the same email as the website (6-digit code).
+- **Home:** value with a chart you can scrub (1W to All), today's change, all-time gain, what's moving today, recently added.
+- **Collection:** everything you hold. Played copies are estimated from the Near Mint price (marked ≈), as on the web.
+- **Card page:** market price and changes, price history, your copies, Add, Watch price, Wishlist.
+- **Your copy:** sell (fees, shipping, profit from your oldest copies first), set a graded slab's value, and edit or delete past purchases and sales. Edits and deletes are saved as corrections, the same as on the web.
+- **Scan:** full-screen camera, rapid shooting, a swipeable strip of scans, and a review step to set conditions and prices before adding.
+- **Deal:** the card-show deal maker. Coming in / going out, rates as a share of market (adjustable per deal and per item), cash balance, profit and equity, scanning into either side, closing records it all, and a history of closed deals. The deal in progress syncs with the website's Deal page.
+- **Lists:** Watchlist (with target prices) and Wishlist (grails / want / maybe), both shared with the website.
 
-Not yet in the app (still on the website): selling, the deal maker, trades, grading, binder, shelves, portfolios, the watchlist and wishlist. Graded slabs show your own valuation if you've set one on the web. The app doesn't have the website's eBay pricing yet.
+Still website-only: trade checker, grading, binder, shelves, portfolios, analytics. The app doesn't have the website's eBay pricing for slabs yet. Slabs use the value you set.
 
-The cost basis math is a direct port of the web app's FIFO ledger (`Domain/Ledger.swift` ↔ `src/lib/finance/ledger.ts`), so both show the same numbers. `HoloTests` covers it.
+The cost basis math is a direct port of the web app's FIFO ledger (`Domain/Ledger.swift` ↔ `src/lib/finance/ledger.ts`), and the deal math of `src/lib/deal.ts` (`Domain/Deal.swift`), so both show the same numbers. `HoloTests` covers them.
 
 ## Build it
 
