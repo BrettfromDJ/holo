@@ -702,6 +702,7 @@ private struct DealRecordCard: View {
                 HStack(spacing: 8) {
                     SkewTag(text: record.kind.noun, color: record.kind.color, textColor: record.kind == .buy ? Theme.ink : .white, icon: record.kind.icon)
                     Text(record.date.formatted(date: .omitted, time: .shortened)).font(.mono(11)).foregroundStyle(Theme.muted)
+                        .lineLimit(1).fixedSize()
                 }
                 Text(title(lines)).font(.geist(15, .semibold)).foregroundStyle(.white).lineLimit(1)
                 HStack(spacing: 6) {
@@ -724,8 +725,9 @@ private struct DealRecordCard: View {
                 Text(h.1.map { Format.signedMoney($0) } ?? "—").font(.display(24)).monospacedDigit()
                     .foregroundStyle(h.1.map { Theme.tone($0) } ?? Theme.muted).displayTrim(24)
                     .lineLimit(1).minimumScaleFactor(0.7)
-                MonoLabel(text: h.0)
+                MonoLabel(text: h.0).lineLimit(1).fixedSize()
             }
+            .layoutPriority(1)
             Image(systemName: "chevron.right").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.subtle)
         }
         .padding(14)
