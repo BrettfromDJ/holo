@@ -688,68 +688,87 @@ private struct CardFanStack: View {
     }
 }
 
-/// A closed deal as a card: its kind as a slanted tag, the time and photos, the items fanned
-/// out with the first photo beside them, and the profit big on the right.
+/// A closed deal as a card, balanced left to right: its items fanned on the left; the kind tag,
+/// time, what it was and who paid in the middle (a camera mark when it has photos); and the
+/// number that matters on the right (profit, or for a buy the equity taken in).
 private struct DealRecordCard: View {
     var record: DealRecord
 
     var body: some View {
         let lines = record.lines ?? []
         let shape = RoundedRectangle(cornerRadius: 20, style: .continuous)
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .center, spacing: 8) {
-                SkewTag(text: record.kind.noun, color: record.kind.color, textColor: record.kind == .buy ? Theme.ink : .white, icon: record.kind.icon)
-                Text(record.date.formatted(date: .omitted, time: .shortened)).font(.mono(11)).foregroundStyle(Theme.muted)
-                Spacer()
-                if let profit = record.profit {
-                    Text(Format.signedMoney(profit)).font(.display(24)).monospacedDigit().foregroundStyle(Theme.tone(profit)).displayTrim(24)
+        HStack(alignment: .center, spacing: 14) {
+            fan(lines)
+                .frame(width: 66, height: 78)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    SkewTag(text: record.kind.noun, color: record.kind.color, textColor: record.kind == .buy ? Theme.ink : .white, icon: record.kind.icon)
+                    Text(record.date.formatted(date: .omitted, time: .shortened)).font(.mono(11)).foregroundStyle(Theme.muted)
                 }
-            }
-            HStack(alignment: .bottom, spacing: 14) {
-                if !lines.isEmpty {
-                    HStack(spacing: -12) {
-                        ForEach(Array(lines.prefix(6).enumerated()), id: \.offset) { _, line in
-                            HoldingArt(product: line.product.product, identity: nil, cornerRadius: 4, caption: false)
-                                .frame(width: 40, height: 56)
-                                .shadow(color: .black.opacity(0.55), radius: 4, x: 3)
+                Text(title(lines)).font(.geist(15, .semibold)).foregroundStyle(.white).lineLimit(1)
+                HStack(spacing: 6) {
+                    Text(balanceText).lineLimit(1)
+                    if let n = record.photos?.count, n > 0 {
+                        HStack(spacing: 3) {
+                            Image(systemName: "camera.fill").font(.system(size: 10, weight: .semibold))
+                            Text("\(n)")
                         }
-                        if lines.count > 6 {
-                            Text("+\(lines.count - 6)").font(.geist(12, .semibold)).foregroundStyle(Theme.muted).padding(.leading, 18)
-                        }
+                        .foregroundStyle(.white.opacity(0.8))
+                        .padding(.horizontal, 6).frame(height: 18)
+                        .background(Capsule().fill(Color.white.opacity(0.08)))
                     }
                 }
-                Spacer(minLength: 0)
-                if let first = record.photos?.first {
-                    DealPhotoImage(path: first)
-                        .frame(width: 56, height: 56)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .overlay(alignment: .bottomTrailing) {
-                            if let n = record.photos?.count, n > 1 {
-                                Text("+\(n - 1)").font(.geist(10, .bold)).foregroundStyle(.white)
-                                    .padding(.horizontal, 5).padding(.vertical, 2)
-                                    .background(Capsule().fill(.black.opacity(0.7))).padding(4)
-                            }
-                        }
-                }
+                .font(.geist(12)).foregroundStyle(Theme.muted).monospacedDigit()
             }
-            HStack(spacing: 6) {
-                Text(balanceText)
-                Text("·")
-                Text("\(record.items) item\(record.items == 1 ? "" : "s")")
-                Spacer()
-                Image(systemName: "chevron.right").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.subtle)
+            Spacer(minLength: 6)
+            VStack(alignment: .trailing, spacing: 4) {
+                let (label, value) = headline
+                Text(value.map { Format.signedMoney($0) } ?? "—").font(.display(24)).monospacedDigit()
+                    .foregroundStyle(value.map { Theme.tone($0) } ?? Theme.muted).displayTrim(24)
+                    .lineLimit(1).minimumScaleFactor(0.7)
+                MonoLabel(text: label)
             }
-            .font(.geist(12)).foregroundStyle(Theme.muted).monospacedDigit()
+            Image(systemName: "chevron.right").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.subtle)
         }
         .padding(14)
         .background {
             ZStack {
                 shape.fill(Theme.surface)
-                RadialGradient(colors: [record.kind.color.opacity(0.14), .clear], center: .topLeading, startRadius: 0, endRadius: 240)
+                RadialGradient(colors: [record.kind.color.opacity(0.12), .clear], center: .leading, startRadius: 0, endRadius: 220)
             }
             .clipShape(shape)
         }
-        .overlay(shape.strokeBorder(record.kind.color.opacity(0.22)))
+        .overlay(shape.strokeBorder(record.kind.color.opacity(0.2)))
+    }
+
+    /// Up to three items fanned like a hand of cards.
+    private func fan(_ lines: [DealRecord.Line]) -> some View {
+        let shown = Array(lines.prefix(3))
+        return ZStack {
+            if shown.isEmpty {
+                RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Theme.well).frame(width: 46, height: 64)
+            }
+            ForEach(Array(shown.enumerated()), id: \.offset) { i, line in
+                let off = Double(i) - Double(shown.count - 1) / 2
+                HoldingArt(product: line.product.product, identity: nil, cornerRadius: 4, caption: false)
+                    .frame(width: 46, height: 64)
+                    .shadow(color: .black.opacity(0.5), radius: 4, y: 3)
+                    .rotationEffect(.degrees(off * 10), anchor: .bottom)
+                    .offset(x: off * 12)
+            }
+        }
+    }
+
+    private func title(_ lines: [DealRecord.Line]) -> String {
+        guard let first = lines.first else { return "\(record.items) item\(record.items == 1 ? "" : "s")" }
+        return lines.count == 1 ? first.product.name : "\(first.product.name) + \(lines.count - 1) more"
+    }
+
+    /// Profit when something went out; for a buy, the equity taken in.
+    private var headline: (String, Double?) {
+        if let p = record.profit { return ("Profit", p) }
+        if record.inValue > 0 { return ("Equity", record.equity) }
+        return ("Profit", nil)
     }
 
     private var balanceText: String {
