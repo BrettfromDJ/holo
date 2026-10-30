@@ -500,7 +500,9 @@ private struct SetView: View {
     // MARK: Chase cards
 
     @ViewBuilder private var chase: some View {
-        let top = Array(singles.filter { $0.market != nil }.sorted { ($0.market ?? 0) > ($1.market ?? 0) }.prefix(10))
+        // Cards only: the catalog sometimes files a box or pack as a single, so leave out
+        // anything named or typed like sealed product too.
+        let top = Array(singles.filter { $0.market != nil && !Self.looksSealed($0.product) }.sorted { ($0.market ?? 0) > ($1.market ?? 0) }.prefix(10))
         if let first = top.first {
             VStack(alignment: .leading, spacing: 14) {
                 PageHeader(title: "Chase cards", subtitle: "The most valuable singles in this set", size: 22).padding(.horizontal, 16)
@@ -520,6 +522,12 @@ private struct SetView: View {
             }
             .reveal()
         }
+    }
+
+    private static func looksSealed(_ p: Product) -> Bool {
+        let text = "\(p.name) \(p.productType ?? "")".lowercased()
+        return text.range(of: #"\b(booster|box|bundle|pack|tin|collection|display|case|blister|deck|kit|trainer box|etb|starter)\b"#,
+                          options: .regularExpression) != nil
     }
 
     // MARK: Best value per pack
