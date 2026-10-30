@@ -537,8 +537,6 @@ struct DealHistoryView: View {
         .tabBarClearance()
         .navigationBarTitleDisplayMode(.inline)
         .pageTitle("Closed deals")
-        .navigationDestination(for: DealRecord.self) { DealRecordDetail(recordId: $0.id) }
-        .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
     }
 
     private var empty: some View {
@@ -778,7 +776,7 @@ private struct DealRecordCard: View {
 
 /// Everything about one closed deal: when, who paid whom, the totals, each item that came in and
 /// went out at the price it went at, and photos you can add to or delete.
-private struct DealRecordDetail: View {
+struct DealRecordDetail: View {
     var recordId: String
     @Environment(DealStore.self) private var deals
     @Environment(CollectionStore.self) private var store

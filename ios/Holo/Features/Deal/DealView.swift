@@ -82,6 +82,10 @@ struct DealView: View {
             .sheet(item: $picking) { side in DealPickerSheet(side: side) }
             .sheet(isPresented: $settings) { DealRatesSheet() }
             .navigationDestination(isPresented: $history) { DealHistoryView() }
+            // Declared here at the root of the Deal stack: destinations declared on a pushed page
+            // (Closed deals) aren't reliably found, so tapping a deal did nothing.
+            .navigationDestination(for: DealRecord.self) { DealRecordDetail(recordId: $0.id) }
+            .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
             .sheet(isPresented: $customer) { CustomerViewSheet(deal: deals.deal, rates: rates, totals: totals) }
             .sheet(item: $ebayItem) { item in
                 NavigationStack {
