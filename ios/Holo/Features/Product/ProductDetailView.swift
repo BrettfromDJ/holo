@@ -437,9 +437,12 @@ private struct ProductStage: View {
     var body: some View {
         ZStack {
             GridPattern(step: 36, opacity: 0.055)
-            RadialGradient(colors: [mood.opacity(breathe ? 0.30 : 0.2), .clear], center: UnitPoint(x: 0.5, y: 0.5), startRadius: 0, endRadius: 240)
-            RadialGradient(colors: [Theme.planPink.opacity(0.14), .clear], center: UnitPoint(x: 0.9, y: 0.2), startRadius: 0, endRadius: 200)
-            RadialGradient(colors: [Theme.planBlue.opacity(0.12), .clear], center: UnitPoint(x: 0.1, y: 0.85), startRadius: 0, endRadius: 200)
+            // A bright core right behind the piece, then a wide wash, so it reads as light.
+            RadialGradient(colors: [mood.opacity(breathe ? 0.75 : 0.6), mood.opacity(0.25), .clear], center: UnitPoint(x: 0.5, y: 0.5), startRadius: 0, endRadius: 190)
+                .blur(radius: 20)
+            RadialGradient(colors: [mood.opacity(breathe ? 0.32 : 0.24), .clear], center: UnitPoint(x: 0.5, y: 0.5), startRadius: 0, endRadius: 320)
+            RadialGradient(colors: [Theme.planPink.opacity(0.28), .clear], center: UnitPoint(x: 0.9, y: 0.2), startRadius: 0, endRadius: 220)
+            RadialGradient(colors: [Theme.planBlue.opacity(0.26), .clear], center: UnitPoint(x: 0.1, y: 0.85), startRadius: 0, endRadius: 220)
         }
         .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.2),
                                      .init(color: .black, location: 0.8), .init(color: .clear, location: 1)],
