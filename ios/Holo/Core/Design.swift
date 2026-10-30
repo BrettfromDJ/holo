@@ -642,7 +642,10 @@ enum ChartTicks {
     /// "$1,234" under ten thousand, "$12.3K" above, like the website.
     static func label(_ v: Double) -> String {
         if abs(v) < 10000 { return Format.moneyWhole(v) }
-        return v.formatted(.currency(code: "USD").notation(.compactName).precision(.fractionLength(0 ... 1)))
+        let (scaled, suffix) = abs(v) >= 1_000_000 ? (v / 1_000_000, "M") : (v / 1000, "K")
+        let digits = abs(scaled) >= 100 ? "%.0f" : "%.1f"
+        let number = String(format: digits, abs(scaled)).replacingOccurrences(of: ".0", with: "")
+        return (v < 0 ? "−$" : "$") + number + suffix
     }
 }
 
