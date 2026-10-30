@@ -57,7 +57,7 @@ struct HomeView: View {
                     Button { account = true } label: { Image(systemName: "gearshape") }.accessibilityLabel("Account")
                 }
             }
-            .toolbarBackground(Theme.background, for: .navigationBar)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
             .sheet(isPresented: $account) { SettingsView() }

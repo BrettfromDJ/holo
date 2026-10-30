@@ -40,8 +40,11 @@ enum Fonts {
         let title = UIFont(name: "Geist-SemiBold", size: 17) ?? .systemFont(ofSize: 17, weight: .semibold)
         let large = UIFont(name: "Anton-Regular", size: 34) ?? .systemFont(ofSize: 34, weight: .bold)
         let nav = UINavigationBarAppearance()
+        // No bar behind the navigation: pages scroll up under the status bar and the floating
+        // buttons, like the website on a phone.
         nav.configureWithTransparentBackground()
-        nav.backgroundColor = UIColor(Theme.background)
+        nav.backgroundColor = .clear
+        nav.shadowColor = .clear
         nav.titleTextAttributes = [.font: title, .foregroundColor: UIColor.white]
         nav.largeTitleTextAttributes = [.font: large, .foregroundColor: UIColor.white]
         UINavigationBar.appearance().standardAppearance = nav
