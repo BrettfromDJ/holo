@@ -12,6 +12,7 @@ struct DealPickerSheet: View {
     @State private var searching = false
     @State private var added: Set<String> = []
     @State private var customOpen = false
+    @State private var searchedFor = ""
     @FocusState private var focused: Bool
 
     private var owned: [HoldingView] {
@@ -50,6 +51,17 @@ struct DealPickerSheet: View {
                 if query.count >= 2 {
                     Section {
                         if searching && results.isEmpty { ProgressView() }
+                        if !searching && results.isEmpty && searchedFor == query.trimmingCharacters(in: .whitespaces) {
+                            // Not in the stored catalog: look live only when asked (a paid TCG API call).
+                            Button {
+                                Task {
+                                    let q = query.trimmingCharacters(in: .whitespaces)
+                                    searching = true
+                                    results = (try? await Backend.shared.api.liveSearch(q)) ?? []
+                                    searching = false
+                                }
+                            } label: { Label("Not found. Search the live catalog", systemImage: "bolt.fill") }
+                        }
                         ForEach(results) { hit in
                             Button { addHit(hit) } label: {
                                 HStack {
@@ -126,7 +138,10 @@ struct DealPickerSheet: View {
         guard !Task.isCancelled else { return }
         searching = true
         defer { searching = false }
-        if let hits = try? await Backend.shared.api.search(q), !Task.isCancelled { results = hits }
+        if let hits = try? await Backend.shared.api.search(q), !Task.isCancelled {
+            results = hits
+            searchedFor = q
+        }
     }
 }
 

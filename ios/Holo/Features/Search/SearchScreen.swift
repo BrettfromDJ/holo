@@ -135,6 +135,9 @@ struct SearchScreen: View {
     /// How far into the server's list we've read (results can be shorter: code cards are left out).
     @State private var fetched = 0
     @State private var searchedFor = ""
+    /// The query we last asked TCG API about live (a paid call, so only on request).
+    @State private var liveFor = ""
+    @State private var liveSearching = false
     @State private var searching = false
     @State private var error: String?
     @State private var filters = SearchFilters()
@@ -150,8 +153,10 @@ struct SearchScreen: View {
             VStack(spacing: 0) {
                 HStack(spacing: 10) {
                     HoloSearchField(text: $query, prompt: mode == .add ? "Add a card or sealed product" : "Search any card or sealed product",
-                                    focus: $focused, loading: searching) {
+                                    focus: $focused, loading: searching || liveSearching) {
                         history.remember(query: query)
+                        // Pressing Search with nothing found looks in the live catalog.
+                        if results.isEmpty && searchedFor == trimmed { Task { await searchLive() } }
                     }
                     Button("Cancel") { dismiss() }
                         .font(.geist(16, .medium)).foregroundStyle(Theme.lime)
@@ -288,9 +293,21 @@ struct SearchScreen: View {
         } else if searching && results.isEmpty {
             ForEach(0 ..< 5, id: \.self) { _ in SkeletonRow() }
         } else if results.isEmpty && searchedFor == trimmed {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Nothing found for \u{201C}\(trimmed)\u{201D}").font(.geist(16, .semibold))
+            VStack(alignment: .leading, spacing: 12) {
+                Text(liveFor == trimmed ? "Nothing found for \u{201C}\(trimmed)\u{201D}, even live" : "Nothing in Holo's catalog for \u{201C}\(trimmed)\u{201D}")
+                    .font(.geist(16, .semibold))
                 Text("Try fewer words, the set name, or the card number (like 215/203).").font(.geist(14)).foregroundStyle(Theme.muted)
+                if liveFor != trimmed {
+                    // The live catalog has things not synced yet, but each look is a paid TCG API call.
+                    Button { Task { await searchLive() } } label: {
+                        HStack(spacing: 8) {
+                            if liveSearching { ProgressView().controlSize(.small).tint(.white) } else { Image(systemName: "bolt.fill") }
+                            Text("Search the live catalog")
+                        }
+                    }
+                    .buttonStyle(Button3D(kind: .dark, fullWidth: false, height: 42))
+                    .disabled(liveSearching)
+                }
             }
             .padding(16)
         } else if shown.isEmpty && !results.isEmpty {
@@ -367,9 +384,7 @@ struct SearchScreen: View {
         searching = true
         defer { searching = false }
         do {
-            var page = try await Backend.shared.api.searchPage(q, offset: 0, limit: Self.pageSize)
-            // Nothing stored yet: ask the live catalog (one page, no more to load).
-            if page.hits.isEmpty, let live = try? await Backend.shared.api.search(q) { page = (live, live.count, live.count) }
+            let page = try await Backend.shared.api.searchPage(q, offset: 0, limit: Self.pageSize)
             guard !Task.isCancelled else { return }
             withAnimation(.snappy(duration: 0.2)) {
                 results = page.hits
@@ -384,6 +399,24 @@ struct SearchScreen: View {
             self.error = "Couldn't search right now. Check your connection."
             searchedFor = q
         }
+    }
+
+    /// Look for the query in TCG API live (one paid call), when the stored catalog had nothing.
+    @MainActor
+    private func searchLive() async {
+        let q = trimmed
+        guard q.count >= 2, !liveSearching, liveFor != q else { return }
+        liveSearching = true
+        defer { liveSearching = false }
+        let hits = (try? await Backend.shared.api.liveSearch(q)) ?? []
+        guard q == trimmed else { return }
+        liveFor = q
+        withAnimation(.snappy(duration: 0.2)) {
+            results = hits
+            total = hits.count
+        }
+        fetched = hits.count
+        cache[q.lowercased()] = (hits, hits.count, hits.count)
     }
 
     /// The next batch of results for the same query.

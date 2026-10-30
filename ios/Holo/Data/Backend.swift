@@ -75,13 +75,16 @@ final class HoloAPI {
         return (hits, page.total ?? (offset + page.products.count), page.products.count)
     }
 
-    /// Search the stored catalog first (free); fall back to a live search when it has nothing.
+    /// Search the stored catalog (free: no TCG API calls).
     func search(_ query: String) async throws -> [SearchHit] {
-        struct Stored: Decodable { var products: [SearchHit] }
+        try await searchPage(query, offset: 0, limit: 80).hits
+    }
+
+    /// Search TCG API live, for things the stored catalog doesn't have yet. Each call is a paid
+    /// TCG API request, so only call it when someone asks for it (never while typing).
+    func liveSearch(_ query: String) async throws -> [SearchHit] {
         struct Live: Decodable { var hits: [SearchHit] }
         let q = URLQueryItem(name: "q", value: query)
-        let stored = try? await send(try await request("api/explore/search", query: [q]), as: Stored.self)
-        if let hits = stored?.products.filter({ !$0.product.isCodeCard }), !hits.isEmpty { return hits }
         let live = try await send(
             try await request("api/tcg/search", query: [q, URLQueryItem(name: "type", value: "all"), URLQueryItem(name: "game", value: "all")]),
             as: Live.self
