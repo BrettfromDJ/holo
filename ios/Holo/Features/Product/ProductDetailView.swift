@@ -49,6 +49,16 @@ struct ProductDetailView: View {
         .background(Theme.background)
         .tabBarClearance()
         .navigationBarTitleDisplayMode(.inline)
+        // The type and rarity pills sit at the top center, where a page title would go.
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                HStack(spacing: 8) {
+                    Badge(text: product?.isSealed == true ? (product?.productType ?? "Sealed") : "Card", filled: true)
+                    if let rarity = product?.rarity { RarityBadge(rarity: rarity) }
+                }
+                .fixedSize()
+            }
+        }
         .sheet(item: $managing) { h in HoldingSheet(identity: h.identity) }
         .sheet(item: $selling) { h in SellSheet(holding: h) }
         .sheet(item: $editing) { t in EntryEditSheet(entry: t) }
@@ -103,15 +113,8 @@ struct ProductDetailView: View {
 
     private var titleBlock: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
-                Badge(text: product?.isSealed == true ? (product?.productType ?? "Sealed") : "Card", filled: true)
-                if let rarity = product?.rarity {
-                    RarityBadge(rarity: rarity)
-                }
-            }
             DisplayText(text: (product?.name ?? "Loading…").uppercased(), size: 34)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top, 12)
             Text([product?.setName, product?.number.map { "#\($0)" }, printing == "Normal" ? nil : printing].compactMap { $0 }.joined(separator: " · "))
                 .font(.geist(15)).foregroundStyle(Theme.muted)
                 .padding(.top, 6)
