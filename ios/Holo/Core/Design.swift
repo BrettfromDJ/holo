@@ -216,11 +216,59 @@ struct Button3D: ButtonStyle {
                         .fill(LinearGradient(colors: [.white.opacity(kind == .dark ? 0.06 : 0.16), .clear], startPoint: .top, endPoint: .center))
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .strokeBorder(LinearGradient(colors: [.white.opacity(kind == .dark ? 0.08 : 0.35), .clear], startPoint: .top, endPoint: .bottom), lineWidth: 1)
+                    Sheen(strength: kind == .dark ? 0.12 : 0.5)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
             )
             .offset(y: pressed ? 2 : -1)
+            .scaleEffect(pressed ? 0.97 : 1)
             .shadow(color: .black.opacity(0.5), radius: 9, y: 6)
-            .animation(.easeOut(duration: 0.12), value: pressed)
+            .modifier(ElectricGlow(color: fill, on: kind == .lime || kind == .blue || kind == .pink))
+            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: pressed)
+            .sensoryFeedback(.impact(weight: .light), trigger: pressed) { _, isDown in isDown }
+    }
+}
+
+/// A streak of light that sweeps across a button every few seconds.
+struct Sheen: View {
+    var strength: Double = 0.5
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        GeometryReader { geo in
+            if !reduceMotion {
+                LinearGradient(colors: [.clear, .white.opacity(strength), .clear], startPoint: .leading, endPoint: .trailing)
+                    .frame(width: max(36, geo.size.width * 0.22), height: geo.size.height * 2.2)
+                    .rotationEffect(.degrees(20))
+                    .position(x: 0, y: geo.size.height / 2)
+                    .keyframeAnimator(initialValue: -0.3, repeating: true) { content, x in
+                        content.offset(x: x * geo.size.width)
+                    } keyframes: { _ in
+                        KeyframeTrack(\.self) {
+                            LinearKeyframe(-0.3, duration: 2.8)
+                            CubicKeyframe(1.3, duration: 0.85)
+                        }
+                    }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// A slow breathing glow in a button's own color.
+struct ElectricGlow: ViewModifier {
+    var color: Color
+    var on = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        if on && !reduceMotion {
+            content.phaseAnimator([false, true]) { view, bright in
+                view.shadow(color: color.opacity(bright ? 0.6 : 0.18), radius: bright ? 18 : 7)
+            } animation: { _ in .easeInOut(duration: 1.7) }
+        } else {
+            content
+        }
     }
 }
 

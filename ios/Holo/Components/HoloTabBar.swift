@@ -32,13 +32,15 @@ struct HoloTabBar<Tab: Hashable>: View {
                     .frame(width: 64, height: 64)
                     .background(
                         ZStack {
+                            PulseRing()
                             Circle().fill(Color(hex: 0x7A9200)).offset(y: 4)
                             Circle().fill(Theme.lime)
                             Circle().fill(LinearGradient(colors: [.white.opacity(0.25), .clear], startPoint: .top, endPoint: .center))
+                            Sheen(strength: 0.6).clipShape(Circle())
                         }
                         .compositingGroup()
                     )
-                    .shadow(color: Theme.lime.opacity(0.45), radius: 14, y: 2)
+                    .modifier(ElectricGlow(color: Theme.lime))
             }
             .accessibilityLabel("Add")
             .offset(y: -18)
@@ -66,6 +68,27 @@ struct HoloTabBar<Tab: Hashable>: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// A lime ring that swells out from the + and fades, every couple of seconds.
+private struct PulseRing: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        if !reduceMotion {
+            Circle()
+                .strokeBorder(Theme.lime, lineWidth: 2)
+                .keyframeAnimator(initialValue: 0.0, repeating: true) { ring, t in
+                    ring.scaleEffect(1 + t * 0.55).opacity((1 - t) * 0.7)
+                } keyframes: { _ in
+                    KeyframeTrack(\.self) {
+                        CubicKeyframe(1, duration: 1.4)
+                        MoveKeyframe(0)
+                        LinearKeyframe(0, duration: 1.2)
+                    }
+                }
+        }
     }
 }
 
