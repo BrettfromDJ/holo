@@ -722,11 +722,11 @@ private struct DealRecordCard: View {
             }
             Spacer(minLength: 6)
             VStack(alignment: .trailing, spacing: 4) {
-                let (label, value) = headline
-                Text(value.map { Format.signedMoney($0) } ?? "—").font(.display(24)).monospacedDigit()
-                    .foregroundStyle(value.map { Theme.tone($0) } ?? Theme.muted).displayTrim(24)
+                let h = headline
+                Text(h.1.map { Format.signedMoney($0) } ?? "—").font(.display(24)).monospacedDigit()
+                    .foregroundStyle(h.1.map { Theme.tone($0) } ?? Theme.muted).displayTrim(24)
                     .lineLimit(1).minimumScaleFactor(0.7)
-                MonoLabel(text: label)
+                MonoLabel(text: h.0)
             }
             Image(systemName: "chevron.right").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.subtle)
         }
