@@ -43,10 +43,11 @@ struct GradedPricesPanel: View {
                 card { ProgressView().controlSize(.small).tint(Theme.muted).frame(maxWidth: .infinity).padding(.vertical, 20) }
             } else if values?.grades.isEmpty == false || nm != nil || ebay?.graded.isEmpty == false {
                 card {
-                    VStack(alignment: .leading, spacing: 18) {
-                        lookup
+                    VStack(alignment: .leading, spacing: 20) {
                         if let values, !values.grades.isEmpty { table(values, estimate: false) }
                         else if let est = estimated { table(est, estimate: true) }
+                        Rectangle().fill(Theme.border).frame(height: 1)
+                        lookup
                     }
                 }
             }
@@ -71,7 +72,7 @@ struct GradedPricesPanel: View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Graded prices").font(.geist(15, .semibold))
-                Text(values.map { "What it sells for graded · PriceCharting" + (relative($0.updatedAt).map { " · updated \($0)" } ?? "") } ?? "What it sells for graded")
+                Text(values.flatMap { $0.grades.isEmpty ? nil : "What it sells for graded · PriceCharting" + (relative($0.updatedAt).map { " · updated \($0)" } ?? "") } ?? "Estimated from the usual grade curve")
                     .font(.geist(12)).foregroundStyle(Theme.muted)
             }
             content().padding(.top, 14)
@@ -93,13 +94,12 @@ struct GradedPricesPanel: View {
                     if !WorthCalc.grades(for: c).contains(grade) { grade = "10" }
                 }))
             }
-            .scrollClipDisabled()
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 2) {
                     ForEach(WorthCalc.grades(for: company).reversed(), id: \.self) { g in
                         Button(g) { grade = g }
-                            .font(.geist(14, .semibold)).monospacedDigit()
-                            .frame(minWidth: 40, minHeight: 34)
+                            .font(.geist(13, .semibold)).monospacedDigit()
+                            .frame(minWidth: 34, minHeight: 30)
                             .background(grade == g ? Theme.lime : Color.clear, in: Capsule())
                             .foregroundStyle(grade == g ? Theme.ink : Theme.muted)
                     }
@@ -107,19 +107,18 @@ struct GradedPricesPanel: View {
                 .padding(3)
                 .liquidGlass(in: Capsule())
             }
-            .scrollClipDisabled()
-            HStack(alignment: .lastTextBaseline) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(r.price.map { Format.money($0) } ?? "—")
-                        .font(.display(40)).monospacedDigit().displayTrim(40)
-                        .contentTransition(.numericText())
-                        .animation(.snappy, value: r.price)
-                    Text(r.detail).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(2)
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("\(company) \(grade)").font(.geist(14, .semibold))
+                    Text(r.detail).font(.geist(12)).foregroundStyle(Theme.subtle).lineLimit(2)
                 }
                 Spacer(minLength: 8)
-                Text("\(company) \(grade)").font(.geist(15, .semibold))
+                Text(r.price.map { Format.money($0) } ?? "—")
+                    .font(.geist(17, .semibold)).monospacedDigit()
+                    .contentTransition(.numericText())
+                    .animation(.snappy, value: r.price)
             }
-            .padding(14)
+            .padding(.horizontal, 14).padding(.vertical, 12)
             .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.surface2))
         }
         .sensoryFeedback(.selection, trigger: "\(company)\(grade)")
@@ -139,7 +138,7 @@ struct GradedPricesPanel: View {
         }
         if let nm {
             return ((nm * WorthCalc.multiple(productId: productId, company: company, grade: grade) * 100).rounded() / 100,
-                    "Estimate · no recent sales, from the usual grade curve")
+                    "Estimate from the usual grade curve")
         }
         return (nil, "No sales or price guide for this grade yet")
     }
@@ -191,11 +190,10 @@ struct GradedPricesPanel: View {
                         .frame(minWidth: 86, alignment: .trailing)
                 }
                 .padding(.vertical, 11)
-                .padding(.horizontal, mine ? 10 : 0)
-                .background { if mine { RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.lime.opacity(0.1)) } }
+                .background { if mine { RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.lime.opacity(0.1)).padding(.horizontal, -10) } }
                 if i < shown.count - 1 { Divider().overlay(Theme.border) }
             }
-            Text(estimate ? "Estimates from the usual grade curve; no graded sales for this card yet." : "10s are per grading company; lower grades are for any company.")
+            Text(estimate ? "No graded sales for this card yet, so these follow the usual grade curve." : "10s are per grading company; lower grades are for any company.")
                 .font(.geist(12)).foregroundStyle(Theme.subtle).padding(.top, 10)
         }
     }
