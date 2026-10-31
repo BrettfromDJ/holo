@@ -426,7 +426,8 @@ struct ProductDetailView: View {
     private var entries: [Txn] { owned.flatMap { store.entries(for: $0.identity) }.sorted { $0.date > $1.date } }
 
     private var history: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        let entries = self.entries
+        return VStack(alignment: .leading, spacing: 0) {
             PageHeader(title: "Purchase history", size: 22).padding(.bottom, 16)
             ForEach(entries, id: \.id) { t in
                 HStack(spacing: 12) {

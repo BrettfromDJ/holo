@@ -11,7 +11,7 @@ final class CollectionStore {
     var status: Status = .idle
     var products: [String: Product] = [:]
     var prices: [String: Price] = [:]
-    var history: [String: [PricePoint]] = [:]
+    var history: [String: [PricePoint]] = [:] { didSet { seriesCache = [:] } }
     /// What you hold in the selected portfolio (everything when none is picked).
     var holdings: [HoldingView] = []
     /// Everything you hold, whatever portfolio is selected (deals use these).
@@ -30,7 +30,7 @@ final class CollectionStore {
     var monthlyBudget: Double?
 
     /// The full log, corrections included.
-    private(set) var transactions: [Txn] = []
+    private(set) var transactions: [Txn] = [] { didSet { clearCaches() } }
     private var holdingRows: [HoldingRow] = []
     private var manualValues: [String: ManualValue] = [:]
     private(set) var userId: String?
@@ -194,7 +194,30 @@ final class CollectionStore {
         return transactions.filter { holdingFilter($0.identity.key) }
     }
 
+    // Worked out once per change, not on every redraw (Home, the card page and Collection read
+    // these many times a second while scrolling or animating).
+    @ObservationIgnored private var effectiveCache: [Txn]?
+    @ObservationIgnored private var editedCache: Set<String>?
+    @ObservationIgnored private var seriesCache: [String: [TimelinePoint]] = [:]
+    @ObservationIgnored private var recentCache: [Int: [RecentPurchase]] = [:]
+
+    /// The log with corrections applied (cached).
+    var effectiveTransactions: [Txn] {
+        if let effectiveCache { return effectiveCache }
+        let e = Ledger.effective(transactions)
+        effectiveCache = e
+        return e
+    }
+
+    private func clearCaches() {
+        effectiveCache = nil
+        editedCache = nil
+        seriesCache = [:]
+        recentCache = [:]
+    }
+
     private func recompute(timelineNow: Bool = false) {
+        clearCaches()
         allHoldings = Portfolio.holdings(transactions: transactions, products: products, prices: prices, manualValues: manualValues, ebayGraded: ebayGraded, conditionShares: conditionShares)
         holdings = holdingFilter.map { f in allHoldings.filter { f($0.identity.key) } } ?? allHoldings
         let realized = Ledger(portfolioTransactions).positions.values.reduce(0) { $0 + $1.realizedGain }
@@ -206,11 +229,18 @@ final class CollectionStore {
         guard !timelinePending else { return }
         timelinePending = true
         Task { @MainActor in
-            // Long enough to catch the next write of a batch (they each wait on the network).
+            // Long enough to catch the next write of a batch (they each wait on the network, and
+            // loading brings prices, played-card prices and slab prices one after another).
             try? await Task.sleep(nanoseconds: 400_000_000)
             self.timelinePending = false
-            self.timeline = Timeline.compute(transactions: self.portfolioTransactions, prices: self.prices, history: self.history,
-                                             manualValues: self.manualValues, ebayGraded: self.ebayGraded, conditionShares: self.conditionShares, today: self.today)
+            // The day-by-day replay is the heavy part: do it off the main thread so scrolling
+            // and animations don't stutter while it runs.
+            let (txns, prices, history, manual, ebay, shares, today) = (self.portfolioTransactions, self.prices, self.history, self.manualValues, self.ebayGraded, self.conditionShares, self.today)
+            let result = await Task.detached(priority: .userInitiated) {
+                Timeline.compute(transactions: txns, prices: prices, history: history, manualValues: manual, ebayGraded: ebay, conditionShares: shares, today: today)
+            }.value
+            // A newer change may have started another rebuild; that one will land after this.
+            self.timeline = result
         }
     }
 
@@ -339,12 +369,16 @@ final class CollectionStore {
 
     /// One position's value per unit over the last `days` days (for sparklines).
     func series(_ identity: HoldingIdentity, days: Int = 90) -> [TimelinePoint] {
+        let key = "\(identity.key)#\(days)"
+        if let hit = seriesCache[key] { return hit }
         let today = Format.day()
         let start = Format.day(Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date())
-        return Timeline.days(from: start, to: today).compactMap { day in
+        let points = Timeline.days(from: start, to: today).compactMap { day in
             Timeline.price(identity, on: day, today: today, prices: prices, history: history, manual: manualValues, ebay: ebayGraded)
                 .map { TimelinePoint(date: day, value: $0, cost: 0) }
         }
+        seriesCache[key] = points
+        return points
     }
 
     /// Recent purchases, newest first, with what they're worth now.
@@ -358,8 +392,9 @@ final class CollectionStore {
     }
 
     func recentPurchases(_ limit: Int = 6) -> [RecentPurchase] {
+        if let hit = recentCache[limit] { return hit }
         let unit = Dictionary(holdings.map { ($0.identity.key, $0.price) }, uniquingKeysWith: { a, _ in a })
-        return Ledger.effective(transactions)
+        let list = effectiveTransactions
             .filter { $0.kind == .purchase }
             .sorted { $0.date != $1.date ? $0.date > $1.date : $0.createdAt > $1.createdAt }
             .prefix(limit)
@@ -367,6 +402,9 @@ final class CollectionStore {
                 let price = unit[t.identity.key] ?? nil
                 return RecentPurchase(entry: t, product: products[t.identity.productId], value: price.map { $0 * t.quantity })
             }
+        let result = Array(list)
+        recentCache[limit] = result
+        return result
     }
 
     /// Fills the store with the made-up demo collection (see DemoData), for screenshots.
@@ -454,7 +492,7 @@ final class CollectionStore {
     /// What you spent on purchases this calendar month.
     var spentThisMonth: Double {
         let month = String(Format.day().prefix(7))
-        return Ledger.effective(transactions).filter { $0.kind == .purchase && $0.date.hasPrefix(month) }.reduce(0) { $0 + $1.acquisitionCost }
+        return effectiveTransactions.filter { $0.kind == .purchase && $0.date.hasPrefix(month) }.reduce(0) { $0 + $1.acquisitionCost }
     }
 
     // MARK: Writing: release reminders
@@ -487,7 +525,7 @@ final class CollectionStore {
 
     /// One position's entries as they count now (edits applied, deleted ones gone), newest first.
     func entries(for identity: HoldingIdentity) -> [Txn] {
-        Array(Ledger.effective(transactions).filter { $0.identity.key == identity.key }.reversed())
+        Array(effectiveTransactions.filter { $0.identity.key == identity.key }.reversed())
     }
 
     func manualValue(_ identity: HoldingIdentity) -> ManualValue? { manualValues[identity.key] }
@@ -501,7 +539,10 @@ final class CollectionStore {
     }
 
     /// Whether an entry has been corrected since it was first recorded.
-    func wasEdited(_ t: Txn) -> Bool { transactions.contains { $0.kind == .correction && $0.correctsId == t.id } }
+    func wasEdited(_ t: Txn) -> Bool {
+        if editedCache == nil { editedCache = Set(transactions.compactMap { $0.kind == .correction ? $0.correctsId : nil }) }
+        return editedCache?.contains(t.id) == true
+    }
 
     func watch(for productId: String) -> WatchRow? { watchlist.first { $0.product_id == productId } }
     func wish(for productId: String) -> WishItem? { wishlist.first { $0.product.id == productId } }

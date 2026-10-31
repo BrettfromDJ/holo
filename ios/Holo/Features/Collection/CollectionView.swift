@@ -77,6 +77,8 @@ struct CollectionView: View {
                             empty
                         } else {
                             controls
+                            // Filtered and sorted once per redraw.
+                            let shown = self.shown
                             if shown.isEmpty {
                                 Text("Nothing matches.").font(.geist(15)).foregroundStyle(Theme.muted).padding(.vertical, 40).frame(maxWidth: .infinity)
                             } else if grid {

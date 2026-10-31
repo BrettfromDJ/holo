@@ -5,11 +5,8 @@ import SwiftUI
 /// Percentages are time-weighted: buying and selling never count as performance.
 struct AnalyticsView: View {
     @Environment(CollectionStore.self) private var store
-    @State private var range = Span.year
-    @State private var mode = Mode.value
     @State private var setSort = SetSort.value
     @State private var rankBy = RankBy.dollar
-    @State private var scrubbed: Date?
 
     enum Span: String, CaseIterable {
         case month = "1M", quarter = "3M", year = "1Y", all = "ALL"
@@ -50,7 +47,8 @@ struct AnalyticsView: View {
                     }
                 }
                 kpis(risk: risk, summary: s, holdings: holdings)
-                history(timeline).reveal()
+                // Its own view, so dragging across the chart redraws only the chart.
+                HistorySection(timeline: timeline).reveal()
                 CollectionMap(holdings: holdings).reveal()
                 MonthlyHeatmap(months: Analytics.monthlyReturns(timeline)).reveal()
                 ReturnVsTime(points: Analytics.returnVsTime(holdings, today: today)).reveal()
@@ -99,9 +97,107 @@ struct AnalyticsView: View {
         }
     }
 
-    // MARK: Portfolio history
+    // MARK: Investment activity
 
-    private func history(_ timeline: [TimelinePoint]) -> some View {
+    private var activity: some View {
+        let months = Array(Analytics.monthlyActivity(store.portfolioTransactions, today: today).suffix(12))
+        let biggest = months.max { $0.invested < $1.invested }
+        return VStack(alignment: .leading, spacing: 16) {
+            MoreHeading(title: "Investment activity", subtitle: "Money invested per month, incl. fees")
+            VStack(alignment: .leading, spacing: 12) {
+                if let biggest, biggest.invested > 0 {
+                    (Text("Biggest month: ").foregroundColor(Theme.muted)
+                     + Text(biggest.date.formatted(.dateTime.month(.wide).year())).foregroundColor(.white)
+                     + Text(" · ").foregroundColor(Theme.muted)
+                     + Text(Format.money(biggest.invested)).foregroundColor(.white))
+                        .font(.geist(13, .medium)).monospacedDigit()
+                }
+                GrowingBars(months: months, highlight: biggest?.month)
+            }
+            .surface(radius: 16, padding: 16)
+        }
+    }
+
+    // MARK: Sets
+
+    private func sets(_ holdings: [HoldingView]) -> some View {
+        let rows = setSort == .value ? Analytics.bySet(holdings) : Analytics.bySet(holdings).sorted { ($0.ret ?? -.infinity) > ($1.ret ?? -.infinity) }
+        let maxShare = max(rows.map(\.share).max() ?? 0, 0.0001)
+        return VStack(alignment: .leading, spacing: 16) {
+            MoreHeading(title: "Performance by set", subtitle: "Share of your value, and how each set has done")
+            ChipPicker(options: [(SetSort.value, "By value"), (.ret, "By return")], selection: $setSort)
+            VStack(spacing: 0) {
+                ForEach(Array(rows.enumerated()), id: \.element.id) { i, r in
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(alignment: .firstTextBaseline) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(r.name).font(.geist(14, .medium)).lineLimit(1)
+                                Text("\(r.holdings) holding\(r.holdings == 1 ? "" : "s") · \(percent(r.share, 0)) of value").font(.geist(12)).foregroundStyle(Theme.muted)
+                            }
+                            Spacer(minLength: 8)
+                            VStack(alignment: .trailing, spacing: 2) {
+                                Text(Format.money(r.value)).font(.geist(14, .semibold)).monospacedDigit()
+                                Text("\(Format.signedMoney(r.gain)) · \(Format.signedPercent(r.ret))").font(.geist(12)).monospacedDigit().foregroundStyle(Theme.tone(r.gain))
+                            }
+                        }
+                        GrowBar(fraction: r.share / maxShare, color: (r.ret ?? 0) < 0 ? Theme.planPink : Theme.planBlue, height: 6, delay: Double(min(i, 8)) * 0.05)
+                    }
+                    .padding(.vertical, 12)
+                    if r.id != rows.last?.id { Rectangle().fill(Theme.border).frame(height: 1) }
+                }
+            }
+            .surface(radius: 16, padding: 16)
+        }
+    }
+
+    // MARK: Best and worst
+
+    private func rank(_ heading: String, best: Bool, holdings: [HoldingView], empty: String) -> some View {
+        let key = { (h: HoldingView) in rankBy == .dollar ? (h.gain ?? 0) : (h.gainRatio ?? 0) }
+        let priced = holdings.filter { $0.gain != nil }
+        let items = best
+            ? Array(priced.filter { ($0.gain ?? 0) > 0 }.sorted { key($0) > key($1) }.prefix(5))
+            : Array(priced.filter { ($0.gain ?? 0) < 0 }.sorted { key($0) < key($1) }.prefix(5))
+        return VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .center) {
+                MoreHeading(title: heading, subtitle: nil)
+                ChipPicker(options: [(RankBy.dollar, "$"), (.percent, "%")], selection: $rankBy).fixedSize()
+            }
+            VStack(spacing: 0) {
+                if items.isEmpty {
+                    Text(empty).font(.geist(14)).foregroundStyle(Theme.muted).padding(.vertical, 8).frame(maxWidth: .infinity, alignment: .leading)
+                }
+                ForEach(Array(items.enumerated()), id: \.element.id) { i, h in
+                    NavigationLink(value: h.identity.productId) {
+                        HStack(spacing: 10) {
+                            Text(String(format: "%02d", i + 1)).font(.mono(12)).foregroundStyle(Theme.subtle).frame(width: 20)
+                            MiniRow(holding: h, trailing: rankBy == .dollar ? Format.signedMoney(h.gain) : Format.signedPercent(h.gainRatio), tint: Theme.tone(h.gain))
+                        }
+                        .padding(.vertical, 8)
+                    }
+                    .buttonStyle(.plain)
+                    .popIn(delay: Double(i) * 0.06)
+                }
+            }
+            .surface(radius: 16, padding: 14)
+        }
+    }
+}
+
+/// Portfolio history: value, return or drawdown over a range, with a finger to read any day.
+/// Holds its own range, mode and scrub position so the rest of Analytics doesn't redraw while
+/// you drag.
+private struct HistorySection: View {
+    var timeline: [TimelinePoint]
+    @State private var range = AnalyticsView.Span.year
+    @State private var mode = AnalyticsView.Mode.value
+    @State private var scrubbed: Date?
+
+    private typealias Span = AnalyticsView.Span
+    private typealias Mode = AnalyticsView.Mode
+
+
+    var body: some View {
         let slice: [TimelinePoint] = {
             guard let days = range.days, let start = Calendar.current.date(byAdding: .day, value: -days, to: Date()) else { return timeline }
             let from = Format.day(start)
@@ -213,91 +309,6 @@ struct AnalyticsView: View {
         .sensoryFeedback(.selection, trigger: shownIndex)
     }
 
-    // MARK: Investment activity
-
-    private var activity: some View {
-        let months = Array(Analytics.monthlyActivity(store.portfolioTransactions, today: today).suffix(12))
-        let biggest = months.max { $0.invested < $1.invested }
-        return VStack(alignment: .leading, spacing: 16) {
-            MoreHeading(title: "Investment activity", subtitle: "Money invested per month, incl. fees")
-            VStack(alignment: .leading, spacing: 12) {
-                if let biggest, biggest.invested > 0 {
-                    (Text("Biggest month: ").foregroundColor(Theme.muted)
-                     + Text(biggest.date.formatted(.dateTime.month(.wide).year())).foregroundColor(.white)
-                     + Text(" · ").foregroundColor(Theme.muted)
-                     + Text(Format.money(biggest.invested)).foregroundColor(.white))
-                        .font(.geist(13, .medium)).monospacedDigit()
-                }
-                GrowingBars(months: months, highlight: biggest?.month)
-            }
-            .surface(radius: 16, padding: 16)
-        }
-    }
-
-    // MARK: Sets
-
-    private func sets(_ holdings: [HoldingView]) -> some View {
-        let rows = setSort == .value ? Analytics.bySet(holdings) : Analytics.bySet(holdings).sorted { ($0.ret ?? -.infinity) > ($1.ret ?? -.infinity) }
-        let maxShare = max(rows.map(\.share).max() ?? 0, 0.0001)
-        return VStack(alignment: .leading, spacing: 16) {
-            MoreHeading(title: "Performance by set", subtitle: "Share of your value, and how each set has done")
-            ChipPicker(options: [(SetSort.value, "By value"), (.ret, "By return")], selection: $setSort)
-            VStack(spacing: 0) {
-                ForEach(Array(rows.enumerated()), id: \.element.id) { i, r in
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(alignment: .firstTextBaseline) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(r.name).font(.geist(14, .medium)).lineLimit(1)
-                                Text("\(r.holdings) holding\(r.holdings == 1 ? "" : "s") · \(percent(r.share, 0)) of value").font(.geist(12)).foregroundStyle(Theme.muted)
-                            }
-                            Spacer(minLength: 8)
-                            VStack(alignment: .trailing, spacing: 2) {
-                                Text(Format.money(r.value)).font(.geist(14, .semibold)).monospacedDigit()
-                                Text("\(Format.signedMoney(r.gain)) · \(Format.signedPercent(r.ret))").font(.geist(12)).monospacedDigit().foregroundStyle(Theme.tone(r.gain))
-                            }
-                        }
-                        GrowBar(fraction: r.share / maxShare, color: (r.ret ?? 0) < 0 ? Theme.planPink : Theme.planBlue, height: 6, delay: Double(min(i, 8)) * 0.05)
-                    }
-                    .padding(.vertical, 12)
-                    if r.id != rows.last?.id { Rectangle().fill(Theme.border).frame(height: 1) }
-                }
-            }
-            .surface(radius: 16, padding: 16)
-        }
-    }
-
-    // MARK: Best and worst
-
-    private func rank(_ heading: String, best: Bool, holdings: [HoldingView], empty: String) -> some View {
-        let key = { (h: HoldingView) in rankBy == .dollar ? (h.gain ?? 0) : (h.gainRatio ?? 0) }
-        let priced = holdings.filter { $0.gain != nil }
-        let items = best
-            ? Array(priced.filter { ($0.gain ?? 0) > 0 }.sorted { key($0) > key($1) }.prefix(5))
-            : Array(priced.filter { ($0.gain ?? 0) < 0 }.sorted { key($0) < key($1) }.prefix(5))
-        return VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .center) {
-                MoreHeading(title: heading, subtitle: nil)
-                ChipPicker(options: [(RankBy.dollar, "$"), (.percent, "%")], selection: $rankBy).fixedSize()
-            }
-            VStack(spacing: 0) {
-                if items.isEmpty {
-                    Text(empty).font(.geist(14)).foregroundStyle(Theme.muted).padding(.vertical, 8).frame(maxWidth: .infinity, alignment: .leading)
-                }
-                ForEach(Array(items.enumerated()), id: \.element.id) { i, h in
-                    NavigationLink(value: h.identity.productId) {
-                        HStack(spacing: 10) {
-                            Text(String(format: "%02d", i + 1)).font(.mono(12)).foregroundStyle(Theme.subtle).frame(width: 20)
-                            MiniRow(holding: h, trailing: rankBy == .dollar ? Format.signedMoney(h.gain) : Format.signedPercent(h.gainRatio), tint: Theme.tone(h.gain))
-                        }
-                        .padding(.vertical, 8)
-                    }
-                    .buttonStyle(.plain)
-                    .popIn(delay: Double(i) * 0.06)
-                }
-            }
-            .surface(radius: 16, padding: 14)
-        }
-    }
 }
 
 /// "12%" or "−3.4%", unsigned unless negative.

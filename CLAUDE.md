@@ -60,6 +60,9 @@ and say exactly what to run or click.
   ledger, timeline, deal math, worth, all ported from `src/lib`), `Store/` (collection store,
   demo data), `Data/` (models, Supabase and web API), `Features/` (one folder per screen).
 - The math is ported from the web; `HoloTests` checks it. Keep both in step.
+- Performance: `CollectionStore` caches the corrected log, sparklines and recent buys (cleared
+  when transactions change) and rebuilds the timeline off the main thread. Keep heavy math out of
+  `body`; give scrubbable charts their own view so dragging doesn't redraw the page.
 - Shared data with the website: `holdings`, `transactions` (edits are corrections: `corrects_id`,
   quantity 0 deletes), `watchlist_items`, `device_tokens`, `user_preferences.monthly_budget`, and
   `user_state` keys `wishlist`, `deal`, `deal-rates`, `deals`, `release-reminders`,

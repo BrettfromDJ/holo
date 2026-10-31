@@ -11,6 +11,8 @@ struct MasterSetsView: View {
     @State private var show = Show.all
     @State private var sort = Sort.number
     @State private var query = ""
+    /// The search as of a moment ago, so typing doesn't redraw the whole set on every key.
+    @State private var settledQuery = ""
     @FocusState private var searchFocused: Bool
 
     enum Show: String, CaseIterable { case all = "All", owned = "Owned", missing = "Missing" }
@@ -84,6 +86,11 @@ struct MasterSetsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .pageTitle("Master Sets")
         .task(id: sets.map(\.id).joined(separator: ",")) { await loadAll(sets) }
+        .task(id: query) {
+            if !query.isEmpty { try? await Task.sleep(nanoseconds: 250_000_000) }
+            guard !Task.isCancelled else { return }
+            settledQuery = query
+        }
     }
 
     // MARK: Loading
@@ -254,7 +261,7 @@ struct MasterSetsView: View {
     }
 
     private func shown(_ entries: [Entry]) -> [Entry] {
-        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+        let q = settledQuery.trimmingCharacters(in: .whitespaces).lowercased()
         let filtered = entries.filter { e in
             (show == .all || (show == .owned) == e.owned) &&
                 (q.isEmpty || e.hit.product.name.lowercased().contains(q) || (e.hit.product.number ?? "").lowercased().contains(q))
