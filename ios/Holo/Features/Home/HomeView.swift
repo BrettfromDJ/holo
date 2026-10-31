@@ -299,115 +299,6 @@ private struct Hero: View {
     }
 }
 
-/// The dark grid with lime and pink glows behind the hero.
-private struct HeroBackdrop: View {
-    var body: some View {
-        ZStack {
-            GridPattern()
-            RadialGradient(colors: [Theme.violet.opacity(0.22), .clear], center: UnitPoint(x: 0.3, y: 0.55), startRadius: 0, endRadius: 260)
-            RadialGradient(colors: [Theme.planPink.opacity(0.16), .clear], center: UnitPoint(x: 0.85, y: 0.3), startRadius: 0, endRadius: 220)
-        }
-        .mask(LinearGradient(colors: [.clear, .black, .black, .clear], startPoint: .top, endPoint: .bottom))
-    }
-}
-
-/// Up to five pieces fanned like a hand of cards, the most valuable in front, each bobbing
-/// gently out of step with the others, like the website's hero.
-private struct CardFan: View {
-    var holdings: [HoldingView]
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var onScreen = true
-
-    var body: some View {
-        // One clock drives every piece's bob, computed fresh each frame, so a picture that
-        // finishes loading mid-animation moves with its frame instead of lagging behind it
-        // (a looping withAnimation only animates what existed when it started).
-        TimelineView(.animation(minimumInterval: 1 / 30, paused: reduceMotion || !onScreen)) { context in
-            let t = context.date.timeIntervalSinceReferenceDate
-            fan(t: reduceMotion ? 0 : t)
-        }
-        // The clock stops while the fan is scrolled away or another tab is showing.
-        .onVisibilityChange { onScreen = $0 }
-    }
-
-    private func fan(t: Double) -> some View {
-        ZStack(alignment: .top) {
-            ForEach(Array(holdings.prefix(5).enumerated()).reversed(), id: \.element.id) { pair in
-                FanPiece(holding: pair.element, index: pair.offset, time: t)
-                    .zIndex(Double(10 - pair.offset))
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .top)
-    }
-}
-
-/// One piece of the hero fan at its slot, bobbing with the shared clock.
-private struct FanPiece: View {
-    var holding: HoldingView
-    var index: Int
-    var time: Double
-
-    /// The website's fan: sideways step (in card widths), tilt, drop, and scale per position.
-    private static let steps: [CGFloat] = [0, -1, 1, -2, 2]
-    private static let tilts: [Double] = [0, -9, 9, -17, 17]
-    private static let drops: [CGFloat] = [0, 18, 18, 46, 46]
-    private static let scales: [CGFloat] = [1, 0.86, 0.86, 0.74, 0.74]
-    private static let width: CGFloat = 126
-    private static let height: CGFloat = 176
-
-    /// Up 9pt and back every 5.5s, each piece 1.1s out of step.
-    private var bob: CGFloat {
-        guard time != 0 else { return 0 }
-        let phase: Double = (time + Double(index) * 1.1) / 5.5 * 2 * Double.pi
-        return CGFloat(-4.5 * (1 - cos(phase)))
-    }
-
-    private var isCard: Bool { holding.product?.isSealed == false && holding.product?.imageURL != nil && !holding.identity.isGraded }
-
-    private var art: some View {
-        HoldingArt(product: holding.product, identity: holding.identity, cornerRadius: 6, caption: index == 0)
-            .frame(width: Self.width, height: Self.height)
-            .shadow(color: .black.opacity(0.55), radius: 13, y: 18)
-    }
-
-    var body: some View {
-        let anchor = UnitPoint(x: 0.5, y: 0.9)
-        let x: CGFloat = Self.steps[index] * Self.width * 0.26
-        let y: CGFloat = Self.drops[index] + bob
-        NavigationLink(value: holding.identity.productId) {
-            if index == 0 {
-                art.tiltCard(12, foil: isCard, cornerRadius: 6)
-            } else {
-                art
-            }
-        }
-        .buttonStyle(.plain)
-        .scaleEffect(Self.scales[index], anchor: anchor)
-        .rotationEffect(.degrees(Self.tilts[index]), anchor: anchor)
-        .offset(x: x, y: y)
-    }
-}
-
-/// Stat pills that wrap onto a second line when they don't fit.
-private struct FlowPills: View {
-    var pills: [(String, String, Color, String?)]
-
-    var body: some View {
-        ViewThatFits {
-            HStack(spacing: 8) { ForEach(pills.indices, id: \.self) { pill(pills[$0]) } }
-            VStack(spacing: 8) {
-                HStack(spacing: 8) { ForEach(pills.indices.prefix(2), id: \.self) { pill(pills[$0]) } }
-                HStack(spacing: 8) { ForEach(pills.indices.dropFirst(2), id: \.self) { pill(pills[$0]) } }
-            }
-        }
-    }
-
-    private func pill(_ p: (String, String, Color, String?)) -> some View {
-        StatPill(label: p.0, value: p.1, tint: p.2, extra: p.3)
-    }
-}
-
 // MARK: - Performance
 
 private struct PerformanceSection: View {
@@ -453,58 +344,88 @@ private struct PerformanceSection: View {
 
     var body: some View {
         let first = points.first?.value ?? 0
-        let last = shown?.value ?? points.last?.value ?? 0
+        let end = points.last?.value ?? 0
+        let last = shown?.value ?? end
         let change = last - first
-        VStack(alignment: .leading, spacing: 12) {
+        // The card's color follows the whole range (not the scrubbed day), so it doesn't flip
+        // while you drag.
+        let palette: GlowPalette = (end - first) < 0 ? .down : .gold
+        let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
+        VStack(alignment: .leading, spacing: 14) {
             PageHeader(title: "Performance", size: 30)
-            Text(shown.map { "\($0.day.formatted(date: .abbreviated, time: .omitted)) · \(Format.money($0.value))" } ?? "Drag across the chart to see any day")
-                .font(.geist(15)).foregroundStyle(Theme.muted)
-            HStack(spacing: 6) {
-                Text(Format.signedMoney(change)).foregroundStyle(Theme.tone(change))
-                if first > 0 { Text("(\(Format.signedPercent(change / first)))").foregroundStyle(Theme.tone(change)) }
-                Text(range.phrase).foregroundStyle(Theme.muted)
-            }
-            .font(.geist(16, .medium)).monospacedDigit()
-            ChipPicker(options: Range.allCases.map { ($0, $0.rawValue) }, selection: $range)
-            if points.count > 1 {
-                let domain = ChartTicks.domain(points.map(\.value))
-                Chart {
-                    ForEach(points) { p in
-                        AreaMark(x: .value("Day", p.day), yStart: .value("Floor", domain.lowerBound), yEnd: .value("Value", p.value))
-                            .foregroundStyle(LinearGradient(colors: [Theme.lime.opacity(0.25), Theme.lime.opacity(0)], startPoint: .top, endPoint: .bottom))
-                            .interpolationMethod(.monotone)
-                        LineMark(x: .value("Day", p.day), y: .value("Value", p.value), series: .value("Line", "Value"))
-                            .foregroundStyle(Theme.lime)
-                            .lineStyle(StrokeStyle(lineWidth: 2.5))
-                            .interpolationMethod(.monotone)
+            VStack(alignment: .leading, spacing: 0) {
+                GlowLabel(text: shown.map { $0.day.formatted(date: .abbreviated, time: .omitted) } ?? range.phrase,
+                          secondary: shown == nil ? "Drag across the chart to see any day" : "Closing value")
+                Text(Format.money(last))
+                    .font(.geist(44)).tracking(-1.8).monospacedDigit()
+                    .lineLimit(1).minimumScaleFactor(0.5)
+                    .padding(.top, 14)
+                HStack(spacing: 8) {
+                    if first > 0 {
+                        GlowPill(text: (change < 0 ? "▼ " : "▲ ") + Format.signedPercent(abs(change / first)).replacingOccurrences(of: "+", with: ""))
                     }
-                    if let shown {
-                        RuleMark(x: .value("Day", shown.day)).foregroundStyle(.white.opacity(0.3))
-                        PointMark(x: .value("Day", shown.day), y: .value("Value", shown.value)).foregroundStyle(Theme.lime).symbolSize(70)
-                    }
+                    Text(Format.signedMoney(change)).font(.geist(13, .medium)).monospacedDigit()
                 }
-                .chartXAxis(.hidden)
-                .insideYAxis()
-                .chartYScale(domain: domain)
-                .chartXSelection(value: $scrubbed)
-                .frame(height: 230)
-                .drawIn(replay: range)
-                // A light tick for each day you scrub across; a firmer one on the range's high and low.
-                .sensoryFeedback(trigger: shown?.date) { _, new in
-                    guard let new, let point = points.first(where: { $0.date == new }) else { return nil }
+                .padding(.top, 10)
+                if points.count > 1 {
                     let values = points.map(\.value)
-                    if point.value == values.max() || point.value == values.min() { return .impact(weight: .medium, intensity: 0.9) }
-                    return .selection
+                    let domain = ChartTicks.domain(values)
+                    Chart {
+                        ForEach(points) { p in
+                            AreaMark(x: .value("Day", p.day), yStart: .value("Floor", domain.lowerBound), yEnd: .value("Value", p.value))
+                                .foregroundStyle(LinearGradient(colors: [Color.white.opacity(0.28), Color.white.opacity(0)], startPoint: .top, endPoint: .bottom))
+                                .interpolationMethod(.monotone)
+                            LineMark(x: .value("Day", p.day), y: .value("Value", p.value), series: .value("Line", "Value"))
+                                .foregroundStyle(Color.white)
+                                .lineStyle(StrokeStyle(lineWidth: 2))
+                                .interpolationMethod(.monotone)
+                        }
+                        if let shown {
+                            RuleMark(x: .value("Day", shown.day))
+                                .foregroundStyle(Color.white.opacity(0.6))
+                                .lineStyle(StrokeStyle(lineWidth: 1, dash: [1.5, 4]))
+                            PointMark(x: .value("Day", shown.day), y: .value("Value", shown.value))
+                                .foregroundStyle(Color(hex: 0xFFF36A))
+                                .symbolSize(70)
+                        }
+                    }
+                    .chartXAxis(.hidden)
+                    .chartYAxis(.hidden)
+                    .chartYScale(domain: domain)
+                    .chartXSelection(value: $scrubbed)
+                    .frame(height: 190)
+                    .drawIn(replay: range)
+                    // A light tick for each day you scrub across; a firmer one on the range's high and low.
+                    .sensoryFeedback(trigger: shown?.date) { _, new in
+                        guard let new, let point = points.first(where: { $0.date == new }) else { return nil }
+                        if point.value == values.max() || point.value == values.min() { return .impact(weight: .medium, intensity: 0.9) }
+                        return .selection
+                    }
+                    .padding(.top, 18)
+                    HStack {
+                        Text("LOW \(Format.moneyWhole(values.min()))")
+                        Spacer()
+                        Text("HIGH \(Format.moneyWhole(values.max()))")
+                    }
+                    .font(.mono(10)).tracking(1.2).opacity(0.7)
+                    .padding(.top, 8)
                 }
-                if let end = points.last {
-                    Text("Daily closing values · \(Format.money(end.value)) on \(end.day.formatted(date: .abbreviated, time: .omitted))")
-                        .font(.geist(12)).foregroundStyle(Theme.muted)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                }
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .foregroundStyle(palette.ink)
+            // Equatable, so scrubbing (which redraws this view) never redraws the light.
+            .background { HomeStaticGlow(palette: palette).equatable() }
+            .clipShape(shape)
+            .overlay(shape.strokeBorder(.white.opacity(0.08)))
+            ChipPicker(options: Range.allCases.map { ($0, $0.rawValue) }, selection: $range)
+            if let end = points.last, points.count > 1 {
+                Text("Daily closing values · \(Format.money(end.value)) on \(end.day.formatted(date: .abbreviated, time: .omitted))")
+                    .font(.geist(12)).foregroundStyle(Theme.muted)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
     }
-
 }
 
 // MARK: - Metric cards
@@ -515,25 +436,26 @@ private struct MetricGrid: View {
 
     var body: some View {
         let s = store.summary
-        VStack(spacing: 12) {
-            HStack(spacing: 12) {
-                MetricCard(label: "Invested", amount: s.totalCost, format: { Format.money($0) }, valueTint: .white, sub: "incl. fees & shipping", tint: Theme.azure)
+        let whole: (Double) -> String = { GlowFigure.text($0, signed: true, cents: false) }
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                MetricCard(label: "Invested", amount: s.totalCost, format: { Format.moneyWhole($0) }, sub: "incl. fees & shipping", palette: .sky)
                 NavigationLink(value: MorePage.gains) {
-                    MetricCard(label: "Unrealized", amount: s.gain, format: { Format.signedMoney($0) }, valueTint: Theme.tone(s.gain), sub: "breakdown →",
-                               tint: s.gain >= 0 ? Theme.lime : Theme.planPink,
-                               tag: s.gainRatio.map { (pct($0, decimals: 0), s.gain >= 0 ? Theme.lime : Theme.planPink, s.gain >= 0 ? Theme.ink : .white) })
+                    MetricCard(label: "Unrealized", amount: s.gain, format: whole, sub: "Breakdown →",
+                               palette: .homeToned(s.gain, up: .gold, down: .down),
+                               tag: s.gainRatio.map { pct($0, decimals: 0) })
                 }
                 .buttonStyle(.plain)
             }
-            HStack(spacing: 12) {
-                MetricCard(label: "Today", amount: s.dayChange, format: { Format.signedMoney($0) }, valueTint: Theme.tone(s.dayChange), sub: nil,
-                           tint: s.dayChange >= 0 ? Theme.lime : Theme.planPink,
-                           tag: s.dayRatio.map { (pct($0, decimals: 2), s.dayChange >= 0 ? Theme.lime : Theme.planPink, s.dayChange >= 0 ? Theme.ink : .white) })
+            HStack(spacing: 10) {
+                MetricCard(label: "Today", amount: s.dayChange, format: whole, sub: "since yesterday's close",
+                           palette: .homeToned(s.dayChange, up: .citrus, down: .rose),
+                           tag: s.dayRatio.map { pct($0, decimals: 2) })
                 Button {
                     Router.shared.tabRequest = "collection"
                 } label: {
-                    MetricCard(label: "Collection", amount: s.items, format: { "\(Int($0.rounded())) items" }, valueTint: .white, sub: "\(store.holdings.count) products",
-                               tint: Theme.planBlue, tag: ("\(store.holdings.count) SKUs", Theme.planBlue, .white))
+                    MetricCard(label: "Collection", amount: s.items, format: { "\(Int($0.rounded())) items" }, sub: "\(store.holdings.count) products",
+                               palette: .lilac)
                 }
                 .buttonStyle(.plain)
             }
@@ -549,52 +471,39 @@ private struct MetricGrid: View {
     }
 }
 
-/// The website's metric card: an Anton label with its slanted tag on the right, the figure in
-/// Anton, a note under it, on the dark surface with a faint colored top edge.
+/// A Lucent glow tile: the mono label (with a pill on the right), the figure counting up in thin
+/// Geist, and a short note under it. Every tile is the same height so the grid lines up.
 private struct MetricCard: View {
     var label: String
     /// The figure, counted up when the card appears.
     var amount: Double
     var format: (Double) -> String
-    var valueTint: Color
     var sub: String?
-    var tint: Color
-    var tag: (String, Color, Color)?
+    var palette: GlowPalette
+    var tag: String? = nil
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .center, spacing: 8) {
-                Text(label.uppercased()).font(.display(15)).tracking(0.3).foregroundStyle(.white.opacity(0.85))
-                    .lineLimit(1).minimumScaleFactor(0.8).displayTrim(15)
-                Spacer(minLength: 4)
-                if let tag { SkewTag(text: tag.0, color: tag.1, textColor: tag.2) }
+        GlowCard(palette: palette, radius: 26, padding: 16) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .top, spacing: 6) {
+                    GlowLabel(text: label).lineLimit(1)
+                    Spacer(minLength: 4)
+                    if let tag { GlowPill(text: tag) }
+                }
+                Spacer(minLength: 14)
+                CountingText(value: amount, format: format)
+                    .font(.geist(30)).tracking(-1.2).monospacedDigit()
+                    .lineLimit(1).minimumScaleFactor(0.55)
+                Text(sub ?? " ").font(.geist(12)).opacity(0.75).lineLimit(1).padding(.top, 4)
             }
-            // The same header height with or without a tag, so every card lines up.
-            .frame(height: 24)
-            CountingText(value: amount, format: format).font(.display(28)).monospacedDigit().foregroundStyle(valueTint)
-                .lineLimit(1).minimumScaleFactor(0.6).displayTrim(28)
-                .flashOnAppear(valueTint == .white ? .clear : valueTint)
-                .padding(.top, 16)
-            // Always room for the line underneath, so cards without one are the same size.
-            Text(sub ?? " ").font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1).padding(.top, 8)
+            .frame(height: 112, alignment: .topLeading)
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 16)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-        .frame(height: 128, alignment: .top)
-        .background(
-            ZStack {
-                shape.fill(Theme.surface)
-                shape.fill(LinearGradient(colors: [.white.opacity(0.035), .clear], startPoint: .top, endPoint: UnitPoint(x: 0.5, y: 0.45)))
-            }
-        )
-        .overlay(shape.strokeBorder(LinearGradient(colors: [tint.opacity(0.35), .clear], startPoint: .top, endPoint: UnitPoint(x: 0.5, y: 0.2)), lineWidth: 1))
-        .contentShape(shape)
+        .contentShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
     }
 }
 
-/// Spent this month against an optional monthly budget, with a bar, like the website.
+/// Spent this month against an optional monthly budget, on a glow card: indigo while you're
+/// fine, flame when you're close, pink when you're over. The tick bar shows how much is used.
 private struct BudgetCard: View {
     var store: CollectionStore
     @State private var editing = false
@@ -608,53 +517,40 @@ private struct BudgetCard: View {
         let used = budget.flatMap { $0 > 0 ? spent / $0 : nil }
         let over = (remaining ?? 0) < 0
         let near = !over && (used ?? 0) >= 0.85
-        let tone = over ? Theme.down : near ? Color(hex: 0xF5B544) : Color.white
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                Image(systemName: "wallet.bifold").font(.system(size: 15)).foregroundStyle(Theme.muted)
-                    .frame(width: 36, height: 36).background(RoundedRectangle(cornerRadius: 12).fill(Theme.surface2))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Spent in \(Date().formatted(.dateTime.month(.wide)))").font(.geist(12, .medium)).foregroundStyle(Theme.muted)
-                    HStack(spacing: 4) {
-                        Text(Format.money(spent)).font(.geist(15, .semibold))
-                        if let budget { Text("of \(Format.money(budget))").font(.geist(15)).foregroundStyle(Theme.muted) }
+        let palette: GlowPalette = over ? .down : near ? .flame : .indigo
+        GlowCard(palette: palette, radius: 26, padding: 18) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .top, spacing: 8) {
+                    GlowLabel(text: "Spent in \(Date().formatted(.dateTime.month(.wide)))",
+                              secondary: budget.map { "of \(Format.moneyWhole($0)) budget" } ?? "No monthly budget yet")
+                    Spacer(minLength: 8)
+                    // Edit sits in the card's top-right corner.
+                    Button {
+                        draft = budget.map { String(format: "%.0f", $0) } ?? ""
+                        editing = true
+                    } label: {
+                        if budget != nil { Label("Edit", systemImage: "pencil") } else { Text("Set budget") }
                     }
-                    .monospacedDigit().lineLimit(1).minimumScaleFactor(0.8)
+                    .buttonStyle(HomeGlowButton())
                 }
-                Spacer(minLength: 8)
-                // Edit sits in the card's top-right corner.
-                Button {
-                    draft = budget.map { String(format: "%.0f", $0) } ?? ""
-                    editing = true
-                } label: {
-                    if budget != nil { Label("Edit", systemImage: "pencil") } else { Text("Set budget") }
+                GlowFigure(value: spent, size: 40).padding(.top, 18)
+                if let remaining {
+                    Text(over ? "\(Format.money(abs(remaining))) over budget" : "\(Format.money(remaining)) left")
+                        .font(.geist(13, .medium)).monospacedDigit().opacity(0.85)
+                        .padding(.top, 4)
                 }
-                .buttonStyle(Button3D(kind: .dark, fullWidth: false, height: 34))
+                if let used {
+                    GlowTicks(fraction: min(used, 1)).frame(height: 22).padding(.top, 16)
+                    let projected = projection(spent)
+                    if !over, spent > 0, let budget, projected > budget {
+                        Text("At this pace you'll spend about \(Format.money(projected)) this month.")
+                            .font(.geist(12)).opacity(0.75)
+                            .padding(.top, 10)
+                    }
+                }
+                if let error { Text(error).font(.geist(12)).padding(.top, 10) }
             }
-            if let remaining {
-                (Text(Format.money(abs(remaining))).fontWeight(.medium).foregroundStyle(tone)
-                    + Text(over ? " over budget" : " left").foregroundStyle(Theme.muted))
-                    .font(.geist(13)).monospacedDigit()
-            }
-            if let used {
-                GeometryReader { geo in
-                    Capsule().fill(Theme.surface2)
-                        .overlay(alignment: .leading) {
-                            Capsule().fill(tone).frame(width: geo.size.width * min(1, used))
-                        }
-                }
-                .frame(height: 6)
-                let projected = projection(spent)
-                if !over, spent > 0, let budget, projected > budget {
-                    Text("At this pace you'll spend about \(Format.money(projected)) this month.").font(.geist(12)).foregroundStyle(Theme.subtle)
-                }
-            }
-            if let error { Text(error).font(.geist(12)).foregroundStyle(Theme.down) }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .surface(radius: 22, padding: nil)
         .alert("Monthly budget", isPresented: $editing) {
             TextField("500", text: $draft).keyboardType(.decimalPad)
             Button("Save") { save(Double(draft.filter { "0123456789.".contains($0) })) }
@@ -727,7 +623,8 @@ private struct PriceFreshness: View {
 
 // MARK: - Spotlight
 
-/// The star (biggest gain) in a neon frame, the biggest move today, and the one most below what you paid.
+/// The star (biggest gain) on a glow card in its own colors, the biggest move today, and the one
+/// most below what you paid.
 private struct Spotlight: View {
     var store: CollectionStore
 
@@ -736,17 +633,18 @@ private struct Spotlight: View {
         let star = holdings.filter { ($0.gain ?? 0) > 0 }.max { ($0.gain ?? 0) < ($1.gain ?? 0) }
         let mover = holdings.filter { ($0.dayChange ?? 0) != 0 && $0.id != star?.id }.max { abs($0.dayChange ?? 0) < abs($1.dayChange ?? 0) }
         let laggard = holdings.filter { ($0.gainRatio ?? 0) < 0 }.min { ($0.gainRatio ?? 0) < ($1.gainRatio ?? 0) }
-        VStack(spacing: 14) {
+        VStack(spacing: 10) {
             if let star { StarCard(holding: star, series: store.series(star.identity)) }
             if let mover {
-                // The card takes the move's color: lime up, pink down, never red on lime.
-                MiniTile(holding: mover, tag: "Biggest move today", icon: "flame.fill", color: (mover.dayChange ?? 0) < 0 ? Theme.planPink : Theme.lime, value: mover.dayChange,
-                         line: Text(Format.signedPercent((mover.change24hPct ?? 0) / 100)).foregroundStyle(Theme.tone(mover.dayChange)) + Text(" today").foregroundStyle(Theme.muted),
+                // The card takes the move's direction: aqua up, pink-orange down.
+                MiniTile(holding: mover, tag: "Biggest move today", icon: "flame.fill",
+                         palette: .homeToned(mover.dayChange, up: .aqua, down: .down), value: mover.dayChange,
+                         line: "\(Format.signedPercent((mover.change24hPct ?? 0) / 100)) today",
                          series: store.series(mover.identity, days: 30))
             }
             if let laggard {
-                MiniTile(holding: laggard, tag: "Below what you paid", icon: "arrow.down.right", color: Theme.planPink, value: laggard.gain,
-                         line: Text(Format.signedPercent(laggard.gainRatio)).foregroundStyle(Theme.down) + Text(" vs what you paid").foregroundStyle(Theme.muted),
+                MiniTile(holding: laggard, tag: "Below what you paid", icon: "arrow.down.right", palette: .rose, value: laggard.gain,
+                         line: "\(Format.signedPercent(laggard.gainRatio)) vs what you paid",
                          series: store.series(laggard.identity, days: 30), baseline: laggard.avgCost)
             }
         }
@@ -766,72 +664,56 @@ private struct StarCard: View {
 
     var body: some View {
         NavigationLink(value: holding.identity.productId) {
-            VStack(alignment: .leading, spacing: 0) {
-                // The website's stage: the piece centered, a soft floor shadow, a floating % chip.
-                HoldingArt(product: holding.product, identity: holding.identity, cornerRadius: 12)
-                    .frame(width: artSize.width, height: artSize.height)
-                    .tiltCard(14, foil: holding.product?.isSealed == false && !holding.identity.isGraded, cornerRadius: 12)
-                    .background(alignment: .bottom) {
-                        Ellipse().fill(.black.opacity(0.6)).frame(width: artSize.width * 0.76, height: 30).blur(radius: 14).offset(y: 16)
-                    }
-                    .overlay(alignment: .topTrailing) {
-                        if let r = holding.gainRatio {
-                            Text(Format.signedPercent(r).replacingOccurrences(of: #"\.\d+%"#, with: "%", options: .regularExpression))
-                                .font(.display(15)).foregroundStyle(Theme.ink)
-                                .padding(.horizontal, 12).padding(.vertical, 6)
-                                .background(Capsule().fill(Theme.holo))
-                                .shadow(color: Theme.holoGlow.opacity(0.6), radius: 12, y: 6)
-                                .offset(x: 16, y: artSize.height * 0.08)
+            GlowCard(palette: .forProduct(holding.identity.productId), radius: 28, padding: 20) {
+                VStack(alignment: .leading, spacing: 0) {
+                    GlowLabel(text: "Star of the collection", secondary: "Your biggest gain")
+                    // The piece centered, a soft floor shadow, a floating % pill.
+                    HoldingArt(product: holding.product, identity: holding.identity, cornerRadius: 12)
+                        .frame(width: artSize.width, height: artSize.height)
+                        .tiltCard(14, foil: holding.product?.isSealed == false && !holding.identity.isGraded, cornerRadius: 12)
+                        .background(alignment: .bottom) {
+                            Ellipse().fill(.black.opacity(0.45)).frame(width: artSize.width * 0.76, height: 30).blur(radius: 14).offset(y: 16)
                         }
+                        .overlay(alignment: .topTrailing) {
+                            if let r = holding.gainRatio {
+                                GlowPill(text: "▲ " + Format.signedPercent(abs(r)).replacingOccurrences(of: "+", with: "").replacingOccurrences(of: #"\.\d+%"#, with: "%", options: .regularExpression))
+                                    .offset(x: 16, y: artSize.height * 0.08)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 24)
+                    Text(holding.product?.name ?? "").font(.geist(22, .semibold)).lineLimit(2)
+                        .padding(.top, 30)
+                    Text([holding.product?.setName, holding.label].compactMap { $0 }.joined(separator: " · "))
+                        .font(.geist(13)).opacity(0.75).lineLimit(1)
+                        .padding(.top, 4)
+                    GlowFigure(value: holding.gain ?? 0, size: 52, signed: true, cents: false)
+                        .padding(.top, 18)
+                    HStack(spacing: 8) {
+                        stat("Paid", Format.money(holding.costBasis))
+                        stat("Worth", Format.money(holding.value))
+                        stat("Return", Format.signedPercent(holding.gainRatio))
                     }
-                    .frame(maxWidth: .infinity)
-                SkewTag(text: "Star of the collection", icon: "sparkles").padding(.top, 28)
-                DisplayText(text: (holding.product?.name ?? "").uppercased(), size: 30)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.top, 16)
-                Text([holding.product?.setName, holding.label].compactMap { $0 }.joined(separator: " · "))
-                    .font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
-                    .padding(.top, 8)
-                CountingText(value: holding.gain ?? 0, format: { Format.signedMoney($0) }).font(.display(40)).monospacedDigit().foregroundStyle(Theme.holo)
-                    .displayTrim(40)
-                    .padding(.top, 24)
-                HStack(spacing: 8) {
-                    stat("Paid", Format.money(holding.costBasis), .white)
-                    stat("Worth", Format.money(holding.value), .white)
-                    stat("Return", Format.signedPercent(holding.gainRatio), Theme.tone(holding.gainRatio))
-                }
-                .padding(.top, 24)
-                if series.count > 1 {
-                    Sparkline(points: series, color: Theme.lime).frame(height: 52).padding(.top, 24)
-                    Text("LAST 90 DAYS").font(.mono(10)).tracking(0.6).foregroundStyle(Theme.subtle).padding(.top, 4)
+                    .padding(.top, 18)
+                    if series.count > 1 {
+                        Sparkline(points: series, color: .white).frame(height: 52).padding(.top, 20)
+                        Text("LAST 90 DAYS").font(.mono(10)).tracking(1.2).opacity(0.7).padding(.top, 6)
+                    }
                 }
             }
-            .padding(20)
-            .background(
-                ZStack {
-                    RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color(hex: 0x050505))
-                    GridPattern(step: 28, opacity: 0.06)
-                        .mask(RadialGradient(colors: [.black, .black.opacity(0.25)], center: .top, startRadius: 0, endRadius: 520))
-                    RadialGradient(colors: [Theme.violet.opacity(0.16), .clear], center: UnitPoint(x: 0.5, y: 0.25), startRadius: 0, endRadius: 320)
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            )
-            .overlay(ElectricBorder(radius: 24))
-            .shadow(color: Theme.holoGlow.opacity(0.25), radius: 22)
         }
         .buttonStyle(.plain)
     }
 
-    private func stat(_ label: String, _ value: String, _ tint: Color) -> some View {
+    private func stat(_ label: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(label.uppercased()).font(.mono(10, .medium)).tracking(0.6).foregroundStyle(Theme.subtle)
-            Text(value).font(.geist(14, .semibold)).monospacedDigit().foregroundStyle(tint).lineLimit(1).minimumScaleFactor(0.7)
+            Text(label.uppercased()).font(.mono(10)).tracking(1.2).opacity(0.7)
+            Text(value).font(.geist(14, .semibold)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Theme.background.opacity(0.4)))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.white.opacity(0.06)))
+        .background(.black.opacity(0.22), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 
@@ -839,31 +721,38 @@ private struct MiniTile: View {
     var holding: HoldingView
     var tag: String
     var icon: String
-    var color: Color
+    var palette: GlowPalette
     var value: Double?
-    var line: Text
+    var line: String
     var series: [TimelinePoint]
     var baseline: Double?
 
     var body: some View {
         NavigationLink(value: holding.identity.productId) {
-            VStack(alignment: .leading, spacing: 14) {
-                SkewTag(text: tag, color: color, textColor: color == Theme.lime ? Theme.ink : .white, icon: icon)
-                HStack(spacing: 14) {
-                    HoldingArt(product: holding.product, identity: holding.identity, cornerRadius: 8, caption: false)
-                        .frame(width: 64, height: 80)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(holding.product?.name ?? "").font(.geist(16, .medium)).lineLimit(1).foregroundStyle(.white)
-                        Text(Format.signedMoney(value)).font(.display(28)).monospacedDigit().foregroundStyle(Theme.tone(value))
-                        line.font(.geist(13, .medium)).monospacedDigit()
+            GlowCard(palette: palette, radius: 26, padding: 16) {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(alignment: .top) {
+                        GlowLabel(text: tag)
+                        Spacer(minLength: 8)
+                        Image(systemName: icon).font(.system(size: 13, weight: .semibold)).opacity(0.85)
                     }
-                    Spacer(minLength: 0)
-                }
-                if series.count > 1 {
-                    Sparkline(points: series, color: color == Theme.lime ? Theme.lime : Theme.down, baseline: baseline).frame(height: 34)
+                    HStack(spacing: 14) {
+                        HoldingArt(product: holding.product, identity: holding.identity, cornerRadius: 8, caption: false)
+                            .frame(width: 64, height: 80)
+                            .shadow(color: .black.opacity(0.35), radius: 8, y: 4)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(holding.product?.name ?? "").font(.geist(16, .medium)).lineLimit(1)
+                            Text(Format.signedMoney(value)).font(.geist(30)).tracking(-1.2).monospacedDigit()
+                                .lineLimit(1).minimumScaleFactor(0.6)
+                            Text(line).font(.geist(13, .medium)).monospacedDigit().opacity(0.8)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    if series.count > 1 {
+                        Sparkline(points: series, color: .white, baseline: baseline).frame(height: 34)
+                    }
                 }
             }
-            .tinted(color)
         }
         .buttonStyle(.plain)
     }
@@ -1060,54 +949,70 @@ private struct CategoryCard: View {
     var items: [HoldingView]
     var total: Double
 
+    /// Each kind gets its own light, so the three cards read as different things.
+    private var palette: GlowPalette {
+        switch category {
+        case .sealed: return .ocean
+        case .singles: return .flame
+        case .graded: return .citrus
+        }
+    }
+
     var body: some View {
         let value = items.reduce(0) { $0 + ($1.value ?? 0) }
         let cost = items.filter { $0.value != nil }.reduce(0) { $0 + $1.costBasis }
         let best = items.filter { $0.gainRatio != nil }.max { ($0.gainRatio ?? 0) < ($1.gainRatio ?? 0) }
         let count = items.reduce(0) { $0 + $1.quantity }
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                Text(category.rawValue.uppercased()).font(.display(34)).displayTrim(34)
-                SkewTag(text: "\(Int((value / total * 100).rounded()))% of value", color: category.color, textColor: category == .graded ? Theme.ink : .white)
-            }
-            Text(category.blurb).font(.geist(14)).foregroundStyle(Theme.muted)
-            VStack(alignment: .leading, spacing: 10) {
+        let share = value / total
+        GlowCard(palette: palette, radius: 28, padding: 18) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .top, spacing: 8) {
+                    GlowLabel(text: category.rawValue, secondary: "\(items.count) products · \(Int(count)) items")
+                    Spacer(minLength: 8)
+                    GlowRing(fraction: share, label: "\(Int((share * 100).rounded()))%")
+                        .frame(width: 72, height: 72)
+                }
+                Text(category.blurb).font(.geist(14)).opacity(0.8).padding(.top, 8)
                 HStack(spacing: -24) {
                     ForEach(Array(items.prefix(3).enumerated()), id: \.element.id) { i, h in
                         HoldingArt(product: h.product, identity: h.identity, cornerRadius: 3, caption: false)
                             .frame(width: 70, height: 96)
+                            .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
                             .rotationEffect(.degrees(Double(i - 1) * 8))
                             .zIndex(i == 1 ? 1 : 0)
                     }
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
-                Label("\(items.count) products, \(Int(count)) items", systemImage: "equal").font(.geist(13)).foregroundStyle(Theme.muted)
+                .padding(.vertical, 20)
+                GlowFigure(value: value, size: 48, cents: false)
+                HStack(spacing: 8) {
+                    GlowPill(text: Format.signedMoney(value - cost))
+                    Text("on what you paid").font(.geist(13)).opacity(0.8)
+                }
+                .padding(.top, 8)
                 if let best {
                     HStack(spacing: 6) {
                         Image(systemName: "chart.line.uptrend.xyaxis").font(.caption2)
                         Text("Best: \(best.product?.name ?? "")").lineLimit(1)
-                        Text(Format.signedPercent(best.gainRatio)).foregroundStyle(Theme.tone(best.gainRatio)).fontWeight(.semibold)
+                        Text(Format.signedPercent(best.gainRatio)).fontWeight(.semibold)
                     }
-                    .font(.geist(13)).foregroundStyle(Theme.muted)
+                    .font(.geist(13)).opacity(0.85)
+                    .padding(.top, 14)
                 }
+                Button {
+                    Router.shared.collectionCategory = category
+                    Router.shared.tabRequest = "collection"
+                } label: {
+                    HStack {
+                        Text("View \(category.rawValue.lowercased())")
+                        Spacer()
+                        Image(systemName: "arrow.right")
+                    }
+                }
+                .buttonStyle(HomeGlowButton(height: 44))
+                .padding(.top, 18)
             }
-            .padding(14)
-            .background(RoundedRectangle(cornerRadius: 16).fill(Theme.background.opacity(0.55)))
-            Text(Format.money(value)).font(.display(44)).monospacedDigit()
-            Button {
-                Router.shared.collectionCategory = category
-                Router.shared.tabRequest = "collection"
-            } label: { HStack { Text("View \(category.rawValue.lowercased())"); Image(systemName: "arrow.right") } }
-                .buttonStyle(Button3D(kind: category.button))
-            HStack(spacing: 4) {
-                Text(Format.signedMoney(value - cost)).foregroundStyle(Theme.tone(value - cost)).fontWeight(.semibold)
-                Text("on what you paid").foregroundStyle(Theme.muted)
-            }
-            .font(.geist(14)).monospacedDigit()
-            .frame(maxWidth: .infinity)
         }
-        .tinted(category.color)
     }
 }
 
@@ -1139,37 +1044,46 @@ private struct MoversSection: View {
                 Spacer()
                 ChipPicker(options: Period.allCases.map { ($0, $0.rawValue) }, selection: $period).scaleEffect(0.86, anchor: .trailing)
             }
-            group("Gainers", up, tag: Theme.lime, all: $allUp)
-            group("Losers", down, tag: Theme.planPink, all: $allDown)
+            group("Gainers", up, isUp: true, all: $allUp)
+            group("Losers", down, isUp: false, all: $allDown)
         }
     }
 
-    @ViewBuilder private func group(_ title: String, _ rows: [(HoldingView, Double)], tag: Color, all: Binding<Bool>) -> some View {
+    /// Rows stay on the dark surface so a long list reads easily; the light is only in the small
+    /// chips (the count and each row's move).
+    @ViewBuilder private func group(_ title: String, _ rows: [(HoldingView, Double)], isUp: Bool, all: Binding<Bool>) -> some View {
         if !rows.isEmpty {
+            let chip: GlowPalette = isUp ? .homeChipUp : .down
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 10) {
-                    CardLabel(text: title, color: tag)
-                    SkewTag(text: "\(rows.count)", color: tag, textColor: tag == Theme.lime ? Theme.ink : .white)
+                    Text(title.uppercased()).font(.mono(11)).tracking(1.4).foregroundStyle(Theme.muted)
+                    HomeGlowChip(text: "\(rows.count)", palette: chip)
                 }
-                ForEach(Array(rows.prefix(all.wrappedValue ? 20 : 3)), id: \.0.id) { h, pct in
-                    NavigationLink(value: h.identity.productId) {
-                        HStack(spacing: 12) {
-                            HoldingArt(product: h.product, identity: h.identity, cornerRadius: 6, caption: false).frame(width: 36, height: 48)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(h.product?.name ?? "").font(.geist(15, .medium)).lineLimit(1).foregroundStyle(.white)
-                                Text([Format.money(h.price), h.quantity > 1 ? "×\(Int(h.quantity))" : nil, h.label].compactMap { $0 }.joined(separator: " · "))
-                                    .font(.geist(13)).foregroundStyle(Theme.muted).monospacedDigit()
+                VStack(spacing: 0) {
+                    ForEach(Array(rows.prefix(all.wrappedValue ? 20 : 3)), id: \.0.id) { h, pct in
+                        NavigationLink(value: h.identity.productId) {
+                            HStack(spacing: 12) {
+                                HoldingArt(product: h.product, identity: h.identity, cornerRadius: 6, caption: false).frame(width: 36, height: 48)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(h.product?.name ?? "").font(.geist(15, .medium)).lineLimit(1).foregroundStyle(.white)
+                                    Text([Format.money(h.price), h.quantity > 1 ? "×\(Int(h.quantity))" : nil, h.label].compactMap { $0 }.joined(separator: " · "))
+                                        .font(.geist(13)).foregroundStyle(Theme.muted).monospacedDigit().lineLimit(1)
+                                }
+                                Spacer(minLength: 8)
+                                VStack(alignment: .trailing, spacing: 4) {
+                                    HomeGlowChip(text: Format.signedPercent(pct / 100), palette: chip)
+                                    Text(Format.signedMoney((h.value ?? 0) - (h.value ?? 0) / (1 + pct / 100))).font(.geist(12)).foregroundStyle(Theme.muted)
+                                }
+                                .monospacedDigit()
                             }
-                            Spacer()
-                            VStack(alignment: .trailing, spacing: 2) {
-                                Text(Format.signedPercent(pct / 100)).font(.geist(15, .semibold)).foregroundStyle(Theme.tone(pct))
-                                Text(Format.signedMoney((h.value ?? 0) - (h.value ?? 0) / (1 + pct / 100))).font(.geist(13)).foregroundStyle(Theme.muted)
-                            }
-                            .monospacedDigit()
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
+                .surface(radius: 22, padding: 4)
                 if rows.count > 3 {
                     Button(all.wrappedValue ? "Show fewer" : "Show all \(rows.count)") { withAnimation { all.wrappedValue.toggle() } }
                         .font(.geist(14, .medium)).foregroundStyle(Theme.muted)
@@ -1230,9 +1144,11 @@ private struct RecentSection: View {
                                 }
                                 .padding(.top, 10)
                                 Spacer(minLength: 4)
-                                VStack(alignment: .trailing, spacing: 3) {
-                                    Text(Format.money(item.value)).font(.display(19)).monospacedDigit().foregroundStyle(.white)
-                                    Text(Format.signedPercent(item.change)).font(.geist(13, .medium)).monospacedDigit().foregroundStyle(Theme.tone(item.change))
+                                VStack(alignment: .trailing, spacing: 5) {
+                                    Text(Format.money(item.value)).font(.geist(18)).tracking(-0.4).monospacedDigit().foregroundStyle(.white)
+                                    if item.change != nil {
+                                        HomeGlowChip(text: Format.signedPercent(item.change), palette: (item.change ?? 0) < 0 ? .down : .homeChipUp)
+                                    }
                                 }
                                 .padding(.top, 12)
                             }
@@ -1346,32 +1262,36 @@ enum MorePage: String, Hashable, Identifiable {
     static var opened = false
 }
 
-/// The website's other pages: analytics, the gains breakdown, grading and master sets.
+/// The website's other pages: analytics, the gains breakdown, grading and master sets. Each icon
+/// sits on its own small square of light.
 private struct MoreSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("MORE").font(.display(24)).displayTrim(24)
+            Text("MORE").font(.mono(11)).tracking(1.4).foregroundStyle(Theme.muted)
             VStack(spacing: 0) {
-                row("Analytics", "Returns, drawdowns, sets and types", icon: "chart.xyaxis.line", page: .analytics)
-                Rectangle().fill(Theme.border).frame(height: 1).padding(.leading, 52)
-                row("Gains", "Which products your gains come from", icon: "chart.bar.xaxis", page: .gains)
-                Rectangle().fill(Theme.border).frame(height: 1).padding(.leading, 52)
-                row("Grading", "Your slabs, cards at the grader, what's worth sending", icon: "checkmark.seal", page: .grading)
-                Rectangle().fill(Theme.border).frame(height: 1).padding(.leading, 52)
-                row("Master sets", "Every card in your sets, and how close you are", icon: "square.grid.3x3.fill", page: .masterSets)
-                Rectangle().fill(Theme.border).frame(height: 1).padding(.leading, 52)
-                row("Activity", "Every purchase, sale and adjustment", icon: "list.bullet.rectangle", page: .activity)
+                row(0, "Analytics", "Returns, drawdowns, sets and types", icon: "chart.xyaxis.line", page: .analytics)
+                Rectangle().fill(Theme.border).frame(height: 1).padding(.leading, 60)
+                row(1, "Gains", "Which products your gains come from", icon: "chart.bar.xaxis", page: .gains)
+                Rectangle().fill(Theme.border).frame(height: 1).padding(.leading, 60)
+                row(2, "Grading", "Your slabs, cards at the grader, what's worth sending", icon: "checkmark.seal", page: .grading)
+                Rectangle().fill(Theme.border).frame(height: 1).padding(.leading, 60)
+                row(3, "Master sets", "Every card in your sets, and how close you are", icon: "square.grid.3x3.fill", page: .masterSets)
+                Rectangle().fill(Theme.border).frame(height: 1).padding(.leading, 60)
+                row(4, "Activity", "Every purchase, sale and adjustment", icon: "list.bullet.rectangle", page: .activity)
             }
             .surface(radius: 22, padding: 4)
         }
     }
 
-    private func row(_ title: String, _ sub: String, icon: String, page: MorePage) -> some View {
-        NavigationLink(value: page) {
+    private func row(_ i: Int, _ title: String, _ sub: String, icon: String, page: MorePage) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
+        return NavigationLink(value: page) {
             HStack(spacing: 12) {
-                Image(systemName: icon).font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.lime)
-                    .frame(width: 36, height: 36)
-                    .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                Image(systemName: icon).font(.system(size: 16, weight: .semibold)).foregroundStyle(.white)
+                    .frame(width: 40, height: 40)
+                    .background { GlowFill(palette: .mixed(i)) }
+                    .clipShape(shape)
+                    .overlay(shape.strokeBorder(.white.opacity(0.08)))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).font(.geist(15, .semibold))
                     Text(sub).font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
@@ -1383,5 +1303,58 @@ private struct MoreSection: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Lucent helpers (this file only)
+
+private extension GlowPalette {
+    /// A darker green-teal for small chips: the `.up` card's pale core would wash out white text
+    /// at chip size.
+    static let homeChipUp = GlowPalette(base: Color(hex: 0x0B3A2A), blobs: [
+        Blob(color: Color(hex: 0x19D38A), x: 0.2, y: 0.3, size: 0.9),
+        Blob(color: Color(hex: 0x2A7BFF), x: 0.95, y: 0.8, size: 0.7),
+    ])
+
+    /// Up or down, with the palette for each picked by the caller (so tiles about different
+    /// things don't all glow the same teal).
+    static func homeToned(_ value: Double?, up: GlowPalette, down: GlowPalette) -> GlowPalette {
+        (value ?? 0) < 0 ? down : up
+    }
+}
+
+/// A small capsule of light around a figure in a list ("+4.2%").
+private struct HomeGlowChip: View {
+    var text: String
+    var palette: GlowPalette
+
+    var body: some View {
+        Text(text).font(.geist(13, .semibold)).monospacedDigit().lineLimit(1)
+            .foregroundStyle(palette.ink)
+            .padding(.horizontal, 10).padding(.vertical, 4)
+            .background { GlowFill(palette: palette) }
+            .clipShape(Capsule())
+    }
+}
+
+/// The light of a glow card that only redraws when its palette changes.
+private struct HomeStaticGlow: View, Equatable {
+    var palette: GlowPalette
+    var body: some View { GlowFill(palette: palette) }
+}
+
+/// A dark translucent capsule button for glow cards.
+private struct HomeGlowButton: ButtonStyle {
+    var height: CGFloat = 36
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.geist(14, .semibold))
+            .lineLimit(1)
+            .padding(.horizontal, 14)
+            .frame(height: height)
+            .background(.black.opacity(configuration.isPressed ? 0.4 : 0.28), in: Capsule())
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
     }
 }
