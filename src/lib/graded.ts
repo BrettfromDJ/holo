@@ -315,12 +315,37 @@ export function ebayGradedTargets(data: CollectionData): { productId: string; pr
   return [...seen.values()];
 }
 
+/** PriceCharting's graded values for a product (from /api/graded). */
+export interface PriceChartingGraded {
+  ungraded: number | null;
+  /** "PSA 10", "BGS 10", "CGC 10", "SGC 10" per grader; "9.5", "9", "8", "7" for any grader. */
+  grades: Record<string, number>;
+  updatedAt: string;
+}
+
+/** PriceCharting's value for this exact slab, when it has one. */
+export function priceChartingValue(pc: PriceChartingGraded | undefined, grade: Grade): number | null {
+  if (!pc) return null;
+  const g = Number(grade.grade);
+  const key = g === 10 ? `${grade.company.toUpperCase()} 10` : String(g);
+  return pc.grades[key] ?? null;
+}
+
+/** eBay sales this many or more in 30 days make the median the price; fewer, PriceCharting's. */
+export const EBAY_MIN_SALES = 3;
+
 /**
- * Prices slabs from recent eBay sales for their exact grade: the 30-day
- * median, else the last sale. History follows the raw card's trend, scaled to
- * that price. Grades with no sales are left unpriced.
+ * Prices slabs for their exact grade: the 30-day eBay median when that grade sold at least
+ * EBAY_MIN_SALES times, else PriceCharting's value for the grade, else the last eBay sale.
+ * History follows the raw card's trend, scaled to that price. Grades with neither are left
+ * unpriced.
  */
-export function withEbayGradedPrices(data: CollectionData, ebay: Record<string, EbaySales | null>, today: ISODate): CollectionData {
+export function withEbayGradedPrices(
+  data: CollectionData,
+  ebay: Record<string, EbaySales | null>,
+  today: ISODate,
+  pc: Record<string, PriceChartingGraded> = {},
+): CollectionData {
   if (GRADED_SOURCE !== "ebay") return data;
   const prices = { ...data.prices };
   const history = { ...data.history };
@@ -331,8 +356,9 @@ export function withEbayGradedPrices(data: CollectionData, ebay: Record<string, 
     if (prices[key]) continue;
     const e = ebay[priceKey(t.productId, t.printing)];
     const stats = e?.graded[gradeLabel(t.grade)];
-    const market = stats?.median ?? stats?.lastPrice ?? null;
-    if (market === null || !e) continue;
+    const steady = stats && stats.count >= EBAY_MIN_SALES ? stats.median : null;
+    const market = steady ?? priceChartingValue(pc[t.productId], t.grade) ?? stats?.median ?? stats?.lastPrice ?? null;
+    if (market === null) continue;
     const rawKey = priceKey(t.productId, t.printing);
     const raw = data.prices[rawKey]?.market ?? null;
     const ratio = raw ? market / raw : null;
@@ -347,7 +373,7 @@ export function withEbayGradedPrices(data: CollectionData, ebay: Record<string, 
       change24hPct: null,
       change7dPct: null,
       change30dPct: null,
-      updatedAt: stats?.lastSold ?? e.asOf,
+      updatedAt: steady !== null ? (stats?.lastSold ?? e?.asOf ?? null) : (pc[t.productId]?.updatedAt ?? stats?.lastSold ?? e?.asOf ?? null),
       fetchedAt: null,
       source: "tcgapi",
       status: "live",

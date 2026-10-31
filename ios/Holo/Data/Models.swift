@@ -388,6 +388,21 @@ struct CatalogProduct: Codable {
 
 // MARK: - eBay and condition prices
 
+/// PriceCharting's values for a product (GET /api/graded): ungraded, and each grade: "PSA 10",
+/// "BGS 10", "CGC 10", "SGC 10" per grader; "9.5", "9", "8", "7" for any grader.
+struct GradedValues: Codable, Hashable {
+    var ungraded: Double?
+    var grades: [String: Double]
+    var updatedAt: String
+
+    /// The value for this exact slab, when PriceCharting has one.
+    func value(company: String, grade: String) -> Double? {
+        guard let g = Double(grade) else { return nil }
+        let key = g == 10 ? "\(company.uppercased()) 10" : (g == g.rounded() ? String(Int(g)) : String(g))
+        return grades[key]
+    }
+}
+
 struct EbayStats: Codable, Hashable {
     var median: Double?
     var count: Int

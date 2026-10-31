@@ -29,7 +29,17 @@ export async function GET(req: Request) {
   const dailyCalls = Number(process.env.CATALOG_SYNC_DAILY_CALLS) || 7000;
   const url = new URL(req.url);
   const hop = Number(url.searchParams.get("hop")) || 0;
-  // Once a night: clear expired shared answers and old per-person counters.
+  // Once a night: start PriceCharting's download (its own request and time limit), then clear
+  // expired shared answers and old per-person counters.
+  if (hop === 0 && process.env.PRICECHARTING_TOKEN) {
+    const pc = new URL("/api/cron/sync-pricecharting", url);
+    after(async () => {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 8000);
+      await fetch(pc, { headers: { authorization: `Bearer ${secret}` }, signal: ctrl.signal }).catch(() => {});
+      clearTimeout(timer);
+    });
+  }
   if (hop === 0) {
     const now = new Date();
     await admin.from("api_cache").delete().lt("expires_at", now.toISOString()).then(() => undefined, () => undefined);

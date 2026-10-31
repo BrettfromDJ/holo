@@ -145,6 +145,13 @@ final class HoloAPI {
         return (reply.points ?? [], reply.available ?? true, reply.reason)
     }
 
+    /// PriceCharting's graded values for products (stored nightly on the server: no API cost).
+    func gradedValues(_ productIds: [String]) async throws -> [String: GradedValues] {
+        struct Body: Decodable { var graded: [String: GradedValues] }
+        let q = URLQueryItem(name: "ids", value: productIds.joined(separator: ","))
+        return try await send(try await request("api/graded", query: [q]), as: Body.self).graded
+    }
+
     func catalogProduct(_ id: String) async throws -> CatalogProduct {
         // appendingPathComponent escapes what needs escaping; ":" is fine in a path.
         return try await send(try await request("api/explore/products/\(id)"), as: CatalogProduct.self)

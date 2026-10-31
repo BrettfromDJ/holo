@@ -199,15 +199,23 @@ final class CollectionStore {
         }
     }
 
-    /// Price your slabs from recent eBay sales for their exact grade: one request for all of them.
+    /// Price your slabs for their exact grade, like the website: the 30-day eBay median when that
+    /// grade sold at least 3 times, else PriceCharting's value, else the last eBay sale.
     @MainActor
     private func loadSlabPrices() async {
         let graded = holdings.filter { $0.identity.isGraded && $0.identity.productId.hasPrefix("tcgapi:") }
-        guard !graded.isEmpty, let summaries = try? await Backend.shared.api.ebaySummaries(Array(Set(graded.map(\.identity.productId)))) else { return }
+        guard !graded.isEmpty else { return }
+        let ids = Array(Set(graded.map(\.identity.productId)))
+        async let ebayLoad = try? await Backend.shared.api.ebaySummaries(ids)
+        async let pcLoad = try? await Backend.shared.api.gradedValues(ids)
+        let summaries = await ebayLoad ?? [:]
+        let pc = await pcLoad ?? [:]
         var found: [String: Double] = [:]
         for h in graded {
-            let s = summaryFor(summaries[h.identity.productId], printing: h.identity.printing)
-            if let label = h.identity.gradeLabel, let stats = s?.graded[label], let price = stats.median ?? stats.lastPrice {
+            guard let label = h.identity.gradeLabel, let company = h.identity.gradeCompany, let grade = h.identity.grade else { continue }
+            let stats = summaryFor(summaries[h.identity.productId], printing: h.identity.printing)?.graded[label]
+            let steady = (stats?.count ?? 0) >= 3 ? stats?.median : nil
+            if let price = steady ?? pc[h.identity.productId]?.value(company: company, grade: grade) ?? stats?.median ?? stats?.lastPrice {
                 found[h.identity.key] = price
             }
         }

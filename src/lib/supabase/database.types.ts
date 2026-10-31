@@ -163,6 +163,24 @@ export type CatalogSetRow = {
   products_synced_at: string | null;
 };
 
+export type PriceChartingRow = {
+  pc_id: number;
+  tcg_id: number | null;
+  console_name: string | null;
+  product_name: string | null;
+  ungraded: number | null;
+  grade_7: number | null;
+  grade_8: number | null;
+  grade_9: number | null;
+  grade_9_5: number | null;
+  psa_10: number | null;
+  bgs_10: number | null;
+  cgc_10: number | null;
+  sgc_10: number | null;
+  sales_volume: number | null;
+  updated_at: string;
+};
+
 export type ApiCacheRow = {
   key: string;
   value: unknown;
@@ -236,6 +254,7 @@ export type Database = {
       catalog_sync_usage: Table<CatalogSyncUsageRow>;
       api_cache: Table<ApiCacheRow>;
       api_quota: Table<ApiQuotaRow>;
+      pricecharting_prices: Table<PriceChartingRow>;
     };
     Views: {
       purchase_lots: {
