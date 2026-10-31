@@ -74,7 +74,7 @@ struct CollectionView: View {
             ScrollView {
                 switch store.status {
                 case .idle, .loading:
-                    ProgressView().padding(.top, 160)
+                    LoadingView()
                 case let .failed(message):
                     VStack(spacing: 12) {
                         Text("Couldn't load your collection").font(.geist(17, .semibold))
