@@ -45,7 +45,8 @@ struct HoldingSheet: View {
                 .padding(.top, 8)
                 .padding(.bottom, onOpenCard == nil ? 24 : 96)
             }
-            .background(Theme.background)
+            // The sheet is glass, so the page behind shows through and it reads as a sheet.
+            .scrollContentBackground(.hidden)
             .navigationTitle("Your copy")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
@@ -58,7 +59,6 @@ struct HoldingSheet: View {
                         .buttonStyle(Button3D(kind: .lime))
                         .padding(.horizontal, 20)
                         .padding(.vertical, 10)
-                        .background(Theme.background.opacity(0.92))
                 }
             }
             .sheet(isPresented: $selling) { if let h = holding { SellSheet(holding: h) } }
@@ -85,6 +85,12 @@ struct HoldingSheet: View {
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
+        .presentationBackground {
+            ZStack {
+                Rectangle().fill(.ultraThinMaterial)
+                Theme.background.opacity(0.35)
+            }
+        }
     }
 
     // MARK: Parts
@@ -152,7 +158,7 @@ struct HoldingSheet: View {
             Text(ten.1 ? "Estimates from the usual grade curve. The card page has every grade." : "From PriceCharting. The card page has every grade.")
                 .font(.geist(12)).foregroundStyle(Theme.subtle)
             Button { sending = true } label: { Label("Send for grading", systemImage: "paperplane") }
-                .buttonStyle(Button3D(kind: .dark, height: 44))
+                .buttonStyle(GlassButton())
         }
     }
 
@@ -171,7 +177,8 @@ struct HoldingSheet: View {
                     .font(.geist(14, .medium)).padding(.top, 12)
             }
         }
-        .surface(radius: 16, padding: 14)
+        .padding(14)
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     private func row(icon: String, title: String, value: String, action: @escaping () -> Void) -> some View {
@@ -192,9 +199,9 @@ struct HoldingSheet: View {
     private func actions(_ h: HoldingView) -> some View {
         HStack(spacing: 8) {
             Button { selling = true } label: { Label("Sell", systemImage: "tag") }
-                .buttonStyle(Button3D(kind: .light, height: 44))
+                .buttonStyle(GlassButton())
             Button { whatIf = true } label: { Label("What if I sell?", systemImage: "plus.forwardslash.minus") }
-                .buttonStyle(Button3D(kind: .dark, height: 44))
+                .buttonStyle(GlassButton())
         }
     }
 
@@ -217,7 +224,8 @@ struct HoldingSheet: View {
                 }
                 if entries.isEmpty { Text("No entries.").font(.geist(14)).foregroundStyle(Theme.muted).padding(.vertical, 10) }
             }
-            .surface(radius: 16, padding: 14)
+            .padding(14)
+            .liquidGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
     }
 }

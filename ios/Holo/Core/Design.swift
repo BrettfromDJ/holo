@@ -176,6 +176,22 @@ extension View {
 
 // MARK: - Buttons
 
+/// A full-width Liquid Glass capsule button (frosted on older iOS), for buttons on glass sheets.
+struct GlassButton: ButtonStyle {
+    var height: CGFloat = 46
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.geist(16, .semibold))
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity, minHeight: height)
+            .contentShape(Capsule())
+            .liquidGlass(in: Capsule(), interactive: true)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
+    }
+}
+
 /// 3D buttons: lit top, solid bottom edge; pressing sinks onto the edge.
 struct Button3D: ButtonStyle {
     enum Kind { case light, lime, dark, blue, pink }
