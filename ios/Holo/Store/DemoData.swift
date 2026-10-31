@@ -1,7 +1,8 @@
 import Foundation
 
 /// A made-up collection for screenshots and trying the app without an account: launch with
-/// `-HoloDemo`. Prices are fictional, like the website's demo mode, and nothing is saved.
+/// `-HoloDemo`. Nothing is saved. In the app (Account → Demo collection) the cards are matched to
+/// the real catalog, so prices and history are real; screenshots (no server) use these made-up ones.
 enum DemoData {
     struct Item {
         var slug: String
@@ -128,6 +129,67 @@ enum DemoData {
             let date = Calendar.current.date(byAdding: .day, value: d - days, to: today) ?? today
             return PricePoint(date: Format.day(date), price: (price * 100).rounded() / 100)
         }
+    }
+
+    // MARK: Real cards
+
+    /// A demo card matched to the real catalog.
+    struct Real {
+        var product: Product
+        var printing: String?
+        var prices: [String: Price] = [:]
+        var history: [String: [PricePoint]] = [:]
+    }
+
+    private static let matchKey = "holo.demoReal.v1"
+
+    /// Each demo item's real catalog id and printing, by slug: kept on the phone after the first
+    /// match, else found with the stored catalog search (free).
+    static func matchReal() async -> [String: (id: String, printing: String?)] {
+        var saved = (UserDefaults.standard.dictionary(forKey: matchKey) as? [String: [String]]) ?? [:]
+        for item in items where saved[item.slug] == nil {
+            guard let hit = await find(item) else { continue }
+            saved[item.slug] = [hit.product.id, hit.printing ?? hit.product.printings?.first ?? ""]
+        }
+        UserDefaults.standard.set(saved, forKey: matchKey)
+        return saved.compactMapValues { v in
+            guard let id = v.first, id.hasPrefix("tcgapi:") else { return nil }
+            let printing = v.count > 1 && !v[1].isEmpty ? v[1] : nil
+            return (id, printing)
+        }
+    }
+
+    private static func norm(_ s: String) -> String {
+        s.lowercased().filter { $0.isLetter || $0.isNumber }
+    }
+
+    /// The catalog's entry for a demo item: a single by name, set and number; sealed by name.
+    private static func find(_ item: Item) async -> SearchHit? {
+        if item.sealed {
+            guard let hits = try? await Backend.shared.api.search(item.name) else { return nil }
+            let sealed = hits.filter(\.product.isSealed)
+            let want = norm(item.name)
+            return sealed.first { norm($0.product.name) == want }
+                ?? sealed.first { norm($0.product.name).contains(want) && norm($0.product.setName ?? "").contains(norm(item.set).prefix(8)) }
+        }
+        // "Umbreon VMAX (Alternate Full Art)" → "Umbreon VMAX"; "Charizard ex - 199/165" → "Charizard ex".
+        var base = item.name
+        if let r = base.range(of: " (") { base = String(base[..<r.lowerBound]) }
+        if let r = base.range(of: " - ") { base = String(base[..<r.lowerBound]) }
+        let num = (item.number ?? "").split(separator: "/").first.map { String(Int($0) ?? 0) } ?? ""
+        guard !num.isEmpty else { return nil }
+        var hits = (try? await Backend.shared.api.search("\(base) \(num)")) ?? []
+        if hits.isEmpty { hits = (try? await Backend.shared.api.search(base)) ?? [] }
+        func number(_ h: SearchHit) -> String {
+            (h.product.number ?? "").split(separator: "/").first.map { String(Int($0.filter(\.isNumber)) ?? -1) } ?? ""
+        }
+        let singles = hits.filter { !$0.product.isSealed && number($0) == num && norm($0.product.name).hasPrefix(norm(base)) }
+        let set = norm(item.set)
+        return singles.first { h in
+            let s = norm(h.product.setName ?? "")
+            return !s.isEmpty && (s.contains(set) || set.contains(s))
+        }
+            ?? (singles.count == 1 ? singles.first : nil)
     }
 
     // MARK: Explore (screenshots only: the real catalog needs the website's API)

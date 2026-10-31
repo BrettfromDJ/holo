@@ -290,7 +290,7 @@ final class CollectionStore {
             }
         }
         guard !found.isEmpty else { return }
-        ebayGraded = found
+        ebayGraded = demo == nil ? found : ebayGraded.merging(found) { _, new in new }
         recompute()
     }
 
@@ -411,13 +411,27 @@ final class CollectionStore {
     /// The demo collection on screen, or nil when it's your real one. Nothing is saved in a demo.
     private(set) var demo: DemoKind?
 
+    /// The demo's cards matched to the real catalog: the real product, printing, price and
+    /// history, by demo slug. Filled once per session when there's a server (not in screenshots).
+    @ObservationIgnored private var realDemo: [String: DemoData.Real] = [:]
+    @ObservationIgnored private var realizing = false
+
     func loadDemo(_ kind: DemoKind = .mixed) {
         demo = kind
         var products: [String: Product] = [:]
         var prices: [String: Price] = [:]
         var history: [String: [PricePoint]] = [:]
         let now = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-3 * 3600))
+        var realIds: [String: (id: String, printing: String?)] = [:]
         for item in DemoData.items {
+            // The real card, with its real prices, when we've matched it.
+            if let r = realDemo[item.slug] {
+                products[r.product.id] = r.product
+                for (key, price) in r.prices { prices[key] = price }
+                for (key, pts) in r.history { history[key] = pts }
+                realIds[item.slug] = (r.product.id, r.printing)
+                continue
+            }
             let p = DemoData.product(item)
             let printing = p.printings?.first
             let pts = DemoData.series(item)
@@ -435,9 +449,10 @@ final class CollectionStore {
         var txns: [Txn] = []
         for (n, lot) in DemoData.lots(kind).enumerated() {
             let (slug, daysAgo, qty, unit, condition, company, grade) = lot
-            let id = "sample:\(slug)"
+            let id = realIds[slug]?.id ?? "sample:\(slug)"
+            let printing: String? = realIds[slug] != nil ? realIds[slug]!.printing : products[id]?.printings?.first
             let date = Format.day(Calendar.current.date(byAdding: .day, value: -daysAgo, to: Date()) ?? Date())
-            txns.append(Txn(id: "demo-\(n)", identity: HoldingIdentity(productId: id, printing: products[id]?.printings?.first, condition: condition, gradeCompany: company, grade: grade),
+            txns.append(Txn(id: "demo-\(n)", identity: HoldingIdentity(productId: id, printing: printing, condition: condition, gradeCompany: company, grade: grade),
                             kind: .purchase, date: date, quantity: qty, unitPrice: unit, shipping: 4, createdAt: "\(date)T12:00:00Z",
                             source: n % 3 == 0 ? "Card show" : "TCGplayer"))
         }
@@ -461,6 +476,55 @@ final class CollectionStore {
         self.monthlyBudget = 500
         recompute(timelineNow: true)
         status = .ready
+        if realDemo.isEmpty {
+            Task { await realizeDemo(kind) }
+        } else {
+            Task { await loadSlabPrices(); await loadConditionShares() }
+        }
+    }
+
+    /// Match the demo's cards to the real catalog (stored catalog search and tables: no TCG API
+    /// calls; the match is kept on the phone), then show the demo again with real prices, price
+    /// history, graded and condition prices. Only the quantities and what was paid stay made up.
+    @MainActor
+    private func realizeDemo(_ kind: DemoKind) async {
+        guard !Demo.isOn, AppConfig.isConfigured, !realizing else { return }
+        realizing = true
+        defer { realizing = false }
+        let matches = await DemoData.matchReal()
+        guard !matches.isEmpty else { return }
+        let ids = Array(Set(matches.values.map { $0.id }))
+        do {
+            async let productRows: [ProductRow] = try await db.from("products").select().in("id", values: ids).execute().value
+            async let priceRows: [PriceRow] = try await db.from("product_prices").select().in("product_id", values: ids).execute().value
+            async let snapRows: [SnapshotRow] = self.all { a, b in
+                try await self.db.from("price_snapshots").select("product_id,printing,snapshot_date,market_price")
+                    .in("product_id", values: ids).order("snapshot_date").range(from: a, to: b).execute().value
+            }
+            let (pRows, prRows, sRows) = try await (productRows, priceRows, snapRows)
+            let byId = Dictionary(pRows.map { ($0.id, $0.product) }, uniquingKeysWith: { a, _ in a })
+            var real: [String: DemoData.Real] = [:]
+            for (slug, m) in matches {
+                guard let product = byId[m.id] else { continue }
+                var r = DemoData.Real(product: product, printing: m.printing)
+                for p in prRows where p.product_id == m.id { r.prices[priceKey(p.product_id, p.printing.isEmpty ? nil : p.printing)] = p.price }
+                for s in sRows where s.product_id == m.id {
+                    r.history[priceKey(s.product_id, s.printing.isEmpty ? nil : s.printing), default: []].append(PricePoint(date: s.snapshot_date, price: s.market_price))
+                }
+                for (key, pts) in r.history { r.history[key] = Self.onePerDay(pts) }
+                // Only use a match that has a price for its printing.
+                guard r.prices[priceKey(m.id, m.printing)]?.market != nil else { continue }
+                real[slug] = r
+            }
+            guard !real.isEmpty, demo == kind else { return }
+            realDemo = real
+            loadDemo(kind)
+            // The demo's purchases go back up to two years: fill in each card's longer history
+            // (the server fetches it once for everyone, then keeps it).
+            for r in real.values { await loadFullHistory(r.product.id, printing: r.printing) }
+        } catch {
+            return
+        }
     }
 
     /// The newest price refresh across everything you hold.
