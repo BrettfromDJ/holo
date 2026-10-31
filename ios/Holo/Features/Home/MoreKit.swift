@@ -129,7 +129,7 @@ struct GrowBar: View {
 
 /// A view that pops in (scale and fade) after `delay` the first time it's visible, for staggered
 /// grids of tiles and heatmap cells.
-struct PopIn: ViewModifier {
+struct PopInOnce: ViewModifier {
     var delay: Double
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shown = false
@@ -151,5 +151,5 @@ struct PopIn: ViewModifier {
 }
 
 extension View {
-    func popIn(delay: Double = 0) -> some View { modifier(PopIn(delay: delay)) }
+    func popIn(delay: Double = 0) -> some View { modifier(PopInOnce(delay: delay)) }
 }
