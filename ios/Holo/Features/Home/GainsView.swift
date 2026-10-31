@@ -61,12 +61,9 @@ struct GainsView: View {
                     HStack(alignment: .center, spacing: 14) {
                         CountingText(value: share, format: { "\(Int(($0 * 100).rounded()))%" })
                             .font(.display(48)).monospacedDigit().foregroundStyle(Theme.lime).displayTrim(48)
-                            .shadow(color: Theme.lime.opacity(0.4), radius: 14)
                         Text("of your gains come from your top 3 \(noun.many).").font(.geist(15, .medium)).foregroundStyle(.white)
                     }
-                    .padding(16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .tinted(Theme.lime, radius: 20, border: false)
+                    .surface(radius: 20)
                     .reveal()
                 }
 
@@ -211,7 +208,6 @@ private struct Bar: View {
                 Capsule()
                     .fill(LinearGradient(colors: [tint.opacity(0.35), tint], startPoint: up ? .leading : .trailing, endPoint: up ? .trailing : .leading))
                     .frame(width: width, height: isTotal ? 12 : 10)
-                    .shadow(color: tint.opacity(isTotal ? 0.6 : 0.35), radius: isTotal ? 10 : 6)
                     .offset(x: up ? left : left + full - width)
             }
             .frame(height: geo.size.height)

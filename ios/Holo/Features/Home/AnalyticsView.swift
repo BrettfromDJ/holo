@@ -390,7 +390,7 @@ private struct MonthlyHeatmap: View {
             Text("\(Self.names[m.month]) \(String(m.year))").font(.geist(12)).foregroundStyle(Theme.muted)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .tinted(m.ret >= 0 ? Theme.lime : Theme.planPink, radius: 18, border: false)
+        .surface(radius: 18)
     }
 
     private func cell(_ i: Int, _ m: Analytics.MonthReturn?) -> some View {
@@ -518,7 +518,6 @@ private struct Diversification: View {
                     HStack(alignment: .center, spacing: 14) {
                         CountingText(value: Double(effective), format: { "\(Int($0.rounded()))" })
                             .font(.display(54)).monospacedDigit().foregroundStyle(Theme.lime).displayTrim(54)
-                            .shadow(color: Theme.lime.opacity(0.4), radius: 16)
                         VStack(alignment: .leading, spacing: 4) {
                             SkewTag(text: label.uppercased(), color: Theme.planBlue, textColor: .white)
                             Text("Your \(holdings.count) holdings behave like \(effective) equally sized ones").font(.geist(13)).foregroundStyle(Theme.muted)

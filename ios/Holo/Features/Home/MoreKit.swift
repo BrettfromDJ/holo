@@ -1,7 +1,7 @@
 import SwiftUI
 
 // Shared pieces for the More pages (Analytics, Gains, Grading, Binder), so they share Home's
-// energy: a glowing hero number on a grid, tinted stat tiles that count up, bars that grow in
+// energy: a big hero number on a grid, dark stat tiles that count up, bars that grow in
 // and Anton section headings.
 
 /// The top of a More page: a mono label, a big Anton number that counts up and glows, a line
@@ -21,8 +21,6 @@ struct MoreHero<Below: View>: View {
                 .foregroundStyle(tint)
                 .lineLimit(1).minimumScaleFactor(0.5)
                 .displayTrim(64)
-                .shadow(color: tint.opacity(0.4), radius: 14)
-                .flashOnAppear(tint)
             below
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -30,7 +28,6 @@ struct MoreHero<Below: View>: View {
         .background {
             ZStack {
                 GridPattern()
-                RadialGradient(colors: [tint.opacity(0.2), .clear], center: UnitPoint(x: 0.3, y: 0.5), startRadius: 0, endRadius: 180)
                 RadialGradient(colors: [Theme.planBlue.opacity(0.14), .clear], center: UnitPoint(x: 0.85, y: 0.35), startRadius: 0, endRadius: 150)
             }
             // Soft on every side, so the glow never shows an edge wherever it's cut off.
@@ -54,7 +51,7 @@ struct MoreHeading: View {
     }
 }
 
-/// A tinted tile with an Anton figure that counts up, like Home's metric cards.
+/// A dark tile with an Anton figure that counts up, like Home's metric cards.
 struct CountTile: View {
     var label: String
     var value: Double?
@@ -81,14 +78,13 @@ struct CountTile: View {
             }
             .font(.display(26)).monospacedDigit().foregroundStyle(valueTint)
             .lineLimit(1).minimumScaleFactor(0.55).displayTrim(26)
-            .flashOnAppear(valueTint == .white ? .clear : valueTint)
             .padding(.top, 14)
             Text(sub).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(2).minimumScaleFactor(0.85)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 8)
         }
         .frame(maxWidth: .infinity, minHeight: 92, alignment: .topLeading)
-        .tinted(glow, radius: 20, border: false)
+        .surface(radius: 20)
     }
 }
 
@@ -110,7 +106,6 @@ struct GrowBar: View {
                 Capsule()
                     .fill(gradient ? AnyShapeStyle(LinearGradient(colors: [color.opacity(0.5), color], startPoint: .leading, endPoint: .trailing)) : AnyShapeStyle(color))
                     .frame(width: max(height, geo.size.width * max(0, min(1, fraction))) * (grown || reduceMotion ? 1 : 0.001))
-                    .shadow(color: color.opacity(0.45), radius: 6)
             }
         }
         .frame(height: height)

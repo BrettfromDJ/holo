@@ -301,7 +301,6 @@ private struct CompletionRing: View {
             Circle().trim(from: 0, to: (ratio ?? 0) * (drawn || reduceMotion ? 1 : 0))
                 .stroke(Theme.lime, style: StrokeStyle(lineWidth: 5, lineCap: .round))
                 .rotationEffect(.degrees(-90))
-                .shadow(color: Theme.lime.opacity(0.5), radius: 4)
             Text(ratio.map { "\(Int(($0 * 100).rounded()))%" } ?? "—").font(.geist(11, .semibold)).monospacedDigit()
         }
         .frame(width: 50, height: 50)
