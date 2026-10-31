@@ -186,7 +186,7 @@ struct ValueLineHero<Line: View, Below: View>: View {
             below
         }
         .background(alignment: .top) {
-            CollectionBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
+            DotBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
         }
     }
 }
@@ -261,7 +261,7 @@ struct TugOfWarHero: View {
             }
         }
         .background(alignment: .top) {
-            CollectionBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
+            DotBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
         }
         .onAppear { pull() }
         .onReplay {
@@ -318,7 +318,7 @@ struct SlabFanHero<Line: View, Below: View>: View {
             below
         }
         .background(alignment: .top) {
-            CollectionBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
+            DotBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
         }
         .onAppear { deal() }
         .onReplay {
@@ -350,5 +350,60 @@ struct GlassStat: View {
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .liquidGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+}
+
+// MARK: - Dotted backdrop
+
+/// The lit backdrop for the More pages: Collection's lime, pink and blue glows over a field of
+/// fine dots instead of the grid, fading out toward the content.
+struct DotBackdrop: View {
+    var body: some View {
+        ZStack {
+            DotField()
+            RadialGradient(colors: [Theme.lime.opacity(0.2), .clear], center: UnitPoint(x: 0.2, y: 0.42), startRadius: 0, endRadius: 260)
+            RadialGradient(colors: [Theme.planPink.opacity(0.16), .clear], center: UnitPoint(x: 0.85, y: 0.2), startRadius: 0, endRadius: 220)
+            RadialGradient(colors: [Theme.planBlue.opacity(0.16), .clear], center: UnitPoint(x: 0.75, y: 0.72), startRadius: 0, endRadius: 220)
+        }
+        .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.7), .init(color: .clear, location: 1)],
+                             startPoint: .top, endPoint: .bottom))
+        .allowsHitTesting(false)
+    }
+}
+
+/// Tiny dots on an even spacing, each slowly brightening and fading at its own pace, so the
+/// field shimmers. One Canvas redrawn about 12 times a second, paused off screen; still with
+/// Reduce Motion.
+struct DotField: View {
+    var spacing: CGFloat = 9
+    var radius: CGFloat = 0.75
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var onScreen = true
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1 / 12, paused: reduceMotion || !onScreen)) { context in
+            let t = reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate
+            Canvas { ctx, size in
+                let cols = Int(size.width / spacing) + 1
+                let rows = Int(size.height / spacing) + 1
+                // Dots grouped into a few brightness levels, so each frame fills 8 paths, not thousands.
+                var levels = Array(repeating: Path(), count: 8)
+                for row in 0..<rows {
+                    for col in 0..<cols {
+                        // A fixed random phase and pace per dot (a cheap hash of its place).
+                        let seed = Double((col &* 73_856_093) ^ (row &* 19_349_663)) .truncatingRemainder(dividingBy: 1000) / 1000
+                        let pace = 0.35 + abs(seed) * 0.9
+                        let wave = 0.5 + 0.5 * sin(t * pace + abs(seed) * 40)
+                        let level = min(7, Int(wave * wave * 8))
+                        let p = CGPoint(x: CGFloat(col) * spacing + spacing / 2, y: CGFloat(row) * spacing + spacing / 2)
+                        levels[level].addEllipse(in: CGRect(x: p.x - radius, y: p.y - radius, width: radius * 2, height: radius * 2))
+                    }
+                }
+                for (i, path) in levels.enumerated() {
+                    ctx.fill(path, with: .color(.white.opacity(0.04 + Double(i) / 7 * 0.32)))
+                }
+            }
+        }
+        .onVisibilityChange { onScreen = $0 }
     }
 }

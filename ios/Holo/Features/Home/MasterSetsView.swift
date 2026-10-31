@@ -67,7 +67,7 @@ struct MasterSetsView: View {
                             setPicker(sets, current: current)
                         }
                         .background(alignment: .top) {
-                            CollectionBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
+                            DotBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
                         }
                         controls(entries)
                         grid(entries)
