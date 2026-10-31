@@ -71,6 +71,7 @@ struct HomeView: View {
                 case .gains: GainsView()
                 case .grading: GradingView()
                 case .masterSets: MasterSetsView()
+                case .activity: ActivityView()
                 }
             }
             .task {
@@ -1304,7 +1305,7 @@ enum Milestones {
 }
 
 enum MorePage: String, Hashable, Identifiable {
-    case analytics, gains, grading
+    case analytics, gains, grading, activity
     case masterSets = "master-sets"
     var id: String { rawValue }
     static var opened = false
@@ -1323,6 +1324,8 @@ private struct MoreSection: View {
                 row("Grading", "Your slabs, cards at the grader, what's worth sending", icon: "checkmark.seal", page: .grading)
                 Rectangle().fill(Theme.border).frame(height: 1).padding(.leading, 52)
                 row("Master sets", "Every card in your sets, and how close you are", icon: "square.grid.3x3.fill", page: .masterSets)
+                Rectangle().fill(Theme.border).frame(height: 1).padding(.leading, 52)
+                row("Activity", "Every purchase, sale and adjustment", icon: "list.bullet.rectangle", page: .activity)
             }
             .surface(radius: 22, padding: 4)
         }
