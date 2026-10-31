@@ -40,64 +40,62 @@ struct HoldingSheet: View {
     var body: some View { sheetBody.glassSheet() }
 
     @ViewBuilder private var sheetBody: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    header
-                    if let h = holding {
-                        value(h)
-                        tiles(h)
-                        if identity.isGraded { slabRows } else if product?.isSealed == false { ifGraded(h) }
-                        actions(h)
-                    } else {
-                        Text("You don't hold any of these right now.").font(.geist(14)).foregroundStyle(Theme.muted)
-                    }
-                    history
-                    if let error { Text(error).font(.geist(13)).foregroundStyle(Theme.down) }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                // Title and Done sit in the content (no navigation bar), so nothing above the
+                // content changes size while the sheet comes up and nothing shifts.
+                titleRow
+                header
+                if let h = holding {
+                    value(h)
+                    tiles(h)
+                    if identity.isGraded { slabRows } else if product?.isSealed == false { ifGraded(h) }
+                    actions(h)
+                } else {
+                    Text("You don't hold any of these right now.").font(.geist(14)).foregroundStyle(Theme.muted)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
-                .padding(.bottom, onOpenCard == nil ? 24 : 96)
+                history
+                if let error { Text(error).font(.geist(13)).foregroundStyle(Theme.down) }
             }
-            // The sheet is glass, so the page behind shows through and it reads as a sheet.
-            .scrollContentBackground(.hidden)
-            .navigationTitle("Your copy")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
-            .safeAreaInset(edge: .bottom) {
-                if let onOpenCard {
-                    Button {
-                        dismiss()
-                        onOpenCard()
-                    } label: { Label("View card details", systemImage: "arrow.right").labelStyle(TrailingIconLabel()) }
-                        .buttonStyle(Button3D(kind: .lime))
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 20)
+            .padding(.top, 18)
+            .padding(.bottom, onOpenCard == nil ? 24 : 96)
+        }
+        // The sheet is glass, so the page behind shows through and it reads as a sheet.
+        .scrollContentBackground(.hidden)
+        .safeAreaInset(edge: .bottom) {
+            if let onOpenCard {
+                Button {
+                    dismiss()
+                    onOpenCard()
+                } label: { Label("View card details", systemImage: "arrow.right").labelStyle(TrailingIconLabel()) }
+                    .buttonStyle(Button3D(kind: .lime))
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+            }
+        }
+        .sheet(isPresented: $selling) { if let h = holding { SellSheet(holding: h) } }
+        .sheet(isPresented: $whatIf) { if let h = holding { SellCalculatorSheet(holding: h) } }
+        .sheet(isPresented: $sending) { if let h = holding { SendSheet(holding: h) } }
+        .sheet(isPresented: $certing) { if let h = holding { CertSheet(holding: h) } }
+        .sheet(isPresented: $bumpering) { if let h = holding { BumperSheet(holding: h) } }
+        .sheet(isPresented: $valuing) { ManualValueSheet(identity: identity, current: store.manualValue(identity)?.value) }
+        .sheet(item: $editing) { t in EntryEditSheet(entry: t) }
+        .confirmationDialog("Delete this entry?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                guard let t = deleting else { return }
+                Task {
+                    do { try await store.delete(t) } catch { self.error = error.localizedDescription }
                 }
             }
-            .sheet(isPresented: $selling) { if let h = holding { SellSheet(holding: h) } }
-            .sheet(isPresented: $whatIf) { if let h = holding { SellCalculatorSheet(holding: h) } }
-            .sheet(isPresented: $sending) { if let h = holding { SendSheet(holding: h) } }
-            .sheet(isPresented: $certing) { if let h = holding { CertSheet(holding: h) } }
-            .sheet(isPresented: $bumpering) { if let h = holding { BumperSheet(holding: h) } }
-            .sheet(isPresented: $valuing) { ManualValueSheet(identity: identity, current: store.manualValue(identity)?.value) }
-            .sheet(item: $editing) { t in EntryEditSheet(entry: t) }
-            .confirmationDialog("Delete this entry?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
-                Button("Delete", role: .destructive) {
-                    guard let t = deleting else { return }
-                    Task {
-                        do { try await store.delete(t) } catch { self.error = error.localizedDescription }
-                    }
-                }
-            } message: {
-                Text("Your totals update as if it never happened. The original stays in the record.")
-            }
-            .task(id: identity.productId) {
-                defer { withAnimation(.easeOut(duration: 0.25)) { gradedReady = true } }
-                guard identity.productId.hasPrefix("tcgapi:"), !identity.isGraded else { return }
-                graded = (try? await Backend.shared.api.gradedValues([identity.productId]))?[identity.productId]
-            }
+        } message: {
+            Text("Your totals update as if it never happened. The original stays in the record.")
+        }
+        .task(id: identity.productId) {
+            defer { withAnimation(.easeOut(duration: 0.25)) { gradedReady = true } }
+            guard identity.productId.hasPrefix("tcgapi:"), !identity.isGraded else { return }
+            graded = (try? await Backend.shared.api.gradedValues([identity.productId]))?[identity.productId]
         }
         // Just short of full height: iOS 26 keeps a sheet glass only while it isn't full screen.
         .presentationDetents([.fraction(0.93)])
@@ -105,6 +103,20 @@ struct HoldingSheet: View {
     }
 
     // MARK: Parts
+
+    private var titleRow: some View {
+        ZStack {
+            Text("Your copy").font(.geist(17, .semibold))
+            HStack {
+                Spacer()
+                Button("Done") { dismiss() }
+                    .font(.geist(16, .semibold)).foregroundStyle(Theme.lime)
+                    .padding(.horizontal, 14).frame(height: 36)
+                    .background(Capsule().fill(Color.white.opacity(0.09)))
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
 
     private var header: some View {
         HStack(spacing: 14) {
