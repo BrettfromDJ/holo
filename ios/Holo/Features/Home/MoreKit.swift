@@ -216,10 +216,10 @@ struct TugOfWarHero: View {
                     .font(.display(60)).monospacedDigit().foregroundStyle(total >= 0 ? Theme.lime : Theme.planPink)
                     .lineLimit(1).minimumScaleFactor(0.5).displayTrim(60)
             }
-            VStack(spacing: 8) {
+            VStack(spacing: 14) {
                 GeometryReader { geo in
                     let w = geo.size.width
-                    let split = w * up
+                    let split = min(max(w * up, 6), w - 6)
                     let g = pulled || reduceMotion ? 1.0 : 0.0
                     ZStack(alignment: .leading) {
                         Capsule().fill(Theme.surface2)
@@ -230,7 +230,7 @@ struct TugOfWarHero: View {
                         Capsule().fill(Theme.planPink)
                             .frame(width: max(0, w - split - 2) * g)
                             .offset(x: split + 2)
-                        Rectangle().fill(.white).frame(width: 2, height: 26).offset(x: split - 1)
+                        Rectangle().fill(.white).frame(width: 2, height: 24).offset(x: split - 1)
                     }
                 }
                 .frame(height: 18)
