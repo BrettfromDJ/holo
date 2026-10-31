@@ -345,12 +345,13 @@ struct GlassStat: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            MonoLabel(text: label)
+            MonoLabel(text: label).lineLimit(1).minimumScaleFactor(0.6)
             Text(value).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(tint).lineLimit(1).minimumScaleFactor(0.7)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        // One height for every tile in a row.
+        .frame(maxWidth: .infinity, minHeight: 58, maxHeight: 58, alignment: .leading)
         .liquidGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
