@@ -80,11 +80,15 @@ struct MasterSetsView: View {
                     .frame(maxWidth: .infinity).padding(.vertical, 50)
                 } else {
                     controls
-                    LazyVGrid(columns: columns, alignment: .leading, spacing: 22) {
+                    // A deck of glowing set cards, each overlapping the one above so you see its
+                    // name and progress; the last one shows in full. Tap one to open the set.
+                    LazyVStack(spacing: -SetDeckCard.overlap) {
                         ForEach(Array(rows.enumerated()), id: \.element.id) { i, r in
-                            NavigationLink(value: MasterSetRoute(id: r.id, name: r.name)) { tile(r) }
-                                .buttonStyle(.plain)
-                                .popIn(delay: Double(min(i, 8)) * 0.04)
+                            NavigationLink(value: MasterSetRoute(id: r.id, name: r.name)) {
+                                SetDeckCard(row: r)
+                            }
+                            .buttonStyle(.plain)
+                            .zIndex(Double(i))
                         }
                     }
                     if rows.isEmpty {
@@ -225,6 +229,71 @@ struct MasterSetsView: View {
             if let ratio = r.ratio, !r.holdings.isEmpty {
                 GrowBar(fraction: ratio, color: glow.chipAccent, height: 4)
             }
+        }
+    }
+}
+
+/// One set in the Master Sets deck: a tall glowing card in the set's own colors. The top shows
+/// the name, how many of how many, and the % in dot-matrix digits (what you see while it's
+/// overlapped); the rest, seen on the last card or while scrolling past, has the art and a bar.
+struct SetDeckCard: View {
+    var row: MasterSetsView.Row
+    static let height: CGFloat = 196
+    static let overlap: CGFloat = 70
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 30, style: .continuous)
+        let palette = GlowPalette.forProduct(row.id)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 10) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(row.name).font(.geist(22, .semibold)).lineLimit(1).minimumScaleFactor(0.7)
+                    Text(row.total.map { "\(row.owned) of \($0) cards" } ?? (row.holdings.isEmpty ? "Not started" : "\(row.owned) card\(row.owned == 1 ? "" : "s")"))
+                        .font(.geist(13)).monospacedDigit().opacity(0.75)
+                }
+                Spacer(minLength: 8)
+                if let ratio = row.ratio, !row.holdings.isEmpty {
+                    HStack(alignment: .top, spacing: 2) {
+                        DotMatrixText(text: "\(Int((ratio * 100).rounded()))", dot: 3.4)
+                        Text("%").font(.geist(12)).opacity(0.7)
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+            HStack(alignment: .bottom) {
+                if let ratio = row.ratio, !row.holdings.isEmpty {
+                    GlowTicks(fraction: ratio).frame(height: 20).frame(maxWidth: 180)
+                }
+                Spacer()
+            }
+        }
+        .padding(20)
+        .frame(height: Self.height)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .foregroundStyle(.white)
+        .background {
+            ZStack(alignment: .bottomTrailing) {
+                GlowFill(palette: palette)
+                art
+                    .frame(width: 150, height: 100)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .opacity(0.55)
+                    .rotationEffect(.degrees(-6))
+                    .offset(x: 16, y: 10)
+            }
+        }
+        .clipShape(shape)
+        .overlay(shape.strokeBorder(.white.opacity(0.12)))
+        .shadow(color: .black.opacity(0.55), radius: 10, y: -4)
+    }
+
+    @ViewBuilder private var art: some View {
+        if let art = row.art {
+            SetArt(set: art)
+        } else if let cover = row.holdings.max(by: { ($0.value ?? 0) < ($1.value ?? 0) }) {
+            HoldingArt(product: cover.product, identity: cover.identity, cornerRadius: 4, caption: false)
+        } else {
+            Color.clear
         }
     }
 }

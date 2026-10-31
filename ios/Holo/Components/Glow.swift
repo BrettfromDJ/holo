@@ -128,6 +128,14 @@ struct GlowPalette: Hashable {
     /// The `i`th palette of the mix (wraps around), so neighbouring tiles differ.
     static func mixed(_ i: Int) -> GlowPalette { mix[((i % mix.count) + mix.count) % mix.count] }
 
+    /// A steady rim palette (dark center) for an id.
+    static func rimForProduct(_ id: String) -> GlowPalette {
+        let options: [GlowPalette] = [.rimViolet, .rimTeal, .rimRose, .rimAmber, .rimSky, .rimMoss, .rimLilac]
+        var h: UInt64 = 1469598103934665603
+        for b in id.utf8 { h = (h ^ UInt64(b)) &* 1099511628211 }
+        return options[Int(h % UInt64(options.count))]
+    }
+
     /// Up or down.
     static func tone(_ value: Double?) -> GlowPalette { (value ?? 0) < 0 ? .down : .up }
 
@@ -661,6 +669,46 @@ struct GlowLine: View {
                 t.closeSubpath()
                 ctx.fill(t, with: .color(Color(hex: 0xFFF36A)))
             }
+        }
+    }
+}
+
+/// A disc showing a share as a lit wedge (like a compass dial), with a dotted ring and four
+/// quarter labels around it.
+struct GlowPie: View {
+    var fraction: Double
+    var labels: [String] = ["0", "25", "50", "75"]
+
+    var body: some View {
+        let f = min(max(fraction, 0), 1)
+        ZStack {
+            Circle().fill(LinearGradient(colors: [Color.white.opacity(0.18), Color.white.opacity(0.05)], startPoint: .top, endPoint: .bottom))
+            PieWedge(fraction: f)
+                .fill(LinearGradient(colors: [.white, Color(hex: 0xA7C4FF)], startPoint: .topLeading, endPoint: .bottomTrailing))
+            Circle().strokeBorder(.white.opacity(0.35), style: StrokeStyle(lineWidth: 1, dash: [1, 4]))
+                .padding(-8)
+        }
+        .overlay(alignment: .top) { Text(labels[0]).font(.mono(10)).opacity(0.7).offset(y: -26) }
+        .overlay(alignment: .trailing) { Text(labels[1]).font(.mono(10)).opacity(0.7).offset(x: 26) }
+        .overlay(alignment: .bottom) { Text(labels[2]).font(.mono(10)).opacity(0.7).offset(y: 26) }
+        .overlay(alignment: .leading) { Text(labels[3]).font(.mono(10)).opacity(0.7).offset(x: -26) }
+        .aspectRatio(1, contentMode: .fit)
+    }
+}
+
+private struct PieWedge: Shape {
+    var fraction: Double
+    var animatableData: Double {
+        get { fraction }
+        set { fraction = newValue }
+    }
+
+    func path(in r: CGRect) -> Path {
+        Path { p in
+            let c = CGPoint(x: r.midX, y: r.midY)
+            p.move(to: c)
+            p.addArc(center: c, radius: min(r.width, r.height) / 2, startAngle: .degrees(-90), endAngle: .degrees(-90 + 360 * fraction), clockwise: false)
+            p.closeSubpath()
         }
     }
 }
