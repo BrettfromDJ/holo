@@ -27,24 +27,33 @@ struct AnalyticsView: View {
         let total = s.gain + s.realized
         ScrollView {
             VStack(alignment: .leading, spacing: 40) {
-                ValueLineHero(label: "Total return", value: total, points: timeline) {
+                // Lucent: total return on a glowing card with a ring for the return on cost.
+                GlowCard(palette: total < 0 ? .down : .gold, padding: 20) {
+                    HStack(alignment: .center) {
+                        VStack(alignment: .leading, spacing: 0) {
+                            GlowLabel(text: "Total return", secondary: "on \(Format.moneyWhole(s.totalCost)) invested")
+                            Spacer(minLength: 36)
+                            GlowFigure(value: total, size: 50, signed: true, cents: false)
+                        }
+                        Spacer(minLength: 8)
+                        if s.totalCost > 0 {
+                            GlowRing(fraction: min(abs(total / s.totalCost), 1), label: percent(total / s.totalCost, 0))
+                                .frame(width: 104, height: 104)
+                        }
+                    }
+                    .frame(minHeight: 150)
+                }
+                VStack(alignment: .leading, spacing: 14) {
                     HStack(spacing: 8) {
-                        if s.totalCost > 0 { DeltaPill(ratio: total / s.totalCost, size: 13) }
-                        Text("on \(Format.money(s.totalCost)) invested").font(.geist(13)).foregroundStyle(Theme.muted)
+                        GlassStat(label: "Time-weighted", value: Format.signedPercent(risk.totalReturn), tint: Theme.tone(risk.totalReturn))
+                        GlassStat(label: "Realized", value: Format.signedMoney(s.realized), tint: Theme.tone(s.realized))
+                        GlassStat(label: "Invested", value: Format.money(s.totalCost))
                     }
-                } below: {
-                    VStack(alignment: .leading, spacing: 14) {
-                        HStack(spacing: 8) {
-                            GlassStat(label: "Time-weighted", value: Format.signedPercent(risk.totalReturn), tint: Theme.tone(risk.totalReturn))
-                            GlassStat(label: "Realized", value: Format.signedMoney(s.realized), tint: Theme.tone(s.realized))
-                            GlassStat(label: "Invested", value: Format.money(s.totalCost))
-                        }
-                        AllocationBar(holdings: holdings, total: s.value)
-                        NavigationLink(value: MorePage.gains) {
-                            Label("Where it comes from", systemImage: "chart.bar.xaxis").lineLimit(1)
-                        }
-                        .buttonStyle(Button3D(kind: .dark, fullWidth: false, height: 40))
+                    AllocationBar(holdings: holdings, total: s.value)
+                    NavigationLink(value: MorePage.gains) {
+                        Label("Where it comes from", systemImage: "chart.bar.xaxis").lineLimit(1)
                     }
+                    .buttonStyle(Button3D(kind: .dark, fullWidth: false, height: 40))
                 }
                 kpis(risk: risk, summary: s, holdings: holdings)
                 // Its own view, so dragging across the chart redraws only the chart.
@@ -77,23 +86,43 @@ struct AnalyticsView: View {
         let winRate = priced.isEmpty ? nil : Double(priced.filter { ($0.gain ?? 0) > 0 }.count) / Double(priced.count)
         let sales = store.portfolioTransactions.filter { $0.kind == .sale }.count
         let short = { (d: String?) in d.flatMap { Format.isoDay.date(from: $0)?.formatted(.dateTime.month(.abbreviated).day()) } ?? "—" }
-        let glow = { (v: Double?) in (v ?? 0) < 0 ? Theme.planPink : Theme.lime }
-        return LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-            CountTile(label: "Max drawdown", value: risk.maxDrawdown, format: { percent($0, 1) }, valueTint: Theme.tone(risk.maxDrawdown),
-                      sub: risk.maxDrawdownTo != nil ? "\(short(risk.maxDrawdownFrom)) → \(short(risk.maxDrawdownTo))" : "No dips yet", glow: Theme.planPink)
-                .popIn(delay: 0.1)
-            CountTile(label: "Best day", value: risk.bestDay?.gain, format: { Format.signedMoney($0) }, valueTint: Theme.tone(risk.bestDay?.gain),
-                      sub: short(risk.bestDay?.date), glow: Theme.lime)
-                .popIn(delay: 0.15)
-            CountTile(label: "Worst day", value: risk.worstDay?.gain, format: { Format.signedMoney($0) }, valueTint: Theme.tone(risk.worstDay?.gain),
-                      sub: short(risk.worstDay?.date), glow: Theme.planPink)
-                .popIn(delay: 0.2)
-            CountTile(label: "In profit", value: winRate, format: { percent($0, 0) }, sub: "of \(holdings.count) holdings", glow: Theme.planBlue)
-                .popIn(delay: 0.25)
-            CountTile(label: "Up days", value: risk.upDays, format: { percent($0, 0) }, sub: "Days the market moved your way", glow: Theme.planBlue)
-                .popIn(delay: 0.3)
-            CountTile(label: "Volatility", value: risk.volatility, format: { percent($0, 0) }, sub: "Annualized swing in value", glow: Theme.planBlue)
-                .popIn(delay: 0.35)
+        return LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+            tile("Max drawdown", risk.maxDrawdownTo != nil ? "\(short(risk.maxDrawdownFrom)) → \(short(risk.maxDrawdownTo))" : "No dips yet", palette: .sunset) {
+                Text(percent(risk.maxDrawdown, 1)).font(.geist(34)).tracking(-1.2).monospacedDigit()
+            }
+            tile("Volatility", "Annual swing", palette: .indigo) {
+                VStack(alignment: .leading, spacing: 8) {
+                    if let v = risk.volatility { GlowTicks(fraction: min(v, 1)).frame(height: 22) }
+                    Text(risk.volatility.map { percent($0, 0) } ?? "—").font(.geist(34)).tracking(-1.2).monospacedDigit()
+                }
+            }
+            tile("In profit", "of \(holdings.count) holdings", palette: .mint) {
+                if let winRate { DotMatrixText(text: "\(Int((winRate * 100).rounded()))%", dot: 4.4, color: GlowPalette.mint.ink) } else { Text("—").font(.geist(34)) }
+            }
+            tile("Best day", short(risk.bestDay?.date), palette: .ember) {
+                Text(risk.bestDay.map { Format.signedMoney($0.gain).split(separator: ".").first.map(String.init) ?? "" } ?? "—").font(.geist(34)).tracking(-1.2).monospacedDigit()
+            }
+            tile("Worst day", short(risk.worstDay?.date), palette: .down) {
+                Text(risk.worstDay.map { Format.signedMoney($0.gain).split(separator: ".").first.map(String.init) ?? "" } ?? "—").font(.geist(34)).tracking(-1.2).monospacedDigit()
+            }
+            tile("Up days", "\(sales) sale\(sales == 1 ? "" : "s") so far", palette: .ocean) {
+                VStack(alignment: .leading, spacing: 8) {
+                    if let u = risk.upDays { GlowTicks(fraction: u).frame(height: 22) }
+                    Text(risk.upDays.map { percent($0, 0) } ?? "—").font(.geist(34)).tracking(-1.2).monospacedDigit()
+                }
+            }
+        }
+    }
+
+    /// A Lucent glow tile: label and sub-line at the top, the figure at the bottom.
+    private func tile<V: View>(_ label: String, _ sub: String, palette: GlowPalette, @ViewBuilder value: () -> V) -> some View {
+        GlowCard(palette: palette, radius: 26, padding: 16) {
+            VStack(alignment: .leading, spacing: 0) {
+                GlowLabel(text: label, secondary: sub)
+                Spacer(minLength: 20)
+                value()
+            }
+            .frame(height: 136, alignment: .topLeading)
         }
     }
 

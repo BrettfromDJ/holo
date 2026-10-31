@@ -45,13 +45,13 @@ struct HoldingSheet: View {
                 // Title and Done sit in the content (no navigation bar), so nothing above the
                 // content changes size while the sheet comes up and nothing shifts.
                 titleRow
-                header
                 if let h = holding {
-                    value(h)
+                    glowTop(h)
                     tiles(h)
                     if identity.isGraded { slabRows } else if product?.isSealed == false { ifGraded(h) }
                     actions(h)
                 } else {
+                    header
                     Text("You don't hold any of these right now.").font(.geist(14)).foregroundStyle(Theme.muted)
                 }
                 history
@@ -131,31 +131,50 @@ struct HoldingSheet: View {
         }
     }
 
-    private func value(_ h: HoldingView) -> some View {
-        // Since you first bought it, colored by whether you're up overall.
+    /// Lucent: the card, its worth, your gain and its line since you bought it, on a glowing card
+    /// whose colors are this card's own. Only the figures count and the line draws.
+    private func glowTop(_ h: HoldingView) -> some View {
         let held = h.firstAcquired.map { Timeline.daysBetween($0, Format.day()) } ?? 90
         let points = store.series(identity, days: min(max(held, 7), 3650))
-        return VStack(alignment: .leading, spacing: 8) {
-            MonoLabel(text: h.quantity > 1 ? "Your \(Int(h.quantity)) are worth" : "Yours is worth")
-            // Everything sits in place; only the figures count and the chart draws.
-            CountingText(value: h.value ?? 0, format: { (h.isConditionEstimate ? "≈ " : "") + Format.money($0) }, duration: 0.9, delay: 0.15)
-                .font(.display(44)).monospacedDigit().displayTrim(44)
-            HStack(spacing: 8) {
-                DeltaPill(ratio: h.gainRatio, size: 13)
-                CountingText(value: h.gain ?? 0, format: { Format.signedMoney($0) }, duration: 0.9, delay: 0.15)
-                    .font(.geist(14, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(h.gain))
-                Text("on what you paid").font(.geist(13)).foregroundStyle(Theme.muted)
-            }
-            if points.count > 1 {
-                let up = (h.gain ?? 0) >= 0
-                // Draws in left to right, quickly, as the sheet arrives.
-                Sparkline(points: points, color: up ? Theme.lime : Theme.planPink, delay: 0.15).frame(height: 56).padding(.top, 6)
-                HStack {
-                    MonoLabel(text: h.firstAcquired.flatMap { Format.isoDay.date(from: $0) }.map { "Since you bought it · \($0.formatted(.dateTime.month(.abbreviated).year()))" } ?? "Since you bought it")
-                    Spacer()
-                    Text(Format.signedMoney(h.gain)).font(.geist(12, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(h.gain))
+        return GlowCard(palette: .forProduct(identity.productId), padding: 18) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 12) {
+                    HoldingArt(product: product, identity: identity, cornerRadius: 5, caption: false)
+                        .frame(width: 46, height: 64)
+                        .shadow(color: .black.opacity(0.35), radius: 8, y: 4)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(product?.name ?? "Unknown").font(.geist(16, .semibold)).lineLimit(2)
+                        HStack(spacing: 6) {
+                            Text(holding?.label ?? (product?.isSealed == true ? "Sealed" : identity.condition))
+                                .font(.geist(12, .semibold))
+                                .padding(.horizontal, 8).padding(.vertical, 3)
+                                .background(.black.opacity(0.28), in: Capsule())
+                            if let set = product?.setName { Text(set).font(.geist(12)).opacity(0.75).lineLimit(1) }
+                        }
+                    }
+                }
+                Spacer(minLength: 40)
+                GlowLabel(text: h.quantity > 1 ? "Your \(Int(h.quantity)) are worth" : "Yours is worth")
+                CountingText(value: h.value ?? 0, format: { (h.isConditionEstimate ? "≈ " : "") + Format.money($0) }, duration: 0.9, delay: 0.15)
+                    .font(.geist(54)).tracking(-2.2).monospacedDigit().lineLimit(1).minimumScaleFactor(0.5)
+                    .padding(.top, 6)
+                HStack(spacing: 8) {
+                    if let r = h.gainRatio { GlowPill(text: (r < 0 ? "▼ " : "▲ ") + Format.signedPercent(abs(r)).replacingOccurrences(of: "+", with: "")) }
+                    CountingText(value: h.gain ?? 0, format: { Format.signedMoney($0) }, duration: 0.9, delay: 0.15)
+                        .font(.geist(13, .semibold)).monospacedDigit()
+                    Text("on \(Format.money(h.costBasis))").font(.geist(13)).opacity(0.75)
+                }
+                .padding(.top, 10)
+                if points.count > 1 {
+                    Sparkline(points: points, color: .white, delay: 0.15)
+                        .frame(height: 48)
+                        .padding(.top, 14)
+                    Text(h.firstAcquired.flatMap { Format.isoDay.date(from: $0) }.map { "SINCE YOU BOUGHT IT · \($0.formatted(.dateTime.month(.abbreviated).year()).uppercased())" } ?? "SINCE YOU BOUGHT IT")
+                        .font(.mono(10)).tracking(1.2).opacity(0.7)
+                        .padding(.top, 6)
                 }
             }
+            .frame(minHeight: 300, alignment: .topLeading)
         }
     }
 
@@ -177,16 +196,26 @@ struct HoldingSheet: View {
         }
         let ten = worth("10"), nine = worth("9")
         return VStack(alignment: .leading, spacing: 12) {
-            MonoLabel(text: "If graded")
-            HStack(spacing: 8) {
-                SheetStat(label: "PSA 10", value: (ten.1 ? "≈ " : "") + Format.money(ten.0), tint: Theme.lime)
-                SheetStat(label: "PSA 9", value: (nine.1 ? "≈ " : "") + Format.money(nine.0))
+            HStack(spacing: 10) {
+                gradeTile("If PSA 10", (ten.1 ? "≈ " : "") + Format.moneyWhole(ten.0), palette: .ocean)
+                gradeTile("If PSA 9", (nine.1 ? "≈ " : "") + Format.moneyWhole(nine.0), palette: .forest)
             }
             .redacted(reason: gradedReady ? [] : .placeholder)
             Text(!gradedReady ? "Looking up graded prices…" : ten.1 ? "Estimates from the usual grade curve. The card page has every grade." : "From PriceCharting. The card page has every grade.")
                 .font(.geist(12)).foregroundStyle(Theme.subtle)
             Button { sending = true } label: { Label("Send for grading", systemImage: "paperplane") }
                 .buttonStyle(GlassButton())
+        }
+    }
+
+    private func gradeTile(_ label: String, _ value: String, palette: GlowPalette) -> some View {
+        GlowCard(palette: palette, radius: 24, padding: 16) {
+            VStack(alignment: .leading, spacing: 0) {
+                GlowLabel(text: label)
+                Spacer(minLength: 22)
+                Text(value).font(.geist(30)).tracking(-1).monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)
+            }
+            .frame(height: 84, alignment: .topLeading)
         }
     }
 

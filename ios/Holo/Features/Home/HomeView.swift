@@ -213,37 +213,65 @@ struct BrandMark: View {
 
 // MARK: - Hero
 
-/// Your most valuable pieces fanned out over a glowing grid, then the worth in giant lime Anton.
+/// Lucent's Overview top: a glowing card with your collection's worth (green-teal when you're up
+/// overall, pink-orange when down), its all-time change and a dial showing where today sits in
+/// the last 30 days; then Today and Invested as smaller glow tiles.
 private struct Hero: View {
     var store: CollectionStore
     var onRecap: () -> Void
     var onAdd: () -> Void
 
+    /// The last 30 days' low and high, and where today sits between them.
+    private var range: (low: Double, high: Double, at: Double)? {
+        let recent = store.timeline.suffix(31).map(\.value).filter { $0 > 0 }
+        guard let low = recent.min(), let high = recent.max(), high > low, let now = recent.last else { return nil }
+        return (low, high, (now - low) / (high - low))
+    }
+
     var body: some View {
         let s = store.summary
-        let top = Array(store.holdings.filter { ($0.value ?? 0) > 0 }.prefix(5))
         VStack(spacing: 10) {
-            CardFan(holdings: top).frame(height: 236)
-            MonoLabel(text: "\(store.holdings.count) products · \(Int(s.items)) items")
-            VStack(spacing: 6) {
-                Text("YOUR COLLECTION'S WORTH").font(.display(30)).displayTrim(30)
-                CountingText(value: s.value, format: { Format.money($0) })
-                    .font(.display(66))
-                    .monospacedDigit()
-                    .foregroundStyle(Theme.lime)
-                    .minimumScaleFactor(0.5)
-                    .lineLimit(1)
-                    .displayTrim(66)
-                    .shadow(color: Theme.holoGlow.opacity(0.45), radius: 24)
-                    .padding(.horizontal, 16)
+            GlowCard(palette: .tone(s.gain), padding: 20) {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(alignment: .top) {
+                        GlowLabel(text: "Your collection")
+                        Spacer()
+                        GlowLabel(text: "\(Int(s.items)) items")
+                    }
+                    GlowFigure(value: s.value, size: 60).padding(.top, 16)
+                    HStack(spacing: 8) {
+                        if let r = s.gainRatio { GlowPill(text: (r < 0 ? "▼ " : "▲ ") + Format.signedPercent(abs(r)).replacingOccurrences(of: "+", with: "")) }
+                        Text("\(Format.signedMoney(s.gain)) all time").font(.geist(13, .medium)).monospacedDigit()
+                    }
+                    .padding(.top, 12)
+                    if let range {
+                        GlowDial(fraction: range.at, low: Format.moneyWhole(range.low), high: Format.moneyWhole(range.high), caption: "30-day range")
+                            .frame(height: 150)
+                            .padding(.top, 26)
+                            .padding(.horizontal, 12)
+                    }
+                }
             }
-            .padding(.vertical, 8)
-            FlowPills(pills: [
-                ("Today", Format.signedMoney(s.dayChange), Theme.tone(s.dayChange), Format.signedPercent(s.dayRatio)),
-                ("All time", Format.signedMoney(s.gain), Theme.tone(s.gain), nil),
-                ("Invested", Format.money(s.totalCost), Color.white, nil),
-            ])
-            .padding(.horizontal, 16)
+            HStack(spacing: 10) {
+                GlowCard(palette: .tone(s.dayChange), padding: 16) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        GlowLabel(text: "Today")
+                        Spacer(minLength: 34)
+                        GlowFigure(value: s.dayChange, size: 34, signed: true, cents: false)
+                        Text(Format.signedPercent(s.dayRatio)).font(.geist(13)).monospacedDigit().opacity(0.75).padding(.top, 2)
+                    }
+                    .frame(height: 112, alignment: .topLeading)
+                }
+                GlowCard(palette: .violet, padding: 16) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        GlowLabel(text: "Invested")
+                        Spacer(minLength: 34)
+                        GlowFigure(value: s.totalCost, size: 34, cents: false)
+                        Text("across \(store.holdings.count) products").font(.geist(13)).opacity(0.75).padding(.top, 2)
+                    }
+                    .frame(height: 112, alignment: .topLeading)
+                }
+            }
             // The website's floating action bar: your week's recap and the lime add button.
             // Widths split 1 : 1.4 like the website, on one line each.
             GeometryReader { geo in
@@ -264,11 +292,10 @@ private struct Hero: View {
             .padding(.bottom, 10)
             .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             .shadow(color: .black.opacity(0.5), radius: 24, y: 12)
-            .padding(.horizontal, 16)
-            .padding(.top, 18)
+            .padding(.top, 8)
         }
+        .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(HeroBackdrop())
     }
 }
 
