@@ -71,13 +71,49 @@ struct GlowPalette: Hashable {
         Blob(color: Color(hex: 0xB13CFF), x: 0.5, y: 0.82, size: 0.6),
     ])
 
+    /// Yellow-green into lime light, like a spring meadow.
+    static let citrus = GlowPalette(base: Color(hex: 0x1C2A06), blobs: [
+        Blob(color: Color(hex: 0xE8FF5A), x: 0.75, y: 0.25, size: 0.6),
+        Blob(color: Color(hex: 0x3BD16F), x: 0.25, y: 0.75, size: 0.7),
+    ])
+    static let aqua = GlowPalette(base: Color(hex: 0x05232A), blobs: [
+        Blob(color: Color(hex: 0x5FF0FF), x: 0.3, y: 0.3, size: 0.65),
+        Blob(color: Color(hex: 0x1F8BFF), x: 0.8, y: 0.8, size: 0.6),
+    ])
+    static let rose = GlowPalette(base: Color(hex: 0x33061E), blobs: [
+        Blob(color: Color(hex: 0xFF8FC7), x: 0.3, y: 0.25, size: 0.6),
+        Blob(color: Color(hex: 0xFF2E9A), x: 0.7, y: 0.8, size: 0.65),
+    ])
+    static let lilac = GlowPalette(base: Color(hex: 0x1E1238), blobs: [
+        Blob(color: Color(hex: 0xC8B6FF), x: 0.7, y: 0.3, size: 0.6),
+        Blob(color: Color(hex: 0x7B5CFF), x: 0.25, y: 0.8, size: 0.65),
+    ])
+    static let flame = GlowPalette(base: Color(hex: 0x2E0C04), blobs: [
+        Blob(color: Color(hex: 0xFFB13D), x: 0.25, y: 0.3, size: 0.6),
+        Blob(color: Color(hex: 0xFF4B2B), x: 0.75, y: 0.75, size: 0.65),
+    ])
+    static let sky = GlowPalette(base: Color(hex: 0x081A3A), blobs: [
+        Blob(color: Color(hex: 0xA7C4FF), x: 0.5, y: 0.2, size: 0.6),
+        Blob(color: Color(hex: 0x2F5BFF), x: 0.4, y: 0.85, size: 0.65),
+    ])
+    static let moss = GlowPalette(base: Color(hex: 0x0A1A0E), blobs: [
+        Blob(color: Color(hex: 0x86F2CF), x: 0.7, y: 0.25, size: 0.55),
+        Blob(color: Color(hex: 0x2E7D4F), x: 0.3, y: 0.75, size: 0.7),
+    ])
+
+    /// Every palette in a pleasing order, to mix colors across a row or grid of tiles.
+    static let mix: [GlowPalette] = [.violet, .citrus, .rose, .aqua, .flame, .lilac, .gold, .sky, .ember, .moss, .indigo, .orchid]
+
+    /// The `i`th palette of the mix (wraps around), so neighbouring tiles differ.
+    static func mixed(_ i: Int) -> GlowPalette { mix[((i % mix.count) + mix.count) % mix.count] }
+
     /// Up or down.
     static func tone(_ value: Double?) -> GlowPalette { (value ?? 0) < 0 ? .down : .up }
 
     /// A steady palette for a product (the same card always gets the same glow), warmer for
     /// rarer cards.
     static func forProduct(_ id: String) -> GlowPalette {
-        let options: [GlowPalette] = [.orchid, .indigo, .ocean, .ember, .gold, .violet]
+        let options: [GlowPalette] = [.orchid, .indigo, .ocean, .ember, .gold, .violet, .citrus, .aqua, .rose, .lilac, .flame, .sky]
         var h: UInt64 = 1469598103934665603
         for b in id.utf8 { h = (h ^ UInt64(b)) &* 1099511628211 }
         return options[Int(h % UInt64(options.count))]
@@ -122,7 +158,7 @@ struct GlowFill: View {
                     )
                 }
                 Textures.image("grain").resizable(resizingMode: .tile)
-                    .opacity(0.16).blendMode(.overlay)
+                    .opacity(0.04).blendMode(.overlay)
             }
             .drawingGroup()
         }
