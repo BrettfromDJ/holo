@@ -13,6 +13,7 @@ struct ProductDetailView: View {
     @State private var newShelf = ""
     @State private var managing: HoldingView?
     @State private var selling: HoldingView?
+    @State private var whatIf: HoldingView?
     @State private var watching = false
     @State private var editing: Txn?
     @State private var deleting: Txn?
@@ -107,6 +108,14 @@ struct ProductDetailView: View {
         }
         .sheet(item: $managing) { h in HoldingSheet(identity: h.identity) }
         .sheet(item: $selling) { h in SellSheet(holding: h) }
+        .sheet(item: $whatIf) { h in SellCalculatorSheet(holding: h) }
+        // Screenshots: -HoloWhatIf opens the calculator for the first copy you own.
+        .task {
+            if Demo.isOn, ProcessInfo.processInfo.arguments.contains("-HoloWhatIf"), whatIf == nil {
+                try? await Task.sleep(nanoseconds: 800_000_000)
+                whatIf = owned.first
+            }
+        }
         .sheet(item: $editing) { t in EntryEditSheet(entry: t) }
         .sheet(isPresented: $adding) {
             if let product { AddPurchaseSheet(hit: SearchHit(product: product, printing: printing, market: headline)) }
@@ -281,6 +290,15 @@ struct ProductDetailView: View {
             Button { adding = true } label: { Label(owned.isEmpty ? "Add to collection" : "Add more", systemImage: "plus") }
                 .buttonStyle(Button3D(kind: .light, fullWidth: false, height: 36))
             if !owned.isEmpty {
+                // What if I sell? (like the website), then record a sale.
+                if owned.count == 1 {
+                    Button { whatIf = owned.first } label: { Image(systemName: "plus.forwardslash.minus") }.buttonStyle(IconButton3D(size: 36)).accessibilityLabel("What if I sell?")
+                } else {
+                    Menu {
+                        ForEach(owned) { h in Button("\(h.label ?? "Near Mint") ×\(Int(h.quantity))") { whatIf = h } }
+                    } label: { Image(systemName: "plus.forwardslash.minus") }
+                        .menuStyle(.button).buttonStyle(IconButton3D(size: 36)).accessibilityLabel("What if I sell?")
+                }
                 if owned.count == 1 {
                     Button { selling = owned.first } label: { Image(systemName: "tag") }.buttonStyle(IconButton3D(size: 36)).accessibilityLabel("Sell")
                 } else {
