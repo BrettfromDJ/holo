@@ -41,10 +41,8 @@ struct BinderView: View {
         let current = sets.first { $0.id == selected } ?? sets.first
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                MoreHero(label: "Singles in your binder", value: store.holdings.filter { $0.product?.isSealed == false }.reduce(0) { $0 + $1.quantity },
-                         format: { "\(Int($0.rounded()))" }, tint: Theme.lime) {
-                    Text("Page by page, set by set, with what's missing from each").font(.geist(14)).foregroundStyle(Theme.muted)
-                }
+                let singles = store.holdings.filter { $0.product?.isSealed == false }.sorted { ($0.value ?? 0) > ($1.value ?? 0) }
+                BinderPageHero(cards: Array(singles.prefix(8)), count: singles.reduce(0) { $0 + $1.quantity }, sets: sets.count)
                 if sets.isEmpty {
                     VStack(spacing: 10) {
                         Image(systemName: "book.closed").font(.system(size: 36)).foregroundStyle(Theme.subtle)

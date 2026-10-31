@@ -30,7 +30,7 @@ struct AnalyticsView: View {
         let total = s.gain + s.realized
         ScrollView {
             VStack(alignment: .leading, spacing: 40) {
-                MoreHero(label: "Total return", value: total, format: { Format.signedMoney($0) }, tint: total >= 0 ? Theme.lime : Theme.planPink) {
+                ValueLineHero(label: "Total return", value: total, points: timeline) {
                     VStack(alignment: .leading, spacing: 14) {
                         if s.totalCost > 0 {
                             HStack(spacing: 8) {

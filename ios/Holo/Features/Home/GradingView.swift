@@ -34,9 +34,7 @@ struct GradingView: View {
         let candidates = self.candidates
         ScrollView {
             VStack(alignment: .leading, spacing: 36) {
-                MoreHero(label: "Your slabs are worth", value: slabs.reduce(0) { $0 + ($1.value ?? 0) }, format: { Format.money($0) }, tint: Theme.lime) {
-                    Text("Your slabs, cards at the grader, and what's worth sending in").font(.geist(14)).foregroundStyle(Theme.muted)
-                }
+                SlabFanHero(slabs: slabs, value: slabs.reduce(0) { $0 + ($1.value ?? 0) })
                 metrics(slabs)
                 yourSlabs(slabs).reveal()
                 worthGrading(candidates).reveal()

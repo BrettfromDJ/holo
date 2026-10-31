@@ -39,9 +39,10 @@ struct GainsView: View {
                                 mode: mode, group: group, maxRows: expanded ? nil : Self.collapsedRows)
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
-                MoreHero(label: label, value: a.total, format: { Format.signedMoney($0) }, tint: a.total >= 0 ? Theme.lime : Theme.planPink) {
-                    Text(hint).font(.geist(14)).foregroundStyle(Theme.muted)
-                }
+                TugOfWarHero(label: label, total: a.total, gains: a.gains, losses: a.losses,
+                             leaders: a.steps.filter { $0.gain > 0 && $0.members == nil })
+                    .id("\(mode.rawValue)\(group.rawValue)")
+                Text(hint).font(.geist(13)).foregroundStyle(Theme.muted)
                 VStack(alignment: .leading, spacing: 10) {
                     ChipPicker(options: [(.unrealized, "Unrealized"), (.realized, "Realized"), (.all, "All-time")], selection: $mode)
                     ChipPicker(options: [(.product, "Products"), (.set, "Sets"), (.category, "Type")], selection: Binding(
@@ -49,13 +50,6 @@ struct GainsView: View {
                         set: { group = $0; expanded = false }
                     ))
                 }
-                HStack(spacing: 12) {
-                    CountTile(label: "Gains", value: a.gains, format: { Format.signedMoney($0) }, valueTint: a.gains > 0 ? Theme.up : .white,
-                              sub: "\(a.winners) \(a.winners == 1 ? noun.one : noun.many) up", glow: Theme.lime)
-                    CountTile(label: "Losses", value: a.losses, format: { Format.signedMoney($0) }, valueTint: a.losses < 0 ? Theme.down : .white,
-                              sub: "\(a.losers) \(a.losers == 1 ? noun.one : noun.many) down", glow: Theme.planPink)
-                }
-
                 if let share = a.topThreeShare, a.winners > 3 {
                     // The headline insight, big.
                     HStack(alignment: .center, spacing: 14) {
