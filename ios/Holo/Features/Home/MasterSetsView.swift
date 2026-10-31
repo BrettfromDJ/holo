@@ -78,23 +78,7 @@ struct MasterSetDetailView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 120)
         }
-        // The lit grid is the page's own background, from the very top of the screen (under the
-        // clear top bar) fading out below the dial, so the top reads as one piece.
-        .background {
-            ZStack(alignment: .top) {
-                Theme.background
-                ZStack {
-                    Color(hex: 0x050505)
-                    GridPattern(step: 28, opacity: 0.07)
-                    RadialGradient(colors: [Theme.lime.opacity(0.2), .clear], center: UnitPoint(x: 0.5, y: 0.5), startRadius: 0, endRadius: 300)
-                    RadialGradient(colors: [Theme.planBlue.opacity(0.18), .clear], center: UnitPoint(x: 0.95, y: 0.15), startRadius: 0, endRadius: 260)
-                    RadialGradient(colors: [Theme.planPink.opacity(0.14), .clear], center: UnitPoint(x: 0.05, y: 0.85), startRadius: 0, endRadius: 240)
-                }
-                .frame(height: 1000)
-                .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.75), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom))
-            }
-            .ignoresSafeArea()
-        }
+        .background(Theme.background)
         .imageMaxPixel(400)
         .replaysAnimations()
         .scrollDismissesKeyboard(.immediately)
@@ -224,6 +208,10 @@ struct MasterSetDetailView: View {
         .padding(.top, 8)
         .padding(.bottom, 22)
         .frame(maxWidth: .infinity)
+        // The dotted backdrop of the other pages behind the top, running up under the clear bar.
+        .background(alignment: .top) {
+            DotBackdrop().padding(.top, -200).padding(.bottom, -60)
+        }
         .padding(.horizontal, -16)
     }
 
