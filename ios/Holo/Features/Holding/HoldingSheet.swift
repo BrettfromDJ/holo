@@ -83,7 +83,7 @@ struct HoldingSheet: View {
                 graded = (try? await Backend.shared.api.gradedValues([identity.productId]))?[identity.productId]
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.large])
         .presentationDragIndicator(.visible)
     }
 
@@ -103,7 +103,9 @@ struct HoldingSheet: View {
     }
 
     private func value(_ h: HoldingView) -> some View {
-        let points = store.series(identity, days: 90)
+        // Since you first bought it, colored by whether you're up overall.
+        let held = h.firstAcquired.map { Timeline.daysBetween($0, Format.day()) } ?? 90
+        let points = store.series(identity, days: min(max(held, 7), 3650))
         return VStack(alignment: .leading, spacing: 8) {
             MonoLabel(text: h.quantity > 1 ? "Your \(Int(h.quantity)) are worth" : "Yours is worth")
             Text((h.isConditionEstimate ? "≈ " : "") + Format.money(h.value)).font(.display(44)).monospacedDigit().displayTrim(44)
@@ -113,12 +115,12 @@ struct HoldingSheet: View {
                 Text("on what you paid").font(.geist(13)).foregroundStyle(Theme.muted)
             }
             if points.count > 1 {
-                let change = (points.last?.value ?? 0) - (points.first?.value ?? 0)
-                Sparkline(points: points, color: change < 0 ? Theme.planPink : Theme.lime).frame(height: 48).padding(.top, 6)
+                let up = (h.gain ?? 0) >= 0
+                Sparkline(points: points, color: up ? Theme.lime : Theme.planPink).frame(height: 56).padding(.top, 6)
                 HStack {
-                    MonoLabel(text: "Last 90 days, each")
+                    MonoLabel(text: h.firstAcquired.flatMap { Format.isoDay.date(from: $0) }.map { "Since you bought it · \($0.formatted(.dateTime.month(.abbreviated).year()))" } ?? "Since you bought it")
                     Spacer()
-                    Text(Format.signedMoney(change)).font(.geist(12, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(change))
+                    Text(Format.signedMoney(h.gain)).font(.geist(12, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(h.gain))
                 }
             }
         }
