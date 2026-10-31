@@ -287,7 +287,7 @@ struct DealCloseSheet: View {
                     Group {
                         VStack(alignment: .leading, spacing: 8) {
                             SkewTag(text: t.kind.label)
-                            DisplayText(text: "CLOSE THIS \(t.kind.noun.uppercased())?", size: 30)
+                            DisplayText(text: "Close this \(t.kind.noun)?", size: 30)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         // Who pays whom, big enough to turn the phone around, glowing up or down
@@ -459,8 +459,8 @@ private struct RecordedScreen: View {
                     Text(demo ? "DEMO · NOTHING SAVED" : "IN YOUR COLLECTION").font(.mono(11)).tracking(1.6).foregroundStyle(ink.opacity(0.6))
                     // Anton has tall built-in line spacing; trim each line so they sit tight.
                     VStack(spacing: 6) {
-                        Text(t.kind.noun.uppercased()).font(.display(58)).displayTrim(58)
-                        Text("RECORDED").font(.display(58)).displayTrim(58)
+                        Text(t.kind.noun.capitalized).font(.display(58)).displayTrim(58)
+                        Text("Recorded").font(.display(58)).displayTrim(58)
                     }
                     .foregroundStyle(ink)
                     .lineLimit(1).minimumScaleFactor(0.6)

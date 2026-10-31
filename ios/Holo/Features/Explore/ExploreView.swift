@@ -219,7 +219,7 @@ private struct BrandView: View {
                 .frame(width: 110, height: 64)
                 VStack(alignment: .leading, spacing: 6) {
                     MonoLabel(text: "Brand")
-                    DisplayText(text: game.name.uppercased(), size: 30).frame(maxWidth: .infinity, alignment: .leading)
+                    DisplayText(text: game.name, size: 30).frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
             HStack(spacing: 8) {
@@ -498,7 +498,7 @@ private struct SetHero: View {
             art
             VStack(alignment: .leading, spacing: 8) {
                 MonoLabel(text: set.gameName)
-                DisplayText(text: set.name.uppercased(), size: 34).frame(maxWidth: .infinity, alignment: .leading)
+                DisplayText(text: set.name, size: 34).frame(maxWidth: .infinity, alignment: .leading)
                 Text(meta).font(.geist(13)).foregroundStyle(Theme.muted).monospacedDigit()
             }
             if upcoming { ReleaseCountdown(set: set) }
@@ -921,7 +921,7 @@ private struct SectionCount: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Text(title.uppercased()).font(.display(24)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.8)
+            Text(title).font(.display(24)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.8)
             MonoLabel(text: "\(count) \(noun)\(count == 1 ? "" : "s")")
             Spacer(minLength: 0)
         }
@@ -1096,7 +1096,7 @@ private struct NextRelease: View {
             HStack(alignment: .center, spacing: 16) {
                 VStack(alignment: .leading, spacing: 10) {
                     SkewTag(text: "Next release", icon: "sparkles")
-                    DisplayText(text: set.name.uppercased(), size: 24)
+                    DisplayText(text: set.name, size: 24)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     Text([set.gameName, set.release?.formatted(date: .abbreviated, time: .omitted)].compactMap { $0 }.joined(separator: " · "))
                         .font(.mono(11)).tracking(0.6).opacity(0.75).lineLimit(1)

@@ -34,6 +34,8 @@ and say exactly what to run or click.
 
 - **Fonts:** Geist (body), Anton (display: titles and big numbers, uppercase), Geist Mono
   (small caps labels). The app also bundles Roboto Mono.
+  In the Lucent app, `Font.display` is now Geist (Regular for big figures, Medium for
+  headings) in sentence case, not Anton caps; don't uppercase headings there.
 - **Colors:** lime `#D4FF3A` (accent, up), plan blue `#2F5BFF`, plan pink `#FF2E9A` (down).
   Color only numbers (gains green/lime, losses pink); text stays white or muted.
 - **Lucent (app only, so far):** the iPhone app is named Lucent and uses an iridescent palette

@@ -50,7 +50,7 @@ struct ScanView: View {
             Spacer()
             HStack(spacing: 8) {
                 Circle().fill(dealSide == .outgoing ? Theme.planPink : Theme.lime).frame(width: 7, height: 7)
-                Text(dealSide == nil ? "SCAN CARDS" : (dealSide == .incoming ? "COMING IN" : "GOING OUT"))
+                Text(dealSide == nil ? "Scan cards" : (dealSide == .incoming ? "Coming in" : "Going out"))
                     .font(.display(16)).tracking(0.6)
             }
             .padding(.horizontal, 16).frame(height: 40)
@@ -103,7 +103,7 @@ struct ScanView: View {
             if camera.state == .denied {
                 VStack(spacing: 14) {
                     Image(systemName: "camera.fill").font(.system(size: 30)).foregroundStyle(Theme.lime)
-                    Text("CAMERA IS OFF FOR HOLO").font(.display(22))
+                    Text("Camera is off for Lucent").font(.display(22))
                     Text("Turn it on in Settings to scan cards.").font(.geist(14)).foregroundStyle(Theme.muted)
                     Button("Open Settings") { if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) } }
                         .buttonStyle(Button3D(kind: .lime, fullWidth: false, height: 44))

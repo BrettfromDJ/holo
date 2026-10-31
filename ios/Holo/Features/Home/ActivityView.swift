@@ -76,7 +76,7 @@ struct ActivityView: View {
                 LazyVStack(alignment: .leading, spacing: 26) {
                     ForEach(m.months, id: \.key) { month in
                         VStack(alignment: .leading, spacing: 10) {
-                            Text(monthTitle(month.key).uppercased()).font(.display(20)).displayTrim(20)
+                            Text(monthTitle(month.key)).font(.display(20)).displayTrim(20)
                             VStack(spacing: 0) {
                                 ForEach(month.rows) { t in
                                     row(t, m)

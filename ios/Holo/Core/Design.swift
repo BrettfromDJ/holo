@@ -1,15 +1,19 @@
 import SwiftUI
 import UIKit
 
-// The website's design language, in SwiftUI: Geist for text, Anton (tall condensed caps) for
+// The website's design language, in SwiftUI: Geist for text, (in Lucent, Geist too, sentence case) for
 // headlines and big numbers, Geist Mono for small caps labels, lime accents, 3D buttons,
 // hairline-bordered surfaces and slanted tags.
 
 // MARK: - Type
 
 extension Font {
-    /// Anton: page titles, section headers and the big numbers.
-    static func display(_ size: CGFloat) -> Font { .custom("Anton-Regular", size: size) }
+    /// Headlines and big numbers. Lucent: Geist in sentence case, matching the glow cards
+    /// (was Anton, tall condensed caps). Big sizes are Regular and thin like the cards' figures,
+    /// smaller ones Medium; sizes come down a fifth since Geist is wider than Anton.
+    static func display(_ size: CGFloat) -> Font {
+        .custom(size >= 36 ? "Geist-Regular" : "Geist-Medium", size: (size * 0.8).rounded())
+    }
 
     /// Geist, the body face.
     static func geist(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
@@ -38,7 +42,7 @@ enum Fonts {
     /// Use Geist in UIKit-drawn chrome too (navigation bars, segmented controls).
     static func applyAppearance() {
         let title = UIFont(name: "Geist-SemiBold", size: 17) ?? .systemFont(ofSize: 17, weight: .semibold)
-        let large = UIFont(name: "Anton-Regular", size: 34) ?? .systemFont(ofSize: 34, weight: .bold)
+        let large = UIFont(name: "Geist-SemiBold", size: 32) ?? .systemFont(ofSize: 32, weight: .semibold)
         let nav = UINavigationBarAppearance()
         // No bar behind the navigation: pages scroll up under the status bar and the floating
         // buttons, like the website on a phone.
@@ -86,7 +90,7 @@ struct PageHeader<Trailing: View>: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(title.uppercased()).font(.display(size)).tracking(0.2).lineLimit(2).minimumScaleFactor(0.7).displayTrim(size)
+                Text(title).font(.display(size)).tracking(0.2).lineLimit(2).minimumScaleFactor(0.7).displayTrim(size)
                 if let subtitle {
                     Text(subtitle).font(.geist(15)).foregroundStyle(Theme.muted)
                 }
@@ -98,11 +102,11 @@ struct PageHeader<Trailing: View>: View {
 }
 
 extension View {
-    /// The page's title, small and centered in the top bar (Anton, uppercase).
+    /// The page's title, small and centered in the top bar (Geist SemiBold).
     func pageTitle(_ title: String) -> some View {
         toolbar {
             ToolbarItem(placement: .principal) {
-                Text(title.uppercased()).font(.display(19)).tracking(0.6).foregroundStyle(.white)
+                Text(title).font(.geist(17, .semibold)).foregroundStyle(.white)
             }
         }
     }
@@ -679,7 +683,7 @@ extension HoldingView {
 extension View {
     /// Anton's line box is about 1.5× its size, with a third of an em of air above the capitals
     /// and below the baseline. This trims that air so headings sit as tight as the website's.
-    func displayTrim(_ size: CGFloat) -> some View { padding(.vertical, -size * 0.27) }
+    func displayTrim(_ size: CGFloat) -> some View { padding(.vertical, -size * 0.06) }
 }
 
 /// A multi-line Anton heading with the website's tight leading (about 0.98), wrapped in

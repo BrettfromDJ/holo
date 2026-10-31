@@ -260,7 +260,7 @@ struct DealCameraView: View {
             if camera.denied {
                 VStack(spacing: 14) {
                     Image(systemName: "camera.fill").font(.system(size: 30)).foregroundStyle(Theme.lime)
-                    Text("CAMERA IS OFF FOR HOLO").font(.display(22))
+                    Text("Camera is off for Lucent").font(.display(22))
                     Text("Turn it on in Settings to photograph deals.").font(.geist(14)).foregroundStyle(Theme.muted)
                     Button("Open Settings") {
                         if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
@@ -313,7 +313,7 @@ struct DealCameraView: View {
         HStack {
             glassCircle("xmark", label: "Close") { dismiss() }
             Spacer()
-            Text("DEAL PHOTOS").font(.display(16)).tracking(0.6).foregroundStyle(.white)
+            Text("Deal photos").font(.display(16)).tracking(0.6).foregroundStyle(.white)
                 .padding(.horizontal, 16).frame(height: 40)
                 .liquidGlass(in: Capsule())
             Spacer()
@@ -545,7 +545,7 @@ struct DealHistoryView: View {
             Image(systemName: "arrow.left.arrow.right").font(.system(size: 30, weight: .bold)).foregroundStyle(Theme.ink)
                 .frame(width: 76, height: 76).background(Circle().fill(Theme.holo))
                 .shadow(color: Theme.holoGlow.opacity(0.4), radius: 20)
-            Text("NO CLOSED DEALS YET").font(.display(28))
+            Text("No closed deals yet").font(.display(28))
             Text("Every buy, sale and trade you close lands here, with what changed hands, your profit and your photos.")
                 .font(.geist(14)).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
         }
@@ -602,7 +602,7 @@ struct DealHistoryView: View {
         let title = date.map { Calendar.current.isDateInToday($0) ? "Today" : (Calendar.current.isDateInYesterday($0) ? "Yesterday" : $0.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())) } ?? day
         return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(title.uppercased()).font(.display(24))
+                Text(title).font(.display(24))
                 MonoLabel(text: "\(records.count) deal\(records.count == 1 ? "" : "s")")
                 Spacer()
                 if records.contains(where: { $0.profit != nil }) {
@@ -815,7 +815,7 @@ struct DealRecordDetail: View {
                     }
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(alignment: .firstTextBaseline, spacing: 10) {
-                            Text("PHOTOS").font(.display(22))
+                            Text("Photos").font(.display(22))
                             MonoLabel(text: "\(r.photos?.count ?? 0)")
                         }
                         DealPhotosStrip(photos: r.photos ?? [], accountId: store.demo == nil ? deals.accountId : nil) { photos in
@@ -879,7 +879,7 @@ struct DealRecordDetail: View {
                 HStack(alignment: .lastTextBaseline) {
                     Image(systemName: incoming ? "arrow.down.left" : "arrow.up.right").font(.system(size: 14, weight: .bold))
                         .foregroundStyle(incoming ? Theme.lime : Theme.planPink)
-                    Text(incoming ? "CAME IN" : "WENT OUT").font(.display(22))
+                    Text(incoming ? "Came in" : "Went out").font(.display(22))
                     Spacer()
                     Text(Format.money(total)).font(.display(22)).monospacedDigit()
                 }

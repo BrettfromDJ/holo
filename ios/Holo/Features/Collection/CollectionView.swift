@@ -388,7 +388,7 @@ struct CollectionView: View {
     private var empty: some View {
         VStack(spacing: 14) {
             Image(systemName: "rectangle.stack.badge.plus").font(.system(size: 44)).foregroundStyle(Theme.lime)
-            Text("START YOUR COLLECTION").font(.display(28))
+            Text("Start your collection").font(.display(28))
             Text("Scan your cards, or search for anything you own.").font(.geist(15)).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
             Button { onScan() } label: { Label("Scan cards", systemImage: "viewfinder") }.buttonStyle(Button3D(kind: .lime))
             Button("Search instead") { adding = true }.font(.geist(15, .medium)).foregroundStyle(Theme.muted)

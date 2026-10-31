@@ -45,7 +45,7 @@ struct MoreHeading: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            DisplayText(text: title.uppercased(), size: 26)
+            DisplayText(text: title, size: 26)
             if let subtitle { Text(subtitle).font(.geist(14)).foregroundStyle(Theme.muted) }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -65,7 +65,7 @@ struct CountTile: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 6) {
-                Text(label.uppercased()).font(.display(14)).tracking(0.3).foregroundStyle(.white.opacity(0.85))
+                Text(label).font(.display(14)).tracking(0.3).foregroundStyle(.white.opacity(0.85))
                     .lineLimit(1).minimumScaleFactor(0.75).displayTrim(14)
                 Spacer(minLength: 0)
                 if let tag { SkewTag(text: tag, color: glow, textColor: glow == Theme.lime ? Theme.ink : .white) }

@@ -189,7 +189,7 @@ struct DealView: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
                     Image(systemName: "camera.fill").font(.system(size: 14, weight: .bold)).foregroundStyle(accent)
-                    Text("PHOTOS").font(.display(24)).displayTrim(24)
+                    Text("Photos").font(.display(24)).displayTrim(24)
                     if !deals.deal.photos.isEmpty { MonoLabel(text: "\(deals.deal.photos.count)") }
                 }
                 Text("Document the deal: the cards on the table, a receipt, the customer's binder").font(.geist(12)).foregroundStyle(Theme.muted)
@@ -214,7 +214,7 @@ struct DealView: View {
                         Image(systemName: incoming ? "arrow.down.left" : "arrow.up.right")
                             .font(.system(size: 16, weight: .bold))
                             .foregroundStyle(incoming ? accent : Theme.planPink)
-                        Text(incoming ? "COMING IN" : "GOING OUT").font(.display(24)).displayTrim(24)
+                        Text(incoming ? "Coming in" : "Going out").font(.display(24)).displayTrim(24)
                     }
                     Text(incoming ? "What the customer hands you" : "What you hand over").font(.geist(12)).foregroundStyle(Theme.muted)
                 }

@@ -13,7 +13,7 @@ struct SignInView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             Spacer()
-            Text("HOLO").font(.system(size: 44, weight: .black)).kerning(1)
+            Text("Lucent").font(.geist(40, .semibold)).tracking(-1)
             Text(sent ? "Enter the 6-digit code we sent to \(email)." : "Track what your cards are worth. Sign in with the same email you use on the website.")
                 .foregroundStyle(Theme.muted)
 

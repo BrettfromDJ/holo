@@ -210,7 +210,7 @@ struct ProductDetailView: View {
 
     private var titleBlock: some View {
         VStack(alignment: .leading, spacing: 0) {
-            DisplayText(text: (product?.name ?? "Loading…").uppercased(), size: 34)
+            DisplayText(text: (product?.name ?? "Loading…"), size: 34)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Text([product?.setName, product?.number.map { "#\($0)" }, printings.count > 1 || printing == "Normal" ? nil : printing].compactMap { $0 }.joined(separator: " · "))
                 .font(.geist(15)).foregroundStyle(Theme.muted)
