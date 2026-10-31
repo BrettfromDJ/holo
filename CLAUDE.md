@@ -23,6 +23,9 @@ and say exactly what to run or click.
 - **The website is the reference.** When the app and the website differ, match the website:
   layout, sizes, spacing, fonts, colors, copy. Read the web component before porting it.
 - Answer questions without building. Only build when asked.
+- **End every reply that changed the app with the update commands**, in a code block:
+  `cd ~/holo && git pull && cd ios && xcodegen`, then Xcode → Product → Clean Build Folder and ▶.
+  (Website changes deploy on their own from the branch.)
 - Keep TCG API usage low (it is paid). Never put `TCGAPI_KEY` or the Supabase service-role key
   in the app; the app only has the public anon key.
 - Never ask for or repeat secrets. APNs keys live only in Vercel.
