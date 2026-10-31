@@ -12,8 +12,8 @@ struct HomeView: View {
     @State private var lists = false
     @State private var search = false
     @State private var recap = false
-    /// A page opened from the launch arguments (-HoloPage analytics|gains|grading) for screenshots.
-    @State private var page: MorePage?
+    /// What's pushed on Home (products by id, More pages); -HoloPage opens one for screenshots.
+    @State private var path = NavigationPath()
     @State private var adding = false
     @State private var addSearch = false
     /// A moment worth a banner: a milestone reached, or prices just updated.
@@ -21,7 +21,7 @@ struct HomeView: View {
     @State private var bannerTick = 0
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             ScrollView {
                 switch store.status {
                 case .idle, .loading:
@@ -63,7 +63,9 @@ struct HomeView: View {
             .navigationBarTitleDisplayMode(.inline)
             .pageTitle("Overview")
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
-            .navigationDestination(item: $page) { p in
+            // Every page pushes by value, so links inside them (a card, Gains from Analytics) push
+            // on top instead of jumping back.
+            .navigationDestination(for: MorePage.self) { p in
                 switch p {
                 case .analytics: AnalyticsView()
                 case .gains: GainsView()
@@ -72,10 +74,10 @@ struct HomeView: View {
                 }
             }
             .task {
-                if Demo.isOn, page == nil, !MorePage.opened, let p = Demo.value("-HoloPage").flatMap(MorePage.init(rawValue:)) {
+                if Demo.isOn, path.isEmpty, !MorePage.opened, let p = Demo.value("-HoloPage").flatMap(MorePage.init(rawValue:)) {
                     MorePage.opened = true
                     try? await Task.sleep(nanoseconds: 600_000_000)
-                    page = p
+                    path.append(p)
                 }
             }
             .sheet(isPresented: $account) { SettingsView() }
@@ -482,9 +484,7 @@ private struct MetricGrid: View {
         VStack(spacing: 12) {
             HStack(spacing: 12) {
                 MetricCard(label: "Invested", amount: s.totalCost, format: { Format.money($0) }, valueTint: .white, sub: "incl. fees & shipping", tint: Theme.azure)
-                NavigationLink {
-                    GainsView()
-                } label: {
+                NavigationLink(value: MorePage.gains) {
                     MetricCard(label: "Unrealized", amount: s.gain, format: { Format.signedMoney($0) }, valueTint: Theme.tone(s.gain), sub: "breakdown →",
                                tint: s.gain >= 0 ? Theme.lime : Theme.planPink,
                                tag: s.gainRatio.map { (pct($0, decimals: 0), s.gain >= 0 ? Theme.lime : Theme.planPink, s.gain >= 0 ? Theme.ink : .white) })
@@ -1313,20 +1313,20 @@ private struct MoreSection: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("MORE").font(.display(24)).displayTrim(24)
             VStack(spacing: 0) {
-                row("Analytics", "Returns, drawdowns, sets and types", icon: "chart.xyaxis.line") { AnalyticsView() }
+                row("Analytics", "Returns, drawdowns, sets and types", icon: "chart.xyaxis.line", page: .analytics)
                 Rectangle().fill(Theme.border).frame(height: 1).padding(.leading, 52)
-                row("Gains", "Which products your gains come from", icon: "chart.bar.xaxis") { GainsView() }
+                row("Gains", "Which products your gains come from", icon: "chart.bar.xaxis", page: .gains)
                 Rectangle().fill(Theme.border).frame(height: 1).padding(.leading, 52)
-                row("Grading", "Your slabs, cards at the grader, what's worth sending", icon: "checkmark.seal") { GradingView() }
+                row("Grading", "Your slabs, cards at the grader, what's worth sending", icon: "checkmark.seal", page: .grading)
                 Rectangle().fill(Theme.border).frame(height: 1).padding(.leading, 52)
-                row("Binder", "Your singles page by page, and what's missing", icon: "book.closed") { BinderView() }
+                row("Binder", "Your singles page by page, and what's missing", icon: "book.closed", page: .binder)
             }
             .surface(radius: 22, padding: 4)
         }
     }
 
-    private func row<D: View>(_ title: String, _ sub: String, icon: String, @ViewBuilder destination: @escaping () -> D) -> some View {
-        NavigationLink(destination: destination) {
+    private func row(_ title: String, _ sub: String, icon: String, page: MorePage) -> some View {
+        NavigationLink(value: page) {
             HStack(spacing: 12) {
                 Image(systemName: icon).font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.lime)
                     .frame(width: 36, height: 36)

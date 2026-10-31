@@ -657,7 +657,7 @@ private struct WordFlow: Layout {
 extension View {
     /// The website's chart axis: value labels inside the plot along the right edge, just above
     /// a faint gridline, so the line runs the full width with no gutter. Use on a Chart.
-    func insideYAxis(count: Int = 4) -> some View {
+    func insideYAxis(count: Int = 4, label: @escaping (Double) -> String = ChartTicks.label) -> some View {
         chartYAxis(.hidden).chartOverlay { proxy in
             GeometryReader { geo in
                 if let anchor = proxy.plotFrame {
@@ -668,7 +668,7 @@ extension View {
                         if let y = proxy.position(forY: v), y > 14, y <= frame.height {
                             Rectangle().fill(Color.white.opacity(0.05)).frame(width: frame.width, height: 1)
                                 .position(x: frame.midX, y: frame.minY + y)
-                            Text(ChartTicks.label(v))
+                            Text(label(v))
                                 .font(.geist(11)).monospacedDigit().foregroundStyle(Theme.subtle)
                                 .frame(width: frame.width - 4, alignment: .trailing)
                                 .position(x: frame.midX - 2, y: frame.minY + y - 9)

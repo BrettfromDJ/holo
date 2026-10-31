@@ -38,7 +38,7 @@ struct AnalyticsView: View {
                                 Text("on \(Format.money(s.totalCost)) invested").font(.geist(14)).foregroundStyle(Theme.muted)
                             }
                         }
-                        NavigationLink { GainsView() } label: {
+                        NavigationLink(value: MorePage.gains) {
                             Label("Where it comes from", systemImage: "chart.bar.xaxis").lineLimit(1)
                         }
                         .buttonStyle(Button3D(kind: .dark, fullWidth: false, height: 40))
@@ -120,7 +120,22 @@ struct AnalyticsView: View {
         let twr = rets.last ?? 0
         let shownIndex = scrubbed.flatMap { d in slice.firstIndex { Calendar.current.isDate($0.day, inSameDayAs: d) } }
         return VStack(alignment: .leading, spacing: 16) {
-            MoreHeading(title: "Portfolio history", subtitle: nil)
+            HStack(alignment: .center) {
+                MoreHeading(title: "Portfolio history", subtitle: nil)
+                Menu {
+                    Picker("Range", selection: $range) {
+                        ForEach(Span.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                    }
+                } label: {
+                    HStack(spacing: 5) {
+                        Text(range.rawValue).font(.geist(14, .semibold))
+                        Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14).frame(height: 36)
+                    .liquidGlass(in: Capsule())
+                }
+            }
             // What the chart says, or the day under your finger.
             Group {
                 if let i = shownIndex {
@@ -144,9 +159,7 @@ struct AnalyticsView: View {
             .font(.geist(15, .medium)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.8)
 
             VStack(alignment: .leading, spacing: 14) {
-                // Two rows so every chip fits on a phone.
                 ChipPicker(options: Mode.allCases.map { ($0, $0.rawValue) }, selection: $mode)
-                ChipPicker(options: Span.allCases.map { ($0, $0.rawValue) }, selection: $range)
                 if slice.count > 1 {
                     chart(slice, rets: rets, dd: dd, shownIndex: shownIndex)
                     Text(caption).font(.geist(12)).foregroundStyle(Theme.muted)
@@ -154,7 +167,7 @@ struct AnalyticsView: View {
                     Text("Not enough history yet.").font(.geist(14)).foregroundStyle(Theme.muted).padding(.vertical, 40).frame(maxWidth: .infinity)
                 }
             }
-            .surface(radius: 22, padding: 16)
+            .surface(radius: 16, padding: 16)
         }
     }
 
@@ -197,14 +210,8 @@ struct AnalyticsView: View {
         }
         .chartXAxis(.hidden)
         .chartYScale(domain: domain)
-        .chartYAxis {
-            AxisMarks(position: .trailing, values: .automatic(desiredCount: 4)) { v in
-                AxisGridLine().foregroundStyle(Color.white.opacity(0.05))
-                AxisValueLabel {
-                    if let d = v.as(Double.self) { Text(mode == .value ? ChartTicks.label(d) : percent(d, 0)).font(.geist(11)).foregroundStyle(Theme.subtle) }
-                }
-            }
-        }
+        // Labels inside the plot, so the line runs to the right edge.
+        .insideYAxis(label: { mode == .value ? ChartTicks.label($0) : percent($0, 0) })
         .chartXSelection(value: $scrubbed)
         .frame(height: 240)
         .drawIn(replay: "\(mode.rawValue)\(range.rawValue)")
@@ -228,7 +235,7 @@ struct AnalyticsView: View {
                 }
                 GrowingBars(months: months, highlight: biggest?.month)
             }
-            .surface(radius: 22, padding: 16)
+            .surface(radius: 16, padding: 16)
         }
     }
 
@@ -260,7 +267,7 @@ struct AnalyticsView: View {
                     if r.id != rows.last?.id { Rectangle().fill(Theme.border).frame(height: 1) }
                 }
             }
-            .surface(radius: 22, padding: 16)
+            .surface(radius: 16, padding: 16)
         }
     }
 
@@ -293,7 +300,7 @@ struct AnalyticsView: View {
                     .popIn(delay: Double(i) * 0.06)
                 }
             }
-            .surface(radius: 22, padding: 14)
+            .surface(radius: 16, padding: 14)
         }
     }
 }
@@ -378,7 +385,7 @@ private struct MonthlyHeatmap: View {
                         }
                     }
                 }
-                .surface(radius: 22, padding: 16)
+                .surface(radius: 16, padding: 16)
             }
         }
     }
@@ -390,7 +397,7 @@ private struct MonthlyHeatmap: View {
             Text("\(Self.names[m.month]) \(String(m.year))").font(.geist(12)).foregroundStyle(Theme.muted)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .surface(radius: 18)
+        .surface(radius: 16)
     }
 
     private func cell(_ i: Int, _ m: Analytics.MonthReturn?) -> some View {
@@ -460,7 +467,7 @@ private struct ReturnVsTime: View {
                     .frame(height: 220)
                     .drawIn(duration: 1.0)
                 }
-                .surface(radius: 22, padding: 16)
+                .surface(radius: 16, padding: 16)
             }
         }
     }
@@ -495,7 +502,7 @@ private struct TypeBreakdown: View {
                     }
                     Text("Bar: what it's worth. Dashed outline: what you paid.").font(.geist(12)).foregroundStyle(Theme.subtle)
                 }
-                .surface(radius: 22, padding: 16)
+                .surface(radius: 16, padding: 16)
             }
         }
     }
@@ -554,7 +561,7 @@ private struct Diversification: View {
                         stat("Top 5", c.top5)
                     }
                 }
-                .surface(radius: 22, padding: 16)
+                .surface(radius: 16, padding: 16)
             }
         }
     }

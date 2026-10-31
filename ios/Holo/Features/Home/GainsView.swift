@@ -43,31 +43,33 @@ struct GainsView: View {
                              leaders: a.steps.filter { $0.gain > 0 && $0.members == nil })
                     .id("\(mode.rawValue)\(group.rawValue)")
                 Text(hint).font(.geist(13)).foregroundStyle(Theme.muted)
-                VStack(alignment: .leading, spacing: 10) {
-                    ChipPicker(options: [(.unrealized, "Unrealized"), (.realized, "Realized"), (.all, "All-time")], selection: $mode)
-                    ChipPicker(options: [(.product, "Products"), (.set, "Sets"), (.category, "Type")], selection: Binding(
-                        get: { group },
-                        set: { group = $0; expanded = false }
-                    ))
-                }
-                if let share = a.topThreeShare, a.winners > 3 {
-                    // The headline insight, big.
-                    HStack(alignment: .center, spacing: 14) {
-                        CountingText(value: share, format: { "\(Int(($0 * 100).rounded()))%" })
-                            .font(.display(48)).monospacedDigit().foregroundStyle(Theme.lime).displayTrim(48)
-                        Text("of your gains come from your top 3 \(noun.many).").font(.geist(15, .medium)).foregroundStyle(.white)
-                    }
-                    .surface(radius: 20)
-                    .reveal()
-                }
-
+                ChipPicker(options: [(.unrealized, "Unrealized"), (.realized, "Realized"), (.all, "All-time")], selection: $mode)
                 VStack(alignment: .leading, spacing: 16) {
-                    MoreHeading(title: "Where it comes from", subtitle: "Each bar starts where the last one ended, gains first, then losses")
+                    HStack(alignment: .center) {
+                        MoreHeading(title: "Where it comes from", subtitle: nil)
+                        // Group by product, set or type: a menu, so there's one row of tabs on the page.
+                        Menu {
+                            Picker("Group by", selection: Binding(get: { group }, set: { group = $0; expanded = false })) {
+                                Text("Products").tag(Gains.Group.product)
+                                Text("Sets").tag(Gains.Group.set)
+                                Text("Type").tag(Gains.Group.category)
+                            }
+                        } label: {
+                            HStack(spacing: 5) {
+                                Text(noun.many.capitalized).font(.geist(14, .semibold))
+                                Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold))
+                            }
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 14).frame(height: 36)
+                            .liquidGlass(in: Capsule())
+                        }
+                    }
+                    Text("Each bar starts where the last one ended, gains first, then losses").font(.geist(14)).foregroundStyle(Theme.muted)
                     if a.steps.isEmpty {
                         Text(mode == .realized ? "No sales or write-offs yet." : "No gains or losses yet.")
                             .font(.geist(14)).foregroundStyle(Theme.muted)
                             .frame(maxWidth: .infinity).padding(.vertical, 48)
-                            .surface(radius: 22, padding: 16)
+                            .surface(radius: 16, padding: 16)
                     } else {
                         VStack(alignment: .leading, spacing: 0) {
                             Waterfall(steps: a.steps, total: a.total, totalLabel: label, gains: a.gains, group: group)
@@ -78,7 +80,7 @@ struct GainsView: View {
                                     .padding(.top, 16)
                             }
                         }
-                        .surface(radius: 22, padding: 16)
+                        .surface(radius: 16, padding: 16)
                     }
                 }
                 .reveal()
@@ -172,7 +174,7 @@ private struct Waterfall: View {
                 .frame(width: 30, height: 40)
                 .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         } else {
-            HoldingArt(product: s.product, identity: s.identity, cornerRadius: 6, caption: false).frame(width: 30, height: 40)
+            HoldingArt(product: s.product, identity: s.identity, cornerRadius: 3, caption: false).frame(width: 30, height: 40)
         }
     }
 }
@@ -197,11 +199,10 @@ private struct Bar: View {
             let up = end >= start
             let tint = isTotal ? (end >= 0 ? Theme.lime : Theme.planPink) : up ? Theme.up : Theme.down
             ZStack(alignment: .leading) {
-                Rectangle().fill(Theme.border).frame(width: 1).offset(x: pos(0) * w)
                 // Gains grow rightward from where the last step ended; losses grow leftward.
                 Capsule()
                     .fill(LinearGradient(colors: [tint.opacity(0.35), tint], startPoint: up ? .leading : .trailing, endPoint: up ? .trailing : .leading))
-                    .frame(width: width, height: isTotal ? 12 : 10)
+                    .frame(width: width, height: 10)
                     .offset(x: up ? left : left + full - width)
             }
             .frame(height: geo.size.height)

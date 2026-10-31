@@ -139,7 +139,7 @@ struct GradingView: View {
                 }
             }
         }
-        .surface(radius: 22, padding: 18)
+        .surface(radius: 16, padding: 16)
     }
 
     private func sentLine(_ s: GradingStore.Submission) -> String {
@@ -200,7 +200,7 @@ struct GradingView: View {
                     .font(.geist(13, .medium)).foregroundStyle(Theme.muted)
             }
         }
-        .surface(radius: 22, padding: 18)
+        .surface(radius: 16, padding: 16)
     }
 
     // MARK: Slabs

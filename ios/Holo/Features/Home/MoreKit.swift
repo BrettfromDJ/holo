@@ -85,7 +85,7 @@ struct CountTile: View {
                 .padding(.top, 8)
         }
         .frame(maxWidth: .infinity, minHeight: 92, alignment: .topLeading)
-        .surface(radius: 20)
+        .surface(radius: 16)
     }
 }
 
@@ -217,23 +217,24 @@ struct TugOfWarHero: View {
                     .lineLimit(1).minimumScaleFactor(0.5).displayTrim(60)
             }
             VStack(spacing: 14) {
+                // The same bar as Allocation: two thin capsules with a gap, growing in.
                 GeometryReader { geo in
-                    let w = geo.size.width
-                    let split = min(max(w * up, 6), w - 6)
                     let g = pulled || reduceMotion ? 1.0 : 0.0
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(Theme.surface2)
-                        // Gains pull left from the split; losses pull right.
-                        Capsule().fill(Theme.lime)
-                            .frame(width: max(0, split - 2) * g)
-                            .offset(x: split - 2 - max(0, split - 2) * g)
-                        Capsule().fill(Theme.planPink)
-                            .frame(width: max(0, w - split - 2) * g)
-                            .offset(x: split + 2)
-                        Rectangle().fill(.white).frame(width: 2, height: 24).offset(x: split - 1)
+                    let usable = geo.size.width - (losses < 0 && gains > 0 ? 3 : 0)
+                    HStack(spacing: 3) {
+                        if gains > 0 {
+                            Capsule().fill(Theme.lime)
+                                .frame(width: max(6, usable * up * g))
+                                .shadow(color: Theme.lime.opacity(0.5), radius: 6)
+                        }
+                        if losses < 0 {
+                            Capsule().fill(Theme.planPink)
+                                .frame(width: max(6, usable * (1 - up) * g))
+                                .shadow(color: Theme.planPink.opacity(0.5), radius: 6)
+                        }
                     }
                 }
-                .frame(height: 18)
+                .frame(height: 10)
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(Format.signedMoney(gains)).font(.display(20)).monospacedDigit().foregroundStyle(Theme.lime).displayTrim(20)
@@ -250,7 +251,7 @@ struct TugOfWarHero: View {
                 HStack(spacing: 10) {
                     ForEach(Array(leaders.prefix(3).enumerated()), id: \.element.id) { i, r in
                         VStack(alignment: .leading, spacing: 6) {
-                            HoldingArt(product: r.product, identity: r.identity, cornerRadius: 6, caption: false)
+                            HoldingArt(product: r.product, identity: r.identity, cornerRadius: 3, caption: false)
                                 .frame(height: 74)
                                 .frame(maxWidth: .infinity)
                             Text(r.label).font(.geist(11)).foregroundStyle(Theme.muted).lineLimit(1)
@@ -258,8 +259,8 @@ struct TugOfWarHero: View {
                         }
                         .padding(10)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.border))
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Theme.border))
                         .popIn(delay: 0.3 + Double(i) * 0.1)
                     }
                 }
@@ -327,63 +328,5 @@ struct SlabFanHero: View {
     private func deal() {
         guard !reduceMotion else { return }
         withAnimation(.spring(response: 0.8, dampingFraction: 0.72).delay(0.15)) { dealt = true }
-    }
-}
-
-/// Binder: a page of your cards lying open at an angle, with how many singles you have.
-struct BinderPageHero: View {
-    var cards: [HoldingView]
-    var count: Double
-    var sets: Int
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var opened = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .bottom) {
-                VStack(alignment: .leading, spacing: 8) {
-                    MonoLabel(text: "Singles in your binder")
-                    CountingText(value: count, format: { "\(Int($0.rounded()))" })
-                        .font(.display(64)).monospacedDigit().displayTrim(64)
-                }
-                Spacer()
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text("\(sets)").font(.display(30)).monospacedDigit().foregroundStyle(Theme.lime).displayTrim(30)
-                    MonoLabel(text: sets == 1 ? "Set" : "Sets")
-                }
-            }
-            // Eight pockets, the page tipped back as if lying open on a table.
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4), spacing: 6) {
-                ForEach(0..<8, id: \.self) { i in
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.white.opacity(0.04))
-                        if i < cards.count {
-                            HoldingArt(product: cards[i].product, identity: cards[i].identity, cornerRadius: 4, caption: false).padding(3)
-                        }
-                    }
-                    .aspectRatio(63 / 88, contentMode: .fit)
-                }
-            }
-            .padding(10)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(LinearGradient(colors: [Color(hex: 0x1C1C20), Color(hex: 0x121214)], startPoint: .top, endPoint: .bottom))
-            )
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.borderStrong))
-            .padding(.horizontal, 12)
-            .rotation3DEffect(.degrees(opened || reduceMotion ? 22 : 75), axis: (x: 1, y: 0, z: 0), anchor: .bottom, perspective: 0.6)
-            .opacity(opened || reduceMotion ? 1 : 0)
-        }
-        .padding(.top, 8)
-        .onAppear { open() }
-        .onReplay {
-            opened = false
-            open()
-        }
-    }
-
-    private func open() {
-        guard !reduceMotion else { return }
-        withAnimation(.spring(response: 1.0, dampingFraction: 0.8).delay(0.1)) { opened = true }
     }
 }
