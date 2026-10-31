@@ -36,7 +36,7 @@ struct HoloSearchField: View {
         }
         .padding(.horizontal, 16)
         .frame(height: 48)
-        .background { Color.clear.liquidGlass(in: Capsule()).allowsHitTesting(false) }
+        .background { Color.clear.blurredGlass(in: Capsule()).allowsHitTesting(false) }
         .contentShape(Capsule())
         .onTapGesture { focus.wrappedValue = true }
     }
@@ -56,7 +56,7 @@ struct SearchFieldButton: View {
             }
             .padding(.horizontal, 16)
             .frame(height: 48)
-            .background { Color.clear.liquidGlass(in: Capsule()).allowsHitTesting(false) }
+            .background { Color.clear.blurredGlass(in: Capsule()).allowsHitTesting(false) }
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
