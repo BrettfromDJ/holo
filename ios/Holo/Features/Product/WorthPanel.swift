@@ -28,11 +28,10 @@ struct WorthPanel: View {
                 }
                 let w = worth
                 HStack(alignment: .lastTextBaseline) {
-                    Text(Format.money(w.price))
+                    // Rolls digit by digit to the new worth when you pick a condition.
+                    OdometerText(value: w.price, format: { Format.money($0) })
                         .font(.display(52)).tracking(-2.1).monospacedDigit()
                         .foregroundStyle(Color.primary.opacity(w.isEstimate ? 0.85 : 1))
-                        .contentTransition(.numericText())
-                        .animation(.snappy, value: w.price)
                     Spacer()
                     Text(condition.rawValue).font(.subheadline.weight(.semibold))
                 }

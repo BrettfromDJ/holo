@@ -24,6 +24,13 @@ struct MasterSetDetailView: View {
     /// The search as of a moment ago, so typing doesn't redraw the whole set on every key.
     @State private var settledQuery = ""
     @FocusState private var searchFocused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The completed-set moment plays once per visit: the dial sweeps a full lime circle and the
+    /// % pulses bright.
+    @State private var celebrated = false
+    /// The dial's fraction while it sweeps (nil: show the real one).
+    @State private var sweep: Double?
+    @State private var pulse = false
 
     enum Show: String, CaseIterable { case all = "All", owned = "Owned", missing = "Missing" }
     enum Sort: String, CaseIterable {
@@ -65,6 +72,7 @@ struct MasterSetDetailView: View {
     var body: some View {
         let current = self.current
         let entries = entries(for: current)
+        let complete = checklists[current.id] != nil && !entries.isEmpty && entries.allSatisfy(\.owned)
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 // The top, like Collection's: on the same lit backdrop.
@@ -86,6 +94,8 @@ struct MasterSetDetailView: View {
         .scrollClipDisabled()
         .navigationBarTitleDisplayMode(.inline)
         .pageTitle("")
+        .onChange(of: complete, initial: true) { _, done in if done { celebrate() } }
+        .sensoryFeedback(.success, trigger: celebrated) { _, now in now }
         .task(id: setId) { await Self.load([current], store: store) }
         .task(id: query) {
             if !query.isEmpty { try? await Task.sleep(nanoseconds: 250_000_000) }
@@ -176,12 +186,15 @@ struct MasterSetDetailView: View {
                 HStack(alignment: .top, spacing: 4) {
                     DotMatrixText(text: known ? "\(pct)" : "\(owned)", dot: 6.5, color: Theme.lime)
                         .shadow(color: Theme.lime.opacity(0.55), radius: 16)
+                        // A completed set lights up once: brighter and a touch bigger, then back.
+                        .brightness(pulse ? 0.35 : 0)
+                        .scaleEffect(pulse ? 1.08 : 1)
                     if known { Text("%").font(.geist(16)).foregroundStyle(Theme.lime) }
                 }
                 Text(known ? "\(owned) of \(total) cards" : "full list not in Lucent yet").font(.geist(13)).foregroundStyle(Theme.muted)
             }
             if known {
-                GlowPie(fraction: ratio).frame(width: 168).padding(.vertical, 22)
+                GlowPie(fraction: sweep ?? ratio).frame(width: 168).padding(.vertical, 22)
                     .shadow(color: Theme.lime.opacity(0.25), radius: 24)
                 HStack(spacing: 10) {
                     heroTile(label: "You own", sub: "worth") {
@@ -213,6 +226,26 @@ struct MasterSetDetailView: View {
             DotBackdrop().padding(.top, -200).padding(.bottom, -60)
         }
         .padding(.horizontal, -16)
+    }
+
+    /// The completed-set moment, once per visit: a success tap, the dial sweeping from empty to a
+    /// full lime circle and the % pulsing bright. Under Reduce Motion, just the tap.
+    private func celebrate() {
+        guard !celebrated else { return }
+        celebrated = true
+        guard !reduceMotion else { return }
+        sweep = 0
+        Task { @MainActor in
+            // Let the empty dial draw before it sweeps.
+            try? await Task.sleep(nanoseconds: 60_000_000)
+            withAnimation(.timingCurve(0.45, 0, 0.2, 1, duration: 1.1)) { sweep = 1 }
+            try? await Task.sleep(nanoseconds: 900_000_000)
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) { pulse = true }
+            try? await Task.sleep(nanoseconds: 260_000_000)
+            withAnimation(.easeOut(duration: 0.6)) { pulse = false }
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            sweep = nil
+        }
     }
 
     /// A tile on the set's lit grid.

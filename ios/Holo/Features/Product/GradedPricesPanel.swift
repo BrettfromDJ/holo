@@ -114,10 +114,15 @@ struct GradedPricesPanel: View {
                     Text(r.detail).font(.geist(12)).foregroundStyle(Theme.subtle).lineLimit(2)
                 }
                 Spacer(minLength: 8)
-                Text(r.price.map { Format.money($0) } ?? "—")
-                    .font(.geist(17, .semibold)).monospacedDigit()
-                    .contentTransition(.numericText())
-                    .animation(.snappy, value: r.price)
+                // The price rolls to each grade like an odometer.
+                Group {
+                    if let price = r.price {
+                        OdometerText(value: price, format: { Format.money($0) })
+                    } else {
+                        Text("—")
+                    }
+                }
+                .font(.geist(17, .semibold)).monospacedDigit()
             }
             .padding(.horizontal, 14).padding(.vertical, 12)
             .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.surface2))

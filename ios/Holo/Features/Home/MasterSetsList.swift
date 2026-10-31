@@ -17,6 +17,8 @@ struct MasterSetsView: View {
     @State private var sort = Sort.progress
     @State private var query = ""
     @FocusState private var searchFocused: Bool
+    /// How far the page is pulled down past the top; only the deck reads it.
+    @State private var fan = DeckFan()
 
     enum Scope: String, CaseIterable { case mine = "Your sets", all = "All sets" }
     enum Sort: String, CaseIterable { case progress = "Most complete", value = "Most valuable", newest = "Newest", name = "Name" }
@@ -82,15 +84,8 @@ struct MasterSetsView: View {
                     controls
                     // A deck of set cards, each overlapping the one above so you see its name and
                     // progress; the last one shows in full. Tap one to open the set.
-                    LazyVStack(spacing: -SetDeckCard.overlap) {
-                        ForEach(Array(rows.enumerated()), id: \.element.id) { i, r in
-                            NavigationLink(value: MasterSetRoute(id: r.id, name: r.name)) {
-                                SetDeckCard(row: r)
-                            }
-                            .buttonStyle(.plain)
-                            .zIndex(Double(i))
-                        }
-                    }
+                    // Pulling down at the top fans the deck open a little.
+                    SetDeck(rows: rows, fan: fan)
                     if rows.isEmpty {
                         Text("Nothing matches.").font(.geist(15)).foregroundStyle(Theme.muted).frame(maxWidth: .infinity).padding(.vertical, 30)
                     }
@@ -98,7 +93,10 @@ struct MasterSetsView: View {
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 120)
+            .background(alignment: .top) { DeckPullReader(fan: fan) }
         }
+        .coordinateSpace(.named(DeckPullReader.space))
+        .modifier(DeckPullTracker(fan: fan))
         .background(Theme.background)
         .imageMaxPixel(600)
         .replaysAnimations()
@@ -227,14 +225,29 @@ struct SetDeckCard: View {
     static let height: CGFloat = 196
     static let overlap: CGFloat = 70
 
+    /// Every card of the set owned (and the full list known).
+    private var isComplete: Bool {
+        guard let total = row.total, total > 0, !row.holdings.isEmpty else { return false }
+        return row.owned >= total
+    }
+
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 10) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(row.name).font(.geist(22, .semibold)).lineLimit(1).minimumScaleFactor(0.7)
-                    Text(row.total.map { "\(row.owned) of \($0) cards" } ?? (row.holdings.isEmpty ? "Not started" : "\(row.owned) card\(row.owned == 1 ? "" : "s")"))
-                        .font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted)
+                    HStack(spacing: 8) {
+                        Text(row.total.map { "\(row.owned) of \($0) cards" } ?? (row.holdings.isEmpty ? "Not started" : "\(row.owned) card\(row.owned == 1 ? "" : "s")"))
+                            .font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted)
+                        if isComplete {
+                            Text("Complete")
+                                .font(.geist(11, .semibold))
+                                .foregroundStyle(Theme.ink)
+                                .padding(.horizontal, 7).padding(.vertical, 2)
+                                .background(Theme.lime, in: Capsule())
+                        }
+                    }
                 }
                 Spacer(minLength: 8)
                 if let ratio = row.ratio, !row.holdings.isEmpty {
@@ -278,6 +291,84 @@ struct SetDeckCard: View {
             HoldingArt(product: cover.product, identity: cover.identity, cornerRadius: 4, caption: false)
         } else {
             Color.clear
+        }
+    }
+}
+
+// MARK: - Pulling the deck open
+
+/// How far the Master Sets page is pulled down past its top. A reference, so only the deck
+/// (which reads it) redraws while you pull, not the whole page.
+@Observable
+final class DeckFan {
+    /// Points pulled past the top (0 when not pulling).
+    var pull: CGFloat = 0
+    /// Where the top of the content sits at rest (the fallback reader's baseline).
+    @ObservationIgnored var rest: CGFloat?
+
+    func set(_ value: CGFloat) {
+        let v = max(0, value.rounded())
+        if v != pull { pull = v }
+    }
+}
+
+/// The deck of set cards. Pulling down at the top shrinks the overlap a little, in step with the
+/// pull, so the deck fans open; it closes again as the page springs back. Only the spacing changes.
+private struct SetDeck: View {
+    var rows: [MasterSetsView.Row]
+    var fan: DeckFan
+
+    var body: some View {
+        // Up to 40 points more of each card shows at a full pull.
+        let opening = min(fan.pull, 140) * 0.28
+        LazyVStack(spacing: -SetDeckCard.overlap + opening) {
+            ForEach(Array(rows.enumerated()), id: \.element.id) { i, r in
+                NavigationLink(value: MasterSetRoute(id: r.id, name: r.name)) {
+                    SetDeckCard(row: r)
+                }
+                .buttonStyle(.plain)
+                .zIndex(Double(i))
+            }
+        }
+    }
+}
+
+/// Reads the pull on iOS 18 straight from the scroll view (fires only when the value changes).
+private struct DeckPullTracker: ViewModifier {
+    var fan: DeckFan
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(iOS 18, *) {
+            content.onScrollGeometryChange(for: CGFloat.self) { geo in
+                max(0, -(geo.contentOffset.y + geo.contentInsets.top)).rounded()
+            } action: { _, pull in
+                fan.set(pull)
+            }
+        } else {
+            content
+        }
+    }
+}
+
+/// Reads the pull on iOS 17: where the top of the content sits in the scroll view, against
+/// where it sat when the page appeared.
+private struct DeckPullReader: View {
+    static let space = "masterSetsScroll"
+    var fan: DeckFan
+
+    var body: some View {
+        if #available(iOS 18, *) {
+            Color.clear
+        } else {
+            GeometryReader { geo in
+                let y = geo.frame(in: .named(Self.space)).minY
+                Color.clear
+                    .onAppear { if fan.rest == nil { fan.rest = y } }
+                    .onChange(of: y) { _, new in
+                        guard let rest = fan.rest else { return }
+                        fan.set(new - rest)
+                    }
+            }
         }
     }
 }

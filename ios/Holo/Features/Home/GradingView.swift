@@ -10,6 +10,20 @@ struct GradingView: View {
     @State private var editingCosts = false
     @State private var sending: HoldingView?
     @State private var returning: GradingStore.Submission?
+    /// The slab being unboxed over the page (after "It's back", or a returned slab's first look).
+    @State private var unboxing: Unboxing?
+
+    struct Unboxing: Identifiable, Equatable {
+        var id: String
+        var productId: String
+        var company: String
+        var grade: String
+        /// Wait before playing, e.g. while the return sheet slides down.
+        var delay: Double
+    }
+
+    /// Returned slabs already unboxed this session (so a returned slab plays once per launch).
+    private static var unboxed: Set<String> = []
 
     private static let shown = 8
     private var today: String { Format.day() }
@@ -54,9 +68,34 @@ struct GradingView: View {
                 loadedSummaries = true
             }
         }
+        // The first look this session at a slab that came back: unbox the newest one.
+        .onChange(of: grading.returned.map(\.id), initial: true) { _, _ in unboxNewestReturned() }
         .sheet(isPresented: $editingCosts) { CostsSheet() }
         .sheet(item: $sending) { SendSheet(holding: $0) }
-        .sheet(item: $returning) { ReturnSheet(submission: $0) }
+        .sheet(item: $returning) { s in
+            ReturnSheet(submission: s, onReturned: { grade in
+                Self.unboxed.insert(s.id)
+                unboxing = Unboxing(id: s.id, productId: s.productId, company: s.company, grade: grade, delay: 0.45)
+            })
+        }
+        .overlay {
+            if let u = unboxing {
+                SlabUnboxing(product: store.products[u.productId], company: u.company, grade: u.grade, delay: u.delay) {
+                    withAnimation(.easeOut(duration: 0.2)) { unboxing = nil }
+                }
+                .id(u.id)
+                .transition(.opacity)
+            }
+        }
+    }
+
+    /// Unbox the newest returned slab not yet seen this session, and count the rest as seen.
+    private func unboxNewestReturned() {
+        let fresh = grading.returned.filter { !Self.unboxed.contains($0.id) }
+        guard !fresh.isEmpty else { return }
+        for s in fresh { Self.unboxed.insert(s.id) }
+        guard unboxing == nil, returning == nil, let s = fresh.first, let g = s.grade else { return }
+        unboxing = Unboxing(id: s.id, productId: s.productId, company: s.company, grade: g, delay: 0.5)
     }
 
     // MARK: Numbers
@@ -133,12 +172,19 @@ struct GradingView: View {
                 Rectangle().fill(Theme.border).frame(height: 1).padding(.top, 4)
                 MonoLabel(text: "Recently returned", color: Theme.subtle)
                 ForEach(grading.returned) { s in
-                    HStack(spacing: 8) {
-                        Tag(text: "\(s.company) \(s.grade ?? "?")", tint: Theme.lime)
-                        Text(store.products[s.productId]?.name ?? "Card").font(.geist(13)).lineLimit(1)
-                        Spacer(minLength: 4)
-                        Text(s.returnedOn.flatMap { Format.isoDay.date(from: $0)?.formatted(date: .abbreviated, time: .omitted) } ?? "").font(.geist(12)).foregroundStyle(Theme.subtle)
+                    // Tap one to unbox it again.
+                    Button {
+                        if let g = s.grade { unboxing = Unboxing(id: s.id, productId: s.productId, company: s.company, grade: g, delay: 0) }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Tag(text: "\(s.company) \(s.grade ?? "?")", tint: Theme.lime)
+                            Text(store.products[s.productId]?.name ?? "Card").font(.geist(13)).lineLimit(1)
+                            Spacer(minLength: 4)
+                            Text(s.returnedOn.flatMap { Format.isoDay.date(from: $0)?.formatted(date: .abbreviated, time: .omitted) } ?? "").font(.geist(12)).foregroundStyle(Theme.subtle)
+                        }
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -352,6 +398,8 @@ struct SendSheet: View {
 /// A submission came back: pick the grade and it moves into a slab.
 private struct ReturnSheet: View {
     var submission: GradingStore.Submission
+    /// Called with the grade once it's saved (the page then unboxes the slab).
+    var onReturned: (String) -> Void = { _ in }
     @Environment(GradingStore.self) private var grading
     @Environment(CollectionStore.self) private var store
     @Environment(GroupsStore.self) private var groups
@@ -400,6 +448,7 @@ private struct ReturnSheet: View {
             let slab = HoldingIdentity(productId: submission.productId, printing: submission.printing, condition: "Near Mint", gradeCompany: submission.company, grade: grade)
             if from != GroupsStore.main { try await groups.move(slab.key, to: from, store: store) }
             UINotificationFeedbackGenerator().notificationOccurred(.success)
+            onReturned(grade)
             dismiss()
         } catch {
             self.error = error.localizedDescription

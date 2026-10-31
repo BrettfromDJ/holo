@@ -22,6 +22,10 @@ struct ProductDetailView: View {
     @State private var deleting: Txn?
     @State private var showHidden = false
     @State private var error: String?
+    /// Which way the art slides when the printing changes: forward (the next printing) comes in
+    /// from the right.
+    @State private var swipeForward = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var product: Product? { store.products[productId] }
     private var owned: [HoldingView] { store.holdings(for: productId) }
@@ -186,7 +190,65 @@ struct ProductDetailView: View {
         .modifier(Entrance())
     }
 
-    @ViewBuilder private var piece: some View {
+    /// The art, keyed by printing so it slides across when the printing changes. With more than
+    /// one printing, swiping it left or right steps to the next or previous one (the chips follow).
+    private var piece: some View {
+        let many = printings.count > 1
+        return ZStack {
+            pieceArt
+                .id(many ? (printing ?? "") : "")
+                .transition(printingTransition)
+        }
+        .frame(maxWidth: .infinity)
+        .contentShape(Rectangle())
+        .simultaneousGesture(printingSwipe, including: many ? .all : .subviews)
+    }
+
+    private var printingTransition: AnyTransition {
+        if reduceMotion { return .opacity }
+        return .asymmetric(
+            insertion: .move(edge: swipeForward ? .trailing : .leading).combined(with: .opacity),
+            removal: .move(edge: swipeForward ? .leading : .trailing).combined(with: .opacity)
+        )
+    }
+
+    private var printingSwipe: some Gesture {
+        DragGesture(minimumDistance: 24)
+            .onEnded { g in
+                let dx = g.translation.width
+                let flick = g.predictedEndTranslation.width
+                guard abs(dx) > abs(g.translation.height) * 1.5, abs(dx) > 50 || abs(flick) > 120 else { return }
+                stepPrinting(dx < 0 ? 1 : -1)
+            }
+    }
+
+    /// The next (1) or previous (-1) printing; nothing past either end.
+    private func stepPrinting(_ step: Int) {
+        let list = printings
+        guard list.count > 1 else { return }
+        let next = (list.firstIndex(of: printing ?? "") ?? 0) + step
+        guard list.indices.contains(next) else { return }
+        selectPrinting(list[next])
+    }
+
+    /// Show another printing: the art slides the way you'd expect (later printings come in from
+    /// the right), with a tick, and its full price history loads.
+    private func selectPrinting(_ p: String) {
+        guard p != printing else { return }
+        let list = printings
+        let from = list.firstIndex(of: printing ?? "") ?? 0
+        let to = list.firstIndex(of: p) ?? 0
+        // Set the direction first, so the outgoing art already knows which way to leave.
+        swipeForward = to >= from
+        UISelectionFeedbackGenerator().selectionChanged()
+        let animation: Animation = reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.42, dampingFraction: 0.86)
+        DispatchQueue.main.async {
+            withAnimation(animation) { chosenPrinting = p }
+        }
+        Task { await store.loadFullHistory(productId, printing: p) }
+    }
+
+    @ViewBuilder private var pieceArt: some View {
         Group {
             if let slab = owned.first(where: { $0.identity.isGraded }), owned.allSatisfy({ $0.identity.isGraded }) {
                 HoloCard(foil: false, textured: false, cornerRadius: 18) {
@@ -218,9 +280,7 @@ struct ProductDetailView: View {
             // Different printings sell for different prices: switch between them.
             if printings.count > 1 {
                 ChipPicker(options: printings.map { ($0, $0) }, selection: Binding(get: { printing ?? "" }, set: { p in
-                    withAnimation(.snappy) { chosenPrinting = p }
-                    UISelectionFeedbackGenerator().selectionChanged()
-                    Task { await store.loadFullHistory(productId, printing: p) }
+                    selectPrinting(p)
                 }), scrolls: true)
                 .padding(.top, 14)
             }
