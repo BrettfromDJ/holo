@@ -134,7 +134,7 @@ struct HomeView: View {
             }
             PerformanceSection(store: store).padding(.horizontal, 16).reveal()
             MetricGrid(store: store, onReload: refresh).padding(.horizontal, 16).reveal()
-            Spotlight(store: store).padding(.horizontal, 16).reveal()
+            Spotlight(store: store).reveal()
             ShelfSection(holdings: store.holdings).reveal()
             ValueSplit(store: store).padding(.horizontal, 16).reveal()
             MoversSection(holdings: store.holdings).padding(.horizontal, 16).reveal()
@@ -644,27 +644,158 @@ private struct PriceFreshness: View {
 /// most below what you paid.
 private struct Spotlight: View {
     var store: CollectionStore
+    @State private var current: String?
 
     var body: some View {
-        let holdings = store.holdings
-        let star = holdings.filter { ($0.gain ?? 0) > 0 }.max { ($0.gain ?? 0) < ($1.gain ?? 0) }
-        let mover = holdings.filter { ($0.dayChange ?? 0) != 0 && $0.id != star?.id }.max { abs($0.dayChange ?? 0) < abs($1.dayChange ?? 0) }
-        let laggard = holdings.filter { ($0.gainRatio ?? 0) < 0 }.min { ($0.gainRatio ?? 0) < ($1.gainRatio ?? 0) }
-        VStack(spacing: 10) {
-            if let star { StarCard(holding: star, series: store.series(star.identity)) }
-            if let mover {
-                // The card takes the move's direction: aqua up, pink-orange down.
-                MiniTile(holding: mover, tag: "Biggest move today", icon: "flame.fill",
-                         palette: .homeToned(mover.dayChange, up: .aqua, down: .down), value: mover.dayChange,
-                         line: "\(Format.signedPercent((mover.change24hPct ?? 0) / 100)) today",
-                         series: store.series(mover.identity, days: 30))
-            }
-            if let laggard {
-                MiniTile(holding: laggard, tag: "Below what you paid", icon: "arrow.down.right", palette: .rose, value: laggard.gain,
-                         line: "\(Format.signedPercent(laggard.gainRatio)) vs what you paid",
-                         series: store.series(laggard.identity, days: 30), baseline: laggard.avgCost)
+        let cards = Self.cards(store)
+        if !cards.isEmpty {
+            VStack(spacing: 14) {
+                // Lucent: big glowing cards you swipe through, the centered one full size and its
+                // neighbours peeking at the edges; dots show where you are.
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: 12) {
+                        ForEach(cards) { card in
+                            SpotCard(card: card)
+                                .containerRelativeFrame(.horizontal)
+                                .scrollTransition(.interactive, axis: .horizontal) { view, phase in
+                                    view.scaleEffect(phase.isIdentity ? 1 : 0.9).opacity(phase.isIdentity ? 1 : 0.55)
+                                }
+                                .id(card.id)
+                        }
+                    }
+                    .scrollTargetLayout()
+                }
+                .scrollTargetBehavior(.viewAligned)
+                .contentMargins(.horizontal, 44, for: .scrollContent)
+                .scrollPosition(id: $current)
+                .frame(height: SpotCard.height)
+                .sensoryFeedback(.selection, trigger: current)
+                HStack(spacing: 6) {
+                    ForEach(cards) { card in
+                        Capsule()
+                            .fill(.white.opacity(card.id == (current ?? cards.first?.id) ? 0.95 : 0.25))
+                            .frame(width: card.id == (current ?? cards.first?.id) ? 16 : 6, height: 6)
+                    }
+                }
+                .animation(.snappy, value: current)
             }
         }
+    }
+
+    /// The cards, in order: your star, today's biggest move, the one below what you paid, your
+    /// best return, the closest master set and a grading pick. Each one only when it exists.
+    static func cards(_ store: CollectionStore) -> [SpotCard.Model] {
+        let holdings = store.holdings
+        var out: [SpotCard.Model] = []
+        var used = Set<String>()
+        func add(_ m: SpotCard.Model?) { if let m { out.append(m) } }
+
+        if let star = holdings.filter({ ($0.gain ?? 0) > 0 }).max(by: { ($0.gain ?? 0) < ($1.gain ?? 0) }) {
+            used.insert(star.id)
+            add(.init(id: "star", kicker: "Your star", holding: star, palette: .forProduct(star.identity.productId),
+                      value: GlowFigure.text(star.gain ?? 0, signed: true, cents: false), note: "\(Format.signedPercent(star.gainRatio)) on what you paid",
+                      line: store.series(star.identity, days: 90).map(\.value), link: .product(star.identity.productId)))
+        }
+        if let mover = holdings.filter({ ($0.dayChange ?? 0) != 0 && !used.contains($0.id) }).max(by: { abs($0.dayChange ?? 0) < abs($1.dayChange ?? 0) }) {
+            used.insert(mover.id)
+            add(.init(id: "mover", kicker: "Biggest move today", holding: mover, palette: (mover.dayChange ?? 0) < 0 ? .down : .rimTeal,
+                      value: GlowFigure.text(mover.dayChange ?? 0, signed: true, cents: false), note: "\(Format.signedPercent((mover.change24hPct ?? 0) / 100)) today",
+                      line: store.series(mover.identity, days: 30).map(\.value), link: .product(mover.identity.productId)))
+        }
+        if let lag = holdings.filter({ ($0.gainRatio ?? 0) < 0 && !used.contains($0.id) }).min(by: { ($0.gainRatio ?? 0) < ($1.gainRatio ?? 0) }) {
+            used.insert(lag.id)
+            add(.init(id: "lag", kicker: "Below what you paid", holding: lag, palette: .rimRose,
+                      value: GlowFigure.text(lag.gain ?? 0, signed: true, cents: false), note: "\(Format.signedPercent(lag.gainRatio)) vs what you paid",
+                      line: store.series(lag.identity, days: 30).map(\.value), link: .product(lag.identity.productId)))
+        }
+        if let best = holdings.filter({ ($0.gainRatio ?? 0) > 0 && !used.contains($0.id) }).max(by: { ($0.gainRatio ?? 0) < ($1.gainRatio ?? 0) }) {
+            used.insert(best.id)
+            add(.init(id: "best", kicker: "Best return", holding: best, palette: .citrus,
+                      value: Format.signedPercent(best.gainRatio), note: "\(Format.signedMoney(best.gain)) on \(Format.moneyWhole(best.costBasis))",
+                      line: store.series(best.identity, days: 90).map(\.value), link: .product(best.identity.productId)))
+        }
+        if let set = MasterSetDetailView.ownedSets(holdings).first {
+            let list = MasterSetsCache.shared.checklists[set.id]
+            let ids = Set(set.holdings.map(\.identity.productId))
+            let have = list.map { l in ids.intersection(l.map(\.product.id)).count } ?? ids.count
+            let ratio = list.map { $0.isEmpty ? 0 : Double(have) / Double($0.count) }
+            let cover = set.holdings.max { ($0.value ?? 0) < ($1.value ?? 0) }
+            add(.init(id: "set", kicker: "Master set", holding: cover, title: set.name, palette: .rimForProduct(set.id),
+                      value: ratio.map { "\(Int(($0 * 100).rounded()))%" } ?? "\(have) cards",
+                      note: list.map { "\(have) of \($0.count) cards" } ?? "Tap to see every card",
+                      pie: ratio, link: .set(MasterSetRoute(id: set.id, name: set.name))))
+        }
+        if let pick = holdings.filter({ !$0.identity.isGraded && $0.product?.isSealed == false && !used.contains($0.id) && ($0.price ?? 0) >= 20 })
+            .max(by: { ($0.price ?? 0) < ($1.price ?? 0) }), let raw = pick.price {
+            let ten = raw * WorthCalc.multiple(productId: pick.identity.productId, company: "PSA", grade: "10")
+            add(.init(id: "grade", kicker: "Worth grading?", holding: pick, palette: .rimAmber,
+                      value: "≈ " + Format.moneyWhole(ten), note: "as a PSA 10 · \(Format.moneyWhole(raw)) raw",
+                      line: [], link: .page(.grading)))
+        }
+        return out
+    }
+}
+
+/// One big card in the Overview spotlight carousel. Every card is the same size.
+private struct SpotCard: View {
+    enum Link: Hashable { case product(String), set(MasterSetRoute), page(MorePage) }
+
+    struct Model: Identifiable {
+        var id: String
+        var kicker: String
+        var holding: HoldingView?
+        var title: String? = nil
+        var palette: GlowPalette
+        var value: String
+        var note: String
+        var line: [Double] = []
+        var pie: Double? = nil
+        var link: Link
+    }
+
+    var card: Model
+    static let height: CGFloat = 430
+
+    var body: some View {
+        switch card.link {
+        case let .product(id): NavigationLink(value: id) { face }.buttonStyle(.plain)
+        case let .set(route): NavigationLink(value: route) { face }.buttonStyle(.plain)
+        case let .page(page): NavigationLink(value: page) { face }.buttonStyle(.plain)
+        }
+    }
+
+    private var face: some View {
+        let shape = RoundedRectangle(cornerRadius: 32, style: .continuous)
+        return VStack(alignment: .leading, spacing: 0) {
+            Text(card.kicker).font(.geist(15, .semibold))
+            Text(card.title ?? card.holding?.product?.name ?? "").font(.geist(12)).opacity(0.7).lineLimit(1)
+            Spacer(minLength: 10)
+            ZStack {
+                if let pie = card.pie {
+                    GlowPie(fraction: pie).frame(width: 130)
+                } else if let h = card.holding {
+                    HoldingArt(product: h.product, identity: h.identity, cornerRadius: 8, caption: false)
+                        .frame(width: 128, height: 178)
+                        .shadow(color: .black.opacity(0.45), radius: 14, y: 8)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            Spacer(minLength: 10)
+            Text(card.value).font(.geist(40)).tracking(-1.6).monospacedDigit().lineLimit(1).minimumScaleFactor(0.5)
+            Text(card.note).font(.geist(13)).opacity(0.75).lineLimit(1).padding(.top, 2)
+            if card.line.count > 1 {
+                GlowLine(values: card.line).frame(height: 36).padding(.top, 10)
+            } else {
+                GlowTicks(fraction: card.pie ?? 0.7).frame(height: 18).padding(.top, 12)
+            }
+        }
+        .padding(20)
+        .frame(height: Self.height)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .foregroundStyle(card.palette.ink)
+        .background { GlowFill(palette: card.palette) }
+        .clipShape(shape)
+        .overlay(shape.strokeBorder(.white.opacity(0.1)))
     }
 }
 
