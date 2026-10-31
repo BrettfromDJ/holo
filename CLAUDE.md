@@ -52,7 +52,9 @@ and say exactly what to run or click.
   `src/components/product/product-image.tsx`).
 - Liquid Glass (iOS 26) wherever it fits: tab bar, pills, chip tracks, search field. Use
   `.liquidGlass(in:)`, which falls back to frosted material on older iOS and older Xcode.
-- Inactive tabs and chips have no background; only the selected one is filled.
+- Inactive tabs and chips have no background; only the selected one is filled. Chip tracks never
+  bleed off the screen: the track stays inside the margins and the chips scroll inside it
+  (`ChipPicker(..., scrolls: true)`).
 - Bottom sheets: `.glassSheet()` (Apple's glass under a dark wash; panels, forms and dark buttons
   turn into a faint white fill on it). Stop short of full height (`.fraction(0.93)`) so iOS 26
   keeps it glass. No navigation bar in display sheets like Your copy: the bar resizes while the
