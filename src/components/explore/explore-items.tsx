@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- set logos come from the pricing source's CDN */
 
 import { useHeroLink } from "@/lib/motion/hero";
-import { Check } from "lucide-react";
+import { Check, Layers } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { HoloTilt, isFoilCard } from "@/components/motion/holo-tilt";
@@ -55,6 +55,24 @@ export function GameTile({ game }: { game: ExploreGame }) {
         </span>
       </div>
     </Link>
+  );
+}
+
+/**
+ * A set's banner art filling its frame (the app's SetArt): the banner cropped to fill, else a
+ * sample product fitted inside, else just a mark (the name is shown beside it). The parent sizes it.
+ */
+export function SetArt({ set, className }: { set: Pick<ExploreSet, "iconUrl" | "imageUrl">; className?: string }) {
+  return (
+    <div className={cn("relative flex items-center justify-center overflow-hidden bg-image-well", className)}>
+      {set.iconUrl ? (
+        <img src={set.iconUrl} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-[var(--ease-apple)] group-hover:scale-[1.03]" />
+      ) : set.imageUrl ? (
+        <img src={set.imageUrl} alt="" loading="lazy" className="absolute inset-3 h-[calc(100%-1.5rem)] w-[calc(100%-1.5rem)] object-contain transition-transform duration-500 ease-[var(--ease-apple)] group-hover:scale-[1.03]" />
+      ) : (
+        <Layers className="size-6 text-lime/60" strokeWidth={1.5} />
+      )}
+    </div>
   );
 }
 

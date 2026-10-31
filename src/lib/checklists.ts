@@ -22,6 +22,9 @@ const SAMPLE_SET_SIZES: Record<string, number> = {
   "obsidian-flames": 230,
   "silver-tempest": 245,
   "fusion-strike": 284,
+  "crown-zenith": 230,
+  "paldean-fates": 245,
+  "prismatic-evolutions": 180,
 };
 
 /** A set the user owns singles from. */
@@ -164,4 +167,53 @@ export function useChecklist(set: OwnedSet | null): ChecklistState {
 export function ownedIn(checklist: SetChecklist, set: OwnedSet): Set<string> {
   const ids = new Set(set.holdings.map((h) => h.identity.productId));
   return new Set(checklist.cards.filter((c) => ids.has(c.productId)).map((c) => c.productId));
+}
+
+/**
+ * Checklists for several sets at once (the Master Sets list), keyed by set id. Each comes from
+ * this browser's day-long cache or the stored catalog — never the TCG API.
+ */
+export function useChecklists(sets: OwnedSet[]): Record<string, ChecklistState> {
+  const [states, setStates] = useState<Record<string, ChecklistState>>({});
+  const key = sets.map((s) => `${s.setId}:${s.sample ? 1 : 0}`).join("|");
+
+  useEffect(() => {
+    let cancelled = false;
+    const next: Record<string, ChecklistState> = {};
+    const todo: OwnedSet[] = [];
+    for (const set of sets) {
+      if (set.sample) next[set.setId] = { checklist: sampleChecklist(set), loading: false, error: null, sample: true };
+      else {
+        const cached = readCache(set.setId);
+        if (cached) next[set.setId] = { checklist: cached, loading: false, error: null, sample: false };
+        else {
+          next[set.setId] = { checklist: null, loading: true, error: null, sample: false };
+          todo.push(set);
+        }
+      }
+    }
+    setStates(next);
+    for (const set of todo) {
+      fetchChecklist(set.setId).then(
+        (checklist) => !cancelled && setStates((s) => ({ ...s, [set.setId]: { checklist, loading: false, error: null, sample: false } })),
+        (err: Error) => !cancelled && setStates((s) => ({ ...s, [set.setId]: { checklist: null, loading: false, error: err.message, sample: false } })),
+      );
+    }
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by the sets' ids; demo holdings changes are handled below
+  }, [key]);
+
+  // Demo checklists embed owned cards, so rebuild them when holdings change.
+  useEffect(() => {
+    if (!sets.some((s) => s.sample)) return;
+    setStates((prev) => {
+      const out = { ...prev };
+      for (const set of sets) if (set.sample) out[set.setId] = { checklist: sampleChecklist(set), loading: false, error: null, sample: true };
+      return out;
+    });
+  }, [sets]);
+
+  return states;
 }
