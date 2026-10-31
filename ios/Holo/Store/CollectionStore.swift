@@ -227,8 +227,14 @@ final class CollectionStore {
     /// Bring a catalog product (one you don't own) in for its page: details, prices and history.
     @MainActor
     func showCatalogProduct(_ id: String) async {
-        guard products[id] == nil, let res = try? await Backend.shared.api.catalogProduct(id) else { return }
+        // Once per product per session, even if a search result already put it in `products`
+        // (that's just one printing's price; this brings every printing and its history).
+        let owned = holdings.contains { $0.identity.productId == id }
+        guard !owned, !catalogLoaded.contains(id), let res = try? await Backend.shared.api.catalogProduct(id) else { return }
+        catalogLoaded.insert(id)
+        let printings = products[id]?.printings
         products[id] = res.product
+        if res.product.printings == nil { products[id]?.printings = printings }
         for p in res.prices { prices[priceKey(p.productId, p.printing)] = p }
         for (key, pts) in res.history where history[key] == nil { history[key] = Self.onePerDay(pts) }
     }
@@ -276,7 +282,14 @@ final class CollectionStore {
     }
 
     /// Keep a search result's product and price so its page opens instantly, even if it isn't stored yet.
+    @ObservationIgnored private var catalogLoaded: Set<String> = []
+    /// The printing you tapped in search or a set, for its page to open on (taken once).
+    @ObservationIgnored private var openPrinting: [String: String] = [:]
+
+    func takeOpenPrinting(_ id: String) -> String? { openPrinting.removeValue(forKey: id) }
+
     func seed(_ hit: SearchHit) {
+        if let p = hit.printing { openPrinting[hit.product.id] = p }
         if products[hit.product.id] == nil { products[hit.product.id] = hit.product }
         let key = priceKey(hit.product.id, hit.printing)
         if prices[key] == nil, let market = hit.market {

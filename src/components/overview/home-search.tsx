@@ -129,7 +129,7 @@ export function HomeSearch({ className }: { className?: string }) {
                   return (
                     <li key={p.id} id={`home-search-${i}`} role="option" aria-selected={active === i}>
                       <Link
-                        href={`/product/${encodeURIComponent(p.id)}`}
+                        href={`/product/${encodeURIComponent(p.id)}${item.printing ? `?printing=${encodeURIComponent(item.printing)}` : ""}`}
                         onClick={() => setOpen(false)}
                         onMouseEnter={() => setActive(i)}
                         className={cn("flex items-center gap-3 rounded-xl px-2.5 py-2", active === i && "bg-surface-3")}

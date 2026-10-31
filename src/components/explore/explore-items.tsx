@@ -124,8 +124,10 @@ export function ProductTile({ item, owned, gameSlug, showBrand }: { item: Explor
   const hero = useHeroLink();
   const p = item.product;
   const perPack = pricePerPack(item.market, packCount(p, gameSlug));
+  // Open the page on the printing this tile shows.
+  const href = `/product/${encodeURIComponent(p.id)}${item.printing ? `?printing=${encodeURIComponent(item.printing)}` : ""}`;
   return (
-    <Link href={`/product/${encodeURIComponent(p.id)}`} onClick={(e) => hero(e, `/product/${encodeURIComponent(p.id)}`)} className="group flex w-full min-w-0 flex-col text-left">
+    <Link href={href} onClick={(e) => hero(e, href)} className="group flex w-full min-w-0 flex-col text-left">
       <div className="relative">
         {/* Tall, card-shaped tiles so cards fill the width; sealed sits in the same frame. */}
         {p.kind === "single" && p.imageUrl ? (

@@ -65,6 +65,18 @@ export default function ProductPage() {
 
   // Lets a card tapped in a grid fly into the image spot once the page has it.
   const hero = useHeroTarget(store.status === "ready" && Boolean(product));
+  // The printing on show: one picked here or passed in the link (?printing=, from search and
+  // set grids), else the one you own, else the first priced one.
+  const [chosenPrinting, setChosenPrinting] = useState<string | null>(null);
+  useEffect(() => {
+    setChosenPrinting(new URLSearchParams(window.location.search).get("printing"));
+  }, [productId]);
+  const choosePrinting = (p: string) => {
+    setChosenPrinting(p);
+    const url = new URL(window.location.href);
+    url.searchParams.set("printing", p);
+    window.history.replaceState(null, "", url);
+  };
 
   if (store.status === "loading" || (!product && loading)) return <ProductSkeleton />;
   if (store.status === "error") return <ErrorState message={store.error} />;
@@ -73,7 +85,8 @@ export default function ProductPage() {
   const owned = holdings.filter((h) => h.identity.productId === productId);
   const yourCopies = owned.filter((h) => h.price !== null && (h.identity.grade || h.conditionEstimate));
   const realizedHere = realized.filter((r) => r.holdingKey.startsWith(`${productId}|`)).reduce((s, r) => s + r.gain, 0);
-  const printing = owned[0]?.identity.printing ?? product.printings?.[0] ?? null;
+  const printing = chosenPrinting ?? owned[0]?.identity.printing ?? product.printings?.[0] ?? null;
+  const printings = [...new Set([...(product.printings ?? []), ...owned.map((h) => h.identity.printing).filter((p): p is string => Boolean(p))])];
   const price = store.data.prices[priceKey(productId, printing)];
   // No current price (older or unsynced products): fall back to the latest point in its price
   // history, labelled with its date, and work the 24h/7d/30d changes out from the history.
@@ -130,8 +143,14 @@ export default function ProductPage() {
           </div>
           <h1 className="mt-3 font-display text-[34px] uppercase leading-[0.98] tracking-[0.005em] sm:text-[48px]">{product.name}</h1>
           <p className="mt-1 text-[15px] text-muted">
-            {[product.setName, product.number ? `#${product.number}` : null, printing && printing !== "Normal" ? printing : null].filter(Boolean).join(" · ")}
+            {[product.setName, product.number ? `#${product.number}` : null, printings.length < 2 && printing && printing !== "Normal" ? printing : null].filter(Boolean).join(" · ")}
           </p>
+          {/* Different printings sell for different prices: switch between them. */}
+          {printings.length > 1 && (
+            <div className="-mx-1 mt-4 overflow-x-auto px-1">
+              <Segmented ariaLabel="Printing" size="sm" value={printing ?? printings[0]} onChange={choosePrinting} options={printings.map((p) => ({ value: p, label: p }))} />
+            </div>
+          )}
 
           <div className="mt-6">
             <p className="tabular font-display text-[52px] leading-none sm:text-[60px]">

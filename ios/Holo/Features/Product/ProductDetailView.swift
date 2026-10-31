@@ -17,7 +17,16 @@ struct ProductDetailView: View {
 
     private var product: Product? { store.products[productId] }
     private var owned: [HoldingView] { store.holdings(for: productId) }
-    private var printing: String? { owned.first?.identity.printing ?? product?.printings?.first }
+    /// The printing on show: the one you picked (or tapped in search / a set), else the one you
+    /// own, else the first priced one.
+    @State private var chosenPrinting: String?
+    private var printing: String? { chosenPrinting ?? owned.first?.identity.printing ?? product?.printings?.first }
+    /// Printings to switch between (only when there's more than one).
+    private var printings: [String] {
+        var list = product?.printings ?? []
+        for h in owned { if let p = h.identity.printing, !list.contains(p) { list.append(p) } }
+        return list
+    }
     private var price: Price? { store.marketPrice(productId, printing: printing) }
     /// The price history, oldest first.
     private var hist: [PricePoint] { (store.history[priceKey(productId, printing)] ?? []).sorted { $0.date < $1.date } }
@@ -111,6 +120,7 @@ struct ProductDetailView: View {
         }
         // Cards you don't own aren't loaded with your collection: fetch them from the catalog.
         .task(id: productId) {
+            if chosenPrinting == nil { chosenPrinting = store.takeOpenPrinting(productId) }
             await store.showCatalogProduct(productId)
             // Then the full price history, if Holo doesn't have it yet (like the website).
             await store.loadFullHistory(productId, printing: printing)
@@ -183,9 +193,21 @@ struct ProductDetailView: View {
         VStack(alignment: .leading, spacing: 0) {
             DisplayText(text: (product?.name ?? "Loading…").uppercased(), size: 34)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Text([product?.setName, product?.number.map { "#\($0)" }, printing == "Normal" ? nil : printing].compactMap { $0 }.joined(separator: " · "))
+            Text([product?.setName, product?.number.map { "#\($0)" }, printings.count > 1 || printing == "Normal" ? nil : printing].compactMap { $0 }.joined(separator: " · "))
                 .font(.geist(15)).foregroundStyle(Theme.muted)
                 .padding(.top, 6)
+            // Different printings sell for different prices: switch between them.
+            if printings.count > 1 {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    ChipPicker(options: printings.map { ($0, $0) }, selection: Binding(get: { printing ?? "" }, set: { p in
+                        withAnimation(.snappy) { chosenPrinting = p }
+                        UISelectionFeedbackGenerator().selectionChanged()
+                        Task { await store.loadFullHistory(productId, printing: p) }
+                    }))
+                }
+                .scrollClipDisabled()
+                .padding(.top, 14)
+            }
             Group {
                 if let market = headline {
                     CountingText(value: market, format: { Format.money($0) })
