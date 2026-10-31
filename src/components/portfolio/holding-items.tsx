@@ -24,6 +24,11 @@ export function holdingLabel(h: HoldingView): string | null {
   return parts.length ? parts.join(" · ") : null;
 }
 
+/** A plain click that a handler can take over; modified clicks (new tab, etc.) keep the link. */
+function plainClick(e: React.MouseEvent) {
+  return !(e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey);
+}
+
 /** Per-unit price; "≈" marks a played copy estimated from Near Mint. */
 export function unitPrice(h: HoldingView): string {
   return h.conditionEstimate && h.price !== null ? `≈ ${money(h.price)}` : money(h.price);
@@ -56,10 +61,17 @@ export function HoldingMiniRow({ h, metric = "gain", change }: { h: HoldingView;
 }
 
 /** Table-style row for the collection list view. */
-export function HoldingListRow({ h }: { h: HoldingView }) {
+/** `onOpen` opens your copy in place (Collection's sheet) instead of following the link. */
+export function HoldingListRow({ h, onOpen }: { h: HoldingView; onOpen?: (h: HoldingView) => void }) {
   return (
     <Link
       href={holdingHref(h)}
+      onClick={(e) => {
+        if (onOpen && plainClick(e)) {
+          e.preventDefault();
+          onOpen(h);
+        }
+      }}
       className="group grid grid-cols-[3rem_1fr_auto] items-center gap-4 px-4 py-3 transition-colors hover:bg-surface-2 md:grid-cols-[3.5rem_minmax(0,2.4fr)_repeat(5,minmax(0,1fr))]"
     >
       <ProductImage product={h.product} grade={h.identity.grade} slabKey={h.key} size="xs" className="size-12 rounded-lg md:size-14" />
@@ -105,11 +117,21 @@ export function HoldingListHeader() {
 }
 
 /** Photo-forward card for the collection grid view. */
-export function HoldingTile({ h }: { h: HoldingView }) {
+/** `onOpen` opens your copy in place (Collection's sheet) instead of following the link. */
+export function HoldingTile({ h, onOpen }: { h: HoldingView; onOpen?: (h: HoldingView) => void }) {
   const hero = useHeroLink();
   const shape = h.identity.grade ? "slab" : h.product?.kind === "single" && h.product.imageUrl ? "card" : "sealed";
   return (
-    <Link href={holdingHref(h)} onClick={(e) => hero(e, holdingHref(h))} className="group flex flex-col">
+    <Link
+      href={holdingHref(h)}
+      onClick={(e) => {
+        if (onOpen && plainClick(e)) {
+          e.preventDefault();
+          onOpen(h);
+        } else hero(e, holdingHref(h));
+      }}
+      className="group flex flex-col"
+    >
       <div className="relative">
         {/* The tilt (and its glare) wraps the item's own shape, not the square tile around it. */}
         <div className="flex aspect-[5/7] w-full items-end justify-center">

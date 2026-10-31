@@ -8,9 +8,7 @@ import { FormShell } from "@/components/flows/transaction-dialogs";
 import { Hint } from "@/components/ui/tooltip";
 import { ProductImage } from "@/components/product/product-image";
 import { Delta } from "@/components/product/delta";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, SectionTitle } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -18,7 +16,7 @@ import { daysBetween } from "@/lib/finance/dates";
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { formatDate, money } from "@/lib/format";
 import { cachedEbay } from "@/lib/ebay-client";
-import { certLookupUrl, gradeDescriptor, gradedSampleFor, gradedLadder, gradeLabel, GRADERS, isStaleValue, liquidityLabel, liquidityNote, liquidityOf, sampleSalesPerYear } from "@/lib/graded";
+import { certLookupUrl, gradeDescriptor, gradedSampleFor, gradeLabel, GRADERS, isStaleValue, liquidityLabel, liquidityNote, liquidityOf, sampleSalesPerYear } from "@/lib/graded";
 import { useStore } from "@/lib/store/collection-store";
 import { useGradingCosts, useGradingSubmissions, useSlabBumpers, useSlabCerts, type GradingSubmission } from "@/lib/store/grading";
 import { BUMPERS, bumperById, GLITTER_SPECKS } from "@/lib/bumpers";
@@ -43,49 +41,6 @@ function multipleLabel(m: number) {
 export function useRawPrice(productId: string, printing: string | null): number | null {
   const { data } = useStore();
   return data.prices[priceKey(productId, printing)]?.market ?? null;
-}
-
-/* ------------------------------ Product page ------------------------------ */
-
-/** What this card sells for at common grades, next to its raw price. */
-export function GradedPrices({ productId, printing, owned }: { productId: string; printing: string | null; owned: Grade[] }) {
-  const raw = useRawPrice(productId, printing);
-  const rows = gradedLadder(productId, raw);
-  if (!rows.length) return null;
-  const ownedLabels = new Set(owned.map(gradeLabel));
-  const best = Math.max(...rows.map((r) => r.price));
-  return (
-    <Card className="mt-6 p-5 sm:p-6">
-      <SectionTitle
-        title="Graded prices"
-        subtitle={gradedSampleFor(productId) ? `Raw ${money(raw)} · what slabs of this card sell for` : `Raw ${money(raw)} · typical premiums for each grade, not sales`}
-        action={gradedSampleFor(productId) ? <Badge variant="sample">Sample data</Badge> : <Badge variant="sample">Estimates</Badge>}
-      />
-      <ul className="divide-y divide-border">
-        {rows.map((r) => (
-          <li key={gradeLabel(r.grade)} className="grid grid-cols-[4.5rem_minmax(0,1fr)_auto_3.5rem] items-center gap-x-3 py-2.5 sm:grid-cols-[4.5rem_minmax(0,1fr)_auto_4rem_3.25rem]">
-            <GradeChip grade={r.grade} className="justify-self-start" />
-            <div className="h-1.5 overflow-hidden rounded-full bg-surface-2" aria-hidden>
-              <div
-                className="h-full rounded-full"
-                style={{
-                  width: `${(r.price / best) * 100}%`,
-                  background: "linear-gradient(90deg, color-mix(in srgb, var(--foreground) 12%, transparent), color-mix(in srgb, var(--foreground) 55%, transparent))",
-                }}
-              />
-            </div>
-            <span className="tabular text-right text-[14px] font-semibold">
-              {money(r.price)}
-              {ownedLabels.has(gradeLabel(r.grade)) && <span className="ml-1.5 text-[11px] font-normal text-muted">yours</span>}
-            </span>
-            <SalesCell perYear={salesPerYear(productId, printing, r.grade, raw!)} />
-            <span className="tabular hidden text-right font-mono text-[12px] text-muted sm:block">{multipleLabel(r.multiple)}</span>
-          </li>
-        ))}
-      </ul>
-      <p className="mt-3 text-[12px] text-subtle">Bars show how easy each grade is to sell. × is the multiple of the raw price.</p>
-    </Card>
-  );
 }
 
 /** Three rising bars: one for hard to sell, three for easy. */

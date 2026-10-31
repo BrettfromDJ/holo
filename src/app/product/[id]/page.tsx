@@ -219,14 +219,14 @@ export default function ProductPage() {
             </Reveal>
           )}
 
-          {/* Real graded values (PriceCharting), for singles. */}
+          {/* What it sells for graded (PriceCharting, else the grade curve) and a lookup for any grade, for every single. */}
           {product.kind === "single" && (
             <Reveal>
-              <GradedPrices productId={productId} owned={owned.map((h) => h.identity.grade).filter((g): g is NonNullable<typeof g> => Boolean(g))} className="mt-6" />
+              <GradedPrices productId={productId} printing={printing} nm={headline} owned={owned.map((h) => h.identity.grade).filter((g): g is NonNullable<typeof g> => Boolean(g))} className="mt-6" />
             </Reveal>
           )}
 
-          {/* What's it worth in any condition or grade; the full graded table opens from inside it. */}
+          {/* What it's worth raw, in the condition you pick. */}
           {product.kind === "single" && (
             <Reveal>
               <WhatsItWorth productId={productId} printing={printing} name={product.name} nm={price?.market ?? null} owned={owned} />

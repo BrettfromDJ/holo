@@ -8,6 +8,7 @@ import { Suspense, useMemo, useState } from "react";
 import { EmptyCollection } from "@/components/portfolio/empty-state";
 import { ErrorState } from "@/components/portfolio/error-state";
 import { HoldingListHeader, HoldingListRow, HoldingTile } from "@/components/portfolio/holding-items";
+import { HoldingSheet } from "@/components/portfolio/holding-sheet";
 import { DeltaPill } from "@/components/product/delta";
 import { ProductImage } from "@/components/product/product-image";
 import { PortfolioBanner, PortfolioSwitcher } from "@/components/portfolio/portfolio-controls";
@@ -91,6 +92,8 @@ function Collection() {
   const { shelves, remove: removeShelf } = useShelves();
   const [shelfId, setShelfId] = useState<string | null>(params.get("shelf"));
   const [shelfDialog, setShelfDialog] = useState<"new" | "edit" | null>(null);
+  // Your copy, opened in a sheet when a holding is clicked.
+  const [opened, setOpened] = useState<HoldingView | null>(null);
   const shelf = shelves.find((x) => x.id === shelfId) ?? null;
   const view = store.data.preferences.defaultView;
 
@@ -371,7 +374,7 @@ function Collection() {
           <FlipGrid className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
             {filtered.map((h, i) => (
               <FlipItem key={h.key} flipKey={h.key} index={i}>
-                <HoldingTile h={h} />
+                <HoldingTile h={h} onOpen={setOpened} />
               </FlipItem>
             ))}
           </FlipGrid>
@@ -381,13 +384,14 @@ function Collection() {
             <div className="divide-y divide-border">
               {filtered.map((h, i) => (
                 <div key={h.key} className="animate-rise" style={{ animationDelay: `${Math.min(i, 16) * 30}ms` }}>
-                  <HoldingListRow h={h} />
+                  <HoldingListRow h={h} onOpen={setOpened} />
                 </div>
               ))}
             </div>
           </Card>
         )}
       </div>
+      <HoldingSheet holding={opened} onOpenChange={(o) => !o && setOpened(null)} />
     </div>
   );
 }
