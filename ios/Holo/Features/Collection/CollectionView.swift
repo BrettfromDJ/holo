@@ -325,13 +325,10 @@ struct CollectionView: View {
                     .buttonStyle(.plain)
                 }
                 .padding(4)
-                .liquidGlass(in: Capsule())
-                // Room for the selected chip's glow, which the scroll view would otherwise clip.
-                .padding(.vertical, 12)
-                .padding(.horizontal, 16)
             }
-            .padding(.horizontal, -16)
-            .padding(.vertical, -8)
+            // The track stays inside the screen edges; the chips scroll inside it.
+            .clipShape(Capsule())
+            .liquidGlass(in: Capsule())
             if sort != .value || filtersOn {
                 HStack(spacing: 8) {
                     Text(filterSummary).font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
