@@ -18,11 +18,7 @@ struct WeeklyRecap: View {
         let all = slides
         let slide = all[min(index, all.count - 1)]
         ZStack(alignment: .top) {
-            // Full-bleed light in the slide's own colors; it fades as the slides change.
-            GlowFill(palette: slide.palette)
-                .id(slide.key)
-                .transition(.opacity)
-                .ignoresSafeArea()
+            slide.background.ignoresSafeArea()
             VStack(alignment: .leading, spacing: 0) {
                 // Progress bars, one per slide.
                 HStack(spacing: 6) {
@@ -49,7 +45,7 @@ struct WeeklyRecap: View {
                     .id(slide.key)
                     .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .opacity))
                     .frame(maxHeight: .infinity)
-                Text("LUCENT").font(.geist(11, .semibold)).tracking(2.2).foregroundStyle(.white.opacity(0.35))
+                Text("HOLO").font(.geist(11, .semibold)).tracking(2.2).foregroundStyle(.white.opacity(0.35))
             }
             .padding(.horizontal, 28)
             .padding(.top, 12)
@@ -93,9 +89,12 @@ struct WeeklyRecap: View {
 
 private struct Slide {
     var key: String
-    /// The slide's glow: up or down where it's about a gain or loss, otherwise a mix of colors.
-    var palette: GlowPalette
+    var background: RadialGradient
     var content: AnyView
+
+    private static func glow(_ hex: UInt32, _ mid: UInt32, at: UnitPoint) -> RadialGradient {
+        RadialGradient(colors: [Color(hex: hex), Color(hex: mid), Color(hex: 0x0B0B0C)], center: at, startRadius: 0, endRadius: 620)
+    }
 
     static func build(_ store: CollectionStore) -> [Slide] {
         let today = Date()
@@ -118,34 +117,34 @@ private struct Slide {
 
         var slides: [Slide] = []
         let range = "\(shortDate(Calendar.current.date(byAdding: .day, value: -6, to: today) ?? today)) – \(shortDate(today))"
-        slides.append(Slide(key: "intro", palette: gain < 0 ? .down : .indigo, content: AnyView(
+        slides.append(Slide(key: "intro", background: glow(0x5B3DF5, 0x1B1240, at: UnitPoint(x: 0.2, y: 0)), content: AnyView(
             VStack(alignment: .leading, spacing: 0) {
                 Kicker(text: "Your week in Lucent")
                 Text(range).font(.geist(14)).foregroundStyle(.white.opacity(0.7)).padding(.top, 8)
                 Spacer()
                 Text("Your collection \(gain >= 0 ? "grew" : "slipped")").font(.geist(18, .medium)).foregroundStyle(.white.opacity(0.8))
-                Big(text: Format.signedMoney(gain), color: .white)
+                Big(text: Format.signedMoney(gain), color: gain >= 0 ? Color(hex: 0xE4FF7A) : Color(hex: 0xFF8AB3))
                 Text("\(Format.signedPercent(ratio)) from market moves alone · now \(Format.money(s.value))")
                     .font(.geist(15)).monospacedDigit().foregroundStyle(.white.opacity(0.7)).padding(.top, 8)
             }
         )))
         if let gainer, (gainer.change7dPct ?? 0) > 0 {
-            slides.append(Slide(key: "gainer", palette: .citrus, content: AnyView(
+            slides.append(Slide(key: "gainer", background: glow(0x8FAE00, 0x2A3600, at: UnitPoint(x: 0.8, y: 0)), content: AnyView(
                 HeroSlide(kicker: "Hottest this week", holding: gainer) {
-                    Big(text: Format.signedPercent((gainer.change7dPct ?? 0) / 100), color: .white)
+                    Big(text: Format.signedPercent((gainer.change7dPct ?? 0) / 100), color: Color(hex: 0xE4FF7A))
                     Text("Now \(Format.money(gainer.price)) each").font(.geist(14)).monospacedDigit().foregroundStyle(.white.opacity(0.7)).padding(.top, 4)
                 }
             )))
         }
         if let loser, (loser.change7dPct ?? 0) < 0 {
-            slides.append(Slide(key: "loser", palette: .down, content: AnyView(
+            slides.append(Slide(key: "loser", background: glow(0xE0306F, 0x3D0A1F, at: UnitPoint(x: 0.2, y: 0)), content: AnyView(
                 HeroSlide(kicker: "Cooled off", holding: loser) {
-                    Big(text: Format.signedPercent((loser.change7dPct ?? 0) / 100), color: .white)
+                    Big(text: Format.signedPercent((loser.change7dPct ?? 0) / 100), color: Color(hex: 0xFF8AB3))
                     Text("Now \(Format.money(loser.price)) each. Buying opportunity?").font(.geist(14)).monospacedDigit().foregroundStyle(.white.opacity(0.7)).padding(.top, 4)
                 }
             )))
         }
-        slides.append(Slide(key: "spent", palette: .flame, content: AnyView(
+        slides.append(Slide(key: "spent", background: glow(0xF59E0B, 0x3D2606, at: UnitPoint(x: 0.5, y: 0)), content: AnyView(
             VStack(alignment: .leading, spacing: 0) {
                 Kicker(text: "Shopping")
                 Spacer()
@@ -158,7 +157,7 @@ private struct Slide {
                             ProductImage(product: store.products[t.identity.productId], cornerRadius: 14)
                                 .frame(width: 56, height: 56)
                                 .background(RoundedRectangle(cornerRadius: 14).fill(Color(hex: 0x18181A)))
-                                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color(hex: 0x2E0C04), lineWidth: 2))
+                                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color(hex: 0x3D2606), lineWidth: 2))
                         }
                     }
                     .padding(.top, 24)
@@ -169,14 +168,14 @@ private struct Slide {
             }
         )))
         if let best, (best.gainRatio ?? 0) > 0 {
-            slides.append(Slide(key: "best", palette: .gold, content: AnyView(
+            slides.append(Slide(key: "best", background: glow(0xEC4899, 0x3D0D26, at: UnitPoint(x: 0.5, y: 0)), content: AnyView(
                 HeroSlide(kicker: "Best buy you've ever made", holding: best) {
-                    Big(text: Format.signedPercent(best.gainRatio), color: .white)
+                    Big(text: Format.signedPercent(best.gainRatio), color: Color(hex: 0xFFB3D9))
                     Text("Paid \(Format.money(best.costBasis)) · worth \(Format.money(best.value))").font(.geist(14)).monospacedDigit().foregroundStyle(.white.opacity(0.7)).padding(.top, 4)
                 }
             )))
         }
-        slides.append(Slide(key: "outro", palette: .sky, content: AnyView(
+        slides.append(Slide(key: "outro", background: glow(0x3B82F6, 0x0C1D3D, at: UnitPoint(x: 0.5, y: 1)), content: AnyView(
             VStack(alignment: .leading, spacing: 0) {
                 Kicker(text: "That's a wrap")
                 Spacer()

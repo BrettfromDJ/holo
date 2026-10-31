@@ -90,33 +90,14 @@ struct EbaySalesPanel: View {
         }
 
         let stats = tab == Self.ungradedTab ? e.ungraded : (e.graded[tab] ?? e.ungraded)
-        // The summary on a glow: the median big, how many sold as LED dots, the last sale.
-        GlowCard(palette: palette, radius: 24, padding: 18) {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .top) {
-                    GlowLabel(text: "Median sold", secondary: tab == Self.ungradedTab ? "Ungraded" : tab)
-                    Spacer(minLength: 8)
-                    VStack(alignment: .trailing, spacing: 6) {
-                        GlowLabel(text: "Sold")
-                        DotMatrixText(text: "\(stats.count)", dot: 3.2)
-                    }
-                }
-                Group {
-                    if let median = stats.median {
-                        GlowFigure(value: median, size: 44)
-                    } else {
-                        Text("—").font(.geist(44))
-                    }
-                }
-                .padding(.top, 10)
-                HStack(spacing: 8) {
-                    GlowPill(text: "Last " + (stats.lastPrice.map { Format.money($0) } ?? "—"))
-                    if let last = stats.lastSold {
-                        Text(relative(last)).font(.geist(12)).opacity(0.75)
-                    }
-                }
-                .padding(.top, 10)
+        HStack(alignment: .top, spacing: 12) {
+            stat("Median sold", stats.median.map { Format.money($0) } ?? "—").frame(maxWidth: .infinity, alignment: .leading).layoutPriority(1.2)
+            stat("Sold", "\(stats.count)").frame(maxWidth: .infinity, alignment: .leading).layoutPriority(0.6)
+            VStack(alignment: .leading, spacing: 4) {
+                stat("Last sale", stats.lastPrice.map { Format.money($0) } ?? "—")
+                if let last = stats.lastSold { Text(relative(last)).font(.geist(11)).foregroundStyle(Theme.muted) }
             }
+            .frame(maxWidth: .infinity, alignment: .leading).layoutPriority(1.2)
         }
         .padding(.top, 16)
 
@@ -140,10 +121,11 @@ struct EbaySalesPanel: View {
         }
     }
 
-    /// A glow per tab: ungraded in ocean, each sold grade in its own color from the mix.
-    private var palette: GlowPalette {
-        guard tab != Self.ungradedTab, let i = labels.firstIndex(of: tab) else { return .ocean }
-        return GlowPalette.mixed(i + 2)
+    private func stat(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label.uppercased()).font(.mono(10)).tracking(0.6).foregroundStyle(Theme.subtle).lineLimit(1)
+            Text(value).font(.geist(22, .semibold)).tracking(-0.4).monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)
+        }
     }
 
     private func shortDate(_ iso: String) -> String {

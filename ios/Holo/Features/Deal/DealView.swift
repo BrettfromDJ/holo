@@ -324,28 +324,24 @@ private struct TodayStrip: View {
         let cash = deals.reduce(0) { $0 + $1.balance }
         let profit = deals.reduce(0) { $0 + ($1.profit ?? 0) }
         Button(action: onOpen) {
-            // A slim glow: up or down with today's profit, numbers in white.
             HStack(spacing: 12) {
-                Text("TODAY").font(.mono(11)).tracking(1.4).opacity(0.85)
-                Text("\(deals.count) deal\(deals.count == 1 ? "" : "s")")
+                MonoLabel(text: "Today")
+                Text("\(deals.count) deal\(deals.count == 1 ? "" : "s")").foregroundStyle(.white)
                 HStack(spacing: 4) {
-                    Text("Cash").opacity(0.7)
-                    Text(Format.signedMoney(cash))
+                    Text("Cash").foregroundStyle(Theme.muted)
+                    Text(Format.signedMoney(cash)).foregroundStyle(Theme.tone(cash))
                 }
                 HStack(spacing: 4) {
-                    Text("Profit").opacity(0.7)
-                    Text(Format.signedMoney(profit))
+                    Text("Profit").foregroundStyle(Theme.muted)
+                    Text(Format.signedMoney(profit)).foregroundStyle(Theme.tone(profit))
                 }
                 Spacer(minLength: 0)
-                Image(systemName: "chevron.right").font(.system(size: 11, weight: .bold)).opacity(0.7)
+                Image(systemName: "chevron.right").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.subtle)
             }
             .font(.geist(13, .semibold)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.8)
-            .foregroundStyle(.white)
             .padding(.horizontal, 14)
             .frame(height: 40)
-            .background { GlowFill(palette: .tone(profit)) }
-            .clipShape(Capsule())
-            .overlay(Capsule().strokeBorder(.white.opacity(0.08)))
+            .liquidGlass(in: Capsule())
         }
         .buttonStyle(.plain)
     }
@@ -428,10 +424,10 @@ private struct TermLabel: View {
     }
 }
 
-/// The deal at a glance on a glow card: whether you come out ahead, who pays whom (with a
-/// one-tap round to $5), and the four numbers in plain words (tap any for what it means). It
-/// glows teal-green when you come out ahead and pink-orange when you don't (or the value gained
-/// goes negative); numbers stay white, the direction is in the glow and the sign.
+/// The deal at a glance on a solid electric-lime card: whether you come out ahead, who pays
+/// whom (with a one-tap round to $5), a bar showing what each side puts in, and the four numbers
+/// in plain words (tap any for what it means). When the value gained is negative the whole card
+/// goes pink, so there's never pink on lime.
 private struct BalanceCard: View {
     var totals: DealTotals
     var roundTo: Double?
@@ -442,83 +438,90 @@ private struct BalanceCard: View {
         let b = t.balance
         let empty = t.kind == .empty
         let down = t.showsEquity && t.equity < -0.005
-        let behind = down || (t.net ?? 0) < -0.005
-        let palette: GlowPalette = empty ? .lilac : (behind ? .down : .up)
-        let ink = Color.white
-        GlowCard(palette: palette, radius: 28, padding: 20) {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack {
-                    SkewTag(text: empty ? "New deal" : t.kind.label, color: .white, textColor: Theme.ink)
-                    Spacer()
-                    if t.belowCost > 0 {
-                        Label("\(t.belowCost) below cost", systemImage: "exclamationmark.triangle.fill")
-                            .font(.geist(12, .semibold)).foregroundStyle(ink)
-                    }
+        let fill = down ? Theme.planPink : Theme.lime
+        let ink = down ? Color.white : Theme.ink
+        let shape = RoundedRectangle(cornerRadius: 24, style: .continuous)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                SkewTag(text: empty ? "New deal" : t.kind.label, color: down ? .white : Theme.ink, textColor: down ? Theme.ink : Theme.lime)
+                Spacer()
+                if t.belowCost > 0 {
+                    Label("\(t.belowCost) below cost", systemImage: "exclamationmark.triangle.fill")
+                        .font(.geist(12, .semibold)).foregroundStyle(ink)
                 }
-
-                // The verdict, in plain English, on a dark pill.
-                if let verdict = t.verdict {
-                    HStack(spacing: 8) {
-                        Image(systemName: (t.net ?? 0) >= 0 ? "arrow.up.right" : "arrow.down.right").font(.system(size: 13, weight: .black))
-                        Text(verdict).font(.geist(15, .semibold)).lineLimit(1).minimumScaleFactor(0.7)
-                        TermInfo(term: .verdict, color: ink)
-                    }
-                    .foregroundStyle(ink)
-                    .padding(.horizontal, 14).frame(height: 36)
-                    .background(Capsule().fill(Color.black.opacity(0.28)))
-                    .padding(.top, 16)
-                    .contentTransition(.numericText())
-                    .animation(.snappy, value: t.net)
-                }
-                if t.uncosted > 0 {
-                    Text("Profit unknown for \(t.uncosted) item\(t.uncosted == 1 ? "" : "s") not in Lucent: add what you paid")
-                        .font(.geist(12, .medium)).foregroundStyle(ink.opacity(0.7))
-                        .padding(.top, 8)
-                }
-
-                HStack(alignment: .lastTextBaseline) {
-                    TermLabel(text: empty ? "Add items to start" : (abs(b) < 0.005 ? "Settled · no cash" : (b > 0 ? "Customer pays you" : "You pay the customer")), term: .cash, color: ink.opacity(0.8))
-                    Spacer()
-                }
-                .padding(.top, 18)
-                HStack(alignment: .center, spacing: 10) {
-                    CountingText(value: abs(b), format: { Format.money($0) })
-                        .font(.geist(60)).tracking(-2.4).monospacedDigit().foregroundStyle(ink)
-                        .lineLimit(1).minimumScaleFactor(0.5)
-                    Spacer(minLength: 0)
-                    if let roundTo {
-                        Button(action: onRound) {
-                            VStack(spacing: 1) {
-                                Text("Round to").font(.geist(10, .semibold)).opacity(0.7)
-                                Text(Format.money(abs(roundTo))).font(.geist(14, .bold)).monospacedDigit()
-                            }
-                            .foregroundStyle(ink)
-                            .padding(.horizontal, 12).frame(height: 44)
-                            .background(Capsule().fill(Color.black.opacity(0.28)))
-                        }
-                        .buttonStyle(ShutterStyle())
-                        .transition(.scale.combined(with: .opacity))
-                    }
-                }
-                .padding(.top, 6)
-
-                // What each side puts in: the yellow marker sits at the share coming in.
-                if t.inValue > 0, t.outValue > 0 {
-                    GlowTicks(fraction: t.inValue / (t.inValue + t.outValue))
-                        .frame(height: 20)
-                        .padding(.top, 14)
-                }
-
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], alignment: .leading, spacing: 14) {
-                    stat("Coming in", .comingIn, Format.money(t.inValue), ink)
-                    stat("Going out", .goingOut, Format.money(t.outValue), ink)
-                    stat("Your profit", .profit, t.profit.map { Format.signedMoney($0) } ?? "—", ink)
-                    stat("Value gained", .value, t.showsEquity ? Format.signedMoney(t.equity) : "—", ink)
-                }
-                .padding(.top, 18)
             }
+
+            // The verdict, in plain English.
+            if let verdict = t.verdict {
+                HStack(spacing: 8) {
+                    Image(systemName: (t.net ?? 0) >= 0 ? "arrow.up.right" : "arrow.down.right").font(.system(size: 13, weight: .black))
+                    Text(verdict).font(.geist(15, .bold)).lineLimit(1).minimumScaleFactor(0.7)
+                    TermInfo(term: .verdict, color: fill)
+                }
+                .foregroundStyle(fill)
+                .padding(.horizontal, 14).frame(height: 36)
+                .background(Capsule().fill(ink))
+                .padding(.top, 16)
+                .contentTransition(.numericText())
+                .animation(.snappy, value: t.net)
+            }
+            if t.uncosted > 0 {
+                Text("Profit unknown for \(t.uncosted) item\(t.uncosted == 1 ? "" : "s") not in Lucent: add what you paid")
+                    .font(.geist(12, .medium)).foregroundStyle(ink.opacity(0.7))
+                    .padding(.top, 8)
+            }
+
+            HStack(alignment: .lastTextBaseline) {
+                TermLabel(text: empty ? "Add items to start" : (abs(b) < 0.005 ? "Settled · no cash" : (b > 0 ? "Customer pays you" : "You pay the customer")), term: .cash, color: ink.opacity(0.7))
+                Spacer()
+            }
+            .padding(.top, 16)
+            HStack(alignment: .center, spacing: 10) {
+                CountingText(value: abs(b), format: { Format.money($0) })
+                    .font(.display(60)).monospacedDigit().foregroundStyle(ink).lineLimit(1).minimumScaleFactor(0.5)
+                    .displayTrim(60)
+                Spacer(minLength: 0)
+                if let roundTo {
+                    Button(action: onRound) {
+                        VStack(spacing: 1) {
+                            Text("Round to").font(.geist(10, .semibold)).opacity(0.7)
+                            Text(Format.money(abs(roundTo))).font(.geist(14, .bold)).monospacedDigit()
+                        }
+                        .foregroundStyle(fill)
+                        .padding(.horizontal, 12).frame(height: 44)
+                        .background(Capsule().fill(ink))
+                    }
+                    .buttonStyle(ShutterStyle())
+                    .transition(.scale.combined(with: .opacity))
+                }
+            }
+            .padding(.top, 8)
+
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], alignment: .leading, spacing: 14) {
+                stat("Coming in", .comingIn, Format.money(t.inValue), ink)
+                stat("Going out", .goingOut, Format.money(t.outValue), ink)
+                stat("Your profit", .profit, t.profit.map { Format.signedMoney($0) } ?? "—", ink)
+                stat("Value gained", .value, t.showsEquity ? Format.signedMoney(t.equity) : "—", ink)
+            }
+            .padding(.top, 18)
         }
-        .animation(.easeInOut(duration: 0.3), value: behind)
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            ZStack {
+                shape.fill(fill)
+                // A faint ink grid, like the other tabs' backdrops, printed on the card.
+                Canvas { ctx, size in
+                    var path = Path()
+                    stride(from: 0, through: size.width, by: 28).forEach { x in path.move(to: CGPoint(x: x, y: 0)); path.addLine(to: CGPoint(x: x, y: size.height)) }
+                    stride(from: 0, through: size.height, by: 28).forEach { y in path.move(to: CGPoint(x: 0, y: y)); path.addLine(to: CGPoint(x: size.width, y: y)) }
+                    ctx.stroke(path, with: .color(.black.opacity(0.06)), lineWidth: 1)
+                }
+            }
+            .clipShape(shape)
+            .shadow(color: fill.opacity(0.4), radius: 22)
+        }
+        .animation(.easeInOut(duration: 0.3), value: down)
         .animation(.snappy, value: roundTo)
         // A warning buzz the moment value gained goes negative (and a light tap when it recovers).
         .sensoryFeedback(trigger: down) { was, now in
@@ -528,8 +531,8 @@ private struct BalanceCard: View {
 
     private func stat(_ label: String, _ term: DealTerm, _ value: String, _ ink: Color) -> some View {
         VStack(alignment: .leading, spacing: 5) {
-            TermLabel(text: label, term: term, color: ink.opacity(0.75))
-            Text(value).font(.geist(20)).tracking(-0.5).monospacedDigit().foregroundStyle(ink).lineLimit(1).minimumScaleFactor(0.7)
+            TermLabel(text: label, term: term, color: ink.opacity(0.65))
+            Text(value).font(.geist(17, .semibold)).monospacedDigit().foregroundStyle(ink).lineLimit(1).minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

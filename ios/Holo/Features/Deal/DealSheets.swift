@@ -290,27 +290,24 @@ struct DealCloseSheet: View {
                             DisplayText(text: "Close this \(t.kind.noun)?", size: 30)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        // Who pays whom, big enough to turn the phone around, glowing up or down
-                        // with the verdict.
-                        GlowCard(palette: t.net.map { GlowPalette.tone($0) } ?? .sky, radius: 26, padding: 18) {
-                            VStack(alignment: .leading, spacing: 0) {
-                                GlowLabel(text: abs(b) < 0.005 ? "Even trade" : (b > 0 ? "Customer pays you" : "You pay the customer"))
-                                Text(Format.money(abs(b))).font(.geist(56)).tracking(-2.2).monospacedDigit()
-                                    .lineLimit(1).minimumScaleFactor(0.5)
-                                    .padding(.top, 14)
-                                if let verdict = t.verdict {
-                                    GlowPill(text: ((t.net ?? 0) >= 0 ? "▲ " : "▼ ") + verdict)
-                                        .padding(.top, 10)
-                                }
-                            }
+                        // Who pays whom, big enough to turn the phone around.
+                        VStack(alignment: .leading, spacing: 8) {
+                            MonoLabel(text: abs(b) < 0.005 ? "Even trade" : (b > 0 ? "Customer pays you" : "You pay the customer"))
+                            Text(Format.money(abs(b))).font(.display(56)).monospacedDigit().displayTrim(56)
+                                .lineLimit(1).minimumScaleFactor(0.5)
+                        }
+                        .padding(18)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                        if let verdict = t.verdict {
+                            Label(verdict, systemImage: (t.net ?? 0) >= 0 ? "arrow.up.right" : "arrow.down.right")
+                                .font(.geist(16, .bold)).foregroundStyle(Theme.tone(t.net))
                         }
                         if !deal.incoming.isEmpty { sideRow(.incoming, deal.incoming, t.inValue) }
                         if !deal.outgoing.isEmpty { sideRow(.outgoing, deal.outgoing, t.outValue) }
-                        if t.profit != nil || (deal.kind != .sell && t.inValue > 0) {
-                            HStack(spacing: 10) {
-                                if let profit = t.profit { pill("Profit", Format.signedMoney(profit), profit < 0 ? .down : .citrus) }
-                                if deal.kind != .sell, t.inValue > 0 { pill("Value gained", Format.signedMoney(t.equity), t.equity < 0 ? .rose : .aqua) }
-                            }
+                        HStack(spacing: 8) {
+                            if let profit = t.profit { pill("Profit", Format.signedMoney(profit), Theme.tone(profit)) }
+                            if deal.kind != .sell, t.inValue > 0 { pill("Value gained", Format.signedMoney(t.equity), Theme.tone(t.equity)) }
                         }
                         let fx = deals.effects(deal)
                         Label {
@@ -387,15 +384,15 @@ struct DealCloseSheet: View {
         .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Theme.border))
     }
 
-    /// A small glow tile: a label and a white figure (the glow and sign give the direction).
-    private func pill(_ label: String, _ value: String, _ palette: GlowPalette) -> some View {
-        GlowCard(palette: palette, radius: 22, padding: 14) {
-            VStack(alignment: .leading, spacing: 12) {
-                GlowLabel(text: label)
-                Text(value).font(.geist(28)).tracking(-1.1).monospacedDigit()
-                    .lineLimit(1).minimumScaleFactor(0.5)
-            }
+    private func pill(_ label: String, _ value: String, _ tint: Color) -> some View {
+        HStack(spacing: 8) {
+            MonoLabel(text: label)
+            Text(value).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(tint)
         }
+        .lineLimit(1)
+        .padding(.horizontal, 14)
+        .frame(height: 38)
+        .liquidGlass(in: Capsule())
     }
 
     private func close() async {
@@ -413,8 +410,8 @@ struct DealCloseSheet: View {
     }
 }
 
-/// The deal, recorded: the whole screen glows teal-green (pink-orange if the equity taken in
-/// or the profit was negative). A check stamps in, the items fan in like a hand of cards, the headline number
+/// The deal, recorded: the whole screen goes electric lime (pink if the equity taken in was
+/// negative). A check stamps in, the items fan in like a hand of cards, the headline number
 /// counts up (profit, or for a buy the equity you took in), and an ink receipt lists what
 /// changed hands and who paid. A broad soft glare passes over once.
 private struct RecordedScreen: View {
@@ -437,10 +434,8 @@ private struct RecordedScreen: View {
     var body: some View {
         let t = totals
         let down = t.kind != .sell && t.inValue > 0 && t.equity < -0.005
-        // The whole screen glows: teal-green, or pink-orange when the equity taken in is negative.
-        let palette: GlowPalette = down || (t.profit ?? 0) < -0.005 ? .down : .up
-        let fill = palette.base
-        let ink = Color.white
+        let fill = down ? Theme.planPink : Theme.lime
+        let ink = down ? Color.white : Theme.ink
         let items = Array((deal.outgoing + deal.incoming).prefix(7))
         // Profit when something went out; for a buy, the equity you took in.
         let headline: (label: String, value: Double)? = t.profit.map { ("Profit", $0) } ?? (t.inValue > 0 ? ("Value gained", t.equity) : nil)
@@ -449,7 +444,7 @@ private struct RecordedScreen: View {
             VStack(spacing: 20) {
                 Image(systemName: "checkmark")
                     .font(.system(size: 30, weight: .black))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(fill)
                     .frame(width: 74, height: 74)
                     .background(Circle().fill(ink))
                     .scaleEffect(shown ? 1 : 0.3)
@@ -484,7 +479,7 @@ private struct RecordedScreen: View {
                     VStack(spacing: 6) {
                         Text(headline.label.uppercased()).font(.mono(11)).tracking(1.6).foregroundStyle(ink.opacity(0.6))
                         CountingText(value: headline.value, format: { Format.signedMoney($0) })
-                            .font(.geist(72)).tracking(-2.9).monospacedDigit().foregroundStyle(ink)
+                            .font(.display(72)).monospacedDigit().foregroundStyle(ink).displayTrim(72)
                             .lineLimit(1).minimumScaleFactor(0.5)
                     }
                 }
@@ -493,7 +488,7 @@ private struct RecordedScreen: View {
             .padding(.horizontal, 20)
             Spacer(minLength: 12)
             Button(action: onDone) {
-                Text("Done").font(.geist(17, .semibold)).foregroundStyle(Theme.ink)
+                Text("Done").font(.geist(17, .semibold)).foregroundStyle(fill)
                     .frame(maxWidth: .infinity).frame(height: 56)
                     .background(Capsule().fill(ink))
                     .contentShape(Capsule())
@@ -505,7 +500,14 @@ private struct RecordedScreen: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background {
             ZStack {
-                GlowFill(palette: palette)
+                fill
+                Canvas { ctx, size in
+                    var path = Path()
+                    stride(from: 0, through: size.width, by: 32).forEach { x in path.move(to: CGPoint(x: x, y: 0)); path.addLine(to: CGPoint(x: x, y: size.height)) }
+                    stride(from: 0, through: size.height, by: 32).forEach { y in path.move(to: CGPoint(x: 0, y: y)); path.addLine(to: CGPoint(x: size.width, y: y)) }
+                    ctx.stroke(path, with: .color(.black.opacity(0.06)), lineWidth: 1)
+                }
+                RadialGradient(colors: [.white.opacity(0.35), .clear], center: .top, startRadius: 0, endRadius: 440)
                 SoftGlare()
             }
             .ignoresSafeArea()
@@ -547,7 +549,7 @@ private struct RecordedScreen: View {
                     Label("\(deal.photos.count)", systemImage: "camera.fill").font(.geist(12, .semibold)).foregroundStyle(Theme.muted)
                 }
                 Spacer()
-                Text(Format.money(abs(t.balance))).font(.geist(26)).tracking(-0.8).monospacedDigit().foregroundStyle(.white)
+                Text(Format.money(abs(t.balance))).font(.display(26)).monospacedDigit().foregroundStyle(fill).displayTrim(26)
             }
         }
         .padding(.horizontal, 16)

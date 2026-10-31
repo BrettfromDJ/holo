@@ -223,58 +223,60 @@ struct CollectionView: View {
         }
     }
 
-    /// Lucent: the value on a glow card (green-teal when you're up overall, pink-orange when
-    /// down) with the all-time gain and the last 30 days' line, then three small glow tiles.
     private var header: some View {
         let s = store.summary
         let month = Array(store.timeline.suffix(31))
         let monthChange = (month.last?.value ?? 0) - (month.first?.value ?? 0)
-        return VStack(alignment: .leading, spacing: 10) {
-            GlowCard(palette: .tone(s.gain), padding: 20) {
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack(alignment: .top) {
-                        GlowLabel(text: "Value")
+        let monthTone = monthChange < 0 ? Theme.planPink : Theme.lime
+        return VStack(alignment: .leading, spacing: 18) {
+            // The value, counting up, with the all-time gain under it.
+            VStack(alignment: .leading, spacing: 8) {
+                MonoLabel(text: "Value")
+                CountingText(value: s.value, format: { Format.money($0) })
+                    .font(.display(56)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.5)
+                    .displayTrim(56)
+                    .shadow(color: .white.opacity(0.12), radius: 18)
+                HStack(spacing: 8) {
+                    DeltaPill(ratio: s.gainRatio, size: 13)
+                    Text(Format.signedMoney(s.gain)).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(s.gain))
+                    Text("all time").font(.geist(13)).foregroundStyle(Theme.muted)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 8)
+            // The last 30 days, drawing itself in.
+            if month.count > 1 {
+                VStack(alignment: .leading, spacing: 6) {
+                    Sparkline(points: month, color: monthTone).frame(height: 54)
+                    HStack {
+                        MonoLabel(text: "Last 30 days")
                         Spacer()
-                        GlowLabel(text: "\(store.holdings.count) products")
-                    }
-                    // The value, counting up, with the all-time gain under it.
-                    GlowFigure(value: s.value, size: 56).padding(.top, 14)
-                    HStack(spacing: 8) {
-                        if let r = s.gainRatio { GlowPill(text: (r < 0 ? "▼ " : "▲ ") + Format.signedPercent(abs(r)).replacingOccurrences(of: "+", with: "")) }
-                        Text("\(Format.signedMoney(s.gain)) all time").font(.geist(13, .medium)).monospacedDigit()
-                    }
-                    .padding(.top, 10)
-                    // The last 30 days, drawing itself in.
-                    if month.count > 1 {
-                        Sparkline(points: month, color: .white).frame(height: 54).padding(.top, 18)
-                        HStack {
-                            Text("LAST 30 DAYS").font(.mono(10)).tracking(1.2).opacity(0.7)
-                            Spacer()
-                            Text(Format.signedMoney(monthChange)).font(.geist(12, .semibold)).monospacedDigit()
-                        }
-                        .padding(.top, 6)
+                        Text(Format.signedMoney(monthChange)).font(.geist(12, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(monthChange))
                     }
                 }
             }
+            // Glass stat tiles.
             HStack(spacing: 8) {
-                statTile("Today", Format.signedMoney(s.dayChange), palette: s.dayChange < 0 ? .down : .citrus)
-                statTile("Items", "\(Int(s.items))", palette: .lilac)
-                statTile("Paid", Format.moneyWhole(s.totalCost), palette: .sky)
+                statTile("Today", Format.signedMoney(s.dayChange), Theme.tone(s.dayChange))
+                statTile("Items", "\(Int(s.items))", .white)
+                statTile("Paid", Format.money(s.totalCost), .white)
             }
-            AllocationBar(holdings: store.holdings, total: s.value).padding(.top, 8)
+            AllocationBar(holdings: store.holdings, total: s.value)
         }
-        .padding(.top, 4)
+        .background(alignment: .top) {
+            CollectionBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
+        }
     }
 
-    private func statTile(_ label: String, _ value: String, palette: GlowPalette) -> some View {
-        GlowCard(palette: palette, radius: 20, padding: 12) {
-            VStack(alignment: .leading, spacing: 0) {
-                GlowLabel(text: label)
-                Spacer(minLength: 12)
-                Text(value).font(.geist(19)).tracking(-0.6).monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)
-            }
-            .frame(height: 58, alignment: .topLeading)
+    private func statTile(_ label: String, _ value: String, _ tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            MonoLabel(text: label)
+            Text(value).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(tint).lineLimit(1).minimumScaleFactor(0.7)
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private var controls: some View {
@@ -523,6 +525,26 @@ struct AllocationBar: View {
                 withAnimation(.spring(response: 0.9, dampingFraction: 0.85).delay(0.15)) { grown = true }
             }
         }
+    }
+}
+
+/// The lit backdrop behind the top of Collection: the website's faint grid with still lime, pink
+/// and blue glows, fading out toward the holdings.
+struct CollectionBackdrop: View {
+    var body: some View {
+        ZStack {
+            GridPattern(step: 36, opacity: 0.05)
+            glow(Theme.lime, 0.22, at: UnitPoint(x: 0.2, y: 0.42), r: 260)
+            glow(Theme.planPink, 0.18, at: UnitPoint(x: 0.85, y: 0.2), r: 220)
+            glow(Theme.planBlue, 0.18, at: UnitPoint(x: 0.75, y: 0.72), r: 220)
+        }
+        .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.7), .init(color: .clear, location: 1)],
+                             startPoint: .top, endPoint: .bottom))
+        .allowsHitTesting(false)
+    }
+
+    private func glow(_ color: Color, _ strength: Double, at center: UnitPoint, r: CGFloat) -> some View {
+        RadialGradient(colors: [color.opacity(strength), .clear], center: center, startRadius: 0, endRadius: r)
     }
 }
 

@@ -113,39 +113,21 @@ struct GradedPricesPanel: View {
             }
             .padding(3)
             .liquidGlass(in: Capsule())
-            // The answer on a glow in the grading company's color.
-            GlowCard(palette: Self.palette(company), radius: 22, padding: 16) {
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack(alignment: .top) {
-                        GlowLabel(text: "\(company) \(grade)", secondary: r.detail)
-                        Spacer(minLength: 8)
-                        if let p = r.price, let nm, nm > 0 {
-                            let m = p / nm
-                            GlowPill(text: "\(m >= 10 ? String(format: "%.0f", m) : String(format: "%.1f", m))× raw")
-                        }
-                    }
-                    Text(r.price.map { Format.money($0) } ?? "—")
-                        .font(.geist(44)).tracking(-1.7).monospacedDigit()
-                        .lineLimit(1).minimumScaleFactor(0.5)
-                        .contentTransition(.numericText())
-                        .animation(.snappy, value: r.price)
-                        .padding(.top, 14)
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("\(company) \(grade)").font(.geist(14, .semibold))
+                    Text(r.detail).font(.geist(12)).foregroundStyle(Theme.subtle).lineLimit(2)
                 }
+                Spacer(minLength: 8)
+                Text(r.price.map { Format.money($0) } ?? "—")
+                    .font(.geist(17, .semibold)).monospacedDigit()
+                    .contentTransition(.numericText())
+                    .animation(.snappy, value: r.price)
             }
+            .padding(.horizontal, 14).padding(.vertical, 12)
+            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.surface2))
         }
         .sensoryFeedback(.selection, trigger: "\(company)\(grade)")
-    }
-
-    /// Each grading company's glow, so the lookup changes color as you switch.
-    private static func palette(_ company: String) -> GlowPalette {
-        switch company.uppercased() {
-        case "PSA": return .rose
-        case "BGS": return .gold
-        case "CGC": return .sky
-        case "SGC": return .flame
-        case "TAG": return .lilac
-        default: return .aqua
-        }
     }
 
     static func lookupGrades(_ company: String) -> [String] {
@@ -207,7 +189,7 @@ struct GradedPricesPanel: View {
                     .frame(minWidth: 72, alignment: .leading)
                     .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Theme.surface2))
                     .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Theme.border))
-                    if mine { GlowPill(text: "Yours").foregroundStyle(.white) }
+                    if mine { Text("Yours").font(.geist(11, .semibold)).foregroundStyle(Theme.lime) }
                     Spacer(minLength: 8)
                     if let base = v.ungraded, base > 0 {
                         let m = value / base
@@ -218,15 +200,7 @@ struct GradedPricesPanel: View {
                         .frame(minWidth: 86, alignment: .trailing)
                 }
                 .padding(.vertical, 11)
-                .background {
-                    // The grade you own glows softly (one row, so it stays readable).
-                    if mine {
-                        GlowFill(palette: Self.palette(row.company ?? owned.first?.company ?? "PSA"))
-                            .opacity(0.55)
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            .padding(.horizontal, -10)
-                    }
-                }
+                .background { if mine { RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.lime.opacity(0.1)).padding(.horizontal, -10) } }
                 if i < shown.count - 1 { Divider().overlay(Theme.border) }
             }
             Text(estimate ? "No graded sales for this card yet, so these follow the usual grade curve." : "10s are per grading company; lower grades are for any company.")

@@ -67,8 +67,11 @@ struct MasterSetDetailView: View {
         let entries = entries(for: current)
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                // The top (Lucent): the set's progress on a glow card.
+                // The top, like Collection's: on the same lit backdrop.
                 progress(current, entries: entries)
+                    .background(alignment: .top) {
+                        DotBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
+                    }
                 controls(entries)
                 grid(entries)
             }
@@ -79,7 +82,7 @@ struct MasterSetDetailView: View {
         .imageMaxPixel(400)
         .replaysAnimations()
         .scrollDismissesKeyboard(.immediately)
-        // The glow runs up under the clear top bar; the set's name is on the glow, not in the bar.
+        // The lit grid runs up under the clear top bar; the set's name is on it, not in the bar.
         .scrollClipDisabled()
         .navigationBarTitleDisplayMode(.inline)
         .pageTitle("")
@@ -161,34 +164,29 @@ struct MasterSetDetailView: View {
         let missingValue = entries.filter { !$0.owned }.compactMap(\.hit.market).reduce(0, +)
         let ownedValue = entries.flatMap(\.holdings).reduce(0) { $0 + ($1.value ?? 0) }
         let pct = Int((ratio * 100).rounded())
-        // Lucent: a full-width glow in the set's colors (bright edges, dark middle) running up
-        // under the top bar, with the % in dot-matrix digits, a dial of how much you own, two
-        // tiles and every card in the set as one tick.
+        // The set's page opens on the lit grid: the % in glowing lime dot-matrix digits, a dial of
+        // how much you own, two tiles, then every card in the set as one tick.
         return VStack(spacing: 18) {
             HStack {
                 Text(set.name).font(.geist(24, .semibold)).lineLimit(2).minimumScaleFactor(0.7)
                 Spacer()
             }
             VStack(spacing: 6) {
-                Text(known ? "COMPLETE" : "CARDS OWNED").font(.mono(11)).tracking(1.6).opacity(0.7)
-                if known {
-                    HStack(alignment: .top, spacing: 4) {
-                        DotMatrixText(text: "\(pct)", dot: 6.5)
-                        Text("%").font(.geist(16)).opacity(0.7)
-                    }
-                } else {
-                    DotMatrixText(text: "\(owned)", dot: 6.5)
+                Text(known ? "COMPLETE" : "CARDS OWNED").font(.mono(11)).tracking(1.6).foregroundStyle(Theme.muted)
+                HStack(alignment: .top, spacing: 4) {
+                    DotMatrixText(text: known ? "\(pct)" : "\(owned)", dot: 6.5, color: Theme.lime)
+                        .shadow(color: Theme.lime.opacity(0.55), radius: 16)
+                    if known { Text("%").font(.geist(16)).foregroundStyle(Theme.lime) }
                 }
-                Text(known ? "\(owned) of \(total) cards" : "full list not in Lucent yet").font(.geist(13)).opacity(0.7)
+                Text(known ? "\(owned) of \(total) cards" : "full list not in Lucent yet").font(.geist(13)).foregroundStyle(Theme.muted)
             }
             if known {
                 GlowPie(fraction: ratio).frame(width: 168).padding(.vertical, 22)
-            }
-            if known {
+                    .shadow(color: Theme.lime.opacity(0.25), radius: 24)
                 HStack(spacing: 10) {
                     heroTile(label: "You own", sub: "worth") {
                         HStack(alignment: .center, spacing: 10) {
-                            GlowRing(fraction: ratio, label: "").frame(width: 38, height: 38)
+                            GlowRing(fraction: ratio, label: "").frame(width: 38, height: 38).foregroundStyle(Theme.lime)
                             Text(GlowFigure.text(ownedValue, signed: false, cents: false)).font(.geist(24)).tracking(-0.8).monospacedDigit()
                                 .lineLimit(1).minimumScaleFactor(0.6)
                         }
@@ -211,25 +209,30 @@ struct MasterSetDetailView: View {
         .padding(.bottom, 22)
         .frame(maxWidth: .infinity)
         .background {
-            GlowFill(palette: GlowPalette.rimForProduct(set.id))
-                .padding(.top, -320)
-                .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: 34, bottomTrailingRadius: 34, style: .continuous))
+            ZStack {
+                Color(hex: 0x050505)
+                GridPattern(step: 28, opacity: 0.07)
+                RadialGradient(colors: [Theme.lime.opacity(0.2), .clear], center: UnitPoint(x: 0.5, y: 0.45), startRadius: 0, endRadius: 300)
+                RadialGradient(colors: [Theme.planBlue.opacity(0.18), .clear], center: UnitPoint(x: 0.95, y: 0.1), startRadius: 0, endRadius: 260)
+                RadialGradient(colors: [Theme.planPink.opacity(0.14), .clear], center: UnitPoint(x: 0.05, y: 0.85), startRadius: 0, endRadius: 240)
+            }
+            .padding(.top, -320)
+            .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: 34, bottomTrailingRadius: 34, style: .continuous))
         }
         .padding(.horizontal, -16)
     }
 
-    /// A dark translucent tile on the set's glow, like the reference's inner cards.
+    /// A tile on the set's lit grid.
     private func heroTile<C: View>(label: String, sub: String, @ViewBuilder content: () -> C) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(label).font(.geist(13, .semibold))
-            Text(sub).font(.geist(11)).opacity(0.6)
+            Text(sub).font(.geist(11)).foregroundStyle(Theme.muted)
             Spacer(minLength: 14)
             content()
         }
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 128, alignment: .topLeading)
-        .background(.black.opacity(0.3), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(.white.opacity(0.12)))
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 
     // MARK: Search, sort, filter
@@ -355,8 +358,8 @@ private struct CardCell: View {
     }
 }
 
-/// The whole set as a strip of ticks, one per card, bright white where you own it (it sits on
-/// the glow card). It sweeps in left to right the first time it appears.
+/// The whole set as a strip of ticks, one per card, lime where you own it. It sweeps in
+/// left to right the first time it appears.
 private struct SetStrip: View {
     var owned: [Bool]
 
@@ -367,7 +370,7 @@ private struct SetStrip: View {
             ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                 HStack(spacing: 2) {
                     ForEach(Array(row.enumerated()), id: \.offset) { _, on in
-                        RoundedRectangle(cornerRadius: 1.5).fill(Color.white.opacity(on ? 0.95 : 0.22))
+                        RoundedRectangle(cornerRadius: 1.5).fill(on ? Theme.lime : Color.white.opacity(0.13))
                             .frame(height: 12)
                     }
                     if row.count < perRow {

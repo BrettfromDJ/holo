@@ -111,41 +111,25 @@ struct ActivityView: View {
 
     private func header(_ m: Model) -> some View {
         let count = m.effective.count
-        // How much of what you bought you've sold back, on the tick bar.
-        let soldShare = m.bought > 0 ? min(m.sold / m.bought, 1) : 0
-        return VStack(alignment: .leading, spacing: 10) {
-            GlowCard(palette: .sky, padding: 20) {
-                VStack(alignment: .leading, spacing: 0) {
-                    GlowLabel(text: "Activity", secondary: "Every purchase, sale and adjustment")
-                    HStack(alignment: .lastTextBaseline, spacing: 10) {
-                        CountingText(value: Double(count), format: { "\(Int($0.rounded()))" })
-                            .font(.geist(60, .regular)).tracking(-2.4).monospacedDigit().lineLimit(1)
-                        Text(count == 1 ? "ENTRY" : "ENTRIES").font(.mono(12)).tracking(1.4).opacity(0.7)
-                    }
-                    .padding(.top, 18)
-                    if m.bought > 0 {
-                        GlowTicks(fraction: soldShare).frame(height: 22).padding(.top, 18)
-                        HStack {
-                            Text("SOLD BACK").font(.mono(10)).tracking(1.4).opacity(0.6)
-                            Spacer()
-                            Text("\(Int((soldShare * 100).rounded()))% OF WHAT YOU BOUGHT").font(.mono(10)).tracking(1.2).opacity(0.6)
-                                .lineLimit(1).minimumScaleFactor(0.8)
-                        }
-                        .padding(.top, 6)
-                    }
+        return VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 8) {
+                MonoLabel(text: "Activity")
+                HStack(alignment: .lastTextBaseline, spacing: 10) {
+                    CountingText(value: Double(count), format: { "\(Int($0.rounded()))" })
+                        .font(.display(56)).monospacedDigit().lineLimit(1).displayTrim(56)
+                    Text(count == 1 ? "Entry" : "Entries").font(.display(24)).foregroundStyle(Theme.muted).displayTrim(24)
                 }
+                Text("Every purchase, sale and adjustment").font(.geist(13)).foregroundStyle(Theme.muted)
             }
-            HStack(spacing: 10) {
-                MoreGlowTile(label: "Bought", palette: .lilac, height: 84) {
-                    MoreGlowValue(text: GlowFigure.text(m.bought, signed: false, cents: false), size: 22)
-                }
-                MoreGlowTile(label: "Sold", palette: .citrus, height: 84) {
-                    MoreGlowValue(text: GlowFigure.text(m.sold, signed: false, cents: false), size: 22)
-                }
-                MoreGlowTile(label: "Realized", palette: GlowPalette.tone(m.realizedTotal), height: 84) {
-                    MoreGlowValue(text: GlowFigure.text(m.realizedTotal, signed: true, cents: false), size: 22)
-                }
+            .padding(.top, 8)
+            HStack(spacing: 8) {
+                GlassStat(label: "Bought", value: Format.money(m.bought))
+                GlassStat(label: "Sold", value: Format.money(m.sold))
+                GlassStat(label: "Realized", value: Format.signedMoney(m.realizedTotal), tint: Theme.tone(m.realizedTotal))
             }
+        }
+        .background(alignment: .top) {
+            DotBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
         }
     }
 
@@ -185,7 +169,10 @@ struct ActivityView: View {
                     ZStack(alignment: .bottomTrailing) {
                         HoldingArt(product: product, identity: t.identity, cornerRadius: 4, caption: false)
                             .frame(width: 38, height: 52)
-                        MoreGlowChip(systemName: icon, palette: chipPalette(t))
+                        Image(systemName: icon).font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(t.kind == .sale ? Theme.up : Theme.muted)
+                            .frame(width: 18, height: 18)
+                            .background(Theme.surface3, in: Circle())
                             .overlay(Circle().strokeBorder(Theme.surface, lineWidth: 2))
                             .offset(x: 5, y: 5)
                     }
@@ -232,16 +219,6 @@ struct ActivityView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-    }
-
-    /// The lit chip on a row's art: one color per kind of entry.
-    private func chipPalette(_ t: Txn) -> GlowPalette {
-        switch t.kind {
-        case .purchase: return .sky
-        case .sale: return .moss
-        case .adjustment: return t.quantity > 0 ? .lilac : .flame
-        case .correction: return .ember
-        }
     }
 
     private func kindLabel(_ t: Txn) -> (String, String) {

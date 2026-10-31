@@ -38,10 +38,9 @@ and say exactly what to run or click.
   headings) in sentence case, not Anton caps; don't uppercase headings there.
 - **Colors:** lime `#D4FF3A` (accent, up), plan blue `#2F5BFF`, plan pink `#FF2E9A` (down).
   Color only numbers (gains green/lime, losses pink); text stays white or muted.
-- **Lucent (app):** the iPhone app is named Lucent but keeps the original palette (lime accent and
-  gains, pink losses, dark surfaces). The new card layouts stay (Components/Glow.swift: same-size
-  square/tall/wide tiles, little graphics, dot-matrix digits, the Overview carousel, the Master
-  Sets deck) but drawn flat: `GlowFill` is the dark surface, with a lime or pink wash for up/down.
+- **Lucent (app):** named Lucent, original Holo look everywhere (lime, grid and dot backdrops, glows,
+  lime charts, the star card's electric border). Only Master Sets uses the newer pieces from
+  `Components/Glow.swift` (the set deck, the set page's dot-matrix %, dial and ticks).
 - **Never red or pink text on lime.** If a card's figure is down, the whole card goes pink.
 - No confetti. No emojis. Toasts bottom-right on the web. Milestone and "Prices updated"
   banners are off in the app for now (they repeated).

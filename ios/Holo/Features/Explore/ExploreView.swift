@@ -77,7 +77,7 @@ struct ExploreView: View {
                     PageHeader(title: "Brands", subtitle: "Every game in the catalog", size: 22)
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                         ForEach(Array(index.games.enumerated()), id: \.element.id) { i, g in
-                            NavigationLink(value: g) { BrandCard(game: g, palette: GlowPalette.mixed(i + 3)) }
+                            NavigationLink(value: g) { BrandCard(game: g, tint: BrandCard.tints[i % BrandCard.tints.count]) }
                                 .buttonStyle(.plain)
                         }
                     }
@@ -223,9 +223,9 @@ private struct BrandView: View {
                 }
             }
             HStack(spacing: 8) {
-                StatTile(label: "Sets", value: Double(game.sets), palette: .aqua)
-                StatTile(label: "Loaded", value: Double(game.loadedSets), palette: .flame)
-                StatTile(label: "Cards", value: Double(game.cardCount ?? 0), palette: .lilac)
+                StatTile(label: "Sets", value: Double(game.sets))
+                StatTile(label: "Loaded", value: Double(game.loadedSets))
+                StatTile(label: "Cards", value: Double(game.cardCount ?? 0))
             }
             if let next { NextRelease(set: next) }
         }
@@ -298,10 +298,10 @@ private struct SetView: View {
                 } else {
                     VStack(alignment: .leading, spacing: 36) {
                         HStack(spacing: 8) {
-                            StatTile(label: "Singles", value: Double(singles.count), palette: .sky)
-                            StatTile(label: "Sealed", value: Double(sealed.count), palette: .rose)
+                            StatTile(label: "Singles", value: Double(singles.count))
+                            StatTile(label: "Sealed", value: Double(sealed.count))
                             if !singles.isEmpty {
-                                StatTile(label: "Set value", value: singles.compactMap(\.market).reduce(0, +), money: true, palette: .gold)
+                                StatTile(label: "Set value", value: singles.compactMap(\.market).reduce(0, +), money: true)
                             }
                         }
                         .padding(.horizontal, 16)
@@ -545,13 +545,14 @@ private struct ReleaseCountdown: View {
     var body: some View {
         let on = store.reminders.contains(set.slug)
         HStack(spacing: 14) {
-            VStack(alignment: .leading, spacing: 8) {
-                GlowLabel(text: days == 0 ? "Out" : "Out in")
+            VStack(alignment: .leading, spacing: 6) {
+                MonoLabel(text: days == 0 ? "Out" : "Out in")
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     CountingText(value: Double(days), format: { "\(Int($0.rounded()))" })
-                        .font(.geist(48)).tracking(-1.9).monospacedDigit()
+                        .font(.display(44)).monospacedDigit().foregroundStyle(Theme.holo).displayTrim(44)
+                        .shadow(color: Theme.holoGlow.opacity(0.45), radius: 12)
                         .fixedSize()
-                    Text(days == 0 ? "today" : (days == 1 ? "day" : "days")).font(.geist(14)).opacity(0.75)
+                    Text(days == 0 ? "today" : (days == 1 ? "day" : "days")).font(.geist(14)).foregroundStyle(Theme.muted)
                 }
             }
             Spacer(minLength: 0)
@@ -564,11 +565,8 @@ private struct ReleaseCountdown: View {
             .buttonStyle(Button3D(kind: on ? .lime : .dark, fullWidth: false, height: 40))
             .disabled(busy)
         }
-        .padding(18)
-        .foregroundStyle(.white)
-        .background { GlowFill(palette: .flame) }
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(.white.opacity(0.08)))
+        .padding(16)
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 }
 
@@ -581,32 +579,32 @@ private struct OwnedProgress: View {
 
     var body: some View {
         let ratio = total > 0 ? Double(owned) / Double(total) : 0
-        GlowCard(palette: .citrus, radius: 24, padding: 18) {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .center) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        GlowLabel(text: "You own")
-                        HStack(alignment: .firstTextBaseline, spacing: 6) {
-                            CountingText(value: Double(owned), format: { "\(Int($0.rounded()))" })
-                                .font(.geist(44)).tracking(-1.7).monospacedDigit().fixedSize()
-                            Text("of \(total) products").font(.geist(14)).opacity(0.75)
-                        }
-                    }
-                    Spacer()
-                    // The share on a thin ring that draws in.
-                    GlowRing(fraction: filled ? ratio : 0, label: ratio < 0.01 ? "<1%" : "\(Int((ratio * 100).rounded()))%")
-                        .frame(width: 66, height: 66)
-                }
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(Color.white.opacity(0.22))
-                        Capsule().fill(Color.white)
-                            .frame(width: max(8, geo.size.width * (filled ? ratio : 0)))
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .lastTextBaseline) {
+                VStack(alignment: .leading, spacing: 6) {
+                    MonoLabel(text: "You own")
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        CountingText(value: Double(owned), format: { "\(Int($0.rounded()))" })
+                            .font(.display(34)).monospacedDigit().foregroundStyle(Theme.holo).displayTrim(34).fixedSize()
+                        Text("of \(total) products").font(.geist(14)).foregroundStyle(Theme.muted)
                     }
                 }
-                .frame(height: 6)
+                Spacer()
+                Text(ratio < 0.01 ? "<1%" : "\(Int((ratio * 100).rounded()))%").font(.geist(15, .semibold)).monospacedDigit()
             }
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.white.opacity(0.08))
+                    Capsule().fill(Theme.holo)
+                        .frame(width: max(8, geo.size.width * (filled ? ratio : 0)))
+                        .shadow(color: Theme.holoGlow.opacity(0.5), radius: 6)
+                }
+            }
+            .frame(height: 8)
         }
+        .padding(18)
+        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Theme.surface))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Theme.border))
         .onAppear { fill() }
         .onReplay { filled = false; fill() }
     }
@@ -623,7 +621,7 @@ private struct TopChase: View {
 
     var body: some View {
         let p = hit.product
-        let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
         HStack(alignment: .center, spacing: 18) {
             ProductImage(product: p, cornerRadius: 7)
                 .frame(width: 120, height: 168)
@@ -636,15 +634,23 @@ private struct TopChase: View {
                 }
                 Text(p.name).font(.geist(17, .semibold)).foregroundStyle(.white).lineLimit(3).multilineTextAlignment(.leading)
                 if let r = p.rarity { RarityBadge(rarity: r) }
-                GlowFigure(value: hit.market ?? 0, size: 36)
+                CountingText(value: hit.market ?? 0, format: { Format.money($0) })
+                    .font(.display(34)).monospacedDigit().foregroundStyle(.white)
+                    .lineLimit(1).minimumScaleFactor(0.6).displayTrim(34)
             }
             Spacer(minLength: 0)
         }
         .padding(18)
-        .foregroundStyle(.white)
-        // The card's own glow, so each set's No. 1 has its color.
-        .background { GlowFill(palette: .forProduct(p.id)).clipShape(shape) }
-        .overlay(shape.strokeBorder(.white.opacity(0.08)))
+        .background {
+            ZStack {
+                shape.fill(Color(hex: 0x070707))
+                GridPattern(step: 28, opacity: 0.06)
+                RadialGradient(colors: [Theme.violet.opacity(0.2), .clear], center: UnitPoint(x: 0.15, y: 0.5), startRadius: 0, endRadius: 200)
+            }
+            .clipShape(shape)
+        }
+        .overlay(ElectricBorder(radius: 22))
+        .shadow(color: Theme.holoGlow.opacity(0.18), radius: 18)
     }
 }
 
@@ -800,9 +806,9 @@ struct ReleaseCalendarView: View {
             VStack(alignment: .leading, spacing: 36) {
                 VStack(alignment: .leading, spacing: 22) {
                     HStack(spacing: 8) {
-                        StatTile(label: "Upcoming", value: Double(upcoming.count), palette: .indigo)
-                        StatTile(label: "Next 30 days", value: Double(upcoming.filter { ($0.releaseDate ?? "") <= soon }.count), palette: .citrus)
-                        StatTile(label: "Reminders", value: Double(upcoming.filter { store.reminders.contains($0.slug) }.count), palette: .ember)
+                        StatTile(label: "Upcoming", value: Double(upcoming.count))
+                        StatTile(label: "Next 30 days", value: Double(upcoming.filter { ($0.releaseDate ?? "") <= soon }.count))
+                        StatTile(label: "Reminders", value: Double(upcoming.filter { store.reminders.contains($0.slug) }.count), tint: Theme.lime)
                     }
                     if let next = upcoming.first { NextRelease(set: next) }
                 }
@@ -928,25 +934,24 @@ private struct SectionCount: View {
     }
 }
 
-/// A small glow tile with a mono label and a thin number that counts up; each tile in a row
-/// gets its own palette.
+/// A glass tile with a mono label and a number that counts up.
 private struct StatTile: View {
     var label: String
     var value: Double
     var money = false
-    var palette: GlowPalette = .violet
+    var tint: Color = .white
 
     var body: some View {
-        GlowCard(palette: palette, radius: 20, padding: 14) {
-            VStack(alignment: .leading, spacing: 0) {
-                GlowLabel(text: label).lineLimit(1).minimumScaleFactor(0.8)
-                Spacer(minLength: 14)
-                CountingText(value: value, format: { money ? Self.money($0) : Self.count($0) })
-                    .font(.geist(30)).tracking(-1.2).monospacedDigit()
-                    .lineLimit(1).minimumScaleFactor(0.5)
-            }
-            .frame(height: 70, alignment: .topLeading)
+        VStack(alignment: .leading, spacing: 4) {
+            MonoLabel(text: label).lineLimit(1).minimumScaleFactor(0.8)
+            CountingText(value: value, format: { money ? Self.money($0) : Self.count($0) })
+                .font(.display(28)).monospacedDigit().foregroundStyle(tint)
+                .lineLimit(1).minimumScaleFactor(0.6).displayTrim(28)
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     static func count(_ v: Double) -> String { v >= 10_000 ? String(format: "%.0fK", v / 1000) : Int(v.rounded()).formatted() }
@@ -1067,9 +1072,9 @@ private struct CatalogHero: View {
         let cards = index.games.compactMap(\.cardCount).reduce(0, +)
         VStack(alignment: .leading, spacing: 22) {
             HStack(spacing: 8) {
-                StatTile(label: "Brands", value: Double(index.games.count), palette: .violet)
-                StatTile(label: "Sets", value: Double(index.sets.count), palette: .citrus)
-                StatTile(label: "Cards", value: Double(cards), palette: .rose)
+                StatTile(label: "Brands", value: Double(index.games.count))
+                StatTile(label: "Sets", value: Double(index.sets.count))
+                StatTile(label: "Cards", value: Double(cards))
             }
             if let next { NextRelease(set: next) }
         }
@@ -1099,7 +1104,7 @@ private struct NextRelease: View {
                     DisplayText(text: set.name, size: 24)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     Text([set.gameName, set.release?.formatted(date: .abbreviated, time: .omitted)].compactMap { $0 }.joined(separator: " · "))
-                        .font(.mono(11)).tracking(0.6).opacity(0.75).lineLimit(1)
+                        .font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
                     Button {
                         busy = true
                         Task { try? await store.setReminder(set, on: !on); busy = false }
@@ -1111,12 +1116,11 @@ private struct NextRelease: View {
                 }
                 Spacer(minLength: 0)
                 VStack(spacing: 6) {
-                    // The countdown, big and thin in white on the glow.
                     CountingText(value: Double(days), format: { "\(Int($0.rounded()))" })
-                        .font(.geist(64)).tracking(-2.6).monospacedDigit()
+                        .font(.display(60)).monospacedDigit().foregroundStyle(Theme.lime).displayTrim(60)
+                        .shadow(color: Theme.holoGlow.opacity(0.5), radius: 16)
                         .fixedSize()
-                    GlowLabel(text: days == 0 ? "today" : (days == 1 ? "day" : "days"))
-                    GlowTicks(fraction: max(0, 1 - Double(days) / 60)).frame(width: 70, height: 18)
+                    MonoLabel(text: days == 0 ? "today" : (days == 1 ? "day" : "days"))
                 }
                 .frame(minWidth: 70)
                 .padding(.trailing, 6)
@@ -1124,24 +1128,24 @@ private struct NextRelease: View {
             .padding(.vertical, 18)
             .padding(.leading, 18)
             .padding(.trailing, 20)
-            .foregroundStyle(.white)
             .background {
                 ZStack {
-                    GlowFill(palette: .orchid)
+                    RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Color(hex: 0x070707))
                     if let url = (set.iconUrl ?? set.imageUrl).flatMap(URL.init(string:)) {
                         // The set's banner, faded in from the right behind the countdown.
                         // Sized to the card, not the picture: the picture fills it and is cut at its edges.
                         Color.clear
                             .overlay { CachedImage(url: url) { img in img.resizable().scaledToFill() } placeholder: { Color.clear } }
                             .clipped()
-                            .opacity(0.18)
-                            .blendMode(.overlay)
+                            .opacity(0.22)
                             .mask(LinearGradient(colors: [.clear, .black], startPoint: .leading, endPoint: .trailing))
                     }
+                    RadialGradient(colors: [Theme.violet.opacity(0.16), .clear], center: .trailing, startRadius: 0, endRadius: 220)
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
             }
-            .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).strokeBorder(.white.opacity(0.08)))
+            .overlay(ElectricBorder(radius: 22))
+            .shadow(color: Theme.holoGlow.opacity(0.2), radius: 18)
         }
         .buttonStyle(.plain)
     }
@@ -1220,31 +1224,30 @@ private struct SetTile: View {
     }
 }
 
-/// A brand as a glow card: its logo, name, and how many sets and cards it has.
+/// A brand as a tinted card: its logo, name, and how many sets and cards it has.
 private struct BrandCard: View {
     var game: ExploreGame
-    var palette: GlowPalette
+    var tint: Color
+
+    static let tints: [Color] = [Theme.lime, Theme.planPink, Theme.planBlue, Theme.azure]
 
     var body: some View {
         VStack(alignment: .center, spacing: 12) {
             CachedImage(url: game.logoUrl.flatMap(URL.init(string:))) { img in
                 img.resizable().scaledToFit().shadow(color: .black.opacity(0.5), radius: 9, y: 8)
             } placeholder: {
-                Text(game.name.prefix(1).uppercased()).font(.display(26)).foregroundStyle(palette.ink)
+                Text(game.name.prefix(1).uppercased()).font(.display(26)).foregroundStyle(tint)
             }
             .frame(height: 44)
             .frame(maxWidth: .infinity)
             VStack(alignment: .center, spacing: 3) {
-                Text(game.name).font(.geist(15, .semibold)).lineLimit(1).minimumScaleFactor(0.85)
+                Text(game.name).font(.geist(15, .semibold)).lineLimit(1).minimumScaleFactor(0.85).foregroundStyle(.white)
                 Text("\(game.sets) sets" + (game.cardCount.map { " · \($0.formatted()) cards" } ?? ""))
-                    .font(.mono(11)).tracking(0.6).opacity(0.75).monospacedDigit().lineLimit(1).minimumScaleFactor(0.8)
+                    .font(.geist(12)).foregroundStyle(Theme.muted).monospacedDigit().lineLimit(1).minimumScaleFactor(0.8)
             }
         }
-        .frame(maxWidth: .infinity, minHeight: 96, alignment: .center)
         .padding(14)
-        .foregroundStyle(palette.ink)
-        .background { GlowFill(palette: palette) }
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(.white.opacity(0.08)))
+        .frame(maxWidth: .infinity, minHeight: 124, alignment: .center)
+        .tinted(tint)
     }
 }

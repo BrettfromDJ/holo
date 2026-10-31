@@ -193,9 +193,8 @@ struct ValueLineHero<Line: View, Below: View>: View {
     }
 }
 
-/// Gains (Lucent): the gain total on an up or down glow card with the tug of war drawn on it
-/// in white, what's pulling up and down as glow tiles, and the three biggest movers on their
-/// own small glows.
+/// Gains: what's pulling up against what's pulling down, as a tug of war that grows out from
+/// the middle, with the three biggest movers underneath.
 struct TugOfWarHero: View {
     var label: String
     var hint: String
@@ -209,70 +208,62 @@ struct TugOfWarHero: View {
     var body: some View {
         let sum = max(gains + abs(losses), 0.01)
         let up = gains / sum
-        VStack(alignment: .leading, spacing: 10) {
-            GlowCard(palette: .tone(total), padding: 20) {
-                VStack(alignment: .leading, spacing: 0) {
-                    GlowLabel(text: label)
-                    GlowFigure(value: total, size: 56, signed: true).padding(.top, 22)
-                    Text(hint).font(.geist(13)).opacity(0.75).padding(.top, 6)
-                        .fixedSize(horizontal: false, vertical: true)
-                    // The tug of war: two thin white capsules with a gap, growing in, and the
-                    // yellow marker where they meet.
-                    GeometryReader { geo in
-                        let g = pulled || reduceMotion ? 1.0 : 0.0
-                        let usable = geo.size.width - (losses < 0 && gains > 0 ? 3 : 0)
-                        VStack(alignment: .leading, spacing: 4) {
-                            GlowMarker(size: 10)
-                                .offset(x: max(0, min(geo.size.width - 10, usable * up * g - 5)))
-                            HStack(spacing: 3) {
-                                if gains > 0 {
-                                    Capsule().fill(Color.white)
-                                        .frame(width: max(6, usable * up * g))
-                                }
-                                if losses < 0 {
-                                    Capsule().fill(Color.white.opacity(0.3))
-                                        .frame(width: max(6, usable * (1 - up) * g))
-                                }
-                            }
-                            .frame(height: 8)
+        VStack(alignment: .leading, spacing: 16) {
+            // Laid out like the top of Collection: label, big figure, a line under it.
+            VStack(alignment: .leading, spacing: 8) {
+                MonoLabel(text: label)
+                CountingText(value: total, format: { Format.signedMoney($0) })
+                    .font(.display(56)).monospacedDigit().foregroundStyle(total >= 0 ? Theme.lime : Theme.planPink)
+                    .lineLimit(1).minimumScaleFactor(0.5).displayTrim(56)
+                Text(hint).font(.geist(13)).foregroundStyle(Theme.muted)
+            }
+            .padding(.top, 8)
+            VStack(spacing: 14) {
+                // The same bar as Allocation: two thin capsules with a gap, growing in.
+                GeometryReader { geo in
+                    let g = pulled || reduceMotion ? 1.0 : 0.0
+                    let usable = geo.size.width - (losses < 0 && gains > 0 ? 3 : 0)
+                    HStack(spacing: 3) {
+                        if gains > 0 {
+                            Capsule().fill(Theme.holo)
+                                .frame(width: max(6, usable * up * g))
+                                .shadow(color: Theme.holoGlow.opacity(0.5), radius: 6)
+                        }
+                        if losses < 0 {
+                            Capsule().fill(Theme.planPink)
+                                .frame(width: max(6, usable * (1 - up) * g))
+                                .shadow(color: Theme.planPink.opacity(0.5), radius: 6)
                         }
                     }
-                    .frame(height: 22)
-                    .padding(.top, 26)
-                    HStack {
-                        Text("UP").font(.mono(10)).tracking(1.4).opacity(0.6)
-                        Spacer()
-                        Text("DOWN").font(.mono(10)).tracking(1.4).opacity(0.6)
-                    }
-                    .padding(.top, 6)
                 }
-            }
-            HStack(spacing: 10) {
-                MoreGlowTile(label: "Pulling up", palette: .citrus) {
-                    MoreGlowValue(text: GlowFigure.text(gains, signed: true, cents: false), size: 30)
-                }
-                MoreGlowTile(label: "Pulling down", palette: losses < 0 ? GlowPalette.down : GlowPalette.lilac) {
-                    MoreGlowValue(text: GlowFigure.text(losses, signed: true, cents: false), size: 30)
+                .frame(height: 10)
+                // Glass stat tiles, like Collection's.
+                HStack(spacing: 8) {
+                    GlassStat(label: "Pulling up", value: Format.signedMoney(gains), tint: gains > 0 ? Theme.up : .white)
+                    GlassStat(label: "Pulling down", value: Format.signedMoney(losses), tint: losses < 0 ? Theme.down : .white)
                 }
             }
             if !leaders.isEmpty {
                 HStack(spacing: 10) {
                     ForEach(Array(leaders.prefix(3).enumerated()), id: \.element.id) { i, r in
-                        GlowCard(palette: Self.leaderPalettes[i % Self.leaderPalettes.count], radius: 20, padding: 10) {
-                            VStack(alignment: .leading, spacing: 6) {
-                                HoldingArt(product: r.product, identity: r.identity, cornerRadius: 3, caption: false)
-                                    .frame(height: 74)
-                                    .frame(maxWidth: .infinity)
-                                Text(r.label).font(.geist(11)).opacity(0.75).lineLimit(1)
-                                Text(GlowFigure.text(r.gain, signed: true, cents: false)).font(.geist(17)).tracking(-0.5)
-                                    .monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
-                            }
+                        VStack(alignment: .leading, spacing: 6) {
+                            HoldingArt(product: r.product, identity: r.identity, cornerRadius: 3, caption: false)
+                                .frame(height: 74)
+                                .frame(maxWidth: .infinity)
+                            Text(r.label).font(.geist(11)).foregroundStyle(Theme.muted).lineLimit(1)
+                            Text(Format.signedMoney(r.gain)).font(.geist(13, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(r.gain))
                         }
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Theme.border))
                         .popIn(delay: 0.3 + Double(i) * 0.1)
                     }
                 }
-                .padding(.top, 4)
             }
+        }
+        .background(alignment: .top) {
+            DotBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
         }
         .onAppear { pull() }
         .onReplay {
@@ -281,17 +272,14 @@ struct TugOfWarHero: View {
         }
     }
 
-    /// The three movers each get their own color.
-    private static let leaderPalettes: [GlowPalette] = [.aqua, .orchid, .gold]
-
     private func pull() {
         guard !reduceMotion else { return }
         withAnimation(.spring(response: 1.0, dampingFraction: 0.7).delay(0.2)) { pulled = true }
     }
 }
 
-/// Grading (Lucent): your three best slabs dealt into a fan on a glowing card, with what
-/// they're worth over them, then whatever goes below (glow tiles).
+/// Grading: laid out like the top of Collection (label, big figure, a line under it, glass
+/// tiles) with your three best slabs dealt into a fan beside the figure, on the same lit grid.
 struct SlabFanHero<Line: View, Below: View>: View {
     var slabs: [HoldingView]
     var value: Double
@@ -302,33 +290,37 @@ struct SlabFanHero<Line: View, Below: View>: View {
 
     var body: some View {
         let top = Array(slabs.prefix(3))
-        VStack(alignment: .leading, spacing: 10) {
-            GlowCard(palette: .orchid, padding: 20) {
-                VStack(alignment: .leading, spacing: 0) {
-                    GlowLabel(text: slabs.isEmpty ? "No slabs yet" : "Your slabs are worth")
-                    GlowFigure(value: value, size: 56).padding(.top, 18)
-                    line.padding(.top, 10)
-                    if !top.isEmpty {
-                        ZStack {
-                            // Back to front: second-best left, third right, the best in the middle.
-                            ForEach(order(top.count), id: \.self) { i in
-                                let angle: Double = top.count == 1 ? 0 : i == 0 ? 0 : i == 1 ? -12 : 12
-                                let x: CGFloat = top.count == 1 ? 0 : i == 0 ? 0 : i == 1 ? -84 : 84
-                                HoldingArt(product: top[i].product, identity: top[i].identity, caption: false)
-                                    .frame(width: 112, height: 176)
-                                    .rotationEffect(.degrees(dealt || reduceMotion ? angle : 0), anchor: .bottom)
-                                    .offset(x: dealt || reduceMotion ? x : 0, y: dealt || reduceMotion ? (i == 0 ? -4 : 8) : 50)
-                                    .opacity(dealt || reduceMotion ? 1 : 0)
-                                    .zIndex(i == 0 ? 2 : 1)
-                            }
-                        }
-                        .frame(height: 200)
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 22)
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 8) {
+                MonoLabel(text: slabs.isEmpty ? "No slabs yet" : "Your slabs are worth")
+                CountingText(value: value, format: { Format.money($0) })
+                    .font(.display(56)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.5)
+                    .displayTrim(56)
+                    .shadow(color: .white.opacity(0.12), radius: 18)
+                line
+            }
+            .padding(.top, 8)
+            if !top.isEmpty {
+                ZStack {
+                    // Back to front: second-best left, third right, the best in the middle.
+                    ForEach(order(top.count), id: \.self) { i in
+                        let angle: Double = top.count == 1 ? 0 : i == 0 ? 0 : i == 1 ? -12 : 12
+                        let x: CGFloat = top.count == 1 ? 0 : i == 0 ? 0 : i == 1 ? -84 : 84
+                        HoldingArt(product: top[i].product, identity: top[i].identity, caption: false)
+                            .frame(width: 112, height: 176)
+                            .rotationEffect(.degrees(dealt || reduceMotion ? angle : 0), anchor: .bottom)
+                            .offset(x: dealt || reduceMotion ? x : 0, y: dealt || reduceMotion ? (i == 0 ? -4 : 8) : 50)
+                            .opacity(dealt || reduceMotion ? 1 : 0)
+                            .zIndex(i == 0 ? 2 : 1)
                     }
                 }
+                .frame(height: 200)
+                .frame(maxWidth: .infinity)
             }
             below
+        }
+        .background(alignment: .top) {
+            DotBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
         }
         .onAppear { deal() }
         .onReplay {
@@ -343,82 +335,6 @@ struct SlabFanHero<Line: View, Below: View>: View {
         guard !reduceMotion else { return }
         withAnimation(.spring(response: 0.8, dampingFraction: 0.72).delay(0.15)) { dealt = true }
     }
-}
-
-// MARK: - Glow tiles (Lucent)
-
-/// A small Lucent glow tile: the mono label (and an optional line under it) at the top, the
-/// figure at the bottom. Rows of these mix palettes so neighbours differ.
-struct MoreGlowTile<Value: View>: View {
-    var label: String
-    var sub: String? = nil
-    var palette: GlowPalette
-    var height: CGFloat = 104
-    @ViewBuilder var value: Value
-
-    var body: some View {
-        GlowCard(palette: palette, radius: 24, padding: 14) {
-            VStack(alignment: .leading, spacing: 0) {
-                GlowLabel(text: label, secondary: sub)
-                    .lineLimit(2).minimumScaleFactor(0.8)
-                Spacer(minLength: 10)
-                value
-            }
-            .frame(height: height, alignment: .topLeading)
-        }
-    }
-}
-
-/// A thin Geist figure for glow tiles (a string that's already formatted).
-struct MoreGlowValue: View {
-    var text: String
-    var size: CGFloat = 28
-
-    var body: some View {
-        Text(text).font(.geist(size, .regular)).tracking(-size * 0.04).monospacedDigit()
-            .lineLimit(1).minimumScaleFactor(0.5)
-    }
-}
-
-/// A small round chip lit with a palette's colors and an icon in it, for list rows: a cheap
-/// static gradient (no blur), so long lists stay smooth.
-struct MoreGlowChip: View {
-    var systemName: String
-    var palette: GlowPalette
-    var size: CGFloat = 18
-
-    var body: some View {
-        Image(systemName: systemName).font(.system(size: size * 0.5, weight: .bold))
-            .foregroundStyle(palette.ink)
-            .frame(width: size, height: size)
-            .background(palette.chipGradient, in: Circle())
-    }
-}
-
-/// A small capsule lit with a palette's colors, holding a short figure.
-struct MoreGlowBadge: View {
-    var text: String
-    var palette: GlowPalette
-
-    var body: some View {
-        Text(text).font(.geist(13, .semibold)).monospacedDigit()
-            .foregroundStyle(palette.ink)
-            .shadow(color: .black.opacity(0.25), radius: 2)
-            .lineLimit(1)
-            .padding(.horizontal, 9).padding(.vertical, 4)
-            .background(palette.chipGradient, in: Capsule())
-    }
-}
-
-extension GlowPalette {
-    /// The palette as one flat diagonal gradient (base under its blobs), for small chips and
-    /// bars where a full glow card would be too much.
-    var chipGradient: LinearGradient {
-        LinearGradient(colors: [Theme.surface3, Theme.surface2], startPoint: .top, endPoint: .bottom)
-    }
-
-    /// The palette's brightest accent, for thin rings and bars on black.
-    var chipAccent: Color { wash ?? Theme.lime }
 }
 
 /// A small glass tile: mono label over a figure, like Collection's stat tiles.
