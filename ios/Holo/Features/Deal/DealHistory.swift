@@ -260,7 +260,7 @@ struct DealCameraView: View {
             if camera.denied {
                 VStack(spacing: 14) {
                     Image(systemName: "camera.fill").font(.system(size: 30)).foregroundStyle(Theme.lime)
-                    Text("Camera is off for Lucent").font(.display(22))
+                    Text("Camera is off for Lucent").font(.display(22)).tracking(-0.6)
                     Text("Turn it on in Settings to photograph deals.").font(.geist(14)).foregroundStyle(Theme.muted)
                     Button("Open Settings") {
                         if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
@@ -313,7 +313,7 @@ struct DealCameraView: View {
         HStack {
             glassCircle("xmark", label: "Close") { dismiss() }
             Spacer()
-            Text("Deal photos").font(.display(16)).tracking(0.6).foregroundStyle(.white)
+            Text("Deal photos").font(.display(16)).tracking(-0.4).foregroundStyle(.white)
                 .padding(.horizontal, 16).frame(height: 40)
                 .liquidGlass(in: Capsule())
             Spacer()
@@ -545,7 +545,7 @@ struct DealHistoryView: View {
             Image(systemName: "arrow.left.arrow.right").font(.system(size: 30, weight: .bold)).foregroundStyle(Theme.ink)
                 .frame(width: 76, height: 76).background(Circle().fill(Theme.holo))
                 .shadow(color: Theme.holoGlow.opacity(0.4), radius: 20)
-            Text("No closed deals yet").font(.display(28))
+            Text("No closed deals yet").font(.display(28)).tracking(-0.7)
             Text("Every buy, sale and trade you close lands here, with what changed hands, your profit and your photos.")
                 .font(.geist(14)).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
         }
@@ -563,7 +563,7 @@ struct DealHistoryView: View {
             VStack(alignment: .leading, spacing: 8) {
                 MonoLabel(text: filter == nil ? "Profit from deals" : "Profit from \(filter!.noun.lowercased())s")
                 CountingText(value: profit, format: { Format.signedMoney($0) })
-                    .font(.display(72)).monospacedDigit().foregroundStyle(profit < 0 ? Theme.planPink : Theme.lime)
+                    .font(.display(72)).tracking(-2.9).monospacedDigit().foregroundStyle(profit < 0 ? Theme.planPink : Theme.lime)
                     .lineLimit(1).minimumScaleFactor(0.5).displayTrim(72)
                     .shadow(color: (profit < 0 ? Theme.planPink : Theme.lime).opacity(0.35), radius: 18)
             }
@@ -587,7 +587,7 @@ struct DealHistoryView: View {
         let title = date.map { Calendar.current.isDateInToday($0) ? "Today" : (Calendar.current.isDateInYesterday($0) ? "Yesterday" : $0.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())) } ?? day
         return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(title).font(.display(24))
+                Text(title).font(.display(24)).tracking(-0.6)
                 MonoLabel(text: "\(records.count) deal\(records.count == 1 ? "" : "s")")
                 Spacer()
                 if records.contains(where: { $0.profit != nil }) {
@@ -647,7 +647,7 @@ private struct BestDealCard: View {
             VStack(alignment: .leading, spacing: 10) {
                 SkewTag(text: "Best deal", icon: "star.fill")
                 Text("\(record.kind.noun) · \(record.date.formatted(.dateTime.month(.abbreviated).day()))").font(.geist(15, .semibold)).foregroundStyle(.white)
-                Text(Format.signedMoney(record.profit)).font(.display(40)).monospacedDigit().foregroundStyle(Theme.holo).displayTrim(40)
+                Text(Format.signedMoney(record.profit)).font(.display(40)).tracking(-1.6).monospacedDigit().foregroundStyle(Theme.holo).displayTrim(40)
                     .shadow(color: Theme.holoGlow.opacity(0.4), radius: 12)
             }
             Spacer(minLength: 0)
@@ -723,7 +723,7 @@ private struct DealRecordCard: View {
             Spacer(minLength: 6)
             VStack(alignment: .trailing, spacing: 4) {
                 let h = headline
-                Text(h.1.map { Format.signedMoney($0) } ?? "—").font(.display(24)).monospacedDigit()
+                Text(h.1.map { Format.signedMoney($0) } ?? "—").font(.display(24)).tracking(-0.6).monospacedDigit()
                     .foregroundStyle(h.1.map { Theme.tone($0) } ?? Theme.muted).displayTrim(24)
                     .lineLimit(1).minimumScaleFactor(0.7)
                 MonoLabel(text: h.0).lineLimit(1).fixedSize()
@@ -800,7 +800,7 @@ struct DealRecordDetail: View {
                     }
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(alignment: .firstTextBaseline, spacing: 10) {
-                            Text("Photos").font(.display(22))
+                            Text("Photos").font(.display(22)).tracking(-0.6)
                             MonoLabel(text: "\(r.photos?.count ?? 0)")
                         }
                         DealPhotosStrip(photos: r.photos ?? [], accountId: store.demo == nil ? deals.accountId : nil) { photos in
@@ -832,7 +832,7 @@ struct DealRecordDetail: View {
             }
             MonoLabel(text: abs(b) < 0.005 ? "Even swap" : (b > 0 ? "They paid you" : "You paid them")).padding(.top, 18)
             CountingText(value: abs(b), format: { Format.money($0) })
-                .font(.display(56)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.5).displayTrim(56)
+                .font(.display(56)).tracking(-2.2).monospacedDigit().lineLimit(1).minimumScaleFactor(0.5).displayTrim(56)
                 .padding(.top, 8)
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], alignment: .leading, spacing: 14) {
                 stat("Came in", Format.money(r.inValue), .white)
@@ -870,9 +870,9 @@ struct DealRecordDetail: View {
                 HStack(alignment: .lastTextBaseline) {
                     Image(systemName: incoming ? "arrow.down.left" : "arrow.up.right").font(.system(size: 14, weight: .bold))
                         .foregroundStyle(incoming ? Theme.lime : Theme.planPink)
-                    Text(incoming ? "Came in" : "Went out").font(.display(22))
+                    Text(incoming ? "Came in" : "Went out").font(.display(22)).tracking(-0.6)
                     Spacer()
-                    Text(Format.money(total)).font(.display(22)).monospacedDigit()
+                    Text(Format.money(total)).font(.display(22)).tracking(-0.6).monospacedDigit()
                 }
                 VStack(spacing: 0) {
                     ForEach(Array(lines.enumerated()), id: \.offset) { i, line in

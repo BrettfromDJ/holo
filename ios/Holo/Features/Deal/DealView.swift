@@ -189,7 +189,7 @@ struct DealView: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
                     Image(systemName: "camera.fill").font(.system(size: 14, weight: .bold)).foregroundStyle(accent)
-                    Text("Photos").font(.display(24)).displayTrim(24)
+                    Text("Photos").font(.display(24)).tracking(-0.6).displayTrim(24)
                     if !deals.deal.photos.isEmpty { MonoLabel(text: "\(deals.deal.photos.count)") }
                 }
                 Text("Document the deal: the cards on the table, a receipt, the customer's binder").font(.geist(12)).foregroundStyle(Theme.muted)
@@ -214,13 +214,13 @@ struct DealView: View {
                         Image(systemName: incoming ? "arrow.down.left" : "arrow.up.right")
                             .font(.system(size: 16, weight: .bold))
                             .foregroundStyle(incoming ? accent : Theme.planPink)
-                        Text(incoming ? "Coming in" : "Going out").font(.display(24)).displayTrim(24)
+                        Text(incoming ? "Coming in" : "Going out").font(.display(24)).tracking(-0.6).displayTrim(24)
                     }
                     Text(incoming ? "What the customer hands you" : "What you hand over").font(.geist(12)).foregroundStyle(Theme.muted)
                 }
                 Spacer(minLength: 8)
                 Text(Format.money(incoming ? totals.inValue : totals.outValue))
-                    .font(.display(26)).monospacedDigit().displayTrim(26)
+                    .font(.display(26)).tracking(-0.7).monospacedDigit().displayTrim(26)
                     .contentTransition(.numericText())
                     .animation(.snappy, value: incoming ? totals.inValue : totals.outValue)
             }
@@ -478,7 +478,7 @@ private struct BalanceCard: View {
             .padding(.top, 16)
             HStack(alignment: .center, spacing: 10) {
                 CountingText(value: abs(b), format: { Format.money($0) })
-                    .font(.display(60)).monospacedDigit().foregroundStyle(ink).lineLimit(1).minimumScaleFactor(0.5)
+                    .font(.display(60)).tracking(-2.4).monospacedDigit().foregroundStyle(ink).lineLimit(1).minimumScaleFactor(0.5)
                     .displayTrim(60)
                 Spacer(minLength: 0)
                 if let roundTo {
@@ -867,7 +867,7 @@ private struct CustomerViewSheet: View {
                     let even = abs(totals.balance) < 0.005
                     VStack(spacing: 8) {
                         MonoLabel(text: even ? "Straight swap" : (totals.balance > 0 ? "You pay" : "We pay you"))
-                        Text(Format.money(abs(totals.balance))).font(.display(56)).monospacedDigit().displayTrim(56)
+                        Text(Format.money(abs(totals.balance))).font(.display(56)).tracking(-2.2).monospacedDigit().displayTrim(56)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 24)

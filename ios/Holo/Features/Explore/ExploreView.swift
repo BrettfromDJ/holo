@@ -214,7 +214,7 @@ private struct BrandView: View {
                 CachedImage(url: game.logoUrl.flatMap(URL.init(string:))) { img in
                     img.resizable().scaledToFit().shadow(color: .black.opacity(0.5), radius: 9, y: 8)
                 } placeholder: {
-                    Text(game.name.prefix(1).uppercased()).font(.display(40)).foregroundStyle(Theme.holo)
+                    Text(game.name.prefix(1).uppercased()).font(.display(40)).tracking(-1.6).foregroundStyle(Theme.holo)
                 }
                 .frame(width: 110, height: 64)
                 VStack(alignment: .leading, spacing: 6) {
@@ -549,7 +549,7 @@ private struct ReleaseCountdown: View {
                 MonoLabel(text: days == 0 ? "Out" : "Out in")
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     CountingText(value: Double(days), format: { "\(Int($0.rounded()))" })
-                        .font(.display(44)).monospacedDigit().foregroundStyle(Theme.holo).displayTrim(44)
+                        .font(.display(44)).tracking(-1.8).monospacedDigit().foregroundStyle(Theme.holo).displayTrim(44)
                         .shadow(color: Theme.holoGlow.opacity(0.45), radius: 12)
                         .fixedSize()
                     Text(days == 0 ? "today" : (days == 1 ? "day" : "days")).font(.geist(14)).foregroundStyle(Theme.muted)
@@ -585,7 +585,7 @@ private struct OwnedProgress: View {
                     MonoLabel(text: "You own")
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         CountingText(value: Double(owned), format: { "\(Int($0.rounded()))" })
-                            .font(.display(34)).monospacedDigit().foregroundStyle(Theme.holo).displayTrim(34).fixedSize()
+                            .font(.display(34)).tracking(-0.9).monospacedDigit().foregroundStyle(Theme.holo).displayTrim(34).fixedSize()
                         Text("of \(total) products").font(.geist(14)).foregroundStyle(Theme.muted)
                     }
                 }
@@ -635,7 +635,7 @@ private struct TopChase: View {
                 Text(p.name).font(.geist(17, .semibold)).foregroundStyle(.white).lineLimit(3).multilineTextAlignment(.leading)
                 if let r = p.rarity { RarityBadge(rarity: r) }
                 CountingText(value: hit.market ?? 0, format: { Format.money($0) })
-                    .font(.display(34)).monospacedDigit().foregroundStyle(.white)
+                    .font(.display(34)).tracking(-0.9).monospacedDigit().foregroundStyle(.white)
                     .lineLimit(1).minimumScaleFactor(0.6).displayTrim(34)
             }
             Spacer(minLength: 0)
@@ -664,7 +664,7 @@ private struct ChaseTile: View {
             ProductImage(product: hit.product, cornerRadius: 6)
                 .frame(width: 118, height: 165)
                 .overlay(alignment: .topLeading) {
-                    Text("#\(rank)").font(.display(15)).foregroundStyle(Theme.ink)
+                    Text("#\(rank)").font(.display(15)).tracking(-0.4).foregroundStyle(Theme.ink)
                         .padding(.horizontal, 7).padding(.vertical, 2)
                         .background(Parallelogram(inset: 4).fill(Theme.holo))
                         .padding(6)
@@ -672,7 +672,7 @@ private struct ChaseTile: View {
             // Name and price tight together; Anton's tall line box trimmed so they sit close.
             VStack(alignment: .leading, spacing: 6) {
                 Text(hit.product.name).font(.geist(13, .medium)).foregroundStyle(.white).lineLimit(1)
-                Text(Format.money(hit.market)).font(.display(17)).monospacedDigit().foregroundStyle(.white).displayTrim(17)
+                Text(Format.money(hit.market)).font(.display(17)).tracking(-0.4).monospacedDigit().foregroundStyle(.white).displayTrim(17)
             }
         }
         .frame(width: 118, alignment: .leading)
@@ -693,7 +693,7 @@ private struct PackTile: View {
             Text(hit.product.name).font(.geist(13, .medium)).foregroundStyle(.white).lineLimit(2).multilineTextAlignment(.leading)
                 .frame(height: 34, alignment: .topLeading)
             HStack(alignment: .firstTextBaseline, spacing: 5) {
-                Text(Format.money(perPack)).font(.display(19)).monospacedDigit().foregroundStyle(Theme.lime)
+                Text(Format.money(perPack)).font(.display(19)).tracking(-0.5).monospacedDigit().foregroundStyle(Theme.lime)
                 Text("/pack").font(.geist(12)).foregroundStyle(Theme.muted)
             }
             Text(Format.money(hit.market)).font(.geist(12)).monospacedDigit().foregroundStyle(Theme.muted)
@@ -743,7 +743,7 @@ private struct SetProductTile: View {
             }
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 if let m = hit.market {
-                    Text(Format.money(m)).font(.display(19)).monospacedDigit().foregroundStyle(.white)
+                    Text(Format.money(m)).font(.display(19)).tracking(-0.5).monospacedDigit().foregroundStyle(.white)
                 } else {
                     Text("No price").font(.geist(13)).foregroundStyle(Theme.subtle)
                 }
@@ -872,7 +872,7 @@ private struct CalendarRow: View {
             VStack(spacing: 4) {
                 MonoLabel(text: set.release?.formatted(.dateTime.month(.abbreviated)) ?? "TBA")
                 Text(set.release?.formatted(.dateTime.day()) ?? "–")
-                    .font(.display(26)).monospacedDigit().displayTrim(26)
+                    .font(.display(26)).tracking(-0.7).monospacedDigit().displayTrim(26)
                     .foregroundStyle(upcoming && (days ?? 99) <= 7 ? Theme.lime : .white)
             }
             .frame(width: 50, height: 60)
@@ -927,7 +927,7 @@ private struct SectionCount: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Text(title).font(.display(24)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.8)
+            Text(title).font(.display(24)).tracking(-0.6).monospacedDigit().lineLimit(1).minimumScaleFactor(0.8)
             MonoLabel(text: "\(count) \(noun)\(count == 1 ? "" : "s")")
             Spacer(minLength: 0)
         }
@@ -945,7 +945,7 @@ private struct StatTile: View {
         VStack(alignment: .leading, spacing: 4) {
             MonoLabel(text: label).lineLimit(1).minimumScaleFactor(0.8)
             CountingText(value: value, format: { money ? Self.money($0) : Self.count($0) })
-                .font(.display(28)).monospacedDigit().foregroundStyle(tint)
+                .font(.display(28)).tracking(-0.7).monospacedDigit().foregroundStyle(tint)
                 .lineLimit(1).minimumScaleFactor(0.6).displayTrim(28)
         }
         .padding(.horizontal, 14)
@@ -1117,7 +1117,7 @@ private struct NextRelease: View {
                 Spacer(minLength: 0)
                 VStack(spacing: 6) {
                     CountingText(value: Double(days), format: { "\(Int($0.rounded()))" })
-                        .font(.display(60)).monospacedDigit().foregroundStyle(Theme.lime).displayTrim(60)
+                        .font(.display(60)).tracking(-2.4).monospacedDigit().foregroundStyle(Theme.lime).displayTrim(60)
                         .shadow(color: Theme.holoGlow.opacity(0.5), radius: 16)
                         .fixedSize()
                     MonoLabel(text: days == 0 ? "today" : (days == 1 ? "day" : "days"))
@@ -1236,7 +1236,7 @@ private struct BrandCard: View {
             CachedImage(url: game.logoUrl.flatMap(URL.init(string:))) { img in
                 img.resizable().scaledToFit().shadow(color: .black.opacity(0.5), radius: 9, y: 8)
             } placeholder: {
-                Text(game.name.prefix(1).uppercased()).font(.display(26)).foregroundStyle(tint)
+                Text(game.name.prefix(1).uppercased()).font(.display(26)).tracking(-0.7).foregroundStyle(tint)
             }
             .frame(height: 44)
             .frame(maxWidth: .infinity)

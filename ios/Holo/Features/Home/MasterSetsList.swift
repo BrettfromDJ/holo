@@ -123,8 +123,8 @@ struct MasterSetsView: View {
                 MonoLabel(text: "Master sets")
                 HStack(alignment: .lastTextBaseline, spacing: 10) {
                     CountingText(value: Double(owned.count), format: { "\(Int($0.rounded()))" })
-                        .font(.display(56)).monospacedDigit().displayTrim(56)
-                    Text(owned.count == 1 ? "Set started" : "Sets started").font(.display(24)).foregroundStyle(Theme.muted).displayTrim(24)
+                        .font(.display(56)).tracking(-2.2).monospacedDigit().displayTrim(56)
+                    Text(owned.count == 1 ? "Set started" : "Sets started").font(.display(24)).tracking(-0.6).foregroundStyle(Theme.muted).displayTrim(24)
                 }
                 if let best, let ratio = best.ratio {
                     HStack(spacing: 8) {

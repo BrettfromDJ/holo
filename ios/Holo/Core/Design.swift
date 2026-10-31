@@ -90,7 +90,7 @@ struct PageHeader<Trailing: View>: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(title).font(.display(size)).tracking(0.2).lineLimit(2).minimumScaleFactor(0.7).displayTrim(size)
+                Text(title).font(.display(size)).tracking(size * -0.03).lineLimit(2).minimumScaleFactor(0.7).displayTrim(size)
                 if let subtitle {
                     Text(subtitle).font(.geist(15)).foregroundStyle(Theme.muted)
                 }
@@ -722,7 +722,7 @@ struct DisplayText: View {
     var body: some View {
         WordFlow(spacing: size * 0.2, lineGap: size * 0.08) {
             ForEach(Array(text.split(separator: " ").enumerated()), id: \.offset) { _, word in
-                Text(word).font(.display(size)).foregroundStyle(color).displayTrim(size)
+                Text(word).font(.display(size)).tracking(size * -0.03).foregroundStyle(color).displayTrim(size)
             }
         }
     }

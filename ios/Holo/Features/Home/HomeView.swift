@@ -148,7 +148,7 @@ struct HomeView: View {
     private var empty: some View {
         VStack(spacing: 16) {
             Image(systemName: "rectangle.stack.badge.plus").font(.system(size: 44)).foregroundStyle(Theme.lime)
-            Text("Start your collection").font(.display(30))
+            Text("Start your collection").font(.display(30)).tracking(-0.8)
             Text("Scan your cards to see what they're worth.").font(.geist(15)).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
             Button { onScan() } label: { Label("Scan cards", systemImage: "viewfinder") }
                 .buttonStyle(Button3D(kind: .lime))
@@ -226,9 +226,9 @@ private struct Hero: View {
             CardFan(holdings: top).frame(height: 236)
             MonoLabel(text: "\(store.holdings.count) products · \(Int(s.items)) items")
             VStack(spacing: 6) {
-                Text("Your collection's worth").font(.display(30)).displayTrim(30)
+                Text("Your collection's worth").font(.display(30)).tracking(-0.8).displayTrim(30)
                 CountingText(value: s.value, format: { Format.money($0) })
-                    .font(.display(66))
+                    .font(.display(66)).tracking(-2.6)
                     .monospacedDigit()
                     .foregroundStyle(Theme.lime)
                     .minimumScaleFactor(0.5)
@@ -538,14 +538,14 @@ private struct MetricCard: View {
         let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .center, spacing: 8) {
-                Text(label).font(.display(15)).tracking(0.3).foregroundStyle(.white.opacity(0.85))
+                Text(label).font(.display(15)).tracking(-0.4).foregroundStyle(.white.opacity(0.85))
                     .lineLimit(1).minimumScaleFactor(0.8).displayTrim(15)
                 Spacer(minLength: 4)
                 if let tag { SkewTag(text: tag.0, color: tag.1, textColor: tag.2) }
             }
             // The same header height with or without a tag, so every card lines up.
             .frame(height: 24)
-            CountingText(value: amount, format: format).font(.display(28)).monospacedDigit().foregroundStyle(valueTint)
+            CountingText(value: amount, format: format).font(.display(28)).tracking(-0.7).monospacedDigit().foregroundStyle(valueTint)
                 .lineLimit(1).minimumScaleFactor(0.6).displayTrim(28)
                 .flashOnAppear(valueTint == .white ? .clear : valueTint)
                 .padding(.top, 16)
@@ -750,7 +750,7 @@ private struct StarCard: View {
                     .overlay(alignment: .topTrailing) {
                         if let r = holding.gainRatio {
                             Text(Format.signedPercent(r).replacingOccurrences(of: #"\.\d+%"#, with: "%", options: .regularExpression))
-                                .font(.display(15)).foregroundStyle(Theme.ink)
+                                .font(.display(15)).tracking(-0.4).foregroundStyle(Theme.ink)
                                 .padding(.horizontal, 12).padding(.vertical, 6)
                                 .background(Capsule().fill(Theme.holo))
                                 .shadow(color: Theme.holoGlow.opacity(0.6), radius: 12, y: 6)
@@ -765,7 +765,7 @@ private struct StarCard: View {
                 Text([holding.product?.setName, holding.label].compactMap { $0 }.joined(separator: " · "))
                     .font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
                     .padding(.top, 8)
-                CountingText(value: holding.gain ?? 0, format: { Format.signedMoney($0) }).font(.display(40)).monospacedDigit().foregroundStyle(Theme.holo)
+                CountingText(value: holding.gain ?? 0, format: { Format.signedMoney($0) }).font(.display(40)).tracking(-1.6).monospacedDigit().foregroundStyle(Theme.holo)
                     .displayTrim(40)
                     .padding(.top, 24)
                 HStack(spacing: 8) {
@@ -827,7 +827,7 @@ private struct MiniTile: View {
                         .frame(width: 64, height: 80)
                     VStack(alignment: .leading, spacing: 4) {
                         Text(holding.product?.name ?? "").font(.geist(16, .medium)).lineLimit(1).foregroundStyle(.white)
-                        Text(Format.signedMoney(value)).font(.display(28)).monospacedDigit().foregroundStyle(Theme.tone(value))
+                        Text(Format.signedMoney(value)).font(.display(28)).tracking(-0.7).monospacedDigit().foregroundStyle(Theme.tone(value))
                         line.font(.geist(13, .medium)).monospacedDigit()
                     }
                     Spacer(minLength: 0)
@@ -978,7 +978,7 @@ private struct ShelfItem: View {
                         Text(holding.product?.name ?? "").font(.geist(13, .medium)).lineLimit(1).foregroundStyle(.white)
                     }
                     HStack(spacing: 8) {
-                        Text(Format.money(holding.value)).font(.display(17)).monospacedDigit().foregroundStyle(.white)
+                        Text(Format.money(holding.value)).font(.display(17)).tracking(-0.4).monospacedDigit().foregroundStyle(.white)
                             .lineLimit(1).minimumScaleFactor(0.7)
                         Spacer(minLength: 0)
                         DeltaPill(ratio: holding.gainRatio, size: 12)
@@ -1040,7 +1040,7 @@ private struct CategoryCard: View {
         let count = items.reduce(0) { $0 + $1.quantity }
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
-                Text(category.rawValue).font(.display(34)).displayTrim(34)
+                Text(category.rawValue).font(.display(34)).tracking(-0.9).displayTrim(34)
                 SkewTag(text: "\(Int((value / total * 100).rounded()))% of value", color: category.color, textColor: category == .graded ? Theme.ink : .white)
             }
             Text(category.blurb).font(.geist(14)).foregroundStyle(Theme.muted)
@@ -1067,7 +1067,7 @@ private struct CategoryCard: View {
             }
             .padding(14)
             .background(RoundedRectangle(cornerRadius: 16).fill(Theme.background.opacity(0.55)))
-            Text(Format.money(value)).font(.display(44)).monospacedDigit()
+            Text(Format.money(value)).font(.display(44)).tracking(-1.8).monospacedDigit()
             Button {
                 Router.shared.collectionCategory = category
                 Router.shared.tabRequest = "collection"
@@ -1204,7 +1204,7 @@ private struct RecentSection: View {
                                 .padding(.top, 10)
                                 Spacer(minLength: 4)
                                 VStack(alignment: .trailing, spacing: 3) {
-                                    Text(Format.money(item.value)).font(.display(19)).monospacedDigit().foregroundStyle(.white)
+                                    Text(Format.money(item.value)).font(.display(19)).tracking(-0.5).monospacedDigit().foregroundStyle(.white)
                                     Text(Format.signedPercent(item.change)).font(.geist(13, .medium)).monospacedDigit().foregroundStyle(Theme.tone(item.change))
                                 }
                                 .padding(.top, 12)
@@ -1323,7 +1323,7 @@ enum MorePage: String, Hashable, Identifiable {
 private struct MoreSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("More").font(.display(24)).displayTrim(24)
+            Text("More").font(.display(24)).tracking(-0.6).displayTrim(24)
             VStack(spacing: 0) {
                 row("Analytics", "Returns, drawdowns, sets and types", icon: "chart.xyaxis.line", page: .analytics)
                 Rectangle().fill(Theme.border).frame(height: 1).padding(.leading, 52)

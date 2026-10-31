@@ -139,7 +139,7 @@ struct HoldingSheet: View {
             MonoLabel(text: h.quantity > 1 ? "Your \(Int(h.quantity)) are worth" : "Yours is worth")
             // Everything sits in place; only the figures count and the chart draws.
             CountingText(value: h.value ?? 0, format: { (h.isConditionEstimate ? "≈ " : "") + Format.money($0) }, duration: 0.9, delay: 0.15)
-                .font(.display(44)).monospacedDigit().displayTrim(44)
+                .font(.display(44)).tracking(-1.8).monospacedDigit().displayTrim(44)
             HStack(spacing: 8) {
                 DeltaPill(ratio: h.gainRatio, size: 13)
                 CountingText(value: h.gain ?? 0, format: { Format.signedMoney($0) }, duration: 0.9, delay: 0.15)

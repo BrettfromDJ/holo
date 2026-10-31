@@ -293,7 +293,7 @@ struct DealCloseSheet: View {
                         // Who pays whom, big enough to turn the phone around.
                         VStack(alignment: .leading, spacing: 8) {
                             MonoLabel(text: abs(b) < 0.005 ? "Even trade" : (b > 0 ? "Customer pays you" : "You pay the customer"))
-                            Text(Format.money(abs(b))).font(.display(56)).monospacedDigit().displayTrim(56)
+                            Text(Format.money(abs(b))).font(.display(56)).tracking(-2.2).monospacedDigit().displayTrim(56)
                                 .lineLimit(1).minimumScaleFactor(0.5)
                         }
                         .padding(18)
@@ -454,8 +454,8 @@ private struct RecordedScreen: View {
                     Text(demo ? "DEMO · NOTHING SAVED" : "IN YOUR COLLECTION").font(.mono(11)).tracking(1.6).foregroundStyle(ink.opacity(0.6))
                     // Anton has tall built-in line spacing; trim each line so they sit tight.
                     VStack(spacing: 6) {
-                        Text(t.kind.noun.capitalized).font(.display(58)).displayTrim(58)
-                        Text("Recorded").font(.display(58)).displayTrim(58)
+                        Text(t.kind.noun.capitalized).font(.display(58)).tracking(-2.3).displayTrim(58)
+                        Text("Recorded").font(.display(58)).tracking(-2.3).displayTrim(58)
                     }
                     .foregroundStyle(ink)
                     .lineLimit(1).minimumScaleFactor(0.6)
@@ -479,7 +479,7 @@ private struct RecordedScreen: View {
                     VStack(spacing: 6) {
                         Text(headline.label.uppercased()).font(.mono(11)).tracking(1.6).foregroundStyle(ink.opacity(0.6))
                         CountingText(value: headline.value, format: { Format.signedMoney($0) })
-                            .font(.display(72)).monospacedDigit().foregroundStyle(ink).displayTrim(72)
+                            .font(.display(72)).tracking(-2.9).monospacedDigit().foregroundStyle(ink).displayTrim(72)
                             .lineLimit(1).minimumScaleFactor(0.5)
                     }
                 }
@@ -549,7 +549,7 @@ private struct RecordedScreen: View {
                     Label("\(deal.photos.count)", systemImage: "camera.fill").font(.geist(12, .semibold)).foregroundStyle(Theme.muted)
                 }
                 Spacer()
-                Text(Format.money(abs(t.balance))).font(.display(26)).monospacedDigit().foregroundStyle(fill).displayTrim(26)
+                Text(Format.money(abs(t.balance))).font(.display(26)).tracking(-0.7).monospacedDigit().foregroundStyle(fill).displayTrim(26)
             }
         }
         .padding(.horizontal, 16)

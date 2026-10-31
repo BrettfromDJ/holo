@@ -29,7 +29,7 @@ struct WorthPanel: View {
                 let w = worth
                 HStack(alignment: .lastTextBaseline) {
                     Text(Format.money(w.price))
-                        .font(.display(52)).monospacedDigit()
+                        .font(.display(52)).tracking(-2.1).monospacedDigit()
                         .foregroundStyle(Color.primary.opacity(w.isEstimate ? 0.85 : 1))
                         .contentTransition(.numericText())
                         .animation(.snappy, value: w.price)

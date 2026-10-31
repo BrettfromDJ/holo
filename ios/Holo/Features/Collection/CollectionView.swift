@@ -233,7 +233,7 @@ struct CollectionView: View {
             VStack(alignment: .leading, spacing: 8) {
                 MonoLabel(text: "Value")
                 CountingText(value: s.value, format: { Format.money($0) })
-                    .font(.display(56)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.5)
+                    .font(.display(56)).tracking(-2.2).monospacedDigit().lineLimit(1).minimumScaleFactor(0.5)
                     .displayTrim(56)
                     .shadow(color: .white.opacity(0.12), radius: 18)
                 HStack(spacing: 8) {
@@ -387,7 +387,7 @@ struct CollectionView: View {
     private var empty: some View {
         VStack(spacing: 14) {
             Image(systemName: "rectangle.stack.badge.plus").font(.system(size: 44)).foregroundStyle(Theme.lime)
-            Text("Start your collection").font(.display(28))
+            Text("Start your collection").font(.display(28)).tracking(-0.7)
             Text("Scan your cards, or search for anything you own.").font(.geist(15)).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
             Button { onScan() } label: { Label("Scan cards", systemImage: "viewfinder") }.buttonStyle(Button3D(kind: .lime))
             Button("Search instead") { adding = true }.font(.geist(15, .medium)).foregroundStyle(Theme.muted)
@@ -427,7 +427,7 @@ struct HoldingTile: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 1) {
                     Text((holding.isConditionEstimate ? "≈" : "") + Format.money(holding.value))
-                        .font(.display(22)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
+                        .font(.display(22)).tracking(-0.6).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
                     Text("\(Format.money(holding.price)) ea").font(.geist(12)).foregroundStyle(Theme.muted).monospacedDigit()
                 }
                 Spacer(minLength: 4)

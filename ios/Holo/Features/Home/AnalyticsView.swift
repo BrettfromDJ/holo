@@ -378,7 +378,7 @@ private struct MonthlyHeatmap: View {
                         let yearRet = row.reduce(1.0) { $0 * (1 + $1.ret) } - 1
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
-                                Text(String(y)).font(.display(20)).displayTrim(20)
+                                Text(String(y)).font(.display(20)).tracking(-0.5).displayTrim(20)
                                 Spacer()
                                 DeltaPill(ratio: yearRet, size: 12)
                             }
@@ -399,7 +399,7 @@ private struct MonthlyHeatmap: View {
     private func extreme(_ label: String, _ m: Analytics.MonthReturn) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             MonoLabel(text: label)
-            Text(Format.signedPercent(m.ret)).font(.display(24)).monospacedDigit().foregroundStyle(Theme.tone(m.ret)).displayTrim(24)
+            Text(Format.signedPercent(m.ret)).font(.display(24)).tracking(-0.6).monospacedDigit().foregroundStyle(Theme.tone(m.ret)).displayTrim(24)
             Text("\(Self.names[m.month]) \(String(m.year))").font(.geist(12)).foregroundStyle(Theme.muted)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -442,7 +442,7 @@ private struct ReturnVsTime: View {
                     if let avg {
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
                             CountingText(value: avg, format: { "\(Int($0.rounded()))" })
-                                .font(.display(34)).monospacedDigit().displayTrim(34)
+                                .font(.display(34)).tracking(-0.9).monospacedDigit().displayTrim(34)
                             Text("days, average hold").font(.geist(14)).foregroundStyle(Theme.muted)
                         }
                     }
@@ -530,7 +530,7 @@ private struct Diversification: View {
                 VStack(alignment: .leading, spacing: 14) {
                     HStack(alignment: .center, spacing: 14) {
                         CountingText(value: Double(effective), format: { "\(Int($0.rounded()))" })
-                            .font(.display(54)).monospacedDigit().foregroundStyle(Theme.holo).displayTrim(54)
+                            .font(.display(54)).tracking(-2.2).monospacedDigit().foregroundStyle(Theme.holo).displayTrim(54)
                         VStack(alignment: .leading, spacing: 4) {
                             SkewTag(text: label.uppercased(), color: Theme.planBlue, textColor: .white)
                             Text("Your \(holdings.count) holdings behave like \(effective) equally sized ones").font(.geist(13)).foregroundStyle(Theme.muted)
@@ -575,7 +575,7 @@ private struct Diversification: View {
     private func stat(_ label: String, _ value: Double) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             MonoLabel(text: label, color: Theme.subtle)
-            CountingText(value: value, format: { percent($0, 0) }).font(.display(22)).monospacedDigit().displayTrim(22)
+            CountingText(value: value, format: { percent($0, 0) }).font(.display(22)).tracking(-0.6).monospacedDigit().displayTrim(22)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

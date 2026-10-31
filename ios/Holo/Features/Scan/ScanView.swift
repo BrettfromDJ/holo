@@ -51,7 +51,7 @@ struct ScanView: View {
             HStack(spacing: 8) {
                 Circle().fill(dealSide == .outgoing ? Theme.planPink : Theme.lime).frame(width: 7, height: 7)
                 Text(dealSide == nil ? "Scan cards" : (dealSide == .incoming ? "Coming in" : "Going out"))
-                    .font(.display(16)).tracking(0.6)
+                    .font(.display(16)).tracking(-0.4)
             }
             .padding(.horizontal, 16).frame(height: 40)
             .liquidGlass(in: Capsule())
@@ -103,7 +103,7 @@ struct ScanView: View {
             if camera.state == .denied {
                 VStack(spacing: 14) {
                     Image(systemName: "camera.fill").font(.system(size: 30)).foregroundStyle(Theme.lime)
-                    Text("Camera is off for Lucent").font(.display(22))
+                    Text("Camera is off for Lucent").font(.display(22)).tracking(-0.6)
                     Text("Turn it on in Settings to scan cards.").font(.geist(14)).foregroundStyle(Theme.muted)
                     Button("Open Settings") { if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) } }
                         .buttonStyle(Button3D(kind: .lime, fullWidth: false, height: 44))
@@ -152,7 +152,7 @@ struct ScanView: View {
         HStack {
             // How many so far and their total.
             VStack(alignment: .leading, spacing: 2) {
-                Text("\(model.entries.count)").font(.display(26)).monospacedDigit().foregroundStyle(.white).displayTrim(26)
+                Text("\(model.entries.count)").font(.display(26)).tracking(-0.7).monospacedDigit().foregroundStyle(.white).displayTrim(26)
                     .contentTransition(.numericText())
                 Text(model.picks.isEmpty ? "scanned" : Format.money(model.total)).font(.geist(12, .semibold)).monospacedDigit()
                     .foregroundStyle(model.picks.isEmpty ? Theme.muted : Theme.lime)

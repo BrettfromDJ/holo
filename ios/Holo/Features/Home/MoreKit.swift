@@ -18,7 +18,7 @@ struct MoreHero<Below: View>: View {
         VStack(alignment: .leading, spacing: 12) {
             MonoLabel(text: label)
             CountingText(value: value, format: format)
-                .font(.display(64)).monospacedDigit()
+                .font(.display(64)).tracking(-2.6).monospacedDigit()
                 .foregroundStyle(tint)
                 .lineLimit(1).minimumScaleFactor(0.5)
                 .displayTrim(64)
@@ -65,7 +65,7 @@ struct CountTile: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 6) {
-                Text(label).font(.display(14)).tracking(0.3).foregroundStyle(.white.opacity(0.85))
+                Text(label).font(.display(14)).tracking(-0.4).foregroundStyle(.white.opacity(0.85))
                     .lineLimit(1).minimumScaleFactor(0.75).displayTrim(14)
                 Spacer(minLength: 0)
                 if let tag { SkewTag(text: tag, color: glow, textColor: glow == Theme.lime ? Theme.ink : .white) }
@@ -78,7 +78,7 @@ struct CountTile: View {
                     Text("—")
                 }
             }
-            .font(.display(26)).monospacedDigit().foregroundStyle(valueTint)
+            .font(.display(26)).tracking(-0.7).monospacedDigit().foregroundStyle(valueTint)
             .lineLimit(1).minimumScaleFactor(0.55).displayTrim(26)
             .padding(.top, 14)
             Text(sub).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1).minimumScaleFactor(0.8)
@@ -170,7 +170,7 @@ struct ValueLineHero<Line: View, Below: View>: View {
             VStack(alignment: .leading, spacing: 8) {
                 MonoLabel(text: label)
                 CountingText(value: value, format: { Format.signedMoney($0) })
-                    .font(.display(56)).monospacedDigit().foregroundStyle(value >= 0 ? Theme.lime : Theme.planPink)
+                    .font(.display(56)).tracking(-2.2).monospacedDigit().foregroundStyle(value >= 0 ? Theme.lime : Theme.planPink)
                     .lineLimit(1).minimumScaleFactor(0.5).displayTrim(56)
                 line
             }
@@ -213,7 +213,7 @@ struct TugOfWarHero: View {
             VStack(alignment: .leading, spacing: 8) {
                 MonoLabel(text: label)
                 CountingText(value: total, format: { Format.signedMoney($0) })
-                    .font(.display(56)).monospacedDigit().foregroundStyle(total >= 0 ? Theme.lime : Theme.planPink)
+                    .font(.display(56)).tracking(-2.2).monospacedDigit().foregroundStyle(total >= 0 ? Theme.lime : Theme.planPink)
                     .lineLimit(1).minimumScaleFactor(0.5).displayTrim(56)
                 Text(hint).font(.geist(13)).foregroundStyle(Theme.muted)
             }
@@ -294,7 +294,7 @@ struct SlabFanHero<Line: View, Below: View>: View {
             VStack(alignment: .leading, spacing: 8) {
                 MonoLabel(text: slabs.isEmpty ? "No slabs yet" : "Your slabs are worth")
                 CountingText(value: value, format: { Format.money($0) })
-                    .font(.display(56)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.5)
+                    .font(.display(56)).tracking(-2.2).monospacedDigit().lineLimit(1).minimumScaleFactor(0.5)
                     .displayTrim(56)
                     .shadow(color: .white.opacity(0.12), radius: 18)
                 line
