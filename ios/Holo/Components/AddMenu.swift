@@ -41,7 +41,7 @@ struct AddMenu: View {
                     .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(Theme.ink)
                     .frame(width: 34, height: 34)
-                    .background(Circle().fill(Theme.lime))
+                    .background(Circle().fill(Theme.holo))
                 Text(title).font(.geist(16, .semibold)).foregroundStyle(.white)
             }
             .padding(.leading, 7)

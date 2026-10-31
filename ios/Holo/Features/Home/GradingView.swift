@@ -79,7 +79,7 @@ struct GradingView: View {
                 Text("\(count) slab\(count == 1 ? "" : "s")").font(.geist(13, .semibold)).monospacedDigit()
                     .foregroundStyle(Theme.ink)
                     .padding(.horizontal, 8).padding(.vertical, 3)
-                    .background(Theme.lime, in: RoundedRectangle(cornerRadius: 6))
+                    .background(Theme.holo, in: RoundedRectangle(cornerRadius: 6))
                 if rawEquivalent > 0 {
                     Text(String(format: "%.1f× what they're worth raw", value / rawEquivalent)).font(.geist(13)).foregroundStyle(Theme.muted)
                 }

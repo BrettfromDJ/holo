@@ -558,7 +558,7 @@ private struct FreshnessChip: View {
         HStack(spacing: 7) {
             ZStack {
                 Circle().fill(Theme.lime.opacity(0.6)).scaleEffect(ping ? 2.2 : 1).opacity(ping ? 0 : 0.6)
-                Circle().fill(Theme.lime)
+                Circle().fill(Theme.holo)
             }
             .frame(width: 7, height: 7)
             Text(label).font(.mono(11, .medium)).tracking(0.6).foregroundStyle(Theme.muted)

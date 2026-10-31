@@ -62,7 +62,7 @@ struct SettingsView: View {
                     LabeledContent("Realized gains", value: Format.signedMoney(store.summary.realized))
                     ShareLink(item: ExportFile(transactions: store.transactions, watchlist: store.watchlist, products: store.products,
                                                mode: store.demo == nil ? "cloud" : "demo"),
-                              preview: SharePreview("Holo export")) {
+                              preview: SharePreview("Lucent export")) {
                         Label("Export your data", systemImage: "square.and.arrow.up")
                     }
                 } header: {
@@ -77,7 +77,7 @@ struct SettingsView: View {
                     explainer("Performance %", "is a time-weighted return: daily market returns are chained together, so adding or selling inventory never distorts it.")
                 }
                 Section {
-                    Link("Open Holo on the web", destination: AppConfig.apiBaseURL)
+                    Link("Open Lucent on the web", destination: AppConfig.apiBaseURL)
                 } footer: {
                     Text("Your collection syncs with the website.")
                 }
@@ -89,7 +89,7 @@ struct SettingsView: View {
             .background(Theme.background)
             .navigationTitle("Account")
             .toolbar { ToolbarItem(placement: .confirmationAction) { DoneButton() } }
-            .confirmationDialog("Sign out of Holo?", isPresented: $confirming, titleVisibility: .visible) {
+            .confirmationDialog("Sign out of Lucent?", isPresented: $confirming, titleVisibility: .visible) {
                 Button("Sign out", role: .destructive) { Task { await session.signOut() } }
             }
         }
@@ -110,7 +110,7 @@ struct SettingsView: View {
                 testResult = "Apple didn't accept it: \(r.reasons.joined(separator: ", "))."
             }
         } catch let error as HoloError where error.code == "no_devices" {
-            testResult = "This phone isn't registered yet. Check notifications are allowed for Holo in Settings, then try again."
+            testResult = "This phone isn't registered yet. Check notifications are allowed for Lucent in Settings, then try again."
         } catch {
             testResult = error.localizedDescription
         }

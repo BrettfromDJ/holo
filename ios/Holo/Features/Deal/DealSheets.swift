@@ -74,10 +74,10 @@ struct DealPickerSheet: View {
                             .buttonStyle(.plain)
                         }
                     } header: {
-                        Text(side == .incoming ? "Catalog" : "Not in Holo")
+                        Text(side == .incoming ? "Catalog" : "Not in Lucent")
                     } footer: {
                         if side == .outgoing {
-                            Text("Something you have that isn't in Holo yet. Add what you paid on the deal and it's recorded properly; otherwise it's counted in the deal but not tracked.")
+                            Text("Something you have that isn't in Lucent yet. Add what you paid on the deal and it's recorded properly; otherwise it's counted in the deal but not tracked.")
                         }
                     }
                 }
@@ -194,9 +194,9 @@ struct DealRatesSheet: View {
             GlassForm {
                 Section {
                     Toggle("Add what comes in to my collection", isOn: Binding(get: { rates.addsIncoming }, set: { rates.addIncoming = $0 }))
-                    Toggle("Ask what I paid for things not in Holo", isOn: Binding(get: { rates.asksCost }, set: { rates.askCost = $0 }))
+                    Toggle("Ask what I paid for things not in Lucent", isOn: Binding(get: { rates.asksCost }, set: { rates.askCost = $0 }))
                 } footer: {
-                    Text("You can still switch any single item in or out on the deal. Items going out that aren't in Holo are tracked when you add what you paid.")
+                    Text("You can still switch any single item in or out on the deal. Items going out that aren't in Lucent are tracked when you add what you paid.")
                 }
                 .tint(Theme.lime)
                 rate("Buying", "What you pay for cards you buy", \.buy)

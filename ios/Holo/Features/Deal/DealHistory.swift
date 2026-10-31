@@ -336,7 +336,7 @@ struct DealCameraView: View {
                         .id(shots.count)
                         .transition(.scale(scale: 0.3).combined(with: .opacity))
                     Text("\(shots.count)").font(.geist(11, .bold)).monospacedDigit().foregroundStyle(Theme.ink)
-                        .frame(minWidth: 20, minHeight: 20).background(Circle().fill(Theme.lime))
+                        .frame(minWidth: 20, minHeight: 20).background(Circle().fill(Theme.holo))
                         .offset(x: 7, y: -7)
                 } else {
                     RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.white.opacity(0.08)).frame(width: 56, height: 56)
@@ -353,8 +353,8 @@ struct DealCameraView: View {
             } label: {
                 ZStack {
                     Circle().strokeBorder(.white, lineWidth: 4).frame(width: 80, height: 80)
-                    Circle().fill(Theme.lime).frame(width: 64, height: 64)
-                        .shadow(color: Theme.lime.opacity(0.6), radius: 12)
+                    Circle().fill(Theme.holo).frame(width: 64, height: 64)
+                        .shadow(color: Theme.holoGlow.opacity(0.6), radius: 12)
                 }
             }
             .buttonStyle(ShutterStyle())
@@ -525,8 +525,8 @@ struct DealHistoryView: View {
                 Theme.background
                 ZStack {
                     GridPattern(step: 36, opacity: 0.05)
-                    RadialGradient(colors: [Theme.lime.opacity(0.2), .clear], center: UnitPoint(x: 0.2, y: 0.35), startRadius: 0, endRadius: 300)
-                    RadialGradient(colors: [Theme.planBlue.opacity(0.2), .clear], center: UnitPoint(x: 0.95, y: 0.55), startRadius: 0, endRadius: 280)
+                    RadialGradient(colors: [Theme.violet.opacity(0.2), .clear], center: UnitPoint(x: 0.2, y: 0.35), startRadius: 0, endRadius: 300)
+                    RadialGradient(colors: [Theme.cyan.opacity(0.2), .clear], center: UnitPoint(x: 0.95, y: 0.55), startRadius: 0, endRadius: 280)
                 }
                 .frame(height: 520)
                 .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.55), .init(color: .clear, location: 1)],
@@ -543,8 +543,8 @@ struct DealHistoryView: View {
     private var empty: some View {
         VStack(spacing: 14) {
             Image(systemName: "arrow.left.arrow.right").font(.system(size: 30, weight: .bold)).foregroundStyle(Theme.ink)
-                .frame(width: 76, height: 76).background(Circle().fill(Theme.lime))
-                .shadow(color: Theme.lime.opacity(0.4), radius: 20)
+                .frame(width: 76, height: 76).background(Circle().fill(Theme.holo))
+                .shadow(color: Theme.holoGlow.opacity(0.4), radius: 20)
             Text("NO CLOSED DEALS YET").font(.display(28))
             Text("Every buy, sale and trade you close lands here, with what changed hands, your profit and your photos.")
                 .font(.geist(14)).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
@@ -647,8 +647,8 @@ private struct BestDealCard: View {
             VStack(alignment: .leading, spacing: 10) {
                 SkewTag(text: "Best deal", icon: "star.fill")
                 Text("\(record.kind.noun) · \(record.date.formatted(.dateTime.month(.abbreviated).day()))").font(.geist(15, .semibold)).foregroundStyle(.white)
-                Text(Format.signedMoney(record.profit)).font(.display(40)).monospacedDigit().foregroundStyle(Theme.lime).displayTrim(40)
-                    .shadow(color: Theme.lime.opacity(0.4), radius: 12)
+                Text(Format.signedMoney(record.profit)).font(.display(40)).monospacedDigit().foregroundStyle(Theme.holo).displayTrim(40)
+                    .shadow(color: Theme.holoGlow.opacity(0.4), radius: 12)
             }
             Spacer(minLength: 0)
             CardFanStack(lines: Array(lines.prefix(4)), size: CGSize(width: 54, height: 76))
@@ -659,12 +659,12 @@ private struct BestDealCard: View {
             ZStack {
                 shape.fill(Color(hex: 0x070707))
                 GridPattern(step: 28, opacity: 0.06)
-                RadialGradient(colors: [Theme.lime.opacity(0.2), .clear], center: .trailing, startRadius: 0, endRadius: 220)
+                RadialGradient(colors: [Theme.violet.opacity(0.2), .clear], center: .trailing, startRadius: 0, endRadius: 220)
             }
             .clipShape(shape)
         }
         .overlay(ElectricBorder(radius: 22))
-        .shadow(color: Theme.lime.opacity(0.18), radius: 18)
+        .shadow(color: Theme.holoGlow.opacity(0.18), radius: 18)
     }
 }
 

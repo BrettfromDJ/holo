@@ -37,7 +37,7 @@ targets:
     info:
       path: Holo/Info.plist
       properties:
-        CFBundleDisplayName: Holo
+        CFBundleDisplayName: Lucent
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen:

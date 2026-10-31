@@ -283,7 +283,7 @@ struct DealView: View {
             // Not in Holo: it still goes in the deal, marked so, with an optional "you paid".
             let gradeLabel = grade.map { "\($0.company) \($0.grade)" } ?? ""
             deals.add(DealItem(key: "p:\(c.product.id):\(c.printing ?? ""):\(gradeLabel)", product: c.product, printing: c.printing, market: c.value(for: read), grade: grade), to: .outgoing)
-            return (true, "Added · not in Holo")
+            return (true, "Added · not in Lucent")
         }
         deals.add(DealItem(key: "h:\(h.identity.key)", product: p, printing: h.identity.printing, market: h.price, holdingKey: h.identity.key, maxQty: Int(h.quantity)), to: .outgoing)
         return (true, "Added to going out")
@@ -305,7 +305,7 @@ private struct DealBackdrop: View {
         ZStack {
             GridPattern(step: 36, opacity: 0.05)
             RadialGradient(colors: [accent.opacity(0.18), .clear], center: UnitPoint(x: 0.2, y: 0.3), startRadius: 0, endRadius: 260)
-            RadialGradient(colors: [Theme.planBlue.opacity(0.18), .clear], center: UnitPoint(x: 0.9, y: 0.5), startRadius: 0, endRadius: 240)
+            RadialGradient(colors: [Theme.cyan.opacity(0.18), .clear], center: UnitPoint(x: 0.9, y: 0.5), startRadius: 0, endRadius: 240)
         }
         .frame(height: 520)
         .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.6), .init(color: .clear, location: 1)],
@@ -466,7 +466,7 @@ private struct BalanceCard: View {
                 .animation(.snappy, value: t.net)
             }
             if t.uncosted > 0 {
-                Text("Profit unknown for \(t.uncosted) item\(t.uncosted == 1 ? "" : "s") not in Holo: add what you paid")
+                Text("Profit unknown for \(t.uncosted) item\(t.uncosted == 1 ? "" : "s") not in Lucent: add what you paid")
                     .font(.geist(12, .medium)).foregroundStyle(ink.opacity(0.7))
                     .padding(.top, 8)
             }
@@ -733,7 +733,7 @@ private struct DealItemCard: View {
             .tint(accent)
         } else if item.holdingKey == nil {
             HStack(spacing: 8) {
-                tag(tracked ? "Not in Holo · will be added" : "Not in Holo · not tracked", icon: "exclamationmark.circle")
+                tag(tracked ? "Not in Lucent · will be added" : "Not in Lucent · not tracked", icon: "exclamationmark.circle")
                 Spacer(minLength: 0)
                 if asksCost || showCost || item.cost != nil {
                     HStack(spacing: 2) {

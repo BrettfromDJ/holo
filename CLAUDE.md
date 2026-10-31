@@ -1,4 +1,4 @@
-# Holo
+# Holo (the app is now called Lucent)
 
 A TCG collection tracker (Pokémon first): a Next.js 15 website (`src/`, Supabase, deployed on
 Vercel) and a native SwiftUI iPhone app (`ios/`) on the same account and data.
@@ -36,6 +36,11 @@ and say exactly what to run or click.
   (small caps labels). The app also bundles Roboto Mono.
 - **Colors:** lime `#D4FF3A` (accent, up), plan blue `#2F5BFF`, plan pink `#FF2E9A` (down).
   Color only numbers (gains green/lime, losses pink); text stays white or muted.
+- **Lucent (app only, so far):** the iPhone app is named Lucent and uses an iridescent palette
+  instead of lime: `Theme.holo` gradient (lavender, periwinkle, pearl mint, pink, butter) for
+  accent fills (buttons, +, selected chips, badges, headline numbers), `Theme.lime` is now pearl
+  mint `#9EF5E0`, gains mint `#86F2CF`, losses still pink. Glows are violet, cyan and pink. Code,
+  bundle ID and web address keep the Holo name. The website still uses lime until it's rebranded.
 - **Never red or pink text on lime.** If a card's figure is down, the whole card goes pink.
 - No confetti. No emojis. Toasts bottom-right on the web. Milestone and "Prices updated"
   banners are off in the app for now (they repeated).

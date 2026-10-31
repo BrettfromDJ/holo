@@ -36,14 +36,14 @@ struct HoloTabBar<Tab: Hashable>: View {
                     .frame(width: 64, height: 64)
                     .background(
                         ZStack {
-                            Circle().fill(Color(hex: 0x7A9200)).offset(y: 4)
-                            Circle().fill(Theme.lime)
+                            Circle().fill(Theme.holoEdge).offset(y: 4)
+                            Circle().fill(Theme.holo)
                             Circle().fill(LinearGradient(colors: [.white.opacity(0.25), .clear], startPoint: .top, endPoint: .center))
                             Sheen(strength: 0.6).clipShape(Circle())
                         }
                         .compositingGroup()
                     )
-                    .shadow(color: Theme.lime.opacity(0.4), radius: 12, y: 2)
+                    .shadow(color: Theme.holoGlow.opacity(0.4), radius: 12, y: 2)
             }
             .accessibilityLabel(plusOpen ? "Close" : "Add")
             .offset(y: -18)

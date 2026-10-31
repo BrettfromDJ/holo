@@ -127,7 +127,7 @@ struct MasterSetsView: View {
                         Text("\(Int((ratio * 100).rounded()))%").font(.geist(13, .semibold)).monospacedDigit()
                             .foregroundStyle(Theme.ink)
                             .padding(.horizontal, 8).padding(.vertical, 3)
-                            .background(Theme.lime, in: RoundedRectangle(cornerRadius: 6))
+                            .background(Theme.holo, in: RoundedRectangle(cornerRadius: 6))
                         Text("of \(best.name), your closest").font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
                     }
                 }

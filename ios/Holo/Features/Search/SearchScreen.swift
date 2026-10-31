@@ -291,7 +291,7 @@ struct SearchScreen: View {
             ForEach(0 ..< 5, id: \.self) { _ in SkeletonRow() }
         } else if results.isEmpty && searchedFor == trimmed {
             VStack(alignment: .leading, spacing: 12) {
-                Text(liveFor == trimmed ? "Nothing found for \u{201C}\(trimmed)\u{201D}, even live" : "Nothing in Holo's catalog for \u{201C}\(trimmed)\u{201D}")
+                Text(liveFor == trimmed ? "Nothing found for \u{201C}\(trimmed)\u{201D}, even live" : "Nothing in Lucent's catalog for \u{201C}\(trimmed)\u{201D}")
                     .font(.geist(16, .semibold))
                 Text("Try fewer words, the set name, or the card number (like 215/203).").font(.geist(14)).foregroundStyle(Theme.muted)
                 if liveFor != trimmed {
@@ -479,7 +479,7 @@ private struct ResultRow: View, Equatable {
             Button(action: onAdd) {
                 Image(systemName: "plus").font(.system(size: 14, weight: .bold)).foregroundStyle(Theme.ink)
                     .frame(width: 34, height: 34)
-                    .background(Circle().fill(Theme.lime))
+                    .background(Circle().fill(Theme.holo))
             }
             .buttonStyle(ShutterStyle())
             .accessibilityLabel("Add \(hit.product.name) to your collection")
@@ -577,7 +577,7 @@ struct FilterBar: View {
         .padding(.horizontal, 12)
         .frame(height: 34)
         .foregroundStyle(on ? Theme.ink : .white)
-        .background { if on { Capsule().fill(Theme.lime) } else { Color.clear.liquidGlass(in: Capsule()).allowsHitTesting(false) } }
+        .background { if on { Capsule().fill(Theme.holo) } else { Color.clear.liquidGlass(in: Capsule()).allowsHitTesting(false) } }
     }
 }
 

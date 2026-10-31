@@ -104,7 +104,7 @@ struct GradedPricesPanel: View {
                         Text(g).font(.geist(13, .semibold)).monospacedDigit()
                             .lineLimit(1).minimumScaleFactor(0.8)
                             .frame(maxWidth: .infinity, minHeight: 30)
-                            .background(grade == g ? Theme.lime : Color.clear, in: Capsule())
+                            .background(grade == g ? AnyShapeStyle(Theme.holo) : AnyShapeStyle(Color.clear), in: Capsule())
                             .foregroundStyle(grade == g ? Theme.ink : Theme.muted)
                             .contentShape(Capsule())
                     }

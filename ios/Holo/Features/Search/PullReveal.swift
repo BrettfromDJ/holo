@@ -44,7 +44,7 @@ struct PullReveal: View {
                 VStack(spacing: 6) {
                     Text("Collection value").font(.geist(12)).foregroundStyle(Theme.muted)
                     CountUp(value: shownValue)
-                        .font(.display(52)).monospacedDigit().foregroundStyle(Theme.lime).displayTrim(52)
+                        .font(.display(52)).monospacedDigit().foregroundStyle(Theme.holo).displayTrim(52)
                     if abs(added) >= 0.01 {
                         (Text(Format.signedMoney(added)).foregroundColor(Theme.up) + Text(" at today's price").foregroundColor(Theme.muted))
                             .font(.geist(13)).monospacedDigit()

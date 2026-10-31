@@ -214,7 +214,7 @@ private struct BrandView: View {
                 CachedImage(url: game.logoUrl.flatMap(URL.init(string:))) { img in
                     img.resizable().scaledToFit().shadow(color: .black.opacity(0.5), radius: 9, y: 8)
                 } placeholder: {
-                    Text(game.name.prefix(1).uppercased()).font(.display(40)).foregroundStyle(Theme.lime)
+                    Text(game.name.prefix(1).uppercased()).font(.display(40)).foregroundStyle(Theme.holo)
                 }
                 .frame(width: 110, height: 64)
                 VStack(alignment: .leading, spacing: 6) {
@@ -517,7 +517,7 @@ private struct SetHero: View {
                 .overlay { CachedImage(url: banner) { img in img.resizable().scaledToFill() } placeholder: { Theme.well } }
                 .clipShape(shape)
                 .overlay(ElectricBorder(radius: 22))
-                .shadow(color: Theme.lime.opacity(0.22), radius: 22)
+                .shadow(color: Theme.holoGlow.opacity(0.22), radius: 22)
                 .tiltCard(4, cornerRadius: 22)
         } else if let sample = set.imageUrl.flatMap(URL.init(string:)) {
             ZStack {
@@ -549,8 +549,8 @@ private struct ReleaseCountdown: View {
                 MonoLabel(text: days == 0 ? "Out" : "Out in")
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     CountingText(value: Double(days), format: { "\(Int($0.rounded()))" })
-                        .font(.display(44)).monospacedDigit().foregroundStyle(Theme.lime).displayTrim(44)
-                        .shadow(color: Theme.lime.opacity(0.45), radius: 12)
+                        .font(.display(44)).monospacedDigit().foregroundStyle(Theme.holo).displayTrim(44)
+                        .shadow(color: Theme.holoGlow.opacity(0.45), radius: 12)
                         .fixedSize()
                     Text(days == 0 ? "today" : (days == 1 ? "day" : "days")).font(.geist(14)).foregroundStyle(Theme.muted)
                 }
@@ -585,7 +585,7 @@ private struct OwnedProgress: View {
                     MonoLabel(text: "You own")
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         CountingText(value: Double(owned), format: { "\(Int($0.rounded()))" })
-                            .font(.display(34)).monospacedDigit().foregroundStyle(Theme.lime).displayTrim(34).fixedSize()
+                            .font(.display(34)).monospacedDigit().foregroundStyle(Theme.holo).displayTrim(34).fixedSize()
                         Text("of \(total) products").font(.geist(14)).foregroundStyle(Theme.muted)
                     }
                 }
@@ -595,9 +595,9 @@ private struct OwnedProgress: View {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color.white.opacity(0.08))
-                    Capsule().fill(Theme.lime)
+                    Capsule().fill(Theme.holo)
                         .frame(width: max(8, geo.size.width * (filled ? ratio : 0)))
-                        .shadow(color: Theme.lime.opacity(0.5), radius: 6)
+                        .shadow(color: Theme.holoGlow.opacity(0.5), radius: 6)
                 }
             }
             .frame(height: 8)
@@ -645,12 +645,12 @@ private struct TopChase: View {
             ZStack {
                 shape.fill(Color(hex: 0x070707))
                 GridPattern(step: 28, opacity: 0.06)
-                RadialGradient(colors: [Theme.lime.opacity(0.2), .clear], center: UnitPoint(x: 0.15, y: 0.5), startRadius: 0, endRadius: 200)
+                RadialGradient(colors: [Theme.violet.opacity(0.2), .clear], center: UnitPoint(x: 0.15, y: 0.5), startRadius: 0, endRadius: 200)
             }
             .clipShape(shape)
         }
         .overlay(ElectricBorder(radius: 22))
-        .shadow(color: Theme.lime.opacity(0.18), radius: 18)
+        .shadow(color: Theme.holoGlow.opacity(0.18), radius: 18)
     }
 }
 
@@ -666,7 +666,7 @@ private struct ChaseTile: View {
                 .overlay(alignment: .topLeading) {
                     Text("#\(rank)").font(.display(15)).foregroundStyle(Theme.ink)
                         .padding(.horizontal, 7).padding(.vertical, 2)
-                        .background(Parallelogram(inset: 4).fill(Theme.lime))
+                        .background(Parallelogram(inset: 4).fill(Theme.holo))
                         .padding(6)
                 }
             // Name and price tight together; Anton's tall line box trimmed so they sit close.
@@ -963,8 +963,8 @@ private struct ExploreBackdrop: View {
     var body: some View {
         ZStack {
             GridPattern(step: 36, opacity: 0.05)
-            RadialGradient(colors: [Theme.lime.opacity(0.22), .clear], center: UnitPoint(x: 0.2, y: 0.3), startRadius: 0, endRadius: 260)
-            RadialGradient(colors: [Theme.planBlue.opacity(0.22), .clear], center: UnitPoint(x: 0.9, y: 0.55), startRadius: 0, endRadius: 240)
+            RadialGradient(colors: [Theme.violet.opacity(0.22), .clear], center: UnitPoint(x: 0.2, y: 0.3), startRadius: 0, endRadius: 260)
+            RadialGradient(colors: [Theme.cyan.opacity(0.22), .clear], center: UnitPoint(x: 0.9, y: 0.55), startRadius: 0, endRadius: 240)
             RadialGradient(colors: [Theme.planPink.opacity(0.16), .clear], center: UnitPoint(x: 0.6, y: 0.05), startRadius: 0, endRadius: 200)
         }
         .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.7), .init(color: .clear, location: 1)],
@@ -1118,7 +1118,7 @@ private struct NextRelease: View {
                 VStack(spacing: 6) {
                     CountingText(value: Double(days), format: { "\(Int($0.rounded()))" })
                         .font(.display(60)).monospacedDigit().foregroundStyle(Theme.lime).displayTrim(60)
-                        .shadow(color: Theme.lime.opacity(0.5), radius: 16)
+                        .shadow(color: Theme.holoGlow.opacity(0.5), radius: 16)
                         .fixedSize()
                     MonoLabel(text: days == 0 ? "today" : (days == 1 ? "day" : "days"))
                 }
@@ -1140,12 +1140,12 @@ private struct NextRelease: View {
                             .opacity(0.22)
                             .mask(LinearGradient(colors: [.clear, .black], startPoint: .leading, endPoint: .trailing))
                     }
-                    RadialGradient(colors: [Theme.lime.opacity(0.16), .clear], center: .trailing, startRadius: 0, endRadius: 220)
+                    RadialGradient(colors: [Theme.violet.opacity(0.16), .clear], center: .trailing, startRadius: 0, endRadius: 220)
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
             }
             .overlay(ElectricBorder(radius: 22))
-            .shadow(color: Theme.lime.opacity(0.2), radius: 18)
+            .shadow(color: Theme.holoGlow.opacity(0.2), radius: 18)
         }
         .buttonStyle(.plain)
     }
@@ -1208,7 +1208,7 @@ private struct SetTile: View {
                 .overlay(alignment: .topTrailing) {
                     if upcoming, store.reminders.contains(set.slug) {
                         Image(systemName: "bell.fill").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.ink)
-                            .frame(width: 24, height: 24).background(Circle().fill(Theme.lime))
+                            .frame(width: 24, height: 24).background(Circle().fill(Theme.holo))
                             .padding(8)
                     }
                 }

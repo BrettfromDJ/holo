@@ -249,7 +249,7 @@ struct TiltCard: ViewModifier {
                     if foil {
                         LinearGradient(
                             colors: [.clear, Color(hex: 0xFF6AD5).opacity(0.35), Color(hex: 0x8AF5FF).opacity(0.35),
-                                     Color(hex: 0xD4FF3A).opacity(0.35), .clear],
+                                     Color(hex: 0xFFEFB3).opacity(0.35), .clear],
                             startPoint: UnitPoint(x: 0.0 + tilt.x * 0.6, y: 0.0 + tilt.y * 0.6),
                             endPoint: UnitPoint(x: 1.0 + tilt.x * 0.6, y: 1.0 + tilt.y * 0.6)
                         )

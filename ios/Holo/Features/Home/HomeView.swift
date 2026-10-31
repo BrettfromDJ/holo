@@ -206,7 +206,7 @@ struct BrandMark: View {
                 .foregroundStyle(Theme.ink)
                 .frame(width: 30, height: 30)
                 .background(RoundedRectangle(cornerRadius: 8).fill(Color(hex: 0xF5F5F7)))
-            Text("Holo").font(.geist(19, .semibold))
+            Text("Lucent").font(.geist(19, .semibold))
         }
     }
 }
@@ -234,7 +234,7 @@ private struct Hero: View {
                     .minimumScaleFactor(0.5)
                     .lineLimit(1)
                     .displayTrim(66)
-                    .shadow(color: Theme.lime.opacity(0.45), radius: 24)
+                    .shadow(color: Theme.holoGlow.opacity(0.45), radius: 24)
                     .padding(.horizontal, 16)
             }
             .padding(.vertical, 8)
@@ -277,7 +277,7 @@ private struct HeroBackdrop: View {
     var body: some View {
         ZStack {
             GridPattern()
-            RadialGradient(colors: [Theme.lime.opacity(0.22), .clear], center: UnitPoint(x: 0.3, y: 0.55), startRadius: 0, endRadius: 260)
+            RadialGradient(colors: [Theme.violet.opacity(0.22), .clear], center: UnitPoint(x: 0.3, y: 0.55), startRadius: 0, endRadius: 260)
             RadialGradient(colors: [Theme.planPink.opacity(0.16), .clear], center: UnitPoint(x: 0.85, y: 0.3), startRadius: 0, endRadius: 220)
         }
         .mask(LinearGradient(colors: [.clear, .black, .black, .clear], startPoint: .top, endPoint: .bottom))
@@ -752,8 +752,8 @@ private struct StarCard: View {
                             Text(Format.signedPercent(r).replacingOccurrences(of: #"\.\d+%"#, with: "%", options: .regularExpression))
                                 .font(.display(15)).foregroundStyle(Theme.ink)
                                 .padding(.horizontal, 12).padding(.vertical, 6)
-                                .background(Capsule().fill(Theme.lime))
-                                .shadow(color: Theme.lime.opacity(0.6), radius: 12, y: 6)
+                                .background(Capsule().fill(Theme.holo))
+                                .shadow(color: Theme.holoGlow.opacity(0.6), radius: 12, y: 6)
                                 .offset(x: 16, y: artSize.height * 0.08)
                         }
                     }
@@ -765,7 +765,7 @@ private struct StarCard: View {
                 Text([holding.product?.setName, holding.label].compactMap { $0 }.joined(separator: " · "))
                     .font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
                     .padding(.top, 8)
-                CountingText(value: holding.gain ?? 0, format: { Format.signedMoney($0) }).font(.display(40)).monospacedDigit().foregroundStyle(Theme.lime)
+                CountingText(value: holding.gain ?? 0, format: { Format.signedMoney($0) }).font(.display(40)).monospacedDigit().foregroundStyle(Theme.holo)
                     .displayTrim(40)
                     .padding(.top, 24)
                 HStack(spacing: 8) {
@@ -785,12 +785,12 @@ private struct StarCard: View {
                     RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color(hex: 0x050505))
                     GridPattern(step: 28, opacity: 0.06)
                         .mask(RadialGradient(colors: [.black, .black.opacity(0.25)], center: .top, startRadius: 0, endRadius: 520))
-                    RadialGradient(colors: [Theme.lime.opacity(0.16), .clear], center: UnitPoint(x: 0.5, y: 0.25), startRadius: 0, endRadius: 320)
+                    RadialGradient(colors: [Theme.violet.opacity(0.16), .clear], center: UnitPoint(x: 0.5, y: 0.25), startRadius: 0, endRadius: 320)
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
             )
             .overlay(ElectricBorder(radius: 24))
-            .shadow(color: Theme.lime.opacity(0.25), radius: 22)
+            .shadow(color: Theme.holoGlow.opacity(0.25), radius: 22)
         }
         .buttonStyle(.plain)
     }
@@ -1266,8 +1266,8 @@ private struct BannerView: View {
         .padding(.vertical, 12)
         .background {
             if banner.isMilestone {
-                RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.lime)
-                    .shadow(color: Theme.lime.opacity(glow ? 0.8 : 0.3), radius: glow ? 24 : 10)
+                RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.holo)
+                    .shadow(color: Theme.holoGlow.opacity(glow ? 0.8 : 0.3), radius: glow ? 24 : 10)
             } else {
                 Color.clear.liquidGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             }

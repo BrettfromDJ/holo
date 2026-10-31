@@ -80,7 +80,7 @@ struct ScanView: View {
             ZStack {
                 ScanCorners(radius: 18)
                     .stroke(Theme.lime, style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                    .shadow(color: Theme.lime.opacity(0.7), radius: 8)
+                    .shadow(color: Theme.holoGlow.opacity(0.7), radius: 8)
                     .frame(width: w, height: h)
                 ScanSweep(height: h)
                     .frame(width: w - 16, height: h)
@@ -163,8 +163,8 @@ struct ScanView: View {
             Button(action: shoot) {
                 ZStack {
                     Circle().strokeBorder(.white, lineWidth: 4).frame(width: 80, height: 80)
-                    Circle().fill(Theme.lime).frame(width: 64, height: 64)
-                        .shadow(color: Theme.lime.opacity(0.6), radius: 12)
+                    Circle().fill(Theme.holo).frame(width: 64, height: 64)
+                        .shadow(color: Theme.holoGlow.opacity(0.6), radius: 12)
                     Image(systemName: "viewfinder").font(.system(size: 22, weight: .bold)).foregroundStyle(Theme.ink)
                 }
             }

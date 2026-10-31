@@ -174,10 +174,10 @@ struct MasterSetDetailView: View {
                         Text("\(owned) of \(total)").font(.geist(13, .semibold)).monospacedDigit()
                             .foregroundStyle(Theme.ink)
                             .padding(.horizontal, 8).padding(.vertical, 3)
-                            .background(Theme.lime, in: RoundedRectangle(cornerRadius: 6))
+                            .background(Theme.holo, in: RoundedRectangle(cornerRadius: 6))
                         Text("cards collected").font(.geist(13)).foregroundStyle(Theme.muted)
                     } else {
-                        Text("cards owned · full list not in Holo yet").font(.geist(13)).foregroundStyle(Theme.muted)
+                        Text("cards owned · full list not in Lucent yet").font(.geist(13)).foregroundStyle(Theme.muted)
                     }
                 }
             }
@@ -295,7 +295,7 @@ private struct CardCell: View {
                         .foregroundStyle(Theme.ink)
                         .padding(.horizontal, qty > 1 ? 6 : 0)
                         .frame(minWidth: 20, minHeight: 20)
-                        .background(Theme.lime, in: Capsule())
+                        .background(Theme.holo, in: Capsule())
                         .padding(5)
                     }
                 }
