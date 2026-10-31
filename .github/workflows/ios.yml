@@ -22,7 +22,7 @@ concurrency:
 jobs:
   build:
     runs-on: macos-15
-    timeout-minutes: 30
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: ios
@@ -90,7 +90,7 @@ jobs:
       # Opens the app in demo mode on each main screen and saves screenshots, so changes can be
       # looked at, not just compiled. Pictures only: this step never fails the build.
       - name: Screenshots
-        timeout-minutes: 12
+        timeout-minutes: 25
         continue-on-error: true
         run: |
           mkdir -p screenshots
