@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isPriceChartingConfigured, syncPriceCharting } from "@/lib/server/pricecharting";
+import { fillMissingPrices, isPriceChartingConfigured, syncPriceCharting } from "@/lib/server/pricecharting";
 import { getAdminSupabase } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -18,5 +18,7 @@ export async function GET(req: Request) {
   if (!admin) return NextResponse.json({ error: "Supabase service role is not configured." }, { status: 503 });
   if (!isPriceChartingConfigured()) return NextResponse.json({ error: "PRICECHARTING_TOKEN is not set." }, { status: 503 });
   const results = await syncPriceCharting(admin);
-  return NextResponse.json({ results }, { status: results.every((r) => r.error) ? 500 : 200 });
+  // Then give cards with no TCGplayer price PriceCharting's ungraded price.
+  const filled = await fillMissingPrices(admin).catch(() => 0);
+  return NextResponse.json({ results, filled }, { status: results.every((r) => r.error) ? 500 : 200 });
 }

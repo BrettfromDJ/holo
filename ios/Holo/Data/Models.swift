@@ -44,6 +44,8 @@ struct Price: Codable, Hashable {
     var change30dPct: Double?
     var updatedAt: String?
     var status: String?
+    /// "tcgapi" (TCGplayer market), or "pricecharting" for cards TCGplayer doesn't price.
+    var source: String? = nil
 }
 
 /// A search result: a product with its headline price.
@@ -156,12 +158,13 @@ struct PriceRow: Codable {
     var change_30d_pct: Double?
     var source_updated_at: String?
     var status: String
+    var source: String?
 
     var price: Price {
         Price(
             productId: product_id, printing: printing.isEmpty ? nil : printing, market: market_price, low: low_price,
             change24hPct: change_24h_pct, change7dPct: change_7d_pct, change30dPct: change_30d_pct,
-            updatedAt: source_updated_at, status: status
+            updatedAt: source_updated_at, status: status, source: source
         )
     }
 }

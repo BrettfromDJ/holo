@@ -239,7 +239,8 @@ struct ProductDetailView: View {
             }
             .padding(.top, 12)
             Text(price != nil
-                 ? "Market price via TCG API" + (price?.updatedAt.flatMap(relative).map { " · updated \($0)" } ?? "")
+                 ? (price?.source == "pricecharting" ? "Ungraded price via PriceCharting (no TCGplayer price)" : "Market price via TCG API")
+                    + (price?.updatedAt.flatMap(relative).map { " · updated \($0)" } ?? "")
                  : (hist.last.map { "Last market price \($0.day.formatted(date: .abbreviated, time: .omitted)) · no current price yet" } ?? "No market price available. Not counted as $0."))
                 .font(.geist(12)).foregroundStyle(Theme.subtle)
                 .padding(.top, 12)

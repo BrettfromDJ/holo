@@ -71,7 +71,15 @@ export async function GET(req: Request) {
 
   // --- 3. Store prices & snapshots -----------------------------------------
   if (prices.length) {
-    const { error } = await admin.from("product_prices").upsert(prices.map(priceToRow));
+    // A blank never replaces a known price (e.g. PriceCharting's, for cards TCGplayer doesn't price).
+    const blankIds = [...new Set(prices.filter((p) => p.market === null).map((p) => p.productId))];
+    const known = new Set<string>();
+    for (let i = 0; i < blankIds.length; i += 300) {
+      const { data } = await admin.from("product_prices").select("product_id, printing").in("product_id", blankIds.slice(i, i + 300)).not("market_price", "is", null);
+      for (const r of data ?? []) known.add(`${r.product_id}|${r.printing}`);
+    }
+    const rows = prices.map(priceToRow).filter((r) => !(r.market_price === null && known.has(`${r.product_id}|${r.printing}`)));
+    const { error } = await admin.from("product_prices").upsert(rows);
     if (error) failures.push({ id: "product_prices", reason: error.message });
     const snaps = prices
       .filter((p) => p.market !== null)

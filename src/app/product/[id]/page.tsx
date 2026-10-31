@@ -182,7 +182,7 @@ export default function ProductPage() {
             </div>
             <p className="mt-3 text-[12px] text-subtle">
               {price
-                ? `${price.source === "sample" ? "Sample price" : "Market price via TCG API"} · ${price.status === "stale" ? "stale · " : ""}updated ${relativeTime(price.updatedAt)}`
+                ? `${price.source === "sample" ? "Sample price" : price.source === "pricecharting" ? "Ungraded price via PriceCharting (no TCGplayer price)" : "Market price via TCG API"} · ${price.status === "stale" ? "stale · " : ""}updated ${relativeTime(price.updatedAt)}`
                 : lastPoint
                   ? `Last market price ${formatDate(lastPoint.date)} · no current price yet`
                   : "No market price available — not counted as $0."}

@@ -9,7 +9,7 @@
 export type ISODate = string;
 
 /** Where a catalog record or price came from. New pricing sources plug in here. */
-export type DataSource = "tcgapi" | "manual" | "sample";
+export type DataSource = "tcgapi" | "manual" | "sample" | "pricecharting";
 
 /** High-level bucket used for allocation and filtering. */
 export type ProductKind = "single" | "sealed";

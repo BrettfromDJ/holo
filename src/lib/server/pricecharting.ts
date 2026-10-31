@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, PriceChartingRow } from "../supabase/database.types";
+import { selectAll } from "./paging";
 
 /** The price guide files we read, one per brand (PriceCharting's category names). */
 export const PRICECHARTING_CATEGORIES = ["pokemon-cards", "magic-cards", "yugioh-cards", "one-piece-cards"] as const;
@@ -103,6 +104,51 @@ export function guideRows(csv: string): PriceChartingRow[] {
     out.push(row);
   }
   return out;
+}
+
+/**
+ * Cards TCGplayer has no price for (every printing blank): use PriceCharting's ungraded price
+ * instead, stored as the card's price with source "pricecharting" so it's labelled as such.
+ * Only when no printing has a price, since PriceCharting doesn't tell printings apart.
+ */
+export async function fillMissingPrices(admin: SupabaseClient<Database>): Promise<number> {
+  const blank = await selectAll<{ product_id: string; printing: string }>((from, to) =>
+    admin.from("product_prices").select("product_id, printing").is("market_price", null).range(from, to),
+  50_000);
+  const ids = [...new Set(blank.map((r) => r.product_id))];
+  let filled = 0;
+  for (let i = 0; i < ids.length; i += 300) {
+    const chunk = ids.slice(i, i + 300);
+    // Leave out any card with a priced printing.
+    const { data: priced } = await admin.from("product_prices").select("product_id").in("product_id", chunk).not("market_price", "is", null);
+    const pricedIds = new Set((priced ?? []).map((r) => r.product_id));
+    const candidates = chunk.filter((id) => !pricedIds.has(id));
+    if (!candidates.length) continue;
+    const { data: products } = await admin.from("products").select("id, tcgplayer_id").in("id", candidates);
+    const byTcg = new Map<number, string>();
+    for (const p of products ?? []) if (p.tcgplayer_id) byTcg.set(p.tcgplayer_id, p.id);
+    if (!byTcg.size) continue;
+    const { data: pc } = await admin.from("pricecharting_prices").select("tcg_id, ungraded, sales_volume").in("tcg_id", [...byTcg.keys()]).not("ungraded", "is", null);
+    const best = new Map<number, { ungraded: number; sales: number }>();
+    for (const r of pc ?? []) {
+      if (r.tcg_id === null || r.ungraded === null) continue;
+      const prev = best.get(r.tcg_id);
+      if (!prev || (r.sales_volume ?? 0) > prev.sales) best.set(r.tcg_id, { ungraded: Number(r.ungraded), sales: r.sales_volume ?? 0 });
+    }
+    const now = new Date().toISOString();
+    const rows = blank
+      .filter((b) => candidates.includes(b.product_id))
+      .flatMap((b) => {
+        const tcg = [...byTcg.entries()].find(([, id]) => id === b.product_id)?.[0];
+        const value = tcg === undefined ? undefined : best.get(tcg)?.ungraded;
+        return value ? [{ product_id: b.product_id, printing: b.printing, market_price: value, source: "pricecharting", source_updated_at: now, fetched_at: now, status: "live" as const }] : [];
+      });
+    if (rows.length) {
+      const { error } = await admin.from("product_prices").upsert(rows);
+      if (!error) filled += rows.length;
+    }
+  }
+  return filled;
 }
 
 /** Download every brand's guide and store it. One request per brand per day. */

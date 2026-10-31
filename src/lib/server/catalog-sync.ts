@@ -180,9 +180,11 @@ async function runCatalogSync(admin: SupabaseClient<Database>, opts: CatalogSync
 async function storePrices(admin: SupabaseClient<Database>, prices: NormalizedPrice[]): Promise<number> {
   const rows = prices.map(priceToRow);
   const ids = [...new Set(rows.map((r) => r.product_id))];
-  const { data: existing } = await admin.from("product_prices").select("product_id, fetched_at").in("product_id", ids);
+  const { data: existing } = await admin.from("product_prices").select("product_id, printing, fetched_at, market_price").in("product_id", ids);
   const fresh = new Set((existing ?? []).filter((r) => Date.now() - Date.parse(r.fetched_at) < SET_FRESH_MS).map((r) => r.product_id));
-  const toWrite = rows.filter((r) => !fresh.has(r.product_id));
+  // A blank never replaces a known price (e.g. PriceCharting's, for cards TCGplayer doesn't price).
+  const known = new Set((existing ?? []).filter((r) => r.market_price !== null).map((r) => `${r.product_id}|${r.printing}`));
+  const toWrite = rows.filter((r) => !fresh.has(r.product_id) && !(r.market_price === null && known.has(`${r.product_id}|${r.printing}`)));
   if (!toWrite.length) return 0;
   const { error } = await admin.from("product_prices").upsert(toWrite);
   if (error) throw new Error(error.message);
