@@ -86,30 +86,41 @@ struct AnalyticsView: View {
         let winRate = priced.isEmpty ? nil : Double(priced.filter { ($0.gain ?? 0) > 0 }.count) / Double(priced.count)
         let sales = store.portfolioTransactions.filter { $0.kind == .sale }.count
         let short = { (d: String?) in d.flatMap { Format.isoDay.date(from: $0)?.formatted(.dateTime.month(.abbreviated).day()) } ?? "—" }
-        return LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-            tile("Max drawdown", risk.maxDrawdownTo != nil ? "\(short(risk.maxDrawdownFrom)) → \(short(risk.maxDrawdownTo))" : "No dips yet", palette: .sunset) {
-                Text(percent(risk.maxDrawdown, 1)).font(.geist(34)).tracking(-1.2).monospacedDigit()
-            }
-            tile("Volatility", "Annual swing", palette: .indigo) {
-                VStack(alignment: .leading, spacing: 8) {
-                    if let v = risk.volatility { GlowTicks(fraction: min(v, 1)).frame(height: 22) }
-                    Text(risk.volatility.map { percent($0, 0) } ?? "—").font(.geist(34)).tracking(-1.2).monospacedDigit()
+        let days = Array(store.timeline.suffix(30))
+        let gains = days.map(\.marketGain)
+        let values = days.map(\.value)
+        let money = { (v: Double?) in v.map { Format.signedMoney($0).split(separator: ".").first.map(String.init) ?? "" } ?? "—" }
+        // Lucent tiles: same-size squares, a tall one and a wide one, each with its own graphic.
+        return VStack(spacing: GlowGrid.spacing) {
+            GlowTallRow {
+                GlowTile(label: "In profit", note: "of \(holdings.count) holdings", palette: .rimMoss, shape: .tall) {
+                    VStack(spacing: 18) {
+                        GlowDotGrid(fraction: winRate ?? 0).frame(width: 96)
+                        if let winRate { DotMatrixText(text: "\(Int((winRate * 100).rounded()))%", dot: 4) } else { Text("—").font(.geist(28)) }
+                    }
+                }
+            } a: {
+                GlowTile(label: "Max drawdown", note: risk.maxDrawdownTo != nil ? "\(short(risk.maxDrawdownFrom)) → \(short(risk.maxDrawdownTo))" : "No dips yet",
+                         value: percent(risk.maxDrawdown, 1), palette: .sunset) {
+                    GlowLine(values: values).frame(height: 30)
+                }
+            } b: {
+                GlowTile(label: "Volatility", note: "Annual swing", value: risk.volatility.map { percent($0, 0) } ?? "—", palette: .rimViolet) {
+                    GlowTicks(fraction: min(risk.volatility ?? 0, 1)).frame(height: 22)
                 }
             }
-            tile("In profit", "of \(holdings.count) holdings", palette: .mint) {
-                if let winRate { DotMatrixText(text: "\(Int((winRate * 100).rounded()))%", dot: 4.4, color: GlowPalette.mint.ink) } else { Text("—").font(.geist(34)) }
-            }
-            tile("Best day", short(risk.bestDay?.date), palette: .ember) {
-                Text(risk.bestDay.map { Format.signedMoney($0.gain).split(separator: ".").first.map(String.init) ?? "" } ?? "—").font(.geist(34)).tracking(-1.2).monospacedDigit()
-            }
-            tile("Worst day", short(risk.worstDay?.date), palette: .down) {
-                Text(risk.worstDay.map { Format.signedMoney($0.gain).split(separator: ".").first.map(String.init) ?? "" } ?? "—").font(.geist(34)).tracking(-1.2).monospacedDigit()
-            }
-            tile("Up days", "\(sales) sale\(sales == 1 ? "" : "s") so far", palette: .ocean) {
-                VStack(alignment: .leading, spacing: 8) {
-                    if let u = risk.upDays { GlowTicks(fraction: u).frame(height: 22) }
-                    Text(risk.upDays.map { percent($0, 0) } ?? "—").font(.geist(34)).tracking(-1.2).monospacedDigit()
+            GlowSquares {
+                GlowTile(label: "Best day", note: short(risk.bestDay?.date), value: money(risk.bestDay?.gain), palette: .ember) {
+                    GlowBars(values: gains.map { max($0, 0) }, highlight: gains.indices.max { gains[$0] < gains[$1] }).frame(height: 34)
                 }
+            } b: {
+                GlowTile(label: "Worst day", note: short(risk.worstDay?.date), value: money(risk.worstDay?.gain), palette: .rimRose) {
+                    GlowBars(values: gains.map { min($0, 0) }, highlight: gains.indices.min { gains[$0] < gains[$1] }).frame(height: 34)
+                }
+            }
+            GlowTile(label: "Up days", note: "\(sales) sale\(sales == 1 ? "" : "s") so far · last 30 days", value: risk.upDays.map { percent($0, 0) } ?? "—",
+                     palette: .rimSky, shape: .wide) {
+                GlowDotRow(values: gains).frame(height: 18)
             }
         }
     }

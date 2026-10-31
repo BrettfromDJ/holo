@@ -102,8 +102,28 @@ struct GlowPalette: Hashable {
         Blob(color: Color(hex: 0x2E7D4F), x: 0.3, y: 0.75, size: 0.7),
     ])
 
-    /// Every palette in a pleasing order, to mix colors across a row or grid of tiles.
-    static let mix: [GlowPalette] = [.violet, .citrus, .rose, .aqua, .flame, .lilac, .gold, .sky, .ember, .moss, .indigo, .orchid]
+    /// Rim glow: light around the edges and a dark center (like a lit bezel).
+    static func rim(_ a: Color, _ b: Color, base: Color = Color(hex: 0x0B0B10)) -> GlowPalette {
+        GlowPalette(base: base, blobs: [
+            Blob(color: a, x: 0, y: 0, size: 0.75, strength: 0.95),
+            Blob(color: b, x: 1, y: 1, size: 0.75, strength: 0.95),
+            Blob(color: b, x: 1, y: 0, size: 0.5, strength: 0.7),
+            Blob(color: a, x: 0, y: 1, size: 0.5, strength: 0.7),
+            Blob(color: base, x: 0.5, y: 0.5, size: 0.5, strength: 0.95),
+        ])
+    }
+    static let rimViolet = rim(Color(hex: 0x8B6CFF), Color(hex: 0x4E7BFF))
+    static let rimTeal = rim(Color(hex: 0x2FE0C0), Color(hex: 0x2A7BFF))
+    static let rimRose = rim(Color(hex: 0xFF5FA8), Color(hex: 0xFF8A3D))
+    static let rimAmber = rim(Color(hex: 0xFFB13D), Color(hex: 0xE8FF5A))
+    static let rimSky = rim(Color(hex: 0xA7C4FF), Color(hex: 0x7CF5FF))
+    static let rimMoss = rim(Color(hex: 0x86F2CF), Color(hex: 0x2E9D5F))
+    static let rimLilac = rim(Color(hex: 0xC8B6FF), Color(hex: 0xFF8FC7))
+
+    /// Every palette in a pleasing order, washes and rims alternating, to mix colors across a
+    /// row or grid of tiles.
+    static let mix: [GlowPalette] = [.violet, .rimTeal, .citrus, .rimRose, .aqua, .rimViolet, .flame, .rimSky,
+                                     .lilac, .rimAmber, .gold, .rimMoss, .rose, .rimLilac, .sky, .ember]
 
     /// The `i`th palette of the mix (wraps around), so neighbouring tiles differ.
     static func mixed(_ i: Int) -> GlowPalette { mix[((i % mix.count) + mix.count) % mix.count] }
@@ -396,5 +416,251 @@ struct DotMatrixText: View {
         }
         .frame(width: max(width, 0), height: pitch * 7)
         .accessibilityLabel(text)
+    }
+}
+
+
+// MARK: - Tiles and grids (same-size squares; tall and wide spans)
+
+enum GlowTileShape { case square, wide, tall }
+
+/// A glow tile: a small label and note at the top, a fun graphic in the middle, the figure at
+/// the bottom. Squares in a group are all one size; a tall tile spans two squares, a wide one
+/// the full row (see `GlowSquares`, `GlowTallRow`).
+struct GlowTile<Graphic: View>: View {
+    var label: String
+    var note: String? = nil
+    var value: String? = nil
+    var unit: String? = nil
+    var palette: GlowPalette
+    var shape: GlowTileShape = .square
+    var badge: String? = nil
+    @ViewBuilder var graphic: Graphic
+
+    var body: some View {
+        let shapeR = RoundedRectangle(cornerRadius: 28, style: .continuous)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 6) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(label).font(.geist(13, .medium)).lineLimit(1).minimumScaleFactor(0.8)
+                    if let note { Text(note).font(.geist(11)).opacity(0.6).lineLimit(1) }
+                }
+                Spacer(minLength: 0)
+                if let badge {
+                    Text(badge).font(.geist(11, .semibold)).monospacedDigit()
+                        .padding(.horizontal, 8).padding(.vertical, 4)
+                        .background(.black.opacity(0.3), in: Capsule())
+                }
+            }
+            Spacer(minLength: 6)
+            graphic.frame(maxWidth: .infinity)
+            Spacer(minLength: 6)
+            if let value {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text(value).font(.geist(shape == .square ? 28 : 34)).tracking(-1).monospacedDigit()
+                        .lineLimit(1).minimumScaleFactor(0.5)
+                    if let unit { Text(unit).font(.geist(13)).opacity(0.7) }
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .foregroundStyle(palette.ink)
+        .background { GlowFill(palette: palette) }
+        .clipShape(shapeR)
+        .overlay(shapeR.strokeBorder(.white.opacity(0.08)))
+        .modifier(TileAspect(shape: shape))
+    }
+}
+
+/// Squares are 1:1 and wide tiles two squares wide; tall tiles take the height they're given.
+private struct TileAspect: ViewModifier {
+    var shape: GlowTileShape
+
+    func body(content: Content) -> some View {
+        switch shape {
+        case .square: content.aspectRatio(1, contentMode: .fit)
+        case .wide: content.aspectRatio(GlowGrid.wideRatio, contentMode: .fit)
+        case .tall: content
+        }
+    }
+}
+
+enum GlowGrid {
+    static let spacing: CGFloat = 10
+    /// A wide tile is two squares and the gap: about 2.06 : 1 at phone widths.
+    static let wideRatio: CGFloat = 2.06
+}
+
+/// Two square tiles side by side, the same size.
+struct GlowSquares<A: View, B: View>: View {
+    @ViewBuilder var a: A
+    @ViewBuilder var b: B
+
+    var body: some View {
+        HStack(spacing: GlowGrid.spacing) { a; b }
+    }
+}
+
+/// A tall tile beside two stacked squares: the tall one is exactly their combined height.
+struct GlowTallRow<T: View, A: View, B: View>: View {
+    var tallOnRight = false
+    @ViewBuilder var tall: T
+    @ViewBuilder var a: A
+    @ViewBuilder var b: B
+
+    var body: some View {
+        HStack(spacing: GlowGrid.spacing) {
+            if tallOnRight {
+                VStack(spacing: GlowGrid.spacing) { a; b }
+                tall.frame(maxHeight: .infinity)
+            } else {
+                tall.frame(maxHeight: .infinity)
+                VStack(spacing: GlowGrid.spacing) { a; b }
+            }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+// MARK: - Little graphics
+
+/// A mini bar chart; the highlighted bar (default the last) is solid with a marker over it.
+struct GlowBars: View {
+    var values: [Double]
+    var highlight: Int? = nil
+
+    var body: some View {
+        Canvas { ctx, size in
+            guard !values.isEmpty else { return }
+            let top = max(values.map { abs($0) }.max() ?? 1, 0.0001)
+            let n = CGFloat(values.count)
+            let gap: CGFloat = 3
+            let w = max(1.5, (size.width - gap * (n - 1)) / n)
+            let hi = highlight ?? values.count - 1
+            for (i, v) in values.enumerated() {
+                let h = max(3, (size.height - 10) * CGFloat(abs(v) / top))
+                let r = CGRect(x: CGFloat(i) * (w + gap), y: size.height - h, width: w, height: h)
+                ctx.fill(Path(roundedRect: r, cornerRadius: min(w / 2, 2)), with: .color(.white.opacity(i == hi ? 1 : 0.35)))
+                if i == hi {
+                    var t = Path()
+                    t.move(to: CGPoint(x: r.midX - 4, y: r.minY - 9))
+                    t.addLine(to: CGPoint(x: r.midX + 4, y: r.minY - 9))
+                    t.addLine(to: CGPoint(x: r.midX, y: r.minY - 3))
+                    t.closeSubpath()
+                    ctx.fill(t, with: .color(Color(hex: 0xFFF36A)))
+                }
+            }
+        }
+    }
+}
+
+/// A row of dots whose size and brightness follow the values (a variability strip).
+struct GlowDotRow: View {
+    var values: [Double]
+
+    var body: some View {
+        Canvas { ctx, size in
+            guard !values.isEmpty else { return }
+            let top = max(values.map { abs($0) }.max() ?? 1, 0.0001)
+            let step = size.width / CGFloat(values.count)
+            for (i, v) in values.enumerated() {
+                let f = CGFloat(abs(v) / top)
+                let d = 2 + 5 * f
+                let r = CGRect(x: step * (CGFloat(i) + 0.5) - d / 2, y: size.height / 2 - d / 2, width: d, height: d)
+                ctx.fill(Path(ellipseIn: r), with: .color(.white.opacity(0.35 + 0.65 * Double(f))))
+            }
+        }
+    }
+}
+
+/// Concentric rings, the inner `filled` ones bright (an aura).
+struct GlowRings: View {
+    var count = 4
+    var filled = 2
+
+    var body: some View {
+        ZStack {
+            ForEach(0 ..< count, id: \.self) { i in
+                Circle()
+                    .stroke(.white.opacity(i < filled ? 0.9 : 0.25), lineWidth: 1)
+                    .scaleEffect(CGFloat(i + 1) / CGFloat(count))
+            }
+        }
+        .aspectRatio(1, contentMode: .fit)
+    }
+}
+
+/// A sun rising over a horizon: higher as `fraction` grows.
+struct GlowSun: View {
+    var fraction: Double
+
+    var body: some View {
+        GeometryReader { geo in
+            let d = min(geo.size.width * 0.62, geo.size.height * 1.4)
+            let horizon = geo.size.height * 0.72
+            let rise = CGFloat(min(max(fraction, 0), 1)) * d * 0.55
+            ZStack(alignment: .topLeading) {
+                Circle()
+                    .fill(LinearGradient(colors: [.white, Color(hex: 0xA7C4FF)], startPoint: .top, endPoint: .bottom))
+                    .frame(width: d, height: d)
+                    .position(x: geo.size.width / 2, y: horizon + d / 2 - rise)
+                Rectangle().fill(.black.opacity(0.45))
+                    .frame(width: geo.size.width, height: geo.size.height - horizon)
+                    .offset(y: horizon)
+                Rectangle().fill(.white.opacity(0.5)).frame(width: geo.size.width, height: 1).offset(y: horizon)
+            }
+            .clipped()
+        }
+    }
+}
+
+/// A square grid of dots, filled to `fraction` (left to right, top to bottom).
+struct GlowDotGrid: View {
+    var fraction: Double
+    var side = 5
+
+    var body: some View {
+        Canvas { ctx, size in
+            let n = side * side
+            let lit = Int((Double(n) * min(max(fraction, 0), 1)).rounded())
+            let pitch = min(size.width, size.height) / CGFloat(side)
+            let d = pitch * 0.55
+            let ox = (size.width - pitch * CGFloat(side)) / 2
+            let oy = (size.height - pitch * CGFloat(side)) / 2
+            for i in 0 ..< n {
+                let x = ox + CGFloat(i % side) * pitch + (pitch - d) / 2
+                let y = oy + CGFloat(i / side) * pitch + (pitch - d) / 2
+                ctx.fill(Path(ellipseIn: CGRect(x: x, y: y, width: d, height: d)), with: .color(.white.opacity(i < lit ? 0.95 : 0.2)))
+            }
+        }
+        .aspectRatio(1, contentMode: .fit)
+    }
+}
+
+/// A thin line with the yellow marker on its last point.
+struct GlowLine: View {
+    var values: [Double]
+
+    var body: some View {
+        Canvas { ctx, size in
+            guard values.count > 1, let lo = values.min(), let hi = values.max() else { return }
+            let span = max(hi - lo, 0.0001)
+            let pts = values.enumerated().map { i, v in
+                CGPoint(x: size.width * CGFloat(i) / CGFloat(values.count - 1),
+                        y: 8 + (size.height - 12) * CGFloat(1 - (v - lo) / span))
+            }
+            var p = Path()
+            p.addLines(pts)
+            ctx.stroke(p, with: .color(.white), style: StrokeStyle(lineWidth: 1.4, lineCap: .round, lineJoin: .round))
+            if let last = pts.last {
+                var t = Path()
+                t.move(to: CGPoint(x: last.x - 5, y: last.y - 11))
+                t.addLine(to: CGPoint(x: last.x + 5, y: last.y - 11))
+                t.addLine(to: CGPoint(x: last.x, y: last.y - 3))
+                t.closeSubpath()
+                ctx.fill(t, with: .color(Color(hex: 0xFFF36A)))
+            }
+        }
     }
 }

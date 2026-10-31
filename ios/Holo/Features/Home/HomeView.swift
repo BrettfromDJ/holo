@@ -437,28 +437,45 @@ private struct MetricGrid: View {
     var body: some View {
         let s = store.summary
         let whole: (Double) -> String = { GlowFigure.text($0, signed: true, cents: false) }
+        let months = Array(Analytics.monthlyActivity(store.portfolioTransactions, today: Format.day()).suffix(10)).map(\.invested)
+        let recent = Array(store.timeline.suffix(21)).map(\.value)
+        let worths = Array(store.holdings.compactMap(\.value).prefix(18))
         VStack(spacing: 10) {
-            HStack(spacing: 10) {
-                MetricCard(label: "Invested", amount: s.totalCost, format: { Format.moneyWhole($0) }, sub: "incl. fees & shipping", palette: .sky)
+            // Lucent tiles: a tall one beside two squares, then a wide one, each with its own
+            // little graphic and its own colors.
+            GlowTallRow {
                 NavigationLink(value: MorePage.gains) {
-                    MetricCard(label: "Unrealized", amount: s.gain, format: whole, sub: "Breakdown →",
-                               palette: .homeToned(s.gain, up: .gold, down: .down),
-                               tag: s.gainRatio.map { pct($0, decimals: 0) })
+                    GlowTile(label: "Unrealized", note: "Tap for the breakdown", value: whole(s.gain),
+                             palette: s.gain < 0 ? .rimRose : .rimTeal, shape: .tall,
+                             badge: s.gainRatio.map { pct($0, decimals: 0) }) {
+                        GlowSun(fraction: min(abs(s.gainRatio ?? 0), 1)).frame(height: 120)
+                    }
                 }
                 .buttonStyle(.plain)
-            }
-            HStack(spacing: 10) {
-                MetricCard(label: "Today", amount: s.dayChange, format: whole, sub: "since yesterday's close",
-                           palette: .homeToned(s.dayChange, up: .citrus, down: .rose),
-                           tag: s.dayRatio.map { pct($0, decimals: 2) })
-                Button {
-                    Router.shared.tabRequest = "collection"
-                } label: {
-                    MetricCard(label: "Collection", amount: s.items, format: { "\(Int($0.rounded())) items" }, sub: "\(store.holdings.count) products",
-                               palette: .lilac)
+            } a: {
+                GlowTile(label: "Today", value: whole(s.dayChange),
+                         palette: s.dayChange < 0 ? .down : .citrus, badge: s.dayRatio.map { pct($0, decimals: 2) }) {
+                    GlowLine(values: recent).frame(height: 34)
                 }
-                .buttonStyle(.plain)
+            } b: {
+                GlowTile(label: "Invested", note: "by month", value: Format.moneyWhole(s.totalCost), palette: .rimViolet) {
+                    GlowBars(values: months).frame(height: 34)
+                }
             }
+            Button {
+                Router.shared.tabRequest = "collection"
+            } label: {
+                GlowTile(label: "Collection", note: "\(store.holdings.count) products · each dot one of them", palette: .rimAmber, shape: .wide) {
+                    HStack(alignment: .center, spacing: 16) {
+                        DotMatrixText(text: "\(Int(s.items.rounded()))", dot: 5)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("items").font(.geist(13)).opacity(0.7)
+                            GlowDotRow(values: worths).frame(height: 14)
+                        }
+                    }
+                }
+            }
+            .buttonStyle(.plain)
             BudgetCard(store: store)
             PriceFreshness(refreshedAt: store.pricesRefreshedAt, onReload: onReload)
         }
