@@ -109,11 +109,11 @@ export function HypeHero({
             {summary.holdingsCount} products · {summary.unitCount} items
           </p>
           <h1 className="mt-3 font-display text-[clamp(30px,9vw,40px)] uppercase leading-[0.95] tracking-[0.005em] sm:text-[68px] lg:text-[56px]">
-            <span className="block text-[clamp(22px,6.4vw,28px)] sm:text-[68px] lg:text-[44px] xl:text-[52px]">
+            <span className="block text-[clamp(22px,6.4vw,28px)] sm:text-[68px] lg:text-[28px] xl:text-[32px]">
               Your collection<span className="sm:hidden">&apos;s</span>
               <span className="hidden sm:inline"> is</span> worth
             </span>
-            <span className="tabular mt-1 block text-[clamp(52px,16vw,72px)] text-lime drop-shadow-[0_0_28px_color-mix(in_srgb,var(--lime)_45%,transparent)] sm:mt-0 sm:text-[68px] lg:mt-1 lg:text-[84px] xl:text-[96px]">
+            <span className="tabular mt-1 block text-[clamp(52px,16vw,72px)] text-lime drop-shadow-[0_0_28px_color-mix(in_srgb,var(--lime)_45%,transparent)] sm:mt-0 sm:text-[68px] lg:mt-2 lg:text-[56px] xl:text-[64px]">
               <AnimatedNumber
                 value={summary.marketValue}
                 format={money}
