@@ -323,16 +323,22 @@ private struct FanPiece: View {
     }
 }
 
-/// The stats under your collection's worth, as the same glass tiles Collection uses.
+/// Stat pills that wrap onto a second line when they don't fit.
 private struct FlowPills: View {
     var pills: [(String, String, Color, String?)]
 
     var body: some View {
-        HStack(spacing: 8) {
-            ForEach(pills.indices, id: \.self) { i in
-                GlassStatTile(label: pills[i].0, value: pills[i].1, tint: pills[i].2, extra: pills[i].3)
+        ViewThatFits {
+            HStack(spacing: 8) { ForEach(pills.indices, id: \.self) { pill(pills[$0]) } }
+            VStack(spacing: 8) {
+                HStack(spacing: 8) { ForEach(pills.indices.prefix(2), id: \.self) { pill(pills[$0]) } }
+                HStack(spacing: 8) { ForEach(pills.indices.dropFirst(2), id: \.self) { pill(pills[$0]) } }
             }
         }
+    }
+
+    private func pill(_ p: (String, String, Color, String?)) -> some View {
+        StatPill(label: p.0, value: p.1, tint: p.2, extra: p.3)
     }
 }
 
