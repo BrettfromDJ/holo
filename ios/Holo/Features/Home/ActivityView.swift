@@ -114,9 +114,12 @@ struct ActivityView: View {
         return VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 8) {
                 MonoLabel(text: "Activity")
-                CountingText(value: Double(count), format: { "\(Int($0.rounded()))" })
-                    .font(.display(56)).monospacedDigit().lineLimit(1).displayTrim(56)
-                Text("\(count == 1 ? "entry" : "entries"): every purchase, sale and adjustment").font(.geist(13)).foregroundStyle(Theme.muted)
+                HStack(alignment: .lastTextBaseline, spacing: 10) {
+                    CountingText(value: Double(count), format: { "\(Int($0.rounded()))" })
+                        .font(.display(56)).monospacedDigit().lineLimit(1).displayTrim(56)
+                    Text(count == 1 ? "ENTRY" : "ENTRIES").font(.display(24)).foregroundStyle(Theme.muted).displayTrim(24)
+                }
+                Text("Every purchase, sale and adjustment").font(.geist(13)).foregroundStyle(Theme.muted)
             }
             .padding(.top, 8)
             HStack(spacing: 8) {

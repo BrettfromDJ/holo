@@ -130,7 +130,7 @@ struct HomeView: View {
                 // Opens search with the keyboard already up.
                 SearchFieldButton(prompt: "Search any card or sealed product") { search = true }
                     .padding(.horizontal, 16)
-                Hero(store: store, onRecap: { recap = true }, onAdd: { adding = true })
+                Hero(store: store, onRecap: { recap = true }, onAdd: { Router.shared.addMenu = true })
             }
             PerformanceSection(store: store).padding(.horizontal, 16).reveal()
             MetricGrid(store: store, onReload: refresh).padding(.horizontal, 16).reveal()

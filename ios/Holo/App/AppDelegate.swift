@@ -45,6 +45,8 @@ final class Router {
     var collectionCategory: HoldingCategory?
     /// Something just added to the collection, for the "pack pull" reveal.
     var pull: PullEvent?
+    /// Another screen (Home's "Add to Collection") asked for the add menu.
+    var addMenu = false
 }
 
 /// A purchase just saved: what it was, how many, and the collection's value just before.

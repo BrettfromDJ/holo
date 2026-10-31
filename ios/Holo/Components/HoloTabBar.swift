@@ -10,6 +10,8 @@ struct HoloTabBar<Tab: Hashable>: View {
 
     var items: [Item]
     @Binding var selection: Tab
+    /// The add menu is open: the + turns into a ×.
+    var plusOpen = false
     var onPlus: () -> Void
 
     var body: some View {
@@ -29,6 +31,8 @@ struct HoloTabBar<Tab: Hashable>: View {
                 Image(systemName: "plus")
                     .font(.system(size: 26, weight: .medium))
                     .foregroundStyle(Theme.ink)
+                    .rotationEffect(.degrees(plusOpen ? 135 : 0))
+                    .animation(.spring(response: 0.4, dampingFraction: 0.65), value: plusOpen)
                     .frame(width: 64, height: 64)
                     .background(
                         ZStack {
@@ -41,7 +45,7 @@ struct HoloTabBar<Tab: Hashable>: View {
                     )
                     .shadow(color: Theme.lime.opacity(0.4), radius: 12, y: 2)
             }
-            .accessibilityLabel("Add")
+            .accessibilityLabel(plusOpen ? "Close" : "Add")
             .offset(y: -18)
         }
         .padding(.horizontal, 14)

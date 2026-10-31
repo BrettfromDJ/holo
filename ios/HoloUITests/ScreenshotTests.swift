@@ -37,6 +37,15 @@ final class ScreenshotTests: XCTestCase {
     func testGains() { capture("gains", args: ["-HoloPage", "gains"], pages: 3) }
     func testWhatIfSell() { capture("what-if-sell", args: ["-HoloProduct", "sample:umbreon-vmax-alt", "-HoloWhatIf"], pages: 2) }
     func testSlabBumper() { capture("slab-bumper", args: ["-HoloDemoKind", "graded", "-HoloBumper", "-HoloProduct", "sample:umbreon-vmax-alt"], pages: 3) }
+    func testAddMenu() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-HoloDemo"]
+        app.launch()
+        sleep(4)
+        app.buttons["Add"].firstMatch.tap()
+        sleep(2)
+        save(app.screenshot(), "add-menu-0")
+    }
     func testPullReveal() { capture("pull-reveal", args: ["-HoloPull"], pages: 1) }
     func testActivity() { capture("activity", args: ["-HoloPage", "activity"], pages: 3) }
     func testMasterSets() { capture("master-sets", args: ["-HoloDemoKind", "singles", "-HoloPage", "master-sets"], pages: 2) }

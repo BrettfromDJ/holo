@@ -147,6 +147,11 @@ struct MainTabView: View {
         }
         // The website's bar: Overview, Collection, the lime +, Explore, Deal. It floats over the
         // pages (each page leaves room under its last card), so content shows through the glass.
+        // The add menu: Scan and Search pop out from behind the + (drawn under the bar, so the
+        // + stays on top and turns into a ×).
+        .overlay {
+            AddMenu(open: $adding, onScan: { scanning = true }, onSearch: { searching = true })
+        }
         .overlay(alignment: .bottom) {
             HoloTabBar(
                 items: [
@@ -156,7 +161,8 @@ struct MainTabView: View {
                     .init(tab: .deal, title: "Deal", icon: "arrow.left.arrow.right"),
                 ],
                 selection: $tab,
-                onPlus: { adding = true }
+                plusOpen: adding,
+                onPlus: { withAnimation(.spring(response: 0.42, dampingFraction: 0.72)) { adding.toggle() } }
             )
         }
         // The "pack pull" reveal after a purchase is saved.
@@ -175,9 +181,10 @@ struct MainTabView: View {
             if request == "collection" { tab = .collection }
             router.tabRequest = nil
         }
-        .confirmationDialog("Add to your collection", isPresented: $adding) {
-            Button("Scan cards") { scanning = true }
-            Button("Search and add") { searching = true }
+        .onChange(of: router.addMenu) { _, open in
+            guard open else { return }
+            router.addMenu = false
+            withAnimation(.spring(response: 0.42, dampingFraction: 0.72)) { adding = true }
         }
         .fullScreenCover(isPresented: $scanning) { ScanView() }
         .fullScreenCover(isPresented: $searching) { SearchScreen(mode: .add) }
