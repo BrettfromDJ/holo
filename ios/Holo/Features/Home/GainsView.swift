@@ -35,7 +35,7 @@ struct GainsView: View {
     }
 
     var body: some View {
-        let a = Gains.attribute(holdings: store.holdings, transactions: store.transactions, products: store.products,
+        let a = Gains.attribute(holdings: store.holdings, transactions: store.portfolioTransactions, products: store.products,
                                 mode: mode, group: group, maxRows: expanded ? nil : Self.collapsedRows)
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {

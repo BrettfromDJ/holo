@@ -7,6 +7,7 @@ struct HoloApp: App {
     @State private var store = CollectionStore()
     @State private var deals = DealStore()
     @State private var grading = GradingStore()
+    @State private var groups = GroupsStore()
 
     init() {
         Fonts.applyAppearance()
@@ -19,6 +20,7 @@ struct HoloApp: App {
                 .environment(store)
                 .environment(deals)
                 .environment(grading)
+                .environment(groups)
                 .preferredColorScheme(.dark)
                 .tint(Theme.lime)
                 .font(.geist(15))
@@ -31,6 +33,7 @@ struct RootView: View {
     @Environment(CollectionStore.self) private var store
     @Environment(DealStore.self) private var deals
     @Environment(GradingStore.self) private var grading
+    @Environment(GroupsStore.self) private var groups
 
     var body: some View {
         Group {
@@ -41,6 +44,7 @@ struct RootView: View {
                         store.loadDemo(Demo.value("-HoloDemoKind").flatMap(DemoKind.init(rawValue:)) ?? .mixed)
                         if let id = Demo.value("-HoloProduct") { Router.shared.product = id }
                         if ProcessInfo.processInfo.arguments.contains("-HoloDealDemo") { deals.loadDemo(from: store) }
+                        Task { await groups.load(userId: nil, store: store) }
                     }
             } else if !AppConfig.isConfigured {
                 NotConfiguredView()
@@ -56,6 +60,7 @@ struct RootView: View {
                             await PushRegistration.refreshIfAllowed()
                             if let kind = DemoKind.selected { store.loadDemo(kind) } else { await store.load(userId: userId) }
                             await deals.load(userId: userId)
+                            await groups.load(userId: store.demo == nil ? userId : nil, store: store)
                         }
                 }
             }
@@ -66,6 +71,7 @@ struct RootView: View {
                 store.reset()
                 deals.reset()
                 grading.reset()
+                groups.reset()
             }
         }
     }

@@ -6,6 +6,7 @@ import SwiftUI
 struct HomeView: View {
     var onScan: () -> Void
     @Environment(CollectionStore.self) private var store
+    @Environment(GroupsStore.self) private var groups
     @Environment(SessionModel.self) private var session
     @State private var account = false
     @State private var lists = false
@@ -102,6 +103,17 @@ struct HomeView: View {
                             Text("\(demo.title) · made-up prices, nothing is saved").font(.geist(12)).foregroundStyle(Theme.muted)
                             Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.subtle)
                         }
+                    }
+                    .buttonStyle(.plain)
+                }
+                if groups.selected != GroupsStore.all {
+                    // The numbers below cover one portfolio (picked on Collection, or on the website).
+                    Button { groups.select(GroupsStore.all, store: store) } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "folder").font(.system(size: 11, weight: .semibold))
+                            Text("Showing \(groups.name(of: groups.selected)) · show all").font(.geist(12))
+                        }
+                        .foregroundStyle(Theme.muted)
                     }
                     .buttonStyle(.plain)
                 }

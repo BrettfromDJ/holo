@@ -350,6 +350,7 @@ private struct ReturnSheet: View {
     var submission: GradingStore.Submission
     @Environment(GradingStore.self) private var grading
     @Environment(CollectionStore.self) private var store
+    @Environment(GroupsStore.self) private var groups
     @Environment(\.dismiss) private var dismiss
     @State private var grade = "10"
     @State private var date = Date()
@@ -388,7 +389,11 @@ private struct ReturnSheet: View {
         saving = true
         defer { saving = false }
         do {
+            let from = groups.portfolioOf(submission.rawIdentity.key)
             try await grading.complete(submission, grade: grade, date: Format.day(date), store: store)
+            // Keep the slab in the same portfolio as the raw card it came from.
+            let slab = HoldingIdentity(productId: submission.productId, printing: submission.printing, condition: "Near Mint", gradeCompany: submission.company, grade: grade)
+            if from != GroupsStore.main { try await groups.move(slab.key, to: from, store: store) }
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             dismiss()
         } catch {

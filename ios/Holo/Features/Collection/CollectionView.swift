@@ -6,7 +6,24 @@ struct CollectionView: View {
     var onScan: () -> Void
     @Environment(CollectionStore.self) private var store
     @Environment(SessionModel.self) private var session
+    @Environment(GroupsStore.self) private var groups
     @State private var adding = false
+    @State private var shelfId: String?
+    /// The name being typed for a new shelf or portfolio, and which one it's for.
+    @State private var naming: Naming?
+    @State private var name = ""
+    @State private var groupError: String?
+
+    enum Naming: Identifiable {
+        case shelf, portfolio, renamePortfolio(String)
+        var id: String {
+            switch self {
+            case .shelf: "shelf"
+            case .portfolio: "portfolio"
+            case let .renamePortfolio(id): "rename-\(id)"
+            }
+        }
+    }
     @FocusState private var searchFocused: Bool
     @State private var query = ""
     @State private var category: HoldingCategory?
@@ -20,7 +37,9 @@ struct CollectionView: View {
 
     private var shown: [HoldingView] {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+        let shelf = groups.shelves.first { $0.id == shelfId }
         let filtered = store.holdings.filter { h in
+            (shelf == nil || shelf!.product_ids.contains(h.identity.productId)) &&
             (category == nil || h.category == category) &&
                 (q.isEmpty || (h.product?.name ?? "").lowercased().contains(q) || (h.product?.setName ?? "").lowercased().contains(q))
         }
@@ -51,6 +70,8 @@ struct CollectionView: View {
                     .padding(32)
                 case .ready:
                     VStack(alignment: .leading, spacing: 20) {
+                        portfolioSwitcher
+                        if let groupError { Text(groupError).font(.geist(13)).foregroundStyle(Theme.muted) }
                         header
                         if store.holdings.isEmpty {
                             empty
@@ -93,6 +114,76 @@ struct CollectionView: View {
             .fullScreenCover(isPresented: $adding) { SearchScreen(mode: .add) }
             .onAppear { applyRequest() }
             .onChange(of: router.collectionCategory) { _, _ in applyRequest() }
+        }
+    }
+
+    /// All portfolios, Main, or one of yours: filters every number, like the website's switcher.
+    private var portfolioSwitcher: some View {
+        Menu {
+            Picker("Portfolio", selection: Binding(get: { groups.selected }, set: { groups.select($0, store: store) })) {
+                Text("All portfolios").tag(GroupsStore.all)
+                Text("Main").tag(GroupsStore.main)
+                ForEach(groups.portfolios) { Text($0.name).tag($0.id) }
+            }
+            Divider()
+            Button { naming = .portfolio } label: { Label("New portfolio…", systemImage: "plus") }
+            if groups.portfolios.contains(where: { $0.id == groups.selected }) {
+                let id = groups.selected
+                Button { name = groups.name(of: id); naming = .renamePortfolio(id) } label: { Label("Rename portfolio…", systemImage: "pencil") }
+                Button(role: .destructive) {
+                    Task { await groupRun { try await groups.removePortfolio(id, store: store) } }
+                } label: { Label("Delete portfolio", systemImage: "trash") }
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "folder").font(.system(size: 13, weight: .semibold))
+                Text(groups.name(of: groups.selected)).font(.geist(14, .semibold))
+                Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 14).frame(height: 36)
+            .liquidGlass(in: Capsule())
+        }
+        .alert(namingTitle, isPresented: Binding(get: { naming != nil }, set: { if !$0 { naming = nil } })) {
+            TextField("Name", text: $name)
+            Button("Cancel", role: .cancel) { name = "" }
+            Button("Save") { saveName() }
+        }
+    }
+
+    private var namingTitle: String {
+        switch naming {
+        case .shelf: "New shelf"
+        case .portfolio: "New portfolio"
+        case .renamePortfolio: "Rename portfolio"
+        case nil: ""
+        }
+    }
+
+    private func saveName() {
+        let value = String(name.trimmingCharacters(in: .whitespaces).prefix(40))
+        let what = naming
+        name = ""
+        naming = nil
+        guard !value.isEmpty, let what else { return }
+        Task {
+            await groupRun {
+                switch what {
+                case .shelf: shelfId = try await groups.createShelf(value).id
+                case .portfolio: try await groups.createPortfolio(value, store: store)
+                case let .renamePortfolio(id): try await groups.renamePortfolio(id, to: value)
+                }
+            }
+        }
+    }
+
+    @MainActor
+    private func groupRun(_ work: () async throws -> Void) async {
+        do {
+            groupError = nil
+            try await work()
+        } catch {
+            groupError = error.localizedDescription
         }
     }
 
@@ -181,11 +272,27 @@ struct CollectionView: View {
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 2) {
-                    Chip(title: "All", selected: category == nil, count: store.holdings.count) { category = nil }
+                    Chip(title: "All", selected: category == nil && shelfId == nil, count: store.holdings.count) { category = nil; shelfId = nil }
                     ForEach(HoldingCategory.allCases) { c in
                         let n = store.holdings.filter { $0.category == c }.count
-                        if n > 0 { Chip(title: c.rawValue, selected: category == c, count: n) { category = c } }
+                        if n > 0 { Chip(title: c.rawValue, selected: category == c && shelfId == nil, count: n) { category = c; shelfId = nil } }
                     }
+                    // Your shelves (shared with the website); hold one to rename or delete it.
+                    ForEach(groups.shelves) { shelf in
+                        let n = store.holdings.filter { shelf.product_ids.contains($0.identity.productId) }.count
+                        Chip(title: shelf.name, selected: shelfId == shelf.id, count: n) { shelfId = shelf.id; category = nil }
+                            .contextMenu {
+                                Button("Delete shelf", role: .destructive) {
+                                    if shelfId == shelf.id { shelfId = nil }
+                                    Task { await groupRun { try await groups.removeShelf(shelf.id) } }
+                                }
+                            }
+                    }
+                    Button { naming = .shelf } label: {
+                        Label("Shelf", systemImage: "plus").font(.geist(14, .semibold)).foregroundStyle(Theme.muted)
+                            .padding(.horizontal, 14).frame(height: 36)
+                    }
+                    .buttonStyle(.plain)
                 }
                 .padding(4)
                 .liquidGlass(in: Capsule())

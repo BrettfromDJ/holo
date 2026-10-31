@@ -12,7 +12,12 @@ final class CollectionStore {
     var products: [String: Product] = [:]
     var prices: [String: Price] = [:]
     var history: [String: [PricePoint]] = [:]
+    /// What you hold in the selected portfolio (everything when none is picked).
     var holdings: [HoldingView] = []
+    /// Everything you hold, whatever portfolio is selected (deals use these).
+    var allHoldings: [HoldingView] = []
+    /// Which holdings the selected portfolio covers, by holding key; nil shows everything.
+    var holdingFilter: ((String) -> Bool)? { didSet { recompute(timelineNow: true) } }
     var summary = PortfolioSummary()
     var timeline: [TimelinePoint] = []
     var watchlist: [WatchRow] = []
@@ -39,6 +44,7 @@ final class CollectionStore {
         prices = [:]
         history = [:]
         holdings = []
+        allHoldings = []
         summary = PortfolioSummary()
         timeline = []
         watchlist = []
@@ -182,12 +188,19 @@ final class CollectionStore {
     /// Holdings and totals update at once (screens read them right after a change). The
     /// value-over-time history is the expensive part, so several changes in a row (a deal closing
     /// many items) rebuild it once, just after the last one.
+    /// The log for the selected portfolio.
+    var portfolioTransactions: [Txn] {
+        guard let holdingFilter else { return transactions }
+        return transactions.filter { holdingFilter($0.identity.key) }
+    }
+
     private func recompute(timelineNow: Bool = false) {
-        holdings = Portfolio.holdings(transactions: transactions, products: products, prices: prices, manualValues: manualValues, ebayGraded: ebayGraded, conditionShares: conditionShares)
-        let realized = Ledger(transactions).positions.values.reduce(0) { $0 + $1.realizedGain }
+        allHoldings = Portfolio.holdings(transactions: transactions, products: products, prices: prices, manualValues: manualValues, ebayGraded: ebayGraded, conditionShares: conditionShares)
+        holdings = holdingFilter.map { f in allHoldings.filter { f($0.identity.key) } } ?? allHoldings
+        let realized = Ledger(portfolioTransactions).positions.values.reduce(0) { $0 + $1.realizedGain }
         summary = Portfolio.summary(holdings, realized: realized)
         if timelineNow {
-            timeline = Timeline.compute(transactions: transactions, prices: prices, history: history, manualValues: manualValues, ebayGraded: ebayGraded, conditionShares: conditionShares, today: today)
+            timeline = Timeline.compute(transactions: portfolioTransactions, prices: prices, history: history, manualValues: manualValues, ebayGraded: ebayGraded, conditionShares: conditionShares, today: today)
             return
         }
         guard !timelinePending else { return }
@@ -196,7 +209,7 @@ final class CollectionStore {
             // Long enough to catch the next write of a batch (they each wait on the network).
             try? await Task.sleep(nanoseconds: 400_000_000)
             self.timelinePending = false
-            self.timeline = Timeline.compute(transactions: self.transactions, prices: self.prices, history: self.history,
+            self.timeline = Timeline.compute(transactions: self.portfolioTransactions, prices: self.prices, history: self.history,
                                              manualValues: self.manualValues, ebayGraded: self.ebayGraded, conditionShares: self.conditionShares, today: self.today)
         }
     }
@@ -209,7 +222,7 @@ final class CollectionStore {
     /// a day on the server), and value those copies from them instead of a fixed share.
     @MainActor
     private func loadConditionShares() async {
-        let played = holdings.filter { !$0.identity.isGraded && $0.identity.productId.hasPrefix("tcgapi:")
+        let played = allHoldings.filter { !$0.identity.isGraded && $0.identity.productId.hasPrefix("tcgapi:")
             && $0.identity.condition != CardCondition.nearMint.rawValue && $0.identity.condition != "Sealed" }
         guard !played.isEmpty else { return }
         var found: [String: Double] = [:]
@@ -230,7 +243,7 @@ final class CollectionStore {
     /// grade sold at least 3 times, else PriceCharting's value, else the last eBay sale.
     @MainActor
     private func loadSlabPrices() async {
-        let graded = holdings.filter { $0.identity.isGraded && $0.identity.productId.hasPrefix("tcgapi:") }
+        let graded = allHoldings.filter { $0.identity.isGraded && $0.identity.productId.hasPrefix("tcgapi:") }
         guard !graded.isEmpty else { return }
         let ids = Array(Set(graded.map(\.identity.productId)))
         async let ebayLoad = try? await Backend.shared.api.ebaySummaries(ids)
@@ -256,7 +269,7 @@ final class CollectionStore {
     func showCatalogProduct(_ id: String) async {
         // Once per product per session, even if a search result already put it in `products`
         // (that's just one printing's price; this brings every printing and its history).
-        let owned = holdings.contains { $0.identity.productId == id }
+        let owned = allHoldings.contains { $0.identity.productId == id }
         guard !owned, !catalogLoaded.contains(id), let res = try? await Backend.shared.api.catalogProduct(id) else { return }
         catalogLoaded.insert(id)
         let printings = products[id]?.printings
@@ -305,7 +318,7 @@ final class CollectionStore {
             return
         }
         // It may change what your collection was worth on past days.
-        if holdings.contains(where: { $0.identity.productId == id }) { recompute() }
+        if allHoldings.contains(where: { $0.identity.productId == id }) { recompute() }
     }
 
     /// Keep a search result's product and price so its page opens instantly, even if it isn't stored yet.
@@ -460,11 +473,11 @@ final class CollectionStore {
 
     /// Copies you hold of one product.
     func holdings(for productId: String) -> [HoldingView] {
-        holdings.filter { $0.identity.productId == productId }
+        allHoldings.filter { $0.identity.productId == productId }
     }
 
     func holding(_ identity: HoldingIdentity) -> HoldingView? {
-        holdings.first { $0.identity.key == identity.key }
+        allHoldings.first { $0.identity.key == identity.key }
     }
 
     /// The Near Mint market price for a product, from the catalog.

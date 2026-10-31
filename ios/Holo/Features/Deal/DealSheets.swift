@@ -17,7 +17,7 @@ struct DealPickerSheet: View {
 
     private var owned: [HoldingView] {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
-        let all = store.holdings.filter { $0.product != nil }
+        let all = store.allHoldings.filter { $0.product != nil }
         guard !q.isEmpty else { return Array(all.prefix(40)) }
         return all.filter { h in
             let p = h.product!

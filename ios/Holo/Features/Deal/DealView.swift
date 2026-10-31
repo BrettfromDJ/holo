@@ -270,7 +270,7 @@ struct DealView: View {
         let grade = read?.kind == "slab" ? read?.grade : nil
         let sameGrade: (HoldingIdentity) -> Bool = { $0.gradeCompany == grade?.company && $0.grade == grade?.grade }
         if side == .incoming {
-            if let h = store.holdings.first(where: { $0.identity.productId == c.product.id && $0.identity.printing == c.printing && sameGrade($0.identity) }), let p = h.product {
+            if let h = store.allHoldings.first(where: { $0.identity.productId == c.product.id && $0.identity.printing == c.printing && sameGrade($0.identity) }), let p = h.product {
                 deals.add(DealItem(key: "h:\(h.identity.key)", product: p, printing: h.identity.printing, market: h.price ?? c.market, holdingKey: h.identity.key), to: .incoming)
             } else {
                 let gradeLabel = grade.map { "\($0.company) \($0.grade)" } ?? ""
@@ -278,7 +278,7 @@ struct DealView: View {
             }
             return (true, "Added to coming in")
         }
-        let owned = store.holdings.filter { $0.identity.productId == c.product.id }
+        let owned = store.allHoldings.filter { $0.identity.productId == c.product.id }
         guard let h = owned.first(where: { $0.identity.printing == c.printing && sameGrade($0.identity) }) ?? owned.first, let p = h.product else {
             // Not in Holo: it still goes in the deal, marked so, with an optional "you paid".
             let gradeLabel = grade.map { "\($0.company) \($0.grade)" } ?? ""

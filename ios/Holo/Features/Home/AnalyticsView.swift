@@ -66,7 +66,7 @@ struct AnalyticsView: View {
         let total = s.gain + s.realized
         let priced = holdings.filter { $0.gain != nil }
         let winRate = priced.isEmpty ? nil : Double(priced.filter { ($0.gain ?? 0) > 0 }.count) / Double(priced.count)
-        let sales = store.transactions.filter { $0.kind == .sale }.count
+        let sales = store.portfolioTransactions.filter { $0.kind == .sale }.count
         let short = { (d: String?) in d.flatMap { Format.isoDay.date(from: $0)?.formatted(.dateTime.month(.abbreviated).day()) } ?? "—" }
         let items: [(String, String, Color, String, Color)] = [
             ("Total return", Format.signedMoney(total), Theme.tone(total), s.totalCost > 0 ? "\(Format.signedPercent(total / s.totalCost)) on \(Format.money(s.totalCost)) invested" : "—", Theme.lime),
@@ -193,7 +193,7 @@ struct AnalyticsView: View {
     // MARK: Investment activity
 
     private var activity: some View {
-        let months = Array(Analytics.monthlyActivity(store.transactions, today: today).suffix(18))
+        let months = Array(Analytics.monthlyActivity(store.portfolioTransactions, today: today).suffix(18))
         return VStack(alignment: .leading, spacing: 14) {
             title("Investment activity", "Money invested per month, incl. fees")
             Chart(months) { m in

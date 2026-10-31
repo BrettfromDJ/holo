@@ -7,7 +7,10 @@ import SwiftUI
 struct ProductDetailView: View {
     var productId: String
     @Environment(CollectionStore.self) private var store
+    @Environment(GroupsStore.self) private var groups
     @State private var adding = false
+    @State private var naming = false
+    @State private var newShelf = ""
     @State private var managing: HoldingView?
     @State private var selling: HoldingView?
     @State private var watching = false
@@ -303,7 +306,53 @@ struct ProductDetailView: View {
             if let url = product?.tcgplayerUrl.flatMap(URL.init(string:)) {
                 Link(destination: url) { Image(systemName: "arrow.up.right.square") }.buttonStyle(IconButton3D(size: 36)).accessibilityLabel("View on TCGplayer")
             }
+            groupsMenu
         }
+        .alert("New shelf", isPresented: $naming) {
+            TextField("Grails, For sale…", text: $newShelf)
+            Button("Cancel", role: .cancel) { newShelf = "" }
+            Button("Create") {
+                let name = String(newShelf.trimmingCharacters(in: .whitespaces).prefix(40))
+                newShelf = ""
+                guard !name.isEmpty else { return }
+                Task { await run { _ = try await groups.createShelf(name, productIds: [productId]) } }
+            }
+        } message: {
+            Text("Shelves group products however you like, and show as filters on Collection.")
+        }
+    }
+
+    /// Shelves this product is on, and which portfolio your copies are in (shared with the website).
+    private var groupsMenu: some View {
+        Menu {
+            Section("Shelves") {
+                ForEach(groups.shelves) { shelf in
+                    Button {
+                        Task { await run { try await groups.toggle(shelf.id, productId: productId) } }
+                    } label: {
+                        if shelf.product_ids.contains(productId) { Label(shelf.name, systemImage: "checkmark") } else { Text(shelf.name) }
+                    }
+                }
+                Button { naming = true } label: { Label("New shelf…", systemImage: "plus") }
+            }
+            if !owned.isEmpty, !groups.portfolios.isEmpty {
+                let current = groups.portfolioOf(owned[0].identity.key)
+                Section("Portfolio") {
+                    ForEach([GroupsStore.main] + groups.portfolios.map(\.id), id: \.self) { id in
+                        Button {
+                            Task { await run { for h in owned { try await groups.move(h.identity.key, to: id, store: store) } } }
+                        } label: {
+                            if current == id { Label(groups.name(of: id), systemImage: "checkmark") } else { Text(groups.name(of: id)) }
+                        }
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+        }
+        .menuStyle(.button)
+        .buttonStyle(IconButton3D(size: 36))
+        .accessibilityLabel("Shelves and portfolio")
     }
 
     // MARK: Your position
