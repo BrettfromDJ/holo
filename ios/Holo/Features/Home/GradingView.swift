@@ -76,19 +76,23 @@ struct GradingView: View {
         let count = Int(slabs.reduce(0) { $0 + $1.quantity })
         return SlabFanHero(slabs: slabs, value: value) {
             HStack(spacing: 8) {
-                Text("\(count) slab\(count == 1 ? "" : "s")").font(.geist(13, .semibold)).monospacedDigit()
-                    .foregroundStyle(Theme.ink)
-                    .padding(.horizontal, 8).padding(.vertical, 3)
-                    .background(Theme.holo, in: RoundedRectangle(cornerRadius: 6))
+                GlowPill(text: "\(count) slab\(count == 1 ? "" : "s")")
                 if rawEquivalent > 0 {
-                    Text(String(format: "%.1f× what they're worth raw", value / rawEquivalent)).font(.geist(13)).foregroundStyle(Theme.muted)
+                    Text(String(format: "%.1f× what they're worth raw", value / rawEquivalent)).font(.geist(13, .medium)).opacity(0.8)
+                        .lineLimit(1).minimumScaleFactor(0.8)
                 }
             }
         } below: {
-            HStack(spacing: 8) {
-                GlassStat(label: "Premium", value: rawEquivalent > 0 ? Format.signedMoney(premium) : "—", tint: rawEquivalent > 0 ? Theme.tone(premium) : .white)
-                GlassStat(label: "At grader", value: "\(Int(sentCount))")
-                GlassStat(label: "To refresh", value: "\(stale)")
+            HStack(spacing: 10) {
+                MoreGlowTile(label: "Premium", palette: rawEquivalent > 0 ? GlowPalette.tone(premium) : GlowPalette.gold, height: 92) {
+                    MoreGlowValue(text: rawEquivalent > 0 ? GlowFigure.text(premium, signed: true, cents: false) : "—", size: 24)
+                }
+                MoreGlowTile(label: "At grader", palette: .aqua, height: 92) {
+                    DotMatrixText(text: "\(Int(sentCount))", dot: 3.4)
+                }
+                MoreGlowTile(label: "To refresh", palette: stale > 0 ? GlowPalette.flame : GlowPalette.lilac, height: 92) {
+                    DotMatrixText(text: "\(stale)", dot: 3.4)
+                }
             }
         }
     }
@@ -180,7 +184,7 @@ struct GradingView: View {
                             }
                             Spacer(minLength: 4)
                             VStack(alignment: .trailing, spacing: 2) {
-                                Text(Format.signedMoney(o.upside10)).font(.geist(14, .semibold)).monospacedDigit().foregroundStyle(Theme.up)
+                                MoreGlowBadge(text: GlowFigure.text(o.upside10, signed: true, cents: false), palette: .moss)
                                 (Text("at a 9: ").foregroundColor(Theme.muted) + Text(Format.signedMoney(o.upside9)).foregroundColor(Theme.tone(o.upside9)))
                                     .font(.geist(11)).monospacedDigit()
                             }

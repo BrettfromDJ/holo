@@ -67,11 +67,8 @@ struct MasterSetDetailView: View {
         let entries = entries(for: current)
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                // The top, like Collection's: on the same lit backdrop.
+                // The top (Lucent): the set's progress on a glow card.
                 progress(current, entries: entries)
-                    .background(alignment: .top) {
-                        DotBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
-                    }
                 controls(entries)
                 grid(entries)
             }
@@ -161,34 +158,35 @@ struct MasterSetDetailView: View {
         let known = checklists[set.id] != nil
         let missingValue = entries.filter { !$0.owned }.compactMap(\.hit.market).reduce(0, +)
         let ownedValue = entries.flatMap(\.holdings).reduce(0) { $0 + ($1.value ?? 0) }
-        return VStack(alignment: .leading, spacing: 18) {
-            // Laid out like the top of Collection: label, big figure, a line under it.
-            VStack(alignment: .leading, spacing: 8) {
-                MonoLabel(text: set.name)
-                CountingText(value: known ? ratio * 100 : Double(owned), format: { known ? "\(Int($0.rounded()))%" : "\(Int($0.rounded()))" })
-                    .font(.display(56)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.5)
-                    .displayTrim(56)
-                    .shadow(color: .white.opacity(0.12), radius: 18)
-                HStack(spacing: 8) {
+        return VStack(alignment: .leading, spacing: 10) {
+            GlowCard(palette: GlowPalette.forProduct(set.id), padding: 20) {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(alignment: .top) {
+                        GlowLabel(text: set.name, secondary: known ? "cards collected" : "cards owned · full list not in Lucent yet")
+                        Spacer(minLength: 8)
+                        if known { GlowPill(text: "\(owned) of \(total)") }
+                    }
+                    CountingText(value: known ? ratio * 100 : Double(owned), format: { known ? "\(Int($0.rounded()))%" : "\(Int($0.rounded()))" })
+                        .font(.geist(64, .regular)).tracking(-2.6).monospacedDigit()
+                        .lineLimit(1).minimumScaleFactor(0.5)
+                        .padding(.top, 22)
                     if known {
-                        Text("\(owned) of \(total)").font(.geist(13, .semibold)).monospacedDigit()
-                            .foregroundStyle(Theme.ink)
-                            .padding(.horizontal, 8).padding(.vertical, 3)
-                            .background(Theme.holo, in: RoundedRectangle(cornerRadius: 6))
-                        Text("cards collected").font(.geist(13)).foregroundStyle(Theme.muted)
-                    } else {
-                        Text("cards owned · full list not in Lucent yet").font(.geist(13)).foregroundStyle(Theme.muted)
+                        // Every card in the set as one tick, lit if you own it, sweeping in left to right.
+                        SetStrip(owned: entries.map(\.owned)).padding(.top, 18)
                     }
                 }
             }
-            .padding(.top, 8)
             if known {
-                // Every card in the set as one tick, lit if you own it, sweeping in left to right.
-                SetStrip(owned: entries.map(\.owned))
-                HStack(spacing: 8) {
-                    GlassStat(label: "You own", value: Format.money(ownedValue))
-                    GlassStat(label: "To finish", value: missingValue > 0 ? Format.money(missingValue) : "—")
-                    GlassStat(label: "Missing", value: "\(total - owned)")
+                HStack(spacing: 10) {
+                    MoreGlowTile(label: "You own", palette: .citrus, height: 84) {
+                        MoreGlowValue(text: GlowFigure.text(ownedValue, signed: false, cents: false), size: 22)
+                    }
+                    MoreGlowTile(label: "To finish", palette: .flame, height: 84) {
+                        MoreGlowValue(text: missingValue > 0 ? GlowFigure.text(missingValue, signed: false, cents: false) : "—", size: 22)
+                    }
+                    MoreGlowTile(label: "Missing", palette: .lilac, height: 84) {
+                        DotMatrixText(text: "\(total - owned)", dot: 3)
+                    }
                 }
             }
         }
@@ -317,8 +315,8 @@ private struct CardCell: View {
     }
 }
 
-/// The whole set as a strip of ticks, one per card, lime where you own it. It sweeps in
-/// left to right the first time it appears.
+/// The whole set as a strip of ticks, one per card, bright white where you own it (it sits on
+/// the glow card). It sweeps in left to right the first time it appears.
 private struct SetStrip: View {
     var owned: [Bool]
 
@@ -329,7 +327,7 @@ private struct SetStrip: View {
             ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                 HStack(spacing: 2) {
                     ForEach(Array(row.enumerated()), id: \.offset) { _, on in
-                        RoundedRectangle(cornerRadius: 1.5).fill(on ? Theme.lime : Color.white.opacity(0.13))
+                        RoundedRectangle(cornerRadius: 1.5).fill(Color.white.opacity(on ? 0.95 : 0.22))
                             .frame(height: 12)
                     }
                     if row.count < perRow {

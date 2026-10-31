@@ -114,33 +114,43 @@ struct MasterSetsView: View {
         let complete = rows.filter { ($0.ratio ?? 0) >= 1 }.count
         let best = rows.filter { $0.ratio != nil }.max { ($0.ratio ?? 0) < ($1.ratio ?? 0) }
         let cards = owned.reduce(0) { $0 + Set($1.holdings.map(\.identity.productId)).count }
-        return VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 8) {
-                MonoLabel(text: "Master sets")
-                HStack(alignment: .lastTextBaseline, spacing: 10) {
-                    CountingText(value: Double(owned.count), format: { "\(Int($0.rounded()))" })
-                        .font(.display(56)).monospacedDigit().displayTrim(56)
-                    Text(owned.count == 1 ? "SET STARTED" : "SETS STARTED").font(.display(24)).foregroundStyle(Theme.muted).displayTrim(24)
-                }
-                if let best, let ratio = best.ratio {
-                    HStack(spacing: 8) {
-                        Text("\(Int((ratio * 100).rounded()))%").font(.geist(13, .semibold)).monospacedDigit()
-                            .foregroundStyle(Theme.ink)
-                            .padding(.horizontal, 8).padding(.vertical, 3)
-                            .background(Theme.holo, in: RoundedRectangle(cornerRadius: 6))
-                        Text("of \(best.name), your closest").font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
+        let worth = owned.reduce(0.0) { $0 + $1.holdings.reduce(0.0) { $0 + ($1.value ?? 0) } }
+        return VStack(alignment: .leading, spacing: 10) {
+            GlowCard(palette: .gold, padding: 20) {
+                HStack(alignment: .center, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        GlowLabel(text: "Master sets", secondary: owned.count == 1 ? "set started" : "sets started")
+                        Spacer(minLength: 24)
+                        CountingText(value: Double(owned.count), format: { "\(Int($0.rounded()))" })
+                            .font(.geist(60, .regular)).tracking(-2.4).monospacedDigit().lineLimit(1)
+                        if let best, best.ratio != nil {
+                            Text("\(best.name), your closest").font(.geist(13, .medium)).opacity(0.8).lineLimit(1)
+                                .padding(.top, 2)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                    if let best, let ratio = best.ratio {
+                        // The closest set's progress: a thin ring with the % as LED dots.
+                        ZStack {
+                            GlowRing(fraction: ratio, label: "")
+                            DotMatrixText(text: "\(Int((ratio * 100).rounded()))%", dot: 2.6)
+                        }
+                        .frame(width: 104, height: 104)
                     }
                 }
+                .frame(minHeight: 132)
             }
-            .padding(.top, 8)
-            HStack(spacing: 8) {
-                GlassStat(label: "Cards", value: "\(cards)")
-                GlassStat(label: "Complete", value: "\(complete)")
-                GlassStat(label: "Worth", value: Format.money(owned.reduce(0) { $0 + $1.holdings.reduce(0) { $0 + ($1.value ?? 0) } }))
+            HStack(spacing: 10) {
+                MoreGlowTile(label: "Cards", palette: .sky, height: 84) {
+                    DotMatrixText(text: "\(cards)", dot: 3)
+                }
+                MoreGlowTile(label: "Complete", palette: .rose, height: 84) {
+                    DotMatrixText(text: "\(complete)", dot: 3)
+                }
+                MoreGlowTile(label: "Worth", palette: .aqua, height: 84) {
+                    MoreGlowValue(text: GlowFigure.text(worth, signed: false, cents: false), size: 22)
+                }
             }
-        }
-        .background(alignment: .top) {
-            DotBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
         }
     }
 
@@ -162,10 +172,12 @@ struct MasterSetsView: View {
 
     // MARK: A set
 
-    /// The set's banner art like Explore's, with your progress: a lime ring and %, then the
+    /// The set's banner art like Explore's, with your progress: a ring and % on the set's own glow, then the
     /// name, how many of how many, and a thin progress bar.
     private func tile(_ r: Row) -> some View {
         let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
+        // Each set keeps its own glow colors for its progress.
+        let glow = GlowPalette.forProduct(r.id)
         return VStack(alignment: .leading, spacing: 9) {
             Group {
                 if let art = r.art {
@@ -187,14 +199,16 @@ struct MasterSetsView: View {
                 if let ratio = r.ratio, !r.holdings.isEmpty {
                     HStack(spacing: 6) {
                         ZStack {
-                            Circle().stroke(Color.white.opacity(0.2), lineWidth: 3)
-                            Circle().trim(from: 0, to: ratio).stroke(Theme.lime, style: StrokeStyle(lineWidth: 3, lineCap: .round)).rotationEffect(.degrees(-90))
+                            Circle().stroke(Color.white.opacity(0.3), lineWidth: 1.5)
+                            Circle().trim(from: 0, to: ratio).stroke(Color.white, style: StrokeStyle(lineWidth: 2, lineCap: .round)).rotationEffect(.degrees(-90))
                         }
-                        .frame(width: 16, height: 16)
-                        Text("\(Int((ratio * 100).rounded()))%").font(.geist(12, .bold)).monospacedDigit()
+                        .frame(width: 15, height: 15)
+                        Text("\(Int((ratio * 100).rounded()))%").font(.geist(12, .semibold)).monospacedDigit()
                     }
+                    .foregroundStyle(.white)
                     .padding(.horizontal, 8).padding(.vertical, 5)
-                    .background(.black.opacity(0.6), in: Capsule())
+                    .background(glow.chipGradient, in: Capsule())
+                    .overlay(Capsule().strokeBorder(.white.opacity(0.15)))
                     .padding(8)
                 } else if r.holdings.isEmpty {
                     Text("Not started").font(.geist(11, .semibold)).foregroundStyle(Theme.muted)
@@ -209,7 +223,7 @@ struct MasterSetsView: View {
                     .font(.geist(12)).monospacedDigit().foregroundStyle(Theme.muted).lineLimit(1)
             }
             if let ratio = r.ratio, !r.holdings.isEmpty {
-                GrowBar(fraction: ratio, color: Theme.lime, height: 4, gradient: false)
+                GrowBar(fraction: ratio, color: glow.chipAccent, height: 4)
             }
         }
     }
