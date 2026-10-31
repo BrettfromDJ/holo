@@ -5,6 +5,8 @@
  * Cash settles the difference.
  */
 
+import { money } from "./format";
+
 export type DealKind = "buy" | "sell" | "trade" | "empty";
 
 /** Default rates, as a share of market value. */
@@ -15,6 +17,10 @@ export interface DealRates {
   trade: number;
   /** What you charge for items going out. */
   sell: number;
+  /** Whether what comes in is added to your collection unless switched off per item (default on). */
+  addIncoming?: boolean;
+  /** Whether items going out that aren't in Holo ask what you paid (default on). */
+  askCost?: boolean;
 }
 
 export const DEFAULT_RATES: DealRates = { buy: 0.7, trade: 0.8, sell: 1 };
@@ -73,6 +79,8 @@ export interface DealTotals {
   equity: number;
   /** Outgoing lines priced below your cost. */
   belowCost: number;
+  /** Outgoing lines with no known cost (not in Holo, no "you paid"): their profit is unknown. */
+  uncosted: number;
 }
 
 export function dealTotals(incoming: DealLine[], outgoing: DealLine[], rates: { in: number; out: number }): DealTotals {
@@ -82,7 +90,36 @@ export function dealTotals(incoming: DealLine[], outgoing: DealLine[], rates: { 
   const profit = costed.length ? round2(costed.reduce((s, l) => s + lineTotal(l, rates.out) - (l.cost ?? 0), 0)) : null;
   const equity = round2(incoming.reduce((s, l) => s + (l.market === null ? 0 : l.market * l.qty) - lineTotal(l, rates.in), 0));
   const belowCost = costed.filter((l) => lineTotal(l, rates.out) < (l.cost ?? 0) - 0.005).length;
-  return { kind: dealKind(incoming.length, outgoing.length), inValue, outValue, balance: round2(outValue - inValue), profit, equity, belowCost };
+  return { kind: dealKind(incoming.length, outgoing.length), inValue, outValue, balance: round2(outValue - inValue), profit, equity, belowCost, uncosted: outgoing.length - costed.length };
+}
+
+/** Value taken in only means something when something comes in. */
+export function showsEquity(t: DealTotals): boolean {
+  return !(t.kind === "sell" || t.kind === "empty" || t.inValue === 0);
+}
+
+/**
+ * How much better off you are after the deal, at market: your profit on what goes out plus
+ * the value you gain on what comes in. Null when neither is known.
+ */
+export function dealNet(t: DealTotals): number | null {
+  if (t.profit === null && !showsEquity(t)) return null;
+  return round2((t.profit ?? 0) + (showsEquity(t) ? t.equity : 0));
+}
+
+/** "You come out $58 ahead", in plain English. */
+export function dealVerdict(t: DealTotals): string | null {
+  const n = dealNet(t);
+  if (n === null) return null;
+  if (Math.abs(n) < 0.005) return "You break even";
+  return `You come out ${money(Math.abs(n))} ${n > 0 ? "ahead" : "behind"}`;
+}
+
+/** The cash rounded to the nearest $5, when it isn't already (null otherwise). */
+export function roundedCash(balance: number): number | null {
+  const r = Math.round(Math.abs(balance) / 5) * 5;
+  if (r < 5 || Math.abs(Math.abs(balance) - r) <= 0.004) return null;
+  return balance < 0 ? -r : r;
 }
 
 function round2(n: number) {

@@ -13,7 +13,7 @@ import type { Grade, Product } from "@/lib/types";
 
 export type DealSide = "in" | "out";
 
-/** A row in a deal. Out rows always come from your inventory (`holdingKey`). */
+/** A row in a deal: from your inventory (`holdingKey`), the catalog, or a custom line. */
 export interface DealItem {
   key: string;
   product: Product;
@@ -30,15 +30,23 @@ export interface DealItem {
   /** The holding this came from, when picked from your inventory. */
   holdingKey?: string;
   maxQty?: number;
+  /** Coming in: false keeps it out of your collection (unset follows your deal settings). */
+  track?: boolean | null;
+  /** Going out but not in Holo: what you paid per unit, if you said. */
+  cost?: number | null;
+  /** A line that isn't a catalog product ("Bulk lot"): a name and a price, never tracked. */
+  custom?: boolean;
 }
 
 /**
- * Pick what's coming in (anything: your inventory or the catalog) or going
- * out (only what you own). Search stays focused so you can add fast.
+ * Pick what's coming in or going out: from your inventory, anything in the catalog (going out,
+ * that's something you have that isn't in Holo yet), or a custom line with a name and price.
+ * Search stays focused so you can add fast.
  */
 export function DealPicker({ side, onClose, onPick }: { side: DealSide | null; onClose: () => void; onPick: (item: DealItem) => void }) {
   const { holdings } = usePortfolio({ ignoreFilter: true });
-  const [source, setSource] = useState<"inventory" | "catalog">("inventory");
+  const [source, setSource] = useState<"inventory" | "catalog" | "custom">("inventory");
+  const [custom, setCustom] = useState({ name: "", price: "", qty: "1" });
   const [q, setQ] = useState("");
   const [results, setResults] = useState<ExploreProduct[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -46,6 +54,7 @@ export function DealPicker({ side, onClose, onPick }: { side: DealSide | null; o
   useEffect(() => {
     if (side) {
       setSource(side === "out" || holdings.length ? "inventory" : "catalog");
+      setCustom({ name: "", price: "", qty: "1" });
       setQ("");
       setResults(null);
     }
@@ -87,23 +96,51 @@ export function DealPicker({ side, onClose, onPick }: { side: DealSide | null; o
               className="h-11 w-full rounded-2xl bg-surface-2 pl-10 pr-3 text-[15px] outline-none placeholder:text-subtle focus:bg-surface-3"
             />
           </div>
-          {side === "in" && (
-            <div className="mt-3">
-              <Segmented
-                ariaLabel="Source"
-                size="sm"
-                value={source}
-                onChange={setSource}
-                options={[
-                  { value: "inventory", label: "Same as yours" },
-                  { value: "catalog", label: "Catalog" },
-                ]}
-              />
-            </div>
-          )}
+          <div className="mt-3">
+            <Segmented
+              ariaLabel="Source"
+              size="sm"
+              value={source}
+              onChange={setSource}
+              options={[
+                { value: "inventory", label: side === "out" ? "Your inventory" : "Same as yours" },
+                { value: "catalog", label: side === "out" ? "Not in Holo" : "Catalog" },
+                { value: "custom", label: "Custom" },
+              ]}
+            />
+          </div>
         </div>
         <div className="mt-3 min-h-0 flex-1 overflow-y-auto px-3 pb-4">
-          {source === "inventory" ? (
+          {source === "custom" ? (
+            <form
+              className="space-y-3 px-3 pt-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const price = Number(custom.price.replace(/[$,]/g, ""));
+                if (!custom.name.trim() || !(price > 0)) return;
+                const id = crypto.randomUUID();
+                onPick({
+                  key: `c:${id}`,
+                  product: { id: `custom:${id}`, source: "manual", externalId: id, name: custom.name.trim(), setName: null, setId: null, number: null, rarity: null, productType: "Custom", kind: "sealed", imageUrl: null, tcgplayerId: null, tcgplayerUrl: null },
+                  market: null,
+                  qty: Math.max(1, Math.round(Number(custom.qty) || 1)),
+                  price,
+                  custom: true,
+                });
+                onClose();
+              }}
+            >
+              <p className="text-[13px] text-muted">For things that aren&apos;t in the catalog, like a bulk lot or a binder of commons. Counted in the deal, not tracked in your collection.</p>
+              <input value={custom.name} onChange={(e) => setCustom({ ...custom, name: e.target.value })} placeholder="What is it?" aria-label="Name" className="h-11 w-full rounded-2xl bg-surface-2 px-3.5 text-[15px] outline-none placeholder:text-subtle focus:bg-surface-3" />
+              <div className="flex gap-2">
+                <input value={custom.price} onChange={(e) => setCustom({ ...custom, price: e.target.value })} inputMode="decimal" placeholder="Price each" aria-label="Price each" className="tabular h-11 min-w-0 flex-1 rounded-2xl bg-surface-2 px-3.5 text-[15px] outline-none placeholder:text-subtle focus:bg-surface-3" />
+                <input value={custom.qty} onChange={(e) => setCustom({ ...custom, qty: e.target.value })} inputMode="numeric" aria-label="Quantity" className="tabular h-11 w-20 rounded-2xl bg-surface-2 px-3.5 text-[15px] outline-none focus:bg-surface-3" />
+              </div>
+              <button type="submit" className="btn-3d btn-3d-lime h-11 w-full rounded-full bg-lime text-[15px] font-semibold text-[#0b0b0c] disabled:opacity-50" disabled={!custom.name.trim() || !(Number(custom.price.replace(/[$,]/g, "")) > 0)}>
+                Add custom item
+              </button>
+            </form>
+          ) : source === "inventory" ? (
             mine.length ? (
               mine.map((h) => (
                 <Row
