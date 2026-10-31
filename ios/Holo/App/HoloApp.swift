@@ -145,6 +145,8 @@ struct MainTabView: View {
                 .tag(HomeTab.deal)
                 .toolbar(.hidden, for: .tabBar)
         }
+        // Every page, and everything pushed on it: a fully clear top bar (no iOS 26 tinted blur).
+        .clearTopEdge()
         // The website's bar: Overview, Collection, the lime +, Explore, Deal. It floats over the
         // pages (each page leaves room under its last card), so content shows through the glass.
         // The add menu: Scan and Search pop out from behind the + (drawn under the bar, so the

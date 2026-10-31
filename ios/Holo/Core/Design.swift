@@ -109,6 +109,20 @@ extension View {
                 Text(title).font(.geist(17, .semibold)).foregroundStyle(.white)
             }
         }
+        .clearTopEdge()
+    }
+
+    /// No tinted blur behind the top bar on iOS 26: content scrolls under a fully clear header.
+    @ViewBuilder func clearTopEdge() -> some View {
+        #if compiler(>=6.2)
+        if #available(iOS 26, *) {
+            scrollEdgeEffectHidden(true, for: .top)
+        } else {
+            self
+        }
+        #else
+        self
+        #endif
     }
 }
 
