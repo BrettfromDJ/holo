@@ -293,7 +293,9 @@ private struct HoldingListRow: View {
 
 /// How the collection's value splits between sealed, singles and graded: one bar that grows in,
 /// in each kind's color, with the shares underneath.
-private struct AllocationBar: View {
+/// How your value splits between sealed, singles and graded: a thin bar that grows in, with a
+/// legend. Used on Collection and on Home's "Where your value sits".
+struct AllocationBar: View {
     var holdings: [HoldingView]
     var total: Double
     @Environment(\.accessibilityReduceMotion) private var reduceMotion

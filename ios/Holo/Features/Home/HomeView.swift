@@ -975,22 +975,8 @@ private struct ValueSplit: View {
         let groups = HoldingCategory.allCases.map { c in (c, store.holdings.filter { $0.category == c }) }.filter { !$0.1.isEmpty }
         VStack(alignment: .leading, spacing: 16) {
             PageHeader(title: "Where your value sits", subtitle: "Sealed, singles and slabs, side by side", size: 30)
-            // The split, as one bar.
-            HStack(spacing: 3) {
-                ForEach(groups, id: \.0) { c, items in
-                    let share = items.reduce(0) { $0 + ($1.value ?? 0) } / total
-                    if share > 0.001 {
-                        HStack(spacing: 6) {
-                            Text(c.rawValue.uppercased()).font(.display(15))
-                            Text("\(Int((share * 100).rounded()))%").font(.display(15))
-                        }
-                        .foregroundStyle(c == .graded ? Theme.ink : .white)
-                        .lineLimit(1).minimumScaleFactor(0.5)
-                        .frame(maxWidth: .infinity, minHeight: 38)
-                        .background(RoundedRectangle(cornerRadius: 8).fill(c.color))
-                    }
-                }
-            }
+            // The split: the same bar as Collection's, sized by share.
+            AllocationBar(holdings: store.holdings, total: store.summary.value)
             ForEach(groups, id: \.0) { c, items in CategoryCard(category: c, items: items, total: total) }
         }
     }
