@@ -13,6 +13,7 @@ struct ProductDetailView: View {
     @State private var watching = false
     @State private var editing: Txn?
     @State private var deleting: Txn?
+    @State private var showHidden = false
     @State private var error: String?
 
     private var product: Product? { store.products[productId] }
@@ -384,8 +385,36 @@ struct ProductDetailView: View {
                 .padding(.vertical, 12)
                 if t.id != entries.last?.id { Rectangle().fill(Theme.border).frame(height: 1) }
             }
+            if entries.isEmpty {
+                Text("No active entries.").font(.geist(14)).foregroundStyle(Theme.muted).padding(.vertical, 4)
+            }
+            let hidden = store.hiddenEntries(productId: productId)
+            if !hidden.isEmpty {
+                Rectangle().fill(Theme.border).frame(height: 1).padding(.top, 8)
+                Button("\(showHidden ? "Hide" : "Show") deleted & edit records (\(hidden.count))") { showHidden.toggle() }
+                    .font(.geist(12, .medium)).foregroundStyle(Theme.subtle)
+                    .padding(.top, 12)
+                if showHidden {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(hidden, id: \.id) { t in
+                            Text(hiddenLine(t)).font(.geist(12)).monospacedDigit().foregroundStyle(Theme.subtle)
+                        }
+                    }
+                    .padding(.top, 8)
+                }
+            }
         }
         .surface(padding: 20)
+    }
+
+    private func hiddenLine(_ t: Txn) -> String {
+        let when = ISO8601DateFormatter().date(from: t.createdAt)?.formatted(date: .abbreviated, time: .omitted) ?? String(t.createdAt.prefix(10))
+        if t.kind == .correction {
+            let note = t.notes.flatMap { ["Deleted", "Edited", "Voided", "Corrected"].contains($0) || $0.isEmpty ? nil : " · \($0)" } ?? ""
+            return "\(t.quantity == 0 ? "Deleted" : "Edited") an entry · \(when)\(note)"
+        }
+        let kind = t.kind == .adjustment ? "Adjustment" : t.kind.rawValue.capitalized
+        return "\(kind) · \(Int(abs(t.quantity))) × \(Format.money(t.unitPrice)) (deleted) · \(when)"
     }
 
     @ViewBuilder private var notes: some View {

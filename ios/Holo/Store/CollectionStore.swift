@@ -479,6 +479,14 @@ final class CollectionStore {
 
     func manualValue(_ identity: HoldingIdentity) -> ManualValue? { manualValues[identity.key] }
 
+    /// The audit trail the history hides, newest first: deleted entries and the records that
+    /// edited or deleted them (the website's "Show deleted & edit records").
+    func hiddenEntries(productId: String) -> [Txn] {
+        let mine = transactions.filter { $0.identity.productId == productId }
+        let shown = Set(Ledger.effective(mine).map(\.id))
+        return mine.filter { $0.kind == .correction || !shown.contains($0.id) }.sorted { $0.createdAt > $1.createdAt }
+    }
+
     /// Whether an entry has been corrected since it was first recorded.
     func wasEdited(_ t: Txn) -> Bool { transactions.contains { $0.kind == .correction && $0.correctsId == t.id } }
 
