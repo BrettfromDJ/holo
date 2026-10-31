@@ -63,7 +63,8 @@ and say exactly what to run or click.
 - Shared data with the website: `holdings`, `transactions` (edits are corrections: `corrects_id`,
   quantity 0 deletes), `watchlist_items`, `device_tokens`, `user_preferences.monthly_budget`, and
   `user_state` keys `wishlist`, `deal`, `deal-rates`, `deals`, `release-reminders`,
-  `milestones-seen`.
+  `milestones-seen`, `grading-submissions`, `grading-costs`, and the `shelves` / `portfolios`
+  tables.
 
 ### Demo mode
 
@@ -95,5 +96,10 @@ and say exactly what to run or click.
 
 - Milestone banners: off because they repeated; `checkMilestones()` in `HomeView.swift` is kept.
   Find why `milestones-seen` didn't stop repeats before turning it back on.
-- Not yet in the app: graded price table, show-deleted-entries, Gains page ("breakdown →"),
-  trade checker, grading, binder, shelves, portfolios, analytics.
+- In the app since: Gains (Home's Unrealized card and Home → More), Analytics, Grading, Binder
+  (Home → More), shelves (Collection chips, a card's ⋯ menu), portfolios (switcher on
+  Collection; `store.holdingFilter` filters holdings, summary and timeline, `allHoldings` is
+  unfiltered for deals), show deleted & edit records (card page). Grading state is in
+  `user_state` `grading-submissions` / `grading-costs`; shelves and portfolios use the
+  `shelves` / `portfolios` tables. Screenshot pages: `-HoloPage analytics|gains|grading|binder`.
+- Not in the app on purpose: the separate trade checker (the Deal tab covers trades).
