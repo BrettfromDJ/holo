@@ -21,6 +21,9 @@ struct HomeView: View {
     /// A moment worth a banner: a milestone reached, or prices just updated.
     @State private var banner: HomeBanner?
     @State private var bannerTick = 0
+    /// True while pull to refresh runs: the hero fan spreads open, then snaps shut.
+    @State private var refreshing = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -43,7 +46,7 @@ struct HomeView: View {
             .imageMaxPixel(720)
             .replaysAnimations()
             .tabBarClearance()
-            .refreshable { await refresh() }
+            .refreshable { await pullToRefresh() }
             .overlay(alignment: .top) {
                 if let banner {
                     BannerView(banner: banner)
@@ -139,7 +142,7 @@ struct HomeView: View {
                 // Opens search with the keyboard already up.
                 SearchFieldButton(prompt: "Search any card or sealed product") { search = true }
                     .padding(.horizontal, 16)
-                Hero(store: store, onRecap: { recap = true }, onAdd: { Router.shared.addMenu = true })
+                Hero(store: store, spread: refreshing, onRecap: { recap = true }, onAdd: { Router.shared.addMenu = true })
             }
             PerformanceSection(store: store).padding(.horizontal, 16).reveal()
             MetricGrid(store: store, onReload: refresh).padding(.horizontal, 16).reveal()
@@ -169,6 +172,14 @@ struct HomeView: View {
     private func reload() async {
         if let kind = store.demo { store.loadDemo(kind); return }
         if case let .signedIn(userId, _) = session.state { await store.load(userId: userId) }
+    }
+
+    /// Pull to refresh: the hero fan spreads open while it runs and snaps shut with a spring
+    /// when it's done.
+    private func pullToRefresh() async {
+        if !reduceMotion { withAnimation(.spring(response: 0.45, dampingFraction: 0.7)) { refreshing = true } }
+        await refresh()
+        withAnimation(reduceMotion ? nil : Animation.spring(response: 0.4, dampingFraction: 0.55)) { refreshing = false }
     }
 
     /// Pull to refresh: reload, then say what moved (the figures count to their new values).
@@ -225,6 +236,8 @@ struct BrandMark: View {
 /// Your most valuable pieces fanned out over a glowing grid, then the worth in giant lime Anton.
 private struct Hero: View {
     var store: CollectionStore
+    /// Fans the cards open (while refreshing).
+    var spread = false
     var onRecap: () -> Void
     var onAdd: () -> Void
 
@@ -232,7 +245,7 @@ private struct Hero: View {
         let s = store.summary
         let top = Array(store.holdings.filter { ($0.value ?? 0) > 0 }.prefix(5))
         VStack(spacing: 10) {
-            CardFan(holdings: top).frame(height: 236)
+            CardFan(holdings: top, spread: spread).frame(height: 236)
             MonoLabel(text: "\(store.holdings.count) products · \(Int(s.items)) items")
             VStack(spacing: 6) {
                 Text("Your collection's worth").font(.display(30)).tracking(-0.8).displayTrim(30)
@@ -297,6 +310,8 @@ private struct HeroBackdrop: View {
 /// gently out of step with the others, like the website's hero.
 private struct CardFan: View {
     var holdings: [HoldingView]
+    /// Open the fan wider (pull to refresh); the change animates with the caller's spring.
+    var spread = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var onScreen = true
@@ -316,7 +331,7 @@ private struct CardFan: View {
     private func fan(t: Double) -> some View {
         ZStack(alignment: .top) {
             ForEach(Array(holdings.prefix(5).enumerated()).reversed(), id: \.element.id) { pair in
-                FanPiece(holding: pair.element, index: pair.offset, time: t)
+                FanPiece(holding: pair.element, index: pair.offset, time: t, spread: spread && !reduceMotion ? 1 : 0)
                     .zIndex(Double(10 - pair.offset))
             }
         }
@@ -330,6 +345,8 @@ private struct FanPiece: View {
     var holding: HoldingView
     var index: Int
     var time: Double
+    /// 0 at rest, 1 fanned open while refreshing.
+    var spread: CGFloat = 0
 
     /// The website's fan: sideways step (in card widths), tilt, drop, and scale per position.
     private static let steps: [CGFloat] = [0, -1, 1, -2, 2]
@@ -356,8 +373,11 @@ private struct FanPiece: View {
 
     var body: some View {
         let anchor = UnitPoint(x: 0.5, y: 0.9)
-        let x: CGFloat = Self.steps[index] * Self.width * 0.26
-        let y: CGFloat = Self.drops[index] + bob
+        // Fanned open: each piece steps further out, leans further and drops a little; the
+        // front one rises. Only `spread` changes these, so the spring isn't cut by the bob clock.
+        let x: CGFloat = Self.steps[index] * Self.width * (0.26 + 0.14 * spread)
+        let y: CGFloat = Self.drops[index] * (1 + 0.25 * spread) - (index == 0 ? 10 * spread : 0)
+        let tilt: Double = Self.tilts[index] * (1 + 0.45 * Double(spread))
         Button { openHolding(holding.identity) } label: {
             if index == 0 {
                 art.tiltCard(12, foil: isCard, cornerRadius: 6)
@@ -367,8 +387,10 @@ private struct FanPiece: View {
         }
         .buttonStyle(.plain)
         .scaleEffect(Self.scales[index], anchor: anchor)
-        .rotationEffect(.degrees(Self.tilts[index]), anchor: anchor)
+        .rotationEffect(.degrees(tilt), anchor: anchor)
         .offset(x: x, y: y)
+        // The bob is its own offset, so the clock never touches the spread's animation.
+        .offset(y: bob)
     }
 }
 
@@ -431,12 +453,17 @@ private struct PerformanceSection: View {
         var date: Date
         var iso: String
         var value: Double
+        /// Year * 12 + month, to feel a tick when scrubbing into a new month.
+        var month: Int
     }
 
     /// The range's days, prepared once per range or timeline change: dates read, and long ranges
     /// thinned to about 180 points (the same line at phone width, far less to draw).
     @State private var days: [Day] = []
     @State private var extremes: (min: Double, max: Double) = (0, 0)
+    /// Each prepared day's month by id, and the id of the range's high (worked out in prepare()).
+    @State private var monthOf: [Int: Int] = [:]
+    @State private var highId: Int?
 
     private var key: String {
         "\(range.rawValue)-\(store.timeline.count)-\(store.timeline.last?.date ?? "")-\(store.timeline.last?.value ?? 0)"
@@ -447,10 +474,15 @@ private struct PerformanceSection: View {
         let step = max(1, all.count / 180)
         var out: [Day] = []
         out.reserveCapacity(all.count / step + 2)
+        let cal = Calendar.current
         for (i, p) in all.enumerated() where i % step == 0 || i == all.count - 1 {
-            out.append(Day(id: i, date: p.day, iso: p.date, value: p.value))
+            let date = p.day
+            let parts = cal.dateComponents([.year, .month], from: date)
+            out.append(Day(id: i, date: date, iso: p.date, value: p.value, month: (parts.year ?? 0) * 12 + (parts.month ?? 0)))
         }
         days = out
+        monthOf = Dictionary(out.map { ($0.id, $0.month) }, uniquingKeysWith: { a, _ in a })
+        highId = out.max { $0.value < $1.value }?.id
         let values = all.map(\.value)
         extremes = (values.min() ?? 0, values.max() ?? 0)
     }
@@ -506,10 +538,13 @@ private struct PerformanceSection: View {
                 .chartXSelection(value: $scrubbed)
                 .frame(height: 230)
                 .drawIn(replay: range)
-                // A light tick for each day you scrub across; a firmer one on the range's high and low.
-                .sensoryFeedback(trigger: shown?.id) { _, new in
-                    guard new != nil, let v = shown?.value else { return nil }
-                    if v == extremes.max || v == extremes.min { return .impact(weight: .medium, intensity: 0.9) }
+                // A light tick for each day you scrub across, a soft knock on crossing into a new
+                // month, a firm one on the low and a heavy bump on the range's high.
+                .sensoryFeedback(trigger: shown?.id) { old, new in
+                    guard let new, let v = shown?.value else { return nil }
+                    if new == highId { return .impact(weight: .heavy, intensity: 1) }
+                    if v == extremes.min { return .impact(weight: .medium, intensity: 0.9) }
+                    if let old, let a = monthOf[old], let b = monthOf[new], a != b { return .impact(flexibility: .soft, intensity: 0.7) }
                     return .selection
                 }
                 if let end = days.last {
@@ -802,6 +837,8 @@ private struct StarCard: View {
                 // The website's stage: the piece centered, a soft floor shadow, a floating % chip.
                 HoldingArt(product: holding.product, identity: holding.identity, cornerRadius: 12)
                     .frame(width: artSize.width, height: artSize.height)
+                    // A band of white and lime light that slides as you tilt the phone.
+                    .tiltShine(cornerRadius: 12)
                     .tiltCard(14, foil: holding.product?.isSealed == false && !holding.identity.isGraded, cornerRadius: 12)
                     .background(alignment: .bottom) {
                         Ellipse().fill(.black.opacity(0.6)).frame(width: artSize.width * 0.76, height: 30).blur(radius: 14).offset(y: 16)

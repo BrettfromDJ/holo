@@ -16,6 +16,12 @@ struct CollectionView: View {
     @State private var naming: Naming?
     @State private var name = ""
     @State private var groupError: String?
+    /// Quick actions from a long press on a tile: sell, or work out what selling would leave.
+    @State private var selling: HoldingView?
+    @State private var whatIf: HoldingView?
+    /// A product to put on the shelf being named (from a tile's "Add to shelf → New shelf…").
+    @State private var shelfProduct: String?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     enum Naming: Identifiable {
         case shelf, portfolio, renamePortfolio(String)
@@ -99,13 +105,20 @@ struct CollectionView: View {
                                 LazyVGrid(columns: columns, spacing: 28) {
                                     ForEach(shown) { h in
                                         Button { opened = h } label: { HoldingTile(holding: h) }.buttonStyle(.plain)
+                                            // Hold to lift the tile and get quick actions.
+                                            .contextMenu { quickActions(h) } preview: { LiftedPreview { HoldingTile(holding: h).frame(width: 190) } }
+                                            .transition(.scale(scale: 0.92).combined(with: .opacity))
                                     }
                                 }
                             } else {
                                 VStack(spacing: 0) {
                                     ForEach(shown) { h in
-                                        Button { opened = h } label: { HoldingListRow(holding: h) }.buttonStyle(.plain)
-                                        Divider().overlay(Theme.border)
+                                        VStack(spacing: 0) {
+                                            Button { opened = h } label: { HoldingListRow(holding: h) }.buttonStyle(.plain)
+                                                .contextMenu { quickActions(h) } preview: { LiftedPreview { HoldingListRow(holding: h).frame(width: 340) } }
+                                            Divider().overlay(Theme.border)
+                                        }
+                                        .transition(.scale(scale: 0.92).combined(with: .opacity))
                                     }
                                 }
                                 .surface(padding: nil)
@@ -133,6 +146,8 @@ struct CollectionView: View {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { path.append(h.identity.productId) }
                 }
             }
+            .sheet(item: $selling) { h in SellSheet(holding: h) }
+            .sheet(item: $whatIf) { h in SellCalculatorSheet(holding: h) }
             .fullScreenCover(isPresented: $adding) { SearchScreen(mode: .add) }
             .onAppear {
                 applyRequest()
@@ -149,23 +164,23 @@ struct CollectionView: View {
     /// Category and shelf chips for the track above the grid.
     private var categoryChips: some View {
         HStack(spacing: 2) {
-            Chip(title: "All", selected: category == nil && shelfId == nil, count: store.holdings.count) { category = nil; shelfId = nil }
+            Chip(title: "All", selected: category == nil && shelfId == nil, count: store.holdings.count) { reshuffle { category = nil; shelfId = nil } }
             ForEach(HoldingCategory.allCases) { c in
                 let n = store.holdings.filter { $0.category == c }.count
-                if n > 0 { Chip(title: c.rawValue, selected: category == c && shelfId == nil, count: n) { category = c; shelfId = nil } }
+                if n > 0 { Chip(title: c.rawValue, selected: category == c && shelfId == nil, count: n) { reshuffle { category = c; shelfId = nil } } }
             }
             // Your shelves (shared with the website); hold one to rename or delete it.
             ForEach(groups.shelves) { shelf in
                 let n = store.holdings.filter { shelf.product_ids.contains($0.identity.productId) }.count
-                Chip(title: shelf.name, selected: shelfId == shelf.id, count: n) { shelfId = shelf.id; category = nil }
+                Chip(title: shelf.name, selected: shelfId == shelf.id, count: n) { reshuffle { shelfId = shelf.id; category = nil } }
                     .contextMenu {
                         Button("Delete shelf", role: .destructive) {
-                            if shelfId == shelf.id { shelfId = nil }
+                            if shelfId == shelf.id { reshuffle { shelfId = nil } }
                             Task { await groupRun { try await groups.removeShelf(shelf.id) } }
                         }
                     }
             }
-            Button { naming = .shelf } label: {
+            Button { shelfProduct = nil; naming = .shelf } label: {
                 Label("Shelf", systemImage: "plus").font(.geist(14, .semibold)).foregroundStyle(Theme.muted)
                     .padding(.horizontal, 14).frame(height: 36)
             }
@@ -202,7 +217,7 @@ struct CollectionView: View {
         }
         .alert(namingTitle, isPresented: Binding(get: { naming != nil }, set: { if !$0 { naming = nil } })) {
             TextField("Name", text: $name)
-            Button("Cancel", role: .cancel) { name = "" }
+            Button("Cancel", role: .cancel) { name = ""; shelfProduct = nil }
             Button("Save") { saveName() }
         }
     }
@@ -219,13 +234,18 @@ struct CollectionView: View {
     private func saveName() {
         let value = String(name.trimmingCharacters(in: .whitespaces).prefix(40))
         let what = naming
+        let product = shelfProduct
         name = ""
         naming = nil
+        shelfProduct = nil
         guard !value.isEmpty, let what else { return }
         Task {
             await groupRun {
                 switch what {
-                case .shelf: shelfId = try await groups.createShelf(value).id
+                case .shelf:
+                    let shelf = try await groups.createShelf(value, productIds: product.map { [$0] } ?? [])
+                    // A shelf made from a tile's menu stays in the background; a new empty one opens.
+                    if product == nil { shelfId = shelf.id }
                 case .portfolio: try await groups.createPortfolio(value, store: store)
                 case let .renamePortfolio(id): try await groups.renamePortfolio(id, to: value)
                 }
@@ -241,6 +261,32 @@ struct CollectionView: View {
         } catch {
             groupError = error.localizedDescription
         }
+    }
+
+    /// Category and shelf switches reshuffle the grid with a short spring.
+    private func reshuffle(_ change: () -> Void) {
+        if reduceMotion { change() } else { withAnimation(.spring(response: 0.4, dampingFraction: 0.85), change) }
+    }
+
+    /// A tile's long-press menu: sell, what if, put it on a shelf, or open the card page.
+    @ViewBuilder
+    private func quickActions(_ h: HoldingView) -> some View {
+        let productId = h.identity.productId
+        Button { selling = h } label: { Label("Sell", systemImage: "dollarsign.circle") }
+        Button { whatIf = h } label: { Label("What if I sell?", systemImage: "questionmark.circle") }
+        Menu {
+            ForEach(groups.shelves) { shelf in
+                Button {
+                    Task { await groupRun { try await groups.toggle(shelf.id, productId: productId) } }
+                } label: {
+                    if shelf.product_ids.contains(productId) { Label(shelf.name, systemImage: "checkmark") } else { Text(shelf.name) }
+                }
+            }
+            Button { shelfProduct = productId; naming = .shelf } label: { Label("New shelf…", systemImage: "plus") }
+        } label: {
+            Label("Add to shelf", systemImage: "square.stack")
+        }
+        Button { path.append(productId) } label: { Label("Open card", systemImage: "arrow.up.right") }
     }
 
     private func applyRequest() {
@@ -411,6 +457,9 @@ struct CollectionView: View {
 struct HoldingTile: View {
     var holding: HoldingView
 
+    /// Pieces worth over $500 get a slow lime light running around their edge.
+    private var isGrail: Bool { (holding.value ?? 0) > 500 }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             // A fixed 5:7 stage the art is sized into. Sizing the image itself by aspect ratio let
@@ -419,6 +468,9 @@ struct HoldingTile: View {
                 .aspectRatio(0.72, contentMode: .fit)
                 .overlay {
                     HoldingArt(product: holding.product, identity: holding.identity, cornerRadius: holding.product?.imageURL == nil ? 22 : 12)
+                }
+                .overlay {
+                    if isGrail { GrailShimmer(cornerRadius: holding.product?.imageURL == nil ? 22 : 12) }
                 }
                 .overlay(alignment: .topLeading) {
                     if holding.quantity > 1 {
@@ -450,6 +502,28 @@ struct HoldingTile: View {
     private var subtitle: String {
         let type = holding.identity.isGraded ? (holding.label ?? "Graded") : (holding.product?.isSealed == true ? (holding.product?.productType ?? "Sealed") : (holding.label ?? "Card"))
         return [holding.product?.setName, type].compactMap { $0 }.joined(separator: " · ")
+    }
+}
+
+/// A long-pressed tile, lifted toward you with a slight 3D lean, as the context menu's preview.
+private struct LiftedPreview<Content: View>: View {
+    var content: Content
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var lifted = false
+
+    init(@ViewBuilder content: () -> Content) { self.content = content() }
+
+    var body: some View {
+        content
+            .padding(14)
+            .scaleEffect(lifted ? 1.04 : 1)
+            .rotation3DEffect(.degrees(lifted ? 6 : 0), axis: (x: 1, y: -0.6, z: 0), perspective: 0.5)
+            .padding(10)
+            .background(Theme.background)
+            .onAppear {
+                guard !reduceMotion else { return }
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) { lifted = true }
+            }
     }
 }
 
