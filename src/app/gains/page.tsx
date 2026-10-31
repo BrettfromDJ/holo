@@ -59,7 +59,18 @@ export default function GainsPage() {
 
   return (
     <div className="animate-fade-in">
-      <PageHeader title="Gains" subtitle="See exactly which products your gains come from." actions={store.mode === "demo" ? <Badge variant="sample">Sample data</Badge> : undefined} />
+      <PageHeader
+        title={MODE_LABEL[mode]}
+        figure={<span className={total >= 0 ? "text-lime" : "text-[var(--plan-pink)]"}>{signedMoney(total)}</span>}
+        note={MODE_HINT[mode]}
+        actions={store.mode === "demo" ? <Badge variant="sample">Sample data</Badge> : undefined}
+        stats={[
+          { label: `Pulling up · ${winners}`, value: gains > 0 ? signedMoney(gains) : money(0), tone: gains > 0 ? "up" : undefined },
+          { label: `Pulling down · ${losers}`, value: losses < 0 ? signedMoney(losses) : money(0), tone: losses < 0 ? "down" : undefined },
+        ]}
+      >
+        <TugBar gains={gains} losses={losses} />
+      </PageHeader>
       <PortfolioSwitcher compact className="mb-3 lg:hidden" />
       <PortfolioBanner />
 
@@ -90,28 +101,8 @@ export default function GainsPage() {
       </div>
 
       <Card className="p-5 sm:p-7">
-        <div className="flex flex-wrap items-end justify-between gap-6">
-          <div>
-            <p className="text-[13px] font-medium text-muted">{MODE_LABEL[mode]}</p>
-            <p className="tabular mt-1 font-display text-[48px] leading-none sm:text-[60px]">
-              <Delta value={total} />
-            </p>
-            <p className="mt-2 text-[13px] text-subtle">{MODE_HINT[mode]}</p>
-          </div>
-          <dl className="grid grid-cols-2 gap-x-8 gap-y-1 text-[13px] sm:text-right">
-            <dt className="text-muted">
-              Gains · {winners} {winners === 1 ? noun.replace(/s$/, "").replace(/ie$/, "y") : noun}
-            </dt>
-            <dd className={cn("tabular font-semibold", gains > 0 ? "text-up" : "text-muted")}>{gains > 0 ? signedMoney(gains) : money(0)}</dd>
-            <dt className="text-muted">
-              Losses · {losers} {losers === 1 ? noun.replace(/s$/, "").replace(/ie$/, "y") : noun}
-            </dt>
-            <dd className={cn("tabular font-semibold", losses < 0 ? "text-down" : "text-muted")}>{losses < 0 ? signedMoney(losses) : money(0)}</dd>
-          </dl>
-        </div>
-
         {topThreeShare !== null && winners > 3 && (
-          <p className="mt-6 rounded-xl bg-surface-2 px-4 py-3 text-[14px]">
+          <p className="rounded-xl bg-surface-2 px-4 py-3 text-[14px]">
             Your top 3 {noun} account for <span className="font-semibold text-foreground">{pct(topThreeShare, 0)}</span> of your gains.
           </p>
         )}
@@ -119,7 +110,7 @@ export default function GainsPage() {
         {!steps.length ? (
           <p className="py-16 text-center text-[14px] text-muted">{mode === "realized" ? "No sales or write-offs yet." : "No gains or losses yet."}</p>
         ) : (
-          <div className="mt-8">
+          <div className="mt-6 first:mt-0">
             <div>
               <ul className="space-y-1" aria-label="Gain contributions">
                 {steps.map((s) => (
@@ -225,6 +216,18 @@ function Bar({ start, end, pos, total }: { start: number; end: number; pos: (v: 
           boxShadow: total ? undefined : `0 0 18px color-mix(in srgb, var(${up ? "--up" : "--down"}) 35%, transparent)`,
         }}
       />
+    </div>
+  );
+}
+
+/** Gains against losses as two thin capsules with a gap, like the app's tug-of-war bar. */
+function TugBar({ gains, losses }: { gains: number; losses: number }) {
+  const sum = Math.max(gains + Math.abs(losses), 0.01);
+  const up = (gains / sum) * 100;
+  return (
+    <div className="flex h-2.5 gap-[3px]" aria-hidden>
+      {gains > 0 && <div className="rounded-full bg-lime shadow-[0_0_8px_color-mix(in_srgb,var(--lime)_50%,transparent)]" style={{ width: `${Math.max(up, 1.5)}%` }} />}
+      {losses < 0 && <div className="flex-1 rounded-full bg-[var(--plan-pink)] shadow-[0_0_8px_color-mix(in_srgb,var(--plan-pink)_50%,transparent)]" />}
     </div>
   );
 }

@@ -96,12 +96,23 @@ export default function AnalyticsPage() {
   }
 
   const maxShare = Math.max(...sets.map((s) => s.share), 0.0001);
+  const totalReturn = summary.unrealized + summary.realized;
 
   return (
     <div className="animate-fade-in">
       <PageHeader
-        title="Analytics"
-        subtitle="How your collection is allocated and how it has performed."
+        title="Total return"
+        figure={<span className={totalReturn >= 0 ? "text-lime" : "text-[var(--plan-pink)]"}>{signedMoney(totalReturn)}</span>}
+        note={
+          <>
+            {summary.costBasis > 0 && <Signed value={totalReturn / summary.costBasis} format={(v) => signedPct(v)} />} on {money(summary.costBasis)} invested
+          </>
+        }
+        stats={[
+          { label: "Time-weighted", value: risk.totalReturn !== null ? signedPct(risk.totalReturn, 1) : "—", tone: risk.totalReturn === null ? undefined : risk.totalReturn >= 0 ? "up" : "down" },
+          { label: "Realized", value: signedMoney(summary.realized), tone: summary.realized >= 0 ? "up" : "down" },
+          { label: "Invested", value: money(summary.costBasis) },
+        ]}
         actions={
           <Link href="/gains" className="text-[14px] font-medium text-muted hover:text-foreground">
             Gains breakdown →
@@ -113,14 +124,13 @@ export default function AnalyticsPage() {
 
       <KpiGrid
         items={[
-          { label: "Total return", value: <Signed value={summary.unrealized + summary.realized} format={signedMoney} />, sub: <>{summary.costBasis > 0 ? <Signed value={(summary.unrealized + summary.realized) / summary.costBasis} format={(v) => signedPct(v)} /> : "—"} on {money(summary.costBasis)} invested</> },
-          { label: "Time-weighted", value: <Signed value={risk.totalReturn} format={(v) => signedPct(v, 1)} />, sub: risk.annualized !== null ? <><Signed value={risk.annualized} format={(v) => signedPct(v, 1)} /> a year</> : "Market moves only" },
+          { label: "A year", value: <Signed value={risk.annualized} format={(v) => signedPct(v, 1)} />, sub: "Time-weighted, annualized" },
           { label: "Max drawdown", value: <Signed value={risk.maxDrawdown} format={(v) => pct(v, 1)} />, sub: risk.maxDrawdownTo ? `${formatShortDate(risk.maxDrawdownFrom!)} → ${formatShortDate(risk.maxDrawdownTo)}` : "No dips yet" },
           { label: "Volatility", value: risk.volatility !== null ? pct(risk.volatility, 0) : "—", sub: "Annualized swing in value" },
           { label: "Best day", value: <Signed value={risk.bestDay?.gain ?? null} format={signedMoney} />, sub: risk.bestDay ? formatDate(risk.bestDay.date) : "—" },
           { label: "Worst day", value: <Signed value={risk.worstDay?.gain ?? null} format={signedMoney} />, sub: risk.worstDay ? formatDate(risk.worstDay.date) : "—" },
           { label: "In profit", value: winRate !== null ? pct(winRate, 0) : "—", sub: `of ${holdings.length} holdings · ${risk.upDays !== null ? `${pct(risk.upDays, 0)} up days` : ""}` },
-          { label: "Realized", value: <Signed value={summary.realized} format={signedMoney} />, sub: `${realized.length} sale${realized.length === 1 ? "" : "s"} & write-offs` },
+          { label: "Sales", value: String(realized.length), sub: "Sales & write-offs" },
         ]}
       />
 

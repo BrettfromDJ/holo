@@ -137,7 +137,6 @@ export function RecentTimeline({ holdings }: { holdings: HoldingView[] }) {
     <div className="min-w-0">
       <div className="mb-5 flex items-center justify-between">
         <h2 className="flex items-center gap-2.5 font-display text-[24px] uppercase leading-none tracking-[0.01em] sm:text-[28px]">
-          <span aria-hidden className="h-[0.7em] w-1.5 rounded-full bg-lime shadow-[0_0_12px_var(--lime)]" />
           Recently added
         </h2>
         <Link

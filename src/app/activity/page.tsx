@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { TransactionActions, partitionHistory } from "@/components/flows/transaction-dialogs";
 import { EmptyCollection } from "@/components/portfolio/empty-state";
 import { ErrorState } from "@/components/portfolio/error-state";
+import { AnimatedNumber } from "@/components/motion/animated-number";
 import { Delta } from "@/components/product/delta";
 import { ProductImage } from "@/components/product/product-image";
 import { PortfolioBanner, PortfolioSwitcher } from "@/components/portfolio/portfolio-controls";
@@ -15,7 +16,7 @@ import { Card } from "@/components/ui/card";
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { acquisitionCost, saleProceeds } from "@/lib/finance/ledger";
-import { formatDate, formatMonth, money } from "@/lib/format";
+import { formatDate, formatMonth, money, signedMoney } from "@/lib/format";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
 import { holdingKey, type Transaction } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -36,7 +37,7 @@ export default function ActivityPage() {
   const [filter, setFilter] = useState<Filter>("all");
   const [showHidden, setShowHidden] = useState(false);
 
-  const { groups, effective, byId, hiddenCount } = useMemo(() => {
+  const { groups, effective, byId, hiddenCount, bought, sold } = useMemo(() => {
     // Follows the portfolio picker like the other portfolio views.
     const keep = store.holdingFilter;
     const all = keep ? store.data.transactions.filter((t) => keep(holdingKey(t))) : store.data.transactions;
@@ -50,10 +51,18 @@ export default function ActivityPage() {
       const m = t.date.slice(0, 7);
       groups.set(m, [...(groups.get(m) ?? []), t]);
     }
-    return { groups: [...groups.entries()], effective, byId, hiddenCount: hidden.length };
+    // Totals for the top, like the app: what went in, what came out.
+    let bought = 0;
+    let sold = 0;
+    for (const t of effective.values()) {
+      if (t.type === "purchase" || (t.type === "adjustment" && t.quantity > 0)) bought += acquisitionCost(t);
+      if (t.type === "sale") sold += saleProceeds(t);
+    }
+    return { groups: [...groups.entries()], effective, byId, hiddenCount: hidden.length, bought, sold };
   }, [store.data.transactions, store.holdingFilter, filter, showHidden]);
 
   const realizedBySale = useMemo(() => new Map(realized.map((r) => [r.transactionId, r])), [realized]);
+  const realizedTotal = useMemo(() => realized.reduce((sum, r) => sum + r.gain, 0), [realized]);
 
   if (store.status === "loading") return <Skeleton className="h-96 w-full rounded-3xl" />;
   if (store.status === "error") return <ErrorState message={store.error} />;
@@ -68,7 +77,17 @@ export default function ActivityPage() {
 
   return (
     <div className="animate-fade-in">
-      <PageHeader title="Activity" subtitle="Every purchase, sale and adjustment." />
+      <PageHeader
+        title="Activity"
+        figure={<AnimatedNumber value={effective.size} format={(n) => String(Math.round(n))} duration={1100} from={effective.size * 0.85} />}
+        unit={effective.size === 1 ? "Entry" : "Entries"}
+        note="Every purchase, sale and adjustment"
+        stats={[
+          { label: "Bought", value: money(bought) },
+          { label: "Sold", value: money(sold) },
+          { label: "Realized", value: signedMoney(realizedTotal), tone: realizedTotal >= 0 ? "up" : "down" },
+        ]}
+      />
       <PortfolioSwitcher compact className="mb-3 lg:hidden" />
       <PortfolioBanner />
       <div className="scrollbar-none -mx-4 mb-5 flex items-center overflow-x-auto px-4">

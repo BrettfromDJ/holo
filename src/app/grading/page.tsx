@@ -9,11 +9,11 @@ import { toast } from "sonner";
 import { Field, MoneyInput, parseMoney } from "@/components/flows/fields";
 import { FormShell } from "@/components/flows/transaction-dialogs";
 import { formatSent, GradeChip, ReturnDialog, SendToGraderDialog, slabSourceLabel, useAtGrader } from "@/components/grading/grading-items";
-import { MetricStrip } from "@/components/overview/sections";
 import { EmptyCollection } from "@/components/portfolio/empty-state";
 import { ErrorState } from "@/components/portfolio/error-state";
 import { PortfolioBanner, PortfolioSwitcher } from "@/components/portfolio/portfolio-controls";
 import { ProductImage } from "@/components/product/product-image";
+import { AnimatedNumber } from "@/components/motion/animated-number";
 import { PageHeader } from "@/components/shell/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -95,31 +95,34 @@ export default function GradingPage() {
   }, 0);
   const stale = slabs.filter((h) => h.priceOrigin === "manual" && isStaleValue(h.priceUpdatedAt, store.today)).length;
   const sentCount = sent.reduce((s, x) => s + x.quantity, 0);
+  const slabCount = slabs.reduce((s, h) => s + h.quantity, 0);
 
   return (
     <div className="animate-fade-in">
       <PortfolioSwitcher compact className="mb-4 lg:hidden" />
       <PortfolioBanner />
+      {/* Like the app: the slabs' worth up top, how many and their premium over raw, then the
+          grader and refresh counts. */}
       <PageHeader
-        title="Grading"
-        subtitle="Your slabs, cards at the grader, and what's worth sending in"
+        title="Your slabs are worth"
+        figure={<AnimatedNumber value={slabValue} format={money} duration={1300} from={slabValue * 0.85} />}
+        note={
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="tabular rounded-md bg-lime px-2 py-0.5 text-[13px] font-semibold text-[#0b0b0c]">
+              {slabCount} slab{slabCount === 1 ? "" : "s"}
+            </span>
+            {rawEquivalent > 0 && <span>{(slabValue / rawEquivalent).toFixed(1)}× what they&apos;re worth raw</span>}
+          </span>
+        }
         actions={slabs.some((h) => gradedSampleFor(h.identity.productId)) ? <Badge variant="sample">Sample graded prices</Badge> : undefined}
-      />
-
-      <MetricStrip
-        items={[
-          { label: "Slabs", value: String(slabs.reduce((s, h) => s + h.quantity, 0)), sub: slabs.length ? money(slabValue) : "None yet" },
-          {
-            label: "Grading premium",
-            value: rawEquivalent > 0 ? <span className={slabValue - rawEquivalent >= 0 ? "text-up" : "text-down"}>{signedMoney(slabValue - rawEquivalent)}</span> : "—",
-            sub: rawEquivalent > 0 ? `vs ${money(rawEquivalent)} raw` : "Slab value over raw",
-          },
-          { label: "At the grader", value: String(sentCount), sub: sent.length ? `${sent.length} submission${sent.length === 1 ? "" : "s"}` : "Nothing out" },
-          { label: "Values to refresh", value: String(stale), sub: "Over 60 days old" },
+        stats={[
+          { label: "Premium", value: rawEquivalent > 0 ? signedMoney(slabValue - rawEquivalent) : "—", tone: rawEquivalent > 0 ? (slabValue - rawEquivalent >= 0 ? "up" : "down") : undefined },
+          { label: "At grader", value: String(sentCount) },
+          { label: "To refresh", value: String(stale) },
         ]}
       />
 
-      <div className="mt-8 grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
         <Card className="p-5 sm:p-6">
           <SectionTitle title="At the grader" subtitle="Cards stay raw until they come back" />
           {sent.length ? (

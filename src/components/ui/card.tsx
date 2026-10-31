@@ -10,7 +10,6 @@ export function SectionTitle({ title, action, className, subtitle }: { title: st
     <div className={cn("mb-4", className)}>
       <div className="flex items-center justify-between gap-4">
         <h2 className="flex min-w-0 items-center gap-2 font-display text-[22px] uppercase leading-none tracking-[0.01em] sm:text-[24px]">
-          <span aria-hidden className="h-[0.7em] w-1 rounded-full bg-lime shadow-[0_0_10px_var(--lime)]" />
           {title}
         </h2>
         {action}

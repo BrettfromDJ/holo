@@ -198,11 +198,7 @@ export function HypeHeading({
   return (
     <div className="mb-5 flex items-end justify-between gap-4">
       <div>
-        <h2 className="flex items-center gap-2.5 font-display text-[26px] uppercase leading-none tracking-[0.01em] sm:text-[32px]">
-          <span
-            aria-hidden
-            className="h-[0.7em] w-1.5 rounded-full bg-lime shadow-[0_0_12px_var(--lime)]"
-          />
+        <h2 className="text-balance font-display text-[26px] uppercase leading-none tracking-[0.01em] sm:text-[32px]">
           {title}
         </h2>
         {subtitle && (
