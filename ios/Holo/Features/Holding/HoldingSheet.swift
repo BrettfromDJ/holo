@@ -83,14 +83,10 @@ struct HoldingSheet: View {
                 graded = (try? await Backend.shared.api.gradedValues([identity.productId]))?[identity.productId]
             }
         }
-        .presentationDetents([.large])
+        // Just short of full height: iOS 26 keeps a sheet glass only while it isn't full screen.
+        .presentationDetents([.fraction(0.93)])
         .presentationDragIndicator(.visible)
-        .presentationBackground {
-            ZStack {
-                Rectangle().fill(.ultraThinMaterial)
-                Theme.background.opacity(0.35)
-            }
-        }
+        .nativeGlassSheet()
     }
 
     // MARK: Parts

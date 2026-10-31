@@ -176,6 +176,22 @@ extension View {
 
 // MARK: - Buttons
 
+extension View {
+    /// Apple's own Liquid Glass sheet background on iOS 26 (see-through, blurring the page
+    /// behind); frosted material on older iOS and older Xcode.
+    @ViewBuilder func nativeGlassSheet() -> some View {
+        #if compiler(>=6.2)
+        if #available(iOS 26, *) {
+            self
+        } else {
+            presentationBackground(.ultraThinMaterial)
+        }
+        #else
+        presentationBackground(.ultraThinMaterial)
+        #endif
+    }
+}
+
 /// A full-width Liquid Glass capsule button (frosted on older iOS), for buttons on glass sheets.
 struct GlassButton: ButtonStyle {
     var height: CGFloat = 46
