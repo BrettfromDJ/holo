@@ -101,6 +101,7 @@ struct HomeView: View {
             ValueSplit(store: store).padding(.horizontal, 16).reveal()
             MoversSection(holdings: store.holdings).padding(.horizontal, 16).reveal()
             RecentSection(items: store.recentPurchases()).padding(.horizontal, 16).reveal()
+            MoreSection().padding(.horizontal, 16).reveal()
         }
         .padding(.top, 4)
         .padding(.bottom, 40)
@@ -1268,5 +1269,39 @@ enum Milestones {
             }
         }
         return out
+    }
+}
+
+/// The website's other pages: analytics and the gains breakdown.
+private struct MoreSection: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("MORE").font(.display(24)).displayTrim(24)
+            VStack(spacing: 0) {
+                row("Analytics", "Returns, drawdowns, sets and types", icon: "chart.xyaxis.line") { AnalyticsView() }
+                Rectangle().fill(Theme.border).frame(height: 1).padding(.leading, 52)
+                row("Gains", "Which products your gains come from", icon: "chart.bar.xaxis") { GainsView() }
+            }
+            .surface(radius: 22, padding: 4)
+        }
+    }
+
+    private func row<D: View>(_ title: String, _ sub: String, icon: String, @ViewBuilder destination: @escaping () -> D) -> some View {
+        NavigationLink(destination: destination) {
+            HStack(spacing: 12) {
+                Image(systemName: icon).font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.lime)
+                    .frame(width: 36, height: 36)
+                    .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.geist(15, .semibold))
+                    Text(sub).font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.subtle)
+            }
+            .padding(12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }

@@ -25,6 +25,7 @@ struct HoldingView: Identifiable, Hashable {
     var lastAcquired: String?
     /// Units still held, oldest first (what a sale consumes).
     var lots: [Lot] = []
+    var firstAcquired: String?
 
     var id: String { identity.key }
     var value: Double? { price.map { $0 * quantity } }
@@ -123,7 +124,7 @@ enum Portfolio {
             return HoldingView(
                 identity: id, product: products[id.productId], quantity: qty, costBasis: pos.costBasis,
                 realizedGain: pos.realizedGain, price: price, isConditionEstimate: estimate, isManual: manual,
-                change24hPct: change, change7dPct: change7, change30dPct: change30, lastAcquired: pos.lastAcquired, lots: pos.lots
+                change24hPct: change, change7dPct: change7, change30dPct: change30, lastAcquired: pos.lastAcquired, lots: pos.lots, firstAcquired: pos.firstAcquired
             )
         }
         .sorted { ($0.value ?? -1) > ($1.value ?? -1) }

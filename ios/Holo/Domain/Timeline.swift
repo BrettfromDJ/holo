@@ -6,6 +6,12 @@ struct TimelinePoint: Identifiable, Hashable {
     var value: Double
     /// What those priced items cost.
     var cost: Double
+    /// Mark-to-market change on units held at the previous close (buying and selling excluded).
+    var marketGain: Double = 0
+    /// The day's return: marketGain over the previous value of those units.
+    var dailyReturn: Double = 0
+    /// Daily returns chained from 1, so buying and selling never count as performance.
+    var twrIndex: Double = 1
 
     var id: String { date }
     var day: Date { Format.isoDay.date(from: date) ?? Date() }
@@ -30,6 +36,9 @@ enum Timeline {
         var ledger = Ledger()
         var idx = 0
         var out: [TimelinePoint] = []
+        var prevQty: [String: Double] = [:]
+        var prevPrice: [String: Double] = [:]
+        var twr = 1.0
 
         for day in days(from: first, to: today) {
             while idx < txs.count, txs[idx].date <= day {
@@ -38,13 +47,35 @@ enum Timeline {
             }
             var value = 0.0
             var cost = 0.0
-            for pos in ledger.positions.values {
+            var gain = 0.0
+            var denom = 0.0
+            var curQty: [String: Double] = [:]
+            var curPrice: [String: Double] = [:]
+            for (key, pos) in ledger.positions {
                 let q = pos.quantity
-                guard q > 1e-9, let price = price(pos.identity, on: day, today: today, prices: prices, history: history, manual: manualValues, ebay: ebayGraded, shares: conditionShares) else { continue }
-                value += q * price
-                cost += pos.costBasis
+                let qPrev = prevQty[key] ?? 0
+                guard q > 1e-9 || qPrev > 1e-9 else { continue }
+                let p = price(pos.identity, on: day, today: today, prices: prices, history: history, manual: manualValues, ebay: ebayGraded, shares: conditionShares)
+                if q > 1e-9 {
+                    curQty[key] = q
+                    if let p {
+                        value += q * p
+                        cost += pos.costBasis
+                    }
+                }
+                if let p {
+                    curPrice[key] = p
+                    if qPrev > 1e-9, let pPrev = prevPrice[key] {
+                        gain += qPrev * (p - pPrev)
+                        denom += qPrev * pPrev
+                    }
+                }
             }
-            out.append(TimelinePoint(date: day, value: value, cost: cost))
+            let ret = denom > 0 ? gain / denom : 0
+            twr *= 1 + ret
+            out.append(TimelinePoint(date: day, value: value, cost: cost, marketGain: gain, dailyReturn: ret, twrIndex: twr))
+            prevQty = curQty
+            prevPrice = curPrice
         }
         return out
     }
