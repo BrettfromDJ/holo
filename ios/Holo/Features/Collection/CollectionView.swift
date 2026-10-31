@@ -146,6 +146,33 @@ struct CollectionView: View {
         }
     }
 
+    /// Category and shelf chips for the track above the grid.
+    private var categoryChips: some View {
+        HStack(spacing: 2) {
+            Chip(title: "All", selected: category == nil && shelfId == nil, count: store.holdings.count) { category = nil; shelfId = nil }
+            ForEach(HoldingCategory.allCases) { c in
+                let n = store.holdings.filter { $0.category == c }.count
+                if n > 0 { Chip(title: c.rawValue, selected: category == c && shelfId == nil, count: n) { category = c; shelfId = nil } }
+            }
+            // Your shelves (shared with the website); hold one to rename or delete it.
+            ForEach(groups.shelves) { shelf in
+                let n = store.holdings.filter { shelf.product_ids.contains($0.identity.productId) }.count
+                Chip(title: shelf.name, selected: shelfId == shelf.id, count: n) { shelfId = shelf.id; category = nil }
+                    .contextMenu {
+                        Button("Delete shelf", role: .destructive) {
+                            if shelfId == shelf.id { shelfId = nil }
+                            Task { await groupRun { try await groups.removeShelf(shelf.id) } }
+                        }
+                    }
+            }
+            Button { naming = .shelf } label: {
+                Label("Shelf", systemImage: "plus").font(.geist(14, .semibold)).foregroundStyle(Theme.muted)
+                    .padding(.horizontal, 14).frame(height: 36)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
     /// All portfolios, Main, or one of yours: filters every number, like the website's switcher.
     private var portfolioSwitcher: some View {
         Menu {
@@ -300,33 +327,13 @@ struct CollectionView: View {
                 .padding(3)
                 .liquidGlass(in: Capsule())
             }
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 2) {
-                    Chip(title: "All", selected: category == nil && shelfId == nil, count: store.holdings.count) { category = nil; shelfId = nil }
-                    ForEach(HoldingCategory.allCases) { c in
-                        let n = store.holdings.filter { $0.category == c }.count
-                        if n > 0 { Chip(title: c.rawValue, selected: category == c && shelfId == nil, count: n) { category = c; shelfId = nil } }
-                    }
-                    // Your shelves (shared with the website); hold one to rename or delete it.
-                    ForEach(groups.shelves) { shelf in
-                        let n = store.holdings.filter { shelf.product_ids.contains($0.identity.productId) }.count
-                        Chip(title: shelf.name, selected: shelfId == shelf.id, count: n) { shelfId = shelf.id; category = nil }
-                            .contextMenu {
-                                Button("Delete shelf", role: .destructive) {
-                                    if shelfId == shelf.id { shelfId = nil }
-                                    Task { await groupRun { try await groups.removeShelf(shelf.id) } }
-                                }
-                            }
-                    }
-                    Button { naming = .shelf } label: {
-                        Label("Shelf", systemImage: "plus").font(.geist(14, .semibold)).foregroundStyle(Theme.muted)
-                            .padding(.horizontal, 14).frame(height: 36)
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(4)
+            // The track stays inside the screen edges. When the chips don't all fit they scroll
+            // inside it and the right edge fades out.
+            ViewThatFits(in: .horizontal) {
+                categoryChips.padding(4)
+                ScrollView(.horizontal, showsIndicators: false) { categoryChips.padding(4) }
+                    .fadeTrailingEdge()
             }
-            // The track stays inside the screen edges; the chips scroll inside it.
             .clipShape(Capsule())
             .liquidGlass(in: Capsule())
             if sort != .value || filtersOn {

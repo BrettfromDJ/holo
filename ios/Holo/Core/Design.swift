@@ -547,6 +547,18 @@ struct Chip: View {
 }
 
 /// A row of chips for picking one value, inside a dark track like the website's.
+extension View {
+    /// Fades the last stretch of the right edge to clear (for rows that run on past it).
+    func fadeTrailingEdge(_ length: CGFloat = 44) -> some View {
+        mask {
+            HStack(spacing: 0) {
+                Color.black
+                LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing).frame(width: length)
+            }
+        }
+    }
+}
+
 struct ChipPicker<T: Hashable>: View {
     var options: [(T, String)]
     @Binding var selection: T
@@ -555,9 +567,14 @@ struct ChipPicker<T: Hashable>: View {
 
     var body: some View {
         if scrolls {
-            ScrollView(.horizontal, showsIndicators: false) { chips.padding(4) }
-                .clipShape(Capsule())
-                .liquidGlass(in: Capsule())
+            // Fits: as is. Doesn't: the chips scroll inside the track and its right edge fades.
+            ViewThatFits(in: .horizontal) {
+                chips.padding(4)
+                ScrollView(.horizontal, showsIndicators: false) { chips.padding(4) }
+                    .fadeTrailingEdge()
+            }
+            .clipShape(Capsule())
+            .liquidGlass(in: Capsule())
         } else {
             chips.padding(4).liquidGlass(in: Capsule())
         }
