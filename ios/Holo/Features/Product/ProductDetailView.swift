@@ -217,14 +217,11 @@ struct ProductDetailView: View {
                 .padding(.top, 6)
             // Different printings sell for different prices: switch between them.
             if printings.count > 1 {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    ChipPicker(options: printings.map { ($0, $0) }, selection: Binding(get: { printing ?? "" }, set: { p in
-                        withAnimation(.snappy) { chosenPrinting = p }
-                        UISelectionFeedbackGenerator().selectionChanged()
-                        Task { await store.loadFullHistory(productId, printing: p) }
-                    }))
-                }
-                .scrollClipDisabled()
+                ChipPicker(options: printings.map { ($0, $0) }, selection: Binding(get: { printing ?? "" }, set: { p in
+                    withAnimation(.snappy) { chosenPrinting = p }
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    Task { await store.loadFullHistory(productId, printing: p) }
+                }), scrolls: true)
                 .padding(.top, 14)
             }
             Group {

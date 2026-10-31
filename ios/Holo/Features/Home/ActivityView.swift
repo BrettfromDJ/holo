@@ -135,10 +135,7 @@ struct ActivityView: View {
 
     private func controls(_ m: Model) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                ChipPicker(options: Filter.allCases.map { ($0, $0.rawValue) }, selection: $filter)
-            }
-            .scrollClipDisabled()
+            ChipPicker(options: Filter.allCases.map { ($0, $0.rawValue) }, selection: $filter, scrolls: true)
             if m.hiddenCount > 0 {
                 Button("\(showHidden ? "Hide" : "Show") deleted & edit records (\(m.hiddenCount))") { showHidden.toggle() }
                     .font(.geist(12, .medium)).foregroundStyle(Theme.subtle)

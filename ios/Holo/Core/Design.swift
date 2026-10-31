@@ -550,15 +550,25 @@ struct Chip: View {
 struct ChipPicker<T: Hashable>: View {
     var options: [(T, String)]
     @Binding var selection: T
+    /// When the chips may not fit: the track stays inside its space and the chips scroll in it.
+    var scrolls = false
 
     var body: some View {
+        if scrolls {
+            ScrollView(.horizontal, showsIndicators: false) { chips.padding(4) }
+                .clipShape(Capsule())
+                .liquidGlass(in: Capsule())
+        } else {
+            chips.padding(4).liquidGlass(in: Capsule())
+        }
+    }
+
+    private var chips: some View {
         HStack(spacing: 2) {
             ForEach(options, id: \.0) { value, label in
                 Chip(title: label, selected: selection == value) { selection = value }
             }
         }
-        .padding(4)
-        .liquidGlass(in: Capsule())
     }
 }
 

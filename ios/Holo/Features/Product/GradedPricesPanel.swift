@@ -88,15 +88,10 @@ struct GradedPricesPanel: View {
         let r = lookupValue
         return VStack(alignment: .leading, spacing: 12) {
             MonoLabel(text: "Look up any grade")
-            ScrollView(.horizontal, showsIndicators: false) {
-                ChipPicker(options: gradingCompanies.map { ($0, $0) }, selection: Binding(get: { company }, set: { c in
-                    company = c
-                    if !Self.lookupGrades(c).contains(grade) { grade = "10" }
-                }))
-                // Room for the selected chip's glow, inside the card's own padding.
-                .padding(14)
-            }
-            .padding(-14)
+            ChipPicker(options: gradingCompanies.map { ($0, $0) }, selection: Binding(get: { company }, set: { c in
+                company = c
+                if !Self.lookupGrades(c).contains(grade) { grade = "10" }
+            }), scrolls: true)
             // 10 down to 5 (the grades people look up), spread across the width: nothing scrolls or clips.
             HStack(spacing: 2) {
                 ForEach(Self.lookupGrades(company), id: \.self) { g in
