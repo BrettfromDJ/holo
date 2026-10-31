@@ -40,8 +40,11 @@ struct BinderView: View {
         let sets = self.sets
         let current = sets.first { $0.id == selected } ?? sets.first
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                PageHeader(title: "Binder", subtitle: "Your singles, page by page, and what's missing from each set")
+            VStack(alignment: .leading, spacing: 24) {
+                MoreHero(label: "Singles in your binder", value: store.holdings.filter { $0.product?.isSealed == false }.reduce(0) { $0 + $1.quantity },
+                         format: { "\(Int($0.rounded()))" }, tint: Theme.lime) {
+                    Text("Page by page, set by set, with what's missing from each").font(.geist(14)).foregroundStyle(Theme.muted)
+                }
                 if sets.isEmpty {
                     VStack(spacing: 10) {
                         Image(systemName: "book.closed").font(.system(size: 36)).foregroundStyle(Theme.subtle)
@@ -64,6 +67,8 @@ struct BinderView: View {
             .padding(.bottom, 120)
         }
         .background(Theme.background)
+        .replaysAnimations()
+        .sensoryFeedback(.impact(weight: .light), trigger: page)
         .navigationBarTitleDisplayMode(.inline)
         .pageTitle("Binder")
         .task(id: current?.id) {
@@ -100,12 +105,7 @@ struct BinderView: View {
             page = 0
         } label: {
             HStack(spacing: 12) {
-                ZStack {
-                    Circle().stroke(Theme.surface3, lineWidth: 5)
-                    Circle().trim(from: 0, to: ratio ?? 0).stroke(Theme.lime, style: StrokeStyle(lineWidth: 5, lineCap: .round)).rotationEffect(.degrees(-90))
-                    Text(ratio.map { "\(Int(($0 * 100).rounded()))%" } ?? "—").font(.geist(11, .semibold)).monospacedDigit()
-                }
-                .frame(width: 50, height: 50)
+                CompletionRing(ratio: ratio)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(s.name).font(.geist(14, .semibold)).lineLimit(1)
                     Text("\(owned) / \(list.map { "\($0.count)" } ?? "?") cards").font(.geist(12)).monospacedDigit().foregroundStyle(Theme.muted)
@@ -152,7 +152,7 @@ struct BinderView: View {
         let hasList = checklists[set.id] != nil
         return VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(set.name).font(.geist(22, .semibold))
+                DisplayText(text: set.name.uppercased(), size: 28)
                 (Text("\(slots.count - missing.count) of \(hasList ? "\(slots.count)" : "?") collected")
                  + Text(hasList && !missingPriced.isEmpty ? " · complete it for about " : "")
                  + Text(hasList && !missingPriced.isEmpty ? Format.money(toComplete) : "").foregroundColor(.white))
@@ -196,8 +196,7 @@ struct BinderView: View {
 
             if hasList, !missingPriced.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Most valuable missing cards").font(.geist(17, .semibold))
-                    Text("What it would take to finish \(set.name)").font(.geist(13)).foregroundStyle(Theme.muted)
+                    MoreHeading(title: "Most valuable missing", subtitle: "What it would take to finish \(set.name)")
                     ForEach(missingPriced.sorted { ($0.hit.market ?? 0) > ($1.hit.market ?? 0) }.prefix(8)) { s in
                         NavigationLink(value: s.hit.product.id) {
                             HStack(spacing: 12) {
@@ -231,6 +230,7 @@ struct BinderView: View {
                     let slot = chunk[i]
                     NavigationLink(value: slot.hit.product.id) { pocket(slot) }
                         .buttonStyle(.plain)
+                        .popIn(delay: Double(i) * 0.04)
                         .simultaneousGesture(TapGesture().onEnded { if slot.holdings.isEmpty { store.seed(slot.hit) } })
                 } else {
                     pocketShape.fill(Color.white.opacity(0.03)).aspectRatio(63 / 88, contentMode: .fit)
@@ -286,5 +286,33 @@ struct BinderView: View {
 private struct TrailingIcon: LabelStyle {
     func makeBody(configuration: Configuration) -> some View {
         HStack(spacing: 4) { configuration.title; configuration.icon }
+    }
+}
+
+/// How complete a set is: a lime ring that sweeps round when it appears, with the share inside.
+private struct CompletionRing: View {
+    var ratio: Double?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var drawn = false
+
+    var body: some View {
+        ZStack {
+            Circle().stroke(Theme.surface3, lineWidth: 5)
+            Circle().trim(from: 0, to: (ratio ?? 0) * (drawn || reduceMotion ? 1 : 0))
+                .stroke(Theme.lime, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .shadow(color: Theme.lime.opacity(0.5), radius: 4)
+            Text(ratio.map { "\(Int(($0 * 100).rounded()))%" } ?? "—").font(.geist(11, .semibold)).monospacedDigit()
+        }
+        .frame(width: 50, height: 50)
+        .onAppear {
+            guard !reduceMotion, !drawn else { return }
+            withAnimation(.easeOut(duration: 1.0).delay(0.2)) { drawn = true }
+        }
+        .onChange(of: ratio) { _, _ in
+            guard !reduceMotion else { return }
+            drawn = false
+            withAnimation(.easeOut(duration: 1.0)) { drawn = true }
+        }
     }
 }

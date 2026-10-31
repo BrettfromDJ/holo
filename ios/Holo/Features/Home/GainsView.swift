@@ -38,54 +38,59 @@ struct GainsView: View {
         let a = Gains.attribute(holdings: store.holdings, transactions: store.portfolioTransactions, products: store.products,
                                 mode: mode, group: group, maxRows: expanded ? nil : Self.collapsedRows)
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                PageHeader(title: "Gains", subtitle: "See exactly which products your gains come from.")
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ChipPicker(options: [(.unrealized, "Unrealized"), (.realized, "Realized"), (.all, "All-time")], selection: $mode)
-                        ChipPicker(options: [(.product, "Products"), (.set, "Sets"), (.category, "Type")], selection: Binding(
-                            get: { group },
-                            set: { group = $0; expanded = false }
-                        ))
-                    }
+            VStack(alignment: .leading, spacing: 28) {
+                MoreHero(label: label, value: a.total, format: { Format.signedMoney($0) }, tint: a.total >= 0 ? Theme.lime : Theme.planPink) {
+                    Text(hint).font(.geist(14)).foregroundStyle(Theme.muted)
                 }
-                .scrollClipDisabled()
+                VStack(alignment: .leading, spacing: 10) {
+                    ChipPicker(options: [(.unrealized, "Unrealized"), (.realized, "Realized"), (.all, "All-time")], selection: $mode)
+                    ChipPicker(options: [(.product, "Products"), (.set, "Sets"), (.category, "Type")], selection: Binding(
+                        get: { group },
+                        set: { group = $0; expanded = false }
+                    ))
+                }
+                HStack(spacing: 12) {
+                    CountTile(label: "Gains", value: a.gains, format: { Format.signedMoney($0) }, valueTint: a.gains > 0 ? Theme.up : .white,
+                              sub: "\(a.winners) \(a.winners == 1 ? noun.one : noun.many) up", glow: Theme.lime)
+                    CountTile(label: "Losses", value: a.losses, format: { Format.signedMoney($0) }, valueTint: a.losses < 0 ? Theme.down : .white,
+                              sub: "\(a.losers) \(a.losers == 1 ? noun.one : noun.many) down", glow: Theme.planPink)
+                }
 
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(label).font(.geist(13, .medium)).foregroundStyle(Theme.muted)
-                    Text(Format.signedMoney(a.total)).font(.display(52)).monospacedDigit().foregroundStyle(Theme.tone(a.total))
-                        .lineLimit(1).minimumScaleFactor(0.5).displayTrim(52).padding(.top, 10)
-                    Text(hint).font(.geist(13)).foregroundStyle(Theme.subtle).padding(.top, 10)
-                    HStack(spacing: 24) {
-                        tally("Gains · \(a.winners) \(a.winners == 1 ? noun.one : noun.many)", a.gains > 0 ? Format.signedMoney(a.gains) : Format.money(0), a.gains > 0 ? Theme.up : Theme.muted)
-                        tally("Losses · \(a.losers) \(a.losers == 1 ? noun.one : noun.many)", a.losses < 0 ? Format.signedMoney(a.losses) : Format.money(0), a.losses < 0 ? Theme.down : Theme.muted)
+                if let share = a.topThreeShare, a.winners > 3 {
+                    // The headline insight, big.
+                    HStack(alignment: .center, spacing: 14) {
+                        CountingText(value: share, format: { "\(Int(($0 * 100).rounded()))%" })
+                            .font(.display(48)).monospacedDigit().foregroundStyle(Theme.lime).displayTrim(48)
+                            .shadow(color: Theme.lime.opacity(0.4), radius: 14)
+                        Text("of your gains come from your top 3 \(noun.many).").font(.geist(15, .medium)).foregroundStyle(.white)
                     }
-                    .padding(.top, 16)
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .tinted(Theme.lime, radius: 20, border: false)
+                    .reveal()
+                }
 
-                    if let share = a.topThreeShare, a.winners > 3 {
-                        (Text("Your top 3 \(noun.many) account for ") + Text("\(Int((share * 100).rounded()))%").fontWeight(.semibold).foregroundColor(.white) + Text(" of your gains."))
-                            .font(.geist(14)).foregroundStyle(Theme.muted)
-                            .padding(.horizontal, 14).padding(.vertical, 12)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            .padding(.top, 18)
-                    }
-
+                VStack(alignment: .leading, spacing: 16) {
+                    MoreHeading(title: "Where it comes from", subtitle: "Each bar starts where the last one ended, gains first, then losses")
                     if a.steps.isEmpty {
                         Text(mode == .realized ? "No sales or write-offs yet." : "No gains or losses yet.")
                             .font(.geist(14)).foregroundStyle(Theme.muted)
                             .frame(maxWidth: .infinity).padding(.vertical, 48)
+                            .surface(radius: 22, padding: 16)
                     } else {
-                        Waterfall(steps: a.steps, total: a.total, totalLabel: label, gains: a.gains, group: group)
-                            .padding(.top, 22)
-                        if a.count > Self.collapsedRows {
-                            Button(expanded ? "Show top contributors only" : "Show all \(a.count) \(noun.many)") { expanded.toggle() }
-                                .font(.geist(13, .medium)).foregroundStyle(Theme.muted)
-                                .padding(.top, 16)
+                        VStack(alignment: .leading, spacing: 0) {
+                            Waterfall(steps: a.steps, total: a.total, totalLabel: label, gains: a.gains, group: group)
+                                .id("\(mode.rawValue)\(group.rawValue)\(expanded)")
+                            if a.count > Self.collapsedRows {
+                                Button(expanded ? "Show top contributors only" : "Show all \(a.count) \(noun.many)") { expanded.toggle() }
+                                    .buttonStyle(Button3D(kind: .dark, height: 42))
+                                    .padding(.top, 16)
+                            }
                         }
+                        .surface(radius: 22, padding: 16)
                     }
                 }
-                .surface(radius: 22, padding: 18)
+                .reveal()
 
                 if a.unpriced > 0, mode != .realized {
                     Label("\(a.unpriced) holding\(a.unpriced == 1 ? " has" : "s have") no market price and \(a.unpriced == 1 ? "isn't" : "aren't") included.", systemImage: "exclamationmark.circle")
@@ -96,15 +101,10 @@ struct GainsView: View {
             .padding(.bottom, 120)
         }
         .background(Theme.background)
+        .replaysAnimations()
+        .sensoryFeedback(.selection, trigger: "\(mode.rawValue)\(group.rawValue)")
         .navigationBarTitleDisplayMode(.inline)
         .pageTitle("Gains")
-    }
-
-    private func tally(_ title: String, _ value: String, _ tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title).font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
-            Text(value).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(tint)
-        }
     }
 }
 
@@ -122,11 +122,13 @@ private struct Waterfall: View {
         let span = hi - lo == 0 ? 1 : hi - lo
         let pos = { (v: Double) in (v - lo) / span }
         VStack(spacing: 6) {
-            ForEach(steps) { s in
-                if group == .product, s.key != "__other" {
-                    NavigationLink(value: s.key) { row(s, pos: pos) }.buttonStyle(.plain)
-                } else {
-                    row(s, pos: pos)
+            ForEach(Array(steps.enumerated()), id: \.element.id) { i, s in
+                Group {
+                    if group == .product, s.key != "__other" {
+                        NavigationLink(value: s.key) { row(s, pos: pos, delay: Double(min(i, 14)) * 0.07) }.buttonStyle(.plain)
+                    } else {
+                        row(s, pos: pos, delay: Double(min(i, 14)) * 0.07)
+                    }
                 }
             }
             Divider().overlay(Theme.border).padding(.vertical, 4)
@@ -136,12 +138,12 @@ private struct Waterfall: View {
                     Spacer()
                     Text(Format.signedMoney(total)).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(total))
                 }
-                Bar(start: 0, end: total, pos: pos, isTotal: true)
+                Bar(start: 0, end: total, pos: pos, isTotal: true, delay: Double(min(steps.count, 14)) * 0.07)
             }
         }
     }
 
-    private func row(_ s: Gains.Row, pos: @escaping (Double) -> Double) -> some View {
+    private func row(_ s: Gains.Row, pos: @escaping (Double) -> Double, delay: Double) -> some View {
         let share = s.gain > 0 && gains > 0 ? s.gain / gains : nil
         let detail = [
             s.quantity > 0 && s.value > 0 ? "\(Format.money(s.value)) value · \(Format.money(s.costBasis)) cost" : nil,
@@ -165,7 +167,7 @@ private struct Waterfall: View {
                     }
                 }
             }
-            Bar(start: s.start, end: s.end, pos: pos, isTotal: false)
+            Bar(start: s.start, end: s.end, pos: pos, isTotal: false, delay: delay)
         }
         .padding(.vertical, 6)
         .contentShape(Rectangle())
@@ -190,23 +192,40 @@ private struct Bar: View {
     var end: Double
     var pos: (Double) -> Double
     var isTotal: Bool
+    var delay: Double = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var grown = false
 
     var body: some View {
         GeometryReader { geo in
             let w = geo.size.width
             let left = pos(min(start, end)) * w
-            let width = max(abs(pos(end) - pos(start)) * w, 3)
+            let full = max(abs(pos(end) - pos(start)) * w, 3)
+            let g = grown || reduceMotion ? 1.0 : 0.0
+            let width = max(full * g, 0.5)
             let up = end >= start
-            let tint = isTotal ? Color.white : up ? Theme.up : Theme.down
+            let tint = isTotal ? (end >= 0 ? Theme.lime : Theme.planPink) : up ? Theme.up : Theme.down
             ZStack(alignment: .leading) {
                 Rectangle().fill(Theme.border).frame(width: 1).offset(x: pos(0) * w)
+                // Gains grow rightward from where the last step ended; losses grow leftward.
                 Capsule()
                     .fill(LinearGradient(colors: [tint.opacity(0.35), tint], startPoint: up ? .leading : .trailing, endPoint: up ? .trailing : .leading))
-                    .frame(width: width, height: 10)
-                    .offset(x: left)
+                    .frame(width: width, height: isTotal ? 12 : 10)
+                    .shadow(color: tint.opacity(isTotal ? 0.6 : 0.35), radius: isTotal ? 10 : 6)
+                    .offset(x: up ? left : left + full - width)
             }
             .frame(height: geo.size.height)
         }
         .frame(height: 14)
+        .onFirstVisible { grow() }
+        .onReplay {
+            grown = false
+            grow()
+        }
+    }
+
+    private func grow() {
+        guard !reduceMotion else { return }
+        withAnimation(.spring(response: 0.7, dampingFraction: 0.85).delay(0.1 + delay)) { grown = true }
     }
 }

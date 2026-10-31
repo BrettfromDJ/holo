@@ -33,17 +33,20 @@ struct GradingView: View {
         let slabs = self.slabs
         let candidates = self.candidates
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                PageHeader(title: "Grading", subtitle: "Your slabs, cards at the grader, and what's worth sending in")
+            VStack(alignment: .leading, spacing: 36) {
+                MoreHero(label: "Your slabs are worth", value: slabs.reduce(0) { $0 + ($1.value ?? 0) }, format: { Format.money($0) }, tint: Theme.lime) {
+                    Text("Your slabs, cards at the grader, and what's worth sending in").font(.geist(14)).foregroundStyle(Theme.muted)
+                }
                 metrics(slabs)
-                atGrader
-                worthGrading(candidates)
-                yourSlabs(slabs)
+                yourSlabs(slabs).reveal()
+                worthGrading(candidates).reveal()
+                atGrader.reveal()
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 120)
         }
         .background(Theme.background)
+        .replaysAnimations()
         .navigationBarTitleDisplayMode(.inline)
         .pageTitle("Grading")
         .task {
@@ -73,22 +76,19 @@ struct GradingView: View {
         }.count
         let sentCount = grading.sent.reduce(0) { $0 + $1.quantity }
         let premium = value - rawEquivalent
-        let items: [(String, String, Color, String, Color)] = [
-            ("Slabs", "\(Int(slabs.reduce(0) { $0 + $1.quantity }))", .white, slabs.isEmpty ? "None yet" : Format.money(value), Theme.lime),
-            ("Grading premium", rawEquivalent > 0 ? Format.signedMoney(premium) : "—", rawEquivalent > 0 ? Theme.tone(premium) : .white, rawEquivalent > 0 ? "vs \(Format.money(rawEquivalent)) raw" : "Slab value over raw", Theme.planBlue),
-            ("At the grader", "\(Int(sentCount))", .white, grading.sent.isEmpty ? "Nothing out" : "\(grading.sent.count) submission\(grading.sent.count == 1 ? "" : "s")", Theme.planPink),
-            ("Values to refresh", "\(stale)", .white, "Over 60 days old", Theme.planBlue),
-        ]
         return LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-            ForEach(items, id: \.0) { label, value, tint, sub, glow in
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(label.uppercased()).font(.display(14)).tracking(0.3).foregroundStyle(.white.opacity(0.85)).lineLimit(1).minimumScaleFactor(0.8).displayTrim(14)
-                    Text(value).font(.display(28)).monospacedDigit().foregroundStyle(tint).lineLimit(1).minimumScaleFactor(0.6).displayTrim(28).padding(.top, 14)
-                    Text(sub).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1).padding(.top, 8)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .tinted(glow, radius: 20, border: false)
-            }
+            CountTile(label: "Slabs", value: slabs.reduce(0) { $0 + $1.quantity }, format: { "\(Int($0.rounded()))" },
+                      sub: slabs.isEmpty ? "None yet" : "Graded cards you hold", glow: Theme.lime)
+                .popIn(delay: 0.05)
+            CountTile(label: "Grading premium", value: rawEquivalent > 0 ? premium : nil, format: { Format.signedMoney($0) }, valueTint: Theme.tone(premium),
+                      sub: rawEquivalent > 0 ? "vs \(Format.money(rawEquivalent)) raw" : "Slab value over raw", glow: premium < 0 ? Theme.planPink : Theme.lime,
+                      tag: rawEquivalent > 0 ? String(format: "%.1f×", value / rawEquivalent) : nil)
+                .popIn(delay: 0.1)
+            CountTile(label: "At the grader", value: sentCount, format: { "\(Int($0.rounded()))" },
+                      sub: grading.sent.isEmpty ? "Nothing out" : "\(grading.sent.count) submission\(grading.sent.count == 1 ? "" : "s")", glow: Theme.planBlue)
+                .popIn(delay: 0.15)
+            CountTile(label: "Values to refresh", value: Double(stale), format: { "\(Int($0.rounded()))" }, sub: "Your values over 60 days old", glow: Theme.planPink)
+                .popIn(delay: 0.2)
         }
     }
 
@@ -96,7 +96,7 @@ struct GradingView: View {
 
     private var atGrader: some View {
         VStack(alignment: .leading, spacing: 12) {
-            heading("At the grader", "Cards stay raw until they come back")
+            MoreHeading(title: "At the grader", subtitle: "Cards stay raw until they come back")
             if grading.sent.isEmpty {
                 Label("Nothing out for grading", systemImage: "paperplane")
                     .font(.geist(13)).foregroundStyle(Theme.muted)
@@ -156,9 +156,9 @@ struct GradingView: View {
         let away = grading.atGrader
         return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top) {
-                heading("Worth grading", "Most upside as a PSA 10, after \(Format.money(grading.costs.fee + grading.costs.shipping)) in costs")
+                MoreHeading(title: "Worth grading", subtitle: "Most upside as a PSA 10, after \(Format.money(grading.costs.fee + grading.costs.shipping)) in costs")
                 Spacer(minLength: 8)
-                Button("Costs") { editingCosts = true }.font(.geist(14, .medium)).foregroundStyle(Theme.muted)
+                Button("Costs") { editingCosts = true }.buttonStyle(Button3D(kind: .dark, fullWidth: false, height: 34))
             }
             if candidates.isEmpty {
                 Text("No raw singles worth more than \(Format.money(Grading.minRaw)) with upside after grading costs.")
@@ -209,10 +209,11 @@ struct GradingView: View {
 
     private func yourSlabs(_ slabs: [HoldingView]) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            heading("Your slabs", slabs.isEmpty ? "No graded cards yet. Add one with Graded switched on, or mark a submission as returned." : "Graded cards, by value")
+            MoreHeading(title: "Your slabs", subtitle: slabs.isEmpty ? "No graded cards yet. Add one with Graded switched on, or mark a submission as returned." : "Graded cards, by value")
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 24) {
-                ForEach(slabs) { h in
+                ForEach(Array(slabs.enumerated()), id: \.element.id) { i, h in
                     NavigationLink(value: h.identity.productId) { slabTile(h) }.buttonStyle(.plain)
+                        .popIn(delay: Double(min(i, 6)) * 0.07)
                 }
             }
         }
