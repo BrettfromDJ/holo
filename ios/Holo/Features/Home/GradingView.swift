@@ -294,7 +294,7 @@ private struct CostsSheet: View {
 }
 
 /// Record raw copies as sent off for grading.
-private struct SendSheet: View {
+struct SendSheet: View {
     var holding: HoldingView
     @Environment(GradingStore.self) private var grading
     @Environment(\.dismiss) private var dismiss

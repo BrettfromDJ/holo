@@ -8,6 +8,9 @@ struct CollectionView: View {
     @Environment(SessionModel.self) private var session
     @Environment(GroupsStore.self) private var groups
     @State private var adding = false
+    /// Your copy, opened from the grid; "View card details" pushes the card page.
+    @State private var opened: HoldingView?
+    @State private var path = NavigationPath()
     @State private var shelfId: String?
     /// The name being typed for a new shelf or portfolio, and which one it's for.
     @State private var naming: Naming?
@@ -37,6 +40,8 @@ struct CollectionView: View {
     @State private var grid = true
     @State private var router = Router.shared
 
+    private static var openedOnce = false
+
     enum Sort: String, CaseIterable {
         case value = "Holding value", gain = "Gain", gainPct = "Gain %", day = "Today's move", recent = "Recently added", name = "Name"
     }
@@ -65,7 +70,7 @@ struct CollectionView: View {
     private let columns = [GridItem(.flexible(), spacing: 16), GridItem(.flexible(), spacing: 16)]
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             ScrollView {
                 switch store.status {
                 case .idle, .loading:
@@ -93,13 +98,13 @@ struct CollectionView: View {
                             } else if grid {
                                 LazyVGrid(columns: columns, spacing: 28) {
                                     ForEach(shown) { h in
-                                        NavigationLink(value: h.identity.productId) { HoldingTile(holding: h) }.buttonStyle(.plain)
+                                        Button { opened = h } label: { HoldingTile(holding: h) }.buttonStyle(.plain)
                                     }
                                 }
                             } else {
                                 VStack(spacing: 0) {
                                     ForEach(shown) { h in
-                                        NavigationLink(value: h.identity.productId) { HoldingListRow(holding: h) }.buttonStyle(.plain)
+                                        Button { opened = h } label: { HoldingListRow(holding: h) }.buttonStyle(.plain)
                                         Divider().overlay(Theme.border)
                                     }
                                 }
@@ -122,8 +127,21 @@ struct CollectionView: View {
                 ToolbarItem(placement: .topBarTrailing) { FreshnessChip(refreshedAt: store.pricesRefreshedAt) }
             }
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
+            .sheet(item: $opened) { h in
+                HoldingSheet(identity: h.identity) {
+                    // After the sheet slides away, so the push animates.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { path.append(h.identity.productId) }
+                }
+            }
             .fullScreenCover(isPresented: $adding) { SearchScreen(mode: .add) }
-            .onAppear { applyRequest() }
+            .onAppear {
+                applyRequest()
+                // Screenshots: -HoloOpenHolding opens your most valuable copy's sheet.
+                if Demo.isOn, ProcessInfo.processInfo.arguments.contains("-HoloOpenHolding"), opened == nil, !Self.openedOnce {
+                    Self.openedOnce = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { opened = store.holdings.first }
+                }
+            }
             .onChange(of: router.collectionCategory) { _, _ in applyRequest() }
         }
     }

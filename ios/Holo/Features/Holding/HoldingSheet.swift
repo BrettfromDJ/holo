@@ -1,15 +1,25 @@
 import SwiftUI
 
-/// One position you hold: sell some, set a slab's value, and fix or delete past entries.
+/// Your copy of a card, opened from Collection: what it's worth and what you made, its price
+/// line, what it would be worth graded (raw) or its cert and bumper (slabs), sell or try a sale,
+/// its history, and a button to the full card page.
 struct HoldingSheet: View {
     var identity: HoldingIdentity
+    /// Opens the full card page (from Collection); nil when already on it.
+    var onOpenCard: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
     @Environment(CollectionStore.self) private var store
+    @Environment(GradingStore.self) private var grading
     @State private var selling = false
+    @State private var whatIf = false
     @State private var valuing = false
+    @State private var sending = false
+    @State private var certing = false
+    @State private var bumpering = false
     @State private var editing: Txn?
     @State private var deleting: Txn?
     @State private var error: String?
+    @State private var graded: GradedValues?
 
     private var holding: HoldingView? { store.holding(identity) }
     private var product: Product? { store.products[identity.productId] }
@@ -17,65 +27,45 @@ struct HoldingSheet: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    HStack(spacing: 12) {
-                        ProductImage(product: product, cornerRadius: 5).frame(width: 48, height: 66)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(product?.name ?? "Unknown").font(.headline)
-                            Text(holding?.label ?? (product?.isSealed == true ? "Sealed" : "Near Mint")).font(.subheadline).foregroundStyle(Theme.muted)
-                        }
-                    }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    header
                     if let h = holding {
-                        LabeledContent("Quantity", value: "\(h.quantity.formatted())")
-                        LabeledContent("Cost") { Text(Format.money(h.costBasis)).monospacedDigit() }
-                        LabeledContent("Value") { Text((h.isConditionEstimate ? "≈ " : "") + Format.money(h.value)).monospacedDigit() }
-                        LabeledContent("Gain") { Text(Format.signedMoney(h.gain)).monospacedDigit().foregroundStyle(Theme.tone(h.gain)) }
+                        value(h)
+                        tiles(h)
+                        if identity.isGraded { slabRows } else if product?.isSealed == false { ifGraded(h) }
+                        actions(h)
                     } else {
-                        Text("You don't hold any of these right now.").foregroundStyle(Theme.muted)
+                        Text("You don't hold any of these right now.").font(.geist(14)).foregroundStyle(Theme.muted)
                     }
+                    history
+                    if let error { Text(error).font(.geist(13)).foregroundStyle(Theme.down) }
                 }
-
-                Section {
-                    if holding != nil {
-                        Button { selling = true } label: { Label("Sell", systemImage: "dollarsign.circle") }
-                    }
-                    if identity.isGraded {
-                        Button { valuing = true } label: {
-                            Label(store.manualValue(identity) == nil ? "Set its value" : "Change its value", systemImage: "pencil")
-                        }
-                    }
-                } footer: {
-                    if identity.isGraded {
-                        Text("Graded slabs are valued at the price you set.")
-                    }
-                }
-
-                Section("History") {
-                    ForEach(entries, id: \.id) { t in
-                        EntryRow(entry: t)
-                            .swipeActions {
-                                Button("Delete", role: .destructive) { deleting = t }
-                                Button("Edit") { editing = t }.tint(Theme.surface3)
-                            }
-                            .contextMenu {
-                                Button { editing = t } label: { Label("Edit", systemImage: "pencil") }
-                                Button(role: .destructive) { deleting = t } label: { Label("Delete", systemImage: "trash") }
-                            }
-                    }
-                    if entries.isEmpty { Text("No entries.").foregroundStyle(Theme.muted) }
-                }
-
-                if let error {
-                    Section { Text(error).foregroundStyle(Theme.down) }
-                }
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .padding(.bottom, onOpenCard == nil ? 24 : 96)
             }
-            .scrollContentBackground(.hidden)
             .background(Theme.background)
             .navigationTitle("Your copy")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .safeAreaInset(edge: .bottom) {
+                if let onOpenCard {
+                    Button {
+                        dismiss()
+                        onOpenCard()
+                    } label: { Label("View card details", systemImage: "arrow.right").labelStyle(TrailingIconLabel()) }
+                        .buttonStyle(Button3D(kind: .lime))
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(Theme.background.opacity(0.92))
+                }
+            }
             .sheet(isPresented: $selling) { if let h = holding { SellSheet(holding: h) } }
+            .sheet(isPresented: $whatIf) { if let h = holding { SellCalculatorSheet(holding: h) } }
+            .sheet(isPresented: $sending) { if let h = holding { SendSheet(holding: h) } }
+            .sheet(isPresented: $certing) { if let h = holding { CertSheet(holding: h) } }
+            .sheet(isPresented: $bumpering) { if let h = holding { BumperSheet(holding: h) } }
             .sheet(isPresented: $valuing) { ManualValueSheet(identity: identity, current: store.manualValue(identity)?.value) }
             .sheet(item: $editing) { t in EntryEditSheet(entry: t) }
             .confirmationDialog("Delete this entry?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
@@ -88,7 +78,152 @@ struct HoldingSheet: View {
             } message: {
                 Text("Your totals update as if it never happened. The original stays in the record.")
             }
+            .task(id: identity.productId) {
+                guard identity.productId.hasPrefix("tcgapi:"), !identity.isGraded else { return }
+                graded = (try? await Backend.shared.api.gradedValues([identity.productId]))?[identity.productId]
+            }
         }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    // MARK: Parts
+
+    private var header: some View {
+        HStack(spacing: 14) {
+            HoldingArt(product: product, identity: identity, cornerRadius: 6, caption: false).frame(width: 62, height: 86)
+            VStack(alignment: .leading, spacing: 5) {
+                Text(product?.name ?? "Unknown").font(.geist(17, .semibold)).lineLimit(2)
+                HStack(spacing: 6) {
+                    Tag(text: holding?.label ?? (product?.isSealed == true ? "Sealed" : identity.condition), tint: identity.isGraded ? Theme.lime : .white)
+                    if let set = product?.setName { Text(set).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1) }
+                }
+            }
+        }
+    }
+
+    private func value(_ h: HoldingView) -> some View {
+        let points = store.series(identity, days: 90)
+        return VStack(alignment: .leading, spacing: 8) {
+            MonoLabel(text: h.quantity > 1 ? "Your \(Int(h.quantity)) are worth" : "Yours is worth")
+            Text((h.isConditionEstimate ? "≈ " : "") + Format.money(h.value)).font(.display(44)).monospacedDigit().displayTrim(44)
+            HStack(spacing: 8) {
+                DeltaPill(ratio: h.gainRatio, size: 13)
+                Text(Format.signedMoney(h.gain)).font(.geist(14, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(h.gain))
+                Text("on what you paid").font(.geist(13)).foregroundStyle(Theme.muted)
+            }
+            if points.count > 1 {
+                let change = (points.last?.value ?? 0) - (points.first?.value ?? 0)
+                Sparkline(points: points, color: change < 0 ? Theme.planPink : Theme.lime).frame(height: 48).padding(.top, 6)
+                HStack {
+                    MonoLabel(text: "Last 90 days, each")
+                    Spacer()
+                    Text(Format.signedMoney(change)).font(.geist(12, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(change))
+                }
+            }
+        }
+    }
+
+    private func tiles(_ h: HoldingView) -> some View {
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+            GlassStat(label: "Quantity", value: "\(Int(h.quantity))")
+            GlassStat(label: "You paid", value: Format.money(h.costBasis))
+            GlassStat(label: "Average cost", value: Format.money(h.avgCost))
+            GlassStat(label: "Each now", value: Format.money(h.price))
+        }
+    }
+
+    /// A raw single: what it could be worth graded, and a way to send it in.
+    private func ifGraded(_ h: HoldingView) -> some View {
+        let nm = store.marketPrice(identity.productId, printing: identity.printing)?.market ?? h.price ?? 0
+        func worth(_ grade: String) -> (Double, Bool) {
+            if let v = graded?.value(company: "PSA", grade: grade) { return (v, false) }
+            return ((nm * WorthCalc.multiple(productId: identity.productId, company: "PSA", grade: grade) * 100).rounded() / 100, true)
+        }
+        let ten = worth("10"), nine = worth("9")
+        return VStack(alignment: .leading, spacing: 12) {
+            MonoLabel(text: "If graded")
+            HStack(spacing: 8) {
+                GlassStat(label: "PSA 10", value: (ten.1 ? "≈ " : "") + Format.money(ten.0), tint: Theme.lime)
+                GlassStat(label: "PSA 9", value: (nine.1 ? "≈ " : "") + Format.money(nine.0))
+            }
+            Text(ten.1 ? "Estimates from the usual grade curve. The card page has every grade." : "From PriceCharting. The card page has every grade.")
+                .font(.geist(12)).foregroundStyle(Theme.subtle)
+            Button { sending = true } label: { Label("Send for grading", systemImage: "paperplane") }
+                .buttonStyle(Button3D(kind: .dark, height: 44))
+        }
+    }
+
+    /// A slab: its cert number and bumper, and your own value.
+    private var slabRows: some View {
+        let cert = grading.certs[identity.key]
+        let bumper = Bumper.byId(grading.bumpers[identity.key])
+        return VStack(spacing: 0) {
+            row(icon: "number", title: "Cert number", value: cert ?? "Add") { certing = true }
+            Rectangle().fill(Theme.border).frame(height: 1).padding(.leading, 44)
+            row(icon: "square.dashed", title: "Bumper", value: bumper?.name ?? "Add") { bumpering = true }
+            Rectangle().fill(Theme.border).frame(height: 1).padding(.leading, 44)
+            row(icon: "pencil", title: "Your value", value: store.manualValue(identity).map { Format.money($0.value) } ?? "Set") { valuing = true }
+            if let cert, let company = identity.gradeCompany, let url = URL(string: Grading.certLookupURL(company: company, cert: cert)) {
+                Link(destination: url) { Label("Look up cert \(cert)", systemImage: "arrow.up.right.square") }
+                    .font(.geist(14, .medium)).padding(.top, 12)
+            }
+        }
+        .surface(radius: 16, padding: 14)
+    }
+
+    private func row(icon: String, title: String, value: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: icon).font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.lime).frame(width: 30)
+                Text(title).font(.geist(15))
+                Spacer()
+                Text(value).font(.geist(14, .medium)).monospacedDigit().foregroundStyle(Theme.muted)
+                Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.subtle)
+            }
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func actions(_ h: HoldingView) -> some View {
+        HStack(spacing: 8) {
+            Button { selling = true } label: { Label("Sell", systemImage: "tag") }
+                .buttonStyle(Button3D(kind: .light, height: 44))
+            Button { whatIf = true } label: { Label("What if I sell?", systemImage: "plus.forwardslash.minus") }
+                .buttonStyle(Button3D(kind: .dark, height: 44))
+        }
+    }
+
+    private var history: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            MonoLabel(text: "History")
+            VStack(spacing: 0) {
+                ForEach(entries, id: \.id) { t in
+                    HStack {
+                        EntryRow(entry: t)
+                        Menu {
+                            Button { editing = t } label: { Label("Edit", systemImage: "pencil") }
+                            Button(role: .destructive) { deleting = t } label: { Label("Delete", systemImage: "trash") }
+                        } label: {
+                            Image(systemName: "ellipsis").font(.system(size: 13)).foregroundStyle(Theme.muted).frame(width: 28, height: 28)
+                        }
+                    }
+                    .padding(.vertical, 10)
+                    if t.id != entries.last?.id { Rectangle().fill(Theme.border).frame(height: 1) }
+                }
+                if entries.isEmpty { Text("No entries.").font(.geist(14)).foregroundStyle(Theme.muted).padding(.vertical, 10) }
+            }
+            .surface(radius: 16, padding: 14)
+        }
+    }
+}
+
+/// "View card details →": the icon after the title.
+private struct TrailingIconLabel: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 8) { configuration.title; configuration.icon }
     }
 }
 
