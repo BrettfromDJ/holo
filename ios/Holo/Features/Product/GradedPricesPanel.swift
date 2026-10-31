@@ -45,12 +45,15 @@ struct GradedPricesPanel: View {
                 card {
                     VStack(alignment: .leading, spacing: 18) {
                         lookup
-                        if let values, !values.grades.isEmpty { table(values) }
+                        if let values, !values.grades.isEmpty { table(values, estimate: false) }
+                        else if let est = estimated { table(est, estimate: true) }
                     }
                 }
             }
         }
         .task(id: "\(productId)|\(printing ?? "")") {
+            // Only catalog cards have PriceCharting and eBay data; others use the grade curve.
+            guard productId.hasPrefix("tcgapi:") else { return loaded = true }
             async let pc = try? await Backend.shared.api.gradedValues([productId])
             async let sales = try? await Backend.shared.api.ebaySales(productId, printing: printing)
             let (p, e) = await (pc, sales)
@@ -141,7 +144,17 @@ struct GradedPricesPanel: View {
         return (nil, "No sales or price guide for this grade yet")
     }
 
-    @ViewBuilder private func table(_ v: GradedValues) -> some View {
+    /// The same table from the usual grade curve, when PriceCharting has nothing for the card.
+    private var estimated: GradedValues? {
+        guard let nm, nm > 0 else { return nil }
+        var grades: [String: Double] = [:]
+        for row in Self.rows {
+            grades[row.key] = (nm * WorthCalc.multiple(productId: productId, company: row.company ?? "PSA", grade: row.grade) * 100).rounded() / 100
+        }
+        return GradedValues(ungraded: nm, grades: grades, updatedAt: "")
+    }
+
+    @ViewBuilder private func table(_ v: GradedValues, estimate: Bool) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             if let ungraded = v.ungraded {
                 HStack {
@@ -182,7 +195,7 @@ struct GradedPricesPanel: View {
                 .background { if mine { RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.lime.opacity(0.1)) } }
                 if i < shown.count - 1 { Divider().overlay(Theme.border) }
             }
-            Text("10s are per grading company; lower grades are for any company.")
+            Text(estimate ? "Estimates from the usual grade curve; no graded sales for this card yet." : "10s are per grading company; lower grades are for any company.")
                 .font(.geist(12)).foregroundStyle(Theme.subtle).padding(.top, 10)
         }
     }

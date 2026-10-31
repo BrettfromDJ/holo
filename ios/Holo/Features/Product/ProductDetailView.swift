@@ -64,8 +64,8 @@ struct ProductDetailView: View {
                         .padding(.top, 24)
                 }
                 // Real graded values (PriceCharting), for singles.
-                if productId.hasPrefix("tcgapi:"), product?.isSealed == false {
-                    GradedPricesPanel(productId: productId, printing: printing, nm: price?.market, owned: owned.compactMap { h in
+                if product?.isSealed == false {
+                    GradedPricesPanel(productId: productId, printing: printing, nm: headline, owned: owned.compactMap { h in
                         guard let c = h.identity.gradeCompany, let g = h.identity.grade else { return nil }
                         return (company: c, grade: g)
                     })

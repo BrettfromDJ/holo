@@ -64,7 +64,7 @@ final class ScreenshotTests: XCTestCase {
         capture("rarity-sir", args: ["-HoloDemoKind", "singles", "-HoloProduct", "sample:pikachu-ex-ss"], pages: 1)
         capture("rarity-hyper", args: ["-HoloDemoKind", "singles", "-HoloProduct", "sample:mew-ex-gold"], pages: 1)
     }
-    func testGradedCardPage() { capture("graded-card", args: ["-HoloDemoKind", "graded", "-HoloProduct", "sample:pikachu-ex-ss"], pages: 2) }
+    func testGradedCardPage() { capture("graded-card", args: ["-HoloDemoKind", "graded", "-HoloProduct", "sample:pikachu-ex-ss"], pages: 4) }
 
     private func capture(_ name: String, args: [String], pages: Int) {
         let app = XCUIApplication()
