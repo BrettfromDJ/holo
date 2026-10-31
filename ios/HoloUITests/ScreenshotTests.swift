@@ -35,7 +35,7 @@ final class ScreenshotTests: XCTestCase {
 
     func testAnalytics() { capture("analytics", args: ["-HoloPage", "analytics"], pages: 8) }
     func testGains() { capture("gains", args: ["-HoloPage", "gains"], pages: 3) }
-    func testBinder() { capture("binder", args: ["-HoloDemoKind", "singles", "-HoloPage", "binder"], pages: 2) }
+    func testMasterSets() { capture("master-sets", args: ["-HoloDemoKind", "singles", "-HoloPage", "master-sets"], pages: 3) }
     func testGrading() { capture("grading", args: ["-HoloDemoKind", "graded", "-HoloPage", "grading"], pages: 4) }
 
     func testDeal() { capture("deal", args: ["-HoloTab", "deal"], pages: 1) }

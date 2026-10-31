@@ -96,10 +96,10 @@ and say exactly what to run or click.
 
 - Milestone banners: off because they repeated; `checkMilestones()` in `HomeView.swift` is kept.
   Find why `milestones-seen` didn't stop repeats before turning it back on.
-- In the app since: Gains (Home's Unrealized card and Home → More), Analytics, Grading, Binder
-  (Home → More), shelves (Collection chips, a card's ⋯ menu), portfolios (switcher on
+- In the app since: Gains (Home's Unrealized card and Home → More), Analytics, Grading, Master Sets
+  (Home → More; was Binder), shelves (Collection chips, a card's ⋯ menu), portfolios (switcher on
   Collection; `store.holdingFilter` filters holdings, summary and timeline, `allHoldings` is
   unfiltered for deals), show deleted & edit records (card page). Grading state is in
   `user_state` `grading-submissions` / `grading-costs`; shelves and portfolios use the
-  `shelves` / `portfolios` tables. Screenshot pages: `-HoloPage analytics|gains|grading|binder`.
+  `shelves` / `portfolios` tables. Screenshot pages: `-HoloPage analytics|gains|grading|master-sets`.
 - Not in the app on purpose: the separate trade checker (the Deal tab covers trades).

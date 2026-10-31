@@ -1,7 +1,7 @@
 import Charts
 import SwiftUI
 
-// Shared pieces for the More pages (Analytics, Gains, Grading, Binder), so they share Home's
+// Shared pieces for the More pages (Analytics, Gains, Grading, Master Sets), so they share Home's
 // energy: a big hero number on a grid, dark stat tiles that count up, bars that grow in
 // and Anton section headings.
 
