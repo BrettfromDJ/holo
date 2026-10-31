@@ -22,6 +22,7 @@ enum Timeline {
         history: [String: [PricePoint]],
         manualValues: [String: ManualValue],
         ebayGraded: [String: Double] = [:],
+        conditionShares: [String: Double] = [:],
         today: String
     ) -> [TimelinePoint] {
         let txs = Ledger.effective(transactions).filter { $0.date <= today }
@@ -39,7 +40,7 @@ enum Timeline {
             var cost = 0.0
             for pos in ledger.positions.values {
                 let q = pos.quantity
-                guard q > 1e-9, let price = price(pos.identity, on: day, today: today, prices: prices, history: history, manual: manualValues, ebay: ebayGraded) else { continue }
+                guard q > 1e-9, let price = price(pos.identity, on: day, today: today, prices: prices, history: history, manual: manualValues, ebay: ebayGraded, shares: conditionShares) else { continue }
                 value += q * price
                 cost += pos.costBasis
             }
@@ -51,7 +52,8 @@ enum Timeline {
     /// Per-unit price of a position on a day, or nil when unknown.
     static func price(
         _ id: HoldingIdentity, on day: String, today: String,
-        prices: [String: Price], history: [String: [PricePoint]], manual: [String: ManualValue], ebay: [String: Double] = [:]
+        prices: [String: Price], history: [String: [PricePoint]], manual: [String: ManualValue], ebay: [String: Double] = [:],
+        shares: [String: Double] = [:]
     ) -> Double? {
         let key = priceKey(id.productId, id.printing)
         if id.isGraded {
@@ -69,7 +71,7 @@ enum Timeline {
         } else if let pts = history[key], let p = lastAtOrBefore(pts, day), daysBetween(p.date, day) <= maxCarryDays {
             nm = p.price
         }
-        return nm.map { $0 * CardCondition.share(for: id.condition) }
+        return nm.map { $0 * CardCondition.share(for: id, measured: shares) }
     }
 
     private static func lastAtOrBefore(_ pts: [PricePoint], _ day: String) -> PricePoint? {

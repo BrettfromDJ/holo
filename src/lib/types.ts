@@ -147,6 +147,11 @@ export interface CollectionData {
   history: Record<string, PricePoint[]>;
   /** Manual valuations for graded holdings keyed by `holdingKey`. */
   manualValues: Record<string, { value: number; date: ISODate }>;
+  /**
+   * What a played condition actually sells for, as a share of Near Mint, keyed
+   * `${priceKey}|${condition}` (from TCGplayer's per-condition prices). Missing: the estimate.
+   */
+  conditionShares?: Record<string, number>;
   preferences: Preferences;
 }
 

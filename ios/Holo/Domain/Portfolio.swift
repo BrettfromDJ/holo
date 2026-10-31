@@ -90,7 +90,8 @@ enum Portfolio {
         products: [String: Product],
         prices: [String: Price],
         manualValues: [String: ManualValue],
-        ebayGraded: [String: Double] = [:]
+        ebayGraded: [String: Double] = [:],
+        conditionShares: [String: Double] = [:]
     ) -> [HoldingView] {
         let ledger = Ledger(transactions)
         return ledger.positions.values.compactMap { pos -> HoldingView? in
@@ -112,7 +113,7 @@ enum Portfolio {
                     price = e
                 }
             } else if let p = prices[priceKey(id.productId, id.printing)], let market = p.market, p.status != "unavailable" {
-                let share = CardCondition.share(for: id.condition)
+                let share = CardCondition.share(for: id, measured: conditionShares)
                 price = (market * share * 100).rounded() / 100
                 estimate = share < 1
                 change = p.change24hPct

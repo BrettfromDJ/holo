@@ -48,6 +48,7 @@ final class CollectionStore {
         transactions = []
         holdingRows = []
         manualValues = [:]
+        conditionShares = [:]
         userId = nil
     }
 
@@ -154,6 +155,7 @@ final class CollectionStore {
             recompute(timelineNow: true)
             status = .ready
             await loadSlabPrices()
+            await loadConditionShares()
         } catch {
             status = .failed(error.localizedDescription)
         }
@@ -181,11 +183,11 @@ final class CollectionStore {
     /// value-over-time history is the expensive part, so several changes in a row (a deal closing
     /// many items) rebuild it once, just after the last one.
     private func recompute(timelineNow: Bool = false) {
-        holdings = Portfolio.holdings(transactions: transactions, products: products, prices: prices, manualValues: manualValues, ebayGraded: ebayGraded)
+        holdings = Portfolio.holdings(transactions: transactions, products: products, prices: prices, manualValues: manualValues, ebayGraded: ebayGraded, conditionShares: conditionShares)
         let realized = Ledger(transactions).positions.values.reduce(0) { $0 + $1.realizedGain }
         summary = Portfolio.summary(holdings, realized: realized)
         if timelineNow {
-            timeline = Timeline.compute(transactions: transactions, prices: prices, history: history, manualValues: manualValues, ebayGraded: ebayGraded, today: today)
+            timeline = Timeline.compute(transactions: transactions, prices: prices, history: history, manualValues: manualValues, ebayGraded: ebayGraded, conditionShares: conditionShares, today: today)
             return
         }
         guard !timelinePending else { return }
@@ -195,8 +197,33 @@ final class CollectionStore {
             try? await Task.sleep(nanoseconds: 400_000_000)
             self.timelinePending = false
             self.timeline = Timeline.compute(transactions: self.transactions, prices: self.prices, history: self.history,
-                                             manualValues: self.manualValues, ebayGraded: self.ebayGraded, today: self.today)
+                                             manualValues: self.manualValues, ebayGraded: self.ebayGraded, conditionShares: self.conditionShares, today: self.today)
         }
+    }
+
+    /// What each played condition really sells for, as a share of Near Mint, per card you hold
+    /// played (keyed by CardCondition.measuredKey). Empty until loaded; estimates fill the gap.
+    var conditionShares: [String: Double] = [:]
+
+    /// Load TCGplayer's per-condition prices for every card you hold in a played condition (cached
+    /// a day on the server), and value those copies from them instead of a fixed share.
+    @MainActor
+    private func loadConditionShares() async {
+        let played = holdings.filter { !$0.identity.isGraded && $0.identity.productId.hasPrefix("tcgapi:")
+            && $0.identity.condition != CardCondition.nearMint.rawValue && $0.identity.condition != "Sealed" }
+        guard !played.isEmpty else { return }
+        var found: [String: Double] = [:]
+        for h in played {
+            let key = CardCondition.measuredKey(h.identity.productId, h.identity.printing, h.identity.condition)
+            guard found[key] == nil else { continue }
+            guard let rows = try? await Backend.shared.api.conditionPrices(h.identity.productId, printing: h.identity.printing) else { continue }
+            for (condition, share) in CardCondition.measuredShares(rows) {
+                found[CardCondition.measuredKey(h.identity.productId, h.identity.printing, condition)] = share
+            }
+        }
+        guard !found.isEmpty else { return }
+        conditionShares = found
+        recompute()
     }
 
     /// Price your slabs for their exact grade, like the website: the 30-day eBay median when that

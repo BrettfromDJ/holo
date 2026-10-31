@@ -1,7 +1,8 @@
 "use client";
 
 import { ebayGradedTargets, withEbayGradedPrices, withSampleGradedPrices, type PriceChartingGraded } from "@/lib/graded";
-import { loadEbay } from "@/lib/ebay-client";
+import { loadConditions, loadEbay } from "@/lib/ebay-client";
+import { measuredShares } from "@/lib/worth";
 import type { EbaySales } from "@/lib/ebay-types";
 import { mapLimit } from "@/lib/pricing/cache";
 import type { User } from "@supabase/supabase-js";
@@ -522,11 +523,39 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
     };
   }, [pcIds]);
 
-  const allView = useMemo(() => portfolioView(state.data, state.today, ebayGraded, pcGraded), [state.data, state.today, ebayGraded, pcGraded]);
+  // Played raw copies: what their condition really sells for on TCGplayer (cached a day on the
+  // server), as a share of Near Mint, instead of a fixed estimate.
+  const [conditionShares, setConditionShares] = useState<Record<string, number>>({});
+  const playedTargets = useMemo(() => {
+    if (state.status !== "ready") return [];
+    const seen = new Map<string, { productId: string; printing: string | null }>();
+    for (const t of state.data.transactions) {
+      if (t.grade || t.condition === "Near Mint" || t.condition === "Sealed" || !t.productId.startsWith("tcgapi:")) continue;
+      seen.set(priceKey(t.productId, t.printing), { productId: t.productId, printing: t.printing });
+    }
+    return [...seen.entries()];
+  }, [state.status, state.data]);
+  useEffect(() => {
+    const todo = playedTargets.filter(([key]) => !Object.keys(conditionShares).some((k) => k.startsWith(`${key}|`)));
+    if (!todo.length) return;
+    let cancelled = false;
+    void mapLimit(todo, 2, async ([key, t]) => {
+      const rows = await loadConditions(t.productId, t.printing).catch(() => []);
+      const shares = measuredShares(rows);
+      // Mark the card as looked up even when it has no per-condition prices, so it isn't asked again.
+      const entries = Object.entries(shares).map(([c, v]) => [`${key}|${c}`, v] as const);
+      if (!cancelled) setConditionShares((m) => ({ ...m, ...Object.fromEntries(entries.length ? entries : [[`${key}|`, 1]]) }));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [playedTargets, conditionShares]);
+
+  const allView = useMemo(() => portfolioView({ ...state.data, conditionShares }, state.today, ebayGraded, pcGraded), [state.data, state.today, ebayGraded, pcGraded, conditionShares]);
   const filtered = state.holdingFilter;
   const filteredView = useMemo(
-    () => (filtered ? portfolioView({ ...state.data, transactions: state.data.transactions.filter((t) => filtered(holdingKey(t))) }, state.today, ebayGraded, pcGraded) : allView),
-    [state.data, state.today, filtered, allView, ebayGraded, pcGraded],
+    () => (filtered ? portfolioView({ ...state.data, conditionShares, transactions: state.data.transactions.filter((t) => filtered(holdingKey(t))) }, state.today, ebayGraded, pcGraded) : allView),
+    [state.data, state.today, filtered, allView, ebayGraded, pcGraded, conditionShares],
   );
   const views = useMemo(() => ({ all: allView, filtered: filteredView }), [allView, filteredView]);
 

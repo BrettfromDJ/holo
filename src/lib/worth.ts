@@ -95,3 +95,18 @@ export function gradedWorth(productId: string, nm: number, grade: Grade, ebay: E
   if (guideCovers(grade) && (guide != null || curveIsGuide)) return { price: guide ?? curve, source: "guide", detail: `Price guide for ${label}`, sold: null };
   return { price: curve, source: "estimate", detail: `No recent sales · from the usual grade curve`, sold: null };
 }
+
+/**
+ * Each played condition's price as a share of Near Mint, from TCGplayer's per-condition prices
+ * for one card. Kept between 5% and 100% so one odd listing can't swing a value wildly.
+ */
+export function measuredShares(rows: { condition: string; price: number | null }[]): Record<string, number> {
+  const nm = rows.find((r) => r.condition === "Near Mint")?.price;
+  if (!nm || nm <= 0) return {};
+  const out: Record<string, number> = {};
+  for (const r of rows) {
+    if (r.condition === "Near Mint" || !r.price || r.price <= 0) continue;
+    out[r.condition] = Math.min(1, Math.max(0.05, r.price / nm));
+  }
+  return out;
+}

@@ -287,6 +287,27 @@ enum CardCondition: String, CaseIterable, Identifiable {
     static func share(for condition: String) -> Double {
         CardCondition(rawValue: condition)?.share ?? 1
     }
+
+    /// A played copy's share of Near Mint: what that condition actually sells for on TCGplayer
+    /// for this card (`measured`, keyed by `measuredKey`) when known, else the usual estimate.
+    static func share(for id: HoldingIdentity, measured: [String: Double]) -> Double {
+        measured[measuredKey(id.productId, id.printing, id.condition)] ?? share(for: id.condition)
+    }
+
+    static func measuredKey(_ productId: String, _ printing: String?, _ condition: String) -> String {
+        "\(priceKey(productId, printing))|\(condition)"
+    }
+
+    /// Each played condition's price as a share of Near Mint, from TCGplayer's per-condition
+    /// prices. Kept between 5% and 100% so one odd listing can't swing a value wildly.
+    static func measuredShares(_ rows: [ConditionPrice]) -> [String: Double] {
+        guard let nm = rows.first(where: { $0.condition == CardCondition.nearMint.rawValue })?.price, nm > 0 else { return [:] }
+        var out: [String: Double] = [:]
+        for r in rows where r.condition != CardCondition.nearMint.rawValue {
+            if let p = r.price, p > 0 { out[r.condition] = min(1, max(0.05, p / nm)) }
+        }
+        return out
+    }
 }
 
 let gradingCompanies = ["PSA", "BGS", "CGC", "SGC", "TAG"]

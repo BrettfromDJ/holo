@@ -43,15 +43,16 @@ function lastAtOrBefore(points: PricePoint[], date: ISODate): PricePoint | null 
  */
 export class PriceResolver {
   constructor(
-    private readonly data: Pick<CollectionData, "prices" | "history" | "manualValues">,
+    private readonly data: Pick<CollectionData, "prices" | "history" | "manualValues" | "conditionShares">,
     private readonly today: ISODate,
   ) {}
 
   resolve(identity: HoldingIdentity, date: ISODate): ResolvedPrice | null {
     const r = this.resolveNearMint(identity, date);
     if (!r || identity.grade || r.origin === "manual") return r;
-    // Prices are quoted for Near Mint; a played raw copy is estimated at its condition's share.
-    const share = conditionShare(identity.condition);
+    // Prices are quoted for Near Mint; a played raw copy is valued at what its condition really
+    // sells for on TCGplayer when known, else estimated at the condition's usual share.
+    const share = this.data.conditionShares?.[`${priceKey(identity.productId, identity.printing)}|${identity.condition}`] ?? conditionShare(identity.condition);
     return share === 1 ? r : { ...r, price: Math.round(r.price * share * 100) / 100, conditionShare: share };
   }
 
