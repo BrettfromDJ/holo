@@ -22,9 +22,11 @@ describe("PriceCharting price guide", () => {
       "id,console-name,product-name,loose-price,cib-price,new-price,graded-price,box-only-price,manual-only-price,bgs-10-price,condition-17-price,condition-18-price,sales-volume,tcg-id",
       "1,Pokemon Base Set,Charizard #4,$300.00,$500.00,$700.00,$1000.00,$1500.00,$9000.00,$20000.00,$8000.00,$7000.00,120,42382",
       "2,Pokemon 1998 KFC,Pikachu #25,$20.00,,,,,,,,,10,",
+      "3,Yu-Gi-Oh,Dark Magician,$5.00,,,,,,,,,6.5,1234",
     ].join("\n");
     const rows = guideRows(csv);
-    expect(rows).toHaveLength(1);
+    expect(rows).toHaveLength(2);
+    expect(rows[1].sales_volume).toBe(7);
     expect(rows[0]).toMatchObject({ pc_id: 1, tcg_id: 42382, ungraded: 300, grade_9: 1000, grade_9_5: 1500, psa_10: 9000, bgs_10: 20000, cgc_10: 8000, sgc_10: 7000 });
   });
 

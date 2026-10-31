@@ -79,7 +79,8 @@ export function guideRows(csv: string): PriceChartingRow[] {
   for (const cells of lines) {
     const pcId = Number(cells[id]);
     const tcgId = Number(cells[tcg]);
-    if (!Number.isFinite(pcId) || !pcId || !Number.isFinite(tcgId) || !tcgId) continue;
+    // Ids are whole numbers; anything else is a malformed row.
+    if (!Number.isInteger(pcId) || !pcId || !Number.isInteger(tcgId) || !tcgId) continue;
     const row: PriceChartingRow = {
       pc_id: pcId,
       tcg_id: tcgId,
@@ -94,7 +95,8 @@ export function guideRows(csv: string): PriceChartingRow[] {
       bgs_10: null,
       cgc_10: null,
       sgc_10: null,
-      sales_volume: Number(cells[at("sales-volume")]) || null,
+      // Some files (Yu-Gi-Oh) give a decimal sales volume; it's a count, so round it.
+      sales_volume: Math.round(Number(cells[at("sales-volume")])) || null,
       updated_at: now,
     };
     for (const [column, key] of Object.entries(COLUMNS)) (row[key] as number | null) = money(cells[at(column)]);
