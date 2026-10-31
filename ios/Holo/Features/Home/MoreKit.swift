@@ -21,7 +21,7 @@ struct MoreHero<Below: View>: View {
                 .foregroundStyle(tint)
                 .lineLimit(1).minimumScaleFactor(0.5)
                 .displayTrim(64)
-                .shadow(color: tint.opacity(0.45), radius: 22)
+                .shadow(color: tint.opacity(0.4), radius: 14)
                 .flashOnAppear(tint)
             below
         }
@@ -30,11 +30,11 @@ struct MoreHero<Below: View>: View {
         .background {
             ZStack {
                 GridPattern()
-                RadialGradient(colors: [tint.opacity(0.22), .clear], center: UnitPoint(x: 0.25, y: 0.5), startRadius: 0, endRadius: 240)
-                RadialGradient(colors: [Theme.planBlue.opacity(0.16), .clear], center: UnitPoint(x: 0.9, y: 0.2), startRadius: 0, endRadius: 200)
+                RadialGradient(colors: [tint.opacity(0.2), .clear], center: UnitPoint(x: 0.3, y: 0.5), startRadius: 0, endRadius: 180)
+                RadialGradient(colors: [Theme.planBlue.opacity(0.14), .clear], center: UnitPoint(x: 0.85, y: 0.35), startRadius: 0, endRadius: 150)
             }
-            .padding(.horizontal, -16)
-            .mask(LinearGradient(colors: [.clear, .black, .black, .clear], startPoint: .top, endPoint: .bottom))
+            // Soft on every side, so the glow never shows an edge wherever it's cut off.
+            .mask(EllipticalGradient(colors: [.black, .black.opacity(0.6), .clear], center: .center, startRadiusFraction: 0, endRadiusFraction: 0.5))
             .allowsHitTesting(false)
         }
     }

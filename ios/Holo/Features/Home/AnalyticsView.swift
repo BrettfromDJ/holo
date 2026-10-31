@@ -433,15 +433,22 @@ private struct ReturnVsTime: View {
                             Text("days, average hold").font(.geist(14)).foregroundStyle(Theme.muted)
                         }
                     }
+                    // Room around the edges so the biggest dots and the axis labels aren't cut off.
+                    let maxDays = Double(points.map(\.days).max() ?? 1)
+                    let lo = min(points.map(\.ret).min() ?? 0, 0)
+                    let hi = max(points.map(\.ret).max() ?? 0, 0)
+                    let pad = max((hi - lo) * 0.18, 0.1)
                     Chart(points) { p in
-                        PointMark(x: .value("Days held", p.days), y: .value("Return", p.ret))
+                        PointMark(x: .value("Days held", Double(p.days)), y: .value("Return", p.ret))
                             .foregroundStyle((p.ret >= 0 ? Theme.up : Theme.down).opacity(0.85))
                             .symbolSize(30 + min(260, p.value / 4))
                         RuleMark(y: .value("Zero", 0)).foregroundStyle(Theme.borderStrong)
                     }
+                    .chartXScale(domain: (-maxDays * 0.08)...(maxDays * 1.08 + 1))
+                    .chartYScale(domain: (lo - pad)...(hi + pad))
                     .chartXAxis {
                         AxisMarks(values: .automatic(desiredCount: 4)) { v in
-                            AxisValueLabel { if let d = v.as(Int.self) { Text("\(d)d").font(.geist(11)).foregroundStyle(Theme.subtle) } }
+                            AxisValueLabel { if let d = v.as(Double.self), d >= 0 { Text("\(Int(d))d").font(.geist(11)).foregroundStyle(Theme.subtle) } }
                         }
                     }
                     .chartYAxis {
