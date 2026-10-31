@@ -43,17 +43,16 @@ struct HoldingSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    // Each block rises in once the sheet has landed, top to bottom.
-                    header.sheetReveal(0)
+                    header
                     if let h = holding {
-                        value(h).sheetReveal(1)
-                        tiles(h).sheetReveal(2)
-                        if identity.isGraded { slabRows.sheetReveal(3) } else if product?.isSealed == false { ifGraded(h).sheetReveal(3) }
-                        actions(h).sheetReveal(4)
+                        value(h)
+                        tiles(h)
+                        if identity.isGraded { slabRows } else if product?.isSealed == false { ifGraded(h) }
+                        actions(h)
                     } else {
                         Text("You don't hold any of these right now.").font(.geist(14)).foregroundStyle(Theme.muted)
                     }
-                    history.sheetReveal(5)
+                    history
                     if let error { Text(error).font(.geist(13)).foregroundStyle(Theme.down) }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -126,19 +125,19 @@ struct HoldingSheet: View {
         let points = store.series(identity, days: min(max(held, 7), 3650))
         return VStack(alignment: .leading, spacing: 8) {
             MonoLabel(text: h.quantity > 1 ? "Your \(Int(h.quantity)) are worth" : "Yours is worth")
-            // Counts up once the sheet has landed.
-            CountingText(value: h.value ?? 0, format: { (h.isConditionEstimate ? "≈ " : "") + Format.money($0) }, delay: 0.3)
+            // Everything sits in place; only the figures count and the chart draws.
+            CountingText(value: h.value ?? 0, format: { (h.isConditionEstimate ? "≈ " : "") + Format.money($0) }, duration: 0.9, delay: 0.15)
                 .font(.display(44)).monospacedDigit().displayTrim(44)
             HStack(spacing: 8) {
                 DeltaPill(ratio: h.gainRatio, size: 13)
-                CountingText(value: h.gain ?? 0, format: { Format.signedMoney($0) }, delay: 0.3)
+                CountingText(value: h.gain ?? 0, format: { Format.signedMoney($0) }, duration: 0.9, delay: 0.15)
                     .font(.geist(14, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(h.gain))
                 Text("on what you paid").font(.geist(13)).foregroundStyle(Theme.muted)
             }
             if points.count > 1 {
                 let up = (h.gain ?? 0) >= 0
-                // Draws in left to right after the sheet lands.
-                Sparkline(points: points, color: up ? Theme.lime : Theme.planPink, delay: 0.4).frame(height: 56).padding(.top, 6)
+                // Draws in left to right, quickly, as the sheet arrives.
+                Sparkline(points: points, color: up ? Theme.lime : Theme.planPink, delay: 0.15).frame(height: 56).padding(.top, 6)
                 HStack {
                     MonoLabel(text: h.firstAcquired.flatMap { Format.isoDay.date(from: $0) }.map { "Since you bought it · \($0.formatted(.dateTime.month(.abbreviated).year()))" } ?? "Since you bought it")
                     Spacer()
@@ -495,24 +494,3 @@ struct SheetStat: View {
     }
 }
 
-extension View {
-    /// Rises and fades in once a sheet has landed, `index` steps after the first block.
-    func sheetReveal(_ index: Int) -> some View { modifier(SheetReveal(index: index)) }
-}
-
-private struct SheetReveal: ViewModifier {
-    var index: Int
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var shown = false
-
-    func body(content: Content) -> some View {
-        content
-            .opacity(shown || reduceMotion ? 1 : 0)
-            .offset(y: shown || reduceMotion ? 0 : 14)
-            .onAppear {
-                guard !shown else { return }
-                // The sheet slides up for about 0.3s; start just as it settles.
-                withAnimation(.spring(response: 0.5, dampingFraction: 0.86).delay(0.12 + Double(index) * 0.06)) { shown = true }
-            }
-    }
-}
