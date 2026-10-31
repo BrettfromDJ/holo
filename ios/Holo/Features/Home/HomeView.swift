@@ -748,6 +748,15 @@ private struct PriceFreshness: View {
 private struct Spotlight: View {
     var store: CollectionStore
 
+    /// The holding whose value moved most over the past 7 days, and by how much in dollars.
+    private func weekMover(_ holdings: [HoldingView], except: String?) -> (HoldingView, Double)? {
+        holdings.compactMap { h -> (HoldingView, Double)? in
+            guard h.id != except, !h.isManual, let v = h.value, let pct = h.change7dPct, pct != 0, pct > -100 else { return nil }
+            return (h, v - v / (1 + pct / 100))
+        }
+        .max { abs($0.1) < abs($1.1) }
+    }
+
     var body: some View {
         let holdings = store.holdings
         let star = holdings.filter { ($0.gain ?? 0) > 0 }.max { ($0.gain ?? 0) < ($1.gain ?? 0) }
@@ -760,6 +769,11 @@ private struct Spotlight: View {
                 MiniTile(holding: mover, tag: "Biggest move today", icon: "flame.fill", color: (mover.dayChange ?? 0) < 0 ? Theme.planPink : Theme.lime, value: mover.dayChange,
                          line: Text(Format.signedPercent((mover.change24hPct ?? 0) / 100)).foregroundStyle(Theme.tone(mover.dayChange)) + Text(" today").foregroundStyle(Theme.muted),
                          series: store.series(mover.identity, days: 30))
+            } else if let (week, change) = weekMover(holdings, except: star?.id) {
+                // Nothing moved today: the biggest move over the past week instead.
+                MiniTile(holding: week, tag: "Biggest move this week", icon: "flame.fill", color: change < 0 ? Theme.planPink : Theme.lime, value: change,
+                         line: Text(Format.signedPercent((week.change7dPct ?? 0) / 100)).foregroundStyle(Theme.tone(change)) + Text(" this week").foregroundStyle(Theme.muted),
+                         series: store.series(week.identity, days: 30))
             }
             if let laggard {
                 MiniTile(holding: laggard, tag: "Below what you paid", icon: "arrow.down.right", color: Theme.planPink, value: laggard.gain,
