@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { priceFromRow } from "@/lib/supabase/mappers";
 import { computeTimeline } from "@/lib/finance/portfolio";
 import { providerFor } from "@/lib/pricing";
 import { mapLimit } from "@/lib/pricing/cache";
@@ -42,12 +43,28 @@ export async function GET(req: Request) {
   const productIds = [...new Set([...(holdings ?? []), ...(watch ?? [])].map((r) => r.product_id))].filter((id) => id.startsWith("tcgapi:"));
   const userIds = [...new Set([...(holdings ?? []), ...(watch ?? [])].map((r) => r.user_id))];
 
-  // --- 2. Fetch prices -------------------------------------------------------
-  const prices: NormalizedPrice[] = [];
+  // --- 2. Prices: reuse the catalog refresh's, fetch only what it missed ------
+  // The nightly catalog refresh already prices every set daily, so a price stored in the last
+  // 30 hours is used as is (no API call); only older or missing ones are fetched here.
   const failures: { id: string; reason: string }[] = [];
-  let mode: "bulk" | "per-product" = "per-product";
+  const reused: NormalizedPrice[] = [];
+  const freshIds = new Set<string>();
+  for (let i = 0; i < productIds.length; i += 300) {
+    const { data } = await admin
+      .from("product_prices")
+      .select("*")
+      .in("product_id", productIds.slice(i, i + 300))
+      .gte("fetched_at", new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString());
+    for (const r of data ?? []) {
+      reused.push(priceFromRow(r));
+      freshIds.add(r.product_id);
+    }
+  }
+  const toFetch = productIds.filter((id) => !freshIds.has(id));
+  const prices: NormalizedPrice[] = [];
+  let mode: "bulk" | "per-product" | "reused" = toFetch.length ? "per-product" : "reused";
   try {
-    const bulk = productIds.length ? await bulkPrices(productIds.map((id) => id.slice("tcgapi:".length))) : [];
+    const bulk = toFetch.length ? await bulkPrices(toFetch.map((id) => id.slice("tcgapi:".length))) : [];
     if (bulk) {
       prices.push(...bulk);
       mode = "bulk";
@@ -57,7 +74,7 @@ export async function GET(req: Request) {
   }
   if (mode === "per-product") {
     let halted = false;
-    await mapLimit(productIds, 2, async (id) => {
+    await mapLimit(toFetch, 2, async (id) => {
       if (halted) return failures.push({ id, reason: "skipped: rate limit" });
       try {
         const { provider, externalId } = providerFor(id);
@@ -70,7 +87,7 @@ export async function GET(req: Request) {
   }
 
   // --- 3. Store prices & snapshots -----------------------------------------
-  if (prices.length) {
+  if (prices.length || reused.length) {
     // A blank never replaces a known price (e.g. PriceCharting's, for cards TCGplayer doesn't price).
     const blankIds = [...new Set(prices.filter((p) => p.market === null).map((p) => p.productId))];
     const known = new Set<string>();
@@ -79,9 +96,11 @@ export async function GET(req: Request) {
       for (const r of data ?? []) known.add(`${r.product_id}|${r.printing}`);
     }
     const rows = prices.map(priceToRow).filter((r) => !(r.market_price === null && known.has(`${r.product_id}|${r.printing}`)));
-    const { error } = await admin.from("product_prices").upsert(rows);
-    if (error) failures.push({ id: "product_prices", reason: error.message });
-    const snaps = prices
+    if (rows.length) {
+      const { error } = await admin.from("product_prices").upsert(rows);
+      if (error) failures.push({ id: "product_prices", reason: error.message });
+    }
+    const snaps = [...reused, ...prices]
       .filter((p) => p.market !== null)
       .map((p) => ({ product_id: p.productId, printing: p.printing ?? "", snapshot_date: today, market_price: p.market as number, source: p.source }));
     if (snaps.length) {
@@ -122,12 +141,12 @@ export async function GET(req: Request) {
   // --- 5. Price alerts -------------------------------------------------------
   let alerts: Awaited<ReturnType<typeof sendPriceAlerts>> | { error: string };
   try {
-    alerts = await sendPriceAlerts(admin, prices);
+    alerts = await sendPriceAlerts(admin, [...reused, ...prices]);
   } catch (err) {
     alerts = { error: err instanceof Error ? err.message : "alerts failed" };
   }
 
-  return NextResponse.json({ date: today, mode, products: productIds.length, pricesStored: prices.length, usersUpdated, alerts, failures });
+  return NextResponse.json({ date: today, mode, products: productIds.length, reused: reused.length, fetched: toFetch.length, pricesStored: prices.length, usersUpdated, alerts, failures });
 }
 
 function round(n: number) {
