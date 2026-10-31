@@ -109,6 +109,8 @@ extension View {
                 Text(title).font(.geist(17, .semibold)).foregroundStyle(.white)
             }
         }
+        // Never a bar behind the top: every page's header is fully transparent.
+        .toolbarBackground(.hidden, for: .navigationBar)
         .clearTopEdge()
     }
 

@@ -79,8 +79,10 @@ struct MasterSetDetailView: View {
         .imageMaxPixel(400)
         .replaysAnimations()
         .scrollDismissesKeyboard(.immediately)
+        // The glow runs up under the clear top bar; the set's name is on the glow, not in the bar.
+        .scrollClipDisabled()
         .navigationBarTitleDisplayMode(.inline)
-        .pageTitle(setName)
+        .pageTitle("")
         .task(id: setId) { await Self.load([current], store: store) }
         .task(id: query) {
             if !query.isEmpty { try? await Task.sleep(nanoseconds: 250_000_000) }

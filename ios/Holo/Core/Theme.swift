@@ -21,11 +21,12 @@ enum Theme {
     static let holoColors: [Color] = [
         Color(hex: 0xC8B6FF), Color(hex: 0xA7C4FF), Color(hex: 0x9EF5E0), Color(hex: 0xFFC3E6), Color(hex: 0xFFEFB3),
     ]
-    /// The iridescent gradient for accent fills: buttons, the +, selected chips, badges.
-    static let holo = LinearGradient(colors: holoColors, startPoint: .topLeading, endPoint: .bottomTrailing)
-    /// The shadow edge under 3D iridescent buttons, and their glow.
-    static let holoEdge = Color(hex: 0x6A62B0)
-    static let holoGlow = Color(hex: 0xB7A6FF)
+    /// Accent fills (buttons, the +, selected chips, badges, headline numbers): a soft pearl
+    /// white, like the glow cards' white controls. (Was the iridescent gradient; the name stayed.)
+    static let holo = LinearGradient(colors: [Color(hex: 0xFFFFFF), Color(hex: 0xE4E4EA)], startPoint: .top, endPoint: .bottom)
+    /// The shadow edge under 3D accent buttons, and their glow.
+    static let holoEdge = Color(hex: 0x8A8A92)
+    static let holoGlow = Color.white.opacity(0.35)
     static let violet = Color(hex: 0x8B6CFF)
     static let cyan = Color(hex: 0x5FE3E8)
 
