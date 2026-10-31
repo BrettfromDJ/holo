@@ -238,7 +238,10 @@ private struct Hero: View {
                         Spacer()
                         GlowLabel(text: "\(Int(s.items)) items")
                     }
-                    GlowFigure(value: s.value, size: 60).padding(.top, 16)
+                    GlowFigure(value: s.value, size: 60)
+                        .foregroundStyle(Theme.lime)
+                        .shadow(color: Theme.lime.opacity(0.45), radius: 22)
+                        .padding(.top, 16)
                     HStack(spacing: 8) {
                         if let r = s.gainRatio { GlowPill(text: (r < 0 ? "▼ " : "▲ ") + Format.signedPercent(abs(r)).replacingOccurrences(of: "+", with: "")) }
                         Text("\(Format.signedMoney(s.gain)) all time").font(.geist(13, .medium)).monospacedDigit()

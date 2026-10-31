@@ -175,14 +175,13 @@ struct GlowFill: View {
     var palette: GlowPalette
 
     var body: some View {
-        // The original dark card: surface, a faint light from the top, and for up/down cards a
-        // lime or pink wash from the top edge. Flat and cheap.
-        ZStack {
-            Theme.surface
-            LinearGradient(colors: [.white.opacity(0.035), .clear], startPoint: .top, endPoint: .center)
-            if let wash = palette.wash {
-                LinearGradient(colors: [wash.opacity(0.13), .clear], startPoint: .top, endPoint: .center)
-            }
+        // The original Holo glow on the new cards: a dark surface with soft lime, blue and pink
+        // light bleeding in (each palette's blobs, recoloured to the original accents), and the
+        // lime or pink wash from the top for up/down cards. Drawn once into a small cached picture.
+        GeometryReader { geo in
+            Image(uiImage: GlowImageCache.shared.image(palette, size: geo.size))
+                .resizable()
+                .interpolation(.medium)
         }
         .allowsHitTesting(false)
     }
@@ -195,6 +194,18 @@ final class GlowImageCache {
     private var keys: [GlowPalette: Int] = [:]
 
     init() { cache.countLimit = 120 }
+
+    /// The original accent nearest a glow colour: lime for greens and yellows, plan blue for
+    /// blues and violets, pink for pinks, reds and oranges; none for whites and darks.
+    static func accent(for color: UIColor) -> UIColor? {
+        var h: CGFloat = 0, sat: CGFloat = 0, v: CGFloat = 0, a: CGFloat = 0
+        color.getHue(&h, saturation: &sat, brightness: &v, alpha: &a)
+        guard sat > 0.25, v > 0.3 else { return nil }
+        let deg = h * 360
+        if deg >= 45 && deg < 170 { return UIColor(Theme.lime) }
+        if deg >= 170 && deg < 285 { return UIColor(Theme.planBlue) }
+        return UIColor(Theme.planPink)
+    }
 
     func image(_ palette: GlowPalette, size: CGSize) -> UIImage {
         // Quarter resolution, rounded to 8pt steps so near sizes share one picture.
@@ -210,18 +221,32 @@ final class GlowImageCache {
         format.opaque = true
         let image = UIGraphicsImageRenderer(size: px, format: format).image { ctx in
             let cg = ctx.cgContext
-            cg.setFillColor(UIColor(palette.base).cgColor)
+            cg.setFillColor(UIColor(Theme.surface).cgColor)
             cg.fill(CGRect(origin: .zero, size: px))
             let side = max(px.width, px.height)
             let space = CGColorSpaceCreateDeviceRGB()
+            func glow(_ color: UIColor, at center: CGPoint, radius: CGFloat, strength: CGFloat) {
+                let colors = [color.withAlphaComponent(strength).cgColor,
+                              color.withAlphaComponent(strength * 0.45).cgColor,
+                              color.withAlphaComponent(0).cgColor] as CFArray
+                guard let g = CGGradient(colorsSpace: space, colors: colors, locations: [0, 0.4, 1]) else { return }
+                cg.drawRadialGradient(g, startCenter: center, startRadius: 0, endCenter: center, endRadius: radius, options: [])
+            }
             for b in palette.blobs {
-                let c = UIColor(b.color)
-                let colors = [c.withAlphaComponent(b.strength).cgColor,
-                              c.withAlphaComponent(b.strength * 0.55).cgColor,
-                              c.withAlphaComponent(0).cgColor] as CFArray
-                guard let g = CGGradient(colorsSpace: space, colors: colors, locations: [0, 0.35, 1]) else { continue }
-                let center = CGPoint(x: px.width * b.x, y: px.height * b.y)
-                cg.drawRadialGradient(g, startCenter: center, startRadius: 0, endCenter: center, endRadius: side * b.size, options: [])
+                guard let accent = Self.accent(for: UIColor(b.color)) else { continue }
+                glow(accent, at: CGPoint(x: px.width * b.x, y: px.height * b.y), radius: side * b.size * 0.9, strength: 0.26 * b.strength)
+            }
+            if let wash = palette.wash {
+                // The original tinted card: the colour washing down from the top edge.
+                let colors = [UIColor(wash).withAlphaComponent(0.16).cgColor, UIColor(wash).withAlphaComponent(0).cgColor] as CFArray
+                if let g = CGGradient(colorsSpace: space, colors: colors, locations: [0, 1]) {
+                    cg.drawLinearGradient(g, start: .zero, end: CGPoint(x: 0, y: px.height * 0.6), options: [])
+                }
+            }
+            // A faint light from the top, like the original surfaces.
+            let top = [UIColor.white.withAlphaComponent(0.04).cgColor, UIColor.white.withAlphaComponent(0).cgColor] as CFArray
+            if let g = CGGradient(colorsSpace: space, colors: top, locations: [0, 1]) {
+                cg.drawLinearGradient(g, start: .zero, end: CGPoint(x: 0, y: px.height * 0.5), options: [])
             }
         }
         cache.setObject(image, forKey: key)
