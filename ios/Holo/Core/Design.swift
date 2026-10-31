@@ -130,8 +130,20 @@ struct MonoLabel: View {
 struct Surface: ViewModifier {
     var radius: CGFloat = 20
     var padding: CGFloat? = 16
+    @Environment(\.onGlassSheet) private var onGlass
 
     func body(content: Content) -> some View {
+        if onGlass {
+            content
+                .padding(padding ?? 0)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .sheetPanel(radius: radius)
+        } else {
+            solid(content)
+        }
+    }
+
+    private func solid(_ content: Content) -> some View {
         content
             .padding(padding ?? 0)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -175,6 +187,60 @@ extension View {
 }
 
 // MARK: - Buttons
+
+private struct OnGlassSheetKey: EnvironmentKey { static let defaultValue = false }
+
+extension EnvironmentValues {
+    /// True inside a glass bottom sheet: panels and dark buttons draw as a faint white fill
+    /// instead of a solid color, which reads cleanly on glass.
+    var onGlassSheet: Bool {
+        get { self[OnGlassSheetKey.self] }
+        set { self[OnGlassSheetKey.self] = newValue }
+    }
+}
+
+extension View {
+    /// The app's bottom sheet look: Apple's glass (frosted on older iOS) under a dark wash, with
+    /// see-through scroll and form backgrounds and glass-friendly panels and buttons.
+    func glassSheet() -> some View {
+        environment(\.onGlassSheet, true)
+            .scrollContentBackground(.hidden)
+            .nativeGlassSheet()
+    }
+
+    /// A panel on a glass sheet: faint white fill, hairline white edge.
+    func sheetPanel(radius: CGFloat) -> some View {
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        return background(shape.fill(Color.white.opacity(0.07)))
+            .overlay(shape.strokeBorder(Color.white.opacity(0.1), lineWidth: 1))
+    }
+}
+
+/// A List for glass sheets: rows are a faint white fill instead of solid gray.
+struct GlassList<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        List {
+            Group { content }
+                .listRowBackground(Color.white.opacity(0.07))
+        }
+        .scrollContentBackground(.hidden)
+    }
+}
+
+/// A Form for glass sheets: rows are a faint white fill instead of solid gray.
+struct GlassForm<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        Form {
+            Group { content }
+                .listRowBackground(Color.white.opacity(0.07))
+        }
+        .scrollContentBackground(.hidden)
+    }
+}
 
 extension View {
     /// Apple's own Liquid Glass sheet background on iOS 26 (see-through, blurring the page
@@ -220,12 +286,13 @@ struct Button3D: ButtonStyle {
     var kind: Kind = .lime
     var fullWidth = true
     var height: CGFloat = 50
+    @Environment(\.onGlassSheet) private var onGlass
 
     private var fill: Color {
         switch kind {
         case .light: return Color(hex: 0xF5F5F7)
         case .lime: return Theme.lime
-        case .dark: return Theme.surface2
+        case .dark: return onGlass ? Color.white.opacity(0.1) : Theme.surface2
         case .blue: return Theme.planBlue
         case .pink: return Theme.planPink
         }
@@ -235,7 +302,7 @@ struct Button3D: ButtonStyle {
         switch kind {
         case .light: return Color(hex: 0x8A8A8E)
         case .lime: return Color(hex: 0x7A9200)
-        case .dark: return Color(hex: 0x0D0D0F)
+        case .dark: return onGlass ? Color.white.opacity(0.04) : Color(hex: 0x0D0D0F)
         case .blue: return Color(hex: 0x1A2F9E)
         case .pink: return Color(hex: 0xA3175F)
         }

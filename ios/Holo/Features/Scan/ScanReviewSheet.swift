@@ -11,14 +11,16 @@ struct ScanReviewSheet: View {
     @State private var saving = false
     @State private var error: String?
 
-    var body: some View {
+    var body: some View { sheetBody.glassSheet() }
+
+    @ViewBuilder private var sheetBody: some View {
         NavigationStack {
             ScrollViewReader { proxy in
-                List {
+                GlassList {
                     ForEach($model.entries) { $entry in
                         ReviewRow(entry: $entry, inDeal: model.onPick != nil, onPick: { model.pick($0, for: entry.id) }, onRetry: { model.retry(entry.id) })
                             .id(entry.id)
-                            .listRowBackground(Theme.surface)
+                            .listRowBackground(Color.white.opacity(0.07))
                             .swipeActions { Button("Remove", role: .destructive) { model.remove(entry.id) } }
                     }
                     if let error {
@@ -26,7 +28,6 @@ struct ScanReviewSheet: View {
                     }
                 }
                 .scrollContentBackground(.hidden)
-                .background(Theme.background)
                 .onAppear { if let focus { proxy.scrollTo(focus, anchor: .center) } }
             }
             .navigationTitle("\(model.entries.count) scanned")

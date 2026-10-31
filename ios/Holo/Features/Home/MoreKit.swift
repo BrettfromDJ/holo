@@ -342,6 +342,7 @@ struct GlassStat: View {
     var label: String
     var value: String
     var tint: Color = .white
+    @Environment(\.onGlassSheet) private var onGlass
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -352,7 +353,7 @@ struct GlassStat: View {
         .padding(.vertical, 10)
         // One height for every tile in a row.
         .frame(maxWidth: .infinity, minHeight: 58, maxHeight: 58, alignment: .leading)
-        .liquidGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .modifier(StatBackground(onGlass: onGlass))
     }
 }
 
@@ -408,5 +409,13 @@ struct DotField: View {
             }
         }
         .onVisibilityChange { onScreen = $0 }
+    }
+}
+
+/// Glass on a page; a faint fill on a glass sheet (glass on glass turns blotchy).
+private struct StatBackground: ViewModifier {
+    var onGlass: Bool
+    func body(content: Content) -> some View {
+        if onGlass { content.sheetPanel(radius: 14) } else { content.liquidGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous)) }
     }
 }

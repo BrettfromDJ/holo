@@ -587,9 +587,11 @@ struct PriceRangeSheet: View {
     @State private var min = ""
     @State private var max = ""
 
-    var body: some View {
+    var body: some View { sheetBody.glassSheet() }
+
+    @ViewBuilder private var sheetBody: some View {
         NavigationStack {
-            Form {
+            GlassForm {
                 MoneyField(title: "Minimum", text: $min, hint: "Any")
                 MoneyField(title: "Maximum", text: $max, hint: "Any")
                 Section { Text("Items without a price are left out when a range is set.").font(.footnote).foregroundStyle(Theme.muted) }

@@ -20,25 +20,31 @@ struct HoldingSheet: View {
     @State private var deleting: Txn?
     @State private var error: String?
     @State private var graded: GradedValues?
+    /// The graded lookup has answered (or there's nothing to ask), so the If graded tiles show
+    /// their final figures instead of jumping from an estimate.
+    @State private var gradedReady = false
 
     private var holding: HoldingView? { store.holding(identity) }
     private var product: Product? { store.products[identity.productId] }
     private var entries: [Txn] { store.entries(for: identity) }
 
-    var body: some View {
+    var body: some View { sheetBody.glassSheet() }
+
+    @ViewBuilder private var sheetBody: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    header
+                    // Each block rises in once the sheet has landed, top to bottom.
+                    header.sheetReveal(0)
                     if let h = holding {
-                        value(h)
-                        tiles(h)
-                        if identity.isGraded { slabRows } else if product?.isSealed == false { ifGraded(h) }
-                        actions(h)
+                        value(h).sheetReveal(1)
+                        tiles(h).sheetReveal(2)
+                        if identity.isGraded { slabRows.sheetReveal(3) } else if product?.isSealed == false { ifGraded(h).sheetReveal(3) }
+                        actions(h).sheetReveal(4)
                     } else {
                         Text("You don't hold any of these right now.").font(.geist(14)).foregroundStyle(Theme.muted)
                     }
-                    history
+                    history.sheetReveal(5)
                     if let error { Text(error).font(.geist(13)).foregroundStyle(Theme.down) }
                 }
                 .padding(.horizontal, 20)
@@ -79,6 +85,7 @@ struct HoldingSheet: View {
                 Text("Your totals update as if it never happened. The original stays in the record.")
             }
             .task(id: identity.productId) {
+                defer { withAnimation(.easeOut(duration: 0.25)) { gradedReady = true } }
                 guard identity.productId.hasPrefix("tcgapi:"), !identity.isGraded else { return }
                 graded = (try? await Backend.shared.api.gradedValues([identity.productId]))?[identity.productId]
             }
@@ -86,7 +93,6 @@ struct HoldingSheet: View {
         // Just short of full height: iOS 26 keeps a sheet glass only while it isn't full screen.
         .presentationDetents([.fraction(0.93)])
         .presentationDragIndicator(.visible)
-        .nativeGlassSheet()
     }
 
     // MARK: Parts
@@ -110,15 +116,19 @@ struct HoldingSheet: View {
         let points = store.series(identity, days: min(max(held, 7), 3650))
         return VStack(alignment: .leading, spacing: 8) {
             MonoLabel(text: h.quantity > 1 ? "Your \(Int(h.quantity)) are worth" : "Yours is worth")
-            Text((h.isConditionEstimate ? "≈ " : "") + Format.money(h.value)).font(.display(44)).monospacedDigit().displayTrim(44)
+            // Counts up once the sheet has landed.
+            CountingText(value: h.value ?? 0, format: { (h.isConditionEstimate ? "≈ " : "") + Format.money($0) }, delay: 0.3)
+                .font(.display(44)).monospacedDigit().displayTrim(44)
             HStack(spacing: 8) {
                 DeltaPill(ratio: h.gainRatio, size: 13)
-                Text(Format.signedMoney(h.gain)).font(.geist(14, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(h.gain))
+                CountingText(value: h.gain ?? 0, format: { Format.signedMoney($0) }, delay: 0.3)
+                    .font(.geist(14, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(h.gain))
                 Text("on what you paid").font(.geist(13)).foregroundStyle(Theme.muted)
             }
             if points.count > 1 {
                 let up = (h.gain ?? 0) >= 0
-                Sparkline(points: points, color: up ? Theme.lime : Theme.planPink).frame(height: 56).padding(.top, 6)
+                // Draws in left to right after the sheet lands.
+                Sparkline(points: points, color: up ? Theme.lime : Theme.planPink, delay: 0.4).frame(height: 56).padding(.top, 6)
                 HStack {
                     MonoLabel(text: h.firstAcquired.flatMap { Format.isoDay.date(from: $0) }.map { "Since you bought it · \($0.formatted(.dateTime.month(.abbreviated).year()))" } ?? "Since you bought it")
                     Spacer()
@@ -151,7 +161,8 @@ struct HoldingSheet: View {
                 SheetStat(label: "PSA 10", value: (ten.1 ? "≈ " : "") + Format.money(ten.0), tint: Theme.lime)
                 SheetStat(label: "PSA 9", value: (nine.1 ? "≈ " : "") + Format.money(nine.0))
             }
-            Text(ten.1 ? "Estimates from the usual grade curve. The card page has every grade." : "From PriceCharting. The card page has every grade.")
+            .redacted(reason: gradedReady ? [] : .placeholder)
+            Text(!gradedReady ? "Looking up graded prices…" : ten.1 ? "Estimates from the usual grade curve. The card page has every grade." : "From PriceCharting. The card page has every grade.")
                 .font(.geist(12)).foregroundStyle(Theme.subtle)
             Button { sending = true } label: { Label("Send for grading", systemImage: "paperplane") }
                 .buttonStyle(GlassButton())
@@ -289,9 +300,11 @@ struct SellSheet: View {
     private var net: Double { gross - fees - ship }
     private var cost: Double { holding.fifoCost(Double(quantity)) }
 
-    var body: some View {
+    var body: some View { sheetBody.glassSheet() }
+
+    @ViewBuilder private var sheetBody: some View {
         NavigationStack {
-            Form {
+            GlassForm {
                 Section {
                     Stepper("Quantity: \(quantity) of \(Int(holding.quantity))", value: $quantity, in: 1...max(1, Int(holding.quantity)))
                     MoneyField(title: "Price each", text: $price, hint: Format.money(holding.price ?? 0))
@@ -314,7 +327,6 @@ struct SellSheet: View {
                 if let error { Section { Text(error).foregroundStyle(Theme.down) } }
             }
             .scrollContentBackground(.hidden)
-            .background(Theme.background)
             .navigationTitle("Sell")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -362,9 +374,11 @@ struct EntryEditSheet: View {
         _date = State(initialValue: Format.isoDay.date(from: entry.date) ?? Date())
     }
 
-    var body: some View {
+    var body: some View { sheetBody.glassSheet() }
+
+    @ViewBuilder private var sheetBody: some View {
         NavigationStack {
-            Form {
+            GlassForm {
                 Section {
                     Stepper("Quantity: \(quantity)", value: $quantity, in: 1...9999)
                     MoneyField(title: "Price each", text: $price)
@@ -377,7 +391,6 @@ struct EntryEditSheet: View {
                 if let error { Section { Text(error).foregroundStyle(Theme.down) } }
             }
             .scrollContentBackground(.hidden)
-            .background(Theme.background)
             .navigationTitle(entry.kind == .sale ? "Edit sale" : "Edit purchase")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -413,9 +426,11 @@ struct ManualValueSheet: View {
     @State private var saving = false
     @State private var error: String?
 
-    var body: some View {
+    var body: some View { sheetBody.glassSheet() }
+
+    @ViewBuilder private var sheetBody: some View {
         NavigationStack {
-            Form {
+            GlassForm {
                 Section {
                     MoneyField(title: identity.gradeLabel ?? "Value", text: $value, hint: current.map { Format.money($0) } ?? "$0.00")
                 } footer: {
@@ -427,7 +442,6 @@ struct ManualValueSheet: View {
                 if let error { Section { Text(error).foregroundStyle(Theme.down) } }
             }
             .scrollContentBackground(.hidden)
-            .background(Theme.background)
             .navigationTitle("Slab value")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -472,10 +486,23 @@ struct SheetStat: View {
 }
 
 extension View {
-    /// A panel on a glass sheet: faint white fill, hairline white edge.
-    func sheetPanel(radius: CGFloat) -> some View {
-        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
-        return background(shape.fill(Color.white.opacity(0.07)))
-            .overlay(shape.strokeBorder(Color.white.opacity(0.1), lineWidth: 1))
+    /// Rises and fades in once a sheet has landed, `index` steps after the first block.
+    func sheetReveal(_ index: Int) -> some View { modifier(SheetReveal(index: index)) }
+}
+
+private struct SheetReveal: ViewModifier {
+    var index: Int
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shown = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(shown || reduceMotion ? 1 : 0)
+            .offset(y: shown || reduceMotion ? 0 : 14)
+            .onAppear {
+                guard !shown else { return }
+                // The sheet slides up for about 0.3s; start just as it settles.
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.86).delay(0.12 + Double(index) * 0.06)) { shown = true }
+            }
     }
 }

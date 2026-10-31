@@ -260,9 +260,11 @@ private struct CostsSheet: View {
     @State private var fee = ""
     @State private var shipping = ""
 
-    var body: some View {
+    var body: some View { sheetBody.glassSheet() }
+
+    @ViewBuilder private var sheetBody: some View {
         NavigationStack {
-            Form {
+            GlassForm {
                 Section {
                     MoneyField(title: "Fee per card", text: $fee)
                     MoneyField(title: "Shipping per card", text: $shipping)
@@ -271,7 +273,6 @@ private struct CostsSheet: View {
                 }
             }
             .scrollContentBackground(.hidden)
-            .background(Theme.background)
             .navigationTitle("Grading costs")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -308,9 +309,11 @@ struct SendSheet: View {
     private static let companies = ["PSA", "BGS", "CGC", "SGC", "TAG"]
     private static let services = ["Value", "Regular", "Express", "Super Express"]
 
-    var body: some View {
+    var body: some View { sheetBody.glassSheet() }
+
+    @ViewBuilder private var sheetBody: some View {
         NavigationStack {
-            Form {
+            GlassForm {
                 Section {
                     Picker("Grader", selection: $company) { ForEach(Self.companies, id: \.self) { Text($0) } }
                     Picker("Service", selection: $service) { ForEach(Self.services, id: \.self) { Text($0) } }
@@ -325,7 +328,6 @@ struct SendSheet: View {
                 }
             }
             .scrollContentBackground(.hidden)
-            .background(Theme.background)
             .navigationTitle("Send for grading")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -359,9 +361,11 @@ private struct ReturnSheet: View {
     @State private var saving = false
     @State private var error: String?
 
-    var body: some View {
+    var body: some View { sheetBody.glassSheet() }
+
+    @ViewBuilder private var sheetBody: some View {
         NavigationStack {
-            Form {
+            GlassForm {
                 Section {
                     Picker("\(submission.company) grade", selection: $grade) {
                         ForEach(WorthCalc.grades(for: submission.company).reversed(), id: \.self) { Text($0) }
@@ -375,7 +379,6 @@ private struct ReturnSheet: View {
                 if let error { Section { Text(error).foregroundStyle(Theme.down) } }
             }
             .scrollContentBackground(.hidden)
-            .background(Theme.background)
             .navigationTitle("It's back")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -94,11 +94,11 @@ struct DealView: View {
                         EbaySalesPanel(productId: item.product.id, printing: item.printing, grade: item.grade.map { "\($0.company) \($0.grade)" })
                             .padding(16)
                     }
-                    .background(Theme.background)
                     .navigationTitle(item.product.name)
                     .navigationBarTitleDisplayMode(.inline)
                 }
                 .presentationDetents([.medium, .large])
+                .glassSheet()
             }
             .fullScreenCover(item: $scanning) { side in
                 ScanView(dealSide: side, onPick: { candidate, read in addScan(candidate, read: read, to: side) })

@@ -25,9 +25,11 @@ struct DealPickerSheet: View {
         }
     }
 
-    var body: some View {
+    var body: some View { sheetBody.glassSheet() }
+
+    @ViewBuilder private var sheetBody: some View {
         NavigationStack {
-            List {
+            GlassList {
                 Section {
                     Button { customOpen = true } label: {
                         Label("Custom item: a name and a price", systemImage: "square.and.pencil").foregroundStyle(.white)
@@ -81,13 +83,11 @@ struct DealPickerSheet: View {
                 }
             }
             .scrollContentBackground(.hidden)
-            .background(Theme.background)
             .safeAreaInset(edge: .top, spacing: 0) {
                 HoloSearchField(text: $query, prompt: side == .incoming ? "Search any card or product" : "Search your inventory or any card",
                                 focus: $focused, loading: searching)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
-                    .background(Theme.background)
             }
             .scrollDismissesKeyboard(.immediately)
             .navigationTitle(side == .incoming ? "Coming in" : "Going out")
@@ -153,15 +153,16 @@ private struct CustomItemSheet: View {
     @State private var price = ""
     @State private var qty = 1
 
-    var body: some View {
+    var body: some View { sheetBody.glassSheet() }
+
+    @ViewBuilder private var sheetBody: some View {
         NavigationStack {
-            Form {
+            GlassForm {
                 TextField("What is it? (Bulk lot, binder of commons…)", text: $name)
                 MoneyField(title: "Price each", text: $price, hint: "0.00")
                 Stepper("Quantity: \(qty)", value: $qty, in: 1...999)
             }
             .scrollContentBackground(.hidden)
-            .background(Theme.background)
             .navigationTitle("Custom item")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -186,9 +187,11 @@ struct DealRatesSheet: View {
     @Environment(DealStore.self) private var deals
     @State private var rates = DealRates()
 
-    var body: some View {
+    var body: some View { sheetBody.glassSheet() }
+
+    @ViewBuilder private var sheetBody: some View {
         NavigationStack {
-            Form {
+            GlassForm {
                 Section {
                     Toggle("Add what comes in to my collection", isOn: Binding(get: { rates.addsIncoming }, set: { rates.addIncoming = $0 }))
                     Toggle("Ask what I paid for things not in Holo", isOn: Binding(get: { rates.asksCost }, set: { rates.askCost = $0 }))
@@ -201,7 +204,6 @@ struct DealRatesSheet: View {
                 rate("Selling", "What you charge for cards going out", \.sell)
             }
             .scrollContentBackground(.hidden)
-            .background(Theme.background)
             .navigationTitle("Deal settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -256,7 +258,9 @@ struct DealCloseSheet: View {
 
     private var totals: DealTotals { DealTotals(deal, rates: rates, cost: { deals.cost(of: $0, in: store) }) }
 
-    var body: some View {
+    var body: some View { sheetBody.glassSheet() }
+
+    @ViewBuilder private var sheetBody: some View {
         Group {
             if phase == .done {
                 RecordedScreen(totals: recorded ?? totals, deal: deal, rates: rates, demo: store.demo != nil) { dismiss() }
@@ -344,7 +348,6 @@ struct DealCloseSheet: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 12)
         }
-        .background(Theme.background)
     }
 
     private func sideRow(_ side: DealSide, _ items: [DealItem], _ value: Double) -> some View {

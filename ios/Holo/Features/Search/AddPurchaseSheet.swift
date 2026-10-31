@@ -24,9 +24,11 @@ struct AddPurchaseSheet: View {
         return company == "BGS" || company == "CGC" ? whole + ["9.5", "8.5", "7.5"] : whole
     }
 
-    var body: some View {
+    var body: some View { sheetBody.glassSheet() }
+
+    @ViewBuilder private var sheetBody: some View {
         NavigationStack {
-            Form {
+            GlassForm {
                 Section {
                     HStack(spacing: 12) {
                         ProductImage(product: product, cornerRadius: 5).frame(width: 48, height: 66)
@@ -80,7 +82,6 @@ struct AddPurchaseSheet: View {
                 }
             }
             .scrollContentBackground(.hidden)
-            .background(Theme.background)
             .navigationTitle("Add to collection")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

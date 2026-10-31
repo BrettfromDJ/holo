@@ -8,9 +8,11 @@ struct CertSheet: View {
     @State private var value = ""
     @FocusState private var focused: Bool
 
-    var body: some View {
+    var body: some View { sheetBody.glassSheet() }
+
+    @ViewBuilder private var sheetBody: some View {
         NavigationStack {
-            Form {
+            GlassForm {
                 Section {
                     TextField("Cert number", text: $value)
                         .keyboardType(.numberPad)
@@ -22,7 +24,6 @@ struct CertSheet: View {
                 }
             }
             .scrollContentBackground(.hidden)
-            .background(Theme.background)
             .navigationTitle("Cert number")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -50,7 +51,9 @@ struct BumperSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var pick: String?
 
-    var body: some View {
+    var body: some View { sheetBody.glassSheet() }
+
+    @ViewBuilder private var sheetBody: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
@@ -67,7 +70,6 @@ struct BumperSheet: View {
                 }
                 .padding(20)
             }
-            .background(Theme.background)
             .navigationTitle(Bumper.byId(pick)?.name ?? "Bumper")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

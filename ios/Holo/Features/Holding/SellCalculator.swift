@@ -26,7 +26,9 @@ struct SellCalculatorSheet: View {
         Sell.estimate(lots: holding.lots, quantity: Double(quantity), unitPrice: unitPrice ?? 0, fees: fees, shippingCharged: charged, shippingCost: cost)
     }
 
-    var body: some View {
+    var body: some View { sheetBody.glassSheet() }
+
+    @ViewBuilder private var sheetBody: some View {
         let e = estimate
         NavigationStack {
             ScrollView {
@@ -44,7 +46,6 @@ struct SellCalculatorSheet: View {
                 .padding(.bottom, 24)
             }
             .scrollDismissesKeyboard(.immediately)
-            .background(Theme.background)
             .navigationTitle("What if I sell?")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -56,7 +57,6 @@ struct SellCalculatorSheet: View {
                     .disabled(unitPrice == nil || saving)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 12)
-                    .background(Theme.background)
             }
         }
         .onAppear {

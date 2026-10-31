@@ -160,9 +160,11 @@ struct WatchSheet: View {
     @State private var saving = false
     @State private var error: String?
 
-    var body: some View {
+    var body: some View { sheetBody.glassSheet() }
+
+    @ViewBuilder private var sheetBody: some View {
         NavigationStack {
-            Form {
+            GlassForm {
                 Section {
                     LabeledContent("Market now") { Text(Format.money(market)).monospacedDigit() }
                     MoneyField(title: "Target price", text: $target, hint: "Optional")
@@ -172,7 +174,6 @@ struct WatchSheet: View {
                 if let error { Section { Text(error).foregroundStyle(Theme.down) } }
             }
             .scrollContentBackground(.hidden)
-            .background(Theme.background)
             .navigationTitle(existing == nil ? "Watch price" : "Target price")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

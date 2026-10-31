@@ -846,7 +846,9 @@ private struct MiniTile: View {
 struct Sparkline: View {
     var points: [TimelinePoint]
     var color: Color
-    var baseline: Double?
+    var baseline: Double? = nil
+    /// Wait before drawing in (e.g. until a sheet has slid up).
+    var delay: Double = 0
 
     var body: some View {
         let domain = ChartTicks.domain(points.map(\.value) + (baseline.map { [$0] } ?? []))
@@ -864,7 +866,7 @@ struct Sparkline: View {
         .chartXAxis(.hidden)
         .chartYAxis(.hidden)
         .chartYScale(domain: domain)
-        .drawIn(duration: 1.0)
+        .drawIn(duration: 1.0, delay: delay)
     }
 }
 

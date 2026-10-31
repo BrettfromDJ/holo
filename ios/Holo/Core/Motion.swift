@@ -49,6 +49,8 @@ struct CountingText: View {
     var value: Double
     var format: (Double) -> String
     var duration: Double = 1.3
+    /// Wait before counting (e.g. until a sheet has slid up).
+    var delay: Double = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shown: Double?
 
@@ -58,7 +60,7 @@ struct CountingText: View {
                 guard shown == nil else { return }
                 if reduceMotion { shown = value; return }
                 shown = value * 0.85
-                withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: duration)) { shown = value }
+                withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: duration).delay(delay)) { shown = value }
             }
             .onChange(of: value) { _, new in
                 if reduceMotion { shown = new; return }
@@ -154,13 +156,14 @@ private struct Reveal: ViewModifier {
 extension View {
     /// Draws a chart in left to right the first time it scrolls into view (and again whenever
     /// `replay` changes, e.g. a new range), like the Performance chart.
-    func drawIn<T: Equatable>(replay: T, duration: Double = 1.2) -> some View { modifier(DrawIn(replay: replay, duration: duration)) }
-    func drawIn(duration: Double = 1.2) -> some View { modifier(DrawIn(replay: 0, duration: duration)) }
+    func drawIn<T: Equatable>(replay: T, duration: Double = 1.2) -> some View { modifier(DrawIn(replay: replay, duration: duration, delay: 0)) }
+    func drawIn(duration: Double = 1.2, delay: Double = 0) -> some View { modifier(DrawIn(replay: 0, duration: duration, delay: delay)) }
 }
 
 private struct DrawIn<T: Equatable>: ViewModifier {
     var replay: T
     var duration: Double
+    var delay: Double
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var drawn: CGFloat = 0
 
@@ -171,7 +174,7 @@ private struct DrawIn<T: Equatable>: ViewModifier {
             }
             .onFirstVisible {
                 guard drawn == 0 else { return }
-                withAnimation(.easeInOut(duration: duration)) { drawn = 1 }
+                withAnimation(.easeInOut(duration: duration).delay(delay)) { drawn = 1 }
             }
             .onChange(of: replay) { _, _ in
                 drawn = 0
