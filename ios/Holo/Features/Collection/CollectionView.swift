@@ -341,7 +341,7 @@ struct CollectionView: View {
     /// Filter by set, product type and profit or loss, like the website's filter panel.
     private var filterMenu: some View {
         let sets = Array(Set(store.holdings.compactMap { $0.product?.setName })).sorted()
-        let types = ["Card", "Booster Box", "Elite Trainer Box", "Ultra Premium Collection", "Booster Bundle", "Collection Box", "Tin", "Booster Pack", "Other Sealed"]
+        let types: [String] = ["Card", "Booster Box", "Elite Trainer Box", "Ultra Premium Collection", "Booster Bundle", "Collection Box", "Tin", "Booster Pack", "Other Sealed"]
             .filter { t in store.holdings.contains { $0.product.map(Analytics.category) == t } }
         return Menu {
             Picker("Profit", selection: $perf) {
