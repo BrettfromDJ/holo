@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDeck } from "@/components/motion/loading-deck";
 import { Grid3x3, Plus } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -106,7 +107,7 @@ export default function MasterSetsPage() {
     }
   }, [mine, scope, catalog, query, sort]);
 
-  if (store.status === "loading") return <MasterSetsSkeleton />;
+  if (store.status === "loading") return <LoadingDeck />;
   if (store.status === "error") return <ErrorState message={store.error} />;
 
   const complete = mine.filter((r) => (r.ratio ?? 0) >= 1).length;
@@ -277,21 +278,3 @@ function SetDeckCard({ row: r, style }: { row: Row; style?: React.CSSProperties 
   );
 }
 
-function MasterSetsSkeleton() {
-  return (
-    <div aria-busy="true">
-      <Skeleton className="h-4 w-28" />
-      <Skeleton className="mt-3 h-14 w-64" />
-      <div className="mt-5 grid max-w-[560px] grid-cols-3 gap-2">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-[58px] rounded-[14px]" />
-        ))}
-      </div>
-      <div className="mt-10 flex max-w-[560px] flex-col">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-[196px] rounded-[28px] border border-background" style={i ? { marginTop: -OVERLAP } : undefined} />
-        ))}
-      </div>
-    </div>
-  );
-}
