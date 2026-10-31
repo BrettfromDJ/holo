@@ -452,9 +452,14 @@ private struct MetricGrid: View {
         VStack(spacing: 12) {
             HStack(spacing: 12) {
                 MetricCard(label: "Invested", amount: s.totalCost, format: { Format.money($0) }, valueTint: .white, sub: "incl. fees & shipping", tint: Theme.azure)
-                MetricCard(label: "Unrealized", amount: s.gain, format: { Format.signedMoney($0) }, valueTint: Theme.tone(s.gain), sub: nil,
-                           tint: s.gain >= 0 ? Theme.lime : Theme.planPink,
-                           tag: s.gainRatio.map { (pct($0, decimals: 0), s.gain >= 0 ? Theme.lime : Theme.planPink, s.gain >= 0 ? Theme.ink : .white) })
+                NavigationLink {
+                    GainsView()
+                } label: {
+                    MetricCard(label: "Unrealized", amount: s.gain, format: { Format.signedMoney($0) }, valueTint: Theme.tone(s.gain), sub: "breakdown →",
+                               tint: s.gain >= 0 ? Theme.lime : Theme.planPink,
+                               tag: s.gainRatio.map { (pct($0, decimals: 0), s.gain >= 0 ? Theme.lime : Theme.planPink, s.gain >= 0 ? Theme.ink : .white) })
+                }
+                .buttonStyle(.plain)
             }
             HStack(spacing: 12) {
                 MetricCard(label: "Today", amount: s.dayChange, format: { Format.signedMoney($0) }, valueTint: Theme.tone(s.dayChange), sub: nil,

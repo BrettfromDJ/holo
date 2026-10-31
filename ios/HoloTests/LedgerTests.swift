@@ -85,3 +85,31 @@ final class DealTests: XCTestCase {
         XCTAssertEqual(back.incoming.count, 1)
     }
 }
+
+/// Gain attribution matches the web app's (src/lib/finance/attribution.ts).
+final class GainsTests: XCTestCase {
+    private func id(_ p: String) -> HoldingIdentity { HoldingIdentity(productId: p, printing: nil, condition: "Near Mint", gradeCompany: nil, grade: nil) }
+
+    func testStepsSumToTotalGainsFirst() {
+        let txns = [
+            Txn(id: "a", identity: id("up"), kind: .purchase, date: "2026-01-01", quantity: 1, unitPrice: 10, createdAt: "2026-01-01T00:00:00Z"),
+            Txn(id: "b", identity: id("down"), kind: .purchase, date: "2026-01-01", quantity: 1, unitPrice: 50, createdAt: "2026-01-01T00:00:00Z"),
+            Txn(id: "c", identity: id("sold"), kind: .purchase, date: "2026-01-01", quantity: 1, unitPrice: 5, createdAt: "2026-01-01T00:00:00Z"),
+            Txn(id: "d", identity: id("sold"), kind: .sale, date: "2026-02-01", quantity: 1, unitPrice: 25, createdAt: "2026-02-01T00:00:00Z"),
+        ]
+        let prices = [priceKey("up", nil): Price(productId: "up", printing: nil, market: 40, status: "live"),
+                      priceKey("down", nil): Price(productId: "down", printing: nil, market: 30, status: "live")]
+        let products = ["up": Product(id: "up", name: "Up", kind: "single"), "down": Product(id: "down", name: "Down", kind: "single"), "sold": Product(id: "sold", name: "Sold", kind: "single")]
+        let holdings = Portfolio.holdings(transactions: txns, products: products, prices: prices, manualValues: [:])
+
+        let un = Gains.attribute(holdings: holdings, transactions: txns, products: products, mode: .unrealized, group: .product)
+        XCTAssertEqual(un.steps.map(\.key), ["up", "down"])
+        XCTAssertEqual(un.total, 10, accuracy: 0.0001) // +30 − 20
+        XCTAssertEqual(un.steps.last!.end, un.total, accuracy: 0.0001)
+
+        let all = Gains.attribute(holdings: holdings, transactions: txns, products: products, mode: .all, group: .product)
+        XCTAssertEqual(all.total, 30, accuracy: 0.0001) // + 20 realized
+        XCTAssertEqual(all.winners, 2)
+        XCTAssertEqual(all.losers, 1)
+    }
+}
