@@ -355,7 +355,7 @@ private struct SetStrip: View {
             ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                 HStack(spacing: 2) {
                     ForEach(Array(row.enumerated()), id: \.offset) { _, on in
-                        RoundedRectangle(cornerRadius: 1.5).fill(on ? Theme.lime : Theme.surface3)
+                        RoundedRectangle(cornerRadius: 1.5).fill(on ? Theme.lime : Color.white.opacity(0.13))
                             .frame(height: 12)
                     }
                     if row.count < perRow {
