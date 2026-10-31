@@ -93,7 +93,10 @@ struct GradedPricesPanel: View {
                     company = c
                     if !WorthCalc.grades(for: c).contains(grade) { grade = "10" }
                 }))
+                // Room for the selected chip's glow, inside the card's own padding.
+                .padding(14)
             }
+            .padding(-14)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 2) {
                     ForEach(WorthCalc.grades(for: company).reversed(), id: \.self) { g in
@@ -106,7 +109,9 @@ struct GradedPricesPanel: View {
                 }
                 .padding(3)
                 .liquidGlass(in: Capsule())
+                .padding(14)
             }
+            .padding(-14)
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("\(company) \(grade)").font(.geist(14, .semibold))
