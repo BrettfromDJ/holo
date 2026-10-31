@@ -187,13 +187,13 @@ struct MasterSetDetailView: View {
                     heroTile(label: "You own", sub: "worth") {
                         HStack(alignment: .center, spacing: 10) {
                             GlowRing(fraction: ratio, label: "").frame(width: 38, height: 38).foregroundStyle(Theme.lime)
-                            Text(GlowFigure.text(ownedValue, signed: false, cents: false)).font(.geist(24)).tracking(-0.8).monospacedDigit()
+                            Text(GlowFigure.text(ownedValue, signed: false, cents: false)).font(.geist(24, .semibold)).tracking(-0.8).monospacedDigit()
                                 .lineLimit(1).minimumScaleFactor(0.6)
                         }
                     }
                     heroTile(label: "To finish", sub: "\(total - owned) missing") {
                         VStack(alignment: .leading, spacing: 10) {
-                            Text(missingValue > 0 ? GlowFigure.text(missingValue, signed: false, cents: false) : "—").font(.geist(24)).tracking(-0.8).monospacedDigit()
+                            Text(missingValue > 0 ? GlowFigure.text(missingValue, signed: false, cents: false) : "—").font(.geist(24, .semibold)).tracking(-0.8).monospacedDigit()
                                 .lineLimit(1).minimumScaleFactor(0.6)
                             GlowTicks(fraction: ratio).frame(height: 16)
                         }

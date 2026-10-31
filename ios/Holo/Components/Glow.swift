@@ -277,7 +277,7 @@ struct GlowFigure: View {
 
     var body: some View {
         CountingText(value: value, format: { v in Self.text(v, signed: signed, cents: cents) })
-            .font(.geist(size, .regular))
+            .font(.geist(size, .semibold))
             .tracking(-size * 0.04)
             .monospacedDigit()
             .lineLimit(1)
@@ -494,7 +494,7 @@ struct GlowTile<Graphic: View>: View {
             Spacer(minLength: 6)
             if let value {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text(value).font(.geist(shape == .square ? 28 : 34)).tracking(-1).monospacedDigit()
+                    Text(value).font(.geist(shape == .square ? 28 : 34, .semibold)).tracking(-1).monospacedDigit()
                         .lineLimit(1).minimumScaleFactor(0.5)
                         .foregroundStyle(palette.wash ?? palette.ink)
                     if let unit { Text(unit).font(.geist(13)).opacity(0.7) }

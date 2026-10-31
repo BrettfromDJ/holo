@@ -9,10 +9,10 @@ import UIKit
 
 extension Font {
     /// Headlines and big numbers. Lucent: Geist in sentence case, matching the glow cards
-    /// (was Anton, tall condensed caps). Big sizes are Regular and thin like the cards' figures,
-    /// smaller ones Medium; sizes come down a fifth since Geist is wider than Anton.
+    /// (was Anton, tall condensed caps), SemiBold so big numbers have weight; sizes come down a
+    /// fifth since Geist is wider than Anton.
     static func display(_ size: CGFloat) -> Font {
-        .custom(size >= 36 ? "Geist-Regular" : "Geist-Medium", size: (size * 0.8).rounded())
+        .custom("Geist-SemiBold", size: (size * 0.8).rounded())
     }
 
     /// Geist, the body face.
