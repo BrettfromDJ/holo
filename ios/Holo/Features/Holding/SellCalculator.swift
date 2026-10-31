@@ -131,8 +131,8 @@ struct SellCalculatorSheet: View {
             }
             if platform != .local {
                 HStack(alignment: .top, spacing: 12) {
-                    field("Shipping buyer pays", hint: "order total") { money($shipCharged) }
-                    field("Your shipping cost", hint: "order total") { money($shipCost) }
+                    field("Buyer pays", hint: "shipping") { money($shipCharged) }
+                    field("You pay", hint: "shipping") { money($shipCost) }
                 }
                 if editFees {
                     HStack(alignment: .top, spacing: 12) {

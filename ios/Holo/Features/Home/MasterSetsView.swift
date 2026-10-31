@@ -339,12 +339,15 @@ private struct CardCell: View {
                 Text(entry.hit.product.name).font(.geist(12, .medium)).lineLimit(1)
                     .foregroundStyle(entry.owned ? .white : Theme.muted)
             }
+            // Numbered empty slots already show their number inside; real cards show it here.
+            if !entry.hit.product.id.hasPrefix("sample-slot:") || entry.owned {
             HStack(spacing: 4) {
                 Text("#\(entry.hit.product.number ?? "—")").font(.mono(10)).foregroundStyle(Theme.subtle).lineLimit(1)
                 Spacer(minLength: 2)
                 if let p = entry.price {
                     Text(Format.money(p)).font(.geist(11, .semibold)).monospacedDigit().foregroundStyle(entry.owned ? .white : Theme.muted).lineLimit(1)
                 }
+            }
             }
         }
     }
