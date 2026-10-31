@@ -41,24 +41,33 @@ struct PullReveal: View {
                 .padding(.top, 32)
                 .opacity(risen ? 1 : 0).offset(y: risen ? 0 : 12)
 
-                VStack(spacing: 6) {
-                    Text("Collection value").font(.geist(12)).foregroundStyle(Theme.muted)
-                    CountUp(value: shownValue)
-                        .font(.display(52)).monospacedDigit().foregroundStyle(Theme.holo).displayTrim(52)
-                    if abs(added) >= 0.01 {
-                        (Text(Format.signedMoney(added)).foregroundColor(Theme.up) + Text(" at today's price").foregroundColor(Theme.muted))
-                            .font(.geist(13)).monospacedDigit()
-                    }
-                    if let over = overBudget, over > 0 {
-                        (Text("That puts you ").foregroundColor(Theme.muted) + Text(Format.money(over)).foregroundColor(Theme.down).fontWeight(.medium) + Text(" over your monthly budget").foregroundColor(Theme.muted))
-                            .font(.geist(12)).monospacedDigit()
-                            .padding(.horizontal, 12).padding(.vertical, 6)
-                            .background(Theme.surface2, in: Capsule())
-                            .padding(.top, 6)
+                // The collection value counting up on the item's own glow.
+                GlowCard(palette: .forProduct(event.product.id), radius: 28, padding: 18) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        GlowLabel(text: "Collection value")
+                        CountUp(value: shownValue)
+                            .font(.geist(48)).tracking(-1.9).monospacedDigit()
+                            .lineLimit(1).minimumScaleFactor(0.5)
+                            .padding(.top, 14)
+                        if abs(added) >= 0.01 {
+                            HStack(spacing: 8) {
+                                GlowPill(text: Format.signedMoney(added))
+                                Text("at today's price").font(.geist(13)).opacity(0.75)
+                            }
+                            .padding(.top, 8)
+                        }
                     }
                 }
                 .padding(.top, 24)
                 .opacity(risen ? 1 : 0).offset(y: risen ? 0 : 12)
+                if let over = overBudget, over > 0 {
+                    (Text("That puts you ").foregroundColor(Theme.muted) + Text(Format.money(over)).foregroundColor(Theme.down).fontWeight(.medium) + Text(" over your monthly budget").foregroundColor(Theme.muted))
+                        .font(.geist(12)).monospacedDigit()
+                        .padding(.horizontal, 12).padding(.vertical, 6)
+                        .background(Theme.surface2, in: Capsule())
+                        .padding(.top, 12)
+                        .opacity(risen ? 1 : 0)
+                }
 
                 HStack(spacing: 10) {
                     Button("Done", action: onDone).buttonStyle(Button3D(kind: .dark, height: 48))

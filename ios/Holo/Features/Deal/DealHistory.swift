@@ -559,24 +559,39 @@ struct DealHistoryView: View {
         let profit = shown.compactMap(\.profit).reduce(0, +)
         let cash = shown.reduce(0) { $0 + $1.balance }
         let items = shown.reduce(0) { $0 + $1.items }
-        return VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 8) {
-                MonoLabel(text: filter == nil ? "Profit from deals" : "Profit from \(filter!.noun.lowercased())s")
-                CountingText(value: profit, format: { Format.signedMoney($0) })
-                    .font(.display(72)).monospacedDigit().foregroundStyle(profit < 0 ? Theme.planPink : Theme.lime)
-                    .lineLimit(1).minimumScaleFactor(0.5).displayTrim(72)
-                    .shadow(color: (profit < 0 ? Theme.planPink : Theme.lime).opacity(0.35), radius: 18)
+        return VStack(alignment: .leading, spacing: 10) {
+            // Profit on a glow (up or down), with the climb drawn in white across it.
+            GlowCard(palette: .tone(profit), padding: 20) {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(alignment: .top) {
+                        GlowLabel(text: filter.map { "Profit from \($0.noun.lowercased())s" } ?? "Profit from deals",
+                                  secondary: "\(shown.count) deal\(shown.count == 1 ? "" : "s")")
+                        Spacer(minLength: 8)
+                        if items > 0 { GlowLabel(text: "\(items) item\(items == 1 ? "" : "s")") }
+                    }
+                    GlowFigure(value: profit, size: 56, signed: true)
+                        .padding(.top, 16)
+                    ProfitClimb(records: shown)
+                        .padding(.top, 10)
+                }
             }
-            HStack(spacing: 8) {
-                StatPill(label: "Deals", value: "\(shown.count)")
-                StatPill(label: "Cash", value: Format.signedMoney(cash), tint: Theme.tone(cash))
-                if items > 0 { StatPill(label: "Items", value: "\(items)") }
+            HStack(spacing: 10) {
+                miniTile("Deals", "\(shown.count)", palette: .violet)
+                miniTile("Cash", Format.signedMoney(cash), palette: cash < 0 ? .rose : .aqua)
             }
-            .lineLimit(1)
-            .minimumScaleFactor(0.8)
-            ProfitClimb(records: shown)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// A small glow tile with a label and a white figure.
+    private func miniTile(_ label: String, _ value: String, palette: GlowPalette) -> some View {
+        GlowCard(palette: palette, radius: 22, padding: 14) {
+            VStack(alignment: .leading, spacing: 12) {
+                GlowLabel(text: label)
+                Text(value).font(.geist(28)).tracking(-1.1).monospacedDigit()
+                    .lineLimit(1).minimumScaleFactor(0.5)
+            }
+        }
     }
 
     // MARK: Days
@@ -603,7 +618,8 @@ struct DealHistoryView: View {
     }
 }
 
-/// Profit adding up deal by deal, drawn in lime (pink if it's under water), like Home's chart.
+/// Profit adding up deal by deal, drawn in white on the profit glow, with the yellow marker on
+/// the latest total.
 private struct ProfitClimb: View {
     var records: [DealRecord]
 
@@ -618,15 +634,21 @@ private struct ProfitClimb: View {
     var body: some View {
         let data = points
         if data.count >= 2 {
-            let tint = (data.last?.total ?? 0) < 0 ? Theme.planPink : Theme.lime
+            let tint = Color.white
+            let lastIndex = data.count - 1
             Chart(Array(data.enumerated()), id: \.offset) { i, p in
                 AreaMark(x: .value("Deal", i), yStart: .value("Base", min(0, data.map(\.total).min() ?? 0)), yEnd: .value("Profit", p.total))
                     .interpolationMethod(.monotone)
-                    .foregroundStyle(LinearGradient(colors: [tint.opacity(0.35), tint.opacity(0)], startPoint: .top, endPoint: .bottom))
+                    .foregroundStyle(LinearGradient(colors: [tint.opacity(0.25), tint.opacity(0)], startPoint: .top, endPoint: .bottom))
                 LineMark(x: .value("Deal", i), y: .value("Profit", p.total))
                     .interpolationMethod(.monotone)
                     .foregroundStyle(tint)
-                    .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                    .lineStyle(StrokeStyle(lineWidth: 1.6, lineCap: .round))
+                if i == lastIndex {
+                    PointMark(x: .value("Deal", i), y: .value("Profit", p.total))
+                        .symbolSize(0)
+                        .annotation(position: .top, spacing: 2) { GlowMarker(size: 11) }
+                }
             }
             .chartXAxis(.hidden)
             .chartYAxis(.hidden)
@@ -636,35 +658,28 @@ private struct ProfitClimb: View {
     }
 }
 
-/// The deal that made the most, on an electric card.
+/// The deal that made the most, on a gold glow.
 private struct BestDealCard: View {
     var record: DealRecord
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: 26, style: .continuous)
         let lines = record.lines ?? []
         HStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 10) {
                 SkewTag(text: "Best deal", icon: "star.fill")
-                Text("\(record.kind.noun) · \(record.date.formatted(.dateTime.month(.abbreviated).day()))").font(.geist(15, .semibold)).foregroundStyle(.white)
-                Text(Format.signedMoney(record.profit)).font(.display(40)).monospacedDigit().foregroundStyle(Theme.holo).displayTrim(40)
-                    .shadow(color: Theme.holoGlow.opacity(0.4), radius: 12)
+                Text("\(record.kind.noun) · \(record.date.formatted(.dateTime.month(.abbreviated).day()))").font(.geist(15, .semibold))
+                Text(Format.signedMoney(record.profit)).font(.geist(40)).tracking(-1.6).monospacedDigit()
+                    .lineLimit(1).minimumScaleFactor(0.6)
             }
             Spacer(minLength: 0)
             CardFanStack(lines: Array(lines.prefix(4)), size: CGSize(width: 54, height: 76))
                 .frame(width: 120, height: 100)
         }
         .padding(18)
-        .background {
-            ZStack {
-                shape.fill(Color(hex: 0x070707))
-                GridPattern(step: 28, opacity: 0.06)
-                RadialGradient(colors: [Theme.violet.opacity(0.2), .clear], center: .trailing, startRadius: 0, endRadius: 220)
-            }
-            .clipShape(shape)
-        }
-        .overlay(ElectricBorder(radius: 22))
-        .shadow(color: Theme.holoGlow.opacity(0.18), radius: 18)
+        .foregroundStyle(.white)
+        .background { GlowFill(palette: .gold).clipShape(shape) }
+        .overlay(shape.strokeBorder(.white.opacity(0.08)))
     }
 }
 
@@ -820,45 +835,39 @@ struct DealRecordDetail: View {
         .pageTitle(record.map { $0.kind.noun } ?? "Deal")
     }
 
+    /// The deal on a glow: up or down with what it made (profit, or for a buy the value
+    /// gained), the cash that changed hands big and white, then the four totals.
     private func header(_ r: DealRecord) -> some View {
         let b = r.balance
-        let shape = RoundedRectangle(cornerRadius: 24, style: .continuous)
-        return VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 10) {
-                Image(systemName: r.kind.icon).font(.system(size: 13, weight: .bold)).foregroundStyle(r.kind.color)
-                    .frame(width: 30, height: 30).background(Circle().fill(r.kind.color.opacity(0.16)))
-                Text(r.date.formatted(.dateTime.weekday(.wide).month(.abbreviated).day().hour().minute()).uppercased())
-                    .font(.mono(11)).tracking(1).foregroundStyle(Theme.muted)
+        let made: Double? = r.profit ?? (r.inValue > 0 ? r.equity : nil)
+        let palette: GlowPalette = made.map { GlowPalette.tone($0) } ?? .sky
+        return GlowCard(palette: palette, padding: 20) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 10) {
+                    Image(systemName: r.kind.icon).font(.system(size: 13, weight: .bold))
+                        .frame(width: 30, height: 30).background(Circle().fill(Color.black.opacity(0.28)))
+                    Text(r.date.formatted(.dateTime.weekday(.wide).month(.abbreviated).day().hour().minute()).uppercased())
+                        .font(.mono(11)).tracking(1).opacity(0.8)
+                        .lineLimit(1).minimumScaleFactor(0.8)
+                }
+                GlowLabel(text: abs(b) < 0.005 ? "Even swap" : (b > 0 ? "They paid you" : "You paid them")).padding(.top, 18)
+                GlowFigure(value: abs(b), size: 56)
+                    .padding(.top, 12)
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], alignment: .leading, spacing: 14) {
+                    stat("Came in", Format.money(r.inValue))
+                    stat("Went out", Format.money(r.outValue))
+                    stat("Profit", r.profit.map { Format.signedMoney($0) } ?? "—")
+                    stat("Value gained", r.kind == .sell ? "—" : Format.signedMoney(r.equity))
+                }
+                .padding(.top, 20)
             }
-            MonoLabel(text: abs(b) < 0.005 ? "Even swap" : (b > 0 ? "They paid you" : "You paid them")).padding(.top, 18)
-            CountingText(value: abs(b), format: { Format.money($0) })
-                .font(.display(56)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.5).displayTrim(56)
-                .padding(.top, 8)
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], alignment: .leading, spacing: 14) {
-                stat("Came in", Format.money(r.inValue), .white)
-                stat("Went out", Format.money(r.outValue), .white)
-                stat("Profit", r.profit.map { Format.signedMoney($0) } ?? "—", r.profit == nil ? Theme.muted : Theme.tone(r.profit))
-                stat("Value gained", r.kind == .sell ? "—" : Format.signedMoney(r.equity), r.kind == .sell ? Theme.muted : Theme.tone(r.equity))
-            }
-            .padding(.top, 20)
         }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            ZStack {
-                shape.fill(Color(hex: 0x070707))
-                GridPattern(step: 28, opacity: 0.06)
-                RadialGradient(colors: [r.kind.color.opacity(0.22), .clear], center: .topTrailing, startRadius: 0, endRadius: 260)
-            }
-            .clipShape(shape)
-        }
-        .overlay(shape.strokeBorder(r.kind.color.opacity(0.3)))
     }
 
-    private func stat(_ label: String, _ value: String, _ tint: Color) -> some View {
+    private func stat(_ label: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 5) {
-            MonoLabel(text: label)
-            Text(value).font(.geist(17, .semibold)).monospacedDigit().foregroundStyle(tint).lineLimit(1).minimumScaleFactor(0.7)
+            Text(label.uppercased()).font(.mono(10)).tracking(1.2).opacity(0.75)
+            Text(value).font(.geist(20)).tracking(-0.5).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

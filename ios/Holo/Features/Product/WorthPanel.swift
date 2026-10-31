@@ -27,23 +27,26 @@ struct WorthPanel: View {
                     if !loaded { ProgressView().controlSize(.small) }
                 }
                 let w = worth
-                HStack(alignment: .lastTextBaseline) {
-                    Text(Format.money(w.price))
-                        .font(.display(52)).monospacedDigit()
-                        .foregroundStyle(Color.primary.opacity(w.isEstimate ? 0.85 : 1))
-                        .contentTransition(.numericText())
-                        .animation(.snappy, value: w.price)
-                    Spacer()
-                    Text(condition.rawValue).font(.subheadline.weight(.semibold))
-                }
-                HStack(spacing: 8) {
-                    SourceTag(source: w.source)
-                    Text(w.detail).font(.caption).foregroundStyle(Theme.muted)
-                }
-                if condition != .nearMint {
-                    let diff = w.price - nm
-                    (Text(Format.signedMoney(diff)).foregroundStyle(Theme.tone(diff)) + Text(" vs Near Mint (\(Format.money(nm)))").foregroundStyle(Theme.muted))
-                        .font(.caption).monospacedDigit()
+                // The raw value on its own glow (a different color from the price card above).
+                GlowCard(palette: palette, radius: 24, padding: 18) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack(alignment: .top) {
+                            GlowLabel(text: condition.rawValue, secondary: w.detail)
+                            Spacer(minLength: 8)
+                            GlowPill(text: Self.sourceLabel(w.source))
+                        }
+                        Text((w.isEstimate ? "≈ " : "") + Format.money(w.price))
+                            .font(.geist(52)).tracking(-2).monospacedDigit()
+                            .lineLimit(1).minimumScaleFactor(0.5)
+                            .contentTransition(.numericText())
+                            .animation(.snappy, value: w.price)
+                            .padding(.top, 16)
+                        if condition != .nearMint {
+                            let diff = w.price - nm
+                            Text("\(Format.signedMoney(diff)) vs Near Mint (\(Format.money(nm)))")
+                                .font(.geist(13, .medium)).monospacedDigit().opacity(0.8)
+                        }
+                    }
                 }
                 HStack(spacing: 6) {
                     ForEach(CardCondition.allCases) { c in
@@ -65,6 +68,15 @@ struct WorthPanel: View {
                 condition = c
             }
         }
+    }
+
+    /// Its own glow, never the same as the product's price card.
+    private var palette: GlowPalette {
+        GlowPalette.forProduct(productId) == .aqua ? .flame : .aqua
+    }
+
+    static func sourceLabel(_ source: Worth.Source) -> String {
+        ["market": "Market price", "sales": "eBay sales", "guide": "Price guide", "estimate": "Estimate"][source.rawValue] ?? ""
     }
 
     private func load() async {

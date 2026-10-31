@@ -227,54 +227,77 @@ struct ProductDetailView: View {
                 .scrollClipDisabled()
                 .padding(.top, 14)
             }
-            Group {
-                if let market = headline {
-                    CountingText(value: market, format: { Format.money($0) })
-                } else {
-                    Text(Format.money(nil))
-                }
-            }
-            .font(.display(52)).monospacedDigit().displayTrim(52).padding(.top, 24)
-            // The headline is the Near Mint (ungraded) price; copies you own that differ are listed here.
-            let differing = owned.filter { $0.identity.isGraded || $0.isConditionEstimate }
-            if !differing.isEmpty {
-                HStack(spacing: 8) {
-                    Text(owned.contains(where: { $0.identity.isGraded }) ? "Ungraded price." : "Near Mint price.").foregroundStyle(Theme.muted)
-                    ForEach(differing) { h in
-                        HStack(spacing: 4) {
-                            Text("Your").foregroundStyle(Theme.muted)
-                            Tag(text: h.label ?? "", tint: h.identity.isGraded ? .white : (CardCondition(rawValue: h.identity.condition)?.tint ?? .white))
-                            Text((h.isConditionEstimate ? "≈ " : "") + Format.money(h.price)).fontWeight(.semibold)
-                        }
-                    }
-                }
-                .font(.geist(13)).monospacedDigit()
-                .padding(.top, 8)
-            }
-            HStack(spacing: 8) {
-                change("24h", price?.change24hPct ?? histChange(1)).modifier(PopIn(delay: 0.35))
-                change("7d", price?.change7dPct ?? histChange(7)).modifier(PopIn(delay: 0.45))
-                change("30d", price?.change30dPct ?? histChange(30)).modifier(PopIn(delay: 0.55))
-            }
-            .padding(.top, 12)
-            Text(price != nil
-                 ? (price?.source == "pricecharting" ? "Ungraded price via PriceCharting (no TCGplayer price)" : "Market price via TCG API")
-                    + (price?.updatedAt.flatMap(relative).map { " · updated \($0)" } ?? "")
-                 : (hist.last.map { "Last market price \($0.day.formatted(date: .abbreviated, time: .omitted)) · no current price yet" } ?? "No market price available. Not counted as $0."))
-                .font(.geist(12)).foregroundStyle(Theme.subtle)
-                .padding(.top, 12)
+            priceCard.padding(.top, 20)
         }
     }
 
-    private func change(_ label: String, _ pct: Double?) -> some View {
-        HStack(spacing: 6) {
-            Text(label).foregroundStyle(Theme.subtle)
-            Text(Format.signedPercent(pct.map { $0 / 100 })).fontWeight(.semibold).monospacedDigit().foregroundStyle(Theme.tone(pct))
+    /// The price on the product's own glow: a big thin figure, your copies that differ, the
+    /// changes as pills and where the price comes from.
+    private var priceCard: some View {
+        // The headline is the Near Mint (ungraded) price; copies you own that differ are listed here.
+        let differing = owned.filter { $0.identity.isGraded || $0.isConditionEstimate }
+        let source = sourceNote
+        return GlowCard(palette: .forProduct(productId), padding: 20) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .top) {
+                    GlowLabel(text: price == nil && headline != nil ? "Last market price" : "Market price",
+                              secondary: differing.isEmpty ? nil : (owned.contains(where: { $0.identity.isGraded }) ? "Ungraded" : "Near Mint"))
+                    Spacer(minLength: 8)
+                    if let p = printing, printings.count > 1 { GlowLabel(text: p) }
+                }
+                Group {
+                    if let market = headline {
+                        GlowFigure(value: market, size: 56)
+                    } else {
+                        Text("—").font(.geist(56, .regular))
+                    }
+                }
+                .padding(.top, 18)
+                if !differing.isEmpty {
+                    HStack(spacing: 8) {
+                        ForEach(differing) { h in
+                            HStack(spacing: 4) {
+                                Text("Your").opacity(0.7)
+                                Tag(text: h.label ?? "", tint: h.identity.isGraded ? .white : (CardCondition(rawValue: h.identity.condition)?.tint ?? .white))
+                                Text((h.isConditionEstimate ? "≈ " : "") + Format.money(h.price)).fontWeight(.semibold)
+                            }
+                        }
+                    }
+                    .font(.geist(13)).monospacedDigit()
+                    .lineLimit(1).minimumScaleFactor(0.7)
+                    .padding(.top, 8)
+                }
+                HStack(spacing: 6) {
+                    change("24h", price?.change24hPct ?? histChange(1)).modifier(PopIn(delay: 0.35))
+                    change("7d", price?.change7dPct ?? histChange(7)).modifier(PopIn(delay: 0.45))
+                    change("30d", price?.change30dPct ?? histChange(30)).modifier(PopIn(delay: 0.55))
+                }
+                .padding(.top, 16)
+                Text(source)
+                    .font(.geist(11)).opacity(0.6)
+                    .padding(.top, 14)
+            }
         }
-        .font(.geist(13))
-        .padding(.horizontal, 10)
-        .padding(.vertical, 4)
-        .background(Capsule().fill(Theme.surface))
+    }
+
+    /// Where the price comes from, and when it was updated.
+    private var sourceNote: String {
+        if let price {
+            let from: String = price.source == "pricecharting" ? "Ungraded price via PriceCharting (no TCGplayer price)" : "Market price via TCG API"
+            let when: String = price.updatedAt.flatMap { relative($0) }.map { " · updated \($0)" } ?? ""
+            return from + when
+        }
+        if let last = hist.last {
+            return "Last market price \(last.day.formatted(date: .abbreviated, time: .omitted)) · no current price yet"
+        }
+        return "No market price available. Not counted as $0."
+    }
+
+    /// A change on the glow: "24h ▲ 3.2%" in a dark pill (white; the arrow gives the direction).
+    private func change(_ label: String, _ pct: Double?) -> some View {
+        let arrow = pct.map { $0 < 0 ? "▼ " : "▲ " } ?? ""
+        let value = pct.map { Format.signedPercent(abs($0) / 100).replacingOccurrences(of: "+", with: "") } ?? "—"
+        return GlowPill(text: "\(label)  \(arrow)\(value)")
     }
 
     private func relative(_ iso: String) -> String? {
@@ -388,42 +411,72 @@ struct ProductDetailView: View {
         let pricedCost = owned.filter { $0.value != nil }.reduce(0) { $0 + $1.costBasis }
         let gain = value - pricedCost
         let realized = owned.reduce(0) { $0 + $1.realizedGain }
+        let main = GlowPalette.forProduct(productId)
         return VStack(alignment: .leading, spacing: 0) {
             PageHeader(title: "Your position", size: 22).padding(.bottom, 16)
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 24, alignment: .leading), GridItem(.flexible(), alignment: .leading)], spacing: 20) {
-                stat("Quantity", qty.formatted(), .white)
-                stat("Holding value", Format.money(value), .white)
-                stat("Cost basis", Format.money(cost), .white)
-                stat("Average cost", Format.money(qty > 0 ? cost / qty : nil), .white)
-                stat("Unrealized", Format.signedMoney(gain) + (pricedCost > 0 ? " (\(Format.signedPercent(gain / pricedCost)))" : ""), Theme.tone(gain))
-                stat("Realized", Format.money(realized), realized == 0 ? Theme.muted : Theme.tone(realized))
-            }
-            Rectangle().fill(Theme.border).frame(height: 1).padding(.top, 24)
-            ForEach(Array(owned.enumerated()), id: \.element.id) { i, h in
-                if i > 0 { Rectangle().fill(Theme.border).frame(height: 1) }
-                Button { managing = h } label: {
-                    HStack(spacing: 12) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("\(Int(h.quantity)) × \(h.label ?? (product?.isSealed == true ? "Sealed" : "Near Mint"))").font(.geist(14, .medium))
-                            Text("\(h.lots.count) open lot\(h.lots.count == 1 ? "" : "s") · avg \(Format.money(h.avgCost))").font(.geist(12)).foregroundStyle(Theme.muted).monospacedDigit()
-                        }
-                        Spacer()
-                        Text(Format.signedMoney(h.gain) + " (\(Format.signedPercent(h.gainRatio)))").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.tone(h.gain))
-                        Image(systemName: "ellipsis").font(.system(size: 13)).foregroundStyle(Theme.muted)
+            // What your copies are worth, glowing up or down.
+            GlowCard(palette: .tone(gain), padding: 20) {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(alignment: .top) {
+                        GlowLabel(text: qty == 1 ? "Yours is worth" : "Your \(qty.formatted()) are worth")
+                        Spacer(minLength: 8)
+                        GlowLabel(text: "\(owned.count) cop\(owned.count == 1 ? "y" : "ies")")
                     }
-                    .padding(.vertical, 14)
-                    .contentShape(Rectangle())
+                    GlowFigure(value: value, size: 48).padding(.top, 16)
+                    HStack(spacing: 8) {
+                        if pricedCost > 0 { GlowPill(text: (gain < 0 ? "▼ " : "▲ ") + Format.signedPercent(abs(gain / pricedCost)).replacingOccurrences(of: "+", with: "")) }
+                        Text("\(Format.signedMoney(gain)) unrealized").font(.geist(14, .medium)).monospacedDigit()
+                            .lineLimit(1).minimumScaleFactor(0.7)
+                    }
+                    .padding(.top, 10)
                 }
-                .buttonStyle(.plain)
             }
+            // The rest as small tiles, each in its own color.
+            HStack(spacing: 10) {
+                positionTile("Cost basis", Format.money(cost), sub: "avg \(Format.money(qty > 0 ? cost / qty : nil))",
+                             palette: main == .lilac ? .sky : .lilac)
+                positionTile("Realized", realized == 0 ? Format.money(0) : Format.signedMoney(realized), sub: realized == 0 ? "nothing sold yet" : "from sales",
+                             palette: realized == 0 ? (main == .citrus ? .aqua : .citrus) : .tone(realized))
+            }
+            .padding(.top, 10)
+            // Each copy: tap to manage it.
+            VStack(spacing: 0) {
+                ForEach(Array(owned.enumerated()), id: \.element.id) { i, h in
+                    if i > 0 { Rectangle().fill(Theme.border).frame(height: 1) }
+                    Button { managing = h } label: {
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("\(Int(h.quantity)) × \(h.label ?? (product?.isSealed == true ? "Sealed" : "Near Mint"))").font(.geist(14, .medium))
+                                Text("\(h.lots.count) open lot\(h.lots.count == 1 ? "" : "s") · avg \(Format.money(h.avgCost))").font(.geist(12)).foregroundStyle(Theme.muted).monospacedDigit()
+                            }
+                            Spacer()
+                            Text(Format.signedMoney(h.gain) + " (\(Format.signedPercent(h.gainRatio)))").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.tone(h.gain))
+                            Image(systemName: "ellipsis").font(.system(size: 13)).foregroundStyle(Theme.muted)
+                        }
+                        .padding(.vertical, 14)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 20).padding(.vertical, 4)
+            .surface(padding: 0)
+            .padding(.top, 10)
         }
-        .surface(padding: 20)
     }
 
-    private func stat(_ label: String, _ value: String, _ tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label).font(.geist(12)).foregroundStyle(Theme.muted)
-            Text(value).font(.geist(17, .semibold)).monospacedDigit().foregroundStyle(tint).lineLimit(1).minimumScaleFactor(0.7)
+    /// A small glow tile in the position: a label, a figure and a note.
+    private func positionTile(_ label: String, _ value: String, sub: String, palette: GlowPalette) -> some View {
+        GlowCard(palette: palette, radius: 24, padding: 16) {
+            VStack(alignment: .leading, spacing: 0) {
+                GlowLabel(text: label)
+                Spacer(minLength: 18)
+                Text(value).font(.geist(28)).tracking(-1.1).monospacedDigit()
+                    .lineLimit(1).minimumScaleFactor(0.5)
+                Text(sub).font(.geist(12)).opacity(0.7).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
+                    .padding(.top, 2)
+            }
+            .frame(height: 104, alignment: .topLeading)
         }
     }
 
@@ -605,24 +658,37 @@ private struct PriceHistoryCard: View {
         return owned.flatMap { store.entries(for: $0.identity) }.filter { $0.kind == .purchase && $0.date >= first }
     }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("Market price history").font(.geist(15, .semibold))
-            Group {
-                if let first = points.first, let last = points.last {
-                    let diff = last.price - first.price
-                    HStack(spacing: 4) {
-                        Text(Format.money(last.price)).fontWeight(.medium)
-                        Text("\(Format.signedMoney(diff)) (\(Format.signedPercent(first.price > 0 ? diff / first.price : nil)))").foregroundStyle(Theme.tone(diff))
-                        Text("since \(first.day.formatted(date: .abbreviated, time: .omitted))").foregroundStyle(Theme.muted)
+    /// The change over the range on a glow (up or down), with the price now and the start date.
+    @ViewBuilder private var header: some View {
+        if let first = points.first, let last = points.last {
+            let diff = last.price - first.price
+            GlowCard(palette: .tone(diff), radius: 22, padding: 16) {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(alignment: .top) {
+                        GlowLabel(text: "Market price history", secondary: "since \(first.day.formatted(date: .abbreviated, time: .omitted))")
+                        Spacer(minLength: 8)
+                        GlowLabel(text: "now \(Format.money(last.price))")
                     }
-                    .lineLimit(1).minimumScaleFactor(0.7)
-                } else {
-                    Text("No history").foregroundStyle(Theme.muted)
+                    HStack(alignment: .lastTextBaseline, spacing: 10) {
+                        GlowFigure(value: diff, size: 40, signed: true)
+                        if first.price > 0 {
+                            GlowPill(text: (diff < 0 ? "▼ " : "▲ ") + Format.signedPercent(abs(diff / first.price)).replacingOccurrences(of: "+", with: ""))
+                        }
+                    }
+                    .padding(.top, 14)
                 }
             }
-            .font(.geist(13)).monospacedDigit()
-            .padding(.top, 4)
+        } else {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Market price history").font(.geist(15, .semibold))
+                Text("No history").font(.geist(13)).foregroundStyle(Theme.muted)
+            }
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            header
             ChipPicker(options: [(30, "1M"), (90, "3M"), (365, "1Y"), (0, "ALL")], selection: $range)
                 .scaleEffect(0.86, anchor: .leading)
                 .padding(.top, 12)
