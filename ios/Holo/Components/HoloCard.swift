@@ -59,9 +59,8 @@ struct HoloCard<Content: View>: View {
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: touching)
             // The shadow falls away from the light.
             .background {
-                // A soft radial gradient, not a blur: it moves every frame, and a blur would be
-                // redrawn each time. Looks the same, costs next to nothing.
-                // A soft contact shadow under the card's bottom edge (not a halo behind it).
+                // A soft contact shadow under the card's bottom edge: a radial gradient, not a
+                // blur, since it moves every frame and a blur would be redrawn each time.
                 GeometryReader { geo in
                     let w = geo.size.width
                     Ellipse()
