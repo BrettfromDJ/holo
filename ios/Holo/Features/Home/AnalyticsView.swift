@@ -46,6 +46,7 @@ struct AnalyticsView: View {
                 }
                 kpis(risk: risk, summary: s, holdings: holdings)
                 history(timeline).reveal()
+                CollectionMap(holdings: holdings).reveal()
                 MonthlyHeatmap(months: Analytics.monthlyReturns(timeline)).reveal()
                 ReturnVsTime(points: Analytics.returnVsTime(holdings, today: today)).reveal()
                 TypeBreakdown(groups: Analytics.byType(holdings)).reveal()
@@ -572,5 +573,133 @@ private struct Diversification: View {
             CountingText(value: value, format: { percent($0, 0) }).font(.display(22)).monospacedDigit().displayTrim(22)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// Each holding as a tile, sized by value and tinted by its return (lime up, pink down), like
+/// the website's collection map. Tap a tile to open it.
+private struct CollectionMap: View {
+    var holdings: [HoldingView]
+
+    /// Gains this big show at full strength; losses (which stop at −100%) at −50%.
+    private static let gainCap = 2.0
+    private static let lossCap = 0.5
+
+    var body: some View {
+        let items = Array(holdings.filter { ($0.value ?? 0) > 0 }.sorted { ($0.value ?? 0) > ($1.value ?? 0) }.prefix(40))
+        if !items.isEmpty {
+            VStack(alignment: .leading, spacing: 16) {
+                MoreHeading(title: "Collection map", subtitle: "Each tile is a holding, sized by value and tinted by its return. Tap one to open it.")
+                VStack(alignment: .trailing, spacing: 12) {
+                    GeometryReader { geo in
+                        let rects = Treemap.squarify(items.map { $0.value ?? 0 }, in: CGRect(origin: .zero, size: geo.size))
+                        ZStack(alignment: .topLeading) {
+                            ForEach(Array(zip(items, rects).enumerated()), id: \.offset) { i, pair in
+                                let (h, r) = pair
+                                NavigationLink(value: h.identity.productId) { tile(h, size: r.size) }
+                                    .buttonStyle(.plain)
+                                    .frame(width: max(0, r.width - 3), height: max(0, r.height - 3))
+                                    .offset(x: r.minX, y: r.minY)
+                                    .popIn(delay: Double(min(i, 20)) * 0.025)
+                            }
+                        }
+                    }
+                    .frame(height: 360)
+                    HStack(spacing: 8) {
+                        Text("−50%").font(.geist(11)).monospacedDigit().foregroundStyle(Theme.subtle)
+                        Capsule()
+                            .fill(LinearGradient(colors: [Self.heat(-Self.lossCap), Self.heat(0), Self.heat(Self.gainCap)], startPoint: .leading, endPoint: .trailing))
+                            .frame(width: 120, height: 8)
+                        Text("+200%").font(.geist(11)).monospacedDigit().foregroundStyle(Theme.subtle)
+                    }
+                }
+                .surface(radius: 16, padding: 14)
+            }
+        }
+    }
+
+    private func tile(_ h: HoldingView, size: CGSize) -> some View {
+        let showName = size.width > 70 && size.height > 40
+        let showValue = size.width > 70 && size.height > 60
+        return RoundedRectangle(cornerRadius: 6, style: .continuous)
+            .fill(h.gainRatio.map { Self.heat($0) } ?? Theme.surface2)
+            .overlay(alignment: .topLeading) {
+                if showName {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(h.product?.name ?? "Unknown").font(.geist(12, .medium)).lineLimit(2)
+                        Spacer(minLength: 0)
+                        if showValue {
+                            HStack(spacing: 6) {
+                                Text(Format.money(h.value)).font(.geist(12, .semibold)).monospacedDigit()
+                                Text(Format.signedPercent(h.gainRatio)).font(.geist(11)).monospacedDigit().opacity(0.8)
+                            }
+                            .lineLimit(1).minimumScaleFactor(0.7)
+                        }
+                    }
+                    .foregroundStyle(.white)
+                    .padding(8)
+                }
+            }
+            .contentShape(Rectangle())
+    }
+
+    /// The website's mapHeat: up or down mixed into the dark surface, stronger for bigger
+    /// moves (square root, so small moves still show).
+    static func heat(_ ret: Double) -> Color {
+        let cap = ret >= 0 ? gainCap : lossCap
+        let t = min(1, abs(ret) / cap).squareRoot()
+        let strength = 0.08 + t * (0.5 - 0.08)
+        let target: (Double, Double, Double) = ret >= 0 ? (0xD4, 0xFF, 0x3A) : (0xFF, 0x3D, 0x7F)
+        let base: (Double, Double, Double) = (0x1A, 0x1A, 0x1D)
+        func mix(_ a: Double, _ b: Double) -> Double { (b + (a - b) * strength) / 255 }
+        return Color(red: mix(target.0, base.0), green: mix(target.1, base.1), blue: mix(target.2, base.2))
+    }
+}
+
+/// Squarified treemap layout: rectangles for values (largest first), as square as possible.
+enum Treemap {
+    static func squarify(_ values: [Double], in rect: CGRect) -> [CGRect] {
+        let total = values.reduce(0, +)
+        guard total > 0, rect.width > 0, rect.height > 0 else { return values.map { _ in .zero } }
+        let scale = Double(rect.width * rect.height) / total
+        var areas = values.map { $0 * scale }[...]
+        var out: [CGRect] = []
+        var r = rect
+        func worst(_ row: [Double], _ side: Double) -> Double {
+            let sum = row.reduce(0, +)
+            guard let mx = row.max(), let mn = row.min(), sum > 0, mn > 0 else { return .infinity }
+            return max(side * side * mx / (sum * sum), sum * sum / (side * side * mn))
+        }
+        while !areas.isEmpty {
+            let side = Double(min(r.width, r.height))
+            var row: [Double] = []
+            for a in areas {
+                if row.isEmpty || worst(row + [a], side) <= worst(row, side) { row.append(a) } else { break }
+            }
+            areas = areas.dropFirst(row.count)
+            let sum = row.reduce(0, +)
+            if r.width >= r.height {
+                // A column down the left.
+                let w = CGFloat(sum / Double(r.height))
+                var y = r.minY
+                for a in row {
+                    let h = CGFloat(a) / w
+                    out.append(CGRect(x: r.minX, y: y, width: w, height: h))
+                    y += h
+                }
+                r = CGRect(x: r.minX + w, y: r.minY, width: max(0, r.width - w), height: r.height)
+            } else {
+                // A row along the top.
+                let h = CGFloat(sum / Double(r.width))
+                var x = r.minX
+                for a in row {
+                    let w = CGFloat(a) / h
+                    out.append(CGRect(x: x, y: r.minY, width: w, height: h))
+                    x += w
+                }
+                r = CGRect(x: r.minX, y: r.minY + h, width: r.width, height: max(0, r.height - h))
+            }
+        }
+        return out
     }
 }

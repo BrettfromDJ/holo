@@ -113,3 +113,14 @@ final class GainsTests: XCTestCase {
         XCTAssertEqual(all.losers, 1)
     }
 }
+
+final class TreemapTests: XCTestCase {
+    func testTilesFillTheAreaInProportion() {
+        let rects = Treemap.squarify([6, 6, 4, 3, 2, 2, 1], in: CGRect(x: 0, y: 0, width: 600, height: 400))
+        XCTAssertEqual(rects.count, 7)
+        let area = rects.reduce(0) { $0 + $1.width * $1.height }
+        XCTAssertEqual(Double(area), 240_000, accuracy: 1)
+        XCTAssertEqual(Double(rects[0].width * rects[0].height), 240_000 * 6 / 24, accuracy: 1)
+        for r in rects { XCTAssertTrue(CGRect(x: 0, y: 0, width: 600, height: 400).insetBy(dx: -0.5, dy: -0.5).contains(r)) }
+    }
+}
