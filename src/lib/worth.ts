@@ -100,7 +100,10 @@ export function gradedWorth(productId: string, nm: number, grade: Grade, ebay: E
  * Each played condition's price as a share of Near Mint, from TCGplayer's per-condition prices
  * for one card. Kept between 5% and 100% so one odd listing can't swing a value wildly.
  */
-export function measuredShares(rows: { condition: string; price: number | null }[]): Record<string, number> {
+export function measuredShares(all: { condition: string; price: number | null; printing?: string | null }[], printing?: string | null): Record<string, number> {
+  // One printing's rows: the one asked for, else the first one that has a Near Mint price.
+  const pick = printing !== undefined && all.some((r) => r.printing === printing) ? printing : all.find((r) => r.condition === "Near Mint" && r.price)?.printing;
+  const rows = pick !== undefined ? all.filter((r) => r.printing === pick) : all;
   const nm = rows.find((r) => r.condition === "Near Mint")?.price;
   if (!nm || nm <= 0) return {};
   const out: Record<string, number> = {};

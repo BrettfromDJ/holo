@@ -1,116 +1,67 @@
 import SwiftUI
 
-/// One question, one number: what is this card worth in a given condition or grade?
-/// Real prices first (TCGplayer per condition, eBay sales per grade); estimates are always marked.
+/// One question, one number: what is this card worth raw, in the condition you pick? Real
+/// prices first (TCGplayer per condition, then eBay sales); estimates are always marked.
+/// Grades are in the Graded prices panel above.
 struct WorthPanel: View {
     var productId: String
     var printing: String?
     var nm: Double
     var owned: [HoldingView]
 
-    @State private var graded = false
     @State private var condition = CardCondition.nearMint
-    @State private var company = "PSA"
-    @State private var grade = "10"
     @State private var ebay: EbaySales?
     @State private var conditions: [ConditionPrice] = []
     @State private var loaded = false
 
     private var worth: Worth {
-        graded ? WorthCalc.graded(productId: productId, nm: nm, company: company, grade: grade, ebay: ebay)
-            : WorthCalc.raw(nm: nm, condition: condition, ebay: ebay, conditions: conditions, printing: printing)
+        WorthCalc.raw(nm: nm, condition: condition, ebay: ebay, conditions: conditions, printing: printing)
     }
 
     var body: some View {
         Panel {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
-                    CardLabel(text: "What's it worth?")
+                    CardLabel(text: "What's it worth raw?")
                     Spacer()
                     if !loaded { ProgressView().controlSize(.small) }
                 }
-                Picker("", selection: $graded) {
-                    Text("Raw").tag(false)
-                    Text("Graded").tag(true)
-                }
-                .pickerStyle(.segmented)
-
                 let w = worth
                 HStack(alignment: .lastTextBaseline) {
                     Text(Format.money(w.price))
                         .font(.display(52)).monospacedDigit()
                         .foregroundStyle(Color.primary.opacity(w.isEstimate ? 0.85 : 1))
                         .contentTransition(.numericText())
+                        .animation(.snappy, value: w.price)
                     Spacer()
-                    Text(graded ? "\(company) \(grade)" : condition.rawValue).font(.subheadline.weight(.semibold))
+                    Text(condition.rawValue).font(.subheadline.weight(.semibold))
                 }
                 HStack(spacing: 8) {
                     SourceTag(source: w.source)
                     Text(w.detail).font(.caption).foregroundStyle(Theme.muted)
                 }
-                if !(graded == false && condition == .nearMint) {
+                if condition != .nearMint {
                     let diff = w.price - nm
-                    (Text(Format.signedMoney(diff)).foregroundStyle(Theme.tone(diff)) + Text(" vs raw Near Mint (\(Format.money(nm)))").foregroundStyle(Theme.muted))
+                    (Text(Format.signedMoney(diff)).foregroundStyle(Theme.tone(diff)) + Text(" vs Near Mint (\(Format.money(nm)))").foregroundStyle(Theme.muted))
                         .font(.caption).monospacedDigit()
                 }
-
-                if graded {
-                    Picker("Company", selection: $company) {
-                        ForEach(gradingCompanies, id: \.self) { Text($0) }
+                HStack(spacing: 6) {
+                    ForEach(CardCondition.allCases) { c in
+                        Button(c.short) { condition = c }
+                            .font(.footnote.weight(.semibold))
+                            .frame(maxWidth: .infinity, minHeight: 38)
+                            .background(condition == c ? c.tint.opacity(0.22) : Theme.surface2, in: RoundedRectangle(cornerRadius: 10))
+                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(condition == c ? c.tint : .clear, lineWidth: 1.5))
+                            .foregroundStyle(condition == c ? c.tint : Theme.muted)
                     }
-                    .pickerStyle(.segmented)
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 2) {
-                            ForEach(WorthCalc.grades(for: company).reversed(), id: \.self) { g in
-                                Button(g) { grade = g }
-                                    .font(.footnote.weight(.semibold)).monospacedDigit()
-                                    .frame(minWidth: 38, minHeight: 32)
-                                    .background(grade == g ? Theme.lime : Color.clear, in: Capsule())
-                                    .foregroundStyle(grade == g ? Theme.ink : Theme.muted)
-                            }
-                        }
-                        .padding(3)
-                        .liquidGlass(in: Capsule())
-                    }
-                } else {
-                    HStack(spacing: 6) {
-                        ForEach(CardCondition.allCases) { c in
-                            Button(c.short) { condition = c }
-                                .font(.footnote.weight(.semibold))
-                                .frame(maxWidth: .infinity, minHeight: 38)
-                                .background(condition == c ? c.tint.opacity(0.22) : Theme.surface2, in: RoundedRectangle(cornerRadius: 10))
-                                .overlay(RoundedRectangle(cornerRadius: 10).stroke(condition == c ? c.tint : .clear, lineWidth: 1.5))
-                                .foregroundStyle(condition == c ? c.tint : Theme.muted)
-                        }
-                    }
-                    // Is grading it worth it? PSA 10 against raw Near Mint.
-                    let gem = WorthCalc.graded(productId: productId, nm: nm, company: "PSA", grade: "10", ebay: ebay)
-                    Button {
-                        graded = true
-                        company = "PSA"
-                        grade = "10"
-                    } label: {
-                        HStack {
-                            Text("As a PSA 10: ").foregroundStyle(Theme.muted) + Text((gem.isEstimate ? "≈ " : "") + Format.money(gem.price)).bold()
-                            Spacer()
-                            Text(Format.signedMoney(gem.price - nm)).foregroundStyle(Theme.tone(gem.price - nm)).monospacedDigit()
-                        }
-                        .font(.footnote)
-                        .padding(12)
-                        .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12))
-                    }
-                    .buttonStyle(.plain)
                 }
+                .sensoryFeedback(.selection, trigger: condition)
             }
         }
         .task(id: "\(productId)|\(printing ?? "")") { await load() }
         .onAppear {
-            // Open on the copy you own.
-            if let slab = owned.first(where: { $0.identity.isGraded })?.identity, !owned.contains(where: { !$0.identity.isGraded }) {
-                graded = true
-                company = slab.gradeCompany ?? "PSA"
-                grade = slab.grade ?? "10"
-            } else if let raw = owned.first(where: { !$0.identity.isGraded }), let c = CardCondition(rawValue: raw.identity.condition) {
+            // Open on the condition you own.
+            if let raw = owned.first(where: { !$0.identity.isGraded }), let c = CardCondition(rawValue: raw.identity.condition) {
                 condition = c
             }
         }

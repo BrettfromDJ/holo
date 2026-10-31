@@ -303,7 +303,11 @@ enum CardCondition: String, CaseIterable, Identifiable {
 
     /// Each played condition's price as a share of Near Mint, from TCGplayer's per-condition
     /// prices. Kept between 5% and 100% so one odd listing can't swing a value wildly.
-    static func measuredShares(_ rows: [ConditionPrice]) -> [String: Double] {
+    static func measuredShares(_ all: [ConditionPrice], printing: String? = nil) -> [String: Double] {
+        // One printing's rows: the one asked for, else the first one that has a Near Mint price.
+        let pick: String?? = all.contains { $0.printing == printing } ? .some(printing)
+            : all.first { $0.condition == CardCondition.nearMint.rawValue && $0.price != nil }.map { $0.printing }
+        let rows = pick.map { p in all.filter { $0.printing == p } } ?? all
         guard let nm = rows.first(where: { $0.condition == CardCondition.nearMint.rawValue })?.price, nm > 0 else { return [:] }
         var out: [String: Double] = [:]
         for r in rows where r.condition != CardCondition.nearMint.rawValue {

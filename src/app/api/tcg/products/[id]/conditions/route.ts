@@ -11,10 +11,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   if (!allowRequest(clientKey(req, "conditions"), 30, 30)) {
     return NextResponse.json({ error: { code: "rate_limited", message: "Too many requests." } }, { status: 429 });
   }
-  const printing = new URL(req.url).searchParams.get("printing") || null;
   try {
-    // Shared for a day across every server.
-    const conditions = await dbCached(`conditions:${productId}:${printing ?? ""}`, () => conditionPrices(productId.slice("tcgapi:".length), printing));
+    // Every printing at once: the app and website pick the printing they show (falling back to
+    // another when names differ), so a mismatched printing name never comes back empty.
+    // Shared for a day across every server; an empty answer only for an hour, so a card whose
+    // condition prices weren't ready yet is asked again soon.
+    const conditions = await dbCached(`conditions:${productId}:all`, () => conditionPrices(productId.slice("tcgapi:".length), null), (rows) =>
+      rows.some((r) => r.price !== null) ? 24 * 60 * 60 * 1000 : 60 * 60 * 1000,
+    );
     return NextResponse.json({ conditions }, { headers: { "Cache-Control": "public, s-maxage=43200, stale-while-revalidate=86400" } });
   } catch (err) {
     return errorResponse(err);

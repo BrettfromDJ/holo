@@ -260,7 +260,7 @@ final class CollectionStore {
             let key = CardCondition.measuredKey(h.identity.productId, h.identity.printing, h.identity.condition)
             guard found[key] == nil else { continue }
             guard let rows = try? await Backend.shared.api.conditionPrices(h.identity.productId, printing: h.identity.printing) else { continue }
-            for (condition, share) in CardCondition.measuredShares(rows) {
+            for (condition, share) in CardCondition.measuredShares(rows, printing: h.identity.printing) {
                 found[CardCondition.measuredKey(h.identity.productId, h.identity.printing, condition)] = share
             }
         }

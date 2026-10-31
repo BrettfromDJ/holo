@@ -541,7 +541,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     void mapLimit(todo, 2, async ([key, t]) => {
       const rows = await loadConditions(t.productId, t.printing).catch(() => []);
-      const shares = measuredShares(rows);
+      const shares = measuredShares(rows, t.printing ?? null);
       // Mark the card as looked up even when it has no per-condition prices, so it isn't asked again.
       const entries = Object.entries(shares).map(([c, v]) => [`${key}|${c}`, v] as const);
       if (!cancelled) setConditionShares((m) => ({ ...m, ...Object.fromEntries(entries.length ? entries : [[`${key}|`, 1]]) }));

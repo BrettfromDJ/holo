@@ -6,11 +6,17 @@ import SwiftUI
 /// Same as the website's Graded prices card.
 struct GradedPricesPanel: View {
     var productId: String
+    var printing: String? = nil
+    /// Raw Near Mint, for the grade curve when nothing better is known.
+    var nm: Double? = nil
     /// Grades you own, as (company, grade).
     var owned: [(company: String, grade: String)]
 
     @State private var values: GradedValues?
+    @State private var ebay: EbaySales?
     @State private var loaded = false
+    @State private var company = "PSA"
+    @State private var grade = "9"
 
     private struct Row: Identifiable {
         var key: String
@@ -35,13 +41,26 @@ struct GradedPricesPanel: View {
         Group {
             if !loaded {
                 card { ProgressView().controlSize(.small).tint(Theme.muted).frame(maxWidth: .infinity).padding(.vertical, 20) }
-            } else if let values, !values.grades.isEmpty {
-                card { table(values) }
+            } else if values?.grades.isEmpty == false || nm != nil || ebay?.graded.isEmpty == false {
+                card {
+                    VStack(alignment: .leading, spacing: 18) {
+                        lookup
+                        if let values, !values.grades.isEmpty { table(values) }
+                    }
+                }
             }
         }
-        .task(id: productId) {
-            values = (try? await Backend.shared.api.gradedValues([productId]))?[productId]
+        .task(id: "\(productId)|\(printing ?? "")") {
+            async let pc = try? await Backend.shared.api.gradedValues([productId])
+            async let sales = try? await Backend.shared.api.ebaySales(productId, printing: printing)
+            let (p, e) = await (pc, sales)
+            values = p?[productId]
+            ebay = e ?? nil
             loaded = true
+        }
+        .onAppear {
+            // Open on the grade you own, if you own a slab of it.
+            if let o = owned.first { company = o.company.uppercased(); grade = o.grade }
         }
     }
 
@@ -55,6 +74,71 @@ struct GradedPricesPanel: View {
             content().padding(.top, 14)
         }
         .surface(padding: 20)
+    }
+
+    // MARK: Look up any grade
+
+    /// Any company and grade: recent eBay sales of that exact slab first, then PriceCharting's
+    /// guide (10s per company, lower grades for any company), then the usual grade curve.
+    private var lookup: some View {
+        let r = lookupValue
+        return VStack(alignment: .leading, spacing: 12) {
+            MonoLabel(text: "Look up any grade")
+            ScrollView(.horizontal, showsIndicators: false) {
+                ChipPicker(options: gradingCompanies.map { ($0, $0) }, selection: Binding(get: { company }, set: { c in
+                    company = c
+                    if !WorthCalc.grades(for: c).contains(grade) { grade = "10" }
+                }))
+            }
+            .scrollClipDisabled()
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 2) {
+                    ForEach(WorthCalc.grades(for: company).reversed(), id: \.self) { g in
+                        Button(g) { grade = g }
+                            .font(.geist(14, .semibold)).monospacedDigit()
+                            .frame(minWidth: 40, minHeight: 34)
+                            .background(grade == g ? Theme.lime : Color.clear, in: Capsule())
+                            .foregroundStyle(grade == g ? Theme.ink : Theme.muted)
+                    }
+                }
+                .padding(3)
+                .liquidGlass(in: Capsule())
+            }
+            .scrollClipDisabled()
+            HStack(alignment: .lastTextBaseline) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(r.price.map { Format.money($0) } ?? "—")
+                        .font(.display(40)).monospacedDigit().displayTrim(40)
+                        .contentTransition(.numericText())
+                        .animation(.snappy, value: r.price)
+                    Text(r.detail).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(2)
+                }
+                Spacer(minLength: 8)
+                Text("\(company) \(grade)").font(.geist(15, .semibold))
+            }
+            .padding(14)
+            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.surface2))
+        }
+        .sensoryFeedback(.selection, trigger: "\(company)\(grade)")
+    }
+
+    private var lookupValue: (price: Double?, detail: String) {
+        let label = "\(company) \(grade)"
+        if let sold = ebay?.graded[label], sold.count >= WorthCalc.minSales, let median = sold.median {
+            return (median, "Median of \(sold.count) \(label) eBay sales this month")
+        }
+        if let v = values?.value(company: company, grade: grade) {
+            let any = (Double(grade) ?? 0) < 10
+            return (v, any ? "PriceCharting · grade \(grade), any grading company" : "PriceCharting · \(label)")
+        }
+        if let sold = ebay?.graded[label], let last = sold.lastPrice ?? sold.median {
+            return (last, "Last \(label) eBay sale")
+        }
+        if let nm {
+            return ((nm * WorthCalc.multiple(productId: productId, company: company, grade: grade) * 100).rounded() / 100,
+                    "Estimate · no recent sales, from the usual grade curve")
+        }
+        return (nil, "No sales or price guide for this grade yet")
     }
 
     @ViewBuilder private func table(_ v: GradedValues) -> some View {

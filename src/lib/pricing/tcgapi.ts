@@ -16,7 +16,7 @@ import { inferKind } from "../catalog";
 import { parseQuery, rankByQuery } from "../search-query";
 import type { ConditionPrice } from "../ebay-types";
 import type { NormalizedPrice, PriceStatus, Product, ProductKind } from "../types";
-import { cached } from "./cache";
+import { cached, invalidate } from "./cache";
 import {
   PricingUnavailableError,
   type HistoryResult,
@@ -342,9 +342,12 @@ export async function bulkPrices(externalIds: string[]): Promise<NormalizedPrice
  * a day within its own quota.
  */
 export async function conditionPrices(externalId: string, printing: string | null): Promise<ConditionPrice[]> {
-  return cached(`conditions:${externalId}:${printing ?? ""}`, 12 * HOUR, async () => {
+  const key = `conditions:${externalId}:${printing ?? ""}`;
+  const rows = await cached(key, 12 * HOUR, async () => {
     const res = await call((c) => c.cards.conditions(Number(externalId), printing ? { printing } : {}));
-    return res.data.map((r) => ({
+    // English listings when there are any (other languages sell at different prices).
+    const english = res.data.filter((r) => !r.language || /^en/i.test(r.language));
+    return (english.length ? english : res.data).map((r) => ({
       printing: r.printing ?? null,
       condition: r.condition,
       price: r.median_with_shipping ?? r.low_price,
@@ -353,6 +356,10 @@ export async function conditionPrices(externalId: string, printing: string | nul
       updatedAt: r.last_updated_at ?? null,
     }));
   });
+  // TCG API fills a card's condition prices on first request; an empty answer is asked again
+  // next time rather than kept for 12 hours.
+  if (!rows.some((r) => r.price !== null)) invalidate(key);
+  return rows;
 }
 
 /* ------------------------- Explore catalog sync -------------------------- */
