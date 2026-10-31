@@ -65,6 +65,7 @@ struct HomeView: View {
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
             // Every page pushes by value, so links inside them (a card, Gains from Analytics) push
             // on top instead of jumping back.
+            .navigationDestination(for: MasterSetRoute.self) { MasterSetDetailView(setId: $0.id, setName: $0.name) }
             .navigationDestination(for: MorePage.self) { p in
                 switch p {
                 case .analytics: AnalyticsView()
@@ -79,6 +80,11 @@ struct HomeView: View {
                     MorePage.opened = true
                     try? await Task.sleep(nanoseconds: 600_000_000)
                     path.append(p)
+                    // -HoloMasterSet: then open your biggest set's page.
+                    if ProcessInfo.processInfo.arguments.contains("-HoloMasterSet"), let s = MasterSetDetailView.ownedSets(store.holdings).first {
+                        try? await Task.sleep(nanoseconds: 400_000_000)
+                        path.append(MasterSetRoute(id: s.id, name: s.name))
+                    }
                 }
             }
             .sheet(isPresented: $account) { SettingsView() }

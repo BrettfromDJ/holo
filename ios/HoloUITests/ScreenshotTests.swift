@@ -36,8 +36,11 @@ final class ScreenshotTests: XCTestCase {
     func testAnalytics() { capture("analytics", args: ["-HoloPage", "analytics"], pages: 8) }
     func testGains() { capture("gains", args: ["-HoloPage", "gains"], pages: 3) }
     func testWhatIfSell() { capture("what-if-sell", args: ["-HoloProduct", "sample:umbreon-vmax-alt", "-HoloWhatIf"], pages: 2) }
+    func testSlabBumper() { capture("slab-bumper", args: ["-HoloDemoKind", "graded", "-HoloBumper", "-HoloProduct", "sample:umbreon-vmax-alt"], pages: 3) }
+    func testPullReveal() { capture("pull-reveal", args: ["-HoloPull"], pages: 1) }
     func testActivity() { capture("activity", args: ["-HoloPage", "activity"], pages: 3) }
-    func testMasterSets() { capture("master-sets", args: ["-HoloDemoKind", "singles", "-HoloPage", "master-sets"], pages: 3) }
+    func testMasterSets() { capture("master-sets", args: ["-HoloDemoKind", "singles", "-HoloPage", "master-sets"], pages: 2) }
+    func testMasterSet() { capture("master-set", args: ["-HoloDemoKind", "singles", "-HoloPage", "master-sets", "-HoloMasterSet"], pages: 2) }
     func testGrading() { capture("grading", args: ["-HoloDemoKind", "graded", "-HoloPage", "grading"], pages: 4) }
 
     func testDeal() { capture("deal", args: ["-HoloTab", "deal"], pages: 1) }

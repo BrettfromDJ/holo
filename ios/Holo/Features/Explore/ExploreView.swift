@@ -973,7 +973,7 @@ private struct ExploreBackdrop: View {
 }
 
 /// A set's art filling its frame: the banner, else a sample product on a dark well, else its name.
-private struct SetArt: View {
+struct SetArt: View {
     var set: ExploreSet
 
     private var icon: some View {

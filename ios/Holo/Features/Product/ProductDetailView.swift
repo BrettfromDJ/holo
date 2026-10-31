@@ -8,6 +8,9 @@ struct ProductDetailView: View {
     var productId: String
     @Environment(CollectionStore.self) private var store
     @Environment(GroupsStore.self) private var groups
+    @Environment(GradingStore.self) private var grading
+    @State private var certFor: HoldingView?
+    @State private var bumperFor: HoldingView?
     @State private var adding = false
     @State private var naming = false
     @State private var newShelf = ""
@@ -73,6 +76,7 @@ struct ProductDetailView: View {
                 }
                 if !owned.isEmpty {
                     position.padding(.top, 24)
+                    slabTools
                     history.padding(.top, 24)
                     notes
                 }
@@ -109,6 +113,8 @@ struct ProductDetailView: View {
         .sheet(item: $managing) { h in HoldingSheet(identity: h.identity) }
         .sheet(item: $selling) { h in SellSheet(holding: h) }
         .sheet(item: $whatIf) { h in SellCalculatorSheet(holding: h) }
+        .sheet(item: $certFor) { h in CertSheet(holding: h) }
+        .sheet(item: $bumperFor) { h in BumperSheet(holding: h) }
         // Screenshots: -HoloWhatIf opens the calculator for the first copy you own.
         .task {
             if Demo.isOn, ProcessInfo.processInfo.arguments.contains("-HoloWhatIf"), whatIf == nil {
@@ -418,6 +424,57 @@ struct ProductDetailView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label).font(.geist(12)).foregroundStyle(Theme.muted)
             Text(value).font(.geist(17, .semibold)).monospacedDigit().foregroundStyle(tint).lineLimit(1).minimumScaleFactor(0.7)
+        }
+    }
+
+    // MARK: Slabs: cert number and bumper
+
+    /// For each graded copy you own: its cert number (with a lookup link) and its bumper.
+    @ViewBuilder private var slabTools: some View {
+        let slabs = owned.filter(\.identity.isGraded)
+        if !slabs.isEmpty {
+            VStack(alignment: .leading, spacing: 14) {
+                PageHeader(title: slabs.count == 1 ? "Your slab" : "Your slabs", size: 22)
+                ForEach(slabs) { h in
+                    let cert = grading.certs[h.identity.key]
+                    let bumper = Bumper.byId(grading.bumpers[h.identity.key])
+                    VStack(alignment: .leading, spacing: 10) {
+                        if slabs.count > 1 { MonoLabel(text: h.identity.gradeLabel ?? "Slab") }
+                        HStack(spacing: 10) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Cert number").font(.geist(12)).foregroundStyle(Theme.muted)
+                                Text(cert ?? "Not added").font(.mono(15, .medium)).foregroundStyle(cert == nil ? Theme.subtle : .white)
+                            }
+                            Spacer()
+                            if let cert, let company = h.identity.gradeCompany, let url = URL(string: Grading.certLookupURL(company: company, cert: cert)) {
+                                Link(destination: url) { Label("Look up", systemImage: "arrow.up.right.square") }
+                                    .buttonStyle(Button3D(kind: .dark, fullWidth: false, height: 36))
+                            }
+                            Button(cert == nil ? "Add" : "Edit") { certFor = h }
+                                .buttonStyle(Button3D(kind: .dark, fullWidth: false, height: 36))
+                        }
+                        Rectangle().fill(Theme.border).frame(height: 1)
+                        Button { bumperFor = h } label: {
+                            HStack(spacing: 10) {
+                                Circle().fill(bumper?.fill ?? LinearGradient(colors: [.clear], startPoint: .top, endPoint: .bottom))
+                                    .overlay(Circle().strokeBorder(.white.opacity(0.2)))
+                                    .overlay { if bumper == nil { Image(systemName: "plus").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.muted) } }
+                                    .frame(width: 22, height: 22)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Bumper").font(.geist(12)).foregroundStyle(Theme.muted)
+                                    Text(bumper?.name ?? "Add a bumper").font(.geist(15, .medium))
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.subtle)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .surface(padding: 16)
+                }
+            }
+            .padding(.top, 24)
         }
     }
 

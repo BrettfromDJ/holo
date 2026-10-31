@@ -45,6 +45,15 @@ struct RootView: View {
                         if let id = Demo.value("-HoloProduct") { Router.shared.product = id }
                         if ProcessInfo.processInfo.arguments.contains("-HoloDealDemo") { deals.loadDemo(from: store) }
                         Task { await groups.load(userId: nil, store: store) }
+                        // Screenshots: a rainbow bumper on the first slab, and the pull reveal.
+                        if ProcessInfo.processInfo.arguments.contains("-HoloBumper"),
+                           let slab = store.allHoldings.first(where: { $0.identity.isGraded }) {
+                            grading.bumpers[slab.identity.key] = "rainbow"
+                            grading.certs[slab.identity.key] = "84512369"
+                        }
+                        if ProcessInfo.processInfo.arguments.contains("-HoloPull"), let h = store.allHoldings.first, let p = h.product {
+                            Router.shared.pull = PullEvent(product: p, quantity: 1, before: store.summary.value - (h.value ?? 0))
+                        }
                     }
             } else if !AppConfig.isConfigured {
                 NotConfiguredView()
@@ -61,6 +70,7 @@ struct RootView: View {
                             if let kind = DemoKind.selected { store.loadDemo(kind) } else { await store.load(userId: userId) }
                             await deals.load(userId: userId)
                             await groups.load(userId: store.demo == nil ? userId : nil, store: store)
+                            await grading.load(userId: store.demo == nil ? userId : nil)
                         }
                 }
             }
@@ -149,6 +159,18 @@ struct MainTabView: View {
                 onPlus: { adding = true }
             )
         }
+        // The "pack pull" reveal after a purchase is saved.
+        .overlay {
+            if let event = router.pull {
+                PullReveal(event: event) { router.pull = nil } onOpen: {
+                    router.pull = nil
+                    router.product = event.product.id
+                }
+                .transition(.opacity)
+                .zIndex(10)
+            }
+        }
+        .animation(.easeOut(duration: 0.25), value: router.pull)
         .onChange(of: router.tabRequest) { _, request in
             if request == "collection" { tab = .collection }
             router.tabRequest = nil

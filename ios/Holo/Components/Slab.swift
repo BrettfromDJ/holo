@@ -8,14 +8,21 @@ struct Slab: View {
     var product: Product?
     var company: String
     var grade: String
+    /// The bumper guard around it, if one is chosen (the slab then sits inside it).
+    var bumper: Bumper? = nil
 
     var body: some View {
         Color.clear
             .aspectRatio(5.0 / 8.0, contentMode: .fit)
             .overlay {
                 GeometryReader { geo in
-                    SlabDrawing(product: product, company: company, grade: grade, u: geo.size.width / 100)
-                        .frame(width: geo.size.width, height: geo.size.height)
+                    let u = geo.size.width / 100
+                    ZStack {
+                        if let bumper { BumperFrame(bumper: bumper, u: u) }
+                        SlabDrawing(product: product, company: company, grade: grade, u: bumper == nil ? u : u * 0.9)
+                            .padding(bumper == nil ? 0 : 5 * u)
+                    }
+                    .frame(width: geo.size.width, height: geo.size.height)
                 }
             }
             .accessibilityElement(children: .ignore)

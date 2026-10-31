@@ -74,10 +74,16 @@ struct ScanReviewSheet: View {
         error = nil
         defer { saving = false }
         do {
-            try await store.add(model.purchases(pulled: pulled, date: Format.day()))
+            let before = store.allHoldings.reduce(0) { $0 + ($1.value ?? 0) }
+            let purchases = model.purchases(pulled: pulled, date: Format.day())
+            try await store.add(purchases)
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             dismiss()
             onAdded()
+            // Reveal the most valuable one of the batch.
+            if let top = purchases.max(by: { $0.unitPrice < $1.unitPrice }) {
+                Router.shared.pull = PullEvent(product: top.product, quantity: purchases.count > 1 ? Double(purchases.count) : top.quantity, before: before)
+            }
         } catch {
             self.error = error.localizedDescription
         }

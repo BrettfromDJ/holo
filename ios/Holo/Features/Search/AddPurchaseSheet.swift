@@ -114,10 +114,13 @@ struct AddPurchaseSheet: View {
             date: Format.day(date)
         )
         do {
+            let before = store.allHoldings.reduce(0) { $0 + ($1.value ?? 0) }
             try await store.add([purchase])
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             dismiss()
             onDone?()
+            // The "pack pull" moment, like the website, once the sheet is away.
+            Router.shared.pull = PullEvent(product: product, quantity: Double(quantity), before: before)
         } catch {
             self.error = error.localizedDescription
         }

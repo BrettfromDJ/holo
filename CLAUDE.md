@@ -104,5 +104,7 @@ and say exactly what to run or click.
   Collection; `store.holdingFilter` filters holdings, summary and timeline, `allHoldings` is
   unfiltered for deals), show deleted & edit records (card page). Grading state is in
   `user_state` `grading-submissions` / `grading-costs`; shelves and portfolios use the
-  `shelves` / `portfolios` tables. Screenshot pages: `-HoloPage analytics|gains|grading|master-sets|activity`.
+  `shelves` / `portfolios` tables. Screenshot pages: `-HoloPage analytics|gains|grading|master-sets|activity` (plus `-HoloMasterSet`,
+  `-HoloBumper`, `-HoloPull`, `-HoloWhatIf`). Slab certs and bumpers: `user_state` `slab-certs`,
+  `slab-bumpers` (in `GradingStore`).
 - Not in the app on purpose: the separate trade checker (the Deal tab covers trades).

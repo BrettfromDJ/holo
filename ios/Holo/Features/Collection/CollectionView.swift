@@ -28,6 +28,12 @@ struct CollectionView: View {
     @State private var query = ""
     @State private var category: HoldingCategory?
     @State private var sort = Sort.value
+    /// The website's extra filters: one set, one product type, and in profit or at a loss.
+    @State private var setFilter: String?
+    @State private var typeFilter: String?
+    @State private var perf = Perf.all
+
+    enum Perf: String, CaseIterable { case all = "All", profit = "In profit", loss = "At a loss" }
     @State private var grid = true
     @State private var router = Router.shared
 
@@ -41,6 +47,9 @@ struct CollectionView: View {
         let filtered = store.holdings.filter { h in
             (shelf == nil || shelf!.product_ids.contains(h.identity.productId)) &&
             (category == nil || h.category == category) &&
+            (setFilter == nil || h.product?.setName == setFilter) &&
+            (typeFilter == nil || h.product.map(Analytics.category) == typeFilter) &&
+            (perf == .all || (perf == .profit ? (h.gain ?? 0) > 0 : (h.gain ?? 0) < 0)) &&
                 (q.isEmpty || (h.product?.name ?? "").lowercased().contains(q) || (h.product?.setName ?? "").lowercased().contains(q))
         }
         switch sort {
@@ -265,6 +274,7 @@ struct CollectionView: View {
                 }
                 .menuStyle(.button)
                 .buttonStyle(IconButton3D(size: 46))
+                filterMenu
                 HStack(spacing: 2) {
                     Button { grid = true } label: { Image(systemName: "square.grid.2x2") }.buttonStyle(IconButton3D(size: 40, active: grid, inTrack: true))
                     Button { grid = false } label: { Image(systemName: "list.bullet") }.buttonStyle(IconButton3D(size: 40, active: !grid, inTrack: true))
@@ -304,10 +314,59 @@ struct CollectionView: View {
             }
             .padding(.horizontal, -16)
             .padding(.vertical, -8)
-            if sort != .value {
-                Text("Sorted by \(sort.rawValue.lowercased())").font(.geist(13)).foregroundStyle(Theme.muted)
+            if sort != .value || filtersOn {
+                HStack(spacing: 8) {
+                    Text(filterSummary).font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
+                    if filtersOn {
+                        Button("Clear") { setFilter = nil; typeFilter = nil; perf = .all }
+                            .font(.geist(13, .medium)).foregroundStyle(.white)
+                    }
+                }
             }
         }
+    }
+
+    private var filtersOn: Bool { setFilter != nil || typeFilter != nil || perf != .all }
+
+    private var filterSummary: String {
+        var parts: [String] = []
+        if let setFilter { parts.append(setFilter) }
+        if let typeFilter { parts.append(typeFilter) }
+        if perf != .all { parts.append(perf.rawValue.lowercased()) }
+        if sort != .value { parts.append("sorted by \(sort.rawValue.lowercased())") }
+        let text = parts.joined(separator: " · ")
+        return text.prefix(1).uppercased() + text.dropFirst()
+    }
+
+    /// Filter by set, product type and profit or loss, like the website's filter panel.
+    private var filterMenu: some View {
+        let sets = Array(Set(store.holdings.compactMap { $0.product?.setName })).sorted()
+        let types = ["Card", "Booster Box", "Elite Trainer Box", "Ultra Premium Collection", "Booster Bundle", "Collection Box", "Tin", "Booster Pack", "Other Sealed"]
+            .filter { t in store.holdings.contains { $0.product.map(Analytics.category) == t } }
+        return Menu {
+            Picker("Profit", selection: $perf) {
+                ForEach(Perf.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+            }
+            Menu("Set: \(setFilter ?? "All")") {
+                Picker("Set", selection: $setFilter) {
+                    Text("All sets").tag(String?.none)
+                    ForEach(sets, id: \.self) { Text($0).tag(String?.some($0)) }
+                }
+            }
+            Menu("Type: \(typeFilter ?? "All")") {
+                Picker("Type", selection: $typeFilter) {
+                    Text("All types").tag(String?.none)
+                    ForEach(types, id: \.self) { Text($0).tag(String?.some($0)) }
+                }
+            }
+            if filtersOn {
+                Button("Clear filters", role: .destructive) { setFilter = nil; typeFilter = nil; perf = .all }
+            }
+        } label: {
+            Image(systemName: filtersOn ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease")
+        }
+        .menuStyle(.button)
+        .buttonStyle(IconButton3D(size: 46, active: filtersOn))
     }
 
     private var empty: some View {

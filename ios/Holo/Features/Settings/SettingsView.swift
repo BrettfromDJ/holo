@@ -56,15 +56,30 @@ struct SettingsView: View {
                 } footer: {
                     Text("See how the app looks with a made-up collection: sealed only, singles only, singles with graded slabs, or a mix. Prices are made up and nothing you do in a demo is saved. Pick My collection to go back.")
                 }
-                Section("Collection") {
+                Section {
                     LabeledContent("Items", value: "\(Int(store.summary.items))")
                     LabeledContent("Value", value: Format.money(store.summary.value))
                     LabeledContent("Realized gains", value: Format.signedMoney(store.summary.realized))
+                    ShareLink(item: ExportFile(transactions: store.transactions, watchlist: store.watchlist, products: store.products,
+                                               mode: store.demo == nil ? "cloud" : "demo"),
+                              preview: SharePreview("Holo export")) {
+                        Label("Export your data", systemImage: "square.and.arrow.up")
+                    }
+                } header: {
+                    Text("Collection")
+                } footer: {
+                    Text("Export saves your purchases, sales, edits, watchlist and the products they refer to as a JSON file, the same as the website's export.")
+                }
+                Section("How performance is calculated") {
+                    explainer("Cost basis", "is what you actually paid for items you still hold: unit price plus allocated shipping, fees and tax. Sales use first-in, first-out lots.")
+                    explainer("Unrealized gain", "is market value minus cost basis. Items without a market price are left out rather than counted as $0.")
+                    explainer("Daily change", "only measures price movement on items you held at the previous close. Buying a $1,000 box worth $1,000 adds $1,000 of value and $0 of gain.")
+                    explainer("Performance %", "is a time-weighted return: daily market returns are chained together, so adding or selling inventory never distorts it.")
                 }
                 Section {
                     Link("Open Holo on the web", destination: AppConfig.apiBaseURL)
                 } footer: {
-                    Text("Your collection syncs with the website. Selling, shelves, grading and deals are on the web for now.")
+                    Text("Your collection syncs with the website.")
                 }
                 Section("About") {
                     LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—")
@@ -110,4 +125,12 @@ private struct DoneButton: View {
     var body: some View {
         if isPresented { Button("Done") { dismiss() } }
     }
+
+}
+
+/// "Cost basis is what you actually paid…": the term in white, the rest muted.
+private func explainer(_ term: String, _ text: String) -> some View {
+    (Text(term).foregroundColor(.white).fontWeight(.semibold) + Text(" " + text).foregroundColor(Theme.muted))
+        .font(.geist(14))
+        .padding(.vertical, 2)
 }

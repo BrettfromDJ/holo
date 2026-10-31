@@ -154,3 +154,21 @@ enum Grading {
 
     static func weight(_ perYear: Double) -> Double { perYear >= 52 ? 1 : perYear >= 12 ? 0.8 : 0.4 }
 }
+
+extension Grading {
+    /// Where to check a certification number, like the website's certLookupUrl. Companies
+    /// without a direct link get their lookup page.
+    static func certLookupURL(company: String, cert: String) -> String {
+        let c = cert.trimmingCharacters(in: .whitespaces).addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? cert
+        switch company.uppercased() {
+        case "PSA": return "https://www.psacard.com/cert/\(c)"
+        case "CGC": return "https://www.cgccards.com/certlookup/\(c)/"
+        case "BGS": return "https://www.beckett.com/grading/card-lookup"
+        case "SGC": return "https://gosgc.com/cert-code-lookup"
+        case "TAG": return "https://my.taggrading.com/card/\(c)"
+        default:
+            let q = "\(company) cert \(cert)".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+            return "https://www.google.com/search?q=\(q)"
+        }
+    }
+}

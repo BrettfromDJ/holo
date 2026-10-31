@@ -43,6 +43,16 @@ final class Router {
     var tabRequest: String?
     /// The category the Collection tab should show (from Home's "View sealed" and friends).
     var collectionCategory: HoldingCategory?
+    /// Something just added to the collection, for the "pack pull" reveal.
+    var pull: PullEvent?
+}
+
+/// A purchase just saved: what it was, how many, and the collection's value just before.
+struct PullEvent: Identifiable, Equatable {
+    var id = UUID()
+    var product: Product
+    var quantity: Double
+    var before: Double
 }
 
 enum PushRegistration {

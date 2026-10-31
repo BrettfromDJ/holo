@@ -1,13 +1,23 @@
 import SwiftUI
 
-/// Master sets: every card in each set you collect, laid out like Collection. The cards you own
-/// are in full color, the rest dimmed, with search, sorting and filters, and how close you are
-/// to the full set up top. The card lists come from Holo's stored catalog (no TCG API requests).
-struct MasterSetsView: View {
+/// Set card lists, shared by the Master Sets list and each set's page, loaded once per session
+/// from Holo's stored catalog (no TCG API requests).
+@Observable
+final class MasterSetsCache {
+    static let shared = MasterSetsCache()
+    var checklists: [String: [SearchHit]] = [:]
+    var failed: Set<String> = []
+}
+
+/// One master set: every card in it, laid out like Collection. The cards you own are in full
+/// color, the rest dimmed, with search, sorting and filters, and how close you are to the full
+/// set up top.
+struct MasterSetDetailView: View {
+    var setId: String
+    var setName: String
     @Environment(CollectionStore.self) private var store
-    @State private var selected: String?
-    @State private var checklists: [String: [SearchHit]] = [:]
-    @State private var failed: Set<String> = []
+    @State private var cache = MasterSetsCache.shared
+    private var checklists: [String: [SearchHit]] { cache.checklists }
     @State private var show = Show.all
     @State private var sort = Sort.number
     @State private var query = ""
@@ -35,10 +45,15 @@ struct MasterSetsView: View {
         var price: Double? { holdings.first?.price ?? hit.market }
     }
 
+    /// Your singles from this set.
+    private var current: OwnedSet {
+        OwnedSet(id: setId, name: setName, holdings: store.holdings.filter { $0.product?.isSealed == false && $0.product?.setId == setId })
+    }
+
     /// Sets you own singles from, most owned first.
-    private var sets: [OwnedSet] {
+    static func ownedSets(_ holdings: [HoldingView]) -> [OwnedSet] {
         var map: [String: OwnedSet] = [:]
-        for h in store.holdings {
+        for h in holdings {
             guard let p = h.product, !p.isSealed, let setId = p.setId else { continue }
             map[setId, default: OwnedSet(id: setId, name: p.setName ?? setId, holdings: [])].holdings.append(h)
         }
@@ -48,33 +63,17 @@ struct MasterSetsView: View {
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 3)
 
     var body: some View {
-        let sets = self.sets
-        let current = sets.first { $0.id == selected } ?? sets.first
+        let current = self.current
+        let entries = entries(for: current)
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                if sets.isEmpty {
-                    VStack(spacing: 10) {
-                        Image(systemName: "square.grid.3x3").font(.system(size: 36)).foregroundStyle(Theme.subtle)
-                        Text("No singles yet").font(.geist(15, .medium))
-                        Text("Add a single card and its set appears here, with every card in it and how close you are to the full set.")
-                            .font(.geist(13)).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
+                // The top, like Collection's: on the same lit backdrop.
+                progress(current, entries: entries)
+                    .background(alignment: .top) {
+                        DotBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
                     }
-                    .frame(maxWidth: .infinity).padding(.vertical, 80)
-                } else {
-                    if let current {
-                        let entries = entries(for: current)
-                        // The top, like Collection's: on the same lit grid.
-                        VStack(alignment: .leading, spacing: 22) {
-                            progress(current, entries: entries)
-                            setPicker(sets, current: current)
-                        }
-                        .background(alignment: .top) {
-                            DotBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
-                        }
-                        controls(entries)
-                        grid(entries)
-                    }
-                }
+                controls(entries)
+                grid(entries)
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 120)
@@ -84,8 +83,8 @@ struct MasterSetsView: View {
         .replaysAnimations()
         .scrollDismissesKeyboard(.immediately)
         .navigationBarTitleDisplayMode(.inline)
-        .pageTitle("Master Sets")
-        .task(id: sets.map(\.id).joined(separator: ",")) { await loadAll(sets) }
+        .pageTitle(setName)
+        .task(id: setId) { await Self.load([current], store: store) }
         .task(id: query) {
             if !query.isEmpty { try? await Task.sleep(nanoseconds: 250_000_000) }
             guard !Task.isCancelled else { return }
@@ -95,12 +94,15 @@ struct MasterSetsView: View {
 
     // MARK: Loading
 
-    /// Every set's card list at once (a few small requests to Holo's own catalog), so each set's
-    /// progress shows on its tile.
-    private func loadAll(_ sets: [OwnedSet]) async {
-        let todo = sets.filter { checklists[$0.id] == nil && !failed.contains($0.id) }
+    /// These sets' card lists at once (a few small requests to Holo's own catalog), kept for the
+    /// session so the list's progress and each set's page share them.
+    @MainActor
+    static func load(_ sets: [OwnedSet], store: CollectionStore) async {
+        let cache = MasterSetsCache.shared
+        let todo = sets.filter { cache.checklists[$0.id] == nil && !cache.failed.contains($0.id) }
+        guard !todo.isEmpty else { return }
         if store.demo != nil || Demo.isOn {
-            for s in todo { checklists[s.id] = Self.sampleChecklist(s) }
+            for s in todo { cache.checklists[s.id] = sampleChecklist(s) }
             return
         }
         await withTaskGroup(of: (String, [SearchHit]?).self) { group in
@@ -113,7 +115,7 @@ struct MasterSetsView: View {
                 }
             }
             for await (id, cards) in group {
-                if let cards, !cards.isEmpty { checklists[id] = cards } else { failed.insert(id) }
+                if let cards, !cards.isEmpty { cache.checklists[id] = cards } else { cache.failed.insert(id) }
             }
         }
     }
@@ -148,44 +150,6 @@ struct MasterSetsView: View {
         let listed = Set(list.map(\.product.id))
         // Owned cards the list doesn't include (promos) go at the end.
         return list.map { Entry(hit: $0, holdings: byProduct[$0.product.id] ?? []) } + byProduct.filter { !listed.contains($0.key) }.values.map(own)
-    }
-
-    // MARK: Set picker
-
-    private func setPicker(_ sets: [OwnedSet], current: OwnedSet?) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(sets) { s in
-                    let list = checklists[s.id]
-                    let owned = list.map { l in Set(s.holdings.map(\.identity.productId)).intersection(l.map(\.product.id)).count } ?? s.holdings.count
-                    let ratio = list.map { Double(owned) / Double(max($0.count, 1)) }
-                    let active = s.id == current?.id
-                    Button {
-                        selected = s.id
-                        show = .all
-                    } label: {
-                        HStack(spacing: 10) {
-                            ZStack {
-                                Circle().stroke(Theme.surface3, lineWidth: 3.5)
-                                Circle().trim(from: 0, to: ratio ?? 0).stroke(Theme.lime, style: StrokeStyle(lineWidth: 3.5, lineCap: .round)).rotationEffect(.degrees(-90))
-                            }
-                            .frame(width: 26, height: 26)
-                            .animation(.easeOut(duration: 0.8), value: ratio)
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(s.name).font(.geist(14, .semibold)).lineLimit(1)
-                                Text(ratio.map { "\(Int(($0 * 100).rounded()))% · \(owned)/\(list?.count ?? 0)" } ?? "\(owned) owned")
-                                    .font(.geist(11)).monospacedDigit().foregroundStyle(Theme.muted)
-                            }
-                        }
-                        .padding(.leading, 10).padding(.trailing, 14).frame(height: 50)
-                        .background(active ? Theme.surface2 : .clear, in: Capsule())
-                        .overlay(Capsule().strokeBorder(active ? Theme.borderStrong : Theme.border))
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
-        .scrollClipDisabled()
     }
 
     // MARK: Progress
@@ -303,7 +267,7 @@ struct MasterSetsView: View {
 
 /// One card of a master set: in full color with a lime check if you own it, dimmed if not.
 private struct CardCell: View {
-    var entry: MasterSetsView.Entry
+    var entry: MasterSetDetailView.Entry
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {

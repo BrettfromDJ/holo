@@ -30,12 +30,18 @@ final class GradingStore {
 
     var submissions: [Submission] = []
     var costs = Grading.Costs()
+    /// Certification numbers by slab holding key (shared with the website as "slab-certs").
+    var certs: [String: String] = [:]
+    /// The bumper guard chosen for each slab, by holding key ("slab-bumpers").
+    var bumpers: [String: String] = [:]
     private(set) var loaded = false
     private var userId: String?
 
     func reset() {
         submissions = []
         costs = Grading.Costs()
+        certs = [:]
+        bumpers = [:]
         loaded = false
         userId = nil
     }
@@ -49,6 +55,25 @@ final class GradingStore {
         guard userId != nil, !Demo.isOn else { return }
         submissions = (try? await UserState.load("grading-submissions", as: [Submission].self)) ?? []
         costs = (try? await UserState.load("grading-costs", as: Grading.Costs.self)) ?? Grading.Costs()
+        certs = (try? await UserState.load("slab-certs", as: [String: String].self)) ?? [:]
+        bumpers = (try? await UserState.load("slab-bumpers", as: [String: String].self)) ?? [:]
+    }
+
+    @MainActor
+    func setCert(_ holdingKey: String, _ cert: String) {
+        let value = cert.trimmingCharacters(in: .whitespaces)
+        certs[holdingKey] = value.isEmpty ? nil : value
+        guard let userId, !Demo.isOn else { return }
+        let snapshot = certs
+        Task { try? await UserState.save("slab-certs", snapshot, userId: userId) }
+    }
+
+    @MainActor
+    func setBumper(_ holdingKey: String, _ id: String?) {
+        bumpers[holdingKey] = id
+        guard let userId, !Demo.isOn else { return }
+        let snapshot = bumpers
+        Task { try? await UserState.save("slab-bumpers", snapshot, userId: userId) }
     }
 
     var sent: [Submission] { submissions.filter { $0.status == "sent" }.sorted { $0.sentOn < $1.sentOn } }

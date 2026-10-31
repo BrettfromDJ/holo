@@ -152,10 +152,12 @@ struct HoldingArt: View {
     var identity: HoldingIdentity?
     var cornerRadius: CGFloat = 14
     var caption = true
+    @Environment(GradingStore.self) private var grading: GradingStore?
 
     var body: some View {
         if let id = identity, id.isGraded, let company = id.gradeCompany, let grade = id.grade {
-            Slab(product: product, company: company, grade: grade)
+            // Wearing the bumper chosen for it, if any (shared with the website).
+            Slab(product: product, company: company, grade: grade, bumper: Bumper.byId(grading?.bumpers[id.key]))
         } else if product?.isSealed == false, product?.imageURL != nil {
             ProductImage(product: product, cornerRadius: cornerRadius, caption: caption)
         } else {
