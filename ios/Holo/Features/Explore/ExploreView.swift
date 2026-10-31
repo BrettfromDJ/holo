@@ -669,8 +669,11 @@ private struct ChaseTile: View {
                         .background(Parallelogram(inset: 4).fill(Theme.lime))
                         .padding(6)
                 }
-            Text(hit.product.name).font(.geist(13, .medium)).foregroundStyle(.white).lineLimit(1)
-            Text(Format.money(hit.market)).font(.display(17)).monospacedDigit().foregroundStyle(.white)
+            // Name and price tight together; Anton's tall line box trimmed so they sit close.
+            VStack(alignment: .leading, spacing: 6) {
+                Text(hit.product.name).font(.geist(13, .medium)).foregroundStyle(.white).lineLimit(1)
+                Text(Format.money(hit.market)).font(.display(17)).monospacedDigit().foregroundStyle(.white).displayTrim(17)
+            }
         }
         .frame(width: 118, alignment: .leading)
     }
