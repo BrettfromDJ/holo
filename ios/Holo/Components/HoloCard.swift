@@ -61,12 +61,15 @@ struct HoloCard<Content: View>: View {
             .background {
                 // A soft radial gradient, not a blur: it moves every frame, and a blur would be
                 // redrawn each time. Looks the same, costs next to nothing.
+                // A soft contact shadow under the card's bottom edge (not a halo behind it).
                 GeometryReader { geo in
+                    let w = geo.size.width
                     Ellipse()
-                        .fill(RadialGradient(colors: [.black.opacity(0.6), .black.opacity(0.28), .clear],
-                                             center: .center, startRadius: 0, endRadius: max(geo.size.width, geo.size.height) * 0.6))
-                        .frame(width: geo.size.width * 1.1, height: geo.size.height * 1.05)
-                        .position(x: geo.size.width / 2, y: geo.size.height / 2)
+                        .fill(RadialGradient(colors: [.black.opacity(0.55), .black.opacity(0.2), .clear],
+                                             center: .center, startRadius: 0, endRadius: w * 0.5))
+                        .frame(width: w * 0.95, height: w * 0.95)
+                        .scaleEffect(x: 1, y: 0.18)
+                        .position(x: w / 2, y: geo.size.height * 0.98)
                 }
                 .offset(x: -lean.x * 22, y: 14 - lean.y * 16)
             }
