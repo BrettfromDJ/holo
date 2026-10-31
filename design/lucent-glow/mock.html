@@ -1,0 +1,195 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+@font-face{font-family:Anton;src:url(../../ios/Holo/Resources/Fonts/Anton-Regular.ttf)}
+@font-face{font-family:Geist;src:url(../../ios/Holo/Resources/Fonts/Geist-Regular.ttf);font-weight:400}
+@font-face{font-family:Geist;src:url(../../ios/Holo/Resources/Fonts/Geist-Medium.ttf);font-weight:500}
+@font-face{font-family:Geist;src:url(../../ios/Holo/Resources/Fonts/Geist-SemiBold.ttf);font-weight:600}
+@font-face{font-family:GeistMono;src:url(../../ios/Holo/Resources/Fonts/GeistMono-Regular.ttf)}
+*{box-sizing:border-box;margin:0}
+body{background:#050506;display:flex;gap:40px;padding:40px;font-family:Geist;color:#fff}
+.phone{width:393px;height:852px;border-radius:54px;background:#000;position:relative;overflow:hidden;outline:10px solid #1b1b1e;flex:none}
+.status{display:flex;justify-content:space-between;padding:18px 34px 0;font:600 16px Geist;height:54px}
+.island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:124px;height:36px;border-radius:20px;background:#000;z-index:9}
+.top{display:flex;justify-content:space-between;align-items:center;padding:8px 20px 14px}
+.title{font:600 28px Geist;letter-spacing:-.5px}
+.circ{width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,.18);display:grid;place-items:center;color:#fff;font-size:15px}
+.mono{font:11px GeistMono;letter-spacing:.14em;text-transform:uppercase;opacity:.75}
+/* glowing card */
+.glow{position:relative;border-radius:30px;overflow:hidden;isolation:isolate}
+.glow .f{position:absolute;inset:-30%;filter:blur(34px);z-index:-2}
+.glow::after{content:"";position:absolute;inset:0;z-index:-1;opacity:.22;mix-blend-mode:overlay;
+ background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
+.pad{padding:18px}
+.big{font:400 64px Geist;letter-spacing:-2.5px;line-height:1}
+.mid{font:400 40px Geist;letter-spacing:-1.5px;line-height:1}
+.sm{font:500 13px Geist}
+.sub{font:13px Geist;opacity:.7}
+.pill{display:inline-flex;gap:6px;align-items:center;padding:5px 10px;border-radius:99px;background:rgba(0,0,0,.28);backdrop-filter:blur(10px);font:600 13px Geist}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 14px}
+.tile{height:150px}
+.tabbar{position:absolute;left:14px;right:14px;bottom:26px;height:68px;display:flex;align-items:center;gap:10px}
+.tabs{flex:1;height:64px;border-radius:40px;background:rgba(40,40,44,.75);backdrop-filter:blur(18px);display:flex;justify-content:space-around;align-items:center;font:500 11px Geist;color:rgba(255,255,255,.55)}
+.tabs .on{color:#fff}
+.orb{width:68px;height:68px;border-radius:50%;flex:none;position:relative;overflow:hidden;display:grid;place-items:center;font:300 34px Geist;color:#fff;
+ background:radial-gradient(circle at 35% 30%,#fff9 0,#fff0 35%),conic-gradient(from 200deg,#c8b6ff,#a7c4ff,#9ef5e0,#ffc3e6,#ffefb3,#c8b6ff);box-shadow:0 0 30px #b7a6ff88, inset 0 0 0 1.5px #ffffff88}
+.orb span{position:relative;text-shadow:0 1px 6px #0004}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#fff}
+svg{display:block}
+.lab{font:12px GeistMono;letter-spacing:.06em;opacity:.8}
+.caption{color:#888;font:13px Geist;margin-top:14px;text-align:center}
+</style></head><body>
+
+<!-- ============ 1. OVERVIEW ============ -->
+<div>
+<div class="phone">
+ <div class="island"></div>
+ <div class="status"><span>9:41</span><span style="display:flex;gap:6px;align-items:center"><svg width="18" height="11"><rect x="0" y="7" width="3" height="4" rx="1" fill="#fff"/><rect x="5" y="5" width="3" height="6" rx="1" fill="#fff"/><rect x="10" y="2" width="3" height="9" rx="1" fill="#fff"/><rect x="15" y="0" width="3" height="11" rx="1" fill="#fff"/></svg><svg width="26" height="12"><rect x=".5" y=".5" width="22" height="11" rx="3.5" fill="none" stroke="#fff" opacity=".5"/><rect x="2" y="2" width="17" height="8" rx="2" fill="#fff"/><rect x="23.5" y="4" width="1.5" height="4" rx=".7" fill="#fff" opacity=".5"/></svg></span></div>
+ <div class="top"><div class="title">Lucent</div><div style="display:flex;gap:8px"><div class="circ">♡</div><div class="circ">⚙</div></div></div>
+
+ <div class="glow" style="margin:0 14px;height:392px">
+  <div class="f" style="background:
+   radial-gradient(40% 35% at 50% 78%, #19d38a 0, transparent 70%),
+   radial-gradient(45% 40% at 20% 30%, #2a7bff 0, transparent 70%),
+   radial-gradient(45% 40% at 85% 25%, #7b5cff 0, transparent 70%),
+   radial-gradient(50% 30% at 50% 50%, #e9fff6 0, transparent 70%),
+   #0b2a24"></div>
+  <div class="pad" style="height:100%;display:flex;flex-direction:column">
+   <div style="display:flex;justify-content:space-between"><span class="mono">Your collection</span><span class="mono">31 items</span></div>
+   <div class="big" style="margin-top:14px">$7,248<span style="opacity:.55">.49</span></div>
+   <div style="margin-top:12px;display:flex;gap:8px;align-items:center"><span class="pill">▲ 67.3%</span><span class="sm">+$2,916.49 all time</span></div>
+   <!-- dial: where today sits in the 30-day range -->
+   <svg viewBox="0 0 330 150" style="margin-top:auto">
+    <path d="M25 140 A140 140 0 0 1 305 140" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="1.2"/>
+    <g stroke="rgba(255,255,255,.45)" stroke-width="1">
+     <!-- ticks -->
+     <script>/*static*/</script>
+    </g>
+    <g id="ticks1"></g>
+    <polygon points="252,47 266,47 259,62" fill="#fff36a"/>
+    <line x1="259" y1="64" x2="259" y2="140" stroke="#fff" stroke-dasharray="1.5 4" opacity=".6"/>
+    <text x="25" y="148" fill="#fff" opacity=".6" font-family="GeistMono" font-size="10">$5,480</text>
+    <text x="260" y="148" fill="#fff" opacity=".6" font-family="GeistMono" font-size="10">$7,310</text>
+    <text x="165" y="118" fill="#fff" text-anchor="middle" font-family="GeistMono" font-size="10" opacity=".8" letter-spacing="1.5">30-DAY RANGE</text>
+   </svg>
+  </div>
+ </div>
+
+ <div class="grid" style="margin-top:10px">
+  <div class="glow tile"><div class="f" style="background:radial-gradient(55% 50% at 70% 70%,#ff5a1f 0,transparent 70%),radial-gradient(60% 55% at 25% 30%,#ff2e9a 0,transparent 70%),#3a0a22"></div>
+   <div class="pad"><div class="lab">TODAY</div><div class="mid" style="margin-top:46px">−$23</div><div class="sub" style="margin-top:4px">−0.3%</div></div></div>
+  <div class="glow tile"><div class="f" style="background:radial-gradient(55% 50% at 50% 65%,#9b7bff 0,transparent 70%),radial-gradient(50% 50% at 20% 20%,#2f5bff 0,transparent 70%),#0d0f33"></div>
+   <div class="pad"><div class="lab">INVESTED</div><div class="mid" style="margin-top:46px">$4,332</div><div class="sub" style="margin-top:4px">across 13 products</div></div></div>
+ </div>
+
+ <div class="tabbar"><div class="tabs"><span class="on">Overview</span><span>Collection</span><span>Explore</span><span>Deal</span></div><div class="orb"><span>+</span></div></div>
+ <div class="home"></div>
+</div>
+<div class="caption">Overview · the value card glows green-teal when you're up overall</div>
+</div>
+
+<!-- ============ 2. ANALYTICS ============ -->
+<div>
+<div class="phone">
+ <div class="island"></div>
+ <div class="status"><span>9:41</span><span style="display:flex;gap:6px;align-items:center"><svg width="18" height="11"><rect x="0" y="7" width="3" height="4" rx="1" fill="#fff"/><rect x="5" y="5" width="3" height="6" rx="1" fill="#fff"/><rect x="10" y="2" width="3" height="9" rx="1" fill="#fff"/><rect x="15" y="0" width="3" height="11" rx="1" fill="#fff"/></svg><svg width="26" height="12"><rect x=".5" y=".5" width="22" height="11" rx="3.5" fill="none" stroke="#fff" opacity=".5"/><rect x="2" y="2" width="17" height="8" rx="2" fill="#fff"/><rect x="23.5" y="4" width="1.5" height="4" rx=".7" fill="#fff" opacity=".5"/></svg></span></div>
+ <div class="top"><div style="display:flex;gap:12px;align-items:center"><div class="circ">←</div><div class="title" style="font-size:24px">Analytics</div></div><div class="circ">⌄</div></div>
+
+ <div class="glow" style="margin:0 14px;height:190px">
+  <div class="f" style="background:radial-gradient(50% 60% at 75% 55%,#ffd36a 0,transparent 70%),radial-gradient(60% 70% at 30% 60%,#18c98a 0,transparent 70%),radial-gradient(50% 50% at 60% 10%,#7cf5ff 0,transparent 70%),#06231a"></div>
+  <div class="pad" style="display:flex;justify-content:space-between;height:100%">
+   <div style="display:flex;flex-direction:column"><div class="lab">TOTAL RETURN</div><div class="lab" style="opacity:.55">on $4,332 invested</div>
+    <div class="big" style="margin-top:auto;font-size:52px">+$2,916</div></div>
+   <svg width="110" height="110" viewBox="0 0 110 110" style="align-self:center">
+    <circle cx="55" cy="55" r="44" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="1"/>
+    <path d="M55 11 A44 44 0 1 1 18 79" fill="none" stroke="#fff" stroke-width="1.6"/>
+    <text x="55" y="61" text-anchor="middle" fill="#fff" font-family="Geist" font-size="18">67%</text>
+   </svg>
+  </div>
+ </div>
+
+ <div class="grid" style="margin-top:10px">
+  <div class="glow tile" style="height:168px"><div class="f" style="background:radial-gradient(55% 55% at 50% 60%,#13110f 0,transparent 60%),radial-gradient(70% 70% at 50% 50%,#ff7a3d 0,transparent 75%),#ff6bb5"></div>
+   <div class="pad"><div class="lab">MAX DRAWDOWN</div><div class="lab" style="opacity:.55">Oct 29 → Jan 19</div>
+    <svg viewBox="0 0 140 40" style="margin-top:22px"><path d="M0 12 C20 10 30 30 50 32 S90 18 140 8" fill="none" stroke="#fff" stroke-width="1.3"/><polygon points="44,36 56,36 50,26" fill="#fff36a"/></svg>
+    <div class="mid" style="margin-top:6px;font-size:34px">−8.3<span style="font-size:16px">%</span></div></div></div>
+  <div class="glow tile" style="height:168px"><div class="f" style="background:radial-gradient(60% 50% at 60% 70%,#3d6bff 0,transparent 70%),radial-gradient(50% 50% at 30% 20%,#d06bff 0,transparent 70%),#140a33"></div>
+   <div class="pad"><div class="lab">VOLATILITY</div><div class="lab" style="opacity:.55">Annual swing</div>
+    <svg viewBox="0 0 140 30" style="margin-top:26px" id="vol"></svg>
+    <div class="mid" style="margin-top:8px;font-size:34px">10<span style="font-size:16px">%</span></div></div></div>
+  <div class="glow tile" style="height:168px"><div class="f" style="background:radial-gradient(60% 55% at 50% 55%,#0a1a14 0,transparent 55%),radial-gradient(80% 80% at 50% 50%,#2fe0a0 0,transparent 80%),#9effd8"></div>
+   <div class="pad" style="height:100%;display:flex;flex-direction:column"><div class="lab" style="color:#03130d">IN PROFIT</div><div class="lab" style="color:#03130d;opacity:.6">of 19 holdings</div>
+    <svg id="dots" viewBox="0 0 70 34" style="width:124px;margin:auto auto 4px 0"></svg></div></div>
+  <div class="glow tile" style="height:168px"><div class="f" style="background:radial-gradient(60% 60% at 70% 70%,#ff3d7f 0,transparent 70%),radial-gradient(60% 60% at 20% 30%,#ff9d2e 0,transparent 70%),#3a0a1e"></div>
+   <div class="pad"><div class="lab">BEST DAY</div><div class="lab" style="opacity:.55">Apr 1, 2026</div>
+    <div class="mid" style="margin-top:56px;font-size:34px">+$171</div></div></div>
+ </div>
+
+ <div class="tabbar"><div class="tabs"><span>Overview</span><span>Collection</span><span>Explore</span><span>Deal</span></div><div class="orb"><span>+</span></div></div>
+ <div class="home"></div>
+</div>
+<div class="caption">Analytics · each figure gets its own glow, dial or dot-matrix number</div>
+</div>
+
+<!-- ============ 3. YOUR COPY ============ -->
+<div>
+<div class="phone" style="background:#000">
+ <div class="island"></div>
+ <div class="status"><span>9:41</span><span style="display:flex;gap:6px;align-items:center"><svg width="18" height="11"><rect x="0" y="7" width="3" height="4" rx="1" fill="#fff"/><rect x="5" y="5" width="3" height="6" rx="1" fill="#fff"/><rect x="10" y="2" width="3" height="9" rx="1" fill="#fff"/><rect x="15" y="0" width="3" height="11" rx="1" fill="#fff"/></svg><svg width="26" height="12"><rect x=".5" y=".5" width="22" height="11" rx="3.5" fill="none" stroke="#fff" opacity=".5"/><rect x="2" y="2" width="17" height="8" rx="2" fill="#fff"/><rect x="23.5" y="4" width="1.5" height="4" rx=".7" fill="#fff" opacity=".5"/></svg></span></div>
+ <div style="position:absolute;inset:60px 0 0;background:#0c0c0e;border-radius:36px 36px 0 0;padding:10px 14px 0">
+  <div style="width:40px;height:5px;border-radius:3px;background:#444;margin:0 auto 10px"></div>
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:0 4px"><div class="circ">←</div><div style="font:600 17px Geist">Your copy</div><div class="circ" style="width:auto;padding:0 14px;border-radius:20px">Done</div></div>
+
+  <div class="glow" style="margin-top:14px;height:330px">
+   <div class="f" style="background:radial-gradient(45% 40% at 50% 45%,#fff 0,transparent 70%),radial-gradient(60% 50% at 50% 80%,#b13cff 0,transparent 70%),radial-gradient(50% 50% at 15% 20%,#ff3d9a 0,transparent 70%),radial-gradient(50% 50% at 90% 20%,#ff8a3d 0,transparent 70%),#2a0a3a"></div>
+   <div class="pad" style="height:100%;display:flex;flex-direction:column">
+    <div style="display:flex;gap:12px;align-items:center">
+     <div style="width:44px;height:62px;border-radius:5px;background:linear-gradient(160deg,#1a3a5a,#5b2a6a 55%,#e8c45a);box-shadow:0 4px 14px #0006"></div>
+     <div><div style="font:600 15px Geist">Umbreon VMAX</div><div class="sub">Alternate Art · Evolving Skies</div></div>
+    </div>
+    <div class="lab" style="margin-top:auto">YOURS IS WORTH</div>
+    <div class="big" style="margin-top:6px">$2,209<span style="opacity:.55">.75</span></div>
+    <div style="margin-top:10px;display:flex;gap:8px;align-items:center"><span class="pill">▲ 306%</span><span class="sm">+$1,665.75 on $544</span></div>
+    <svg viewBox="0 0 330 46" style="margin-top:12px"><path id="spark" fill="none" stroke="#fff" stroke-width="1.4"/><polygon points="317,4 329,4 323,14" fill="#fff36a"/></svg>
+   </div>
+  </div>
+
+  <div class="grid" style="padding:0;margin-top:10px">
+   <div class="glow" style="height:112px"><div class="f" style="background:radial-gradient(60% 60% at 60% 60%,#2f5bff 0,transparent 70%),radial-gradient(50% 50% at 20% 20%,#7cf5ff 0,transparent 70%),#0a0f2e"></div>
+    <div class="pad"><div class="lab">IF PSA 10</div><div class="mid" style="font-size:30px;margin-top:24px">$3,550</div></div></div>
+   <div class="glow" style="height:112px"><div class="f" style="background:radial-gradient(60% 60% at 40% 60%,#1d6b4f 0,transparent 70%),radial-gradient(50% 50% at 80% 20%,#5fe3e8 0,transparent 70%),#06180f"></div>
+    <div class="pad"><div class="lab">IF PSA 9</div><div class="mid" style="font-size:30px;margin-top:24px">$2,050</div></div></div>
+  </div>
+
+  <div style="display:flex;gap:10px;margin-top:12px">
+   <div style="flex:1;height:52px;border-radius:30px;background:#1c1c20;display:flex;align-items:center;justify-content:center;font:600 15px Geist">Sell</div>
+   <div style="flex:1;height:52px;border-radius:30px;background:#1c1c20;display:flex;align-items:center;justify-content:center;font:600 15px Geist">What if I sell?</div>
+  </div>
+  <div style="position:absolute;left:14px;right:14px;bottom:28px;height:64px;border-radius:40px;background:rgba(40,40,44,.85);display:flex;align-items:center;justify-content:space-between;padding:0 6px 0 26px">
+   <span style="font:600 16px Geist">View card details</span><div class="orb" style="width:52px;height:52px;font-size:22px"><span>→</span></div>
+  </div>
+ </div>
+ <div class="home"></div>
+</div>
+<div class="caption">Your copy · glow follows the card's own art colors</div>
+</div>
+
+<script>
+// dial ticks
+const g=document.getElementById('ticks1');
+for(let i=0;i<=40;i++){const a=Math.PI*(1-i/40),r1=140,r2=i%5?132:126,cx=165,cy=140;
+ const l=document.createElementNS('http://www.w3.org/2000/svg','line');
+ l.setAttribute('x1',cx+r1*Math.cos(a));l.setAttribute('y1',cy-r1*Math.sin(a));l.setAttribute('x2',cx+r2*Math.cos(a));l.setAttribute('y2',cy-r2*Math.sin(a));
+ l.setAttribute('stroke','rgba(255,255,255,.5)');l.setAttribute('stroke-width','1');g.appendChild(l);}
+// volatility tick bar
+const v=document.getElementById('vol');
+for(let i=0;i<34;i++){const l=document.createElementNS('http://www.w3.org/2000/svg','line');const x=2+i*4;
+ l.setAttribute('x1',x);l.setAttribute('x2',x);l.setAttribute('y1',i%5?12:6);l.setAttribute('y2',24);l.setAttribute('stroke','#fff');l.setAttribute('opacity',i<12?'.9':'.35');v.appendChild(l);}
+v.innerHTML+='<polygon points="44,0 52,0 48,7" fill="#fff36a"/>';
+// dot-matrix "74%"
+const F={'7':['11111','00001','00010','00100','00100','00100','00100'],'4':['10010','10010','10010','11111','00010','00010','00010'],'%':['11000','11001','00010','00100','01000','10011','00011']};
+const d=document.getElementById('dots');let ox=0;
+for(const ch of '74%'){F[ch].forEach((row,y)=>[...row].forEach((b,x)=>{if(b==='1'){const c=document.createElementNS('http://www.w3.org/2000/svg','circle');c.setAttribute('cx',ox+x*4+2);c.setAttribute('cy',y*4+3);c.setAttribute('r',1.75);c.setAttribute('fill','#04140d');d.appendChild(c);}}));ox+=24;}
+// sparkline
+let p='M0 38';let y=38;for(let i=1;i<=66;i++){y+= (Math.sin(i*1.7)*3+ (i>30?-0.9:0.2)+ Math.cos(i*0.6)*1.5);y=Math.max(6,Math.min(42,y));p+=` L${i*5} ${y.toFixed(1)}`}
+document.getElementById('spark').setAttribute('d',p);
+</script>
+</body></html>
