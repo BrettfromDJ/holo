@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Card, SectionTitle } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { LoadingDeck } from "@/components/motion/loading-deck";
+import { Skeleton } from "@/components/ui/skeleton";
 import { daysBetween } from "@/lib/finance/dates";
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { formatDate, money, signedMoney } from "@/lib/format";
@@ -75,7 +75,7 @@ export default function GradingPage() {
     return out.filter((c) => c.outlook.upside10 > 0).sort((a, b) => b.outlook.score - a.outlook.score);
   }, [holdings, costs, summaries]);
 
-  if (store.status === "loading") return <LoadingDeck />;
+  if (store.status === "loading") return <Skeleton className="h-[600px] w-full rounded-3xl" />;
   if (store.status === "error") return <ErrorState message={store.error} />;
   if (!store.data.transactions.length) {
     return (

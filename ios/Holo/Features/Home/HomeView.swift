@@ -14,6 +14,8 @@ struct HomeView: View {
     @State private var recap = false
     /// What's pushed on Home (products by id, More pages); -HoloPage opens one for screenshots.
     @State private var path = NavigationPath()
+    /// A card you own, tapped on Overview: opens Your copy (like Collection).
+    @State private var opened: OpenedHolding?
     @State private var adding = false
     @State private var addSearch = false
     /// A moment worth a banner: a milestone reached, or prices just updated.
@@ -25,7 +27,7 @@ struct HomeView: View {
             ScrollView {
                 switch store.status {
                 case .idle, .loading:
-                    LoadingView()
+                    ProgressView().tint(Theme.lime).padding(.top, 160)
                 case let .failed(message):
                     VStack(spacing: 12) {
                         Text("Couldn't load your collection").font(.geist(17, .semibold))
@@ -63,6 +65,13 @@ struct HomeView: View {
             .navigationBarTitleDisplayMode(.inline)
             .pageTitle("Overview")
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
+            .environment(\.openHolding) { identity in opened = OpenedHolding(identity: identity) }
+            .sheet(item: $opened) { o in
+                HoldingSheet(identity: o.identity) {
+                    // After the sheet slides away, so the push animates.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { path.append(o.identity.productId) }
+                }
+            }
             // Every page pushes by value, so links inside them (a card, Gains from Analytics) push
             // on top instead of jumping back.
             .navigationDestination(for: MasterSetRoute.self) { MasterSetDetailView(setId: $0.id, setName: $0.name) }
@@ -317,6 +326,7 @@ private struct CardFan: View {
 
 /// One piece of the hero fan at its slot, bobbing with the shared clock.
 private struct FanPiece: View {
+    @Environment(\.openHolding) private var openHolding
     var holding: HoldingView
     var index: Int
     var time: Double
@@ -348,7 +358,7 @@ private struct FanPiece: View {
         let anchor = UnitPoint(x: 0.5, y: 0.9)
         let x: CGFloat = Self.steps[index] * Self.width * 0.26
         let y: CGFloat = Self.drops[index] + bob
-        NavigationLink(value: holding.identity.productId) {
+        Button { openHolding(holding.identity) } label: {
             if index == 0 {
                 art.tiltCard(12, foil: isCard, cornerRadius: 6)
             } else {
@@ -414,23 +424,57 @@ private struct PerformanceSection: View {
         }
     }
 
-    private var points: [TimelinePoint] {
-        guard let days = range.days else { return store.timeline }
-        return Array(store.timeline.suffix(days + 1))
+    /// One day on the chart, with its date read once (reading dates from text on every drag made
+    /// scrubbing lag).
+    private struct Day: Identifiable {
+        var id: Int
+        var date: Date
+        var iso: String
+        var value: Double
     }
 
-    private var shown: TimelinePoint? {
-        guard let scrubbed else { return nil }
-        return points.min { abs($0.day.timeIntervalSince(scrubbed)) < abs($1.day.timeIntervalSince(scrubbed)) }
+    /// The range's days, prepared once per range or timeline change: dates read, and long ranges
+    /// thinned to about 180 points (the same line at phone width, far less to draw).
+    @State private var days: [Day] = []
+    @State private var extremes: (min: Double, max: Double) = (0, 0)
+
+    private var key: String {
+        "\(range.rawValue)-\(store.timeline.count)-\(store.timeline.last?.date ?? "")-\(store.timeline.last?.value ?? 0)"
+    }
+
+    private func prepare() {
+        let all = range.days.map { Array(store.timeline.suffix($0 + 1)) } ?? store.timeline
+        let step = max(1, all.count / 180)
+        var out: [Day] = []
+        out.reserveCapacity(all.count / step + 2)
+        for (i, p) in all.enumerated() where i % step == 0 || i == all.count - 1 {
+            out.append(Day(id: i, date: p.day, iso: p.date, value: p.value))
+        }
+        days = out
+        let values = all.map(\.value)
+        extremes = (values.min() ?? 0, values.max() ?? 0)
+    }
+
+    /// The day nearest the finger: a quick halving search over the sorted days.
+    private var shown: Day? {
+        guard let scrubbed, !days.isEmpty else { return nil }
+        var lo = 0, hi = days.count - 1
+        while lo < hi {
+            let mid = (lo + hi) / 2
+            if days[mid].date < scrubbed { lo = mid + 1 } else { hi = mid }
+        }
+        if lo > 0, abs(days[lo - 1].date.timeIntervalSince(scrubbed)) < abs(days[lo].date.timeIntervalSince(scrubbed)) { lo -= 1 }
+        return days[lo]
     }
 
     var body: some View {
-        let first = points.first?.value ?? 0
-        let last = shown?.value ?? points.last?.value ?? 0
+        let first = days.first?.value ?? 0
+        let shown = self.shown
+        let last = shown?.value ?? days.last?.value ?? 0
         let change = last - first
         VStack(alignment: .leading, spacing: 12) {
             PageHeader(title: "Performance", size: 30)
-            Text(shown.map { "\($0.day.formatted(date: .abbreviated, time: .omitted)) · \(Format.money($0.value))" } ?? "Drag across the chart to see any day")
+            Text(shown.map { "\($0.date.formatted(date: .abbreviated, time: .omitted)) · \(Format.money($0.value))" } ?? "Drag across the chart to see any day")
                 .font(.geist(15)).foregroundStyle(Theme.muted)
             HStack(spacing: 6) {
                 Text(Format.signedMoney(change)).foregroundStyle(Theme.tone(change))
@@ -439,21 +483,21 @@ private struct PerformanceSection: View {
             }
             .font(.geist(16, .medium)).monospacedDigit()
             ChipPicker(options: Range.allCases.map { ($0, $0.rawValue) }, selection: $range)
-            if points.count > 1 {
-                let domain = ChartTicks.domain(points.map(\.value))
+            if days.count > 1 {
+                let domain = ChartTicks.domain([extremes.min, extremes.max])
                 Chart {
-                    ForEach(points) { p in
-                        AreaMark(x: .value("Day", p.day), yStart: .value("Floor", domain.lowerBound), yEnd: .value("Value", p.value))
+                    ForEach(days) { p in
+                        AreaMark(x: .value("Day", p.date), yStart: .value("Floor", domain.lowerBound), yEnd: .value("Value", p.value))
                             .foregroundStyle(LinearGradient(colors: [Theme.lime.opacity(0.25), Theme.lime.opacity(0)], startPoint: .top, endPoint: .bottom))
                             .interpolationMethod(.monotone)
-                        LineMark(x: .value("Day", p.day), y: .value("Value", p.value), series: .value("Line", "Value"))
+                        LineMark(x: .value("Day", p.date), y: .value("Value", p.value), series: .value("Line", "Value"))
                             .foregroundStyle(Theme.lime)
                             .lineStyle(StrokeStyle(lineWidth: 2.5))
                             .interpolationMethod(.monotone)
                     }
                     if let shown {
-                        RuleMark(x: .value("Day", shown.day)).foregroundStyle(.white.opacity(0.3))
-                        PointMark(x: .value("Day", shown.day), y: .value("Value", shown.value)).foregroundStyle(Theme.lime).symbolSize(70)
+                        RuleMark(x: .value("Day", shown.date)).foregroundStyle(.white.opacity(0.3))
+                        PointMark(x: .value("Day", shown.date), y: .value("Value", shown.value)).foregroundStyle(Theme.lime).symbolSize(70)
                     }
                 }
                 .chartXAxis(.hidden)
@@ -463,19 +507,19 @@ private struct PerformanceSection: View {
                 .frame(height: 230)
                 .drawIn(replay: range)
                 // A light tick for each day you scrub across; a firmer one on the range's high and low.
-                .sensoryFeedback(trigger: shown?.date) { _, new in
-                    guard let new, let point = points.first(where: { $0.date == new }) else { return nil }
-                    let values = points.map(\.value)
-                    if point.value == values.max() || point.value == values.min() { return .impact(weight: .medium, intensity: 0.9) }
+                .sensoryFeedback(trigger: shown?.id) { _, new in
+                    guard new != nil, let v = shown?.value else { return nil }
+                    if v == extremes.max || v == extremes.min { return .impact(weight: .medium, intensity: 0.9) }
                     return .selection
                 }
-                if let end = points.last {
-                    Text("Daily closing values · \(Format.money(end.value)) on \(end.day.formatted(date: .abbreviated, time: .omitted))")
+                if let end = days.last {
+                    Text("Daily closing values · \(Format.money(end.value)) on \(end.date.formatted(date: .abbreviated, time: .omitted))")
                         .font(.geist(12)).foregroundStyle(Theme.muted)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                 }
             }
         }
+        .task(id: key) { prepare() }
     }
 
 }
@@ -727,6 +771,7 @@ private struct Spotlight: View {
 }
 
 private struct StarCard: View {
+    @Environment(\.openHolding) private var openHolding
     var holding: HoldingView
     var series: [TimelinePoint]
 
@@ -738,7 +783,7 @@ private struct StarCard: View {
     }
 
     var body: some View {
-        NavigationLink(value: holding.identity.productId) {
+        Button { openHolding(holding.identity) } label: {
             VStack(alignment: .leading, spacing: 0) {
                 // The website's stage: the piece centered, a soft floor shadow, a floating % chip.
                 HoldingArt(product: holding.product, identity: holding.identity, cornerRadius: 12)
@@ -809,6 +854,7 @@ private struct StarCard: View {
 }
 
 private struct MiniTile: View {
+    @Environment(\.openHolding) private var openHolding
     var holding: HoldingView
     var tag: String
     var icon: String
@@ -819,7 +865,7 @@ private struct MiniTile: View {
     var baseline: Double?
 
     var body: some View {
-        NavigationLink(value: holding.identity.productId) {
+        Button { openHolding(holding.identity) } label: {
             VStack(alignment: .leading, spacing: 14) {
                 SkewTag(text: tag, color: color, textColor: color == Theme.lime ? Theme.ink : .white, icon: icon)
                 HStack(spacing: 14) {
@@ -942,13 +988,14 @@ private struct ShelfSection: View {
 
 /// One piece standing on the shelf under its own spotlight, with its price tag hanging below.
 private struct ShelfItem: View {
+    @Environment(\.openHolding) private var openHolding
     var holding: HoldingView
     var rank: Int
 
     private var isCard: Bool { holding.product?.isSealed == false && holding.product?.imageURL != nil && !holding.identity.isGraded }
 
     var body: some View {
-        NavigationLink(value: holding.identity.productId) {
+        Button { openHolding(holding.identity) } label: {
             VStack(alignment: .leading, spacing: 0) {
                 ZStack(alignment: .bottom) {
                     // Spotlight from above.
@@ -1087,6 +1134,7 @@ private struct CategoryCard: View {
 // MARK: - Movers
 
 private struct MoversSection: View {
+    @Environment(\.openHolding) private var openHolding
     var holdings: [HoldingView]
     @State private var period = Period.day
     @State private var allUp = false
@@ -1125,7 +1173,7 @@ private struct MoversSection: View {
                     SkewTag(text: "\(rows.count)", color: tag, textColor: tag == Theme.lime ? Theme.ink : .white)
                 }
                 ForEach(Array(rows.prefix(all.wrappedValue ? 20 : 3)), id: \.0.id) { h, pct in
-                    NavigationLink(value: h.identity.productId) {
+                    Button { openHolding(h.identity) } label: {
                         HStack(spacing: 12) {
                             HoldingArt(product: h.product, identity: h.identity, cornerRadius: 6, caption: false).frame(width: 36, height: 48)
                             VStack(alignment: .leading, spacing: 2) {
@@ -1155,6 +1203,7 @@ private struct MoversSection: View {
 // MARK: - Recently added
 
 private struct RecentSection: View {
+    @Environment(\.openHolding) private var openHolding
     var items: [CollectionStore.RecentPurchase]
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shown = false
@@ -1166,7 +1215,7 @@ private struct RecentSection: View {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
                     let delay = Double(i) * 0.12
-                    NavigationLink(value: item.entry.identity.productId) {
+                    Button { openHolding(item.entry.identity) } label: {
                         HStack(alignment: .top, spacing: 14) {
                             // The timeline: the line draws down entry by entry, each dot pops in as
                             // it's reached, and the newest keeps a soft lime pulse.
@@ -1356,5 +1405,24 @@ private struct MoreSection: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+
+/// A card you own to show in Your copy.
+struct OpenedHolding: Identifiable {
+    var identity: HoldingIdentity
+    var id: String { identity.key }
+}
+
+private struct OpenHoldingKey: EnvironmentKey {
+    static let defaultValue: (HoldingIdentity) -> Void = { _ in }
+}
+
+extension EnvironmentValues {
+    /// Opens Your copy for a card you own (set by Overview).
+    var openHolding: (HoldingIdentity) -> Void {
+        get { self[OpenHoldingKey.self] }
+        set { self[OpenHoldingKey.self] = newValue }
     }
 }

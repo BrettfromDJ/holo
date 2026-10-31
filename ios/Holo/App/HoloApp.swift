@@ -60,7 +60,7 @@ struct RootView: View {
             } else {
                 switch session.state {
                 case .loading:
-                    LoadingView(fullScreen: true)
+                    ProgressView().tint(Theme.lime).frame(maxWidth: .infinity, maxHeight: .infinity).background(Theme.background)
                 case .signedOut:
                     SignInView()
                 case let .signedIn(userId, _):

@@ -14,7 +14,7 @@ import { PageHeader } from "@/components/shell/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Segmented } from "@/components/ui/segmented";
-import { LoadingDeck } from "@/components/motion/loading-deck";
+import { Skeleton } from "@/components/ui/skeleton";
 import { acquisitionCost, saleProceeds } from "@/lib/finance/ledger";
 import { formatDate, formatMonth, money, signedMoney } from "@/lib/format";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
@@ -64,7 +64,7 @@ export default function ActivityPage() {
   const realizedBySale = useMemo(() => new Map(realized.map((r) => [r.transactionId, r])), [realized]);
   const realizedTotal = useMemo(() => realized.reduce((sum, r) => sum + r.gain, 0), [realized]);
 
-  if (store.status === "loading") return <LoadingDeck />;
+  if (store.status === "loading") return <Skeleton className="h-96 w-full rounded-3xl" />;
   if (store.status === "error") return <ErrorState message={store.error} />;
   if (!store.data.transactions.length) {
     return (

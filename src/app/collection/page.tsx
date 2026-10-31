@@ -20,7 +20,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Segmented } from "@/components/ui/segmented";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { LoadingDeck } from "@/components/motion/loading-deck";
+
 import { categoryOf, PRODUCT_CATEGORIES } from "@/lib/catalog";
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { money, signedMoney, signedPct } from "@/lib/format";
@@ -137,7 +137,7 @@ function Collection() {
   };
   const activeFilters = (setName !== "all" ? 1 : 0) + (category !== "all" ? 1 : 0) + (perf !== "all" ? 1 : 0);
 
-  if (store.status === "loading") return <LoadingDeck />;
+  if (store.status === "loading") return <GridSkeleton />;
   if (store.status === "error") return <ErrorState message={store.error} />;
   if (!holdings.length && kind !== "watchlist") {
     return (
