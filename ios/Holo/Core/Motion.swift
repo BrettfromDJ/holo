@@ -44,7 +44,8 @@ private struct OnReplay: ViewModifier {
 // MARK: - Counting numbers
 
 /// A number that counts to its value: up from 85% when it first appears, and from the old
-/// value to the new one whenever it changes (a refresh), easing out like the website's.
+/// value to the new one whenever it changes (a refresh), easing out like the website's. A soft
+/// tap lands when the count settles (once per count, never per frame; see `CountTap`).
 struct CountingText: View {
     var value: Double
     var format: (Double) -> String
@@ -53,6 +54,8 @@ struct CountingText: View {
     var delay: Double = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shown: Double?
+    /// Goes up when a count settles and wins the shared throttle: plays the soft tap.
+    @State private var taps = 0
 
     var body: some View {
         CountingLabel(value: shown ?? value * 0.85, format: format)
@@ -60,17 +63,38 @@ struct CountingText: View {
                 guard shown == nil else { return }
                 if reduceMotion { shown = value; return }
                 shown = value * 0.85
-                withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: duration).delay(delay)) { shown = value }
+                withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: duration).delay(delay)) { shown = value } completion: { settled() }
             }
             .onChange(of: value) { _, new in
                 if reduceMotion { shown = new; return }
-                withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 0.9)) { shown = new }
+                withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 0.9)) { shown = new } completion: { settled() }
             }
+            .sensoryFeedback(.impact(weight: .light, intensity: 0.5), trigger: taps)
             .onReplay {
                 guard !reduceMotion else { return }
                 shown = value * 0.85
                 withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: duration)) { shown = value }
             }
+    }
+}
+
+extension CountingText {
+    private func settled() {
+        if CountTap.claim() { taps += 1 }
+    }
+}
+
+/// One soft tap for counters that settle together: a page full of count-ups finishing at once
+/// gives a single tap, not a burst.
+enum CountTap {
+    private static var last = Date.distantPast
+
+    /// True (and starts the quiet window) when no counter has tapped in the last half second.
+    static func claim() -> Bool {
+        let now = Date()
+        guard now.timeIntervalSince(last) > 0.5 else { return false }
+        last = now
+        return true
     }
 }
 

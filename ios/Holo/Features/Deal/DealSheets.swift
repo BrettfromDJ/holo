@@ -411,7 +411,8 @@ struct DealCloseSheet: View {
 }
 
 /// The deal, recorded: the whole screen goes electric lime (pink if the equity taken in was
-/// negative). A check stamps in, the items fan in like a hand of cards, the headline number
+/// negative). A check stamps in, the items fan in like a hand of cards and then slide together
+/// into a neat recorded pile (each card a few degrees off), the headline number
 /// counts up (profit, or for a buy the equity you took in), and an ink receipt lists what
 /// changed hands and who paid. A broad soft glare passes over once.
 private struct RecordedScreen: View {
@@ -422,6 +423,8 @@ private struct RecordedScreen: View {
     var onDone: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shown = false
+    /// The fanned cards have slid together into the recorded pile.
+    @State private var piled = false
 
     private struct Row: Identifiable {
         var id: String
@@ -464,16 +467,27 @@ private struct RecordedScreen: View {
                     ZStack {
                         ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
                             let off = Double(i) - Double(items.count - 1) / 2
+                            let pose = pilePose(i)
                             HoldingArt(product: item.product, identity: nil, cornerRadius: 5, caption: false)
                                 .frame(width: 72, height: 100)
                                 .shadow(color: .black.opacity(0.3), radius: 10, y: 8)
-                                .rotationEffect(.degrees(shown ? off * 9 : 0), anchor: .bottom)
-                                .offset(x: shown ? off * 36 : 0, y: shown ? abs(off) * 5 : 60)
+                                .rotationEffect(.degrees(piled ? pose.angle : (shown ? off * 9 : 0)), anchor: .bottom)
+                                .offset(x: piled ? pose.x : (shown ? off * 36 : 0),
+                                        y: piled ? pose.y : (shown ? abs(off) * 5 : 60))
                                 .opacity(shown ? 1 : 0)
-                                .animation(reduceMotion ? nil : .spring(response: 0.55, dampingFraction: 0.7).delay(0.15 + Double(i) * 0.06), value: shown)
+                                .animation(reduceMotion ? nil : cardAnimation(i, count: items.count), value: cardStage)
                         }
                     }
                     .frame(height: 118)
+                    .overlay(alignment: .topTrailing) {
+                        let count = deal.outgoing.count + deal.incoming.count
+                        SkewTag(text: "\(count) item\(count == 1 ? "" : "s") filed", color: ink, textColor: fill)
+                            .scaleEffect(piled ? 1 : 0.6)
+                            .opacity(piled ? 1 : 0)
+                            .rotationEffect(.degrees(-4))
+                            .offset(x: 44, y: -8)
+                            .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.6).delay(0.1 + Double(items.count) * 0.07), value: piled)
+                    }
                 }
                 if let headline {
                     VStack(spacing: 6) {
@@ -514,8 +528,34 @@ private struct RecordedScreen: View {
         }
         .presentationBackground(fill)
         .onAppear {
-            if reduceMotion { shown = true } else { withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) { shown = true } }
+            if reduceMotion { shown = true; piled = true } else { withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) { shown = true } }
         }
+        .task {
+            // Once the hand has fanned in, the cards slide together into a neat pile.
+            guard !reduceMotion, !piled else { return }
+            try? await Task.sleep(for: .milliseconds(1100))
+            piled = true
+        }
+    }
+
+    /// 0 hidden, 1 fanned out, 2 piled: the cards animate whenever it moves on.
+    private var cardStage: Int { piled ? 2 : (shown ? 1 : 0) }
+
+    /// Fanning in, left to right; piling up, the outer cards first so the pile builds inward.
+    private func cardAnimation(_ i: Int, count: Int) -> Animation {
+        if piled {
+            let fromEdge = abs(Double(i) - Double(count - 1) / 2)
+            let maxEdge = Double(count - 1) / 2
+            return .spring(response: 0.5, dampingFraction: 0.72).delay((maxEdge - fromEdge) * 0.07)
+        }
+        return .spring(response: 0.55, dampingFraction: 0.7).delay(0.15 + Double(i) * 0.06)
+    }
+
+    /// Where each card lands in the pile: nearly square, each a few degrees off, stacking up.
+    private func pilePose(_ i: Int) -> (angle: Double, x: Double, y: Double) {
+        let angles: [Double] = [-5, 4, -2, 6, -4, 2, -6]
+        let nudges: [Double] = [-3, 2, -1, 3, -2, 1, 0]
+        return (angles[i % angles.count], nudges[i % nudges.count], Double(-i) * 2)
     }
 
     /// An ink receipt: each item with its side, quantity and price, then who paid.

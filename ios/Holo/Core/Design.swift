@@ -450,7 +450,8 @@ struct IconButton3D: ButtonStyle {
                 }
             )
             .offset(y: pressed ? 2 : -1)
-            .animation(.easeOut(duration: 0.12), value: pressed)
+            .scaleEffect(pressed ? 0.97 : 1)
+            .animation(.spring(response: 0.22, dampingFraction: 0.65), value: pressed)
     }
 }
 
@@ -542,7 +543,20 @@ struct Chip: View {
             )
             .shadow(color: selected ? Theme.holoGlow.opacity(0.35) : .clear, radius: 8)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ChipPress())
+    }
+}
+
+/// A plain button that presses in a touch (scale and a small sink) with a quick spring.
+/// Used by `Chip`; keeps the chip's look and only adds the press.
+struct ChipPress: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        let pressed = configuration.isPressed
+        configuration.label
+            .contentShape(Capsule())
+            .offset(y: pressed ? 1 : 0)
+            .scaleEffect(pressed ? 0.97 : 1)
+            .animation(.spring(response: 0.22, dampingFraction: 0.65), value: pressed)
     }
 }
 

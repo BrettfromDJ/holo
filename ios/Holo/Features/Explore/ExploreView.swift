@@ -548,9 +548,8 @@ private struct ReleaseCountdown: View {
             VStack(alignment: .leading, spacing: 6) {
                 MonoLabel(text: days == 0 ? "Out" : "Out in")
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    CountingText(value: Double(days), format: { "\(Int($0.rounded()))" })
-                        .font(.display(44)).tracking(-1.8).monospacedDigit().foregroundStyle(Theme.holo).displayTrim(44)
-                        .shadow(color: Theme.holoGlow.opacity(0.45), radius: 12)
+                    SplitFlap(text: "\(days)", tile: Color.white.opacity(0.07), cornerRadius: 7, trim: 44 * 0.06)
+                        .font(.display(44)).monospacedDigit().foregroundStyle(Theme.holo)
                         .fixedSize()
                     Text(days == 0 ? "today" : (days == 1 ? "day" : "days")).font(.geist(14)).foregroundStyle(Theme.muted)
                 }
@@ -877,7 +876,7 @@ private struct CalendarRow: View {
             }
             .frame(width: 50, height: 60)
             .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.well))
-            SetArt(set: set)
+            SetArt(set: set, parallax: true)
                 .frame(width: 78, height: 52)
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             VStack(alignment: .leading, spacing: 5) {
@@ -978,6 +977,8 @@ private struct ExploreBackdrop: View {
 /// A set's art filling its frame: the banner, else a sample product on a dark well, else its name.
 struct SetArt: View {
     var set: ExploreSet
+    /// The banner drifts a little slower than the page scrolls (in vertical scroll views).
+    var parallax = false
 
     private var icon: some View {
         Image(systemName: "square.stack.3d.up").font(.system(size: 22)).foregroundStyle(Theme.lime.opacity(0.6))
@@ -988,7 +989,18 @@ struct SetArt: View {
             Theme.well
             if let banner = set.iconUrl.flatMap(URL.init(string:)) {
                 Color.clear
-                    .overlay { CachedImage(url: banner) { img in img.resizable().scaledToFill() } placeholder: { icon } }
+                    .overlay {
+                        if parallax {
+                            // A little taller than the frame, so drifting never shows an edge.
+                            CachedImage(url: banner) { img in img.resizable().scaledToFill() } placeholder: { icon }
+                                .padding(.vertical, -14)
+                                .scrollTransition(.interactive, axis: .vertical) { view, phase in
+                                    view.offset(y: phase.value * -12)
+                                }
+                        } else {
+                            CachedImage(url: banner) { img in img.resizable().scaledToFill() } placeholder: { icon }
+                        }
+                    }
                     .clipped()
             } else if let sample = set.imageUrl.flatMap(URL.init(string:)) {
                 CachedImage(url: sample) { img in img.resizable().scaledToFit() } placeholder: { icon }
@@ -1116,9 +1128,9 @@ private struct NextRelease: View {
                 }
                 Spacer(minLength: 0)
                 VStack(spacing: 6) {
-                    CountingText(value: Double(days), format: { "\(Int($0.rounded()))" })
-                        .font(.display(60)).tracking(-2.4).monospacedDigit().foregroundStyle(Theme.lime).displayTrim(60)
-                        .shadow(color: Theme.holoGlow.opacity(0.5), radius: 16)
+                    // The days flip in like a split-flap departures board.
+                    SplitFlap(text: "\(days)", tile: Color.white.opacity(0.07), cornerRadius: 8, trim: 60 * 0.06)
+                        .font(.display(60)).monospacedDigit().foregroundStyle(Theme.lime)
                         .fixedSize()
                     MonoLabel(text: days == 0 ? "today" : (days == 1 ? "day" : "days"))
                 }
@@ -1196,7 +1208,8 @@ private struct SetTile: View {
         VStack(alignment: .leading, spacing: 10) {
             // The set's banner art (TCG API's set icon) fills the frame; without one, a sample
             // product sits centered.
-            SetArt(set: set)
+            // In a grid (the brand page) the banner drifts with the scroll; carousels scroll sideways.
+            SetArt(set: set, parallax: width == nil)
                 .aspectRatio(3.0 / 2.0, contentMode: .fit)
                 .overlay(alignment: .topLeading) {
                     if upcoming, let days {

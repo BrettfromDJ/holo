@@ -497,6 +497,12 @@ private struct BalanceCard: View {
             }
             .padding(.top, 8)
 
+            if !empty {
+                BalanceNeedle(balance: b, scale: max(t.inValue, t.outValue), ink: ink)
+                    .padding(.top, 14)
+                    .transition(.opacity)
+            }
+
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], alignment: .leading, spacing: 14) {
                 stat("Coming in", .comingIn, Format.money(t.inValue), ink)
                 stat("Going out", .goingOut, Format.money(t.outValue), ink)
@@ -535,6 +541,84 @@ private struct BalanceCard: View {
             Text(value).font(.geist(17, .semibold)).monospacedDigit().foregroundStyle(ink).lineLimit(1).minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// A small dial under the cash: the needle leans toward whoever pays the cash (left, you pay;
+/// right, the customer pays) and stands upright when the deal is even. It swings over with a
+/// springy overshoot as items and prices change (one rotation, nothing laid out per frame) and
+/// gives one firm tap the moment the deal lands on even.
+private struct BalanceNeedle: View {
+    var balance: Double
+    /// What the bigger side counts for: the needle's full lean.
+    var scale: Double
+    var ink: Color
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Under a dollar either way counts as even.
+    static let evenBand = 1.0
+    private let radius: CGFloat = 34
+    private let sweep = 70.0
+
+    /// -1 (you pay it all) ... 0 (even) ... 1 (the customer pays it all).
+    private var lean: Double {
+        guard scale > 0.005, abs(balance) >= Self.evenBand else { return 0 }
+        return max(-1, min(1, balance / scale))
+    }
+
+    private var even: Bool { abs(balance) < Self.evenBand }
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 12) {
+            side("You pay", active: !even && balance < 0)
+            Spacer(minLength: 0)
+            dial
+            Spacer(minLength: 0)
+            side("They pay", active: !even && balance > 0)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(even ? "Even" : (balance > 0 ? "Customer pays you" : "You pay the customer"))
+        // One firm tap when the deal crosses to even, never while it stays there.
+        .sensoryFeedback(trigger: even) { was, now in now && !was ? .impact(weight: .medium) : nil }
+    }
+
+    private var dial: some View {
+        VStack(spacing: 4) {
+            ZStack(alignment: .bottom) {
+                // The scale: a half ring with five ticks.
+                Circle()
+                    .trim(from: 0.5, to: 1)
+                    .stroke(ink.opacity(0.25), style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                    .frame(width: radius * 2, height: radius * 2)
+                    .frame(width: radius * 2, height: radius, alignment: .top)
+                ForEach([-1.0, -0.5, 0, 0.5, 1.0], id: \.self) { step in
+                    VStack(spacing: 0) {
+                        Capsule().fill(ink.opacity(step == 0 ? 0.8 : 0.35))
+                            .frame(width: 2, height: step == 0 ? 8 : 5)
+                        Spacer(minLength: 0)
+                    }
+                    .frame(width: 2, height: radius - 3)
+                    .rotationEffect(.degrees(step * sweep), anchor: .bottom)
+                }
+                // The needle.
+                Capsule().fill(ink)
+                    .frame(width: 3, height: radius - 8)
+                    .frame(height: radius, alignment: .bottom)
+                    .rotationEffect(.degrees(lean * sweep), anchor: .bottom)
+                    .animation(reduceMotion ? nil : .spring(response: 0.55, dampingFraction: 0.6), value: lean)
+                Circle().fill(ink).frame(width: 10, height: 10).offset(y: 5)
+            }
+            .frame(width: radius * 2, height: radius)
+            .padding(.bottom, 5)
+            Text("EVEN").font(.mono(10)).tracking(1.1)
+                .foregroundStyle(ink.opacity(even ? 0.9 : 0.5))
+        }
+    }
+
+    private func side(_ text: String, active: Bool) -> some View {
+        Text(text.uppercased()).font(.mono(10)).tracking(1.1)
+            .foregroundStyle(ink.opacity(active ? 0.9 : 0.4))
+            .animation(.easeOut(duration: 0.2), value: active)
     }
 }
 
