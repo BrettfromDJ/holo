@@ -183,14 +183,14 @@ extension View {
     @ViewBuilder func nativeGlassSheet() -> some View {
         #if compiler(>=6.2)
         if #available(iOS 26, *) {
-            background(Color.black.opacity(0.45).ignoresSafeArea())
+            background(Color.black.opacity(0.65).ignoresSafeArea())
         } else {
             presentationBackground(.ultraThinMaterial)
-                .background(Color.black.opacity(0.45).ignoresSafeArea())
+                .background(Color.black.opacity(0.65).ignoresSafeArea())
         }
         #else
         presentationBackground(.ultraThinMaterial)
-            .background(Color.black.opacity(0.45).ignoresSafeArea())
+            .background(Color.black.opacity(0.65).ignoresSafeArea())
         #endif
     }
 }
