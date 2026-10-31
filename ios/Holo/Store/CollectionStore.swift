@@ -415,6 +415,19 @@ final class CollectionStore {
     /// history, by demo slug. Filled once per session when there's a server (not in screenshots).
     @ObservationIgnored private var realDemo: [String: DemoData.Real] = [:]
     @ObservationIgnored private var realizing = false
+    /// Each demo card's made-up id → its real catalog id and printing, so a sheet opened just
+    /// before the switch follows the card.
+    @ObservationIgnored private var demoAlias: [String: (id: String, printing: String?)] = [:]
+
+    /// The holding as it is now: a demo card that has just switched to its real catalog card
+    /// is found under its new id.
+    func current(_ identity: HoldingIdentity) -> HoldingIdentity {
+        guard holding(identity) == nil, let real = demoAlias[identity.productId] else { return identity }
+        var i = identity
+        i.productId = real.id
+        i.printing = real.printing
+        return i
+    }
 
     func loadDemo(_ kind: DemoKind = .mixed) {
         demo = kind
@@ -474,8 +487,12 @@ final class CollectionStore {
         self.watchlist = []
         self.wishlist = []
         self.monthlyBudget = 500
+        for (slug, r) in realIds { demoAlias["sample:\(slug)"] = r }
         recompute(timelineNow: true)
-        status = .ready
+        // When the demo's cards were matched before, wait for their real data rather than
+        // showing made-up figures that then jump.
+        let waitForReal = realDemo.isEmpty && !Demo.isOn && AppConfig.isConfigured && DemoData.hasMatches
+        status = waitForReal ? .loading : .ready
         if realDemo.isEmpty {
             Task { await realizeDemo(kind) }
         } else {
@@ -490,7 +507,11 @@ final class CollectionStore {
     private func realizeDemo(_ kind: DemoKind) async {
         guard !Demo.isOn, AppConfig.isConfigured, !realizing else { return }
         realizing = true
-        defer { realizing = false }
+        defer {
+            realizing = false
+            // If the real data didn't come, show the made-up demo rather than wait forever.
+            if status == .loading, demo == kind { status = .ready }
+        }
         let matches = await DemoData.matchReal()
         guard !matches.isEmpty else { return }
         let ids = Array(Set(matches.values.map { $0.id }))

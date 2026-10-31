@@ -4,9 +4,18 @@ import SwiftUI
 /// line, what it would be worth graded (raw) or its cert and bumper (slabs), sell or try a sale,
 /// its history, and a button to the full card page.
 struct HoldingSheet: View {
-    var identity: HoldingIdentity
+    /// The copy as it was when the sheet opened.
+    private var opened: HoldingIdentity
     /// Opens the full card page (from Collection); nil when already on it.
-    var onOpenCard: (() -> Void)? = nil
+    var onOpenCard: (() -> Void)?
+
+    init(identity: HoldingIdentity, onOpenCard: (() -> Void)? = nil) {
+        opened = identity
+        self.onOpenCard = onOpenCard
+    }
+
+    /// The copy now: follows a demo card that switched to its real catalog card while open.
+    private var identity: HoldingIdentity { store.current(opened) }
     @Environment(\.dismiss) private var dismiss
     @Environment(CollectionStore.self) private var store
     @Environment(GradingStore.self) private var grading
@@ -47,6 +56,7 @@ struct HoldingSheet: View {
                     history.sheetReveal(5)
                     if let error { Text(error).font(.geist(13)).foregroundStyle(Theme.down) }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
                 .padding(.bottom, onOpenCard == nil ? 24 : 96)

@@ -143,6 +143,9 @@ enum DemoData {
 
     private static let matchKey = "holo.demoReal.v1"
 
+    /// The demo's cards have been matched to the catalog on this phone before.
+    static var hasMatches: Bool { !((UserDefaults.standard.dictionary(forKey: matchKey) ?? [:]).isEmpty) }
+
     /// Each demo item's real catalog id and printing, by slug: kept on the phone after the first
     /// match, else found with the stored catalog search (free).
     static func matchReal() async -> [String: (id: String, printing: String?)] {
