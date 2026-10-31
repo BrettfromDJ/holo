@@ -179,15 +179,18 @@ extension View {
 extension View {
     /// Apple's own Liquid Glass sheet background on iOS 26 (see-through, blurring the page
     /// behind); frosted material on older iOS and older Xcode.
+    /// A dark wash over the glass keeps the blur and see-through but lets what's on it pop.
     @ViewBuilder func nativeGlassSheet() -> some View {
         #if compiler(>=6.2)
         if #available(iOS 26, *) {
-            self
+            background(Color.black.opacity(0.45).ignoresSafeArea())
         } else {
             presentationBackground(.ultraThinMaterial)
+                .background(Color.black.opacity(0.45).ignoresSafeArea())
         }
         #else
         presentationBackground(.ultraThinMaterial)
+            .background(Color.black.opacity(0.45).ignoresSafeArea())
         #endif
     }
 }
