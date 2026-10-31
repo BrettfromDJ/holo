@@ -385,7 +385,7 @@ private struct PerformanceSection: View {
                                 .foregroundStyle(Color.white.opacity(0.6))
                                 .lineStyle(StrokeStyle(lineWidth: 1, dash: [1.5, 4]))
                             PointMark(x: .value("Day", shown.day), y: .value("Value", shown.value))
-                                .foregroundStyle(Color(hex: 0xFFF36A))
+                                .foregroundStyle(Theme.lime)
                                 .symbolSize(70)
                         }
                     }
@@ -1478,7 +1478,7 @@ private struct HomeGlowChip: View {
 
     var body: some View {
         Text(text).font(.geist(13, .semibold)).monospacedDigit().lineLimit(1)
-            .foregroundStyle(palette.ink)
+            .foregroundStyle(palette.wash ?? Theme.lime)
             .padding(.horizontal, 10).padding(.vertical, 4)
             .background { GlowFill(palette: palette) }
             .clipShape(Capsule())

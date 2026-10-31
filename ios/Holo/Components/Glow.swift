@@ -17,8 +17,11 @@ struct GlowPalette: Hashable {
 
     var base: Color
     var blobs: [Blob]
-    /// Text color on the card (white, or near-black on the light mint card).
+    /// Text color on the card.
     var ink: Color = .white
+    /// The original style's faint wash from the top edge: lime for up, pink for down; nil is a
+    /// plain dark card. (The blobs above are from the glow look and are no longer drawn.)
+    var wash: Color? = nil
 
     /// Up overall: teal and green with a pale core, blue and violet at the shoulders.
     static let up = GlowPalette(base: Color(hex: 0x0B2A24), blobs: [
@@ -26,12 +29,12 @@ struct GlowPalette: Hashable {
         Blob(color: Color(hex: 0x7B5CFF), x: 0.9, y: 0.2, size: 0.5),
         Blob(color: Color(hex: 0xDFFFF2), x: 0.5, y: 0.5, size: 0.42, strength: 0.75),
         Blob(color: Color(hex: 0x19D38A), x: 0.5, y: 0.85, size: 0.6),
-    ])
+    ], wash: Theme.lime)
     /// Down: pink into orange.
     static let down = GlowPalette(base: Color(hex: 0x3A0A22), blobs: [
         Blob(color: Color(hex: 0xFF2E9A), x: 0.2, y: 0.25, size: 0.75),
         Blob(color: Color(hex: 0xFF5A1F), x: 0.75, y: 0.8, size: 0.7),
-    ])
+    ], wash: Theme.planPink)
     static let violet = GlowPalette(base: Color(hex: 0x0D0F33), blobs: [
         Blob(color: Color(hex: 0x2F5BFF), x: 0.15, y: 0.15, size: 0.7),
         Blob(color: Color(hex: 0x9B7BFF), x: 0.6, y: 0.75, size: 0.75),
@@ -56,7 +59,7 @@ struct GlowPalette: Hashable {
     static let mint = GlowPalette(base: Color(hex: 0x9EFFD8), blobs: [
         Blob(color: Color(hex: 0x2FE0A0), x: 0.5, y: 0.5, size: 0.85),
         Blob(color: Color(hex: 0x0A1A14), x: 0.5, y: 0.55, size: 0.38, strength: 0.55),
-    ], ink: Color(hex: 0x03130D))
+    ])
     static let ocean = GlowPalette(base: Color(hex: 0x0A0F2E), blobs: [
         Blob(color: Color(hex: 0x7CF5FF), x: 0.2, y: 0.2, size: 0.55),
         Blob(color: Color(hex: 0x2F5BFF), x: 0.6, y: 0.6, size: 0.7),
@@ -163,7 +166,7 @@ struct GlowCard<Content: View>: View {
             .foregroundStyle(palette.ink)
             .background { GlowFill(palette: palette) }
             .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(.white.opacity(0.08)))
+            .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(Theme.border))
     }
 }
 
@@ -172,13 +175,14 @@ struct GlowFill: View {
     var palette: GlowPalette
 
     var body: some View {
-        // Drawn once into a small cached picture per palette and size, then just shown: soft
-        // light looks the same scaled up, and nothing is redrawn while numbers count or the page
-        // scrolls. (Live gradients on every card made the app lag.)
-        GeometryReader { geo in
-            Image(uiImage: GlowImageCache.shared.image(palette, size: geo.size))
-                .resizable()
-                .interpolation(.medium)
+        // The original dark card: surface, a faint light from the top, and for up/down cards a
+        // lime or pink wash from the top edge. Flat and cheap.
+        ZStack {
+            Theme.surface
+            LinearGradient(colors: [.white.opacity(0.035), .clear], startPoint: .top, endPoint: .center)
+            if let wash = palette.wash {
+                LinearGradient(colors: [wash.opacity(0.13), .clear], startPoint: .top, endPoint: .center)
+            }
         }
         .allowsHitTesting(false)
     }
@@ -277,7 +281,7 @@ struct GlowMarker: View {
     var size: CGFloat = 12
 
     var body: some View {
-        Triangle().fill(Color(hex: 0xFFF36A)).frame(width: size, height: size * 0.85)
+        Triangle().fill(Theme.lime).frame(width: size, height: size * 0.85)
     }
 }
 
@@ -326,7 +330,7 @@ struct GlowDial: View {
             tri.addLine(to: CGPoint(x: tip.x + 7, y: tip.y - 14))
             tri.addLine(to: CGPoint(x: tip.x, y: tip.y))
             tri.closeSubpath()
-            ctx.fill(tri, with: .color(Color(hex: 0xFFF36A)))
+            ctx.fill(tri, with: .color(Theme.lime))
         }
         .overlay(alignment: .bottom) {
             VStack(spacing: 10) {
@@ -379,7 +383,7 @@ struct GlowTicks: View {
             tri.addLine(to: CGPoint(x: mx + 5, y: 0))
             tri.addLine(to: CGPoint(x: mx, y: 7))
             tri.closeSubpath()
-            ctx.fill(tri, with: .color(Color(hex: 0xFFF36A)))
+            ctx.fill(tri, with: .color(Theme.lime))
         }
     }
 }
@@ -467,6 +471,7 @@ struct GlowTile<Graphic: View>: View {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text(value).font(.geist(shape == .square ? 28 : 34)).tracking(-1).monospacedDigit()
                         .lineLimit(1).minimumScaleFactor(0.5)
+                        .foregroundStyle(palette.wash ?? palette.ink)
                     if let unit { Text(unit).font(.geist(13)).opacity(0.7) }
                 }
             }
@@ -476,7 +481,7 @@ struct GlowTile<Graphic: View>: View {
         .foregroundStyle(palette.ink)
         .background { GlowFill(palette: palette) }
         .clipShape(shapeR)
-        .overlay(shapeR.strokeBorder(.white.opacity(0.08)))
+        .overlay(shapeR.strokeBorder(Theme.border))
         .modifier(TileAspect(shape: shape))
     }
 }
@@ -556,7 +561,7 @@ struct GlowBars: View {
                     t.addLine(to: CGPoint(x: r.midX + 4, y: r.minY - 9))
                     t.addLine(to: CGPoint(x: r.midX, y: r.minY - 3))
                     t.closeSubpath()
-                    ctx.fill(t, with: .color(Color(hex: 0xFFF36A)))
+                    ctx.fill(t, with: .color(Theme.lime))
                 }
             }
         }
@@ -610,7 +615,7 @@ struct GlowSun: View {
             let rise = CGFloat(min(max(fraction, 0), 1)) * d * 0.55
             ZStack(alignment: .topLeading) {
                 Circle()
-                    .fill(LinearGradient(colors: [.white, Color(hex: 0xA7C4FF)], startPoint: .top, endPoint: .bottom))
+                    .fill(Theme.lime)
                     .frame(width: d, height: d)
                     .position(x: geo.size.width / 2, y: horizon + d / 2 - rise)
                 Rectangle().fill(.black.opacity(0.45))
@@ -667,7 +672,7 @@ struct GlowLine: View {
                 t.addLine(to: CGPoint(x: last.x + 5, y: last.y - 11))
                 t.addLine(to: CGPoint(x: last.x, y: last.y - 3))
                 t.closeSubpath()
-                ctx.fill(t, with: .color(Color(hex: 0xFFF36A)))
+                ctx.fill(t, with: .color(Theme.lime))
             }
         }
     }
@@ -684,7 +689,7 @@ struct GlowPie: View {
         ZStack {
             Circle().fill(LinearGradient(colors: [Color.white.opacity(0.18), Color.white.opacity(0.05)], startPoint: .top, endPoint: .bottom))
             PieWedge(fraction: f)
-                .fill(LinearGradient(colors: [.white, Color(hex: 0xA7C4FF)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                .fill(Theme.lime)
             Circle().strokeBorder(.white.opacity(0.35), style: StrokeStyle(lineWidth: 1, dash: [1, 4]))
                 .padding(-8)
         }

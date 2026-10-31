@@ -414,12 +414,11 @@ extension GlowPalette {
     /// The palette as one flat diagonal gradient (base under its blobs), for small chips and
     /// bars where a full glow card would be too much.
     var chipGradient: LinearGradient {
-        let colors = blobs.prefix(2).map { $0.color.opacity(0.85) }
-        return LinearGradient(colors: colors.count > 1 ? colors : [base] + colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+        LinearGradient(colors: [Theme.surface3, Theme.surface2], startPoint: .top, endPoint: .bottom)
     }
 
     /// The palette's brightest accent, for thin rings and bars on black.
-    var chipAccent: Color { blobs.first?.color ?? base }
+    var chipAccent: Color { wash ?? Theme.lime }
 }
 
 /// A small glass tile: mono label over a figure, like Collection's stat tiles.
