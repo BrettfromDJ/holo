@@ -34,8 +34,7 @@ struct GradingView: View {
         let candidates = self.candidates
         ScrollView {
             VStack(alignment: .leading, spacing: 36) {
-                SlabFanHero(slabs: slabs, value: slabs.reduce(0) { $0 + ($1.value ?? 0) })
-                metrics(slabs)
+                heroTop(slabs)
                 yourSlabs(slabs).reveal()
                 worthGrading(candidates).reveal()
                 atGrader.reveal()
@@ -62,7 +61,7 @@ struct GradingView: View {
 
     // MARK: Numbers
 
-    private func metrics(_ slabs: [HoldingView]) -> some View {
+    private func heroTop(_ slabs: [HoldingView]) -> some View {
         let value = slabs.reduce(0) { $0 + ($1.value ?? 0) }
         let rawEquivalent = slabs.reduce(0.0) { sum, h in
             guard let raw = store.marketPrice(h.identity.productId, printing: h.identity.printing)?.market, h.value != nil else { return sum }
@@ -74,19 +73,23 @@ struct GradingView: View {
         }.count
         let sentCount = grading.sent.reduce(0) { $0 + $1.quantity }
         let premium = value - rawEquivalent
-        return LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-            CountTile(label: "Slabs", value: slabs.reduce(0) { $0 + $1.quantity }, format: { "\(Int($0.rounded()))" },
-                      sub: slabs.isEmpty ? "None yet" : "Graded cards you hold", glow: Theme.lime)
-                .popIn(delay: 0.05)
-            CountTile(label: "Grading premium", value: rawEquivalent > 0 ? premium : nil, format: { Format.signedMoney($0) }, valueTint: Theme.tone(premium),
-                      sub: rawEquivalent > 0 ? "vs \(Format.money(rawEquivalent)) raw" : "Slab value over raw", glow: premium < 0 ? Theme.planPink : Theme.lime,
-                      tag: rawEquivalent > 0 ? String(format: "%.1f×", value / rawEquivalent) : nil)
-                .popIn(delay: 0.1)
-            CountTile(label: "At the grader", value: sentCount, format: { "\(Int($0.rounded()))" },
-                      sub: grading.sent.isEmpty ? "Nothing out" : "\(grading.sent.count) submission\(grading.sent.count == 1 ? "" : "s")", glow: Theme.planBlue)
-                .popIn(delay: 0.15)
-            CountTile(label: "Values to refresh", value: Double(stale), format: { "\(Int($0.rounded()))" }, sub: "Your values over 60 days old", glow: Theme.planPink)
-                .popIn(delay: 0.2)
+        let count = Int(slabs.reduce(0) { $0 + $1.quantity })
+        return SlabFanHero(slabs: slabs, value: value) {
+            HStack(spacing: 8) {
+                Text("\(count) slab\(count == 1 ? "" : "s")").font(.geist(13, .semibold)).monospacedDigit()
+                    .foregroundStyle(Theme.ink)
+                    .padding(.horizontal, 8).padding(.vertical, 3)
+                    .background(Theme.lime, in: RoundedRectangle(cornerRadius: 6))
+                if rawEquivalent > 0 {
+                    Text(String(format: "%.1f× what they're worth raw", value / rawEquivalent)).font(.geist(13)).foregroundStyle(Theme.muted)
+                }
+            }
+        } below: {
+            HStack(spacing: 8) {
+                GlassStat(label: "Premium", value: rawEquivalent > 0 ? Format.signedMoney(premium) : "—", tint: rawEquivalent > 0 ? Theme.tone(premium) : .white)
+                GlassStat(label: "At grader", value: "\(Int(sentCount))")
+                GlassStat(label: "To refresh", value: "\(stale)")
+            }
         }
     }
 

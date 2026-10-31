@@ -39,10 +39,9 @@ struct GainsView: View {
                                 mode: mode, group: group, maxRows: expanded ? nil : Self.collapsedRows)
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
-                TugOfWarHero(label: label, total: a.total, gains: a.gains, losses: a.losses,
+                TugOfWarHero(label: label, hint: hint, total: a.total, gains: a.gains, losses: a.losses,
                              leaders: a.steps.filter { $0.gain > 0 && $0.members == nil })
                     .id("\(mode.rawValue)\(group.rawValue)")
-                Text(hint).font(.geist(13)).foregroundStyle(Theme.muted)
                 ChipPicker(options: [(.unrealized, "Unrealized"), (.realized, "Realized"), (.all, "All-time")], selection: $mode)
                 VStack(alignment: .leading, spacing: 16) {
                     HStack(alignment: .center) {

@@ -31,13 +31,18 @@ struct AnalyticsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 40) {
                 ValueLineHero(label: "Total return", value: total, points: timeline) {
+                    HStack(spacing: 8) {
+                        if s.totalCost > 0 { DeltaPill(ratio: total / s.totalCost, size: 13) }
+                        Text("on \(Format.money(s.totalCost)) invested").font(.geist(13)).foregroundStyle(Theme.muted)
+                    }
+                } below: {
                     VStack(alignment: .leading, spacing: 14) {
-                        if s.totalCost > 0 {
-                            HStack(spacing: 8) {
-                                DeltaPill(ratio: total / s.totalCost, size: 13)
-                                Text("on \(Format.money(s.totalCost)) invested").font(.geist(14)).foregroundStyle(Theme.muted)
-                            }
+                        HStack(spacing: 8) {
+                            GlassStat(label: "Time-weighted", value: Format.signedPercent(risk.totalReturn), tint: Theme.tone(risk.totalReturn))
+                            GlassStat(label: "Realized", value: Format.signedMoney(s.realized), tint: Theme.tone(s.realized))
+                            GlassStat(label: "Invested", value: Format.money(s.totalCost))
                         }
+                        AllocationBar(holdings: holdings, total: s.value)
                         NavigationLink(value: MorePage.gains) {
                             Label("Where it comes from", systemImage: "chart.bar.xaxis").lineLimit(1)
                         }
@@ -51,11 +56,6 @@ struct AnalyticsView: View {
                 ReturnVsTime(points: Analytics.returnVsTime(holdings, today: today)).reveal()
                 TypeBreakdown(groups: Analytics.byType(holdings)).reveal()
                 Diversification(c: Analytics.concentration(holdings), holdings: holdings).reveal()
-                VStack(alignment: .leading, spacing: 16) {
-                    MoreHeading(title: "Allocation", subtitle: "Exposure by market value")
-                    AllocationBar(holdings: holdings, total: s.value)
-                }
-                .reveal()
                 activity.reveal()
                 sets(holdings).reveal()
                 rank("Best investments", best: true, holdings: holdings, empty: "No holdings are in profit yet.").reveal()
@@ -81,9 +81,6 @@ struct AnalyticsView: View {
         let short = { (d: String?) in d.flatMap { Format.isoDay.date(from: $0)?.formatted(.dateTime.month(.abbreviated).day()) } ?? "—" }
         let glow = { (v: Double?) in (v ?? 0) < 0 ? Theme.planPink : Theme.lime }
         return LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-            CountTile(label: "Time-weighted", value: risk.totalReturn, format: { Format.signedPercent($0) }, valueTint: Theme.tone(risk.totalReturn),
-                      sub: risk.annualized.map { "\(Format.signedPercent($0)) a year" } ?? "Market moves only", glow: glow(risk.totalReturn))
-                .popIn(delay: 0.05)
             CountTile(label: "Max drawdown", value: risk.maxDrawdown, format: { percent($0, 1) }, valueTint: Theme.tone(risk.maxDrawdown),
                       sub: risk.maxDrawdownTo != nil ? "\(short(risk.maxDrawdownFrom)) → \(short(risk.maxDrawdownTo))" : "No dips yet", glow: Theme.planPink)
                 .popIn(delay: 0.1)
@@ -99,9 +96,6 @@ struct AnalyticsView: View {
                 .popIn(delay: 0.3)
             CountTile(label: "Volatility", value: risk.volatility, format: { percent($0, 0) }, sub: "Annualized swing in value", glow: Theme.planBlue)
                 .popIn(delay: 0.35)
-            CountTile(label: "Realized", value: s.realized, format: { Format.signedMoney($0) }, valueTint: Theme.tone(s.realized),
-                      sub: "\(sales) sale\(sales == 1 ? "" : "s") & write-offs", glow: glow(s.realized))
-                .popIn(delay: 0.4)
         }
     }
 

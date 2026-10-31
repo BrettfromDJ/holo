@@ -59,17 +59,22 @@ struct MasterSetsView: View {
                     }
                     .frame(maxWidth: .infinity).padding(.vertical, 80)
                 } else {
-                    setPicker(sets, current: current)
                     if let current {
                         let entries = entries(for: current)
-                        progress(current, entries: entries)
+                        // The top, like Collection's: on the same lit grid.
+                        VStack(alignment: .leading, spacing: 22) {
+                            progress(current, entries: entries)
+                            setPicker(sets, current: current)
+                        }
+                        .background(alignment: .top) {
+                            CollectionBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
+                        }
                         controls(entries)
                         grid(entries)
                     }
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.top, 8)
             .padding(.bottom, 120)
         }
         .background(Theme.background)
@@ -185,36 +190,37 @@ struct MasterSetsView: View {
         let known = checklists[set.id] != nil
         let missingValue = entries.filter { !$0.owned }.compactMap(\.hit.market).reduce(0, +)
         let ownedValue = entries.flatMap(\.holdings).reduce(0) { $0 + ($1.value ?? 0) }
-        return VStack(alignment: .leading, spacing: 16) {
-            DisplayText(text: set.name.uppercased(), size: 34)
-            HStack(alignment: .lastTextBaseline, spacing: 12) {
+        return VStack(alignment: .leading, spacing: 18) {
+            // Laid out like the top of Collection: label, big figure, a line under it.
+            VStack(alignment: .leading, spacing: 8) {
+                MonoLabel(text: set.name)
                 CountingText(value: known ? ratio * 100 : Double(owned), format: { known ? "\(Int($0.rounded()))%" : "\(Int($0.rounded()))" })
-                    .font(.display(76)).monospacedDigit().foregroundStyle(Theme.lime).displayTrim(76)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(known ? "\(owned) of \(total)" : "cards owned").font(.geist(17, .semibold)).monospacedDigit()
-                    Text(known ? "cards collected" : "Full list not in Holo yet").font(.geist(13)).foregroundStyle(Theme.muted)
+                    .font(.display(56)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.5)
+                    .displayTrim(56)
+                    .shadow(color: .white.opacity(0.12), radius: 18)
+                HStack(spacing: 8) {
+                    if known {
+                        Text("\(owned) of \(total)").font(.geist(13, .semibold)).monospacedDigit()
+                            .foregroundStyle(Theme.ink)
+                            .padding(.horizontal, 8).padding(.vertical, 3)
+                            .background(Theme.lime, in: RoundedRectangle(cornerRadius: 6))
+                        Text("cards collected").font(.geist(13)).foregroundStyle(Theme.muted)
+                    } else {
+                        Text("cards owned · full list not in Holo yet").font(.geist(13)).foregroundStyle(Theme.muted)
+                    }
                 }
             }
+            .padding(.top, 8)
             if known {
                 // Every card in the set as one tick, lit if you own it, sweeping in left to right.
                 SetStrip(owned: entries.map(\.owned))
-                HStack(spacing: 10) {
-                    stat("You own", Format.money(ownedValue), .white)
-                    stat("To finish", missingValue > 0 ? Format.money(missingValue) : "—", .white)
-                    stat("Missing", "\(total - owned)", .white)
+                HStack(spacing: 8) {
+                    GlassStat(label: "You own", value: Format.money(ownedValue))
+                    GlassStat(label: "To finish", value: missingValue > 0 ? Format.money(missingValue) : "—")
+                    GlassStat(label: "Missing", value: "\(total - owned)")
                 }
             }
         }
-    }
-
-    private func stat(_ label: String, _ value: String, _ tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            MonoLabel(text: label)
-            Text(value).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(tint).lineLimit(1).minimumScaleFactor(0.7)
-        }
-        .padding(.horizontal, 12).padding(.vertical, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .liquidGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     // MARK: Search, sort, filter

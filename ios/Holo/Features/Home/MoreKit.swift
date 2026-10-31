@@ -152,46 +152,42 @@ extension View {
 
 // MARK: - Page tops (each More page opens differently)
 
-/// Analytics: the big total return over your value line for the last six months, drawing in.
-struct ValueLineHero<Below: View>: View {
+/// Analytics: laid out like the top of Collection: label, the big total return, a line under it,
+/// the last six months drawing in, then whatever goes below (glass tiles), on the same lit grid.
+struct ValueLineHero<Line: View, Below: View>: View {
     var label: String
     var value: Double
     var points: [TimelinePoint]
+    @ViewBuilder var line: Line
     @ViewBuilder var below: Below
 
     var body: some View {
-        let tone = value >= 0 ? Theme.lime : Theme.planPink
         let recent = Array(points.suffix(180))
-        VStack(alignment: .leading, spacing: 10) {
-            MonoLabel(text: label)
-            CountingText(value: value, format: { Format.signedMoney($0) })
-                .font(.display(60)).monospacedDigit().foregroundStyle(tone)
-                .lineLimit(1).minimumScaleFactor(0.5).displayTrim(60)
+        let change = (recent.last?.value ?? 0) - (recent.first?.value ?? 0)
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 8) {
+                MonoLabel(text: label)
+                CountingText(value: value, format: { Format.signedMoney($0) })
+                    .font(.display(56)).monospacedDigit().foregroundStyle(value >= 0 ? Theme.lime : Theme.planPink)
+                    .lineLimit(1).minimumScaleFactor(0.5).displayTrim(56)
+                line
+            }
+            .padding(.top, 8)
             if recent.count > 1 {
-                let lo = recent.map(\.value).min() ?? 0
-                let hi = recent.map(\.value).max() ?? 1
-                Chart(recent) { p in
-                    AreaMark(x: .value("Day", p.day), yStart: .value("Floor", lo - (hi - lo) * 0.15), yEnd: .value("Value", p.value))
-                        .foregroundStyle(LinearGradient(colors: [tone.opacity(0.25), tone.opacity(0)], startPoint: .top, endPoint: .bottom))
-                        .interpolationMethod(.monotone)
-                    LineMark(x: .value("Day", p.day), y: .value("Value", p.value))
-                        .foregroundStyle(tone).lineStyle(StrokeStyle(lineWidth: 2.5)).interpolationMethod(.monotone)
-                }
-                .chartXAxis(.hidden)
-                .chartYAxis(.hidden)
-                .chartYScale(domain: (lo - (hi - lo) * 0.15)...(hi + (hi - lo) * 0.05 + 0.01))
-                .frame(height: 120)
-                .padding(.horizontal, -16)
-                .drawIn(duration: 1.4)
-                HStack {
-                    Text("6 months ago").font(.mono(10)).foregroundStyle(Theme.subtle)
-                    Spacer()
-                    Text("Now \(Format.money(recent.last?.value ?? 0))").font(.mono(10)).foregroundStyle(Theme.subtle)
+                VStack(alignment: .leading, spacing: 6) {
+                    Sparkline(points: recent, color: change < 0 ? Theme.planPink : Theme.lime).frame(height: 54)
+                    HStack {
+                        MonoLabel(text: "Last 6 months")
+                        Spacer()
+                        Text(Format.signedMoney(change)).font(.geist(12, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(change))
+                    }
                 }
             }
-            below.padding(.top, 6)
+            below
         }
-        .padding(.top, 8)
+        .background(alignment: .top) {
+            CollectionBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
+        }
     }
 }
 
@@ -199,6 +195,7 @@ struct ValueLineHero<Below: View>: View {
 /// the middle, with the three biggest movers underneath.
 struct TugOfWarHero: View {
     var label: String
+    var hint: String
     var total: Double
     var gains: Double
     var losses: Double
@@ -210,12 +207,15 @@ struct TugOfWarHero: View {
         let sum = max(gains + abs(losses), 0.01)
         let up = gains / sum
         VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 10) {
+            // Laid out like the top of Collection: label, big figure, a line under it.
+            VStack(alignment: .leading, spacing: 8) {
                 MonoLabel(text: label)
                 CountingText(value: total, format: { Format.signedMoney($0) })
-                    .font(.display(60)).monospacedDigit().foregroundStyle(total >= 0 ? Theme.lime : Theme.planPink)
-                    .lineLimit(1).minimumScaleFactor(0.5).displayTrim(60)
+                    .font(.display(56)).monospacedDigit().foregroundStyle(total >= 0 ? Theme.lime : Theme.planPink)
+                    .lineLimit(1).minimumScaleFactor(0.5).displayTrim(56)
+                Text(hint).font(.geist(13)).foregroundStyle(Theme.muted)
             }
+            .padding(.top, 8)
             VStack(spacing: 14) {
                 // The same bar as Allocation: two thin capsules with a gap, growing in.
                 GeometryReader { geo in
@@ -235,16 +235,10 @@ struct TugOfWarHero: View {
                     }
                 }
                 .frame(height: 10)
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(Format.signedMoney(gains)).font(.display(20)).monospacedDigit().foregroundStyle(Theme.lime).displayTrim(20)
-                        MonoLabel(text: "Pulling up")
-                    }
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text(Format.signedMoney(losses)).font(.display(20)).monospacedDigit().foregroundStyle(Theme.planPink).displayTrim(20)
-                        MonoLabel(text: "Pulling down")
-                    }
+                // Glass stat tiles, like Collection's.
+                HStack(spacing: 8) {
+                    GlassStat(label: "Pulling up", value: Format.signedMoney(gains), tint: gains > 0 ? Theme.up : .white)
+                    GlassStat(label: "Pulling down", value: Format.signedMoney(losses), tint: losses < 0 ? Theme.down : .white)
                 }
             }
             if !leaders.isEmpty {
@@ -266,7 +260,9 @@ struct TugOfWarHero: View {
                 }
             }
         }
-        .padding(.top, 8)
+        .background(alignment: .top) {
+            CollectionBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
+        }
         .onAppear { pull() }
         .onReplay {
             pulled = false
@@ -280,42 +276,50 @@ struct TugOfWarHero: View {
     }
 }
 
-/// Grading: your three best slabs fanned out like a hand, rising in, with their value below.
-struct SlabFanHero: View {
+/// Grading: laid out like the top of Collection (label, big figure, a line under it, glass
+/// tiles) with your three best slabs dealt into a fan beside the figure, on the same lit grid.
+struct SlabFanHero<Line: View, Below: View>: View {
     var slabs: [HoldingView]
     var value: Double
+    @ViewBuilder var line: Line
+    @ViewBuilder var below: Below
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var dealt = false
 
     var body: some View {
         let top = Array(slabs.prefix(3))
-        VStack(spacing: 14) {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 8) {
+                MonoLabel(text: slabs.isEmpty ? "No slabs yet" : "Your slabs are worth")
+                CountingText(value: value, format: { Format.money($0) })
+                    .font(.display(56)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.5)
+                    .displayTrim(56)
+                    .shadow(color: .white.opacity(0.12), radius: 18)
+                line
+            }
+            .padding(.top, 8)
             if !top.isEmpty {
                 ZStack {
                     // Back to front: second-best left, third right, the best in the middle.
                     ForEach(order(top.count), id: \.self) { i in
-                        let angle: Double = top.count == 1 ? 0 : i == 0 ? 0 : i == 1 ? -14 : 14
-                        let x: CGFloat = top.count == 1 ? 0 : i == 0 ? 0 : i == 1 ? -92 : 92
+                        let angle: Double = top.count == 1 ? 0 : i == 0 ? 0 : i == 1 ? -12 : 12
+                        let x: CGFloat = top.count == 1 ? 0 : i == 0 ? 0 : i == 1 ? -84 : 84
                         HoldingArt(product: top[i].product, identity: top[i].identity, caption: false)
-                            .frame(width: 128, height: 200)
+                            .frame(width: 112, height: 176)
                             .rotationEffect(.degrees(dealt || reduceMotion ? angle : 0), anchor: .bottom)
-                            .offset(x: dealt || reduceMotion ? x : 0, y: dealt || reduceMotion ? (i == 0 ? -6 : 10) : 60)
+                            .offset(x: dealt || reduceMotion ? x : 0, y: dealt || reduceMotion ? (i == 0 ? -4 : 8) : 50)
                             .opacity(dealt || reduceMotion ? 1 : 0)
                             .zIndex(i == 0 ? 2 : 1)
                     }
                 }
-                .frame(height: 230)
+                .frame(height: 200)
                 .frame(maxWidth: .infinity)
             }
-            VStack(spacing: 6) {
-                MonoLabel(text: slabs.isEmpty ? "No slabs yet" : "Your slabs are worth")
-                CountingText(value: value, format: { Format.money($0) })
-                    .font(.display(56)).monospacedDigit().foregroundStyle(.white)
-                    .lineLimit(1).minimumScaleFactor(0.5).displayTrim(56)
-            }
-            .frame(maxWidth: .infinity)
+            below
         }
-        .padding(.top, 8)
+        .background(alignment: .top) {
+            CollectionBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
+        }
         .onAppear { deal() }
         .onReplay {
             dealt = false
@@ -328,5 +332,23 @@ struct SlabFanHero: View {
     private func deal() {
         guard !reduceMotion else { return }
         withAnimation(.spring(response: 0.8, dampingFraction: 0.72).delay(0.15)) { dealt = true }
+    }
+}
+
+/// A small glass tile: mono label over a figure, like Collection's stat tiles.
+struct GlassStat: View {
+    var label: String
+    var value: String
+    var tint: Color = .white
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            MonoLabel(text: label)
+            Text(value).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(tint).lineLimit(1).minimumScaleFactor(0.7)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }

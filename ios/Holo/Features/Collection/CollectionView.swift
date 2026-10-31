@@ -451,7 +451,7 @@ struct AllocationBar: View {
 
 /// The lit backdrop behind the top of Collection: the website's faint grid with still lime, pink
 /// and blue glows, fading out toward the holdings.
-private struct CollectionBackdrop: View {
+struct CollectionBackdrop: View {
     var body: some View {
         ZStack {
             GridPattern(step: 36, opacity: 0.05)
