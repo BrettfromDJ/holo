@@ -192,7 +192,7 @@ extension View {
     }
 }
 
-/// A full-width Liquid Glass capsule button (frosted on older iOS), for buttons on glass sheets.
+/// A full-width translucent capsule button, for buttons on glass sheets.
 struct GlassButton: ButtonStyle {
     var height: CGFloat = 46
 
@@ -202,7 +202,9 @@ struct GlassButton: ButtonStyle {
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity, minHeight: height)
             .contentShape(Capsule())
-            .liquidGlass(in: Capsule(), interactive: true)
+            // Sits on glass sheets: a faint fill reads better than glass on glass.
+            .background(Capsule().fill(Color.white.opacity(configuration.isPressed ? 0.14 : 0.09)))
+            .overlay(Capsule().strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
     }

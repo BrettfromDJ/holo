@@ -130,10 +130,10 @@ struct HoldingSheet: View {
 
     private func tiles(_ h: HoldingView) -> some View {
         LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
-            GlassStat(label: "Quantity", value: "\(Int(h.quantity))")
-            GlassStat(label: "You paid", value: Format.money(h.costBasis))
-            GlassStat(label: "Average cost", value: Format.money(h.avgCost))
-            GlassStat(label: "Each now", value: Format.money(h.price))
+            SheetStat(label: "Quantity", value: "\(Int(h.quantity))")
+            SheetStat(label: "You paid", value: Format.money(h.costBasis))
+            SheetStat(label: "Average cost", value: Format.money(h.avgCost))
+            SheetStat(label: "Each now", value: Format.money(h.price))
         }
     }
 
@@ -148,8 +148,8 @@ struct HoldingSheet: View {
         return VStack(alignment: .leading, spacing: 12) {
             MonoLabel(text: "If graded")
             HStack(spacing: 8) {
-                GlassStat(label: "PSA 10", value: (ten.1 ? "≈ " : "") + Format.money(ten.0), tint: Theme.lime)
-                GlassStat(label: "PSA 9", value: (nine.1 ? "≈ " : "") + Format.money(nine.0))
+                SheetStat(label: "PSA 10", value: (ten.1 ? "≈ " : "") + Format.money(ten.0), tint: Theme.lime)
+                SheetStat(label: "PSA 9", value: (nine.1 ? "≈ " : "") + Format.money(nine.0))
             }
             Text(ten.1 ? "Estimates from the usual grade curve. The card page has every grade." : "From PriceCharting. The card page has every grade.")
                 .font(.geist(12)).foregroundStyle(Theme.subtle)
@@ -174,7 +174,7 @@ struct HoldingSheet: View {
             }
         }
         .padding(14)
-        .liquidGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .sheetPanel(radius: 16)
     }
 
     private func row(icon: String, title: String, value: String, action: @escaping () -> Void) -> some View {
@@ -221,7 +221,7 @@ struct HoldingSheet: View {
                 if entries.isEmpty { Text("No entries.").font(.geist(14)).foregroundStyle(Theme.muted).padding(.vertical, 10) }
             }
             .padding(14)
-            .liquidGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .sheetPanel(radius: 16)
         }
     }
 }
@@ -449,5 +449,33 @@ struct ManualValueSheet: View {
         } catch {
             self.error = error.localizedDescription
         }
+    }
+}
+
+/// A figure tile for a glass sheet: a faint white fill and hairline edge, which reads cleanly on
+/// glass (glass on glass turns blotchy).
+struct SheetStat: View {
+    var label: String
+    var value: String
+    var tint: Color = .white
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            MonoLabel(text: label).lineLimit(1).minimumScaleFactor(0.6)
+            Text(value).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(tint).lineLimit(1).minimumScaleFactor(0.7)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, minHeight: 58, maxHeight: 58, alignment: .leading)
+        .sheetPanel(radius: 14)
+    }
+}
+
+extension View {
+    /// A panel on a glass sheet: faint white fill, hairline white edge.
+    func sheetPanel(radius: CGFloat) -> some View {
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        return background(shape.fill(Color.white.opacity(0.07)))
+            .overlay(shape.strokeBorder(Color.white.opacity(0.1), lineWidth: 1))
     }
 }
