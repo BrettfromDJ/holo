@@ -23,7 +23,7 @@ import { Sparkline } from "./sparkline";
 function Heading({ title = "Recently added", tone = "light" }: { title?: string; tone?: "light" | "dark" }) {
   return (
     <div className="mb-5 flex items-center justify-between gap-3">
-      <h2 className="flex items-center gap-2.5 font-display text-[24px] uppercase leading-none tracking-[0.01em] sm:text-[28px]">
+      <h2 className="flex items-center gap-2.5 font-display text-[19px] leading-none sm:text-[22px]">
         <span aria-hidden className={cn("h-[0.7em] w-1.5 rounded-full", tone === "light" ? "bg-lime shadow-[0_0_12px_var(--lime)]" : "bg-[#0b0b0c]")} />
         {title}
       </h2>
@@ -199,7 +199,7 @@ export function ActivityTicker({ holdings }: { holdings: HoldingView[] }) {
                 className="group relative flex items-center gap-4 py-3.5"
               >
                 <span className="w-7 shrink-0 font-mono text-[11px] text-subtle">0{i + 1}</span>
-                <span className="min-w-0 flex-1 truncate font-display text-[19px] uppercase leading-none tracking-[0.01em] transition-transform duration-300 ease-[var(--ease-apple)] group-hover:translate-x-2 sm:text-[30px]">
+                <span className="min-w-0 flex-1 truncate font-display text-[15px] leading-none transition-transform duration-300 ease-[var(--ease-apple)] group-hover:translate-x-2 sm:text-[24px]">
                   {h.product?.name}
                 </span>
                 <span className="hidden shrink-0 font-mono text-[11px] uppercase tracking-[0.06em] text-subtle sm:block">{formatDate(h.lastAcquired)}</span>
@@ -240,7 +240,7 @@ export function ActivityDeck({ holdings }: { holdings: HoldingView[] }) {
         </div>
         <div key={`${h.key}-t`} className="animate-rise min-w-0">
           <span className="tag-skew tag-white">{sel === 0 ? "Just added" : formatDate(h.lastAcquired)}</span>
-          <h3 className="mt-3 line-clamp-2 font-display text-[30px] uppercase leading-[0.98] tracking-[0.01em] sm:text-[38px]">{h.product?.name}</h3>
+          <h3 className="mt-3 line-clamp-2 font-display text-[24px] leading-[0.98] sm:text-[30px]">{h.product?.name}</h3>
           <p className="mt-1 truncate text-[13px] text-muted">{h.product?.setName}</p>
           <p className={cn("hype-num tabular mt-5 text-[40px] leading-none", g === null ? "" : g >= 0 ? "text-up" : "text-down")}>{g === null ? money(h.value) : signedMoney(g)}</p>
           <p className="mt-2 text-[13px] text-muted">
@@ -342,7 +342,7 @@ export function ActivityHand({ holdings }: { holdings: HoldingView[] }) {
       <Link key={h.key} href={holdingHref(h)} className="animate-rise mt-6 flex items-end justify-between gap-4 border-t border-white/[0.08] pt-4">
         <div className="min-w-0">
           <p className="font-mono text-[10px] uppercase tracking-[0.06em] text-subtle">{formatDate(h.lastAcquired)}</p>
-          <p className="truncate font-display text-[22px] uppercase leading-tight tracking-[0.01em]">{h.product?.name}</p>
+          <p className="truncate font-display text-[18px] leading-tight ">{h.product?.name}</p>
         </div>
         <div className="shrink-0 text-right">
           <p className="hype-num tabular text-[20px]">{money(h.value)}</p>
@@ -412,7 +412,7 @@ export function ActivityPeriods({ holdings }: { holdings: HoldingView[] }) {
           return (
             <section key={grp.name} className="min-w-0 rounded-2xl bg-background/40 p-4 ring-1 ring-inset ring-white/[0.06]">
               <div className="flex items-baseline justify-between gap-2">
-                <h3 className="font-display text-[18px] uppercase tracking-[0.01em]">{grp.name}</h3>
+                <h3 className="font-display text-[14px] ">{grp.name}</h3>
                 <span className={cn("hype-num tabular text-[15px]", worth >= paid ? "text-up" : "text-down")}>{signedMoney(worth - paid)}</span>
               </div>
               <p className="tabular mt-0.5 font-mono text-[10px] uppercase tracking-[0.06em] text-subtle">

@@ -41,7 +41,7 @@ export function MetricStrip({ items, tinted = true }: { items: Metric[]; tinted?
           const inner = (
             <>
               <div className="flex items-center justify-between gap-2">
-                <p className="font-display text-[15px] uppercase leading-none tracking-[0.02em] text-foreground/85">{m.label}</p>
+                <p className="font-display text-[12px] leading-none text-foreground/85">{m.label}</p>
                 {m.tag}
               </div>
               <p className="hype-num tabular mt-4 text-[28px] leading-none sm:text-[34px]">{m.value}</p>
@@ -146,7 +146,7 @@ export function Spotlight({ holdings }: { holdings: HoldingView[] }) {
             <div aria-hidden className="absolute inset-x-[12%] -bottom-4 h-8 rounded-[50%] bg-black/60 blur-xl" />
             {/* Floating chips, like labels hovering over a stage. */}
             {star.unrealizedPct !== null && (
-              <span className="float-chip absolute -right-4 top-[8%] z-10 rounded-full bg-lime px-3 py-1.5 font-display text-[15px] uppercase leading-none text-[#0b0b0c] shadow-[0_8px_24px_-4px_color-mix(in_srgb,var(--lime)_60%,transparent)] sm:-right-10">
+              <span className="float-chip absolute -right-4 top-[8%] z-10 rounded-full bg-lime px-3 py-1.5 font-display text-[12px] leading-none text-[#0b0b0c] shadow-[0_8px_24px_-4px_color-mix(in_srgb,var(--lime)_60%,transparent)] sm:-right-10">
                 {signedPct(star.unrealizedPct, 0)}
               </span>
             )}
@@ -163,7 +163,7 @@ export function Spotlight({ holdings }: { holdings: HoldingView[] }) {
             <span className="tag-skew tag-lime self-start">
               <Sparkles className="size-3" /> Star of the collection
             </span>
-            <h3 className="mt-4 line-clamp-3 text-balance font-display text-[30px] uppercase leading-[0.98] tracking-[0.01em] sm:text-[40px]">{star.product?.name}</h3>
+            <h3 className="mt-4 line-clamp-3 text-balance font-display text-[24px] leading-[0.98] sm:text-[32px]">{star.product?.name}</h3>
             <p className="mt-2 truncate text-[13px] text-muted">{[star.product?.setName, holdingLabel(star)].filter(Boolean).join(" · ")}</p>
             <p className="hype-num tabular mt-6 text-[40px] font-semibold leading-none tracking-[-0.035em] sm:text-[52px]">
               <span className="text-up">
@@ -273,7 +273,7 @@ export function Shelf({ holdings, title = "Your shelf", subtitle }: { holdings: 
     <section aria-label={title}>
       <div className="mb-4 flex items-end justify-between gap-4">
         <div>
-          <h2 className="flex items-center gap-2.5 font-display text-[26px] uppercase leading-none tracking-[0.01em] sm:text-[32px]">
+          <h2 className="flex items-center gap-2.5 font-display text-[21px] leading-none sm:text-[26px]">
             {title}
           </h2>
           {subtitle && <p className="mt-1.5 text-[13px] text-muted">{subtitle}</p>}
@@ -302,7 +302,7 @@ export function Shelf({ holdings, title = "Your shelf", subtitle }: { holdings: 
           }}
         />
         <div
-          className="scrollbar-none relative overflow-x-auto"
+          className="fade-row scrollbar-none relative overflow-x-auto"
           // Items fade out at the edges as they scroll away.
           style={{ maskImage: "linear-gradient(90deg, transparent, black 5%, black 95%, transparent)", WebkitMaskImage: "linear-gradient(90deg, transparent, black 5%, black 95%, transparent)" }}
         >

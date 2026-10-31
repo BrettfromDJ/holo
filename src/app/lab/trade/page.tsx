@@ -64,26 +64,26 @@ export default function TradeLabPage() {
           { value: "win", label: "You win" },
         ]}
       />
-      <h2 className="mt-10 font-display text-[24px] uppercase">Round two</h2>
+      <h2 className="mt-10 font-display text-[19px] ">Round two</h2>
       <div className="mt-4 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
         {roundTwo.map((o) => (
           <section key={o.id} className="min-w-0">
             <p className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <span className="tag-skew tag-lime">{o.id}</span>
-              <span className="font-display text-[20px] uppercase tracking-[0.01em]">{o.name}</span>
+              <span className="font-display text-[16px] ">{o.name}</span>
             </p>
             <p className="mb-3 text-[13px] text-muted">{o.note}</p>
             <div className="rounded-[var(--radius-card)] border border-border bg-surface p-5">{o.el}</div>
           </section>
         ))}
       </div>
-      <h2 className="mt-14 font-display text-[24px] uppercase text-muted">Round one</h2>
+      <h2 className="mt-14 font-display text-[19px] text-muted">Round one</h2>
       <div className="mt-4 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
         {options.map((o) => (
           <section key={o.id} className="min-w-0">
             <p className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <span className="tag-skew tag-lime">{o.id}</span>
-              <span className="font-display text-[20px] uppercase tracking-[0.01em]">{o.name}</span>
+              <span className="font-display text-[16px] ">{o.name}</span>
             </p>
             <p className="mb-3 text-[13px] text-muted">{o.note}</p>
             <div className="rounded-[var(--radius-card)] border border-border bg-surface p-5">{o.el}</div>

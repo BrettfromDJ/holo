@@ -19,7 +19,7 @@ import { ErrorState } from "@/components/portfolio/error-state";
 import { PerformanceChart } from "@/components/portfolio/performance-chart";
 import { Badge } from "@/components/ui/badge";
 import { Segmented } from "@/components/ui/segmented";
-import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingDeck } from "@/components/motion/loading-deck";
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { formatDate, money, relativeTime, signedPct } from "@/lib/format";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
@@ -49,7 +49,7 @@ export default function OverviewPage() {
 
   const recent = useMemo(() => [...holdings].sort((a, b) => ((b.lastAcquired ?? "") > (a.lastAcquired ?? "") ? 1 : -1)).slice(0, 5), [holdings]);
 
-  if (store.status === "loading") return <OverviewSkeleton />;
+  if (store.status === "loading") return <LoadingDeck />;
   if (store.status === "error") return <ErrorState message={store.error} />;
   if (!store.data.transactions.length) {
     return <EmptyCollection />;
@@ -174,21 +174,6 @@ function PriceFreshness() {
         </button>
       )}
       {priceError && <span className="text-down">{priceError}</span>}
-    </div>
-  );
-}
-
-function OverviewSkeleton() {
-  return (
-    <div aria-busy="true" aria-label="Loading portfolio">
-      <Skeleton className="h-4 w-28" />
-      <Skeleton className="mt-3 h-14 w-72" />
-      <Skeleton className="mt-6 h-[280px] w-full rounded-3xl" />
-      <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-28" />
-        ))}
-      </div>
     </div>
   );
 }

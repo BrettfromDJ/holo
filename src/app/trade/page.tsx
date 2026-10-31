@@ -279,8 +279,8 @@ function TradeMat({
     <section className={cn("tint hype-surface min-w-0 overflow-hidden rounded-[var(--radius-card)]", side === "give" ? "tint-pink" : "tint-lime")}>
       <div className="flex items-start justify-between gap-3 px-5 pt-5 sm:px-6">
         <div>
-          <h2 className="font-display text-[18px] uppercase leading-none tracking-[0.02em] text-foreground/85">{label}</h2>
-          <p className="tabular mt-2 font-display text-[36px] leading-none">{money(total)}</p>
+          <h2 className="font-display text-[14px] leading-none text-foreground/85">{label}</h2>
+          <p className="tabular mt-2 font-display text-[29px] leading-none">{money(total)}</p>
         </div>
         <Select value={String(rate)} onValueChange={(v) => onRate(Number(v))}>
           <SelectTrigger aria-label="Count at" className="h-8 w-[150px] text-[12px]">

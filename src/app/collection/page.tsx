@@ -20,6 +20,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Segmented } from "@/components/ui/segmented";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingDeck } from "@/components/motion/loading-deck";
 import { categoryOf, PRODUCT_CATEGORIES } from "@/lib/catalog";
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { money, signedMoney, signedPct } from "@/lib/format";
@@ -136,7 +137,7 @@ function Collection() {
   };
   const activeFilters = (setName !== "all" ? 1 : 0) + (category !== "all" ? 1 : 0) + (perf !== "all" ? 1 : 0);
 
-  if (store.status === "loading") return <GridSkeleton />;
+  if (store.status === "loading") return <LoadingDeck />;
   if (store.status === "error") return <ErrorState message={store.error} />;
   if (!holdings.length && kind !== "watchlist") {
     return (
@@ -165,7 +166,7 @@ function Collection() {
         <dl className="mb-6 grid grid-cols-2 items-end gap-x-8 gap-y-4 sm:flex">
           <div className="col-span-2">
             <dt className="font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-subtle">Value</dt>
-            <dd className="tabular mt-1.5 font-display text-[56px] leading-[0.95] sm:text-[68px]">{money(totals.value)}</dd>
+            <dd className="tabular mt-1.5 font-display text-[45px] leading-[0.95] sm:text-[54px]">{money(totals.value)}</dd>
           </div>
           <div>
             <dt className="font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-subtle">Gain</dt>
@@ -240,7 +241,7 @@ function Collection() {
         </div>
 
         <div
-          className="scrollbar-none -mx-3 mt-1 -mb-2 flex gap-1.5 overflow-x-auto px-3 py-2 pr-8"
+          className="fade-row scrollbar-none -mx-3 mt-1 -mb-2 flex gap-1.5 overflow-x-auto px-3 py-2 pr-8"
           // Fades at the right edge so it's clear the row scrolls. The padding (offset by negative
           // margins) leaves room for the active chip's glow, which the scroll box would otherwise clip.
           style={{ maskImage: "linear-gradient(90deg, black calc(100% - 40px), transparent)", WebkitMaskImage: "linear-gradient(90deg, black calc(100% - 40px), transparent)" }}

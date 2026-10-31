@@ -4,18 +4,16 @@ import { Check, ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useDeferredValue, useMemo, useState } from "react";
-import { LimeChip, MASTER_SETS, SearchSort } from "@/components/master-sets/master-set-items";
-import { AnimatedNumber } from "@/components/motion/animated-number";
+import { DotMatrix, GlowPie, gridPattern, MASTER_SETS, SearchSort, ThinRing, TickBar } from "@/components/master-sets/master-set-items";
 import { HoloTilt, isFoilCard } from "@/components/motion/holo-tilt";
 import { ErrorState } from "@/components/portfolio/error-state";
 import { ProductImage } from "@/components/product/product-image";
-import { PageHeader } from "@/components/shell/page-header";
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useChecklist, type OwnedSet } from "@/lib/checklists";
 import { compareCollectorNumbers } from "@/lib/collector-number";
 import type { HoldingView } from "@/lib/finance/portfolio";
-import { money } from "@/lib/format";
+import { money, moneyWhole } from "@/lib/format";
 import { useHeroLink } from "@/lib/motion/hero";
 import type { ChecklistCard } from "@/lib/pricing/types";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
@@ -119,50 +117,20 @@ export default function MasterSetPage() {
   const total = entries.length;
   const ownedCount = entries.filter(owned).length;
   const known = Boolean(checklist);
-  const ratio = total ? ownedCount / total : 0;
   const ownedValue = set.holdings.reduce((s, h) => s + (h.value ?? 0), 0);
   const toFinish = entries.filter((e) => !owned(e)).reduce((s, e) => s + (e.card.market ?? 0), 0);
 
   return (
     <div className="animate-fade-in">
-      <Link href={MASTER_SETS} className="relative z-10 -ml-1 mb-4 inline-flex items-center gap-0.5 text-[13px] font-medium text-muted hover:text-foreground">
-        <ChevronLeft className="size-4" /> Master sets
-      </Link>
-      <PageHeader
-        title={name}
-        className="mb-5"
-        figure={
-          loading ? (
-            "—"
-          ) : (
-            <AnimatedNumber key={known ? "pct" : "count"} value={known ? ratio * 100 : ownedCount} format={(n) => (known ? `${Math.round(n)}%` : String(Math.round(n)))} duration={1100} />
-          )
-        }
-        note={
-          loading ? (
-            "Loading the card list…"
-          ) : known ? (
-            <span className="flex items-center gap-2">
-              <LimeChip>
-                {ownedCount} of {total}
-              </LimeChip>
-              cards collected
-            </span>
-          ) : (
-            `cards owned · ${error ?? "full list not in Holo yet"}`
-          )
-        }
-        stats={
-          known
-            ? [
-                { label: "You own", value: money(ownedValue) },
-                { label: "To finish", value: toFinish > 0 && !sample ? money(toFinish) : "—" },
-                { label: "Missing", value: total - ownedCount },
-              ]
-            : undefined
-        }
+      <SetHero
+        name={name}
+        loading={loading}
+        known={known}
+        owned={entries.map(owned)}
+        ownedValue={ownedValue}
+        toFinish={toFinish > 0 && !sample ? toFinish : null}
+        note={error ?? "full list not in Holo yet"}
       />
-      {known && <SetStrip owned={entries.map(owned)} />}
 
       <div className="mt-6 space-y-3">
         <SearchSort query={query} onQuery={setQuery} placeholder="Search this set" sort={sort} onSort={setSort} sorts={SORTS} />
@@ -264,6 +232,118 @@ function CardCell({ entry: e }: { entry: Entry }) {
   );
 }
 
+
+
+/**
+ * The set's top, like the app's: on a dark lit grid that runs up under the top of the page, the
+ * name, the % in glowing lime dot-matrix digits, a dial of how much you own, two glass tiles
+ * (what you own is worth, what finishing would cost), then every card in the set as one tick.
+ */
+function SetHero({
+  name,
+  loading,
+  known,
+  owned,
+  ownedValue,
+  toFinish,
+  note,
+}: {
+  name: string;
+  loading: boolean;
+  known: boolean;
+  owned: boolean[];
+  ownedValue: number;
+  toFinish: number | null;
+  note: string;
+}) {
+  const total = owned.length;
+  const have = owned.filter(Boolean).length;
+  const ratio = total ? have / total : 0;
+  const pct = Math.round(ratio * 100);
+  return (
+    <section className="relative isolate -mx-4 -mt-6 mb-6 [--hero-glow-x:50%] lg:[--hero-glow-x:62%] overflow-hidden rounded-b-[34px] bg-[#050505] px-4 pb-6 pt-4 text-white sm:-mx-8 sm:-mt-10 sm:px-8 sm:pb-8 sm:pt-7 lg:rounded-b-[40px]">
+      <div aria-hidden className="absolute inset-0 -z-10" style={gridPattern(28)} />
+      <div
+        aria-hidden
+        className="absolute inset-0 -z-10"
+        style={{
+          backgroundImage: [
+            "radial-gradient(300px 300px at var(--hero-glow-x, 50%) 45%, color-mix(in srgb, var(--lime) 20%, transparent), transparent)",
+            "radial-gradient(260px 260px at 95% 10%, color-mix(in srgb, var(--plan-blue) 18%, transparent), transparent)",
+            "radial-gradient(240px 240px at 5% 85%, color-mix(in srgb, var(--plan-pink) 14%, transparent), transparent)",
+          ].join(", "),
+        }}
+      />
+      <Link href={MASTER_SETS} className="-ml-1 inline-flex items-center gap-0.5 text-[13px] font-medium text-white/55 hover:text-white">
+        <ChevronLeft className="size-4" /> Master sets
+      </Link>
+      <h1 className="mt-3 text-balance font-display text-[24px] font-semibold leading-tight sm:text-[30px]">{name}</h1>
+
+      <div className="mt-5 flex flex-col items-center gap-y-6 lg:mt-4 lg:grid lg:max-w-[940px] lg:grid-cols-[minmax(0,540px)_auto] lg:items-center lg:justify-between lg:gap-x-12">
+        <div className="flex w-full flex-col items-center lg:items-start">
+          <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-white/55">{known || loading ? "Complete" : "Cards owned"}</p>
+          <div className="mt-2 flex h-[61px] items-start gap-1">
+            {loading ? (
+              <DotMatrix text="--" dot={7} color="rgb(255 255 255 / 0.25)" glow={0} />
+            ) : (
+              <>
+                <DotMatrix text={String(known ? pct : have)} dot={7} glow={16} />
+                {known && <span className="-mt-1 text-[16px] text-lime">%</span>}
+              </>
+            )}
+          </div>
+          <p className="tabular mt-2 text-[13px] text-white/55">{loading ? "Loading the card list…" : known ? `${have} of ${total} cards` : note}</p>
+
+          {known && !loading && (
+            <div className="mt-6 hidden w-full grid-cols-2 gap-2.5 lg:grid">
+              <HeroTiles ratio={ratio} ownedValue={ownedValue} toFinish={toFinish} missing={total - have} />
+            </div>
+          )}
+        </div>
+
+        {known && !loading && (
+          <>
+            <GlowPie fraction={ratio} className="drop-shadow-[0_0_24px_color-mix(in_srgb,var(--lime)_25%,transparent)] lg:mr-6" />
+            <div className="grid w-full grid-cols-2 gap-2.5 lg:hidden">
+              <HeroTiles ratio={ratio} ownedValue={ownedValue} toFinish={toFinish} missing={total - have} />
+            </div>
+          </>
+        )}
+      </div>
+
+      {known && !loading && <SetStrip owned={owned} />}
+    </section>
+  );
+}
+
+function HeroTiles({ ratio, ownedValue, toFinish, missing }: { ratio: number; ownedValue: number; toFinish: number | null; missing: number }) {
+  return (
+    <>
+      <HeroTile label="You own" sub="worth">
+        <div className="flex items-center gap-2.5">
+          <ThinRing fraction={ratio} />
+          <p className="tabular truncate text-[24px] font-semibold tracking-[-0.03em]">{moneyWhole(ownedValue)}</p>
+        </div>
+      </HeroTile>
+      <HeroTile label="To finish" sub={`${missing} missing`}>
+        <p className="tabular truncate text-[24px] font-semibold tracking-[-0.03em]">{toFinish !== null ? moneyWhole(toFinish) : "—"}</p>
+        <TickBar fraction={ratio} className="mt-2.5" />
+      </HeroTile>
+    </>
+  );
+}
+
+/** A glass tile on the set's lit grid. */
+function HeroTile({ label, sub, children }: { label: string; sub: string; children: React.ReactNode }) {
+  return (
+    <div className="flex min-h-[128px] min-w-0 flex-col rounded-[22px] border border-white/10 bg-white/[0.06] p-3.5 shadow-[inset_0_1px_0_rgb(255_255_255/0.08)] backdrop-blur-md">
+      <p className="text-[13px] font-semibold">{label}</p>
+      <p className="text-[11px] text-white/55">{sub}</p>
+      <div className="mt-auto pt-3.5">{children}</div>
+    </div>
+  );
+}
+
 /** The whole set as a strip of ticks, one per card, lime where you own it. */
 function SetStrip({ owned }: { owned: boolean[] }) {
   const perRow = owned.length > 120 ? 40 : owned.length > 60 ? 30 : 20;
@@ -272,11 +352,11 @@ function SetStrip({ owned }: { owned: boolean[] }) {
     <div
       role="img"
       aria-label={`${have} of ${owned.length} cards owned`}
-      className="grid max-w-[720px] gap-x-[2px] gap-y-[3px]"
+      className="mt-6 grid w-full gap-x-[2px] gap-y-[3px] lg:max-w-[940px]"
       style={{ gridTemplateColumns: `repeat(${perRow}, minmax(0, 1fr))` }}
     >
       {owned.map((on, i) => (
-        <span key={i} className={cn("h-3 rounded-[1.5px]", on ? "bg-lime" : "bg-surface-3")} />
+        <span key={i} className={cn("h-3 rounded-[1.5px]", on ? "bg-lime" : "bg-white/[0.12]")} />
       ))}
     </div>
   );
@@ -285,10 +365,7 @@ function SetStrip({ owned }: { owned: boolean[] }) {
 function SetSkeleton() {
   return (
     <div aria-busy="true">
-      <Skeleton className="h-4 w-24" />
-      <Skeleton className="mt-6 h-4 w-40" />
-      <Skeleton className="mt-3 h-14 w-48" />
-      <Skeleton className="mt-6 h-16 w-full max-w-[720px]" />
+      <div className="-mx-4 -mt-6 h-[420px] rounded-b-[34px] bg-[#050505] sm:-mx-8 sm:-mt-10" />
       <div className="mt-8 grid grid-cols-3 gap-2.5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
         {Array.from({ length: 12 }).map((_, i) => (
           <Skeleton key={i} className="aspect-[63/88] rounded-lg" />

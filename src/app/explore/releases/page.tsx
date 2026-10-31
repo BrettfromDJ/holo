@@ -42,7 +42,7 @@ export default function ReleaseCalendarPage() {
       <p className="mt-1 text-[14px] text-muted">Upcoming sets across every brand. Tap the bell to get a reminder on your Overview.</p>
 
       {brands.length > 1 && (
-        <div className="scrollbar-none -mx-1 mt-5 flex gap-1.5 overflow-x-auto px-1">
+        <div className="fade-row scrollbar-none -mx-1 mt-5 flex gap-1.5 overflow-x-auto px-1">
           {[{ slug: "all", name: "All brands" }, ...brands].map((b) => (
             <button
               key={b.slug}

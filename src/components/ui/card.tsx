@@ -9,7 +9,7 @@ export function SectionTitle({ title, action, className, subtitle }: { title: st
     // The action sits beside the title only, so the subtitle gets the full width and doesn't wrap early.
     <div className={cn("mb-4", className)}>
       <div className="flex items-center justify-between gap-4">
-        <h2 className="flex min-w-0 items-center gap-2 font-display text-[22px] uppercase leading-none tracking-[0.01em] sm:text-[24px]">
+        <h2 className="flex min-w-0 items-center gap-2 font-display text-[18px] leading-none sm:text-[19px]">
           {title}
         </h2>
         {action}

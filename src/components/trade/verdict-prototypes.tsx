@@ -282,7 +282,7 @@ export function VerdictGrade(p: VerdictProps) {
             </div>
             <div className="text-right">
               <p className="text-[11px]">{r.word}</p>
-              <p className="font-display text-[34px] leading-none">{r.grade}</p>
+              <p className="font-display text-[27px] leading-none">{r.grade}</p>
             </div>
           </div>
           <div className="mt-1.5 flex items-center justify-between border-t border-black/15 pt-1.5">
@@ -322,11 +322,11 @@ export function VerdictVersus(p: VerdictProps) {
           <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-black/60">You get</p>
           <p className="hype-num tabular text-[26px] leading-none text-[#0b0b0c]">{money(p.get)}</p>
         </div>
-        <span className="absolute top-1/2 grid size-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-[#0b0b0c] font-display text-[16px] text-white ring-2 ring-white/80" style={{ left: `${split}%`, transition: "left 800ms cubic-bezier(0.32,0.72,0,1)" }}>
+        <span className="absolute top-1/2 grid size-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-[#0b0b0c] font-display text-[13px] text-white ring-2 ring-white/80" style={{ left: `${split}%`, transition: "left 800ms cubic-bezier(0.32,0.72,0,1)" }}>
           VS
         </span>
       </div>
-      <p className="mt-4 text-center font-display text-[30px] uppercase leading-none tracking-[0.01em]">
+      <p className="mt-4 text-center font-display text-[24px] leading-none ">
         {state === "fair" ? "Dead even" : state === "win" ? <span className="text-up">You win {money(net)}</span> : <span className="text-down">They win {money(-net)}</span>}
       </p>
     </div>
@@ -342,7 +342,7 @@ export function VerdictMeter(p: VerdictProps) {
   const pos = Math.max(4, Math.min(96, (ratio - 0.5) * 100));
   return (
     <div>
-      <p className="text-center font-display text-[40px] uppercase leading-none tracking-[0.01em]">
+      <p className="text-center font-display text-[32px] leading-none ">
         <span className={toneText[r.tone]}>{r.word}</span>
       </p>
       <div className="relative mt-10">
@@ -379,7 +379,7 @@ export function VerdictPull(p: VerdictProps) {
             <span>{r.grade}/10</span>
           </div>
           <div className="mt-2 flex flex-1 items-center justify-center rounded-md bg-[radial-gradient(circle_at_50%_40%,color-mix(in_srgb,var(--foil)_40%,transparent),transparent_70%)]">
-            <span className="text-center font-display text-[30px] uppercase leading-[0.9] text-white">{r.word}</span>
+            <span className="text-center font-display text-[24px] leading-[0.9] text-white">{r.word}</span>
           </div>
           <p className="hype-num tabular mt-2 text-center text-[22px] leading-none" style={{ color: foil }}>
             {signedMoney(net)}
@@ -433,7 +433,7 @@ export function VerdictFix(p: VerdictProps) {
     return (
       <div className="text-center">
         <Check className="mx-auto size-8 text-up" />
-        <p className="mt-2 font-display text-[28px] uppercase leading-none">It&apos;s fair</p>
+        <p className="mt-2 font-display text-[22px] leading-none">It&apos;s fair</p>
         <p className="tabular mt-2 text-[13px] text-muted">Within {signedMoney(net)} of even. Shake on it.</p>
       </div>
     );
@@ -445,7 +445,7 @@ export function VerdictFix(p: VerdictProps) {
       <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.08em] text-subtle">{state === "lose" ? "To make it fair" : "To be generous"}</p>
       <ul className="mt-2 space-y-2">
         <li className="flex items-center gap-3 rounded-xl bg-surface-2 px-3 py-2.5">
-          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-background font-display text-[15px]">$</span>
+          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-background font-display text-[12px]">$</span>
           <span className="min-w-0 flex-1 text-[13px]">
             {state === "lose" ? "Ask for" : "Add"} <span className="tabular font-semibold">{money(Math.abs(net))}</span> cash
           </span>

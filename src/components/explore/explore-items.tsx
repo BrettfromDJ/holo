@@ -49,7 +49,7 @@ export function GameTile({ game }: { game: ExploreGame }) {
         )}
       </div>
       <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3">
-        <span className="truncate font-display text-[20px] uppercase leading-none tracking-[0.01em]">{game.name}</span>
+        <span className="truncate font-display text-[16px] leading-none ">{game.name}</span>
         <span className="tabular shrink-0 text-[12px] text-subtle">
           {game.sets} set{game.sets === 1 ? "" : "s"}{game.cardCount ? ` · ${compactCount(game.cardCount)} cards` : ""}
         </span>

@@ -95,7 +95,7 @@ export default function ExploreSetPage() {
             ) : null}
             <div className="min-w-0">
               <p className="text-[12px] font-medium font-mono uppercase tracking-[0.06em] text-subtle">{state.set.gameName}</p>
-              <h1 className="mt-1 font-display text-[34px] uppercase leading-[0.98] tracking-[0.005em] sm:text-[44px]">{state.set.name}</h1>
+              <h1 className="mt-1 font-display text-[27px] leading-[0.98] sm:text-[35px]">{state.set.name}</h1>
               <p className="tabular mt-1 text-[13px] text-muted">
                 {[
                   state.set.releaseDate && `Released ${formatDate(state.set.releaseDate)}`,

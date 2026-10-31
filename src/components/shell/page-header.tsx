@@ -46,7 +46,7 @@ export function PageHeader({
           {figure !== undefined ? (
             <>
               <h1 className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted">{title}</h1>
-              <p className="mt-2 flex items-baseline gap-2.5 font-display uppercase leading-none">
+              <p className="mt-2 flex items-baseline gap-2.5 font-display leading-none">
                 <span className="tabular text-[48px] sm:text-[56px]">{figure}</span>
                 {unit && <span className="text-[22px] text-muted sm:text-[24px]">{unit}</span>}
               </p>
@@ -54,7 +54,7 @@ export function PageHeader({
             </>
           ) : (
             <>
-              <h1 className="text-balance font-display text-[30px] uppercase leading-none tracking-[0.01em] sm:text-[36px]">{title}</h1>
+              <h1 className="text-balance font-display text-[24px] leading-none sm:text-[29px]">{title}</h1>
               {subtitle && <p className="mt-1.5 text-[14px] text-muted">{subtitle}</p>}
             </>
           )}

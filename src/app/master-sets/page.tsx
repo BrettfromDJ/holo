@@ -2,9 +2,9 @@
 
 import { Grid3x3, Plus } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { SetArt, useExploreIndex } from "@/components/explore/explore-items";
-import { LimeChip, masterSetHref, ProgressBar, ProgressRing, SearchSort } from "@/components/master-sets/master-set-items";
+import { deckGlow, DotMatrix, gridPattern, LimeChip, masterSetHref, ProgressBar, SearchSort } from "@/components/master-sets/master-set-items";
 import { AnimatedNumber } from "@/components/motion/animated-number";
 import { ErrorState } from "@/components/portfolio/error-state";
 import { PortfolioBanner, PortfolioSwitcher } from "@/components/portfolio/portfolio-controls";
@@ -16,8 +16,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ownedSets, useChecklists, type OwnedSet } from "@/lib/checklists";
 import type { ExploreSet } from "@/lib/explore/types";
 import type { HoldingView } from "@/lib/finance/portfolio";
-import { formatDate, money } from "@/lib/format";
+import { money } from "@/lib/format";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
+import { cn } from "@/lib/utils";
 
 type Scope = "mine" | "all";
 type Sort = "progress" | "value" | "newest" | "name";
@@ -170,12 +171,7 @@ export default function MasterSetsPage() {
 
           {scope === "all" && index.status === "error" && <p className="mt-4 rounded-xl bg-surface px-4 py-3 text-[13px] text-muted">Couldn&apos;t load the catalog ({index.message}). Showing your sets.</p>}
 
-          <div className="mt-6 grid grid-cols-2 gap-x-3.5 gap-y-6 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-            {rows.slice(0, limit).map((r) => (
-              <SetTile key={r.id} row={r} />
-            ))}
-            {scope === "all" && index.status === "loading" && Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="aspect-[3/2] rounded-2xl" />)}
-          </div>
+          <SetDeck rows={rows.slice(0, limit)} loading={scope === "all" && index.status === "loading"} />
           {!rows.length && !(scope === "all" && index.status === "loading") && <p className="py-10 text-center text-[15px] text-muted">Nothing matches.</p>}
           {rows.length > limit && (
             <div className="mt-8 flex justify-center">
@@ -190,40 +186,93 @@ export default function MasterSetsPage() {
   );
 }
 
-/** A set: its banner art with your progress on it, then the name, how many of how many, and a thin bar. */
-function SetTile({ row: r }: { row: Row }) {
-  const cover = r.art ? null : [...r.holdings].sort((a, b) => (b.value ?? 0) - (a.value ?? 0))[0];
-  const started = r.holdings.length > 0;
-  const detail =
-    r.total !== null
-      ? `${r.owned} of ${r.total} cards`
-      : !started
-        ? r.art?.releaseDate
-          ? formatDate(r.art.releaseDate)
-          : " "
-        : `${r.owned} card${r.owned === 1 ? "" : "s"}`;
+/** Deck columns for the page width: one on phones, two on tablets, three on wide screens. */
+function useDeckColumns() {
+  const [cols, setCols] = useState(1);
+  useEffect(() => {
+    const md = matchMedia("(min-width: 768px)");
+    const xl = matchMedia("(min-width: 1280px)");
+    const update = () => setCols(xl.matches ? 3 : md.matches ? 2 : 1);
+    update();
+    md.addEventListener("change", update);
+    xl.addEventListener("change", update);
+    return () => {
+      md.removeEventListener("change", update);
+      xl.removeEventListener("change", update);
+    };
+  }, []);
+  return cols;
+}
+
+/** How far each deck card slides under the one after it (the app's SetDeckCard.overlap). */
+const OVERLAP = 70;
+
+/**
+ * The sets as a deck of tall cards, each overlapping the one above so you see its name and
+ * progress; the last one shows in full. On wider screens the list is dealt into side-by-side
+ * decks, read top to bottom, column by column.
+ */
+function SetDeck({ rows, loading }: { rows: Row[]; loading: boolean }) {
+  // At least four cards to a deck, so the overlap still reads as a deck.
+  const cols = Math.max(1, Math.min(useDeckColumns(), Math.ceil(rows.length / 4)));
+  const per = Math.ceil(rows.length / cols);
+  const decks = Array.from({ length: cols }, (_, c) => rows.slice(c * per, (c + 1) * per)).filter((d) => d.length);
   return (
-    <Link href={masterSetHref(r.id)} className="group flex min-w-0 flex-col">
-      <div className="relative aspect-[3/2] overflow-hidden rounded-2xl border border-border transition-colors group-hover:border-border-strong">
-        {r.art ? (
-          <SetArt set={r.art} className="h-full w-full" />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-image-well p-2.5">
-            {cover && <ProductImage product={cover.product} grade={cover.identity.grade} slabKey={cover.key} size="sm" frame={false} className="aspect-[63/88] h-full max-w-full" />}
+    <div className={cn("mt-6 grid items-start gap-x-4 gap-y-4", cols === 1 && "max-w-[560px]")} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+      {decks.map((deck, c) => (
+        <div key={c} className="flex flex-col">
+          {deck.map((r, i) => (
+            <SetDeckCard key={r.id} row={r} style={i ? { marginTop: -OVERLAP } : undefined} />
+          ))}
+        </div>
+      ))}
+      {loading && !rows.length && <Skeleton className="h-[196px] rounded-[28px]" />}
+    </div>
+  );
+}
+
+/**
+ * One set in the deck: a tall dark card with a lime, blue or pink glow of its own and a faint
+ * grid. The top shows the name, how many of how many and the % in lime dot-matrix digits (what
+ * you see while it's overlapped); the bottom has a thin lime bar and the set's art, tilted.
+ */
+function SetDeckCard({ row: r, style }: { row: Row; style?: React.CSSProperties }) {
+  const cover = r.art?.iconUrl || r.art?.imageUrl ? null : [...r.holdings].sort((a, b) => (b.value ?? 0) - (a.value ?? 0))[0];
+  const started = r.holdings.length > 0;
+  const pct = started && r.ratio !== null ? Math.round(r.ratio * 100) : null;
+  const detail = r.total !== null ? `${r.owned} of ${r.total} cards` : !started ? "Not started" : `${r.owned} card${r.owned === 1 ? "" : "s"}`;
+  return (
+    <Link
+      href={masterSetHref(r.id)}
+      style={style}
+      className="group relative isolate block h-[196px] overflow-hidden rounded-[28px] border border-border bg-surface shadow-[0_-4px_20px_rgb(0_0_0/0.55)] transition-transform duration-300 ease-[var(--ease-apple)] hover:-translate-y-1.5 focus-visible:-translate-y-1.5"
+    >
+      <div aria-hidden className="absolute inset-0 -z-10" style={{ backgroundImage: deckGlow(r.id) }} />
+      <div aria-hidden className="absolute inset-0 -z-10" style={gridPattern(26, "color-mix(in srgb, var(--foreground) 7%, transparent)")} />
+      {(r.art?.iconUrl || r.art?.imageUrl || cover) && (
+        <div aria-hidden className="absolute -bottom-2.5 -right-4 -z-10 h-[100px] w-[150px] rotate-[-6deg] overflow-hidden rounded-[10px] opacity-60">
+          {r.art?.iconUrl || r.art?.imageUrl ? (
+            <SetArt set={r.art} className="h-full w-full" />
+          ) : (
+            cover && <ProductImage product={cover.product} grade={cover.identity.grade} slabKey={cover.key} size="sm" frame={false} className="h-full w-full" />
+          )}
+        </div>
+      )}
+      <div className="flex h-full flex-col p-5">
+        <div className="flex items-start gap-2.5">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[22px] font-semibold leading-tight tracking-[-0.02em]">{r.name}</p>
+            <p className="tabular mt-1 truncate text-[13px] text-muted">{detail}</p>
           </div>
-        )}
-        {started && r.ratio !== null ? (
-          <span className="tabular absolute bottom-2 left-2 flex items-center gap-1.5 rounded-full bg-black/60 py-[5px] pl-2 pr-2.5 text-[12px] font-bold text-white backdrop-blur-sm">
-            <ProgressRing value={r.ratio} />
-            {Math.round(r.ratio * 100)}%
-          </span>
-        ) : !started ? (
-          <span className="absolute bottom-2 left-2 rounded-full bg-black/60 px-2 py-1 text-[11px] font-semibold text-white/60 backdrop-blur-sm">Not started</span>
-        ) : null}
+          {pct !== null && (
+            <span className="flex shrink-0 items-start gap-0.5 pt-1">
+              <DotMatrix text={String(pct)} dot={3.4} />
+              <span className="-mt-0.5 text-[12px] text-lime">%</span>
+            </span>
+          )}
+        </div>
+        {pct !== null && <ProgressBar value={r.ratio ?? 0} className="mt-auto w-full max-w-[200px]" />}
       </div>
-      <p className="mt-2.5 truncate text-[14px] font-medium">{r.name}</p>
-      <p className="tabular mt-0.5 truncate text-[12px] text-muted">{detail}</p>
-      {started && r.ratio !== null && <ProgressBar value={r.ratio} className="mt-2" />}
     </Link>
   );
 }
@@ -238,9 +287,9 @@ function MasterSetsSkeleton() {
           <Skeleton key={i} className="h-[58px] rounded-[14px]" />
         ))}
       </div>
-      <div className="mt-10 grid grid-cols-2 gap-3.5 md:grid-cols-3 xl:grid-cols-4">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="aspect-[3/2] rounded-2xl" />
+      <div className="mt-10 flex max-w-[560px] flex-col">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-[196px] rounded-[28px] border border-background" style={i ? { marginTop: -OVERLAP } : undefined} />
         ))}
       </div>
     </div>

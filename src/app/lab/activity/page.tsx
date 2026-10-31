@@ -31,7 +31,7 @@ export default function ActivityLabPage() {
           <section key={v.id}>
             <p className="mb-4 flex items-baseline gap-3">
               <span className="tag-skew tag-lime">{v.id === "0" ? "Now" : `V${v.id}`}</span>
-              <span className="font-display text-[20px] uppercase tracking-[0.01em]">{v.name}</span>
+              <span className="font-display text-[16px] ">{v.name}</span>
               <span className="text-[13px] text-muted">{v.note}</span>
             </p>
             {v.el}

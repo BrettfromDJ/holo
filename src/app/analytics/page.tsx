@@ -16,7 +16,7 @@ import { PortfolioBanner, PortfolioSwitcher } from "@/components/portfolio/portf
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, SectionTitle } from "@/components/ui/card";
 import { Segmented } from "@/components/ui/segmented";
-import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingDeck } from "@/components/motion/loading-deck";
 import { allocation, monthlyActivity, performanceBySet, performanceOf, slicePoints } from "@/lib/finance/portfolio";
 import { formatDate, formatMonth, formatShortDate, money, moneyCompact, pct, signedMoney, signedPct } from "@/lib/format";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
@@ -84,7 +84,7 @@ export default function AnalyticsPage() {
     return { best: sorted.filter((h) => h.unrealized! > 0).slice(0, 5), worst: sorted.reverse().filter((h) => h.unrealized! < 0).slice(0, 5) };
   }, [holdings, rankBy]);
 
-  if (store.status === "loading") return <Skeleton className="h-[600px] w-full rounded-3xl" />;
+  if (store.status === "loading") return <LoadingDeck />;
   if (store.status === "error") return <ErrorState message={store.error} />;
   if (!store.data.transactions.length) {
     return (

@@ -91,7 +91,7 @@
   --color-cat-3: var(--cat-3);
   --font-sans: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
-  --font-display: var(--font-anton), Impact, "Arial Narrow", sans-serif;
+  --font-display: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
   --color-lime: var(--lime);
   --radius-card: 1.25rem;
   --ease-apple: cubic-bezier(0.32, 0.72, 0, 1);
@@ -501,8 +501,8 @@
 /* Overview "hype" scope: display-face numbers, cards that light up lime, punchier reveals. */
 .hype .hype-num {
   font-family: var(--font-display);
-  font-weight: 400;
-  letter-spacing: 0.01em;
+  font-weight: 600;
+  letter-spacing: -0.035em;
 }
 .hype .hype-surface {
   background-image: linear-gradient(180deg, color-mix(in srgb, var(--foreground) 3.5%, transparent), transparent 45%);
@@ -967,4 +967,16 @@
 @media (prefers-reduced-motion: reduce) {
   .holding-sheet[data-state], .holding-sheet-overlay[data-state] { animation: fade-in 0.2s ease-out both; }
   .holding-sheet[data-state="closed"], .holding-sheet-overlay[data-state="closed"] { animation: fade-in 0.15s ease-in reverse both; }
+}
+
+/* Headlines and big numbers (like the app): Geist SemiBold, sentence case, tight. Was Anton caps. */
+.font-display {
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+
+/* Sideways rows fade on the right while there's more to scroll to (see FadeRows). */
+.fade-row[data-fade-end="true"] {
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 48px), transparent);
+  mask-image: linear-gradient(to right, black calc(100% - 48px), transparent);
 }

@@ -287,7 +287,7 @@ export default function DealPage() {
       </div>
 
       <section className="mt-8">
-        <h2 className="flex items-center gap-2 font-display text-[22px] uppercase leading-none tracking-[0.01em]">
+        <h2 className="flex items-center gap-2 font-display text-[18px] leading-none ">
           <Camera className="size-5 text-[var(--lime)]" /> Photos {photos.length > 0 && <span className="font-mono text-[12px] text-subtle">{photos.length}</span>}
         </h2>
         <p className="mt-1 text-[12px] text-muted">Document the deal: the cards on the table, a receipt, the customer&apos;s binder</p>
@@ -481,7 +481,7 @@ function SideCard({
     <section className="min-w-0">
       <div className="flex items-end justify-between gap-3">
         <div>
-          <h2 className="flex items-center gap-2 font-display text-[22px] uppercase leading-none tracking-[0.01em]">
+          <h2 className="flex items-center gap-2 font-display text-[18px] leading-none ">
             <Icon className={cn("size-5", side === "in" ? "text-up" : "text-[var(--plan-pink)]")} />
             {side === "in" ? "Coming in" : "Going out"}
           </h2>
@@ -765,7 +765,7 @@ function CloseDialog({
     <Dialog open={open} onOpenChange={(o) => !closing && onOpenChange(o)}>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle className="font-display text-[28px] uppercase leading-none">Close this {KIND_NOUN[kind].toLowerCase()}?</DialogTitle>
+          <DialogTitle className="font-display text-[22px] leading-none">Close this {KIND_NOUN[kind].toLowerCase()}?</DialogTitle>
           <DialogDescription>{what}</DialogDescription>
         </DialogHeader>
         <div className="space-y-3 overflow-y-auto px-6 pb-6">
@@ -806,7 +806,7 @@ function RecordedDialog({ recorded, onDone }: { recorded: { record: DealRecord; 
             <Check className="size-9" strokeWidth={3.5} />
           </span>
           <p className="mt-5 font-mono text-[11px] uppercase tracking-[0.14em] opacity-60">In your collection</p>
-          <DialogTitle className="mt-1 font-display text-[48px] uppercase leading-[0.92]">
+          <DialogTitle className="mt-1 font-display text-[38px] leading-[0.92]">
             {KIND_NOUN[record.kind]}
             <br />
             recorded

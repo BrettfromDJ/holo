@@ -69,7 +69,7 @@ function MoverColumn({ title, rows, up, max, daily, inView }: { title: string; r
   return (
     <div className="min-w-0">
       <p className="flex items-center gap-2 pb-3">
-        <span className="font-display text-[22px] uppercase leading-none tracking-[0.01em]">{title}</span>
+        <span className="font-display text-[18px] leading-none ">{title}</span>
         {rows.length > 0 && <span className={cn("tag-skew", up ? "tag-lime" : "tag-pink")}>{rows.length}</span>}
       </p>
       {rows.length ? (
@@ -136,7 +136,7 @@ export function RecentTimeline({ holdings }: { holdings: HoldingView[] }) {
   return (
     <div className="min-w-0">
       <div className="mb-5 flex items-center justify-between">
-        <h2 className="flex items-center gap-2.5 font-display text-[24px] uppercase leading-none tracking-[0.01em] sm:text-[28px]">
+        <h2 className="flex items-center gap-2.5 font-display text-[19px] leading-none sm:text-[22px]">
           Recently added
         </h2>
         <Link

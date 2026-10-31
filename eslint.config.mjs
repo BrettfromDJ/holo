@@ -18,6 +18,8 @@ const eslintConfig = [
       "out/**",
       "build/**",
       "next-env.d.ts",
+      // Design mockups (rendered with a script), not part of the site.
+      "design/**",
     ],
   },
 ];

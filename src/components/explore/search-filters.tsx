@@ -30,7 +30,7 @@ export function SearchFilterBar({ items, filters, onChange }: { items: ExplorePr
 
   return (
     <div>
-      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0">
+      <div className="fade-row -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0">
         <Menu
           label={filters.type === "single" ? "Cards" : filters.type === "sealed" ? "Sealed" : "Type"}
           on={filters.type !== "all"}

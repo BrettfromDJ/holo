@@ -46,8 +46,8 @@ export function CategoryPlans({ holdings }: { holdings: HoldingView[] }) {
               const p = PLANS[g.category];
               return (
                 <div key={g.category} className={cn("flex min-w-0 animate-grow-x items-center justify-between gap-2 px-3 origin-left", BAR[p.color], p.color === "lime" ? "text-[#0b0b0c]" : "text-white")} style={{ flexGrow: g.share }}>
-                  {g.share >= 0.12 && <span className="truncate font-display text-[15px] uppercase leading-none tracking-[0.02em]">{p.title}</span>}
-                  <span className="tabular shrink-0 font-display text-[15px] leading-none">{pct(g.share, 0)}</span>
+                  {g.share >= 0.12 && <span className="truncate font-display text-[12px] leading-none ">{p.title}</span>}
+                  <span className="tabular shrink-0 font-display text-[12px] leading-none">{pct(g.share, 0)}</span>
                 </div>
               );
             })}
@@ -62,7 +62,7 @@ export function CategoryPlans({ holdings }: { holdings: HoldingView[] }) {
             <div key={g.category} className={cn("plan group flex flex-col rounded-[22px] p-2 animate-rise", `plan-${p.color}`)} style={{ animationDelay: `${i * 90}ms` }}>
               <div className="px-3 pt-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-display text-[32px] uppercase leading-none tracking-[0.01em]">{p.title}</h3>
+                  <h3 className="font-display text-[26px] leading-none ">{p.title}</h3>
                   <span className={cn("tag-skew", `tag-${p.color === "blue" ? "blue" : p.color}`)}>{pct(g.share, 0)} of value</span>
                   {i === 0 && groups.length > 1 && g.share === Math.max(...groups.map((x) => x.share)) && <span className="tag-skew tag-white">Biggest</span>}
                 </div>
@@ -104,7 +104,7 @@ export function CategoryPlans({ holdings }: { holdings: HoldingView[] }) {
               </div>
 
               {/* What it's worth now */}
-              <p className="tabular mt-5 px-3 font-display text-[40px] leading-none">{money(g.value)}</p>
+              <p className="tabular mt-5 px-3 font-display text-[32px] leading-none">{money(g.value)}</p>
 
               <Link href={p.href} className={cn("btn-3d mx-1 mt-5 flex h-12 items-center justify-center gap-2 rounded-xl text-[15px] font-semibold", `btn-3d-${p.color}`, `plan-btn-${p.color}`)}>
                 View {p.title.toLowerCase()} <ArrowRight className="size-4" />

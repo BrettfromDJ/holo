@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 import { MilestoneWatcher } from "@/components/celebrate/milestone-watcher";
 import { PullReveal } from "@/components/celebrate/pull-reveal";
 import { AddProductDialog } from "@/components/flows/add-product-dialog";
+import { FadeRows } from "@/components/ui/fade-rows";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CollectionProvider } from "@/lib/store/collection-store";
 import { PortfoliosProvider } from "@/lib/store/portfolios";
@@ -23,6 +24,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <PortfoliosProvider>
         <ShelvesProvider>
           <TooltipProvider delayDuration={200}>
+            <FadeRows />
             {bare ? (
               children
             ) : (

@@ -36,7 +36,7 @@ export function KpiGrid({ items }: { items: Kpi[] }) {
     <section aria-label="Key stats" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {items.map((k, i) => (
         <div key={k.label} className={cn("tint tint-borderless hype-surface rounded-[var(--radius-card)] px-5 py-4", KPI_TINTS[i % KPI_TINTS.length])}>
-          <p className="font-display text-[14px] uppercase leading-none tracking-[0.02em] text-foreground/80">{k.label}</p>
+          <p className="font-display text-[11px] leading-none text-foreground/80">{k.label}</p>
           <p className="hype-num tabular mt-3 text-[26px] leading-none sm:text-[30px]">{k.value}</p>
           {k.sub && <p className="tabular mt-1.5 truncate text-[12px] text-muted">{k.sub}</p>}
         </div>
@@ -142,7 +142,7 @@ export function ReturnsHeatmap({ months }: { months: MonthReturn[] }) {
         title="Monthly returns"
         subtitle={`${positive} of ${months.length} months up · best ${MONTHS[best.month]} ${best.year} (${signedPct(best.ret)}), worst ${MONTHS[worst.month]} ${worst.year} (${signedPct(worst.ret)})`}
       />
-      <div className="scrollbar-none -mx-5 overflow-x-auto px-5 sm:mx-0 sm:px-0">
+      <div className="fade-row scrollbar-none -mx-5 overflow-x-auto px-5 sm:mx-0 sm:px-0">
         <table className="w-full min-w-[720px] border-separate border-spacing-1 text-center">
           <thead>
             <tr className="font-mono text-[10px] uppercase tracking-[0.06em] text-subtle">

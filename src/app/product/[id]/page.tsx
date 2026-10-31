@@ -141,7 +141,7 @@ export default function ProductPage() {
             {product.rarity && <Badge variant="outline">{product.rarity}</Badge>}
             {product.source === "sample" && <Badge variant="sample">Sample data</Badge>}
           </div>
-          <h1 className="mt-3 font-display text-[34px] uppercase leading-[0.98] tracking-[0.005em] sm:text-[48px]">{product.name}</h1>
+          <h1 className="mt-3 font-display text-[27px] leading-[0.98] sm:text-[38px]">{product.name}</h1>
           <p className="mt-1 text-[15px] text-muted">
             {[product.setName, product.number ? `#${product.number}` : null, printings.length < 2 && printing && printing !== "Normal" ? printing : null].filter(Boolean).join(" · ")}
           </p>
@@ -153,7 +153,7 @@ export default function ProductPage() {
           )}
 
           <div className="mt-6">
-            <p className="tabular font-display text-[52px] leading-none sm:text-[60px]">
+            <p className="tabular font-display text-[42px] leading-none sm:text-[48px]">
               {headline != null ? <AnimatedNumber key={productId} value={headline} format={money} from={headline * 0.85} /> : <span className="text-muted">No price</span>}
             </p>
             {product.kind === "sealed" && <PerPack product={product} price={headline} />}

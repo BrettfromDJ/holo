@@ -47,7 +47,7 @@ export function WhatsItWorth({ productId, printing, name, nm, owned }: { product
   return (
     <section className="mt-6 rounded-[var(--radius-card)] border border-border bg-surface p-5 sm:p-6">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="font-display text-[22px] uppercase leading-none tracking-[0.01em] sm:text-[24px]">What&apos;s it worth raw?</h2>
+        <h2 className="font-display text-[18px] leading-none sm:text-[19px]">What&apos;s it worth raw?</h2>
         {sampleMode && <Badge variant="sample">Sample data</Badge>}
       </div>
 

@@ -184,7 +184,7 @@ function Value({ h }: { h: HoldingView }) {
   return (
     <div className="mt-6">
       <MonoLabel>{h.quantity > 1 ? `Your ${h.quantity} are worth` : "Yours is worth"}</MonoLabel>
-      <p className="tabular mt-2 font-display text-[44px] leading-[0.95]">
+      <p className="tabular mt-2 font-display text-[35px] leading-[0.95]">
         {h.value !== null ? <AnimatedNumber value={h.value} format={(n) => (h.conditionEstimate ? "≈ " : "") + money(n)} /> : <span className="text-muted">No price</span>}
       </p>
       <p className="mt-2.5 flex flex-wrap items-center gap-2 text-[14px]">

@@ -120,7 +120,7 @@ export function EbaySales({
       {data && (
         <>
           {labels.length > 0 && (
-            <div className="scrollbar-none -mx-1 mt-3 flex gap-1.5 overflow-x-auto px-1 py-1">
+            <div className="fade-row scrollbar-none -mx-1 mt-3 flex gap-1.5 overflow-x-auto px-1 py-1">
               {[UNGRADED, ...labels].map((l) => (
                 <button
                   key={l}

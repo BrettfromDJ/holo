@@ -108,7 +108,7 @@ export function HypeHero({
           <p className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
             {summary.holdingsCount} products · {summary.unitCount} items
           </p>
-          <h1 className="mt-3 font-display text-[clamp(30px,9vw,40px)] uppercase leading-[0.95] tracking-[0.005em] sm:text-[68px] lg:text-[56px]">
+          <h1 className="mt-3 font-display text-[clamp(24px,7vw,32px)] leading-[0.95] sm:text-[54px] lg:text-[45px]">
             <span className="block text-[clamp(22px,6.4vw,28px)] sm:text-[68px] lg:text-[28px] xl:text-[32px]">
               Your collection<span className="sm:hidden">&apos;s</span>
               <span className="hidden sm:inline"> is</span> worth
@@ -198,7 +198,7 @@ export function HypeHeading({
   return (
     <div className="mb-5 flex items-end justify-between gap-4">
       <div>
-        <h2 className="text-balance font-display text-[26px] uppercase leading-none tracking-[0.01em] sm:text-[32px]">
+        <h2 className="text-balance font-display text-[21px] leading-none sm:text-[26px]">
           {title}
         </h2>
         {subtitle && (
