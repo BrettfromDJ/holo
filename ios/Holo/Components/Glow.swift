@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Glow cards (Lucent)
 
@@ -143,25 +144,56 @@ struct GlowFill: View {
     var palette: GlowPalette
 
     var body: some View {
+        // Drawn once into a small cached picture per palette and size, then just shown: soft
+        // light looks the same scaled up, and nothing is redrawn while numbers count or the page
+        // scrolls. (Live gradients on every card made the app lag.)
         GeometryReader { geo in
-            let side = max(geo.size.width, geo.size.height)
-            ZStack {
-                palette.base
-                ForEach(Array(palette.blobs.enumerated()), id: \.offset) { _, b in
-                    RadialGradient(
-                        stops: [
-                            .init(color: b.color.opacity(b.strength), location: 0),
-                            .init(color: b.color.opacity(b.strength * 0.55), location: 0.35),
-                            .init(color: b.color.opacity(0), location: 1),
-                        ],
-                        center: UnitPoint(x: b.x, y: b.y), startRadius: 0, endRadius: side * b.size
-                    )
-                }
-                Textures.image("grain").resizable(resizingMode: .tile)
-                    .opacity(0.04).blendMode(.overlay)
-            }
-            .drawingGroup()
+            Image(uiImage: GlowImageCache.shared.image(palette, size: geo.size))
+                .resizable()
+                .interpolation(.medium)
         }
+        .allowsHitTesting(false)
+    }
+}
+
+/// Rendered glow pictures, by palette and (rounded) size.
+final class GlowImageCache {
+    static let shared = GlowImageCache()
+    private let cache = NSCache<NSString, UIImage>()
+    private var keys: [GlowPalette: Int] = [:]
+
+    init() { cache.countLimit = 120 }
+
+    func image(_ palette: GlowPalette, size: CGSize) -> UIImage {
+        // Quarter resolution, rounded to 8pt steps so near sizes share one picture.
+        let w = max(8, (size.width / 8).rounded() * 8)
+        let h = max(8, (size.height / 8).rounded() * 8)
+        let id: Int
+        if let known = keys[palette] { id = known } else { id = keys.count; keys[palette] = id }
+        let key = "\(id)-\(Int(w))x\(Int(h))" as NSString
+        if let hit = cache.object(forKey: key) { return hit }
+        let px = CGSize(width: w / 4, height: h / 4)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+        let image = UIGraphicsImageRenderer(size: px, format: format).image { ctx in
+            let cg = ctx.cgContext
+            cg.setFillColor(UIColor(palette.base).cgColor)
+            cg.fill(CGRect(origin: .zero, size: px))
+            let side = max(px.width, px.height)
+            let space = CGColorSpaceCreateDeviceRGB()
+            for b in palette.blobs {
+                let c = UIColor(b.color)
+                let colors = [c.withAlphaComponent(b.strength).cgColor,
+                              c.withAlphaComponent(b.strength * 0.55).cgColor,
+                              c.withAlphaComponent(0).cgColor] as CFArray
+                guard let g = CGGradient(colorsSpace: space, colors: colors, locations: [0, 0.35, 1]) else { continue }
+                let center = CGPoint(x: px.width * b.x, y: px.height * b.y)
+                cg.drawRadialGradient(g, startCenter: center, startRadius: 0, endCenter: center, endRadius: side * b.size, options: [])
+            }
+        }
+        cache.setObject(image, forKey: key)
+        return image
     }
 }
 
