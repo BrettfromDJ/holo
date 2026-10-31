@@ -33,6 +33,10 @@ final class ScreenshotTests: XCTestCase {
     func testExploreBrand() { capture("explore-brand", args: ["-HoloTab", "explore", "-HoloExplore", "brand:pokemon"], pages: 3) }
     func testExploreCalendar() { capture("explore-calendar", args: ["-HoloTab", "explore", "-HoloExplore", "calendar"], pages: 2) }
 
+    func testAnalytics() { capture("analytics", args: ["-HoloPage", "analytics"], pages: 8) }
+    func testGains() { capture("gains", args: ["-HoloPage", "gains"], pages: 3) }
+    func testGrading() { capture("grading", args: ["-HoloDemoKind", "graded", "-HoloPage", "grading"], pages: 4) }
+
     func testDeal() { capture("deal", args: ["-HoloTab", "deal"], pages: 1) }
     func testDealFilled() { capture("deal-filled", args: ["-HoloTab", "deal", "-HoloDealDemo"], pages: 3) }
     // Graded slabs: Home, Collection and a slab's card page in the graded demo.

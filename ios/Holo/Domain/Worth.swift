@@ -61,12 +61,12 @@ enum WorthCalc {
         var base = gradeMultiple.first { n >= $0.0 }?.1 ?? 0.55
         if c == "BGS" && n >= 10 { base *= 1.8 }
         let factor = companyFactor[c] ?? 0.7
-        let jitter = 0.82 + hash("\(productId)|\(c)|\(grade)") * 0.36
+        let jitter = 0.82 + stableHash("\(productId)|\(c)|\(grade)") * 0.36
         return max(0.4, base * factor * jitter)
     }
 
     /// FNV-1a over UTF-16 code units, like the web's hash().
-    private static func hash(_ s: String) -> Double {
+    static func stableHash(_ s: String) -> Double {
         var h: UInt32 = 2_166_136_261
         for unit in s.utf16 { h = (h ^ UInt32(unit)) &* 16_777_619 }
         return Double(h) / 4_294_967_295
@@ -84,4 +84,73 @@ enum WorthCalc {
 func summaryFor(_ rows: [EbaySummary]?, printing: String?) -> EbaySummary? {
     guard let rows else { return nil }
     return rows.first { $0.printing == printing } ?? rows.first
+}
+
+/// Whether a raw card is worth grading, ported from the website's `gradingOutlook` (src/lib/graded.ts).
+enum Grading {
+    /// Raw cards below this price rarely cover the cost of grading.
+    static let minRaw = 15.0
+
+    struct Costs: Codable, Hashable {
+        /// Grading fee per card.
+        var fee = 25.0
+        /// Shipping and insurance per card, both ways.
+        var shipping = 12.0
+    }
+
+    enum Source { case sales, estimate }
+
+    struct Outlook {
+        var raw: Double
+        var cost: Double
+        var psa10: Double
+        var psa9: Double
+        /// Profit over selling raw if it comes back a PSA 10, after costs.
+        var upside10: Double
+        /// Profit over selling raw at a PSA 9 (negative means a 9 loses money).
+        var upside9: Double
+        /// PSA 10 sales per year.
+        var psa10Sales: Double
+        /// Upside at a 10, discounted when PSA 10s rarely sell. Used for ranking.
+        var score: Double
+        var source: Source
+    }
+
+    /// PSA 10 and 9 prices from eBay when they've sold, else the usual grade curve (an estimate).
+    static func outlook(productId: String, raw: Double, costs: Costs, summary: EbaySummary?) -> Outlook {
+        let cost = costs.fee + costs.shipping
+        let curve10 = (raw * WorthCalc.multiple(productId: productId, company: "PSA", grade: "10") * 100).rounded() / 100
+        let curve9 = (raw * WorthCalc.multiple(productId: productId, company: "PSA", grade: "9") * 100).rounded() / 100
+        let g10 = summary?.graded["PSA 10"]
+        let g9 = summary?.graded["PSA 9"]
+        let sold10 = g10?.median ?? g10?.lastPrice
+        let sold9 = g9?.median ?? g9?.lastPrice
+        let psa10 = sold10 ?? curve10
+        let psa9 = sold9 ?? curve9
+        let perYear = summary != nil ? Double(g10?.count ?? 0) * 12 : salesPerYear(productId: productId, grade: ("PSA", "10"), raw: raw)
+        let upside10 = psa10 - raw - cost
+        return Outlook(raw: raw, cost: cost, psa10: psa10, psa9: psa9, upside10: upside10, upside9: psa9 - raw - cost,
+                       psa10Sales: perYear, score: upside10 * weight(perYear),
+                       source: sold10 != nil && sold9 != nil ? .sales : .estimate)
+    }
+
+    /// The website's estimate of copies sold per year when there are no sales figures.
+    static func salesPerYear(productId: String, grade: (company: String, grade: String)?, raw: Double?) -> Double {
+        let price = raw ?? 50
+        let base: Double = price < 20 ? 420 : price < 100 ? 220 : price < 500 ? 90 : 34
+        var factor = 1.0
+        if let grade {
+            let n = Double(grade.grade) ?? 0
+            factor = grade.company.uppercased() == "PSA" ? (n >= 10 ? 0.14 : n >= 9 ? 0.3 : n >= 8 ? 0.2 : 0.1) : n >= 10 ? 0.05 : 0.08
+        }
+        let jitter = 0.4 + WorthCalc.stableHash("\(productId)|\(grade.map { "\($0.company) \($0.grade)" } ?? "raw")|sales") * 1.2
+        return max(1, (base * factor * jitter).rounded())
+    }
+
+    /// "Easy to sell", "Sells steadily" or "Hard to sell": weekly, monthly, or less.
+    static func liquidity(_ perYear: Double) -> String {
+        perYear >= 52 ? "Easy to sell" : perYear >= 12 ? "Sells steadily" : "Hard to sell"
+    }
+
+    static func weight(_ perYear: Double) -> Double { perYear >= 52 ? 1 : perYear >= 12 ? 0.8 : 0.4 }
 }

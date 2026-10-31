@@ -548,6 +548,22 @@ final class CollectionStore {
         recompute()
     }
 
+    /// A card back from the grader, like the website: the raw units leave at their cost (no gain
+    /// or loss) and the slab comes in at that same cost plus the grading fee and shipping.
+    @MainActor
+    func moveToSlab(raw: HoldingIdentity, company: String, grade: String, quantity: Double, fee: Double, shipping: Double, date: String) async throws {
+        let held = holding(raw)
+        let qty = min(quantity, held?.quantity ?? quantity)
+        let unit = qty > 0 ? (held?.fifoCost(qty) ?? 0) / qty : 0
+        let note = "Graded by \(company): \(company) \(grade)"
+        if held != nil, qty > 0 {
+            try await log(identity: raw, type: "sale", date: date, quantity: qty, unitPrice: unit, source: "Grading", notes: "\(note) — moved to a slab")
+        }
+        let slab = HoldingIdentity(productId: raw.productId, printing: raw.printing, condition: "Near Mint", gradeCompany: company, grade: grade)
+        try await log(identity: slab, type: "purchase", date: date, quantity: qty, unitPrice: unit, fees: fee * qty, shipping: shipping * qty, source: "Grading", notes: note)
+        recompute()
+    }
+
     /// Delete an entry: a correction with quantity 0 voids it.
     @MainActor
     func delete(_ entry: Txn) async throws {

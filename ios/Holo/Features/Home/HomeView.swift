@@ -11,6 +11,8 @@ struct HomeView: View {
     @State private var lists = false
     @State private var search = false
     @State private var recap = false
+    /// A page opened from the launch arguments (-HoloPage analytics|gains|grading) for screenshots.
+    @State private var page: MorePage?
     @State private var adding = false
     @State private var addSearch = false
     /// A moment worth a banner: a milestone reached, or prices just updated.
@@ -60,6 +62,20 @@ struct HomeView: View {
             .navigationBarTitleDisplayMode(.inline)
             .pageTitle("Overview")
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
+            .navigationDestination(item: $page) { p in
+                switch p {
+                case .analytics: AnalyticsView()
+                case .gains: GainsView()
+                case .grading: GradingView()
+                }
+            }
+            .task {
+                if Demo.isOn, page == nil, !MorePage.opened, let p = Demo.value("-HoloPage").flatMap(MorePage.init(rawValue:)) {
+                    MorePage.opened = true
+                    try? await Task.sleep(nanoseconds: 600_000_000)
+                    page = p
+                }
+            }
             .sheet(isPresented: $account) { SettingsView() }
             .sheet(isPresented: $lists) { ListsView() }
             .fullScreenCover(isPresented: $search) { SearchScreen() }
@@ -1272,7 +1288,13 @@ enum Milestones {
     }
 }
 
-/// The website's other pages: analytics and the gains breakdown.
+enum MorePage: String, Hashable, Identifiable {
+    case analytics, gains, grading
+    var id: String { rawValue }
+    static var opened = false
+}
+
+/// The website's other pages: analytics, the gains breakdown and grading.
 private struct MoreSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -1281,6 +1303,8 @@ private struct MoreSection: View {
                 row("Analytics", "Returns, drawdowns, sets and types", icon: "chart.xyaxis.line") { AnalyticsView() }
                 Rectangle().fill(Theme.border).frame(height: 1).padding(.leading, 52)
                 row("Gains", "Which products your gains come from", icon: "chart.bar.xaxis") { GainsView() }
+                Rectangle().fill(Theme.border).frame(height: 1).padding(.leading, 52)
+                row("Grading", "Your slabs, cards at the grader, what's worth sending", icon: "checkmark.seal") { GradingView() }
             }
             .surface(radius: 22, padding: 4)
         }

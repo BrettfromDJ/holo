@@ -6,6 +6,7 @@ struct HoloApp: App {
     @State private var session = SessionModel()
     @State private var store = CollectionStore()
     @State private var deals = DealStore()
+    @State private var grading = GradingStore()
 
     init() {
         Fonts.applyAppearance()
@@ -17,6 +18,7 @@ struct HoloApp: App {
                 .environment(session)
                 .environment(store)
                 .environment(deals)
+                .environment(grading)
                 .preferredColorScheme(.dark)
                 .tint(Theme.lime)
                 .font(.geist(15))
@@ -28,6 +30,7 @@ struct RootView: View {
     @Environment(SessionModel.self) private var session
     @Environment(CollectionStore.self) private var store
     @Environment(DealStore.self) private var deals
+    @Environment(GradingStore.self) private var grading
 
     var body: some View {
         Group {
@@ -62,6 +65,7 @@ struct RootView: View {
             if state == .signedOut {
                 store.reset()
                 deals.reset()
+                grading.reset()
             }
         }
     }
