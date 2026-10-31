@@ -149,14 +149,7 @@ struct CollectionView: View {
     }
 
     private func statTile(_ label: String, _ value: String, _ tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            MonoLabel(text: label)
-            Text(value).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(tint).lineLimit(1).minimumScaleFactor(0.7)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .liquidGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        GlassStatTile(label: label, value: value, tint: tint)
     }
 
     private var controls: some View {

@@ -367,6 +367,33 @@ struct Parallelogram: Shape {
     }
 }
 
+/// A glass stat tile: a mono label over a value (and an optional smaller extra, like a percent).
+/// Used in a row under the big numbers on Home and Collection, so they look the same.
+struct GlassStatTile: View {
+    var label: String
+    var value: String
+    var tint: Color = .white
+    var extra: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            MonoLabel(text: label).lineLimit(1).minimumScaleFactor(0.8)
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(value).font(.geist(15, .semibold))
+                if let extra { Text(extra).font(.geist(12, .medium)).opacity(0.85) }
+            }
+            .foregroundStyle(tint)
+            .monospacedDigit()
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+}
+
 /// "TODAY  +$156.28 +1.11%": a pill with a mono label and a value.
 struct StatPill: View {
     var label: String
