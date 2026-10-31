@@ -786,9 +786,6 @@ struct CardLabel: View {
 // MARK: - Liquid glass
 
 extension View {
-    /// iOS 26's Liquid Glass in a shape, tinted dark so it sits in the app's palette. Older iOS,
-    /// and builds with an older Xcode, get frosted material with a fine light edge instead.
-    @ViewBuilder
     /// Liquid Glass over a real blur of what's behind (Liquid Glass alone bends the background
     /// but barely blurs it, so busy backdrops like the grid show straight through).
     func blurredGlass<S: InsettableShape>(in shape: S) -> some View {
@@ -796,6 +793,9 @@ extension View {
             .liquidGlass(in: shape)
     }
 
+    /// iOS 26's Liquid Glass in a shape, tinted dark so it sits in the app's palette. Older iOS,
+    /// and builds with an older Xcode, get frosted material with a fine light edge instead.
+    @ViewBuilder
     func liquidGlass<S: InsettableShape>(in shape: S, tint: Color? = nil, interactive: Bool = false) -> some View {
         #if compiler(>=6.2)
         if #available(iOS 26, *) {
