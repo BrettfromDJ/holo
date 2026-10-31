@@ -87,7 +87,6 @@ export function WhatsItWorth({ productId, printing, name, nm, owned }: { product
         {/* The answer */}
         <div className="mt-5 flex items-end justify-between gap-3">
           <p className={cn("hype-num tabular text-[clamp(40px,12vw,56px)] leading-none", estimate && "text-foreground/85")}>
-            {estimate && <span className="mr-1 text-[0.7em] text-muted">≈</span>}
             {money(worth.price)}
           </p>
           <span className="mb-1 shrink-0 text-right">
