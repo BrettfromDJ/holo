@@ -67,6 +67,7 @@ struct HomeView: View {
                 case .analytics: AnalyticsView()
                 case .gains: GainsView()
                 case .grading: GradingView()
+                case .binder: BinderView()
                 }
             }
             .task {
@@ -1289,12 +1290,12 @@ enum Milestones {
 }
 
 enum MorePage: String, Hashable, Identifiable {
-    case analytics, gains, grading
+    case analytics, gains, grading, binder
     var id: String { rawValue }
     static var opened = false
 }
 
-/// The website's other pages: analytics, the gains breakdown and grading.
+/// The website's other pages: analytics, the gains breakdown, grading and the binder.
 private struct MoreSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -1305,6 +1306,8 @@ private struct MoreSection: View {
                 row("Gains", "Which products your gains come from", icon: "chart.bar.xaxis") { GainsView() }
                 Rectangle().fill(Theme.border).frame(height: 1).padding(.leading, 52)
                 row("Grading", "Your slabs, cards at the grader, what's worth sending", icon: "checkmark.seal") { GradingView() }
+                Rectangle().fill(Theme.border).frame(height: 1).padding(.leading, 52)
+                row("Binder", "Your singles page by page, and what's missing", icon: "book.closed") { BinderView() }
             }
             .surface(radius: 22, padding: 4)
         }
