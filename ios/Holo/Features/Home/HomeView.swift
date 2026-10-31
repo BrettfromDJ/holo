@@ -536,17 +536,19 @@ private struct MetricCard: View {
                 Spacer(minLength: 4)
                 if let tag { SkewTag(text: tag.0, color: tag.1, textColor: tag.2) }
             }
+            // The same header height with or without a tag, so every card lines up.
+            .frame(height: 24)
             CountingText(value: amount, format: format).font(.display(28)).monospacedDigit().foregroundStyle(valueTint)
                 .lineLimit(1).minimumScaleFactor(0.6).displayTrim(28)
                 .flashOnAppear(valueTint == .white ? .clear : valueTint)
                 .padding(.top, 16)
-            if let sub {
-                Text(sub).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1).padding(.top, 8)
-            }
+            // Always room for the line underneath, so cards without one are the same size.
+            Text(sub ?? " ").font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1).padding(.top, 8)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
-        .frame(maxWidth: .infinity, minHeight: 104, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .frame(height: 128, alignment: .top)
         .background(
             ZStack {
                 shape.fill(Theme.surface)

@@ -70,6 +70,7 @@ struct CountTile: View {
                 Spacer(minLength: 0)
                 if let tag { SkewTag(text: tag, color: glow, textColor: glow == Theme.lime ? Theme.ink : .white) }
             }
+            .frame(height: 24)
             Group {
                 if let value {
                     CountingText(value: value, format: format)
@@ -80,11 +81,12 @@ struct CountTile: View {
             .font(.display(26)).monospacedDigit().foregroundStyle(valueTint)
             .lineLimit(1).minimumScaleFactor(0.55).displayTrim(26)
             .padding(.top, 14)
-            Text(sub).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(2).minimumScaleFactor(0.85)
-                .fixedSize(horizontal: false, vertical: true)
+            Text(sub).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1).minimumScaleFactor(0.8)
                 .padding(.top, 8)
         }
-        .frame(maxWidth: .infinity, minHeight: 92, alignment: .topLeading)
+        // One fixed size for every tile, tag or not.
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .frame(height: 96, alignment: .top)
         .surface(radius: 16)
     }
 }
