@@ -11,6 +11,8 @@ struct HomeView: View {
     @State private var account = false
     @State private var lists = false
     @State private var search = false
+    /// The search field has scrolled up under the top bar, so a search button shows there.
+    @State private var searchTucked = false
     @State private var recap = false
     /// What's pushed on Home (products by id, More pages); -HoloPage opens one for screenshots.
     @State private var path = NavigationPath()
@@ -67,6 +69,15 @@ struct HomeView: View {
             }
             // The "Prices updated" banner stays off (see refresh()).
             .toolbar {
+                // Once the search field scrolls away, search moves to the top left, in the same
+                // glass as the heart and gear.
+                ToolbarItem(placement: .topBarLeading) {
+                    if searchTucked {
+                        Button { search = true } label: { Image(systemName: "magnifyingglass") }
+                            .accessibilityLabel("Search")
+                            .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                    }
+                }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button { lists = true } label: { Image(systemName: "heart") }.accessibilityLabel("Watchlist and wishlist")
                     Button { account = true } label: { Image(systemName: "gearshape") }.accessibilityLabel("Account")
@@ -150,6 +161,10 @@ struct HomeView: View {
                 // Opens search with the keyboard already up.
                 SearchFieldButton(prompt: "Search any card or sealed product") { search = true }
                     .padding(.horizontal, 16)
+                    // Only reports when it crosses under the top bar, not on every scroll frame.
+                    .onGeometryChange(for: Bool.self) { $0.frame(in: .global).maxY < 100 } action: { tucked in
+                        withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) { searchTucked = tucked }
+                    }
                 Hero(store: store, spread: refreshing, onRecap: { recap = true }, onAdd: { Router.shared.addMenu = true })
             }
             // Sits close under the hero's buttons (it belongs with them) and a little nearer the
