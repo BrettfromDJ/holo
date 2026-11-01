@@ -158,7 +158,9 @@ struct HoldingSheet: View {
             Button { editingDetails = true } label: {
                 Label { Text("Edit details"); Text("Condition, grade or printing") } icon: { Image(systemName: "pencil") }
             }
-            Button { selling = true } label: { Label("Mark as sold", systemImage: "tag") }
+            Button { selling = true } label: {
+                Label { Text("Mark as sold"); Text("Record the price you sold it for") } icon: { Image(systemName: "tag") }
+            }
             Button { removing = true } label: {
                 Label { Text("Remove"); Text("Opened, lost or gave away") } icon: { Image(systemName: "minus.circle") }
             }
