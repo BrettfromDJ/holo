@@ -31,6 +31,8 @@ struct ExploreView: View {
                     landing
                 }
             }
+            // A tap on this tab (from anywhere) closes pushed pages and scrolls back to the top.
+            .tabTopReset("explore", path: $path)
             .background(Theme.background)
             .imageMaxPixel(600)
             .replaysAnimations()

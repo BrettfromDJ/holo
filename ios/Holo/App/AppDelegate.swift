@@ -41,6 +41,9 @@ final class Router {
     var product: String?
     /// A tab another screen asked to switch to ("collection").
     var tabRequest: String?
+    /// The last tab-bar tap ("home", "collection", "explore", "deal") and a counter so tapping
+    /// the same tab again still registers. Each tab goes back to its top (see TabTopReset).
+    var tabTap = TabTap(name: "", count: 0)
     /// The category the Collection tab should show (from Home's "View sealed" and friends).
     var collectionCategory: HoldingCategory?
     /// Something just added to the collection, for the "pack pull" reveal.
@@ -106,4 +109,9 @@ enum PushRegistration {
             print("Couldn't save push token: \(error.localizedDescription)")
         }
     }
+}
+
+struct TabTap: Equatable {
+    var name: String
+    var count: Int
 }

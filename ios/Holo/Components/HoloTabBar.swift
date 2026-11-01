@@ -13,6 +13,8 @@ struct HoloTabBar<Tab: Hashable>: View {
     /// The add menu is open: the + turns into a ×.
     var plusOpen = false
     var onPlus: () -> Void
+    /// Every tap on a tab, including the one already showing.
+    var onTap: (Tab) -> Void = { _ in }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -64,6 +66,7 @@ struct HoloTabBar<Tab: Hashable>: View {
         let on = selection == item.tab
         return Button {
             selection = item.tab
+            onTap(item.tab)
         } label: {
             VStack(spacing: 4) {
                 Image(systemName: item.icon).font(.system(size: 21, weight: on ? .semibold : .regular))

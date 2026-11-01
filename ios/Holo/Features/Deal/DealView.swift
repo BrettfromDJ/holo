@@ -68,6 +68,8 @@ struct DealView: View {
                 .padding(.bottom, 24)
                 .background(alignment: .top) { DealBackdrop(accent: accent) }
             }
+            // A tap on this tab (from anywhere) closes pushed pages and scrolls back to the top.
+            .tabTopReset("deal", path: $path)
             .scrollDismissesKeyboard(.interactively)
             .background(Theme.background)
             .imageMaxPixel(360)

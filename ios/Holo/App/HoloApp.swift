@@ -188,7 +188,16 @@ struct MainTabView: View {
                 ],
                 selection: $tab,
                 plusOpen: adding,
-                onPlus: { withAnimation(.spring(response: 0.3, dampingFraction: 0.74)) { adding.toggle() } }
+                onPlus: { withAnimation(.spring(response: 0.3, dampingFraction: 0.74)) { adding.toggle() } },
+                onTap: { t in
+                    let name: String = switch t {
+                    case .home: "home"
+                    case .collection: "collection"
+                    case .explore: "explore"
+                    case .deal: "deal"
+                    }
+                    router.tabTap = TabTap(name: name, count: router.tabTap.count + 1)
+                }
             )
         }
         // The "pack pull" reveal after a purchase is saved.

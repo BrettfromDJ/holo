@@ -175,6 +175,8 @@ struct CollectionView: View {
                     .padding(.bottom, 40)
                 }
             }
+            // A tap on this tab (from anywhere) closes pushed pages and scrolls back to the top.
+            .tabTopReset("collection", path: $path)
             .background(Theme.background)
             .imageMaxPixel(600)
             .replaysAnimations()

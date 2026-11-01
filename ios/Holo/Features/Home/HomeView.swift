@@ -44,6 +44,8 @@ struct HomeView: View {
                     if store.holdings.isEmpty { empty } else { content }
                 }
             }
+            // A tap on this tab (from anywhere) closes pushed pages and scrolls back to the top.
+            .tabTopReset("home", path: $path)
             .background(Theme.background)
             .imageMaxPixel(720)
             .replaysAnimations()

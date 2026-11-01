@@ -362,3 +362,46 @@ func stopLoop(_ change: () -> Void) {
     t.disablesAnimations = true
     withTransaction(t, change)
 }
+
+// MARK: - Back to the top on a tab tap
+
+/// A tab's main scroll view: when its tab-bar button is tapped (from anywhere, even itself),
+/// any pages pushed on top close and the page scrolls back to the top.
+struct TabTopReset: ViewModifier {
+    let tab: String
+    @Binding var path: NavigationPath
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18, *) {
+            content.modifier(TabTopReset18(tab: tab, path: $path))
+        } else {
+            content.onChange(of: Router.shared.tabTap) { _, tap in
+                if tap.name == tab, !path.isEmpty { path = NavigationPath() }
+            }
+        }
+    }
+}
+
+@available(iOS 18, *)
+private struct TabTopReset18: ViewModifier {
+    let tab: String
+    @Binding var path: NavigationPath
+    @State private var position = ScrollPosition(edge: .top)
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content
+            .scrollPosition($position)
+            .onChange(of: Router.shared.tabTap) { _, tap in
+                guard tap.name == tab else { return }
+                if !path.isEmpty { path = NavigationPath() }
+                withAnimation(reduceMotion ? nil : .snappy(duration: 0.35)) { position.scrollTo(edge: .top) }
+            }
+    }
+}
+
+extension View {
+    func tabTopReset(_ tab: String, path: Binding<NavigationPath>) -> some View {
+        modifier(TabTopReset(tab: tab, path: path))
+    }
+}
