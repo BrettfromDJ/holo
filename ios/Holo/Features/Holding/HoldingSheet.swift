@@ -144,10 +144,7 @@ struct HoldingSheet: View {
 
     private func header(_ identity: HoldingIdentity, _ holding: HoldingView?, _ product: Product?) -> some View {
         HStack(spacing: 14) {
-            // The same thumbnail size Collection's grid decodes, so the picture the tile already
-            // has shows at once instead of the full-size photo downloading and fading in.
             HoldingArt(product: product, identity: identity, cornerRadius: 6, caption: false).frame(width: 62, height: 86)
-                .imageMaxPixel(600)
             VStack(alignment: .leading, spacing: 5) {
                 Text(product?.name ?? "Unknown").font(.geist(17, .semibold)).lineLimit(2)
                 HStack(spacing: 6) {

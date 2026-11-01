@@ -119,17 +119,14 @@ final class ImageCache: @unchecked Sendable {
 
     /// Decode just a thumbnail: no full-size bitmap is ever made, and it comes out ready to draw.
     static func downsample(_ data: Data, maxPixel: CGFloat) -> UIImage? {
-        guard let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary) else { return nil }
-        let options: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceShouldCacheImmediately: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: maxPixel,
-        ]
-        if let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) { return UIImage(cgImage: cg) }
+        // UIKit's thumbnailer: reliable for every format the catalog serves (the ImageIO
+        // thumbnail path left some pictures blank), still decoded off the main thread.
         guard let full = UIImage(data: data), full.size.width > 0, full.size.height > 0 else { return nil }
-        let scale = min(1, maxPixel / max(full.size.width, full.size.height))
-        return full.preparingThumbnail(of: CGSize(width: full.size.width * scale, height: full.size.height * scale)) ?? full
+        let longest = max(full.size.width * full.scale, full.size.height * full.scale)
+        guard longest > maxPixel else { return full.preparingForDisplay() ?? full }
+        let ratio = maxPixel / longest
+        let size = CGSize(width: full.size.width * full.scale * ratio, height: full.size.height * full.scale * ratio)
+        return full.preparingThumbnail(of: size) ?? full
     }
 }
 
