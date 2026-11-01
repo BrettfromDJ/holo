@@ -6,6 +6,7 @@ struct AddPurchaseSheet: View {
     var onDone: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
     @Environment(CollectionStore.self) private var store
+    @Environment(GradingStore.self) private var grading
 
     @State private var printing: String?
     @State private var condition = CardCondition.nearMint.rawValue
@@ -29,9 +30,18 @@ struct AddPurchaseSheet: View {
     @State private var error: String?
 
     private var product: Product { hit.product }
+    /// Highest first. CGC 10s come in two kinds: Pristine 10 (the gold label) and Gem Mint 10.
     private var grades: [String] {
         let whole = (1...10).map(String.init)
-        return company == "BGS" || company == "CGC" ? whole + ["9.5", "8.5", "7.5"] : whole
+        let list = (company == "BGS" || company == "CGC" ? whole + ["9.5", "8.5", "7.5"] : whole)
+            .sorted { (Double($0) ?? 0) > (Double($1) ?? 0) }
+        return company == "CGC" ? [Self.pristine] + list : list
+    }
+
+    static let pristine = "Pristine 10"
+
+    private func gradeTitle(_ g: String) -> String {
+        company == "CGC" && g == "10" ? "Gem Mint 10" : g
     }
 
     var body: some View { sheetBody.glassSheet() }
@@ -64,8 +74,9 @@ struct AddPurchaseSheet: View {
                                 ForEach(gradingCompanies, id: \.self) { Text($0) }
                             }
                             Picker("Grade", selection: $grade) {
-                                ForEach(grades.sorted { (Double($0) ?? 0) > (Double($1) ?? 0) }, id: \.self) { Text($0) }
+                                ForEach(grades, id: \.self) { Text(gradeTitle($0)) }
                             }
+                            .onChange(of: company) { _, _ in if !grades.contains(grade) { grade = "10" } }
                         } else {
                             Picker("Condition", selection: $condition) {
                                 ForEach(CardCondition.allCases) { Text($0.rawValue).tag($0.rawValue) }
@@ -114,7 +125,7 @@ struct AddPurchaseSheet: View {
                     if CardCondition(rawValue: lastCondition) != nil { condition = lastCondition }
                     graded = lastGraded
                     if gradingCompanies.contains(lastCompany) { company = lastCompany }
-                    grade = lastGrade
+                    grade = grades.contains(lastGrade) ? lastGrade : "10"
                 }
                 // Logging several buys (a card show): keep the date you picked for a few hours.
                 if lastDate > 0, Date().timeIntervalSince1970 - lastSavedAt < 6 * 3600 {
@@ -137,7 +148,8 @@ struct AddPurchaseSheet: View {
             printing: printing,
             condition: product.isSealed ? "Sealed" : (graded ? CardCondition.nearMint.rawValue : condition),
             gradeCompany: graded && !product.isSealed ? company : nil,
-            grade: graded && !product.isSealed ? grade : nil,
+            // Pristine is still a 10; the gold label is remembered per slab (slab-pristine).
+            grade: graded && !product.isSealed ? (grade == Self.pristine ? "10" : grade) : nil,
             quantity: Double(quantity),
             unitPrice: unit,
             date: Format.day(date),
@@ -146,6 +158,10 @@ struct AddPurchaseSheet: View {
         do {
             let before = store.allHoldings.reduce(0) { $0 + ($1.value ?? 0) }
             try await store.add([purchase])
+            if graded, !product.isSealed, company == "CGC", grade == Self.pristine {
+                let id = HoldingIdentity(productId: product.id, printing: printing, condition: CardCondition.nearMint.rawValue, gradeCompany: "CGC", grade: "10")
+                grading.setPristine(id.key, true)
+            }
             lastSource = source.trimmingCharacters(in: .whitespaces)
             lastDate = date.timeIntervalSince1970
             lastSavedAt = Date().timeIntervalSince1970

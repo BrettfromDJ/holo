@@ -1,7 +1,7 @@
 "use client";
 
 import { GRADERS } from "@/lib/graded";
-import { useSlabCerts } from "@/lib/store/grading";
+import { useSlabCerts, useSlabPristine } from "@/lib/store/grading";
 import { ChevronDown, ChevronLeft, ChevronRight, Loader2, ScanLine } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -196,6 +196,10 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
   const [gradedValue, setGradedValue] = useState("");
   const [cert, setCert] = useState("");
   const { setCert: saveCert } = useSlabCerts();
+  const { setPristine: savePristine } = useSlabPristine();
+  // A CGC 10 is either Pristine 10 (the gold label) or Gem Mint 10.
+  const [pristine, setPristine] = useState(false);
+  const isCgc10 = graded && grader.toUpperCase() === "CGC" && Number.parseFloat(grade) === 10;
   const [showExtras, setShowExtras] = useState(false);
   const [shipping, setShipping] = useState("");
   const [fees, setFees] = useState("");
@@ -258,6 +262,7 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
       const gv = parseMoney(gradedValue);
       if (graded && gv !== null) await setManualValue(identity, gv);
       if (graded && cert.trim()) saveCert(key, cert);
+      if (isCgc10 && pristine) savePristine(key, true);
       if (fromWatchId) await removeWatch(fromWatchId);
       writePurchaseMemory(rememberPurchase(readPurchaseMemory(), { sealed, source, date, graded, company: grader, grade: grade.trim(), condition }, Date.now()));
       onDone();
@@ -384,6 +389,15 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
                 <Field label="Your value" htmlFor="graded-value">
                   <MoneyInput id="graded-value" value={gradedValue} onChange={setGradedValue} placeholder="Optional" />
                 </Field>
+                {isCgc10 && (
+                  <label className="col-span-3 flex items-center justify-between gap-3 text-[14px]">
+                    <span>
+                      <span className="block font-medium">Pristine 10</span>
+                      <span className="block text-[12px] text-muted">The gold label. Off means Gem Mint 10.</span>
+                    </span>
+                    <Switch checked={pristine} onCheckedChange={setPristine} aria-label="Pristine 10" />
+                  </label>
+                )}
                 <Field label="Cert number" htmlFor="graded-cert" className="col-span-3">
                   <Input id="graded-cert" value={cert} onChange={(e) => setCert(e.target.value.slice(0, 20))} placeholder="Optional — for verifying the slab" inputMode="numeric" />
                 </Field>
