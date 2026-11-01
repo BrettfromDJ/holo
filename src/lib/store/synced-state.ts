@@ -17,8 +17,16 @@ interface Entry {
   listeners: Set<() => void>;
   /** The account's value has been requested (cloud only). */
   fetching?: boolean;
-  /** Changed locally since loading; local wins over the account's value. */
+  /** Changed locally since loading. */
   dirty?: boolean;
+  /** The account's value has been read successfully (a missing row counts). */
+  synced?: boolean;
+  /**
+   * Edits made before the account's value was read. They're replayed on top of
+   * it once it loads, so a failed or slow read never saves a stale or empty
+   * value over the account.
+   */
+  pending?: unknown[];
   timer?: ReturnType<typeof setTimeout>;
 }
 
@@ -53,11 +61,50 @@ async function upload(cloud: Cloud, userId: string, key: string, value: unknown)
   if (error && !/user_state/.test(error.message)) console.warn(`Couldn't sync ${key}:`, error.message);
 }
 
+function apply<T>(prev: T, next: unknown): T {
+  return typeof next === "function" ? (next as (p: T) => T)(prev) : (next as T);
+}
+
+/**
+ * Reads the account's value. Only a successful read marks the entry synced;
+ * edits made meanwhile are replayed on top of the account's value and then
+ * saved. A failed read saves nothing (the next mount or edit tries again).
+ */
+async function pull(e: Entry, cloud: Cloud, userId: string, key: string, localKey: string, fallback: unknown) {
+  e.fetching = true;
+  const { data, error } = await cloud.from("user_state").select("value").eq("key", key).maybeSingle();
+  if (error) {
+    e.fetching = false;
+    e.ready = true;
+    notify(e);
+    return;
+  }
+  const pending = e.pending ?? [];
+  e.pending = [];
+  e.synced = true;
+  if (data) {
+    let value: unknown = data.value;
+    for (const op of pending) value = apply(value === undefined || value === null ? fallback : value, op);
+    e.value = value;
+    writeLocal(localKey, value);
+    if (pending.length) await upload(cloud, userId, key, value);
+  } else if (e.value !== undefined) {
+    // Nothing on the account yet: this browser's value (edits included) carries over.
+    await upload(cloud, userId, key, e.value);
+  }
+  e.ready = true;
+  notify(e);
+}
+
 /**
  * `legacyKey` is a localStorage key the value used to live under; it's read
  * once when nothing newer exists, so earlier data carries over.
  */
-export function useSyncedState<T>(key: string, fallback: T, opts?: { legacyKey?: string }): [T, (next: T | ((prev: T) => T)) => void, boolean] {
+export function useSyncedState<T>(
+  key: string,
+  fallback: T,
+  opts?: { legacyKey?: string },
+): [T, (next: T | ((prev: T) => T)) => void, boolean, boolean] {
   const { status, repoKind, user } = useStore();
   const scope = `${repoKind}:${user?.id ?? "anon"}`;
   const id = `${scope}:${key}`;
@@ -73,21 +120,8 @@ export function useSyncedState<T>(key: string, fallback: T, opts?: { legacyKey?:
       entry = { value: local, ready: !cloud, listeners: new Set() };
       entries.set(id, entry);
     }
-    if (cloud && user && !entry.fetching) {
-      const e = entry;
-      e.fetching = true;
-      void (async () => {
-        const { data, error } = await cloud.from("user_state").select("value").eq("key", key).maybeSingle();
-        if (!error && data && !e.dirty) {
-          e.value = data.value;
-          writeLocal(localKey, data.value);
-        } else if (!error && e.value !== undefined) {
-          // Nothing on the account yet, or edited while loading: this browser's value wins.
-          await upload(cloud, user.id, key, e.value);
-        }
-        e.ready = true;
-        notify(e);
-      })();
+    if (cloud && user && !entry.fetching && !entry.synced) {
+      void pull(entry, cloud, user.id, key, localKey, fallback);
     }
     const tick = () => rerender((n) => n + 1);
     entry.listeners.add(tick);
@@ -112,10 +146,15 @@ export function useSyncedState<T>(key: string, fallback: T, opts?: { legacyKey?:
       }
       e.dirty = true;
       const prev = (e.value === undefined ? fallback : e.value) as T;
-      e.value = typeof next === "function" ? (next as (p: T) => T)(prev) : next;
+      e.value = apply(prev, next);
       writeLocal(localKey, e.value);
       notify(e);
-      if (cloud && user) {
+      if (cloud && user && !e.synced) {
+        // The account hasn't been read yet (or the read failed): keep the edit
+        // and replay it on the account's value once that loads.
+        (e.pending ??= []).push(next);
+        if (!e.fetching) void pull(e, cloud, user.id, key, localKey, fallback);
+      } else if (cloud && user) {
         // Coalesce quick edits (typing a trade value) into one write.
         clearTimeout(e.timer);
         const entry = e;
@@ -126,5 +165,7 @@ export function useSyncedState<T>(key: string, fallback: T, opts?: { legacyKey?:
     [id, localKey, cloud, user, key],
   );
 
-  return [value, set, Boolean(entry?.ready)];
+  // `ready`: loaded (or the read finished, even if it failed); `synced`: the
+  // account's value was actually read (always true when not signed in).
+  return [value, set, Boolean(entry?.ready), Boolean(entry?.synced || (entry?.ready && !cloud))];
 }

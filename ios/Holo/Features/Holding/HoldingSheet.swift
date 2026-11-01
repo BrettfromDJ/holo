@@ -58,8 +58,10 @@ struct HoldingSheet: View {
                     // How easily this exact copy sells (its grade, else ungraded), from the shared
                     // eBay cache; only cards with eBay data show it.
                     if EbaySalesCache.supports(identity.productId), !Demo.perfNoSellMeter {
+                        // A CGC 10 sells on Pristine sales when it's marked Pristine, else on Gem Mint ones.
                         SellSpeedLine(productId: identity.productId, printing: identity.printing, grade: identity.gradeLabel,
-                                      market: store.marketPrice(identity.productId, printing: identity.printing)?.market)
+                                      market: store.marketPrice(identity.productId, printing: identity.printing)?.market,
+                                      pristine: Pristine.isCGCTen(company: identity.gradeCompany, grade: identity.grade) ? grading.pristine.contains(identity.key) : nil)
                     }
                     if identity.isGraded { slabRows(identity) } else if product?.isSealed == false { ifGraded(identity, h) }
                     actions(h)
@@ -245,7 +247,11 @@ struct HoldingSheet: View {
                     Image(systemName: "rosette").font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.lime).frame(width: 30)
                     Toggle("Pristine", isOn: Binding(
                         get: { grading.pristine.contains(identity.key) },
-                        set: { grading.setPristine(identity.key, $0) }
+                        set: {
+                            grading.setPristine(identity.key, $0)
+                            // A Pristine 10 is priced apart from a Gem Mint 10: re-price the slabs.
+                            Task { await store.loadSlabPrices() }
+                        }
                     ))
                     .font(.geist(15))
                     .tint(Theme.lime)

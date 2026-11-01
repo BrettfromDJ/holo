@@ -37,6 +37,7 @@ import { acquisitionCost, effectiveTransactions, saleProceeds } from "@/lib/fina
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { formatDate, money, relativeTime, tone } from "@/lib/format";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
+import { useSlabPristine } from "@/lib/store/grading";
 import { priceKey, type Product, type Transaction } from "@/lib/types";
 
 type HistRange = "1M" | "3M" | "1Y" | "ALL";
@@ -65,6 +66,8 @@ export default function ProductPage() {
 
   // Lets a card tapped in a grid fly into the image spot once the page has it.
   const hero = useHeroTarget(store.status === "ready" && Boolean(product));
+  // Slabs marked CGC Pristine 10, so Graded prices highlights the right CGC 10 row.
+  const { pristine: pristineSlabs } = useSlabPristine();
   // The printing on show: one picked here or passed in the link (?printing=, from search and
   // set grids), else the one you own, else the first priced one.
   const [chosenPrinting, setChosenPrinting] = useState<string | null>(null);
@@ -222,7 +225,7 @@ export default function ProductPage() {
           {/* What it sells for graded (PriceCharting, else the grade curve) and a lookup for any grade, for every single. */}
           {product.kind === "single" && (
             <Reveal>
-              <GradedPrices productId={productId} printing={printing} nm={headline} owned={owned.map((h) => h.identity.grade).filter((g): g is NonNullable<typeof g> => Boolean(g))} className="mt-6" />
+              <GradedPrices productId={productId} printing={printing} nm={headline} owned={owned.flatMap((h) => (h.identity.grade ? [{ ...h.identity.grade, pristine: pristineSlabs.has(h.key) }] : []))} className="mt-6" />
             </Reveal>
           )}
 

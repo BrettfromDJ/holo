@@ -80,22 +80,23 @@ export function SellSpeedEmpty({ className }: { className?: string }) {
 }
 
 /** The meter for one eBay result and grade label (null = ungraded). */
-export function SellSpeedFromSales({ ebay, grade, className }: { ebay: EbaySales; grade: string | null; className?: string }) {
+export function SellSpeedFromSales({ ebay, grade, pristine, className }: { ebay: EbaySales; grade: string | null; pristine?: boolean; className?: string }) {
   const { today } = useStore();
-  const speed = useMemo(() => sellSpeed(ebay, grade, today), [ebay, grade, today]);
+  const speed = useMemo(() => sellSpeed(ebay, grade, today, pristine), [ebay, grade, today, pristine]);
   return speed ? <SellSpeedMeter speed={speed} className={className} /> : <SellSpeedEmpty className={className} />;
 }
 
 /**
- * The meter for one copy (a grade label for slabs, else ungraded), from the same eBay data the
+ * The meter for one copy (a grade label for slabs, else ungraded; `pristine` splits a CGC 10 into
+ * Pristine and Gem Mint sales), from the same eBay data the
  * card page uses (one request per card, shared and cached on the device). Hidden for products
  * without eBay data, and while it loads.
  */
-export function SellSpeedFor({ productId, printing, grade, className }: { productId: string; printing: string | null; grade: string | null; className?: string }) {
+export function SellSpeedFor({ productId, printing, grade, pristine, className }: { productId: string; printing: string | null; grade: string | null; pristine?: boolean; className?: string }) {
   const supported = hasEbayData(productId);
   const { load } = useEbayData(productId, printing, { active: supported });
   if (!supported || load.state !== "ready" || !load.data) return null;
-  return <SellSpeedFromSales ebay={load.data} grade={grade} className={className} />;
+  return <SellSpeedFromSales ebay={load.data} grade={grade} pristine={pristine} className={className} />;
 }
 
 /**

@@ -206,6 +206,10 @@ struct DealTotals {
     var belowCost: Int
     /// Outgoing rows with no known cost (not in Holo and no "you paid"): their profit is unknown.
     var uncosted: Int
+    /// What the deal leaves you ahead by: market value of what comes in, less your cost of what
+    /// goes out, less cash you pay (plus cash you get). Profit + value gained; it doesn't depend on
+    /// how the prices were split. Nil when anything going out has no known cost, or the deal is empty.
+    var ahead: Double?
 
     /// `cost` gives your cost for an outgoing row (nil when unknown).
     init(_ deal: DealState, rates: (in: Double, out: Double), cost: (DealItem) -> Double?) {
@@ -213,11 +217,16 @@ struct DealTotals {
         inValue = round2(deal.incoming.reduce(0) { $0 + $1.total(side: rates.in) })
         outValue = round2(deal.outgoing.reduce(0) { $0 + $1.total(side: rates.out) })
         let costed = deal.outgoing.compactMap { item in cost(item).map { (item, $0) } }
-        profit = costed.isEmpty ? nil : round2(costed.reduce(0) { $0 + $1.0.total(side: rates.out) - $1.1 })
-        equity = round2(deal.incoming.reduce(0) { $0 + ($1.market ?? 0) * Double($1.qty) - $1.total(side: rates.in) })
+        let made: Double? = costed.isEmpty ? nil : round2(costed.reduce(0) { $0 + $1.0.total(side: rates.out) - $1.1 })
+        let gained = round2(deal.incoming.reduce(0) { $0 + ($1.market ?? 0) * Double($1.qty) - $1.total(side: rates.in) })
+        profit = made
+        equity = gained
         belowCost = costed.filter { $0.0.total(side: rates.out) < $0.1 - 0.005 }.count
-        uncosted = deal.outgoing.count - costed.count
+        let unknown = deal.outgoing.count - costed.count
+        uncosted = unknown
         balance = round2(outValue - inValue)
+        // A pure buy has no profit (ahead = value gained); a pure sell has no value gained (ahead = profit).
+        ahead = (deal.kind == .empty || unknown > 0) ? nil : round2((made ?? 0) + gained)
     }
 }
 
@@ -250,10 +259,26 @@ struct DealRecord: Codable, Identifiable, Hashable {
     var balance: Double
     var profit: Double?
     var equity: Double
+    /// How far ahead the deal left you (profit + value gained); nil when not every item had a cost.
+    /// Missing on deals closed before it was recorded (see `aheadTotal`).
+    var ahead: Double? = nil
+    /// Items that went out with no known cost. Recorded alongside `ahead`, so a record with it
+    /// knows its own ahead (nil there means unknown, not "work it out").
+    var uncosted: Int? = nil
     var items: Int
     var lines: [Line]?
     /// Photos documenting the deal (storage paths, see DealPhotos).
     var photos: [String]? = nil
+
+    /// How far ahead this deal left you. Deals closed before it was recorded work it out from
+    /// profit + value gained (a buy is all value gained); a newer one with it unknown stays unknown.
+    var aheadTotal: Double? {
+        if let ahead { return ahead }
+        if uncosted != nil { return nil }
+        if kind == .buy { return round2(equity) }
+        guard let profit else { return nil }
+        return round2(profit + (kind == .sell ? 0 : equity))
+    }
 
     var date: Date { ISO8601DateFormatter.withFraction.date(from: at) ?? ISO8601DateFormatter().date(from: at) ?? Date() }
 }
@@ -265,6 +290,12 @@ extension ISO8601DateFormatter {
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return f
     }()
+}
+
+/// The ahead headline: "You come out ahead" (an open deal) or "You came out ahead" (a closed one).
+func dealAheadTitle(_ n: Double, past: Bool = false) -> String {
+    if abs(n) < 0.005 { return past ? "You broke even" : "You break even" }
+    return "You \(past ? "came" : "come") out \(n > 0 ? "ahead" : "behind")"
 }
 
 func round2(_ n: Double) -> Double { (n * 100).rounded() / 100 }

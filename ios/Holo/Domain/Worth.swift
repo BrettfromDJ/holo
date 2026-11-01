@@ -39,9 +39,11 @@ enum WorthCalc {
     }
 
     /// A graded copy: recent eBay sales for that exact grade, else the usual grade curve (always labeled an estimate).
+    /// A CGC 10 here is a Gem Mint 10 (a Pristine 10 is priced by `GradedPricesPanel.price` with `pristine`).
     static func graded(productId: String, nm: Double, company: String, grade: String, ebay: EbaySales?) -> Worth {
         let label = "\(company) \(grade)"
-        if let sold = ebay?.graded[label], sold.count >= minSales, let median = sold.median {
+        let statsLabel = Pristine.isCGCTen(company: company, grade: grade) ? Pristine.gemMintLabel : label
+        if let sold = Pristine.stats(ebay, label: statsLabel), sold.count >= minSales, let median = sold.median {
             return Worth(price: median, source: .sales, detail: "Median of \(sold.count) \(label) eBay sales this month", sold: sold.count)
         }
         return Worth(price: round2(nm * multiple(productId: productId, company: company, grade: grade)), source: .estimate, detail: "No recent sales · from the usual grade curve")

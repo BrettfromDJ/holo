@@ -161,6 +161,8 @@ struct AddPurchaseSheet: View {
             if graded, !product.isSealed, company == "CGC", grade == Self.pristine {
                 let id = HoldingIdentity(productId: product.id, printing: printing, condition: CardCondition.nearMint.rawValue, gradeCompany: "CGC", grade: "10")
                 grading.setPristine(id.key, true)
+                // Price it as a Pristine 10 straight away, not at the next load.
+                Task { await store.loadSlabPrices() }
             }
             lastSource = source.trimmingCharacters(in: .whitespaces)
             lastDate = date.timeIntervalSince1970

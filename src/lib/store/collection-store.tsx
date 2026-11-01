@@ -5,6 +5,7 @@ import { loadConditions, loadEbay } from "@/lib/ebay-client";
 import { measuredShares } from "@/lib/worth";
 import type { EbaySales } from "@/lib/ebay-types";
 import { mapLimit } from "@/lib/pricing/cache";
+import { useSlabPristine } from "@/lib/store/grading";
 import type { User } from "@supabase/supabase-js";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { looksSealed } from "../catalog";
@@ -565,19 +566,45 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
     };
   }, [playedTargets, conditionShares]);
 
-  const allView = useMemo(() => portfolioView({ ...state.data, conditionShares }, state.today, ebayGraded, pcGraded), [state.data, state.today, ebayGraded, pcGraded, conditionShares]);
-  const filtered = state.holdingFilter;
-  const filteredView = useMemo(
-    () => (filtered ? portfolioView({ ...state.data, conditionShares, transactions: state.data.transactions.filter((t) => filtered(holdingKey(t))) }, state.today, ebayGraded, pcGraded) : allView),
-    [state.data, state.today, filtered, allView, ebayGraded, pcGraded, conditionShares],
-  );
-  const views = useMemo(() => ({ all: allView, filtered: filteredView }), [allView, filteredView]);
-
   return (
     <StoreContext.Provider value={value}>
-      <PortfolioViewContext.Provider value={views}>{children}</PortfolioViewContext.Provider>
+      <PortfolioViews data={state.data} today={state.today} filtered={state.holdingFilter} ebayGraded={ebayGraded} pcGraded={pcGraded} conditionShares={conditionShares}>
+        {children}
+      </PortfolioViews>
     </StoreContext.Provider>
   );
+}
+
+/**
+ * The portfolio math, inside the store so it can read the slabs marked Pristine 10
+ * ("slab-pristine", a synced value that needs the store), which are priced apart from Gem Mint 10s.
+ */
+function PortfolioViews({
+  data,
+  today,
+  filtered,
+  ebayGraded,
+  pcGraded,
+  conditionShares,
+  children,
+}: {
+  data: CollectionData;
+  today: ISODate;
+  filtered: ((holdingKey: string) => boolean) | null;
+  ebayGraded: Record<string, EbaySales | null>;
+  pcGraded: Record<string, PriceChartingGraded>;
+  conditionShares: Record<string, number>;
+  children: ReactNode;
+}) {
+  const { pristine } = useSlabPristine();
+  const pristineSlabs = useMemo(() => [...pristine].sort(), [pristine]);
+  const allView = useMemo(() => portfolioView({ ...data, conditionShares, pristineSlabs }, today, ebayGraded, pcGraded), [data, today, ebayGraded, pcGraded, conditionShares, pristineSlabs]);
+  const filteredView = useMemo(
+    () => (filtered ? portfolioView({ ...data, conditionShares, pristineSlabs, transactions: data.transactions.filter((t) => filtered(holdingKey(t))) }, today, ebayGraded, pcGraded) : allView),
+    [data, today, filtered, allView, ebayGraded, pcGraded, conditionShares, pristineSlabs],
+  );
+  const views = useMemo(() => ({ all: allView, filtered: filteredView }), [allView, filteredView]);
+  return <PortfolioViewContext.Provider value={views}>{children}</PortfolioViewContext.Provider>;
 }
 
 export function useStore() {

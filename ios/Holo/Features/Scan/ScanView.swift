@@ -193,7 +193,8 @@ struct ScanView: View {
             .opacity(model.entries.isEmpty ? 0 : 1)
             .disabled(model.entries.isEmpty)
         }
-        .padding(.horizontal, 18)
+        // Clear of the tray's big rounded corners on both sides.
+        .padding(.horizontal, 28)
         .padding(.vertical, 14)
         .liquidGlass(in: RoundedRectangle(cornerRadius: 36, style: .continuous))
     }

@@ -81,6 +81,12 @@ export interface DealTotals {
   belowCost: number;
   /** Outgoing lines with no known cost (not in Holo, no "you paid"): their profit is unknown. */
   uncosted: number;
+  /**
+   * What the deal leaves you ahead by: market value of what comes in, less your cost of what goes
+   * out, less cash you pay (plus cash you get). Profit + value gained; it doesn't depend on how the
+   * prices were split. Null when anything going out has no known cost, or the deal is empty.
+   */
+  ahead: number | null;
 }
 
 export function dealTotals(incoming: DealLine[], outgoing: DealLine[], rates: { in: number; out: number }): DealTotals {
@@ -90,7 +96,40 @@ export function dealTotals(incoming: DealLine[], outgoing: DealLine[], rates: { 
   const profit = costed.length ? round2(costed.reduce((s, l) => s + lineTotal(l, rates.out) - (l.cost ?? 0), 0)) : null;
   const equity = round2(incoming.reduce((s, l) => s + (l.market === null ? 0 : l.market * l.qty) - lineTotal(l, rates.in), 0));
   const belowCost = costed.filter((l) => lineTotal(l, rates.out) < (l.cost ?? 0) - 0.005).length;
-  return { kind: dealKind(incoming.length, outgoing.length), inValue, outValue, balance: round2(outValue - inValue), profit, equity, belowCost, uncosted: outgoing.length - costed.length };
+  const kind = dealKind(incoming.length, outgoing.length);
+  const uncosted = outgoing.length - costed.length;
+  // A pure buy has no profit (ahead = value gained); a pure sell has no value gained (ahead = profit).
+  const ahead = kind === "empty" || uncosted > 0 ? null : round2((profit ?? 0) + equity);
+  return { kind, inValue, outValue, balance: round2(outValue - inValue), profit, equity, belowCost, uncosted, ahead };
+}
+
+/** The ahead headline: "You come out ahead" (an open deal) or "You came out ahead" (a closed one). */
+export function aheadTitle(n: number, past = false): string {
+  if (Math.abs(n) < 0.005) return past ? "You broke even" : "You break even";
+  return `You ${past ? "came" : "come"} out ${n > 0 ? "ahead" : "behind"}`;
+}
+
+/** What a closed deal keeps of its totals, for working out how far ahead it left you. */
+export interface DealRecordTotals {
+  kind: DealKind;
+  profit: number | null;
+  equity: number;
+  /** Recorded since this was added; null when it couldn't be known. */
+  ahead?: number | null;
+  /** Recorded alongside `ahead`; its presence marks a record that knows its own ahead. */
+  uncosted?: number;
+}
+
+/**
+ * How far ahead a closed deal left you. Deals closed before it was recorded work it out from
+ * profit + value gained (a buy is all value gained); a newer one with it unknown stays unknown.
+ */
+export function recordAhead(r: DealRecordTotals): number | null {
+  if (r.ahead !== undefined && r.ahead !== null) return r.ahead;
+  if (r.uncosted !== undefined) return null;
+  if (r.kind === "buy") return round2(r.equity);
+  if (r.profit === null || r.profit === undefined) return null;
+  return round2(r.profit + (r.kind === "sell" ? 0 : r.equity));
 }
 
 /** Value taken in only means something when something comes in. */

@@ -1,6 +1,5 @@
 import {
   holdingKey,
-  priceKey,
   type CollectionData,
   type HoldingIdentity,
   type ISODate,
@@ -19,7 +18,7 @@ import {
   type Lot,
   type RealizedEntry,
 } from "./ledger";
-import { gradedPriceKey } from "../graded";
+import { holdingPriceKey } from "../graded";
 import { PriceResolver, type ResolvedPrice } from "./prices";
 
 export type HoldingCategory = "sealed" | "single" | "graded";
@@ -79,7 +78,7 @@ export function computeHoldings(data: CollectionData, today: ISODate): HoldingVi
     const unrealized = value === null ? null : value - costBasis;
 
     const id = pos.identity;
-    const np = data.prices[id.grade ? gradedPriceKey(id.productId, id.printing, id.grade) : priceKey(id.productId, id.printing)];
+    const np = data.prices[holdingPriceKey(data, id)];
     const manual = resolved?.origin === "manual";
     let priceStatus: HoldingView["priceStatus"];
     if (manual) priceStatus = "manual";

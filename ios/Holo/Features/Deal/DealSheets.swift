@@ -303,16 +303,32 @@ struct DealCloseSheet: View {
                         .padding(18)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-                        if let verdict = t.verdict {
-                            Label(verdict, systemImage: (t.net ?? 0) >= 0 ? "arrow.up.right" : "arrow.down.right")
-                                .font(.geist(16, .bold)).foregroundStyle(Theme.tone(t.net))
+                        // How far ahead you come out, then what it's made of.
+                        VStack(alignment: .leading, spacing: 10) {
+                            if let ahead = t.ahead {
+                                HStack(spacing: 8) {
+                                    Image(systemName: ahead >= 0 ? "arrow.up.right" : "arrow.down.right").foregroundStyle(Theme.tone(ahead))
+                                    Text(dealAheadTitle(ahead)).foregroundStyle(.white)
+                                    Text(Format.signedMoney(ahead)).monospacedDigit().foregroundStyle(Theme.tone(ahead))
+                                }
+                                .font(.geist(16, .bold)).lineLimit(1).minimumScaleFactor(0.75)
+                            } else if let verdict = t.verdict {
+                                Label(verdict, systemImage: (t.net ?? 0) >= 0 ? "arrow.up.right" : "arrow.down.right")
+                                    .font(.geist(16, .bold)).foregroundStyle(Theme.tone(t.net))
+                            }
+                            HStack(spacing: 8) {
+                                if let profit = t.profit { pill("Profit", Format.signedMoney(profit), Theme.tone(profit)) }
+                                if deal.kind != .sell, t.inValue > 0 { pill("Value gained", Format.signedMoney(t.equity), Theme.tone(t.equity)) }
+                            }
+                            if let paper = t.onPaper {
+                                Text("includes \(Format.money(paper)) on paper").font(.geist(12)).foregroundStyle(Theme.muted)
+                            }
+                            if t.uncosted > 0 {
+                                Text("Add what you paid for every item to see your total").font(.geist(13)).foregroundStyle(Theme.muted)
+                            }
                         }
                         if !deal.incoming.isEmpty { sideRow(.incoming, deal.incoming, t.inValue) }
                         if !deal.outgoing.isEmpty { sideRow(.outgoing, deal.outgoing, t.outValue) }
-                        HStack(spacing: 8) {
-                            if let profit = t.profit { pill("Profit", Format.signedMoney(profit), Theme.tone(profit)) }
-                            if deal.kind != .sell, t.inValue > 0 { pill("Value gained", Format.signedMoney(t.equity), Theme.tone(t.equity)) }
-                        }
                         let fx = deals.effects(deal)
                         Label {
                             Text([fx.adds > 0 ? "Adds \(fx.adds) to your collection" : nil,
@@ -414,10 +430,10 @@ struct DealCloseSheet: View {
     }
 }
 
-/// The deal, recorded: the whole screen goes electric lime (pink if the equity taken in was
-/// negative). A check stamps in, the items fan in like a hand of cards and then slide together
+/// The deal, recorded: the whole screen goes electric lime (pink if it left you behind, so
+/// there's never pink on lime). A check stamps in, the items fan in like a hand of cards and then slide together
 /// into a neat recorded pile (each card a few degrees off), the headline number
-/// counts up (profit, or for a buy the equity you took in), and an ink receipt lists what
+/// counts up (how far ahead you came out, with profit and value gained under it), and an ink receipt lists what
 /// changed hands and who paid. A broad soft glare passes over once.
 private struct RecordedScreen: View {
     var totals: DealTotals
@@ -440,15 +456,15 @@ private struct RecordedScreen: View {
 
     var body: some View {
         let t = totals
-        let down = t.kind != .sell && t.inValue > 0 && t.equity < -0.005
+        // The headline figure decides the color: down turns the whole screen pink.
+        let down = t.ahead.map { $0 < -0.005 } ?? (t.kind != .sell && t.inValue > 0 && t.equity < -0.005)
         let fill = down ? Theme.planPink : Theme.lime
         let ink = down ? Color.white : Theme.ink
         let items = Array((deal.outgoing + deal.incoming).prefix(7))
-        // Profit when something went out; for a buy, the equity you took in.
-        let headline: (label: String, value: Double)? = t.profit.map { ("Profit", $0) } ?? (t.inValue > 0 ? ("Value gained", t.equity) : nil)
+        let headline = Self.headline(t)
         VStack(spacing: 0) {
             Spacer(minLength: 12)
-            VStack(spacing: 20) {
+            VStack(spacing: 16) {
                 Image(systemName: "checkmark")
                     .font(.system(size: 30, weight: .black))
                     .foregroundStyle(fill)
@@ -495,10 +511,15 @@ private struct RecordedScreen: View {
                 }
                 if let headline {
                     VStack(spacing: 6) {
-                        Text(headline.label.uppercased()).font(.mono(11)).tracking(1.6).foregroundStyle(ink.opacity(0.6))
+                        if t.ahead != nil {
+                            Text(headline.label).font(.display(22)).tracking(-0.6).foregroundStyle(ink)
+                        } else {
+                            Text(headline.label.uppercased()).font(.mono(11)).tracking(1.6).foregroundStyle(ink.opacity(0.6))
+                        }
                         CountingText(value: headline.value, format: { Format.signedMoney($0) })
-                            .font(.display(72)).tracking(-2.9).monospacedDigit().foregroundStyle(ink).displayTrim(72)
+                            .font(.display(64)).tracking(-2.6).monospacedDigit().foregroundStyle(ink).displayTrim(64)
                             .lineLimit(1).minimumScaleFactor(0.5)
+                        breakdown(t, ink: ink)
                     }
                 }
                 receipt(t, ink: ink, fill: fill)
@@ -560,6 +581,32 @@ private struct RecordedScreen: View {
         let angles: [Double] = [-5, 4, -2, 6, -4, 2, -6]
         let nudges: [Double] = [-3, 2, -1, 3, -2, 1, 0]
         return (angles[i % angles.count], nudges[i % nudges.count], Double(-i) * 2)
+    }
+
+    /// How far ahead you came out; without every cost, profit (or for a buy, the equity you took in).
+    private static func headline(_ t: DealTotals) -> (label: String, value: Double)? {
+        if let ahead = t.ahead { return (dealAheadTitle(ahead, past: true), ahead) }
+        if let profit = t.profit { return ("Profit", profit) }
+        if t.inValue > 0 { return ("Value gained", t.equity) }
+        return nil
+    }
+
+    /// "Profit +$971 · Value gained +$730", then "includes $730 on paper", all in ink (no pink on
+    /// lime). Without every cost, a short note that the total isn't known.
+    @ViewBuilder private func breakdown(_ t: DealTotals, ink: Color) -> some View {
+        if t.ahead != nil {
+            let parts = [t.profit.map { "Profit \(Format.signedMoney($0))" },
+                         t.showsEquity ? "Value gained \(Format.signedMoney(t.equity))" : nil].compactMap { $0 }
+            if !parts.isEmpty {
+                Text(parts.joined(separator: " · ")).font(.geist(14, .semibold)).monospacedDigit().foregroundStyle(ink)
+                    .lineLimit(1).minimumScaleFactor(0.75)
+            }
+            if let paper = t.onPaper {
+                Text("includes \(Format.money(paper)) on paper").font(.geist(12, .medium)).foregroundStyle(ink.opacity(0.65))
+            }
+        } else if t.uncosted > 0 {
+            Text("Total unknown: not every item had a cost").font(.geist(12, .medium)).foregroundStyle(ink.opacity(0.65))
+        }
     }
 
     /// An ink receipt: each item with its side, quantity and price, then who paid.

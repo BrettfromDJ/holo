@@ -78,6 +78,9 @@ function SheetBody({ opened, close }: { opened: HoldingView; close: () => void }
   const [open, setOpen] = useState<Open>(null);
   const dialog = (d: Exclude<Open, null>) => ({ open: open === d, onOpenChange: (o: boolean) => !o && setOpen(null) });
   const graded = Boolean(h.identity.grade);
+  // A CGC 10 marked Pristine sells on Pristine sales; any other CGC 10 on Gem Mint ones.
+  const { pristine: pristineSlabs } = useSlabPristine();
+  const pristine = h.identity.grade && isCgcTen(h.identity.grade) ? pristineSlabs.has(h.key) : undefined;
   const rawSingle = !graded && product?.kind === "single";
   const tag = holdingLabel(h) ?? (product?.kind === "sealed" ? "Sealed" : h.identity.condition);
 
@@ -114,7 +117,7 @@ function SheetBody({ opened, close }: { opened: HoldingView; close: () => void }
             </dl>
             {/* How easily this exact copy sells (its grade, else ungraded); only cards with eBay data. */}
             {hasEbayData(live.identity.productId) && (
-              <SellSpeedFor productId={live.identity.productId} printing={live.identity.printing} grade={live.identity.grade ? gradeLabel(live.identity.grade) : null} className="sheet-panel mt-2 rounded-[14px] px-3 py-2.5" />
+              <SellSpeedFor productId={live.identity.productId} printing={live.identity.printing} grade={live.identity.grade ? gradeLabel(live.identity.grade) : null} pristine={pristine} className="sheet-panel mt-2 rounded-[14px] px-3 py-2.5" />
             )}
             {graded ? <SlabRows h={live} onCert={() => setOpen("cert")} onBumper={() => setOpen("bumper")} onValue={() => setOpen("value")} /> : rawSingle && <IfGraded h={live} onSend={() => setOpen("grade")} />}
             <div className="mt-5 flex gap-2">

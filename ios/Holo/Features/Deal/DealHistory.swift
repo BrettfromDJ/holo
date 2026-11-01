@@ -491,8 +491,8 @@ extension DealRecord.Line.Item {
     var product: Product { Product(id: id, name: name, setName: setName, productType: productType, kind: kind, imageUrl: imageUrl) }
 }
 
-/// Closed deals, as a page like the other tabs: all-time profit huge over a lit grid with the
-/// deal count, cash and items, profit climbing deal by deal, your best deal on an electric
+/// Closed deals, as a page like the other tabs: how far ahead your deals left you, huge over a lit
+/// grid with the deal count, profit and cash, that total climbing deal by deal, your best deal on an electric
 /// card, a filter by kind, then each day's deals as cards. Tap one for everything about it.
 struct DealHistoryView: View {
     @Environment(DealStore.self) private var deals
@@ -517,7 +517,7 @@ struct DealHistoryView: View {
                     empty
                 } else {
                     hero(shown)
-                    if let best = shown.filter({ ($0.profit ?? 0) > 0 }).max(by: { ($0.profit ?? 0) < ($1.profit ?? 0) }), shown.count > 1 {
+                    if let best = shown.filter({ ($0.aheadTotal ?? 0) > 0 }).max(by: { ($0.aheadTotal ?? 0) < ($1.aheadTotal ?? 0) }), shown.count > 1 {
                         NavigationLink(value: best) { BestDealCard(record: best) }.buttonStyle(.plain).reveal()
                     }
                     VStack(alignment: .leading, spacing: 26) {
@@ -569,24 +569,27 @@ struct DealHistoryView: View {
         .padding(.top, 90)
     }
 
-    // MARK: The top: profit, counts, and profit over time
+    // MARK: The top: how far ahead, counts, and that total over time
 
     private func hero(_ shown: [DealRecord]) -> some View {
+        let known = shown.compactMap(\.aheadTotal)
+        let ahead = known.reduce(0, +)
+        let hasProfit = shown.contains { $0.profit != nil }
         let profit = shown.compactMap(\.profit).reduce(0, +)
         let cash = shown.reduce(0) { $0 + $1.balance }
-        let items = shown.reduce(0) { $0 + $1.items }
+        let what = filter.map { "\($0.noun.lowercased())s" } ?? "deals"
         return VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 8) {
-                MonoLabel(text: filter == nil ? "Profit from deals" : "Profit from \(filter!.noun.lowercased())s")
-                CountingText(value: profit, format: { Format.signedMoney($0) })
-                    .font(.display(72)).tracking(-2.9).monospacedDigit().foregroundStyle(profit < 0 ? Theme.planPink : Theme.lime)
+                MonoLabel(text: (ahead < 0 ? "Behind from " : "Ahead from ") + what)
+                CountingText(value: ahead, format: { Format.signedMoney($0) })
+                    .font(.display(72)).tracking(-2.9).monospacedDigit().foregroundStyle(ahead < 0 ? Theme.planPink : Theme.lime)
                     .lineLimit(1).minimumScaleFactor(0.5).displayTrim(72)
-                    .shadow(color: (profit < 0 ? Theme.planPink : Theme.lime).opacity(0.35), radius: 18)
+                    .shadow(color: (ahead < 0 ? Theme.planPink : Theme.lime).opacity(0.35), radius: 18)
             }
             HStack(spacing: 8) {
                 StatPill(label: "Deals", value: "\(shown.count)")
+                if hasProfit { StatPill(label: "Profit", value: Format.signedMoney(profit), tint: Theme.tone(profit)) }
                 StatPill(label: "Cash", value: Format.signedMoney(cash), tint: Theme.tone(cash))
-                if items > 0 { StatPill(label: "Items", value: "\(items)") }
             }
             .lineLimit(1)
             .minimumScaleFactor(0.8)
@@ -598,7 +601,8 @@ struct DealHistoryView: View {
     // MARK: Days
 
     private func daySection(_ day: String, _ records: [DealRecord]) -> some View {
-        let profit = records.compactMap(\.profit).reduce(0, +)
+        let known = records.compactMap(\.aheadTotal)
+        let ahead = known.reduce(0, +)
         let date = Format.isoDay.date(from: day)
         let title = date.map { Calendar.current.isDateInToday($0) ? "Today" : (Calendar.current.isDateInYesterday($0) ? "Yesterday" : $0.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())) } ?? day
         return VStack(alignment: .leading, spacing: 12) {
@@ -606,8 +610,8 @@ struct DealHistoryView: View {
                 Text(title).font(.display(24)).tracking(-0.6)
                 MonoLabel(text: "\(records.count) deal\(records.count == 1 ? "" : "s")")
                 Spacer()
-                if records.contains(where: { $0.profit != nil }) {
-                    Text(Format.signedMoney(profit)).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(profit))
+                if !known.isEmpty {
+                    Text(Format.signedMoney(ahead)).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(ahead))
                 }
             }
             VStack(spacing: 12) {
@@ -619,14 +623,14 @@ struct DealHistoryView: View {
     }
 }
 
-/// Profit adding up deal by deal, drawn in lime (pink if it's under water), like Home's chart.
+/// How far ahead, adding up deal by deal, drawn in lime (pink if it's under water), like Home's chart.
 private struct ProfitClimb: View {
     var records: [DealRecord]
 
     private var points: [(date: Date, total: Double)] {
         var running = 0.0
-        return records.filter { $0.profit != nil }.sorted { $0.at < $1.at }.map { r in
-            running += r.profit ?? 0
+        return records.filter { $0.aheadTotal != nil }.sorted { $0.at < $1.at }.map { r in
+            running += r.aheadTotal ?? 0
             return (r.date, running)
         }
     }
@@ -654,7 +658,7 @@ private struct ProfitClimb: View {
     }
 }
 
-/// The deal that made the most, on an electric card.
+/// The deal that left you furthest ahead, on an electric card.
 private struct BestDealCard: View {
     var record: DealRecord
 
@@ -665,7 +669,7 @@ private struct BestDealCard: View {
             VStack(alignment: .leading, spacing: 10) {
                 SkewTag(text: "Best deal", icon: "star.fill")
                 Text("\(record.kind.noun) · \(record.date.formatted(.dateTime.month(.abbreviated).day()))").font(.geist(15, .semibold)).foregroundStyle(.white)
-                Text(Format.signedMoney(record.profit)).font(.display(40)).tracking(-1.6).monospacedDigit().foregroundStyle(Theme.lime).displayTrim(40)
+                Text(Format.signedMoney(record.aheadTotal)).font(.display(40)).tracking(-1.6).monospacedDigit().foregroundStyle(Theme.lime).displayTrim(40)
                     .shadow(color: Theme.lime.opacity(0.4), radius: 12)
             }
             Spacer(minLength: 0)
@@ -709,7 +713,7 @@ private struct CardFanStack: View {
 
 /// A closed deal as a card, balanced left to right: its items fanned on the left; the kind tag,
 /// time, what it was and who paid in the middle (a camera mark when it has photos); and the
-/// number that matters on the right (profit, or for a buy the equity taken in).
+/// number that matters on the right (how far ahead it left you, with its profit under it).
 private struct DealRecordCard: View {
     var record: DealRecord
 
@@ -747,6 +751,11 @@ private struct DealRecordCard: View {
                     .foregroundStyle(h.1.map { Theme.tone($0) } ?? Theme.muted).displayTrim(24)
                     .lineLimit(1).minimumScaleFactor(0.7)
                 MonoLabel(text: h.0).lineLimit(1).fixedSize()
+                // Profit stays in view as the second number (a buy has none).
+                if record.aheadTotal != nil, let p = record.profit, record.kind != .buy {
+                    (Text("Profit ").foregroundColor(Theme.muted) + Text(Format.signedMoney(p)).foregroundColor(Theme.tone(p)))
+                        .font(.geist(11, .medium)).monospacedDigit().lineLimit(1).fixedSize()
+                }
             }
             .layoutPriority(1)
             Image(systemName: "chevron.right").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.subtle)
@@ -785,8 +794,9 @@ private struct DealRecordCard: View {
         return lines.count == 1 ? first.product.name : "\(first.product.name) + \(lines.count - 1) more"
     }
 
-    /// Profit when something went out; for a buy, the equity taken in.
+    /// How far ahead it left you; without that, profit, or for a buy the equity taken in.
     private var headline: (String, Double?) {
+        if let a = record.aheadTotal { return (a < 0 ? "Behind" : "Ahead", a) }
         if let p = record.profit { return ("Profit", p) }
         if record.inValue > 0 { return ("Value gained", record.equity) }
         return ("Profit", nil)
@@ -850,13 +860,29 @@ struct DealRecordDetail: View {
                 Text(r.date.formatted(.dateTime.weekday(.wide).month(.abbreviated).day().hour().minute()).uppercased())
                     .font(.mono(11)).tracking(1).foregroundStyle(Theme.muted)
             }
-            MonoLabel(text: abs(b) < 0.005 ? "Even swap" : (b > 0 ? "They paid you" : "You paid them")).padding(.top, 18)
-            CountingText(value: abs(b), format: { Format.money($0) })
-                .font(.display(56)).tracking(-2.2).monospacedDigit().lineLimit(1).minimumScaleFactor(0.5).displayTrim(56)
-                .padding(.top, 8)
+            // How far ahead the deal left you; the cash moves into the numbers below.
+            if let ahead = r.aheadTotal {
+                Text(dealAheadTitle(ahead, past: true)).font(.display(26)).tracking(-0.8).foregroundStyle(.white)
+                    .padding(.top, 18)
+                CountingText(value: ahead, format: { Format.signedMoney($0) })
+                    .font(.display(56)).tracking(-2.2).monospacedDigit().foregroundStyle(Theme.tone(ahead))
+                    .lineLimit(1).minimumScaleFactor(0.5).displayTrim(56)
+                    .padding(.top, 6)
+                if r.kind != .sell, r.equity > 0.005 {
+                    Text("Includes \(Format.money(r.equity)) on paper").font(.geist(12)).foregroundStyle(Theme.muted)
+                        .padding(.top, 6)
+                }
+            } else {
+                Text("Total unknown").font(.display(26)).tracking(-0.8).foregroundStyle(.white)
+                    .padding(.top, 18)
+                Text("Not every item that went out had a cost.").font(.geist(13)).foregroundStyle(Theme.muted)
+                    .padding(.top, 6)
+            }
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], alignment: .leading, spacing: 14) {
                 stat("Came in", Format.money(r.inValue), .white)
                 stat("Went out", Format.money(r.outValue), .white)
+                stat(abs(b) < 0.005 ? "Cash" : (b > 0 ? "They paid you" : "You paid them"), abs(b) < 0.005 ? "Even swap" : Format.money(abs(b)), .white)
+                stat("Items", "\(r.items)", .white)
                 stat("Profit", r.profit.map { Format.signedMoney($0) } ?? "—", r.profit == nil ? Theme.muted : Theme.tone(r.profit))
                 stat("Value gained", r.kind == .sell ? "—" : Format.signedMoney(r.equity), r.kind == .sell ? Theme.muted : Theme.tone(r.equity))
             }

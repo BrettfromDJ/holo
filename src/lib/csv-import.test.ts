@@ -3,6 +3,7 @@ import {
   TEMPLATE_CSV,
   coreName,
   detectColumns,
+  findDuplicates,
   isConfident,
   matchPrinting,
   normalizeNumber,
@@ -16,7 +17,9 @@ import {
   parsePrinting,
   parseQuantity,
   rankCandidates,
+  samePurchase,
   searchQueries,
+  type PurchaseLike,
 } from "./csv-import";
 import { SAMPLE_PRODUCTS } from "./demo/catalog";
 
@@ -274,5 +277,37 @@ describe("matching", () => {
 
   it("builds search queries from specific to loose", () => {
     expect(searchQueries({ name: "Charizard ex", set: "Obsidian Flames", number: "223/197" })).toEqual(["charizard ex 223/197", "charizard ex obsidian flames", "charizard ex"]);
+  });
+});
+
+describe("duplicates", () => {
+  const buy: PurchaseLike = { productId: "p1", printing: "Holofoil", condition: "Near Mint", grade: null, date: "2024-03-14", quantity: 1, unitPrice: 72 };
+
+  it("matches the same buy, price within a cent and printing in any case", () => {
+    expect(samePurchase(buy, { ...buy })).toBe(true);
+    expect(samePurchase(buy, { ...buy, unitPrice: 72.01 })).toBe(true);
+    expect(samePurchase(buy, { ...buy, printing: "holofoil" })).toBe(true);
+  });
+
+  it("doesn't match a different product, printing, condition, date, quantity or price", () => {
+    expect(samePurchase(buy, { ...buy, productId: "p2" })).toBe(false);
+    expect(samePurchase(buy, { ...buy, printing: "Reverse Holofoil" })).toBe(false);
+    expect(samePurchase(buy, { ...buy, condition: "Lightly Played" })).toBe(false);
+    expect(samePurchase(buy, { ...buy, date: "2024-03-15" })).toBe(false);
+    expect(samePurchase(buy, { ...buy, quantity: 2 })).toBe(false);
+    expect(samePurchase(buy, { ...buy, unitPrice: 72.02 })).toBe(false);
+  });
+
+  it("compares grades for slabs", () => {
+    const slab = { ...buy, grade: { company: "PSA", grade: "10" } };
+    expect(samePurchase(slab, { ...slab, grade: { company: "psa", grade: "10" } })).toBe(true);
+    expect(samePurchase(slab, { ...slab, grade: { company: "PSA", grade: "9" } })).toBe(false);
+    expect(samePurchase(slab, buy)).toBe(false);
+  });
+
+  it("flags each existing purchase once, and never a skipped row", () => {
+    expect(findDuplicates([buy, { ...buy }, null, { ...buy, quantity: 3 }], [buy])).toEqual([true, false, false, false]);
+    expect(findDuplicates([buy, { ...buy }], [buy, { ...buy }])).toEqual([true, true]);
+    expect(findDuplicates([buy], [])).toEqual([false]);
   });
 });

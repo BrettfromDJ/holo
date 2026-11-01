@@ -37,10 +37,10 @@ export function ProductImage({
   grade?: Grade | null;
   /** The holding this slab is, so it wears the bumper chosen for it. */
   slabKey?: string;
-  /** Draw this bumper (e.g. a preview), overriding the saved one. */
+  /** Draw this bumper (e.g. a preview), overriding the saved one. The slab's saved cert and Pristine mark still show. */
   bumper?: Bumper | null;
 }) {
-  if (grade && slabKey && bumper === undefined) return <SavedBumperSlab slabKey={slabKey} product={product} grade={grade} size={size} priority={priority} className={className} />;
+  if (grade && slabKey) return <SavedBumperSlab slabKey={slabKey} product={product} grade={grade} size={size} priority={priority} className={className} bumper={bumper} />;
   if (grade) return <Slab product={product} grade={grade} size={size} priority={priority} className={className} bumper={bumper ?? null} />;
   return <ProductPhoto product={product} size={size} priority={priority} frame={frame} className={className} />;
 }
@@ -120,11 +120,12 @@ function ProductPhoto({
   );
 }
 
-function SavedBumperSlab({ slabKey, ...props }: { slabKey: string } & Omit<Parameters<typeof Slab>[0], "bumper" | "cert" | "pristine">) {
+/** A holding's slab with its saved cert, Pristine mark and bumper (`bumper` overrides the saved one, e.g. a preview). */
+function SavedBumperSlab({ slabKey, bumper, ...props }: { slabKey: string; bumper?: Bumper | null } & Omit<Parameters<typeof Slab>[0], "bumper" | "cert" | "pristine">) {
   const { bumpers } = useSlabBumpers();
   const { certs } = useSlabCerts();
   const { pristine } = useSlabPristine();
-  return <Slab {...props} bumper={bumperById(bumpers[slabKey])} cert={certs[slabKey]} pristine={pristine.has(slabKey)} />;
+  return <Slab {...props} bumper={bumper === undefined ? bumperById(bumpers[slabKey]) : bumper} cert={certs[slabKey]} pristine={pristine.has(slabKey)} />;
 }
 
 /** Faint wavy security print, like the fugitive-ink pattern on a PSA label. */

@@ -64,11 +64,22 @@ enum Liquidity {
 
     /// The score for one grade label ("PSA 10"), or ungraded copies when `grade` is nil. Nil when
     /// there isn't enough to go on (fewer than 2 sold and fewer than 2 sales listed).
-    static func score(_ ebay: EbaySales?, grade: String?, today: String) -> Score? {
+    /// A CGC 10 comes in two kinds: pass `pristine` (or the label "CGC Pristine 10" / "CGC Gem
+    /// Mint 10") to score a Pristine 10 on sales whose title says pristine only, and a Gem Mint 10
+    /// on the rest. Without it, "CGC 10" scores every CGC 10 sale.
+    static func score(_ ebay: EbaySales?, grade: String?, today: String, pristine: Bool? = nil) -> Score? {
         guard let ebay else { return nil }
+        var label = grade
+        if grade == Pristine.cgcTen, let pristine { label = pristine ? Pristine.pristineLabel : Pristine.gemMintLabel }
         let stats: EbayStats?
-        if let grade { stats = ebay.graded[grade] } else { stats = ebay.ungraded }
-        let sales = ebay.sales.filter { $0.grade == grade }
+        let sales: [EbaySale]
+        if let label {
+            stats = Pristine.stats(ebay, label: label)
+            sales = Pristine.sales(ebay, label: label)
+        } else {
+            stats = ebay.ungraded
+            sales = ebay.sales.filter { $0.grade == nil }
+        }
         let count = stats?.count ?? 0
         if count < 2 && sales.count < 2 { return nil }
 

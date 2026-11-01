@@ -152,6 +152,8 @@ export interface CollectionData {
    * `${priceKey}|${condition}` (from TCGplayer's per-condition prices). Missing: the estimate.
    */
   conditionShares?: Record<string, number>;
+  /** CGC 10s marked Pristine 10, by `holdingKey` (user_state "slab-pristine"); priced apart from Gem Mint 10s. */
+  pristineSlabs?: string[];
   preferences: Preferences;
 }
 

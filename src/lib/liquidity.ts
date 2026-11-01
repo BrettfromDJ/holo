@@ -1,4 +1,5 @@
 import type { EbaySale, EbaySales } from "./ebay-types";
+import { CGC_GEM_MINT_10, CGC_PRISTINE_10, CGC_TEN, gradedSales, gradedStats } from "./pristine";
 import type { ISODate } from "./types";
 
 /**
@@ -52,11 +53,15 @@ export function sellSpeedTier(score: number): SellSpeedTier {
 /**
  * The score for one grade label ("PSA 10"), or ungraded copies when `grade` is null.
  * Null when there isn't enough to go on (fewer than 2 sold and fewer than 2 sales listed).
+ * A CGC 10 comes in two kinds: pass `pristine` (or the label "CGC Pristine 10" / "CGC Gem Mint
+ * 10") to score a Pristine 10 on sales whose title says pristine only, and a Gem Mint 10 on the
+ * rest. Without it, "CGC 10" scores every CGC 10 sale.
  */
-export function sellSpeed(ebay: EbaySales | null | undefined, grade: string | null, today: ISODate): SellSpeed | null {
+export function sellSpeed(ebay: EbaySales | null | undefined, grade: string | null, today: ISODate, pristine?: boolean): SellSpeed | null {
   if (!ebay) return null;
-  const stats = grade === null ? ebay.ungraded : (ebay.graded[grade] ?? null);
-  const sales: EbaySale[] = ebay.sales.filter((s) => (grade === null ? s.grade === null : s.grade === grade));
+  const label = grade === CGC_TEN && pristine !== undefined ? (pristine ? CGC_PRISTINE_10 : CGC_GEM_MINT_10) : grade;
+  const stats = label === null ? ebay.ungraded : gradedStats(ebay, label);
+  const sales: EbaySale[] = label === null ? ebay.sales.filter((s) => s.grade === null) : gradedSales(ebay, label);
   const count = stats?.count ?? 0;
   if (count < 2 && sales.length < 2) return null;
 

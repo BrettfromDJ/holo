@@ -1,6 +1,7 @@
 import type { EbaySales } from "./ebay-types";
 import { addDays, daysBetween } from "./finance/dates";
-import { priceKey, type CollectionData, type Grade, type HoldingIdentity, type ISODate, type NormalizedPrice, type PricePoint } from "./types";
+import { CGC_GEM_MINT_10, CGC_PRISTINE_10, cgcTenValue, gradedStats, isCgcTenGrade, pristinePremium } from "./pristine";
+import { holdingKey, priceKey, type CollectionData, type Grade, type HoldingIdentity, type ISODate, type NormalizedPrice, type PricePoint } from "./types";
 
 /**
  * Graded card prices.
@@ -21,9 +22,23 @@ export function gradedSampleFor(productId: string) {
 
 export const GRADERS = ["PSA", "BGS", "CGC", "SGC", "TAG"] as const;
 
-/** Key for a graded price, alongside the raw `priceKey` entries. */
-export function gradedPriceKey(productId: string, printing: string | null, grade: Grade): string {
+/**
+ * Key for a graded price, alongside the raw `priceKey` entries. A CGC 10 marked Pristine has its
+ * own price ("…|CGC Pristine 10"), apart from the Gem Mint 10s.
+ */
+export function gradedPriceKey(productId: string, printing: string | null, grade: Grade, pristine = false): string {
+  if (pristine && isCgcTenGrade(grade.company, grade.grade)) return `${priceKey(productId, printing)}|${CGC_PRISTINE_10}`;
   return `${priceKey(productId, printing)}|${grade.company.toUpperCase()} ${grade.grade}`;
+}
+
+/** Whether this holding is a CGC 10 marked Pristine (`data.pristineSlabs`). */
+export function isPristineSlab(data: Pick<CollectionData, "pristineSlabs">, identity: HoldingIdentity): boolean {
+  return Boolean(identity.grade && data.pristineSlabs?.length && isCgcTenGrade(identity.grade.company, identity.grade.grade) && data.pristineSlabs.includes(holdingKey(identity)));
+}
+
+/** Where a holding's price is kept: its graded key (Pristine apart) for a slab, else the raw key. */
+export function holdingPriceKey(data: Pick<CollectionData, "pristineSlabs">, identity: HoldingIdentity): string {
+  return identity.grade ? gradedPriceKey(identity.productId, identity.printing, identity.grade, isPristineSlab(data, identity)) : priceKey(identity.productId, identity.printing);
 }
 
 export function gradeLabel(grade: Grade): string {
@@ -84,7 +99,14 @@ function round(n: number) {
 /** Adds sample graded prices and history for every graded identity in the collection. */
 export function withSampleGradedPrices(data: CollectionData, today: ISODate): CollectionData {
   const graded = new Map<string, HoldingIdentity>();
-  for (const t of data.transactions) if (t.grade && gradedSampleFor(t.productId)) graded.set(gradedPriceKey(t.productId, t.printing, t.grade), t);
+  const pristineKeys = new Set<string>();
+  for (const t of data.transactions) {
+    if (!t.grade || !gradedSampleFor(t.productId)) continue;
+    const pristine = isPristineSlab(data, t);
+    const key = gradedPriceKey(t.productId, t.printing, t.grade, pristine);
+    graded.set(key, t);
+    if (pristine) pristineKeys.add(key);
+  }
   if (!graded.size) return data;
 
   const prices = { ...data.prices };
@@ -94,7 +116,8 @@ export function withSampleGradedPrices(data: CollectionData, today: ISODate): Co
     const rawKey = priceKey(id.productId, id.printing);
     const raw = data.prices[rawKey];
     const rawHistory = data.history[rawKey] ?? [];
-    const m = sampleMultiple(id.productId, id.grade!);
+    // A Pristine 10 trades at the usual premium over a Gem Mint 10.
+    const m = sampleMultiple(id.productId, id.grade!) * (pristineKeys.has(key) ? pristinePremium : 1);
     // Graded prices move more slowly than raw: a gentle wobble on the raw trend.
     const wobble = (date: ISODate) => 1 + Math.sin(daysBetween("2024-01-01", date) / 9 + hash(key) * 6) * 0.025;
     const points: PricePoint[] = rawHistory.map((p) => ({ date: p.date, price: round(p.price * m * wobble(p.date)) }));
@@ -387,12 +410,23 @@ export function withEbayGradedPrices(
   let changed = false;
   for (const t of data.transactions) {
     if (!t.grade || gradedSampleFor(t.productId)) continue;
-    const key = gradedPriceKey(t.productId, t.printing, t.grade);
+    const pristine = isPristineSlab(data, t);
+    const key = gradedPriceKey(t.productId, t.printing, t.grade, pristine);
     if (prices[key]) continue;
     const e = ebay[priceKey(t.productId, t.printing)];
-    const stats = e?.graded[gradeLabel(t.grade)];
-    const steady = stats && stats.count >= EBAY_MIN_SALES ? stats.median : null;
-    const market = steady ?? priceChartingValue(pc[t.productId], t.grade) ?? stats?.median ?? stats?.lastPrice ?? null;
+    let stats = e?.graded[gradeLabel(t.grade)];
+    let market: number | null;
+    let steady: number | null;
+    if (isCgcTenGrade(t.grade.company, t.grade.grade)) {
+      // A CGC 10: Pristine and Gem Mint priced apart (see `cgcTenValue`); PriceCharting's CGC 10 is a Gem Mint 10.
+      const v = cgcTenValue(gradedStats(e, CGC_GEM_MINT_10), gradedStats(e, CGC_PRISTINE_10), priceChartingValue(pc[t.productId], t.grade), pristine);
+      market = v?.value ?? null;
+      steady = v && v.basis !== "other" && v.stats ? v.value : null;
+      stats = v?.stats ?? undefined;
+    } else {
+      steady = stats && stats.count >= EBAY_MIN_SALES ? stats.median : null;
+      market = steady ?? priceChartingValue(pc[t.productId], t.grade) ?? stats?.median ?? stats?.lastPrice ?? null;
+    }
     if (market === null) continue;
     const rawKey = priceKey(t.productId, t.printing);
     const raw = data.prices[rawKey]?.market ?? null;

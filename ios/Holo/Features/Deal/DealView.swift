@@ -32,9 +32,13 @@ struct DealView: View {
         deals.deal.incoming.contains { $0.unitPrice(side: rates.in) == nil } || deals.deal.outgoing.contains { $0.unitPrice(side: rates.out) == nil }
     }
 
-    /// Equity taken in has gone negative: every lime accent on the page turns pink as a warning.
+    /// The deal leaves you behind (the "ahead" total is negative, or, when it can't be worked
+    /// out, the value taken in is): every lime accent on the page turns pink as a warning, the
+    /// same rule the Recorded screen uses.
     private static func warning(_ t: DealTotals) -> Bool {
-        t.kind != .sell && t.kind != .empty && t.inValue > 0 && t.equity < -0.005
+        guard t.kind != .empty else { return false }
+        if let ahead = t.ahead { return ahead < -0.005 }
+        return t.kind != .sell && t.inValue > 0 && t.equity < -0.005
     }
 
     private var todays: [DealRecord] {
@@ -138,7 +142,11 @@ struct DealView: View {
         // The answer, always on screen: who pays and whether you come out ahead.
         HStack(spacing: 6) {
             Text(totals.cashLine).foregroundStyle(.white)
-            if let net = totals.net {
+            if let ahead = totals.ahead {
+                Text("·").foregroundStyle(Theme.muted)
+                Text(ahead < 0 ? "Behind" : "Ahead").foregroundStyle(Theme.muted)
+                Text(Format.signedMoney(ahead)).foregroundStyle(Theme.tone(ahead))
+            } else if let net = totals.net {
                 Text("·").foregroundStyle(Theme.muted)
                 Text(net >= 0 ? "You're \(Format.signedMoney(net))" : "You're \(Format.signedMoney(net))").foregroundStyle(Theme.tone(net))
             }
@@ -323,25 +331,35 @@ private struct DealBackdrop: View {
     }
 }
 
-/// "TODAY  3 deals  Cash +$120  Profit +$48  See all": today's closed deals at a glance.
+/// "TODAY  3 deals  Ahead +$140  Cash +$120": today's closed deals at a glance.
 private struct TodayStrip: View {
     var deals: [DealRecord]
     var onOpen: () -> Void
 
     var body: some View {
         let cash = deals.reduce(0) { $0 + $1.balance }
+        let known = deals.compactMap(\.aheadTotal)
+        let ahead = known.reduce(0, +)
         let profit = deals.reduce(0) { $0 + ($1.profit ?? 0) }
         Button(action: onOpen) {
             HStack(spacing: 12) {
                 MonoLabel(text: "Today")
                 Text("\(deals.count) deal\(deals.count == 1 ? "" : "s")").foregroundStyle(.white)
+                // How far ahead today's deals left you; profit when none of them know it.
+                if !known.isEmpty {
+                    HStack(spacing: 4) {
+                        Text("Ahead").foregroundStyle(Theme.muted)
+                        Text(Format.signedMoney(ahead)).foregroundStyle(Theme.tone(ahead))
+                    }
+                } else {
+                    HStack(spacing: 4) {
+                        Text("Profit").foregroundStyle(Theme.muted)
+                        Text(Format.signedMoney(profit)).foregroundStyle(Theme.tone(profit))
+                    }
+                }
                 HStack(spacing: 4) {
                     Text("Cash").foregroundStyle(Theme.muted)
                     Text(Format.signedMoney(cash)).foregroundStyle(Theme.tone(cash))
-                }
-                HStack(spacing: 4) {
-                    Text("Profit").foregroundStyle(Theme.muted)
-                    Text(Format.signedMoney(profit)).foregroundStyle(Theme.tone(profit))
                 }
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.subtle)
@@ -374,19 +392,32 @@ extension DealTotals {
         net.map { n in abs(n) < 0.005 ? "You break even" : (n > 0 ? "You come out \(Format.money(n)) ahead" : "You come out \(Format.money(-n)) behind") }
     }
 
-    /// "Customer pays you $40 · you're +$58", for under the slider.
+    /// "Customer pays you $40 · ahead +$58", for under the slider.
     var summary: String {
-        cashLine + (net.map { " · you're \(Format.signedMoney($0))" } ?? "")
+        if let ahead { return cashLine + " · \(ahead < 0 ? "behind" : "ahead") \(Format.signedMoney(ahead))" }
+        return cashLine + (net.map { " · you're \(Format.signedMoney($0))" } ?? "")
+    }
+
+    /// "You come out ahead +$1,701" when every cost is known, else the older verdict.
+    var headline: String? {
+        if let ahead { return "\(dealAheadTitle(ahead)) \(Format.signedMoney(ahead))" }
+        return verdict
+    }
+
+    /// The value gained that's only on paper (market value, not cash), when there is some.
+    var onPaper: Double? {
+        ahead != nil && showsEquity && equity > 0.005 ? equity : nil
     }
 }
 
 /// What each number means, one sentence each (tap a label to read it).
 enum DealTerm: String {
-    case verdict, cash, comingIn, goingOut, profit, value, rate
+    case verdict, ahead, cash, comingIn, goingOut, profit, value, rate
 
     var title: String {
         switch self {
         case .verdict: return "Ahead or behind"
+        case .ahead: return "Ahead or behind"
         case .cash: return "Cash"
         case .comingIn: return "Coming in"
         case .goingOut: return "Going out"
@@ -399,6 +430,7 @@ enum DealTerm: String {
     var explanation: String {
         switch self {
         case .verdict: return "Your profit on what you hand over plus the value you gain on what comes in: how much better off you are after this deal, at market prices."
+        case .ahead: return "Market value of what comes in, minus what you paid for what goes out, minus any cash you pay (plus any you get): your profit plus the value you gain."
         case .cash: return "The difference between the two sides, paid in cash so the deal comes out even."
         case .comingIn: return "What the customer's cards count for in this deal, at the prices you set."
         case .goingOut: return "What your cards count for in this deal, at the prices you set."
@@ -445,7 +477,7 @@ private struct BalanceCard: View {
         let t = totals
         let b = t.balance
         let empty = t.kind == .empty
-        let down = t.showsEquity && t.equity < -0.005
+        let down = t.ahead.map { $0 < -0.005 } ?? (t.showsEquity && t.equity < -0.005)
         let fill = down ? Theme.planPink : Theme.lime
         let ink = down ? Color.white : Theme.ink
         let shape = RoundedRectangle(cornerRadius: 24, style: .continuous)
@@ -459,22 +491,29 @@ private struct BalanceCard: View {
                 }
             }
 
-            // The verdict, in plain English.
-            if let verdict = t.verdict {
+            // How far ahead you come out, in plain English (pink when behind: it sits on the ink pill,
+            // never on lime).
+            if let verdict = t.headline {
+                let score = t.ahead ?? t.net ?? 0
                 HStack(spacing: 8) {
-                    Image(systemName: (t.net ?? 0) >= 0 ? "arrow.up.right" : "arrow.down.right").font(.system(size: 13, weight: .black))
+                    Image(systemName: score >= 0 ? "arrow.up.right" : "arrow.down.right").font(.system(size: 13, weight: .black))
                     Text(verdict).font(.geist(15, .bold)).lineLimit(1).minimumScaleFactor(0.7)
-                    TermInfo(term: .verdict, color: fill)
+                    TermInfo(term: t.ahead != nil ? .ahead : .verdict, color: score < -0.005 ? Theme.planPink : fill)
                 }
-                .foregroundStyle(fill)
+                .foregroundStyle(score < -0.005 ? Theme.planPink : fill)
                 .padding(.horizontal, 14).frame(height: 36)
                 .background(Capsule().fill(ink))
                 .padding(.top, 16)
                 .contentTransition(.numericText())
-                .animation(.snappy, value: t.net)
+                .animation(.snappy, value: t.ahead ?? t.net)
+            }
+            if let paper = t.onPaper {
+                Text("Includes \(Format.money(paper)) on paper")
+                    .font(.geist(12, .medium)).foregroundStyle(ink.opacity(0.7))
+                    .padding(.top, 8)
             }
             if t.uncosted > 0 {
-                Text("Profit unknown for \(t.uncosted) item\(t.uncosted == 1 ? "" : "s") not in Lucent: add what you paid")
+                Text("Add what you paid for every item to see your total")
                     .font(.geist(12, .medium)).foregroundStyle(ink.opacity(0.7))
                     .padding(.top, 8)
             }

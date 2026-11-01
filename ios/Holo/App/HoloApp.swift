@@ -81,6 +81,8 @@ struct RootView: View {
                                 await deals.load(userId: userId)
                             }
                             await grading.load(userId: store.demo == nil ? userId : nil)
+                            // Slabs marked CGC Pristine 10 are priced apart; the marks arrive after the first pricing.
+                            if !grading.pristine.isEmpty { await store.loadSlabPrices() }
                         }
                 }
             }

@@ -9,8 +9,8 @@ struct GradedPricesPanel: View {
     var printing: String? = nil
     /// Raw Near Mint, for the grade curve when nothing better is known.
     var nm: Double? = nil
-    /// Grades you own, as (company, grade).
-    var owned: [(company: String, grade: String)]
+    /// Grades you own, as (company, grade), and whether a CGC 10 is marked Pristine.
+    var owned: [(company: String, grade: String, pristine: Bool)]
 
     @State private var values: GradedValues?
     @State private var ebay: EbaySales?
@@ -21,31 +21,60 @@ struct GradedPricesPanel: View {
     private struct Row: Identifiable {
         var company: String
         var grade: String
-        var id: String { "\(company) \(grade)" }
+        /// A CGC Pristine 10 (the gold label), priced apart from the Gem Mint 10.
+        var pristine = false
+        var id: String { "\(company) \(grade)\(pristine ? " pristine" : "")" }
+        /// How the grade reads: "Pristine 10", "Gem Mint 10" for a CGC 10, else the grade.
+        var title: String { pristine ? GradedPricesPanel.pristine10 : GradedPricesPanel.gradeTitle(company: company, grade: grade) }
     }
 
-    /// Every row names one company: the 10s by grader, then the grades people trade most below
-    /// (BGS for 9.5, which PSA doesn't give; PSA below that). The lookup covers the rest.
+    /// Every row names one company: the 10s by grader (CGC's two: Pristine 10 and Gem Mint 10),
+    /// then the grades people trade most below (BGS for 9.5, which PSA doesn't give; PSA below
+    /// that). The lookup covers the rest. Same as the website's GRADED_ROWS.
     private static let rows: [Row] = [
         Row(company: "PSA", grade: "10"), Row(company: "BGS", grade: "10"),
-        Row(company: "CGC", grade: "10"), Row(company: "SGC", grade: "10"),
+        Row(company: "CGC", grade: "10", pristine: true), Row(company: "CGC", grade: "10"),
+        Row(company: "SGC", grade: "10"),
         Row(company: "BGS", grade: "9.5"), Row(company: "PSA", grade: "9"),
         Row(company: "PSA", grade: "8"), Row(company: "PSA", grade: "7"),
     ]
 
-    /// Where a slab's price comes from.
-    enum Source { case ebay(Int), guide, adjusted, curve }
+    /// Where a slab's price comes from; `premium` is a Gem Mint 10's price × the Pristine premium (≈).
+    enum Source { case ebay(Int), guide, adjusted, curve, premium }
+
+    /// The lookup's choice for a CGC Pristine 10, above "10" (shown as Gem Mint 10), like Add purchase's list.
+    static let pristine10 = "Pristine 10"
+
+    /// How a grade reads in the lookup and the table: a CGC 10 is a Gem Mint 10.
+    static func gradeTitle(company: String, grade: String) -> String {
+        company.uppercased() == "CGC" && grade == "10" ? "Gem Mint 10" : grade
+    }
 
     /// One slab's price: recent eBay sales of that exact slab when there are enough, else
     /// PriceCharting (its 10s are per company; below 10 its one price for every company is
-    /// scaled to this company, ≈), else the last eBay sale, else the usual grade curve (≈).
-    static func price(company: String, grade: String, values: GradedValues?, ebay: EbaySales?, nm: Double?, productId: String) -> (value: Double, source: Source)? {
+    /// scaled to this company, ≈), else the last eBay sale, else the usual grade curve (≈). A CGC
+    /// 10 is a Gem Mint 10 (sales whose title doesn't say pristine; PriceCharting's CGC 10 counts
+    /// as one); with `pristine`, a Pristine 10: its own sales when there are enough, else the Gem
+    /// Mint 10's price × `Pristine.pristinePremium` (≈), else its last sale. Same as the
+    /// website's `gradedPrice`.
+    static func price(company: String, grade: String, values: GradedValues?, ebay: EbaySales?, nm: Double?, productId: String, pristine: Bool = false) -> (value: Double, source: Source)? {
+        let cgcTen = Pristine.isCGCTen(company: company, grade: grade)
+        if cgcTen && pristine {
+            let own = Pristine.stats(ebay, label: Pristine.pristineLabel)
+            if let own, own.count >= WorthCalc.minSales, let median = own.median { return (median, .ebay(own.count)) }
+            if let gem = price(company: company, grade: grade, values: values, ebay: ebay, nm: nm, productId: productId, pristine: false) {
+                return ((gem.value * Pristine.pristinePremium * 100).rounded() / 100, .premium)
+            }
+            if let own, let last = own.lastPrice ?? own.median { return (last, .ebay(own.count)) }
+            return nil
+        }
         let label = "\(company) \(grade)"
-        if let sold = ebay?.graded[label], sold.count >= WorthCalc.minSales, let median = sold.median { return (median, .ebay(sold.count)) }
+        let sold = Pristine.stats(ebay, label: cgcTen ? Pristine.gemMintLabel : label)
+        if let sold, sold.count >= WorthCalc.minSales, let median = sold.median { return (median, .ebay(sold.count)) }
         if let v = values?.value(company: company, grade: grade) {
             return (Double(grade) ?? 0) < 10 ? (WorthCalc.companyAdjusted(v, company: company), .adjusted) : (v, .guide)
         }
-        if let sold = ebay?.graded[label], let last = sold.lastPrice ?? sold.median { return (last, .ebay(sold.count)) }
+        if let sold, let last = sold.lastPrice ?? sold.median { return (last, .ebay(sold.count)) }
         if let nm, nm > 0 { return ((nm * WorthCalc.multiple(productId: productId, company: company, grade: grade) * 100).rounded() / 100, .curve) }
         return nil
     }
@@ -75,8 +104,11 @@ struct GradedPricesPanel: View {
             loaded = true
         }
         .onAppear {
-            // Open on the grade you own, if you own a slab of it.
-            if let o = owned.first { company = o.company.uppercased(); grade = o.grade }
+            // Open on the grade you own, if you own a slab of it (a Pristine one on Pristine 10).
+            if let o = owned.first {
+                company = o.company.uppercased()
+                grade = o.pristine && Pristine.isCGCTen(company: o.company, grade: o.grade) ? Self.pristine10 : o.grade
+            }
         }
     }
 
@@ -103,11 +135,11 @@ struct GradedPricesPanel: View {
         return VStack(alignment: .leading, spacing: 10) {
             MonoLabel(text: "Look up any grade")
             HStack(spacing: 8) {
-                lookupMenu(company, options: gradingCompanies) { c in
+                lookupMenu(company, options: gradingCompanies, title: { $0 }) { c in
                     company = c
                     if !Self.lookupGrades(c).contains(grade) { grade = "10" }
                 }
-                lookupMenu(grade, options: Self.lookupGrades(company)) { grade = $0 }
+                lookupMenu(grade, options: Self.lookupGrades(company), title: { Self.gradeTitle(company: company, grade: $0) }) { grade = $0 }
                 Spacer(minLength: 8)
                 // The price rolls to each grade like an odometer.
                 Group {
@@ -125,14 +157,14 @@ struct GradedPricesPanel: View {
     }
 
     /// A small pill showing the current choice; tap it for the list.
-    private func lookupMenu(_ current: String, options: [String], pick: @escaping (String) -> Void) -> some View {
+    private func lookupMenu(_ current: String, options: [String], title: @escaping (String) -> String = { $0 }, pick: @escaping (String) -> Void) -> some View {
         Menu {
             Picker(selection: Binding(get: { current }, set: pick)) {
-                ForEach(options, id: \.self) { Text($0).tag($0) }
+                ForEach(options, id: \.self) { Text(title($0)).tag($0) }
             } label: { EmptyView() }
         } label: {
             HStack(spacing: 6) {
-                Text(current).font(.geist(15, .semibold)).monospacedDigit()
+                Text(title(current)).font(.geist(15, .semibold)).monospacedDigit()
                 Image(systemName: "chevron.up.chevron.down").font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.muted)
             }
             .foregroundStyle(.white)
@@ -144,13 +176,17 @@ struct GradedPricesPanel: View {
         .buttonStyle(.plain)
     }
 
+    /// 10 down to 5; CGC has Pristine 10 above its 10 (a Gem Mint 10).
     static func lookupGrades(_ company: String) -> [String] {
-        WorthCalc.grades(for: company).filter { (Double($0) ?? 0) >= 5 }.reversed()
+        let list: [String] = WorthCalc.grades(for: company).filter { (Double($0) ?? 0) >= 5 }.reversed()
+        return company == "CGC" ? [pristine10] + list : list
     }
 
     private var lookupValue: (price: Double?, detail: String) {
-        let label = "\(company) \(grade)"
-        guard let p = Self.price(company: company, grade: grade, values: values, ebay: ebay, nm: nm, productId: productId) else {
+        let isPristine = grade == Self.pristine10
+        let slabGrade = isPristine ? "10" : grade
+        let label = Pristine.label(company: company, grade: slabGrade, pristine: isPristine)
+        guard let p = Self.price(company: company, grade: slabGrade, values: values, ebay: ebay, nm: nm, productId: productId, pristine: isPristine) else {
             return (nil, "No sales or price guide for this grade yet")
         }
         switch p.source {
@@ -158,13 +194,14 @@ struct GradedPricesPanel: View {
         case .guide: return (p.value, "PriceCharting · \(label)")
         case .adjusted: return (p.value, "Estimate · PriceCharting's grade \(grade) price for any company, adjusted for \(company)")
         case .curve: return (p.value, "Estimate from the usual grade curve")
+        case .premium: return (p.value, "Estimate · \(Pristine.gemMintLabel) price × \(String(Pristine.pristinePremium)), the usual Pristine premium")
         }
     }
 
     private var table: some View {
         let ungraded = values?.ungraded ?? nm
         let priced = Self.rows.compactMap { row in
-            Self.price(company: row.company, grade: row.grade, values: values, ebay: ebay, nm: nm, productId: productId).map { (row, $0) }
+            Self.price(company: row.company, grade: row.grade, values: values, ebay: ebay, nm: nm, productId: productId, pristine: row.pristine).map { (row, $0) }
         }
         return VStack(alignment: .leading, spacing: 0) {
             if let ungraded {
@@ -179,11 +216,16 @@ struct GradedPricesPanel: View {
             ForEach(Array(priced.enumerated()), id: \.element.0.id) { i, pair in
                 let (row, p) = pair
                 let mine = isOwned(row)
-                let estimate: Bool = { if case .adjusted = p.source { return true }; if case .curve = p.source { return true }; return false }()
+                let estimate: Bool = {
+                    switch p.source {
+                    case .adjusted, .curve, .premium: return true
+                    case .ebay, .guide: return false
+                    }
+                }()
                 HStack(spacing: 10) {
                     HStack(spacing: 4) {
                         Text(row.company).foregroundStyle(Theme.muted)
-                        Text(row.grade).foregroundStyle(.white)
+                        Text(row.title).foregroundStyle(.white)
                     }
                     .font(.mono(13))
                     .frame(minWidth: 64, alignment: .leading)
@@ -197,7 +239,7 @@ struct GradedPricesPanel: View {
                 .background { if mine { RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.lime.opacity(0.1)).padding(.horizontal, -10) } }
                 if i < priced.count - 1 { Divider().overlay(Theme.border) }
             }
-            Text("eBay: the median of this month's sales of that exact slab. ≈: an estimate, from PriceCharting's price for the grade (which mixes every company) adjusted for the company, or from the usual grade curve.")
+            Text("eBay: the median of this month's sales of that exact slab (a CGC Pristine 10 is a sale whose title says pristine). ≈: an estimate, from PriceCharting's price for the grade (which mixes every company) adjusted for the company, from the usual grade curve, or for a Pristine 10, the Gem Mint 10 price × the usual Pristine premium.")
                 .font(.geist(12)).foregroundStyle(Theme.subtle).padding(.top, 10)
         }
     }
@@ -206,12 +248,16 @@ struct GradedPricesPanel: View {
         switch s {
         case .ebay: return "eBay"
         case .guide: return "PriceCharting"
-        case .adjusted, .curve: return "estimate"
+        case .adjusted, .curve, .premium: return "estimate"
         }
     }
 
+    /// You own that exact company and grade (and, for a CGC 10, the same kind).
     private func isOwned(_ row: Row) -> Bool {
-        owned.contains { o in o.company.uppercased() == row.company && Double(o.grade) == Double(row.grade) }
+        owned.contains { o in
+            o.company.uppercased() == row.company && Double(o.grade) == Double(row.grade)
+                && (!Pristine.isCGCTen(company: o.company, grade: o.grade) || o.pristine == row.pristine)
+        }
     }
 
     private func relative(_ iso: String) -> String? {

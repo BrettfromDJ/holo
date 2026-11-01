@@ -53,6 +53,10 @@ final class CollectionStore {
     var ebayGraded: [String: Double] = [:]
     /// Your monthly spending budget (user_preferences.monthly_budget, shared with the website).
     var monthlyBudget: Double?
+    /// The shared user_state keys (wishlist, release-reminders) read from the account this
+    /// session. A missing row counts (it's just empty); a failed read doesn't, so an empty list
+    /// shown after a failed read is never saved over the account.
+    @ObservationIgnored private var syncedState: Set<String> = []
 
     /// The full log, corrections included.
     private(set) var transactions: [Txn] = [] { didSet { clearCaches() } }
@@ -79,6 +83,7 @@ final class CollectionStore {
         watchlist = []
         wishlist = []
         reminders = []
+        syncedState = []
         ebayGraded = [:]
         transactions = []
         holdingRows = []
@@ -114,6 +119,7 @@ final class CollectionStore {
         let wasDemo = demo != nil
         let sameAccount = self.userId == userId
         self.userId = userId
+        if !sameAccount { syncedState = [] }
         demo = nil
         // Whether this account's collection is on screen (an earlier load, or the saved copy).
         var showing = status == .ready && !wasDemo && sameAccount
@@ -142,9 +148,10 @@ final class CollectionStore {
             async let watchLoad: [WatchRow] = self.all { a, b in
                 try await self.db.from("watchlist_items").select().order("created_at").range(from: a, to: b).execute().value
             }
-            // A missing wishlist is just empty; don't fail the whole load over it.
-            async let wishLoad: [WishItem]? = (try? await UserState.load("wishlist", as: [WishItem].self)) ?? nil
-            async let reminderLoad: [String]? = (try? await UserState.load("release-reminders", as: [String].self)) ?? nil
+            // A missing wishlist is just empty; don't fail the whole load over it. A failed read
+            // keeps what's on screen and leaves the key unsynced (saves then merge or refuse).
+            async let wishLoad: Result<[WishItem]?, Error> = Self.loadState("wishlist", as: [WishItem].self)
+            async let reminderLoad: Result<[String]?, Error> = Self.loadState("release-reminders", as: [String].self)
             // An older database without the budget column just means no budget.
             async let prefLoad: [PrefRow]? = try? await self.db.from("user_preferences").select("monthly_budget").execute().value
             let holdingRows = try await holdingsLoad
@@ -199,8 +206,14 @@ final class CollectionStore {
             self.products = products
             self.prices = prices
             self.watchlist = watchRows
-            self.wishlist = wishes ?? []
-            self.reminders = Set(reminderList ?? [])
+            if case .success(let list) = wishes {
+                self.wishlist = list ?? []
+                syncedState.insert("wishlist")
+            }
+            if case .success(let list) = reminderList {
+                self.reminders = Set(list ?? [])
+                syncedState.insert("release-reminders")
+            }
             self.monthlyBudget = prefs?.first?.monthly_budget
             // The history on hand (the saved copy's, or the last load's) stays until the new one lands.
             recompute(timelineSoon: true)
@@ -229,6 +242,12 @@ final class CollectionStore {
             // screen turns into the error.
             if !showing { status = .failed(error.localizedDescription) }
         }
+    }
+
+    /// Reads one user_state key without throwing: `.success(nil)` is a missing row (empty),
+    /// `.failure` a read that didn't work.
+    private static func loadState<T: Decodable>(_ key: String, as type: T.Type) async -> Result<T?, Error> {
+        do { return .success(try await UserState.load(key, as: type)) } catch { return .failure(error) }
     }
 
     /// Ids in batches of 200 (the most a request's id list is given).
@@ -421,9 +440,11 @@ final class CollectionStore {
     }
 
     /// Price your slabs for their exact grade, like the website: the 30-day eBay median when that
-    /// grade sold at least 3 times, else PriceCharting's value, else the last eBay sale.
+    /// grade sold at least 3 times, else PriceCharting's value, else the last eBay sale. A CGC 10
+    /// is priced as a Pristine 10 or a Gem Mint 10 (`Pristine.slabPrice`); also called when a
+    /// slab's Pristine mark changes.
     @MainActor
-    private func loadSlabPrices() async {
+    func loadSlabPrices() async {
         let graded = allHoldings.filter { $0.identity.isGraded && $0.identity.productId.hasPrefix("tcgapi:") }
         guard !graded.isEmpty else { return }
         let ids = Array(Set(graded.map(\.identity.productId)))
@@ -435,8 +456,13 @@ final class CollectionStore {
         for h in graded {
             guard let label = h.identity.gradeLabel, let company = h.identity.gradeCompany, let grade = h.identity.grade else { continue }
             let stats = summaryFor(summaries[h.identity.productId], printing: h.identity.printing)?.graded[label]
-            let steady = (stats?.count ?? 0) >= 3 ? stats?.median : nil
-            if let price = steady ?? pc[h.identity.productId]?.value(company: company, grade: grade) ?? stats?.median ?? stats?.lastPrice {
+            // A CGC 10 that has sold: its listings (shared cache) tell Pristine 10s from Gem Mint 10s.
+            var sales: EbaySales?
+            if Pristine.isCGCTen(company: company, grade: grade), stats != nil {
+                sales = (try? await EbaySalesCache.sales(h.identity.productId, printing: h.identity.printing)) ?? nil
+            }
+            if let price = Pristine.slabPrice(company: company, grade: grade, pristine: Pristine.marked.contains(h.identity.key),
+                                              summary: stats, sales: sales, guide: pc[h.identity.productId]?.value(company: company, grade: grade)) {
                 found[h.identity.key] = price
             }
         }
@@ -752,8 +778,23 @@ final class CollectionStore {
 
     @MainActor
     func setReminder(_ set: ExploreSet, on: Bool) async throws {
+        // A demo keeps it on the phone only.
+        if demo != nil || Demo.isOn {
+            if on { reminders.insert(set.slug) } else { reminders.remove(set.slug) }
+            return
+        }
         guard let userId else { throw HoloError.signedOut }
-        var next = reminders
+        // Start from the account's current list (the website may have changed it, and the list
+        // on screen may be a saved copy after a failed read), so nothing is overwritten. If it
+        // can't be read, don't save at all.
+        var next: Set<String>
+        do {
+            next = Set(try await UserState.load("release-reminders", as: [String].self) ?? [])
+        } catch {
+            throw HoloError.server(code: nil, message: "Couldn't reach your account. Try again.")
+        }
+        guard self.userId == userId, demo == nil else { return }
+        syncedState.insert("release-reminders")
         if on { next.insert(set.slug) } else { next.remove(set.slug) }
         try await UserState.save("release-reminders", Array(next).sorted(), userId: userId)
         reminders = next
@@ -1085,15 +1126,24 @@ final class CollectionStore {
     @MainActor
     private func persistWishlist(_ items: [WishItem], known before: [WishItem], userId: String) async throws {
         // Pick up changes made on the website since loading, so neither side overwrites the other's additions.
-        if let remote = try? await UserState.load("wishlist", as: [WishItem].self) {
-            // Anything this phone already knew about (including ones just removed) isn't new.
-            let known = Set(before.map(\.id)).union(items.map(\.id))
-            let addedElsewhere = remote.filter { !known.contains($0.id) }
-            try await UserState.save("wishlist", items + addedElsewhere, userId: userId)
-            wishlist = items + addedElsewhere
-        } else {
+        let remote: [WishItem]
+        do {
+            remote = try await UserState.load("wishlist", as: [WishItem].self) ?? []
+        } catch {
+            // Never read from the account this session: what's on screen may be a saved copy or
+            // empty, so saving it could wipe the account's list. Refuse instead.
+            guard syncedState.contains("wishlist") else {
+                throw HoloError.server(code: nil, message: "Couldn't reach your account. Try again.")
+            }
             try await UserState.save("wishlist", items, userId: userId)
             wishlist = items
+            return
         }
+        syncedState.insert("wishlist")
+        // Anything this phone already knew about (including ones just removed) isn't new.
+        let known = Set(before.map(\.id)).union(items.map(\.id))
+        let addedElsewhere = remote.filter { !known.contains($0.id) }
+        try await UserState.save("wishlist", items + addedElsewhere, userId: userId)
+        wishlist = items + addedElsewhere
     }
 }

@@ -1,5 +1,5 @@
 import { holdingKey, priceKey, type CollectionData, type HoldingIdentity, type ISODate, type PricePoint } from "../types";
-import { gradedPriceKey } from "../graded";
+import { holdingPriceKey } from "../graded";
 import { conditionShare } from "../worth";
 import { addDays, daysBetween } from "./dates";
 
@@ -43,7 +43,7 @@ function lastAtOrBefore(points: PricePoint[], date: ISODate): PricePoint | null 
  */
 export class PriceResolver {
   constructor(
-    private readonly data: Pick<CollectionData, "prices" | "history" | "manualValues" | "conditionShares">,
+    private readonly data: Pick<CollectionData, "prices" | "history" | "manualValues" | "conditionShares" | "pristineSlabs">,
     private readonly today: ISODate,
   ) {}
 
@@ -65,7 +65,7 @@ export class PriceResolver {
       if (manual && manual.date <= date) return { price: manual.value, observedOn: manual.date, origin: "manual", conditionShare: 1 };
     }
 
-    const key = identity.grade ? gradedPriceKey(identity.productId, identity.printing, identity.grade) : priceKey(identity.productId, identity.printing);
+    const key = holdingPriceKey(this.data, identity);
     const current = this.data.prices[key];
 
     if (date >= this.today && current && current.market !== null && current.status !== "unavailable") {

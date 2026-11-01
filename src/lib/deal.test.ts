@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_RATES, dealKind, dealTotals, defaultSideRates, unitPrice } from "./deal";
+import { DEFAULT_RATES, aheadTitle, dealKind, dealTotals, defaultSideRates, recordAhead, unitPrice } from "./deal";
 
 describe("deal maker", () => {
   it("names the deal from its sides", () => {
@@ -51,5 +51,56 @@ describe("deal maker", () => {
     const t = dealTotals([{ market: 50, qty: 3 }], [], { in: 0.7, out: 1 });
     expect(t.balance).toBe(-105);
     expect(t.profit).toBeNull();
+  });
+
+  it("adds profit and value gained into how far ahead you come out", () => {
+    // In: $1,000 market credited at 80% ($800). Out: a $1,000 card that cost $600.
+    const t = dealTotals([{ market: 1000, qty: 1 }], [{ market: 1000, qty: 1, cost: 600 }], { in: 0.8, out: 1 });
+    expect(t.profit).toBe(400);
+    expect(t.equity).toBe(200);
+    expect(t.ahead).toBe(600);
+    // Market in − cost out + cash received.
+    expect(t.ahead).toBe(1000 - 600 + t.balance);
+  });
+
+  it("doesn't depend on how the prices were split", () => {
+    const a = dealTotals([{ market: 1000, qty: 1 }], [{ market: 1000, qty: 1, cost: 600 }], { in: 0.8, out: 1 });
+    // Same cash, both sides marked up by $150.
+    const b = dealTotals([{ market: 1000, qty: 1, price: 950 }], [{ market: 1000, qty: 1, price: 1150, cost: 600 }], { in: 0.8, out: 1 });
+    expect(b.balance).toBe(a.balance);
+    expect(b.ahead).toBe(a.ahead);
+  });
+
+  it("is value gained for a pure buy and profit for a pure sell", () => {
+    const buy = dealTotals([{ market: 50, qty: 3 }], [], { in: 0.7, out: 1 });
+    expect(buy.ahead).toBe(buy.equity);
+    expect(buy.ahead).toBe(45);
+    const sell = dealTotals([], [{ market: 100, qty: 2, price: 40, cost: 100 }], { in: 0.7, out: 1 });
+    expect(sell.ahead).toBe(sell.profit);
+    expect(sell.ahead).toBe(-20);
+  });
+
+  it("is unknown while anything going out has no cost", () => {
+    const t = dealTotals([{ market: 200, qty: 1 }], [{ market: 250, qty: 1, cost: 180 }, { market: 30, qty: 1 }], { in: 0.8, out: 1 });
+    expect(t.uncosted).toBe(1);
+    expect(t.ahead).toBeNull();
+    expect(dealTotals([], [], { in: 0.7, out: 1 }).ahead).toBeNull();
+  });
+
+  it("words the headline for open and closed deals", () => {
+    expect(aheadTitle(58)).toBe("You come out ahead");
+    expect(aheadTitle(-20, true)).toBe("You came out behind");
+    expect(aheadTitle(0, true)).toBe("You broke even");
+  });
+
+  it("works out ahead for deals closed before it was recorded", () => {
+    expect(recordAhead({ kind: "trade", profit: 971, equity: 730, ahead: 1701, uncosted: 0 })).toBe(1701);
+    // Recorded as unknown stays unknown, even with a partial profit.
+    expect(recordAhead({ kind: "trade", profit: 70, equity: 40, ahead: null, uncosted: 1 })).toBeNull();
+    // Old records: profit + value gained; a buy is all value gained.
+    expect(recordAhead({ kind: "trade", profit: 971, equity: 730 })).toBe(1701);
+    expect(recordAhead({ kind: "buy", profit: null, equity: 45 })).toBe(45);
+    expect(recordAhead({ kind: "sell", profit: -20, equity: 0 })).toBe(-20);
+    expect(recordAhead({ kind: "trade", profit: null, equity: 40 })).toBeNull();
   });
 });

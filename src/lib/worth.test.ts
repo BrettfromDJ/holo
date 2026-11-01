@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { EbaySales } from "./ebay-types";
 import { BLEND_FACTOR, companyAdjusted } from "./graded";
-import { gradedLookup, gradedPrice, gradedSourceLabel, gradedWorth, gradesFor, GRADED_ROWS, isEstimate, lookupGrades, psaIfGraded, rawWorth } from "./worth";
+import { gradedLookup, gradedPrice, gradedSourceLabel, gradedWorth, gradesFor, GRADED_ROWS, isEstimate, lookupGrades, psaIfGraded, rawWorth, rowGradeTitle } from "./worth";
 
 const ebay = (over: Partial<EbaySales> = {}): EbaySales => ({ printing: null, ungraded: { median: 100, count: 5, lastPrice: 100, lastSold: null }, graded: {}, sales: [], asOf: "2026-10-29", days: 30, ...over });
 const sale = (price: number, condition: string | null, grade: string | null = null) => ({ soldDate: "2026-10-20", price, bestOffer: false, listPrice: null, grade, condition, title: "", url: "" });
@@ -42,10 +42,12 @@ describe("what's it worth", () => {
   it("lists grades 10 down to 5 for the lookup", () => {
     expect(lookupGrades("PSA")).toEqual(["10", "9", "8", "7", "6", "5"]);
     expect(lookupGrades("BGS")).toEqual(["10", "9.5", "9", "8.5", "8", "7.5", "7", "6", "5"]);
+    // CGC: Pristine 10 above its 10 (a Gem Mint 10).
+    expect(lookupGrades("CGC")).toEqual(["Pristine 10", "10", "9.5", "9", "8.5", "8", "7.5", "7", "6", "5"]);
   });
 
   it("lists one named company on every table row", () => {
-    expect(GRADED_ROWS.map((r) => `${r.company} ${r.grade}`)).toEqual(["PSA 10", "BGS 10", "CGC 10", "SGC 10", "BGS 9.5", "PSA 9", "PSA 8", "PSA 7"]);
+    expect(GRADED_ROWS.map((r) => `${r.company} ${rowGradeTitle(r)}`)).toEqual(["PSA 10", "BGS 10", "CGC Pristine 10", "CGC Gem Mint 10", "SGC 10", "BGS 9.5", "PSA 9", "PSA 8", "PSA 7"]);
   });
 
   it("scales PriceCharting's any-company price to a company", () => {

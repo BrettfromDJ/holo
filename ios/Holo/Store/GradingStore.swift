@@ -48,6 +48,7 @@ final class GradingStore {
         certs = [:]
         bumpers = [:]
         pristine = []
+        Pristine.marked = []
         loaded = false
         userId = nil
         synced = []
@@ -68,6 +69,8 @@ final class GradingStore {
         do { certs = try await UserState.load("slab-certs", as: [String: String].self) ?? [:]; synced.insert("slab-certs") } catch {}
         do { bumpers = try await UserState.load("slab-bumpers", as: [String: String].self) ?? [:]; synced.insert("slab-bumpers") } catch {}
         do { pristine = try await Set(UserState.load("slab-pristine", as: [String].self) ?? []); synced.insert("slab-pristine") } catch {}
+        // The collection's slab prices read the marks (a Pristine 10 is priced apart).
+        Pristine.marked = pristine
         // Something didn't load: try again the next time the app loads your data.
         if synced.count < 5 { loaded = false }
     }
@@ -93,6 +96,7 @@ final class GradingStore {
     @MainActor
     func setPristine(_ holdingKey: String, _ on: Bool) {
         if on { pristine.insert(holdingKey) } else { pristine.remove(holdingKey) }
+        Pristine.marked = pristine
         guard let userId, !Demo.isOn, synced.contains("slab-pristine") else { return }
         let snapshot = pristine.sorted()
         Task { try? await UserState.save("slab-pristine", snapshot, userId: userId) }

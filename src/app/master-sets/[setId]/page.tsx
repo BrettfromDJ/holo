@@ -303,7 +303,8 @@ function SetHero({
 
         {known && !loading && (
           <>
-            <GlowPie fraction={ratio} className="drop-shadow-[0_0_24px_color-mix(in_srgb,var(--lime)_25%,transparent)] lg:mr-6" />
+            {/* No drop-shadow filter here: a filter on the dial would stop its glass track blurring what's behind it. */}
+            <GlowPie fraction={ratio} className="my-2.5 lg:mr-6" />
             <div className="grid w-full grid-cols-2 gap-2.5 lg:hidden">
               <HeroTiles ratio={ratio} ownedValue={ownedValue} toFinish={toFinish} missing={total - have} />
             </div>

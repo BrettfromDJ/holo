@@ -58,7 +58,8 @@ struct BumperSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     if let company = holding.identity.gradeCompany, let grade = holding.identity.grade {
-                        Slab(product: holding.product, company: company, grade: grade, bumper: Bumper.byId(pick))
+                        Slab(product: holding.product, company: company, grade: grade, bumper: Bumper.byId(pick),
+                             cert: grading.certs[holding.identity.key], pristine: grading.pristine.contains(holding.identity.key))
                             .frame(height: 260)
                             .frame(maxWidth: .infinity)
                             .animation(.spring(response: 0.3, dampingFraction: 0.8), value: pick)

@@ -1,5 +1,6 @@
 import type { ConditionPrice, EbaySales } from "./ebay-types";
 import { companyAdjusted, priceChartingValue, sampleMultiple, type PriceChartingGraded } from "./graded";
+import { CGC_GEM_MINT_10, CGC_PRISTINE_10, gradedStats, isCgcTenGrade, pristinePremium } from "./pristine";
 import type { Condition, Grade } from "./types";
 
 /**
@@ -87,7 +88,8 @@ export function rawWorth(nm: number, condition: RawCondition, ebay: EbaySales | 
  */
 export function gradedWorth(productId: string, nm: number, grade: Grade, ebay: EbaySales | null, guide?: number | null, curveIsGuide = false): Worth {
   const label = `${grade.company} ${grade.grade}`;
-  const sold = ebay?.graded[label];
+  // A CGC 10 here is a Gem Mint 10 (a Pristine 10 is priced by `gradedPrice` with `pristine`).
+  const sold = gradedStats(ebay, isCgcTenGrade(grade.company, grade.grade) ? CGC_GEM_MINT_10 : label) ?? undefined;
   if (sold && sold.count >= MIN_SALES && sold.median !== null) {
     return { price: sold.median, source: "sales", detail: `Median of ${sold.count} ${label} eBay sales this month`, sold: sold.count };
   }
@@ -117,13 +119,21 @@ export function measuredShares(all: { condition: string; price: number | null; p
 /* ----------------------------- Graded prices ------------------------------ */
 
 /**
- * Rows of the graded price table. Every row names one company: the 10s by grader, then the
- * grades people trade most below (BGS for 9.5, which PSA doesn't give; PSA below that). The
- * lookup covers the rest. Same as the app's GradedPricesPanel.
+ * Rows of the graded price table. Every row names one company: the 10s by grader (CGC's two:
+ * Pristine 10 and Gem Mint 10), then the grades people trade most below (BGS for 9.5, which PSA
+ * doesn't give; PSA below that). The lookup covers the rest. Same as the app's GradedPricesPanel.
  */
-export const GRADED_ROWS: { company: WorthGrader; grade: string }[] = [
+export interface GradedRow {
+  company: WorthGrader;
+  grade: string;
+  /** A CGC Pristine 10 (the gold label), priced apart from the Gem Mint 10. */
+  pristine?: boolean;
+}
+
+export const GRADED_ROWS: GradedRow[] = [
   { company: "PSA", grade: "10" },
   { company: "BGS", grade: "10" },
+  { company: "CGC", grade: "10", pristine: true },
   { company: "CGC", grade: "10" },
   { company: "SGC", grade: "10" },
   { company: "BGS", grade: "9.5" },
@@ -132,15 +142,32 @@ export const GRADED_ROWS: { company: WorthGrader; grade: string }[] = [
   { company: "PSA", grade: "7" },
 ];
 
-/** The grades people look up for a company, 10 down to 5. */
+/** The lookup's choice for a CGC Pristine 10, above "10" (shown as Gem Mint 10), like the app's Add purchase list. */
+export const PRISTINE_10 = "Pristine 10";
+
+/** The grades people look up for a company, 10 down to 5 (CGC: Pristine 10 first). */
 export function lookupGrades(company: WorthGrader): string[] {
-  return gradesFor(company)
+  const list = gradesFor(company)
     .filter((g) => Number(g) >= 5)
     .reverse();
+  return company === "CGC" ? [PRISTINE_10, ...list] : list;
 }
 
-/** Where a slab's price comes from: eBay sales (with how many), PriceCharting as-is, PriceCharting scaled to the company (≈), or the grade curve (≈). */
-export type GradedSource = { kind: "ebay"; count: number } | { kind: "guide" } | { kind: "adjusted" } | { kind: "curve" };
+/** How a grade reads in the lookup and the table: a CGC 10 is a Gem Mint 10. */
+export function gradeTitle(company: string, grade: string): string {
+  return company.toUpperCase() === "CGC" && grade === "10" ? "Gem Mint 10" : grade;
+}
+
+/** A row's grade as shown: "Pristine 10", "Gem Mint 10", or the grade. */
+export function rowGradeTitle(row: GradedRow): string {
+  return row.pristine ? PRISTINE_10 : gradeTitle(row.company, row.grade);
+}
+
+/**
+ * Where a slab's price comes from: eBay sales (with how many), PriceCharting as-is, PriceCharting
+ * scaled to the company (≈), the grade curve (≈), or a Gem Mint 10's price × the Pristine premium (≈).
+ */
+export type GradedSource = { kind: "ebay"; count: number } | { kind: "guide" } | { kind: "adjusted" } | { kind: "curve" } | { kind: "premium" };
 
 export interface GradedPrice {
   value: number;
@@ -149,7 +176,7 @@ export interface GradedPrice {
 
 /** Whether a price is an estimate (shown with ≈). */
 export function isEstimate(source: GradedSource): boolean {
-  return source.kind === "adjusted" || source.kind === "curve";
+  return source.kind === "adjusted" || source.kind === "curve" || source.kind === "premium";
 }
 
 /** The small word beside a price in the table. */
@@ -160,12 +187,23 @@ export function gradedSourceLabel(source: GradedSource): string {
 /**
  * One slab's price: recent eBay sales of that exact slab when there are enough, else
  * PriceCharting (its 10s are per company; below 10 its one price for every company is scaled to
- * this company, ≈), else the last eBay sale, else the usual grade curve (≈). Same as the app's
- * `GradedPricesPanel.price`.
+ * this company, ≈), else the last eBay sale, else the usual grade curve (≈). A CGC 10 is a Gem
+ * Mint 10 (sales whose title doesn't say pristine; PriceCharting's CGC 10 counts as one); with
+ * `pristine`, a Pristine 10: its own sales when there are enough, else the Gem Mint 10's price ×
+ * `pristinePremium` (≈), else its last sale. Same as the app's `GradedPricesPanel.price`.
  */
-export function gradedPrice(productId: string, grade: Grade, pc: PriceChartingGraded | null | undefined, ebay: EbaySales | null, nm: number | null): GradedPrice | null {
+export function gradedPrice(productId: string, grade: Grade, pc: PriceChartingGraded | null | undefined, ebay: EbaySales | null, nm: number | null, pristine = false): GradedPrice | null {
+  const cgcTen = isCgcTenGrade(grade.company, grade.grade);
+  if (cgcTen && pristine) {
+    const own = gradedStats(ebay, CGC_PRISTINE_10);
+    if (own && own.count >= MIN_SALES && own.median !== null) return { value: own.median, source: { kind: "ebay", count: own.count } };
+    const gem = gradedPrice(productId, grade, pc, ebay, nm, false);
+    if (gem) return { value: round(gem.value * pristinePremium), source: { kind: "premium" } };
+    const last = own ? (own.lastPrice ?? own.median) : null;
+    return own && last !== null ? { value: last, source: { kind: "ebay", count: own.count } } : null;
+  }
   const label = `${grade.company} ${grade.grade}`;
-  const sold = ebay?.graded[label];
+  const sold = gradedStats(ebay, cgcTen ? CGC_GEM_MINT_10 : label) ?? undefined;
   if (sold && sold.count >= MIN_SALES && sold.median !== null) return { value: sold.median, source: { kind: "ebay", count: sold.count } };
   const v = priceChartingValue(pc ?? undefined, grade);
   if (v !== null) return Number(grade.grade) < 10 ? { value: companyAdjusted(v, grade.company), source: { kind: "adjusted" } } : { value: v, source: { kind: "guide" } };
@@ -183,9 +221,10 @@ export interface GradedLookup {
 }
 
 /** Any company and grade, with where the number came from in plain words (same as the app's lookup). */
-export function gradedLookup(productId: string, nm: number | null, grade: Grade, ebay: EbaySales | null, pc: PriceChartingGraded | null | undefined): GradedLookup {
-  const label = `${grade.company} ${grade.grade}`;
-  const p = gradedPrice(productId, grade, pc, ebay, nm);
+export function gradedLookup(productId: string, nm: number | null, grade: Grade, ebay: EbaySales | null, pc: PriceChartingGraded | null | undefined, pristine = false): GradedLookup {
+  const cgcTen = isCgcTenGrade(grade.company, grade.grade);
+  const label = cgcTen ? (pristine ? CGC_PRISTINE_10 : CGC_GEM_MINT_10) : `${grade.company} ${grade.grade}`;
+  const p = gradedPrice(productId, grade, pc, ebay, nm, pristine);
   if (!p) return { price: null, source: null, detail: "No sales or price guide for this grade yet" };
   const s = p.source;
   const detail =
@@ -197,7 +236,9 @@ export function gradedLookup(productId: string, nm: number | null, grade: Grade,
         ? `PriceCharting · ${label}`
         : s.kind === "adjusted"
           ? `Estimate · PriceCharting's grade ${grade.grade} price for any company, adjusted for ${grade.company}`
-          : "Estimate from the usual grade curve";
+          : s.kind === "premium"
+            ? `Estimate · ${CGC_GEM_MINT_10} price × ${pristinePremium}, the usual Pristine premium`
+            : "Estimate from the usual grade curve";
   return { price: p.value, source: s, detail };
 }
 

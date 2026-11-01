@@ -1,6 +1,7 @@
 "use client";
 
-import { ArrowUpDown, Search, X } from "lucide-react";
+import { ArrowRight, ArrowUpDown, Search, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
@@ -159,39 +160,63 @@ export function deckGlow(id: string): string {
   ].join(", ");
 }
 
-/** A disc showing a share as a lit lime wedge, with a dotted ring and 0/25/50/75 around it (the app's GlowPie). */
-export function GlowPie({ fraction, size = 168, className }: { fraction: number; size?: number; className?: string }) {
+/**
+ * The set page's dial (the app's GlowPie): a thick ring of frosted glass with a
+ * faint lime tint and a fine light edge on both sides, a lime arc with round
+ * caps from the top, and an ink arrow in the lime cap where it starts. The arc
+ * sweeps in once on mount (not with Reduce Motion).
+ */
+export function GlowPie({ fraction, size = 180, className }: { fraction: number; size?: number; className?: string }) {
   const f = Math.max(0, Math.min(1, fraction));
-  const pad = 30;
-  const box = size + pad * 2;
-  const c = box / 2;
-  const r = size / 2;
-  const end = -Math.PI / 2 + f * Math.PI * 2;
-  const wedge =
-    f >= 0.9999
-      ? null
-      : `M ${c} ${c} L ${c} ${c - r} A ${r} ${r} 0 ${f > 0.5 ? 1 : 0} 1 ${c + r * Math.cos(end)} ${c + r * Math.sin(end)} Z`;
-  const label = (text: string, x: number, y: number) => (
-    <text x={x} y={y} textAnchor="middle" dominantBaseline="central" className="font-mono" fontSize={10} fill="rgb(255 255 255 / 0.7)">
-      {text}
-    </text>
-  );
+  const line = size * 0.2;
+  const c = size / 2;
+  const mid = c - line / 2;
+  // Starts empty and sweeps to the share after the first paint; the CSS transition is off with reduced motion.
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setShown(f));
+    return () => cancelAnimationFrame(id);
+  }, [f]);
+  // Even at 0% the round start shows, so the arrow always has a home.
+  const visible = Math.max(shown, 0.0001);
+  const arc = {
+    pathLength: 1,
+    strokeDasharray: "1 1",
+    strokeDashoffset: 1 - visible,
+    className: "transition-[stroke-dashoffset] delay-150 duration-[900ms] ease-[cubic-bezier(0.3,0,0.2,1)] motion-reduce:transition-none",
+  };
   return (
-    <svg width={box} height={box} viewBox={`0 0 ${box} ${box}`} className={cn("shrink-0", className)} role="img" aria-label={`${Math.round(f * 100)}% owned`}>
-      <defs>
-        <linearGradient id="glow-pie-disc" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="white" stopOpacity="0.18" />
-          <stop offset="1" stopColor="white" stopOpacity="0.05" />
-        </linearGradient>
-      </defs>
-      <circle cx={c} cy={c} r={r} fill="url(#glow-pie-disc)" />
-      {f > 0 && (wedge ? <path d={wedge} fill="var(--lime)" /> : <circle cx={c} cy={c} r={r} fill="var(--lime)" />)}
-      <circle cx={c} cy={c} r={r + 8} fill="none" stroke="rgb(255 255 255 / 0.35)" strokeWidth={1} strokeDasharray="1 4" />
-      {label("0", c, c - r - 20)}
-      {label("25", c + r + 22, c)}
-      {label("50", c, c + r + 20)}
-      {label("75", c - r - 22, c)}
-    </svg>
+    <div className={cn("relative shrink-0", className)} style={{ width: size, height: size }} role="img" aria-label={`${Math.round(f * 100)}% owned`}>
+      {/* The track: frosted glass with a faint lime tint, cut to a ring. */}
+      <div
+        aria-hidden
+        className="absolute inset-0 rounded-full"
+        style={{
+          background: "linear-gradient(180deg, color-mix(in srgb, var(--lime) 12%, rgb(255 255 255 / 0.09)), color-mix(in srgb, var(--lime) 6%, rgb(255 255 255 / 0.03)))",
+          backdropFilter: "blur(12px) saturate(1.5)",
+          WebkitBackdropFilter: "blur(12px) saturate(1.5)",
+          mask: `radial-gradient(circle closest-side, transparent ${c - line - 0.5}px, #000 ${c - line}px)`,
+          WebkitMask: `radial-gradient(circle closest-side, transparent ${c - line - 0.5}px, #000 ${c - line}px)`,
+        }}
+      />
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="absolute inset-0 overflow-visible" aria-hidden>
+        {/* A fine light edge on both sides of the ring. */}
+        <circle cx={c} cy={c} r={c - 0.5} fill="none" stroke="rgb(255 255 255 / 0.28)" strokeWidth={1} />
+        <circle cx={c} cy={c} r={c - line + 0.5} fill="none" stroke="rgb(255 255 255 / 0.28)" strokeWidth={1} />
+        <g transform={`rotate(-90 ${c} ${c})`}>
+          {/* A soft glow under the arc: a wider faint stroke, no blur filter. */}
+          <circle cx={c} cy={c} r={mid} fill="none" stroke="var(--lime)" strokeOpacity={0.14} strokeWidth={line + 8} strokeLinecap="round" {...arc} />
+          <circle cx={c} cy={c} r={mid} fill="none" stroke="var(--lime)" strokeWidth={line} strokeLinecap="round" {...arc} />
+        </g>
+      </svg>
+      {/* The arrow at the top, where the arc begins. */}
+      <ArrowRight
+        aria-hidden
+        strokeWidth={3}
+        className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 text-[#0b0b0c]"
+        style={{ top: line / 2, width: line * 0.5, height: line * 0.5 }}
+      />
+    </div>
   );
 }
 

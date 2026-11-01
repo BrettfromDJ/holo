@@ -11,6 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Textarea } from "@/components/ui/input";
 import {
   TEMPLATE_CSV,
+  findDuplicates,
   isConfident,
   matchPrinting,
   parseImport,
@@ -21,6 +22,7 @@ import {
   type SkippedLine,
 } from "@/lib/csv-import";
 import { SAMPLE_PRODUCTS } from "@/lib/demo/catalog";
+import { effectiveTransactions } from "@/lib/finance/ledger";
 import { formatDate, money } from "@/lib/format";
 import { mapLimit } from "@/lib/pricing/cache";
 import type { SearchHit } from "@/lib/pricing/types";
@@ -35,6 +37,8 @@ interface Match {
   candidates: Candidate[];
   /** Index into candidates; null skips the row. */
   choice: number | null;
+  /** The same purchase is already in the collection (skipped unless included). */
+  duplicate: boolean;
 }
 
 type Step =
@@ -118,6 +122,29 @@ export function ImportCsvDialog({ open, onOpenChange }: { open: boolean; onOpenC
     [demo, sampleHits],
   );
 
+  const printingsOf = useCallback(
+    (hit: SearchHit) => {
+      const known = hit.product.printings?.length ? hit.product.printings : printingsRef.current.get(hit.product.id);
+      return known?.length ? known : hit.printing ? [hit.printing] : [];
+    },
+    [],
+  );
+
+  /** What will be saved for a row with its current choice. */
+  const resolve = useCallback(
+    (m: Match) => {
+      if (m.choice === null) return null;
+      const hit = m.candidates[m.choice];
+      const sealed = hit.product.kind === "sealed";
+      const p = matchPrinting(m.row.printing, printingsOf(hit), hit.printing);
+      const condition: Condition = m.row.grade ? "Near Mint" : sealed ? "Sealed" : (m.row.condition === "Sealed" ? "Near Mint" : (m.row.condition ?? "Near Mint"));
+      const market = store.data.prices[priceKey(hit.product.id, p.printing)]?.market ?? hit.market;
+      const unitPrice = m.row.unitPrice ?? market ?? 0;
+      return { hit, printing: p.printing, printingMatched: p.matched, condition, grade: sealed ? null : m.row.grade, unitPrice, fromMarket: m.row.unitPrice === null };
+    },
+    [printingsOf, store.data.prices],
+  );
+
   const start = async (text: string) => {
     setError(null);
     const parsed = parseImport(text, store.today);
@@ -173,10 +200,22 @@ export function ImportCsvDialog({ open, onOpenChange }: { open: boolean; onOpenC
       if (run !== runRef.current) return;
     }
 
-    setMatches(parsed.rows.map((row) => {
+    const initial: Match[] = parsed.rows.map((row) => {
       const candidates = found.get(rowKey(row)) ?? [];
-      return { row, candidates, choice: candidates.length ? 0 : null };
-    }));
+      return { row, candidates, choice: candidates.length ? 0 : null, duplicate: false };
+    });
+    // Rows that are already in the collection (same buy) are flagged and skipped by default.
+    const existing = effectiveTransactions(store.data.transactions)
+      .filter((t) => t.type === "purchase" && t.quantity > 0)
+      .map((t) => ({ productId: t.productId, printing: t.printing, condition: t.condition, grade: t.grade, date: t.date, quantity: t.quantity, unitPrice: t.unitPrice }));
+    const dupes = findDuplicates(
+      initial.map((m) => {
+        const r = resolve(m);
+        return r ? { productId: r.hit.product.id, printing: r.printing, condition: r.condition, grade: r.grade, date: m.row.date, quantity: m.row.quantity, unitPrice: r.unitPrice } : null;
+      }),
+      existing,
+    );
+    setMatches(initial.map((m, i) => (dupes[i] ? { ...m, choice: null, duplicate: true } : m)));
     setSkipped(parsed.skipped);
     setStep({ kind: "review" });
   };
@@ -190,31 +229,9 @@ export function ImportCsvDialog({ open, onOpenChange }: { open: boolean; onOpenC
     await start(await file.text());
   };
 
-  const printingsOf = useCallback(
-    (hit: SearchHit) => {
-      const known = hit.product.printings?.length ? hit.product.printings : printingsRef.current.get(hit.product.id);
-      return known?.length ? known : hit.printing ? [hit.printing] : [];
-    },
-    [],
-  );
-
-  /** What will be saved for a row with its current choice. */
-  const resolve = useCallback(
-    (m: Match) => {
-      if (m.choice === null) return null;
-      const hit = m.candidates[m.choice];
-      const sealed = hit.product.kind === "sealed";
-      const p = matchPrinting(m.row.printing, printingsOf(hit), hit.printing);
-      const condition: Condition = m.row.grade ? "Near Mint" : sealed ? "Sealed" : (m.row.condition === "Sealed" ? "Near Mint" : (m.row.condition ?? "Near Mint"));
-      const market = store.data.prices[priceKey(hit.product.id, p.printing)]?.market ?? hit.market;
-      const unitPrice = m.row.unitPrice ?? market ?? 0;
-      return { hit, printing: p.printing, printingMatched: p.matched, condition, grade: sealed ? null : m.row.grade, unitPrice, fromMarket: m.row.unitPrice === null };
-    },
-    [printingsOf, store.data.prices],
-  );
-
   const ready = matches.filter((m) => m.choice !== null);
   const notFound = matches.filter((m) => !m.candidates.length);
+  const duplicates = matches.filter((m) => m.duplicate && m.choice === null).length;
   const totalPaid = ready.reduce((s, m) => s + (resolve(m)?.unitPrice ?? 0) * m.row.quantity, 0);
   const rowCount = matches.length + skipped.length;
 
@@ -407,6 +424,11 @@ export function ImportCsvDialog({ open, onOpenChange }: { open: boolean; onOpenC
                 <span className="text-muted"> · total paid </span>
                 {money(totalPaid)}
               </p>
+              {duplicates > 0 && (
+                <p className="text-[13px] text-muted">
+                  {duplicates} already in your collection, skipped
+                </p>
+              )}
               {demo && <Badge variant="sample">Demo — nothing is saved</Badge>}
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto border-t border-border">
@@ -479,6 +501,7 @@ function ReviewRow({
 }) {
   const { row, candidates, choice } = match;
   const skippedRow = resolved === null;
+  const skipLabel = match.duplicate ? "Already in your collection" : "Skipped";
   const hit = resolved?.hit ?? candidates[0];
   const unsure = !skippedRow && choice !== null && !isConfident(candidates[choice].fit);
   const conditionLabel = resolved?.grade ? `${resolved.grade.company} ${resolved.grade.grade}` : resolved?.condition;
@@ -498,15 +521,18 @@ function ReviewRow({
           <p className="line-clamp-2 text-[12px] text-subtle md:line-clamp-none md:truncate">
             Line {row.line} · {row.name}
             {unsure && <span className="text-muted"> · check this match</span>}
+            {match.duplicate && !skippedRow && <span className="text-muted"> · already in your collection, included</span>}
           </p>
           {/* Phone: the details sit under the name. */}
           <p className="tabular mt-0.5 text-[12px] text-muted md:hidden">
-            {skippedRow ? "Skipped" : [resolved.printing, conditionLabel, `×${row.quantity}`, money(resolved.unitPrice), formatDate(row.date)].filter(Boolean).join(" · ")}
+            {skippedRow ? skipLabel : [resolved.printing, conditionLabel, `×${row.quantity}`, money(resolved.unitPrice), formatDate(row.date)].filter(Boolean).join(" · ")}
           </p>
         </div>
       </div>
       <span className="hidden truncate text-[13px] md:block">{skippedRow ? "—" : (resolved.printing ?? "—")}</span>
-      <span className="hidden truncate text-[13px] md:block">{skippedRow ? "Skipped" : conditionLabel}</span>
+      <span className="hidden truncate text-[13px] md:block" title={skippedRow ? skipLabel : undefined}>
+        {skippedRow ? skipLabel : conditionLabel}
+      </span>
       <span className="tabular hidden text-right text-[13px] md:block">{row.quantity}</span>
       <span className="tabular hidden text-right text-[13px] md:block">{skippedRow ? "—" : money(resolved.unitPrice)}</span>
       <span className="tabular hidden truncate text-[13px] md:block">{formatDate(row.date)}</span>

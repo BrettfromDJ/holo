@@ -70,6 +70,8 @@ struct SellSpeedLine: View {
     var printing: String?
     var grade: String?
     var market: Double?
+    /// For a CGC 10: score on Pristine sales (true) or Gem Mint ones (false); nil scores every sale of the grade.
+    var pristine: Bool? = nil
 
     @State private var score: Liquidity.Score?
     @State private var state = LoadState.loading
@@ -100,14 +102,24 @@ struct SellSpeedLine: View {
                 EmptyView()
             }
         }
-        .task(id: "\(productId)|\(printing ?? "")|\(grade ?? "")") { await load() }
+        .task(id: taskKey) { await load() }
+    }
+
+    private var taskKey: String {
+        let kind: String
+        switch pristine {
+        case .some(true): kind = "pristine"
+        case .some(false): kind = "gem"
+        case .none: kind = ""
+        }
+        return "\(productId)|\(printing ?? "")|\(grade ?? "")|\(kind)"
     }
 
     private func load() async {
         guard EbaySalesCache.supports(productId) else { return state = .hidden }
         let ebay: EbaySales? = (try? await EbaySalesCache.sales(productId, printing: printing, market: market)) ?? nil
         guard let ebay else { return state = .hidden }
-        score = Liquidity.score(ebay, grade: grade, today: Format.day())
+        score = Liquidity.score(ebay, grade: grade, today: Format.day(), pristine: pristine)
         state = .ready
     }
 }

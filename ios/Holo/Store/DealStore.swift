@@ -168,7 +168,8 @@ final class DealStore {
         let record = DealRecord(
             id: UUID().uuidString.lowercased(), at: ISO8601DateFormatter.withFraction.string(from: Date()), kind: kind,
             inValue: totals.inValue, outValue: totals.outValue, balance: totals.balance, profit: totals.profit,
-            equity: totals.equity, items: deal.incoming.count + deal.outgoing.count, lines: lines,
+            equity: totals.equity, ahead: totals.ahead, uncosted: totals.uncosted,
+            items: deal.incoming.count + deal.outgoing.count, lines: lines,
             photos: deal.photos.isEmpty ? nil : deal.photos
         )
         log = Array(([record] + log).prefix(500))

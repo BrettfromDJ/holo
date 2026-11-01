@@ -222,7 +222,7 @@ export function BumperDialog({ h, open, onOpenChange }: { h: HoldingView; open: 
           }
         >
           <div className="flex justify-center rounded-2xl bg-surface-2/60 py-5">
-            <ProductImage product={h.product} grade={h.identity.grade} bumper={preview} size="md" className="h-[220px] w-[140px]" />
+            <ProductImage product={h.product} grade={h.identity.grade} slabKey={h.key} bumper={preview ?? null} size="md" className="h-[220px] w-[140px]" />
           </div>
           {group("glitter", "Glitter")}
           {group("solid", "Solid")}

@@ -498,6 +498,57 @@ export function searchQueries(row: Pick<ImportRow, "name" | "set" | "number">): 
 }
 
 // ---------------------------------------------------------------------------
+// Duplicates
+
+/** A purchase as it would be saved (or as it is in the collection). */
+export interface PurchaseLike {
+  productId: string;
+  printing: string | null;
+  condition: Condition;
+  grade: Grade | null;
+  date: ISODate;
+  quantity: number;
+  unitPrice: number;
+}
+
+function sameGrade(a: Grade | null, b: Grade | null): boolean {
+  if (!a || !b) return !a && !b;
+  return a.company.toLowerCase() === b.company.toLowerCase() && Number(a.grade) === Number(b.grade);
+}
+
+/**
+ * True when two purchases are the same buy: same product, printing,
+ * condition (or grade, for slabs), date and quantity, and unit price within $0.01.
+ */
+export function samePurchase(a: PurchaseLike, b: PurchaseLike): boolean {
+  return (
+    a.productId === b.productId &&
+    (a.printing ?? "").toLowerCase() === (b.printing ?? "").toLowerCase() &&
+    sameGrade(a.grade, b.grade) &&
+    (a.grade ? true : a.condition === b.condition) &&
+    a.date === b.date &&
+    a.quantity === b.quantity &&
+    Math.abs(a.unitPrice - b.unitPrice) <= 0.01 + 1e-9
+  );
+}
+
+/**
+ * Which rows are already in the collection. Each existing purchase accounts
+ * for one row at most, so a file with the same buy twice and a collection
+ * holding it once flags only the first. Null rows (skipped) are never flagged.
+ */
+export function findDuplicates(rows: (PurchaseLike | null)[], existing: PurchaseLike[]): boolean[] {
+  const used = new Set<number>();
+  return rows.map((row) => {
+    if (!row) return false;
+    const i = existing.findIndex((e, idx) => !used.has(idx) && samePurchase(row, e));
+    if (i < 0) return false;
+    used.add(i);
+    return true;
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Template
 
 export const TEMPLATE_CSV = [

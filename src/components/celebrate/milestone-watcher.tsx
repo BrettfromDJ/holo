@@ -17,15 +17,19 @@ export function MilestoneWatcher() {
   const { status, repoKind, user } = useStore();
   // Milestones are about the whole collection, whichever portfolio is shown.
   const { summary, holdings } = usePortfolio({ ignoreFilter: true });
-  const [stored, setStored, ready] = useSyncedState<string[] | null>("milestones-seen", null, { legacyKey: `${KEY}:${repoKind}:${user?.id ?? "anon"}` });
+  const [stored, setStored, , synced] = useSyncedState<string[] | null>("milestones-seen", null, { legacyKey: `${KEY}:${repoKind}:${user?.id ?? "anon"}` });
   const busy = useRef(false);
 
   useEffect(() => {
-    if (status !== "ready" || !ready || !holdings.length || busy.current) return;
+    // Never in a demo (every fresh browser would celebrate the sample collection),
+    // and only once the seen list was actually read, so a failed read never
+    // repeats old milestones or saves over the account's list.
+    if (repoKind === "demo" || status !== "ready" || !synced || !holdings.length || busy.current) return;
     const seen = new Set(stored ?? []);
     const { show, record } = pickNew(reachedMilestones(summary, holdings), seen, stored === null);
     if (!record.length) return;
-    setStored([...seen, ...record]);
+    // Merge with whatever is stored by then (another tab or device may have added some).
+    setStored((prev) => [...new Set([...(prev ?? []), ...record])]);
     busy.current = true;
     show.forEach((m, i) => {
       window.setTimeout(() => {
@@ -33,7 +37,7 @@ export function MilestoneWatcher() {
       }, 1200 + i * 1800);
     });
     window.setTimeout(() => (busy.current = false), 1200 + show.length * 1800);
-  }, [status, ready, stored, setStored, summary, holdings]);
+  }, [repoKind, status, synced, stored, setStored, summary, holdings]);
 
   return null;
 }

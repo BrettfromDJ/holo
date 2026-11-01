@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Hint } from "@/components/ui/tooltip";
-import { DEFAULT_RATES, dealKind, dealNet, dealTotals, dealVerdict, defaultSideRates, lineRate, roundedCash, showsEquity, unitPrice, type DealKind, type DealRates, type DealTotals } from "@/lib/deal";
+import { DEFAULT_RATES, aheadTitle, dealKind, dealNet, dealTotals, dealVerdict, defaultSideRates, lineRate, recordAhead, roundedCash, showsEquity, unitPrice, type DealKind, type DealRates, type DealTotals } from "@/lib/deal";
 import { fifoCost } from "@/lib/finance/sell";
 import { money, pct, signedMoney } from "@/lib/format";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
@@ -42,6 +42,10 @@ interface DealRecord {
   balance: number;
   profit: number | null;
   equity: number;
+  /** How far ahead the deal left you (profit + value gained); null when not every item had a cost. Missing on older deals. */
+  ahead?: number | null;
+  /** Items that went out with no known cost. Recorded alongside `ahead`. */
+  uncosted?: number;
   items: number;
   /** What changed hands, for the history. Missing on deals closed before it was kept. */
   lines?: DealRecordLine[];
@@ -66,6 +70,7 @@ const KIND_NOUN: Record<DealKind, string> = { buy: "Buy", sell: "Sale", trade: "
 /** What each number means, one sentence each (hover or tap the ⓘ). */
 const TERMS = {
   verdict: "Your profit on what you hand over plus the value you gain on what comes in: how much better off you are after this deal, at market prices.",
+  ahead: "Market value of what comes in, minus what you paid for what goes out, minus any cash you pay (plus any you get): your profit plus the value you gain.",
   cash: "The difference between the two sides, paid in cash so the deal comes out even.",
   comingIn: "What the customer's cards count for in this deal, at the prices you set.",
   goingOut: "What your cards count for in this deal, at the prices you set.",
@@ -123,7 +128,7 @@ export default function DealPage() {
   );
   const unpriced = [...deal.in.map((i) => unitPrice(i, rate.in)), ...deal.out.map((i) => unitPrice(i, rate.out))].some((p) => p === null);
   const net = dealNet(totals);
-  const summary = `${cashLine(totals.balance)}${net !== null ? ` · you're ${signedMoney(net)}` : ""}`;
+  const summary = `${cashLine(totals.balance)}${totals.ahead !== null ? ` · ${totals.ahead < 0 ? "behind" : "ahead"} ${signedMoney(totals.ahead)}` : net !== null ? ` · you're ${signedMoney(net)}` : ""}`;
 
   // Updates build on the latest deal, so rapid scans landing back to back all count.
   const update = (side: DealSide, items: DealItem[]) => setDeal((cur) => ({ ...EMPTY, ...cur, [side]: items }));
@@ -226,6 +231,8 @@ export default function DealPage() {
         balance: totals.balance,
         profit: totals.profit,
         equity: totals.equity,
+        ahead: totals.ahead,
+        uncosted: totals.uncosted,
         items: deal.in.length + deal.out.length,
         lines: recordLines(deal, rate, tracked),
         photos: photos.length ? photos : undefined,
@@ -302,11 +309,18 @@ export default function DealPage() {
           <div className="mx-auto max-w-[640px] rounded-2xl border border-border bg-surface/95 p-2 shadow-2xl shadow-black/50 backdrop-blur-xl lg:max-w-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
             <p className="tabular truncate px-2 pb-2 pt-1 text-center text-[13px] font-semibold lg:text-left">
               {cashLine(totals.balance)}
-              {net !== null && (
+              {totals.ahead !== null ? (
                 <>
-                  <span className="text-muted"> · </span>
-                  <span className={net >= 0 ? "text-up" : "text-down"}>You&apos;re {signedMoney(net)}</span>
+                  <span className="text-muted"> · {totals.ahead < 0 ? "Behind" : "Ahead"} </span>
+                  <span className={totals.ahead >= 0 ? "text-up" : "text-down"}>{signedMoney(totals.ahead)}</span>
                 </>
+              ) : (
+                net !== null && (
+                  <>
+                    <span className="text-muted"> · </span>
+                    <span className={net >= 0 ? "text-up" : "text-down"}>You&apos;re {signedMoney(net)}</span>
+                  </>
+                )
               )}
             </p>
             <div className="flex gap-2">
@@ -369,8 +383,10 @@ function Term({ label, text, className }: { label: string; text: string; classNa
 function Balance({ totals, kind, roundTo, onRound }: { totals: DealTotals; kind: DealKind; roundTo: number | null; onRound: () => void }) {
   const { balance } = totals;
   const even = Math.abs(balance) < 0.005;
-  const net = dealNet(totals);
-  const verdict = dealVerdict(totals);
+  const ahead = totals.ahead;
+  const net = ahead ?? dealNet(totals);
+  const verdict = ahead !== null ? `${aheadTitle(ahead)} ${signedMoney(ahead)}` : dealVerdict(totals);
+  const onPaper = ahead !== null && showsEquity(totals) && totals.equity > 0.005 ? totals.equity : null;
   return (
     <section aria-live="polite" className="tint tint-lime tint-borderless rounded-[var(--radius-card)] p-5 sm:p-6">
       <div className="flex items-center justify-between gap-3">
@@ -382,12 +398,13 @@ function Balance({ totals, kind, roundTo, onRound }: { totals: DealTotals; kind:
         )}
       </div>
       {verdict && (
-        <Hint content={<span className="block max-w-[260px]">{TERMS.verdict}</span>}>
+        <Hint content={<span className="block max-w-[260px]">{ahead !== null ? TERMS.ahead : TERMS.verdict}</span>}>
           <p className={cn("mt-4 inline-flex cursor-help items-center gap-2 rounded-full bg-[#0b0b0c] px-3.5 py-2 text-[15px] font-bold", (net ?? 0) >= 0 ? "text-[var(--lime)]" : "text-down")}>
             {(net ?? 0) >= 0 ? <ArrowUpRight className="size-4" /> : <ArrowDownRight className="size-4" />} {verdict}
           </p>
         </Hint>
       )}
+      {onPaper !== null && <p className="mt-2 text-[12px] text-muted">Includes {money(onPaper)} on paper</p>}
       <div className="mt-4">
         <Term label={kind === "empty" ? "Add items to start" : even ? "Settled · no cash" : balance > 0 ? "Customer pays you" : "You pay the customer"} text={TERMS.cash} className="text-subtle" />
       </div>
@@ -400,7 +417,7 @@ function Balance({ totals, kind, roundTo, onRound }: { totals: DealTotals; kind:
           </button>
         )}
       </div>
-      {totals.uncosted > 0 && <p className="mt-2 text-[12px] text-muted">Profit unknown for {totals.uncosted} item{totals.uncosted === 1 ? "" : "s"} not in Holo: add what you paid.</p>}
+      {totals.uncosted > 0 && kind !== "empty" && <p className="mt-2 text-[12px] text-muted">Add what you paid for every item to see your total</p>}
       <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Coming in" term={TERMS.comingIn} value={money(totals.inValue)} />
         <Stat label="Going out" term={TERMS.goingOut} value={money(totals.outValue)} />
@@ -425,11 +442,16 @@ function Stat({ label, term, value }: { label: string; term: string; value: Reac
 function TodayStrip({ deals, onOpen }: { deals: DealRecord[]; onOpen: () => void }) {
   const cash = deals.reduce((s, d) => s + d.balance, 0);
   const profit = deals.reduce((s, d) => s + (d.profit ?? 0), 0);
+  const known = deals.map(recordAhead).filter((n): n is number => n !== null);
+  const ahead = known.reduce((s, n) => s + n, 0);
   return (
     <button type="button" onClick={onOpen} className="tabular mb-4 flex w-full flex-wrap items-center gap-x-5 gap-y-1 text-left text-[13px] text-muted hover:text-foreground">
       <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-subtle">Today</span>
       <span>
         <span className="font-semibold text-foreground">{deals.length}</span> deal{deals.length === 1 ? "" : "s"}
+      </span>
+      <span className={known.length ? undefined : "hidden"}>
+        Ahead <span className={cn("font-semibold", ahead >= 0 ? "text-up" : "text-down")}>{signedMoney(ahead)}</span>
       </span>
       <span>
         Cash <span className={cn("font-semibold", cash >= 0 ? "text-up" : "text-down")}>{signedMoney(cash)}</span>
@@ -781,7 +803,18 @@ function CloseDialog({
             <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-subtle">{Math.abs(totals.balance) < 0.005 ? "Even trade" : totals.balance > 0 ? "Customer pays you" : "You pay the customer"}</p>
             <p className="hype-num tabular mt-1 text-[48px] leading-none">{money(Math.abs(totals.balance))}</p>
           </div>
-          {verdict && <p className={cn("flex items-center gap-2 text-[16px] font-bold", (net ?? 0) >= 0 ? "text-up" : "text-down")}>{(net ?? 0) >= 0 ? <ArrowUpRight className="size-4" /> : <ArrowDownRight className="size-4" />} {verdict}</p>}
+          {totals.ahead !== null ? (
+            <div>
+              <p className="flex items-center gap-2 text-[16px] font-bold">
+                {totals.ahead >= 0 ? <ArrowUpRight className="size-4 text-up" /> : <ArrowDownRight className="size-4 text-down" />} {aheadTitle(totals.ahead)}{" "}
+                <span className={cn("tabular", totals.ahead >= 0 ? "text-up" : "text-down")}>{signedMoney(totals.ahead)}</span>
+              </p>
+              <AheadBreakdown profit={totals.profit} equity={showsEquity(totals) ? totals.equity : null} className="mt-1 pl-6" />
+            </div>
+          ) : (
+            verdict && <p className={cn("flex items-center gap-2 text-[16px] font-bold", (net ?? 0) >= 0 ? "text-up" : "text-down")}>{(net ?? 0) >= 0 ? <ArrowUpRight className="size-4" /> : <ArrowDownRight className="size-4" />} {verdict}</p>
+          )}
+          {totals.uncosted > 0 && <p className="text-[13px] text-muted">Add what you paid for every item to see your total</p>}
           {side(deal.in, rate.in, "Coming in", true)}
           {side(deal.out, rate.out, "Going out", false)}
           <div className="flex gap-2 pt-2">
@@ -799,11 +832,13 @@ function CloseDialog({
   );
 }
 
-/** The deal, recorded: an electric-lime card (pink if the value taken in was negative) with the profit and what changed hands. */
+/** The deal, recorded: an electric-lime card (pink if it left you behind) with how far ahead you came out and what changed hands. */
 function RecordedDialog({ recorded, onDone }: { recorded: { record: DealRecord; totals: DealTotals; deal: DealState } | null; onDone: () => void }) {
   if (!recorded) return null;
   const { record, totals, deal } = recorded;
-  const down = showsEquity(totals) && totals.equity < -0.005;
+  const ahead = totals.ahead;
+  // The headline figure decides the color: down turns the whole card pink (never pink on lime).
+  const down = ahead !== null ? ahead < -0.005 : showsEquity(totals) && totals.equity < -0.005;
   const headline = totals.profit !== null ? { label: "Profit", value: totals.profit } : totals.inValue > 0 ? { label: "Value gained", value: totals.equity } : null;
   const items = [...deal.out, ...deal.in].slice(0, 7);
   return (
@@ -831,11 +866,20 @@ function RecordedDialog({ recorded, onDone }: { recorded: { record: DealRecord; 
               })}
             </div>
           )}
-          {headline && (
+          {ahead !== null ? (
             <>
-              <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.14em] opacity-60">{headline.label}</p>
-              <p className="hype-num tabular text-[64px] leading-none">{signedMoney(headline.value)}</p>
+              <p className="mt-4 font-display text-[22px] leading-none tracking-[-0.02em]">{aheadTitle(ahead, true)}</p>
+              <p className="hype-num tabular mt-1 text-[64px] leading-none">{signedMoney(ahead)}</p>
+              <AheadBreakdown profit={totals.profit} equity={showsEquity(totals) ? totals.equity : null} plain className="mt-2 justify-center text-center" />
             </>
+          ) : (
+            headline && (
+              <>
+                <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.14em] opacity-60">{headline.label}</p>
+                <p className="hype-num tabular text-[64px] leading-none">{signedMoney(headline.value)}</p>
+                {totals.uncosted > 0 && <p className="mt-2 text-[12px] font-medium opacity-70">Total unknown: not every item had a cost</p>}
+              </>
+            )
           )}
           <div className="mt-5 flex flex-wrap justify-center gap-1.5">
             {[cashLine(totals.balance).replace("Customer pays you", "They paid"), `${record.items} item${record.items === 1 ? "" : "s"}`, record.photos?.length ? `${record.photos.length} photo${record.photos.length === 1 ? "" : "s"}` : null]
@@ -937,18 +981,28 @@ function HistoryDialog({ open, onOpenChange, deals, onPhotos }: { open: boolean;
           {days.map(([day, list]) => {
             const cash = list.reduce((s, d) => s + d.balance, 0);
             const profit = list.reduce((s, d) => s + (d.profit ?? 0), 0);
+            const known = list.map(recordAhead).filter((n): n is number => n !== null);
+            const ahead = known.reduce((s, n) => s + n, 0);
             return (
               <section key={day} className="mt-4 first:mt-1">
                 <div className="tabular flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-border pb-2">
                   <h3 className="text-[14px] font-semibold">{new Date(`${day}T12:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}</h3>
                   <p className="text-[12px] text-muted">
-                    {list.length} deal{list.length === 1 ? "" : "s"} · cash <span className={cash >= 0 ? "text-up" : "text-down"}>{signedMoney(cash)}</span> · profit{" "}
-                    <span className={profit >= 0 ? "text-up" : "text-down"}>{signedMoney(profit)}</span>
+                    {list.length} deal{list.length === 1 ? "" : "s"}
+                    {known.length > 0 && (
+                      <>
+                        {" "}
+                        · ahead <span className={cn("font-semibold", ahead >= 0 ? "text-up" : "text-down")}>{signedMoney(ahead)}</span>
+                      </>
+                    )}{" "}
+                    · cash{" "}
+                    <span className={cash >= 0 ? "text-up" : "text-down"}>{signedMoney(cash)}</span> · profit <span className={profit >= 0 ? "text-up" : "text-down"}>{signedMoney(profit)}</span>
                   </p>
                 </div>
                 <ul className="divide-y divide-border">
                   {list.map((d) => {
                     const expanded = openId === d.id;
+                    const ahead = recordAhead(d);
                     return (
                       <li key={d.id}>
                         <button type="button" onClick={() => setOpenId(expanded ? null : d.id)} aria-expanded={expanded} className="flex w-full items-center gap-3 py-3 text-left">
@@ -966,11 +1020,21 @@ function HistoryDialog({ open, onOpenChange, deals, onPhotos }: { open: boolean;
                               {Math.abs(d.balance) < 0.005 ? "Even swap" : d.balance > 0 ? `They paid ${money(d.balance)}` : `You paid ${money(-d.balance)}`}
                             </span>
                           </span>
-                          {d.profit !== null && <span className={cn("tabular shrink-0 text-[14px] font-semibold", d.profit >= 0 ? "text-up" : "text-down")}>{signedMoney(d.profit)}</span>}
+                          <span className="tabular shrink-0 text-right">
+                            <span className={cn("block text-[14px] font-semibold", ahead === null ? "text-subtle" : ahead >= 0 ? "text-up" : "text-down")}>{ahead === null ? "—" : signedMoney(ahead)}</span>
+                            {d.profit !== null && d.kind !== "buy" ? (
+                              <span className="block text-[11px] text-muted">
+                                profit <span className={d.profit >= 0 ? "text-up" : "text-down"}>{signedMoney(d.profit)}</span>
+                              </span>
+                            ) : (
+                              <span className="block text-[11px] text-muted">{ahead === null ? "" : ahead < 0 ? "behind" : "ahead"}</span>
+                            )}
+                          </span>
                           <ChevronDown className={cn("size-4 shrink-0 text-subtle transition-transform", expanded && "rotate-180")} />
                         </button>
                         {expanded && (
                           <div className="pb-3 pl-[4.75rem]">
+                            <RecordSummary record={d} ahead={ahead} />
                             {d.lines?.length ? (
                               (["in", "out"] as const).map((side) => {
                                 const rows = d.lines!.filter((l) => l.side === side);
@@ -995,9 +1059,7 @@ function HistoryDialog({ open, onOpenChange, deals, onPhotos }: { open: boolean;
                                 );
                               })
                             ) : (
-                              <p className="text-[12px] text-muted">
-                                In {money(d.inValue)} · out {money(d.outValue)}
-                              </p>
+                              <p className="mt-2 text-[12px] text-muted">Item details weren&apos;t kept for deals closed before they were recorded.</p>
                             )}
                             <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.06em] text-subtle">Photos</p>
                             <DealPhotos photos={d.photos ?? []} onChange={(next) => onPhotos(d.id, next)} className="mt-1.5" />
@@ -1013,6 +1075,62 @@ function HistoryDialog({ open, onOpenChange, deals, onPhotos }: { open: boolean;
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** A closed deal's headline ("You came out ahead +$1,701") over its numbers: what came in and went out, the cash, profit and value gained. */
+function RecordSummary({ record: d, ahead }: { record: DealRecord; ahead: number | null }) {
+  const cash = Math.abs(d.balance) < 0.005 ? { label: "Cash", value: "Even swap" } : d.balance > 0 ? { label: "They paid you", value: money(d.balance) } : { label: "You paid them", value: money(-d.balance) };
+  const equity = d.kind === "sell" ? null : d.equity;
+  const stats: { label: string; value: React.ReactNode }[] = [
+    { label: "Came in", value: money(d.inValue) },
+    { label: "Went out", value: money(d.outValue) },
+    cash,
+    { label: "Profit", value: d.profit === null ? <span className="text-subtle">—</span> : <span className={d.profit >= 0 ? "text-up" : "text-down"}>{signedMoney(d.profit)}</span> },
+    { label: "Value gained", value: equity === null ? <span className="text-subtle">—</span> : <span className={equity >= 0 ? "text-up" : "text-down"}>{signedMoney(equity)}</span> },
+  ];
+  return (
+    <div className="mb-3">
+      {ahead !== null ? (
+        <p className="font-display text-[20px] leading-tight tracking-[-0.02em]">
+          {aheadTitle(ahead, true)} <span className={cn("tabular", ahead >= 0 ? "text-up" : "text-down")}>{signedMoney(ahead)}</span>
+        </p>
+      ) : (
+        <p className="text-[13px] text-muted">Total unknown: not every item had a cost</p>
+      )}
+      {ahead !== null && equity !== null && equity > 0.005 && <p className="mt-0.5 text-[12px] text-muted">Includes {money(equity)} on paper</p>}
+      <dl className="mt-3 grid grid-cols-3 gap-x-3 gap-y-2.5">
+        {stats.map((s) => (
+          <div key={s.label} className="min-w-0">
+            <dt className="font-mono text-[10px] uppercase tracking-[0.06em] text-subtle">{s.label}</dt>
+            <dd className="tabular mt-0.5 truncate text-[14px] font-semibold">{s.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+/**
+ * "Profit +$971 · Value gained +$730", with "includes $730 on paper" under it when value was
+ * gained. `plain` keeps every figure in the text color (for the lime and pink recorded card).
+ */
+function AheadBreakdown({ profit, equity, plain, className }: { profit: number | null; equity: number | null; plain?: boolean; className?: string }) {
+  const tone = (n: number) => (plain ? "" : n >= 0 ? "text-up" : "text-down");
+  const parts = [profit !== null ? { label: "Profit", value: profit } : null, equity !== null ? { label: "Value gained", value: equity } : null].filter((p): p is { label: string; value: number } => p !== null);
+  if (!parts.length) return null;
+  return (
+    <div className={cn("text-[13px]", className)}>
+      <p className={cn("tabular", plain ? "font-semibold" : "text-muted")}>
+        {parts.map((p, i) => (
+          <span key={p.label}>
+            {i > 0 && " · "}
+            {p.label} <span className={cn("font-semibold", tone(p.value))}>{signedMoney(p.value)}</span>
+          </span>
+        ))}
+      </p>
+      {equity !== null && equity > 0.005 && <p className={cn("mt-0.5 text-[12px]", plain ? "opacity-70" : "text-muted")}>includes {money(equity)} on paper</p>}
+    </div>
   );
 }
 

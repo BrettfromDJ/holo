@@ -9,7 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { PriceChartingGraded } from "@/lib/graded";
 import { money, relativeTime } from "@/lib/format";
 import type { Grade } from "@/lib/types";
-import { GRADED_ROWS, gradedLookup, gradedPrice, gradedSourceLabel, isEstimate, lookupGrades, WORTH_GRADERS, type WorthGrader } from "@/lib/worth";
+import { isCgcTenGrade } from "@/lib/pristine";
+import { GRADED_ROWS, gradedLookup, gradedPrice, gradedSourceLabel, gradeTitle, isEstimate, lookupGrades, PRISTINE_10, rowGradeTitle, WORTH_GRADERS, type GradedRow, type WorthGrader } from "@/lib/worth";
 import { useEbayData } from "./ebay-sales";
 
 /* ------------------------- PriceCharting, per card ------------------------ */
@@ -65,10 +66,11 @@ export function usePriceChartingGraded(productId: string): {
  * What the card sells for graded. Every row names one company and grade; its price is recent
  * eBay sales of that exact slab when there are enough, else PriceCharting (below 10 scaled to
  * the company, ≈), else the last eBay sale, else the usual grade curve (≈), with a small word
- * saying which. Below it, look up any company and grade the same way. Same as the app's Graded
- * prices panel.
+ * saying which. CGC's 10 is two rows: Pristine 10 (sales whose title says pristine, else ≈ the
+ * Gem Mint 10 × the usual premium) and Gem Mint 10. Below it, look up any company and grade the
+ * same way. Same as the app's Graded prices panel.
  */
-export function GradedPrices({ productId, printing, nm, owned, className }: { productId: string; printing: string | null; nm: number | null; owned: Grade[]; className?: string }) {
+export function GradedPrices({ productId, printing, nm, owned, className }: { productId: string; printing: string | null; nm: number | null; owned: (Grade & { pristine?: boolean })[]; className?: string }) {
   const pc = usePriceChartingGraded(productId);
   const [ref, inView] = useInView<HTMLDivElement>("0px 0px 200px 0px");
   const { load } = useEbayData(productId, printing, {
@@ -79,8 +81,9 @@ export function GradedPrices({ productId, printing, nm, owned, className }: { pr
 
   const slab = owned[0];
   const [company, setCompany] = useState<WorthGrader>(() => ((WORTH_GRADERS as readonly string[]).includes(slab?.company.toUpperCase() ?? "") ? (slab!.company.toUpperCase() as WorthGrader) : "PSA"));
+  // The lookup's grade; a CGC Pristine 10 is its own choice ("Pristine 10").
   const [grade, setGrade] = useState<string>(() => {
-    const g = slab?.grade ?? "9";
+    const g = slab && slab.pristine && isCgcTenGrade(slab.company, slab.grade) ? PRISTINE_10 : (slab?.grade ?? "9");
     return lookupGrades(company).includes(g) ? g : "10";
   });
 
@@ -90,12 +93,14 @@ export function GradedPrices({ productId, printing, nm, owned, className }: { pr
 
   const ungraded = real?.ungraded ?? nm;
   const priced = GRADED_ROWS.flatMap((row) => {
-    const p = gradedPrice(productId, row, real, ebay, nm);
+    const p = gradedPrice(productId, row, real, ebay, nm, Boolean(row.pristine));
     return p ? [{ row, p }] : [];
   });
-  // "Yours" when you own that exact company and grade.
-  const isOwned = (row: (typeof GRADED_ROWS)[number]) => owned.some((g) => g.company.toUpperCase() === row.company && Number(g.grade) === Number(row.grade));
-  const result = gradedLookup(productId, nm, { company, grade }, ebay, real);
+  // "Yours" when you own that exact company and grade (and, for a CGC 10, the same kind).
+  const isOwned = (row: GradedRow) =>
+    owned.some((g) => g.company.toUpperCase() === row.company && Number(g.grade) === Number(row.grade) && (!isCgcTenGrade(g.company, g.grade) || Boolean(g.pristine) === Boolean(row.pristine)));
+  const lookupPristine = grade === PRISTINE_10;
+  const result = gradedLookup(productId, nm, { company, grade: lookupPristine ? "10" : grade }, ebay, real, lookupPristine);
   const subtitle = !pc.ready
     ? "What it sells for graded"
     : real
@@ -129,11 +134,11 @@ export function GradedPrices({ productId, printing, nm, owned, className }: { pr
                     const mine = isOwned(row);
                     return (
                       // The wash sits behind the row and reaches past it, so the row's content stays in line with the others.
-                      <li key={`${row.company} ${row.grade}`} className="relative flex items-center gap-2.5 py-3">
+                      <li key={`${row.company} ${row.grade}${row.pristine ? " pristine" : ""}`} className="relative flex items-center gap-2.5 py-3">
                         {mine && <span aria-hidden className="absolute -inset-x-3 inset-y-0 rounded-xl bg-[color-mix(in_srgb,var(--lime)_10%,transparent)]" />}
                         <span className="relative inline-flex min-w-[4rem] items-center gap-1 font-mono text-[13px] font-medium leading-none">
                           <span className="text-muted">{row.company}</span>
-                          <span className="text-foreground">{row.grade}</span>
+                          <span className="text-foreground">{rowGradeTitle(row)}</span>
                         </span>
                         {mine && <span className="relative text-[11px] font-semibold text-[var(--lime)]">Yours</span>}
                         <span className="relative ml-auto text-[12px] text-subtle">{gradedSourceLabel(p.source)}</span>
@@ -146,7 +151,7 @@ export function GradedPrices({ productId, printing, nm, owned, className }: { pr
                   })}
                 </ul>
                 <p className="mt-3 text-[12px] text-subtle">
-                  eBay: the median of this month&apos;s sales of that exact slab. ≈: an estimate, from PriceCharting&apos;s price for the grade (which mixes every company) adjusted for the company, or from the usual grade curve.
+                  eBay: the median of this month&apos;s sales of that exact slab (a CGC Pristine 10 is a sale whose title says pristine). ≈: an estimate, from PriceCharting&apos;s price for the grade (which mixes every company) adjusted for the company, from the usual grade curve, or for a Pristine 10, the Gem Mint 10 price × the usual Pristine premium.
                 </p>
               </>
             )}
@@ -165,7 +170,7 @@ export function GradedPrices({ productId, printing, nm, owned, className }: { pr
                   if (!lookupGrades(next).includes(grade)) setGrade("10");
                 }}
               />
-              <LookupMenu label={`${company} grade`} value={grade} options={lookupGrades(company)} onChange={setGrade} />
+              <LookupMenu label={`${company} grade`} value={grade} options={lookupGrades(company)} optionLabel={(g) => gradeTitle(company, g)} onChange={setGrade} />
               <p className="tabular ml-auto shrink-0 font-display text-[24px] font-semibold tracking-[-0.025em]" aria-live="polite">
                 {result.price !== null ? <AnimatedNumber value={result.price} from={result.price} duration={400} format={money} /> : "—"}
               </p>
@@ -179,7 +184,7 @@ export function GradedPrices({ productId, printing, nm, owned, className }: { pr
 }
 
 /** A small pill showing the current choice; click it for the list. */
-function LookupMenu({ label, value, options, onChange }: { label: string; value: string; options: readonly string[]; onChange: (v: string) => void }) {
+function LookupMenu({ label, value, options, optionLabel, onChange }: { label: string; value: string; options: readonly string[]; optionLabel?: (v: string) => string; onChange: (v: string) => void }) {
   return (
     <span className="relative inline-flex h-9 items-center rounded-full bg-surface-2 ring-1 ring-inset ring-border transition-colors hover:bg-foreground/[0.08]">
       <select
@@ -190,7 +195,7 @@ function LookupMenu({ label, value, options, onChange }: { label: string; value:
       >
         {options.map((o) => (
           <option key={o} value={o} className="bg-surface text-foreground">
-            {o}
+            {optionLabel ? optionLabel(o) : o}
           </option>
         ))}
       </select>
