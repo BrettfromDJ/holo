@@ -69,6 +69,8 @@ struct PullEvent: Identifiable, Equatable {
     var product: Product
     var quantity: Double
     var before: Double
+    /// The copy added, when it's a slab: the reveal shows it in its slab.
+    var identity: HoldingIdentity? = nil
 }
 
 enum PushRegistration {

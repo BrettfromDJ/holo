@@ -345,7 +345,8 @@ struct Button3D: ButtonStyle {
 
     @ViewBuilder func makeBody(configuration: Configuration) -> some View {
         if kind == .dark {
-            // Dark buttons are Liquid Glass capsules (a faint white fill on glass sheets).
+            // Dark buttons are Liquid Glass in the same rounded shape as the lime ones (a faint
+            // white fill on glass sheets).
             glass(configuration)
         } else {
             solid(configuration)
@@ -359,13 +360,13 @@ struct Button3D: ButtonStyle {
             .foregroundStyle(.white)
             .padding(.horizontal, 18)
             .frame(maxWidth: fullWidth ? .infinity : nil, minHeight: height)
-            .contentShape(Capsule())
+            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .background {
                 if onGlass {
-                    Capsule().fill(Color.white.opacity(pressed ? 0.14 : 0.09))
-                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
+                    RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.white.opacity(pressed ? 0.14 : 0.09))
+                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
                 } else {
-                    Color.clear.liquidGlass(in: Capsule())
+                    Color.clear.liquidGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
             }
             .scaleEffect(pressed ? 0.97 : 1)

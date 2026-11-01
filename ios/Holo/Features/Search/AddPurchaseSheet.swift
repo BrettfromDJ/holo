@@ -173,7 +173,10 @@ struct AddPurchaseSheet: View {
             dismiss()
             onDone?()
             // The "pack pull" moment, like the website, once the sheet is away.
-            Router.shared.pull = PullEvent(product: product, quantity: Double(quantity), before: before)
+            let slab: HoldingIdentity? = graded && !product.isSealed
+                ? HoldingIdentity(productId: product.id, printing: printing, condition: CardCondition.nearMint.rawValue, gradeCompany: company, grade: grade == Self.pristine ? "10" : grade)
+                : nil
+            Router.shared.pull = PullEvent(product: product, quantity: Double(quantity), before: before, identity: slab)
         } catch {
             self.error = error.localizedDescription
         }
