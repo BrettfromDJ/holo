@@ -1,9 +1,10 @@
 "use client";
 
-import { Check, Cloud, Download, FlaskConical, HardDrive, Moon, RefreshCw, Sun, SunMoon, X } from "lucide-react";
+import { Check, Cloud, Download, FlaskConical, HardDrive, Moon, RefreshCw, Sun, SunMoon, Upload, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { ImportCsvDialog } from "@/components/flows/import-csv";
 import { PortfolioManager } from "@/components/portfolio/portfolio-controls";
 import { ShareLinks } from "@/components/settings/share-links";
 import { PageHeader } from "@/components/shell/page-header";
@@ -25,6 +26,7 @@ function applyTheme(t: Theme) {
 export default function SettingsPage() {
   const store = useStore();
   const [theme, setTheme] = useState<Theme>("dark");
+  const [importing, setImporting] = useState(false);
   useEffect(() => {
     try {
       setTheme((localStorage.getItem("holo:theme") as Theme) ?? "dark");
@@ -99,12 +101,19 @@ export default function SettingsPage() {
             </Button>
           </Row>
         )}
+        <Row title="Import a collection (CSV)" body="Bring purchases in from another tracker or a spreadsheet. You check every match before anything is added.">
+          <Button variant="secondary" size="sm" onClick={() => setImporting(true)}>
+            <Upload /> Import
+          </Button>
+        </Row>
         <Row title="Export" body="Download transactions, watchlist and catalog as JSON.">
           <Button variant="secondary" size="sm" onClick={exportData}>
             <Download /> Export
           </Button>
         </Row>
       </Section>
+
+      <ImportCsvDialog open={importing} onOpenChange={setImporting} />
 
       <Section title="Portfolios">
         <PortfolioManager />
