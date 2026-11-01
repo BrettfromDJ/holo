@@ -121,14 +121,26 @@ final class ImageCache: @unchecked Sendable {
 
     /// Decode just a thumbnail: no full-size bitmap is ever made, and it comes out ready to draw.
     static func downsample(_ data: Data, maxPixel: CGFloat) -> UIImage? {
-        // UIKit's thumbnailer: reliable for every format the catalog serves (the ImageIO
-        // thumbnail path left some pictures blank), still decoded off the main thread.
+        // ImageIO's thumbnailer first: clean edges, and no full-size bitmap is ever made.
+        if let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary) {
+            let options: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceShouldCacheImmediately: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: maxPixel,
+            ]
+            if let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) { return UIImage(cgImage: cg) }
+        }
+        // A picture ImageIO can't thumbnail: decode it and scale it down to whole pixels (a
+        // fractional size left a faint light line around cards).
         guard let full = UIImage(data: data), full.size.width > 0, full.size.height > 0 else { return nil }
-        let longest = max(full.size.width * full.scale, full.size.height * full.scale)
-        guard longest > maxPixel else { return full.preparingForDisplay() ?? full }
-        let ratio = maxPixel / longest
-        let size = CGSize(width: full.size.width * full.scale * ratio, height: full.size.height * full.scale * ratio)
-        return full.preparingThumbnail(of: size) ?? full
+        let w = full.size.width * full.scale, h = full.size.height * full.scale
+        guard max(w, h) > maxPixel else { return full.preparingForDisplay() ?? full }
+        let ratio = maxPixel / max(w, h)
+        let size = CGSize(width: (w * ratio).rounded(), height: (h * ratio).rounded())
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: size, format: format).image { _ in full.draw(in: CGRect(origin: .zero, size: size)) }
     }
 }
 
