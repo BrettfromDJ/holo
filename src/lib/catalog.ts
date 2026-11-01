@@ -38,14 +38,14 @@ export function categoryOf(product: Pick<Product, "name" | "productType" | "kind
 
 /**
  * Phrases that only ever describe sealed product. Matched against the name
- * with any "(…)" suffix removed, so card names like "Charizard (Classic
+ * with any "(…)" or "[…]" suffix removed, so card names like "Charizard (Classic
  * Collection)" stay singles.
  */
 const SEALED_NAME =
-  /\b(booster (box|bundle|pack|display|case)|elite trainer box|etb|ultra[- ]premium collection|premium collection|illustration collection|special collection|collection box|binder collection|poster collection|figure collection|pin collection|(mini |stacking )?tins?|blister|build (&|and) battle|trainer box|gift (set|box)|deck box|theme deck|starter deck|battle deck|league battle deck|display box|sleeved booster|surprise box|collector chest|booster bundle|bundle)\b/i;
+  /\b(booster (box|bundle|pack|display|case)|elite trainer box|etb|ultra[- ]premium collection|premium collection|illustration collection|special collection|collection box|binder collection|poster collection|figure collection|pin collection|sticker collection|tech sticker|(mini |stacking )?tins?|blister|build (&|and) battle|trainer box|gift (set|box)|deck box|theme deck|starter deck|battle deck|league battle deck|display box|sleeved booster|surprise box|collector chest|booster bundle|bundle)\b/i;
 
 export function looksSealed(name: string): boolean {
-  return SEALED_NAME.test(name.replace(/\([^)]*\)/g, " "));
+  return SEALED_NAME.test(name.replace(/\([^)]*\)|\[[^\]]*\]/g, " "));
 }
 
 /**

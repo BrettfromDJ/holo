@@ -1,3 +1,4 @@
+import { looksSealed } from "../catalog";
 import { holdingKey, type Condition, type HoldingIdentity, type NormalizedPrice, type Product, type Transaction, type WatchlistItem } from "../types";
 import type { HoldingRow, ProductPriceRow, ProductRow, TransactionRow, WatchlistRow } from "./database.types";
 
@@ -14,7 +15,8 @@ export function productFromRow(r: ProductRow): Product {
     number: r.number,
     rarity: r.rarity,
     productType: r.product_type,
-    kind: r.kind,
+    // Rows stored before a sealed name rule existed (e.g. sticker collections) read as sealed.
+    kind: r.kind === "single" && looksSealed(r.name) ? "sealed" : r.kind,
     imageUrl: r.image_url,
     tcgplayerId: r.tcgplayer_id,
     tcgplayerUrl: r.tcgplayer_url,

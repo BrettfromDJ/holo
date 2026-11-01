@@ -18,6 +18,7 @@ describe("inferKind", () => {
     expect(kind("Umbreon VMAX (Alternate Full Art)", null, "215/203")).toBe("single");
     expect(kind("Pikachu ex - 238/191", null, "238/191")).toBe("single");
     expect(looksSealed("Tinkatuff")).toBe(false);
+    expect(looksSealed("30th Celebration Tech Sticker Collection [Alolan Exeggutor]")).toBe(true);
   });
 
   it("respects an explicit hint and the source's sealed type", () => {
