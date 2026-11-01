@@ -44,7 +44,7 @@ struct AnalyticsView: View {
                 }
                 kpis(risk: risk, summary: s, holdings: holdings)
                 // Gains lives here now: which products, sets or types your gains come from.
-                GainsView(embedded: true).reveal()
+                GainsView().reveal()
                 // Its own view, so dragging across the chart redraws only the chart.
                 HistorySection(timeline: timeline).reveal()
                 CollectionMap(holdings: holdings).reveal()
@@ -528,7 +528,7 @@ private struct Diversification: View {
                 VStack(alignment: .leading, spacing: 14) {
                     HStack(alignment: .center, spacing: 14) {
                         CountingText(value: Double(effective), format: { "\(Int($0.rounded()))" })
-                            .font(.display(54)).tracking(-2.2).monospacedDigit().foregroundStyle(Theme.holo).displayTrim(54)
+                            .font(.display(54)).tracking(-2.2).monospacedDigit().foregroundStyle(Theme.lime).displayTrim(54)
                         VStack(alignment: .leading, spacing: 4) {
                             SkewTag(text: label.uppercased(), color: Theme.planBlue, textColor: .white)
                             Text("Your \(holdings.count) holdings behave like \(effective) equally sized ones").font(.geist(13)).foregroundStyle(Theme.muted)

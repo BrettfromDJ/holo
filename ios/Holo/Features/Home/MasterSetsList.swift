@@ -129,7 +129,7 @@ struct MasterSetsView: View {
                         Text("\(Int((ratio * 100).rounded()))%").font(.geist(13, .semibold)).monospacedDigit()
                             .foregroundStyle(Theme.ink)
                             .padding(.horizontal, 8).padding(.vertical, 3)
-                            .background(Theme.holo, in: RoundedRectangle(cornerRadius: 6))
+                            .background(Theme.lime, in: RoundedRectangle(cornerRadius: 6))
                         Text("of \(best.name), your closest").font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
                     }
                 }
@@ -269,7 +269,7 @@ struct SetDeckCard: View {
         .foregroundStyle(.white)
         .background {
             ZStack(alignment: .bottomTrailing) {
-                GlowFill(palette: GlowPalette.forProduct(row.id))
+                SetGlow(id: row.id)
                 GridPattern(step: 26, opacity: 0.07)
                 art
                     .frame(width: 150, height: 100)

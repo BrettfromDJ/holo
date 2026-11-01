@@ -3,8 +3,6 @@ import SwiftUI
 /// Where your gains come from, like the website's Gains page: unrealized, realized or all-time,
 /// by product, set or type, as a waterfall that adds up to the total.
 struct GainsView: View {
-    /// Inside Analytics: just the mode chips and the breakdown (no page top or scroll view).
-    var embedded = false
     @Environment(CollectionStore.self) private var store
     @State private var mode = Gains.Mode.unrealized
     @State private var group = Gains.Group.product
@@ -20,14 +18,6 @@ struct GainsView: View {
         }
     }
 
-    private var hint: String {
-        switch mode {
-        case .unrealized: return "Market value minus cost basis of what you hold today."
-        case .realized: return "Profit or loss locked in by sales and write-offs."
-        case .all: return "Unrealized plus realized: everything your collection has earned."
-        }
-    }
-
     private var noun: (one: String, many: String) {
         switch group {
         case .product: return ("product", "products")
@@ -39,15 +29,12 @@ struct GainsView: View {
     var body: some View {
         let a = Gains.attribute(holdings: store.holdings, transactions: store.portfolioTransactions, products: store.products,
                                 mode: mode, group: group, maxRows: expanded ? nil : Self.collapsedRows)
-        if embedded {
-            VStack(alignment: .leading, spacing: 16) {
-                ChipPicker(options: [(.unrealized, "Unrealized"), (.realized, "Realized"), (.all, "All-time")], selection: $mode)
-                breakdown(a)
-            }
-            .sensoryFeedback(.selection, trigger: "\(mode.rawValue)\(group.rawValue)")
-        } else {
-            page(a)
+        // Part of Analytics: the mode chips and the breakdown.
+        VStack(alignment: .leading, spacing: 16) {
+            ChipPicker(options: [(.unrealized, "Unrealized"), (.realized, "Realized"), (.all, "All-time")], selection: $mode)
+            breakdown(a)
         }
+        .sensoryFeedback(.selection, trigger: "\(mode.rawValue)\(group.rawValue)")
     }
 
     /// Where it comes from: each product, set or type's share of the gain, as a waterfall.
@@ -91,31 +78,6 @@ struct GainsView: View {
                 .surface(radius: 16, padding: 16)
             }
         }
-    }
-
-    private func page(_ a: Gains.Attribution) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                TugOfWarHero(label: label, hint: hint, total: a.total, gains: a.gains, losses: a.losses,
-                             leaders: a.steps.filter { $0.gain > 0 && $0.members == nil })
-                    .id("\(mode.rawValue)\(group.rawValue)")
-                ChipPicker(options: [(.unrealized, "Unrealized"), (.realized, "Realized"), (.all, "All-time")], selection: $mode)
-                breakdown(a)
-                .reveal()
-
-                if a.unpriced > 0, mode != .realized {
-                    Label("\(a.unpriced) holding\(a.unpriced == 1 ? " has" : "s have") no market price and \(a.unpriced == 1 ? "isn't" : "aren't") included.", systemImage: "exclamationmark.circle")
-                        .font(.geist(13)).foregroundStyle(Theme.muted)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 120)
-        }
-        .background(Theme.background)
-        .replaysAnimations()
-        .sensoryFeedback(.selection, trigger: "\(mode.rawValue)\(group.rawValue)")
-        .navigationBarTitleDisplayMode(.inline)
-        .pageTitle("Gains")
     }
 }
 

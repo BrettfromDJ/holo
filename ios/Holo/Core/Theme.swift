@@ -13,18 +13,8 @@ enum Theme {
     static let down = Color(hex: 0xFF3D7F)
     static let warn = Color(hex: 0xF5B84A)
 
-    /// The iridescent sheen's colors, in order across a foil.
-    static let holoColors: [Color] = [
-        Color(hex: 0xC8B6FF), Color(hex: 0xA7C4FF), Color(hex: 0x9EF5E0), Color(hex: 0xFFC3E6), Color(hex: 0xFFEFB3),
-    ]
-    /// Accent fills (buttons, the +, selected chips, badges, headline numbers): solid lime.
-    /// (Named `holo` from the brief iridescent look; a gradient type so it fills shapes and text.)
-    static let holo = LinearGradient(colors: [Color(hex: 0xD4FF3A), Color(hex: 0xD4FF3A)], startPoint: .top, endPoint: .bottom)
-    /// The shadow edge under 3D lime buttons, and their glow.
-    static let holoEdge = Color(hex: 0x7A9200)
-    static let holoGlow = Color(hex: 0xD4FF3A)
-    static let violet = Color(hex: 0xD4FF3A)
-    static let cyan = Color(hex: 0x2F5BFF)
+    /// The darker edge under 3D lime buttons (the + and lime chips).
+    static let limeEdge = Color(hex: 0x7A9200)
 
     /// Gains in lime, losses in pink, nothing in gray. Only numbers get colored.
     static func tone(_ value: Double?) -> Color {

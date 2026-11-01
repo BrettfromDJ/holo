@@ -1,12 +1,9 @@
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 import type { Metadata, Viewport } from "next";
-import { Anton } from "next/font/google";
 import { AppShell } from "@/components/shell/app-shell";
 import "./globals.css";
 
-// Condensed all-caps display face for high-energy headlines.
-const display = Anton({ weight: "400", subsets: ["latin"], variable: "--font-anton", display: "swap" });
 
 export const metadata: Metadata = {
   title: { default: "Holo — Pokémon Collection Tracker", template: "%s · Holo" },
@@ -31,7 +28,7 @@ const themeScript = `try{var t=localStorage.getItem("holo:theme");var l=t==="lig
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`dark ${GeistSans.variable} ${GeistMono.variable} ${display.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`dark ${GeistSans.variable} ${GeistMono.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>

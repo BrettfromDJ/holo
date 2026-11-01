@@ -1,51 +1,6 @@
-import CoreMotion
 import SwiftUI
 
 // MARK: - Tilt shine
-
-/// The phone's roll and pitch, smoothed, for the shine band on the star card. Runs only while a
-/// shine is on screen, at 30 updates a second.
-@Observable
-final class ShineMotion {
-    static let shared = ShineMotion()
-
-    /// -1...1 left/right and up/down from where the phone was held when it started.
-    private(set) var roll: Double = 0
-    private(set) var pitch: Double = 0
-
-    private let manager = CMMotionManager()
-    @ObservationIgnored private var listeners = 0
-    @ObservationIgnored private var origin: CMAttitude?
-
-    func start() {
-        listeners += 1
-        guard listeners == 1, manager.isDeviceMotionAvailable else { return }
-        manager.deviceMotionUpdateInterval = 1 / 30
-        manager.startDeviceMotionUpdates(to: .main) { [weak self] motion, _ in
-            guard let self, let motion else { return }
-            if self.origin == nil { self.origin = motion.attitude.copy() as? CMAttitude }
-            let att = motion.attitude
-            if let origin = self.origin { att.multiply(byInverseOf: origin) }
-            let r = max(-1, min(1, att.roll / 0.6))
-            let p = max(-1, min(1, att.pitch / 0.6))
-            // Ease toward the reading so the band glides instead of jittering.
-            let nextRoll = self.roll + (r - self.roll) * 0.2
-            let nextPitch = self.pitch + (p - self.pitch) * 0.2
-            // Skip tiny changes so a phone lying still doesn't redraw.
-            if abs(nextRoll - self.roll) > 0.002 { self.roll = nextRoll }
-            if abs(nextPitch - self.pitch) > 0.002 { self.pitch = nextPitch }
-        }
-    }
-
-    func stop() {
-        listeners = max(0, listeners - 1)
-        guard listeners == 0 else { return }
-        manager.stopDeviceMotionUpdates()
-        origin = nil
-        roll = 0
-        pitch = 0
-    }
-}
 
 /// A soft white and lime band of light across the art that slides as you tilt the phone.
 /// Only the band's offset changes; it is off under Reduce Motion.
@@ -61,8 +16,8 @@ private struct TiltShine: ViewModifier {
                     .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
-                    .onAppear { ShineMotion.shared.start() }
-                    .onDisappear { ShineMotion.shared.stop() }
+                    .onAppear { Tilt.shared.start() }
+                    .onDisappear { Tilt.shared.stop() }
             }
         }
     }
@@ -70,7 +25,7 @@ private struct TiltShine: ViewModifier {
 
 /// Its own view, so a motion update redraws only the band.
 private struct ShineBand: View {
-    private var motion: ShineMotion { ShineMotion.shared }
+    private var motion: Tilt { Tilt.shared }
 
     private static let gradient = LinearGradient(
         stops: [
@@ -91,7 +46,7 @@ private struct ShineBand: View {
                 .frame(width: w * 0.9, height: h * 1.8)
                 .rotationEffect(.degrees(22))
                 // At rest the band sits toward the top left; tilting slides it across.
-                .offset(x: CGFloat(motion.roll - 0.35) * w * 0.85, y: CGFloat(motion.pitch) * h * 0.25)
+                .offset(x: CGFloat(motion.x - 0.35) * w * 0.85, y: CGFloat(motion.y) * h * 0.25)
                 .frame(width: w, height: h)
         }
     }

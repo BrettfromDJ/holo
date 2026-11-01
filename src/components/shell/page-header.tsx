@@ -8,9 +8,9 @@ export interface HeaderStat {
 }
 
 /**
- * A page's top, like the app's: a small mono label, then (optionally) one big Anton figure
+ * A page's top, like the app's: a small mono label, then (optionally) one big display figure
  * with a muted unit, a line under it and a row of glass stat pills, over a field of fine dots
- * lit by lime, pink and blue glows. Without a figure the title itself is the big Anton line.
+ * lit by lime, pink and blue glows. Without a figure the title itself is the big display line.
  */
 export function PageHeader({
   title,

@@ -29,7 +29,7 @@ struct MoreHero<Below: View>: View {
         .background {
             ZStack {
                 GridPattern()
-                RadialGradient(colors: [Theme.cyan.opacity(0.14), .clear], center: UnitPoint(x: 0.85, y: 0.35), startRadius: 0, endRadius: 150)
+                RadialGradient(colors: [Theme.planBlue.opacity(0.14), .clear], center: UnitPoint(x: 0.85, y: 0.35), startRadius: 0, endRadius: 150)
             }
             // Soft on every side, so the glow never shows an edge wherever it's cut off.
             .mask(EllipticalGradient(colors: [.black, .black.opacity(0.6), .clear], center: .center, startRadiusFraction: 0, endRadiusFraction: 0.5))
@@ -193,91 +193,6 @@ struct ValueLineHero<Line: View, Below: View>: View {
     }
 }
 
-/// Gains: what's pulling up against what's pulling down, as a tug of war that grows out from
-/// the middle, with the three biggest movers underneath.
-struct TugOfWarHero: View {
-    var label: String
-    var hint: String
-    var total: Double
-    var gains: Double
-    var losses: Double
-    var leaders: [Gains.Row]
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var pulled = false
-
-    var body: some View {
-        let sum = max(gains + abs(losses), 0.01)
-        let up = gains / sum
-        VStack(alignment: .leading, spacing: 16) {
-            // Laid out like the top of Collection: label, big figure, a line under it.
-            VStack(alignment: .leading, spacing: 8) {
-                MonoLabel(text: label)
-                CountingText(value: total, format: { Format.signedMoney($0) })
-                    .font(.display(56)).tracking(-2.2).monospacedDigit().foregroundStyle(total >= 0 ? Theme.lime : Theme.planPink)
-                    .lineLimit(1).minimumScaleFactor(0.5).displayTrim(56)
-                Text(hint).font(.geist(13)).foregroundStyle(Theme.muted)
-            }
-            .padding(.top, 8)
-            VStack(spacing: 14) {
-                // The same bar as Allocation: two thin capsules with a gap, growing in.
-                GeometryReader { geo in
-                    let g = pulled || reduceMotion ? 1.0 : 0.0
-                    let usable = geo.size.width - (losses < 0 && gains > 0 ? 3 : 0)
-                    HStack(spacing: 3) {
-                        if gains > 0 {
-                            Capsule().fill(Theme.holo)
-                                .frame(width: max(6, usable * up * g))
-                                .shadow(color: Theme.holoGlow.opacity(0.5), radius: 6)
-                        }
-                        if losses < 0 {
-                            Capsule().fill(Theme.planPink)
-                                .frame(width: max(6, usable * (1 - up) * g))
-                                .shadow(color: Theme.planPink.opacity(0.5), radius: 6)
-                        }
-                    }
-                }
-                .frame(height: 10)
-                // Glass stat tiles, like Collection's.
-                HStack(spacing: 8) {
-                    GlassStat(label: "Pulling up", value: Format.signedMoney(gains), tint: gains > 0 ? Theme.up : .white)
-                    GlassStat(label: "Pulling down", value: Format.signedMoney(losses), tint: losses < 0 ? Theme.down : .white)
-                }
-            }
-            if !leaders.isEmpty {
-                HStack(spacing: 10) {
-                    ForEach(Array(leaders.prefix(3).enumerated()), id: \.element.id) { i, r in
-                        VStack(alignment: .leading, spacing: 6) {
-                            HoldingArt(product: r.product, identity: r.identity, cornerRadius: 3, caption: false)
-                                .frame(height: 74)
-                                .frame(maxWidth: .infinity)
-                            Text(r.label).font(.geist(11)).foregroundStyle(Theme.muted).lineLimit(1)
-                            Text(Format.signedMoney(r.gain)).font(.geist(13, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(r.gain))
-                        }
-                        .padding(10)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Theme.border))
-                        .popIn(delay: 0.3 + Double(i) * 0.1)
-                    }
-                }
-            }
-        }
-        .background(alignment: .top) {
-            DotBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
-        }
-        .onAppear { pull() }
-        .onReplay {
-            pulled = false
-            pull()
-        }
-    }
-
-    private func pull() {
-        guard !reduceMotion else { return }
-        withAnimation(.spring(response: 1.0, dampingFraction: 0.7).delay(0.2)) { pulled = true }
-    }
-}
-
 /// Grading: laid out like the top of Collection (label, big figure, a line under it, glass
 /// tiles) with your three best slabs dealt into a fan beside the figure, on the same lit grid.
 struct SlabFanHero<Line: View, Below: View>: View {
@@ -365,9 +280,9 @@ struct DotBackdrop: View {
     var body: some View {
         ZStack {
             DotField()
-            RadialGradient(colors: [Theme.violet.opacity(0.2), .clear], center: UnitPoint(x: 0.2, y: 0.42), startRadius: 0, endRadius: 260)
+            RadialGradient(colors: [Theme.lime.opacity(0.2), .clear], center: UnitPoint(x: 0.2, y: 0.42), startRadius: 0, endRadius: 260)
             RadialGradient(colors: [Theme.planPink.opacity(0.16), .clear], center: UnitPoint(x: 0.85, y: 0.2), startRadius: 0, endRadius: 220)
-            RadialGradient(colors: [Theme.cyan.opacity(0.16), .clear], center: UnitPoint(x: 0.75, y: 0.72), startRadius: 0, endRadius: 220)
+            RadialGradient(colors: [Theme.planBlue.opacity(0.16), .clear], center: UnitPoint(x: 0.75, y: 0.72), startRadius: 0, endRadius: 220)
         }
         .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.7), .init(color: .clear, location: 1)],
                              startPoint: .top, endPoint: .bottom))

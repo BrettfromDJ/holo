@@ -20,8 +20,9 @@ and say exactly what to run or click.
 
 - **See what you build.** Before saying a visual change is done, build it, run it, take a
   screenshot and look at it (see "Seeing the app" below). Most past mistakes came from not looking.
-- **The website is the reference.** When the app and the website differ, match the website:
-  layout, sizes, spacing, fonts, colors, copy. Read the web component before porting it.
+- **Keep the app and website in step.** New things are often designed in the app first, then
+  ported to the website (Master Sets, Your copy, graded lookup). When they differ by accident,
+  ask which is right; read the other platform's code before porting.
 - Answer questions without building. Only build when asked.
 - **End every reply that changed the app with the update commands**, in a code block:
   `cd ~/holo && git pull && cd ios && xcodegen`, then Xcode → Product → Clean Build Folder and ▶.
@@ -32,15 +33,19 @@ and say exactly what to run or click.
 
 ## Design rules (both platforms)
 
-- **Fonts:** Geist (body), Anton (display: titles and big numbers, uppercase), Geist Mono
-  (small caps labels). The app also bundles Roboto Mono.
-  In the Lucent app, `Font.display` is now Geist (Regular for big figures, Medium for
-  headings) in sentence case, not Anton caps; don't uppercase headings there.
+- **Fonts:** Geist (body), Geist SemiBold for headings and big numbers (`Font.display` in the
+  app, `font-display` on the web), in sentence case with tight tracking (Anton caps are retired;
+  never uppercase headings), Geist Mono (small caps labels). The app also bundles Roboto Mono.
 - **Colors:** lime `#D4FF3A` (accent, up), plan blue `#2F5BFF`, plan pink `#FF2E9A` (down).
   Color only numbers (gains green/lime, losses pink); text stays white or muted.
 - **Lucent (app):** named Lucent, original Holo look everywhere (lime, grid and dot backdrops, glows,
-  lime charts, the star card's electric border). Only Master Sets uses the newer pieces from
-  `Components/Glow.swift` (the set deck, the set page's dot-matrix %, dial and ticks).
+  lime charts, the star card's electric border). Master Sets also uses the pieces in
+  `Components/Glow.swift` (the set deck's `SetGlow`, dot-matrix digits, the `GlowPie` dial, ring
+  and ticks). The iridescent and glow-card experiments were removed; don't bring them back.
+- **Tapping a card:** one you own opens Your copy (`HoldingSheet`) everywhere; one you don't opens
+  its card page. Use `CardLink(productId:identity:)` in the app; it decides. Gains lives inside
+  Analytics; Overview has a shortcut row (Analytics, Grading, Master sets, Activity).
+- **Loading:** a plain lime spinner (app) and skeleton placeholders (web). No loading animations.
 - **Never red or pink text on lime.** If a card's figure is down, the whole card goes pink.
 - No confetti. No emojis. Toasts bottom-right on the web. Milestone and "Prices updated"
   banners are off in the app for now (they repeated).
@@ -114,8 +119,8 @@ and say exactly what to run or click.
 
 - Milestone banners: off because they repeated; `checkMilestones()` in `HomeView.swift` is kept.
   Find why `milestones-seen` didn't stop repeats before turning it back on.
-- In the app since: Gains (Home's Unrealized card and Home → More), Analytics, Grading, Master Sets
-  (Home → More; was Binder), Activity (Home → More), shelves (Collection chips, a card's ⋯ menu), portfolios (switcher on
+- In the app since: Analytics (with Gains inside), Grading, Master Sets (was Binder), Activity —
+  all from Overview's shortcut row, shelves (Collection chips, a card's ⋯ menu), portfolios (switcher on
   Collection; `store.holdingFilter` filters holdings, summary and timeline, `allHoldings` is
   unfiltered for deals), show deleted & edit records (card page). Grading state is in
   `user_state` `grading-submissions` / `grading-costs`; shelves and portfolios use the

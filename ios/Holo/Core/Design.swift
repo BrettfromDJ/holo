@@ -321,7 +321,7 @@ struct Button3D: ButtonStyle {
     private var edge: Color {
         switch kind {
         case .light: return Color(hex: 0x8A8A8E)
-        case .lime: return Theme.holoEdge
+        case .lime: return Theme.limeEdge
         case .dark: return onGlass ? Color.white.opacity(0.04) : Color(hex: 0x0D0D0F)
         case .blue: return Color(hex: 0x1A2F9E)
         case .pink: return Color(hex: 0xA3175F)
@@ -345,7 +345,7 @@ struct Button3D: ButtonStyle {
             .background(
                 ZStack {
                     RoundedRectangle(cornerRadius: 14, style: .continuous).fill(edge).offset(y: pressed ? 0 : 3)
-                    RoundedRectangle(cornerRadius: 14, style: .continuous).fill(kind == .lime ? AnyShapeStyle(Theme.holo) : AnyShapeStyle(fill))
+                    RoundedRectangle(cornerRadius: 14, style: .continuous).fill(kind == .lime ? AnyShapeStyle(Theme.lime) : AnyShapeStyle(fill))
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .fill(LinearGradient(colors: [.white.opacity(kind == .dark ? 0.06 : 0.16), .clear], startPoint: .top, endPoint: .center))
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -533,15 +533,15 @@ struct Chip: View {
             .background(
                 ZStack {
                     if selected {
-                        Capsule().fill(Theme.holoEdge).offset(y: 2)
-                        Capsule().fill(Theme.holo)
+                        Capsule().fill(Theme.limeEdge).offset(y: 2)
+                        Capsule().fill(Theme.lime)
                     } else {
                         // Unselected chips are just text; the track behind them shows through.
                         Capsule().fill(Color.clear)
                     }
                 }
             )
-            .shadow(color: selected ? Theme.holoGlow.opacity(0.35) : .clear, radius: 8)
+            .shadow(color: selected ? Theme.lime.opacity(0.35) : .clear, radius: 8)
         }
         .buttonStyle(ChipPress())
     }

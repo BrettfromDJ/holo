@@ -479,7 +479,7 @@ private struct ResultRow: View, Equatable {
             Button(action: onAdd) {
                 Image(systemName: "plus").font(.system(size: 14, weight: .bold)).foregroundStyle(Theme.ink)
                     .frame(width: 34, height: 34)
-                    .background(Circle().fill(Theme.holo))
+                    .background(Circle().fill(Theme.lime))
             }
             .buttonStyle(ShutterStyle())
             .accessibilityLabel("Add \(hit.product.name) to your collection")
@@ -577,7 +577,7 @@ struct FilterBar: View {
         .padding(.horizontal, 12)
         .frame(height: 34)
         .foregroundStyle(on ? Theme.ink : .white)
-        .background { if on { Capsule().fill(Theme.holo) } else { Color.clear.liquidGlass(in: Capsule()).allowsHitTesting(false) } }
+        .background { if on { Capsule().fill(Theme.lime) } else { Color.clear.liquidGlass(in: Capsule()).allowsHitTesting(false) } }
     }
 }
 
