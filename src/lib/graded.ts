@@ -176,12 +176,37 @@ export function gradeDescriptor(grade: Grade): string {
   const company = grade.company.toUpperCase();
   if (!Number.isFinite(n)) return "";
   if (company === "PSA") return n >= 10 ? "GEM MT" : n >= 9 ? "MINT" : n >= 8 ? "NM-MT" : n >= 7 ? "NM" : n >= 6 ? "EX-MT" : n >= 5 ? "EX" : n >= 4 ? "VG-EX" : n >= 3 ? "VG" : n >= 2 ? "GOOD" : "POOR";
-  if (n >= 10) return "PRISTINE";
+  // A CGC 10 reads "GEM MINT"; its Pristine 10 is marked per slab (`slab-pristine`) and gets its own label.
+  if (n >= 10) return company === "CGC" ? "GEM MINT" : "PRISTINE";
   if (n >= 9.5) return "GEM MINT";
   if (n >= 9) return "MINT";
   if (n >= 8.5) return "NM-MT+";
   if (n >= 8) return "NM-MT";
   return "NEAR MINT";
+}
+
+/** Only a CGC 10 can be marked Pristine. */
+export function isCgcTen(grade: Grade): boolean {
+  return grade.company.toUpperCase() === "CGC" && Number.parseFloat(grade.grade) >= 10;
+}
+
+/** The lines printed on a CGC label: the card, the game, "Set - number", then the rarity. */
+export function cgcLabelLines(p: { name?: string; setName?: string | null; number?: string | null; rarity?: string | null } | undefined): string[] {
+  const set = p?.setName ?? null;
+  const num = p?.number ?? null;
+  const third = set && num ? `${set} - ${num}` : set ?? (num ? `#${num}` : null);
+  return [p?.name ?? "Card", "Pokémon", third, p?.rarity ?? null].filter((l): l is string => Boolean(l));
+}
+
+/**
+ * A stand-in cert number for a slab with none saved: 10 digits that stay the same for the
+ * card (FNV-1a of name|set|number, ending in 001 like CGC's). The app's Slab.fallbackCert matches.
+ */
+export function fallbackCert(p: { name?: string; setName?: string | null; number?: string | null } | undefined): string {
+  const text = [p?.name ?? "Card", p?.setName ?? "", p?.number ?? ""].join("|");
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619) >>> 0;
+  return `${(h % 9000000) + 1000000}001`;
 }
 
 /** Where to check a certification number. Companies without a direct link get their lookup page. */

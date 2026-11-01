@@ -1,11 +1,11 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- images come from arbitrary pricing-source CDNs */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { categoryOf } from "@/lib/catalog";
 import { isFoilCard } from "@/components/motion/holo-tilt";
 import { bumperById, GLITTER_SPECKS, type Bumper } from "@/lib/bumpers";
-import { gradeDescriptor, slabStyle } from "@/lib/graded";
-import { useSlabBumpers, useSlabCerts } from "@/lib/store/grading";
+import { cgcLabelLines, fallbackCert, gradeDescriptor, isCgcTen, slabStyle } from "@/lib/graded";
+import { useSlabBumpers, useSlabCerts, useSlabPristine } from "@/lib/store/grading";
 import type { Grade, Product } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ProductSilhouette } from "./product-silhouette";
@@ -120,10 +120,11 @@ function ProductPhoto({
   );
 }
 
-function SavedBumperSlab({ slabKey, ...props }: { slabKey: string } & Omit<Parameters<typeof Slab>[0], "bumper" | "cert">) {
+function SavedBumperSlab({ slabKey, ...props }: { slabKey: string } & Omit<Parameters<typeof Slab>[0], "bumper" | "cert" | "pristine">) {
   const { bumpers } = useSlabBumpers();
   const { certs } = useSlabCerts();
-  return <Slab {...props} bumper={bumperById(bumpers[slabKey])} cert={certs[slabKey]} />;
+  const { pristine } = useSlabPristine();
+  return <Slab {...props} bumper={bumperById(bumpers[slabKey])} cert={certs[slabKey]} pristine={pristine.has(slabKey)} />;
 }
 
 /** Faint wavy security print, like the fugitive-ink pattern on a PSA label. */
@@ -207,6 +208,7 @@ function Slab({
   className,
   bumper,
   cert,
+  pristine,
 }: {
   product: Parameters<typeof ProductImage>[0]["product"];
   grade: Grade;
@@ -216,12 +218,20 @@ function Slab({
   bumper: Bumper | null;
   /** Cert number printed on the label, when known. */
   cert?: string;
+  /** A CGC 10 marked Pristine: its label gets the black and gold Pristine badge. */
+  pristine?: boolean;
 }) {
   const style = slabStyle(grade);
   const tiny = size === "xs" || size === "sm";
+  const company = grade.company.toUpperCase();
+  const isPristine = Boolean(pristine) && isCgcTen(grade);
   const details = [product?.setName, product?.number ? `#${product.number}` : null].filter(Boolean).join(" · ");
   return (
-    <div className={cn("relative flex items-center justify-center", className)} role="img" aria-label={`${product?.name ?? "Card"}, ${grade.company} ${grade.grade}`}>
+    <div
+      className={cn("relative flex items-center justify-center", className)}
+      role="img"
+      aria-label={`${product?.name ?? "Card"}, ${isPristine ? "CGC Pristine 10" : `${grade.company} ${grade.grade}`}`}
+    >
       <div className="group/slab relative aspect-[5/8] h-full max-w-full [container-type:inline-size]">
         {bumper && <BumperFrame bumper={bumper} />}
         {/* With a bumper, the slab sits inside it and sizes to its own width. */}
@@ -240,8 +250,10 @@ function Slab({
 
         <div className={cn("absolute flex flex-col", tiny ? "inset-[6cqw] gap-[5cqw]" : "inset-[4.5cqw] gap-[3.5cqw]")}>
           {/* Label */}
-          {grade.company.toUpperCase() === "PSA" ? (
+          {company === "PSA" ? (
             <PsaLabel product={product} grade={grade} cert={cert} tiny={tiny} />
+          ) : company === "CGC" ? (
+            <CgcLabel product={product} grade={grade} cert={cert} pristine={isPristine} tiny={tiny} />
           ) : (
             <div
               className={cn("relative shrink-0 overflow-hidden rounded-[2.4cqw]", tiny ? "h-[16cqw]" : "h-[27cqw]")}
@@ -289,6 +301,113 @@ function Slab({
         </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** The balance scales in front of the CGC wordmark. */
+function ScalesGlyph({ className }: { className?: string }) {
+  return (
+    <svg aria-hidden viewBox="0 0 24 16" fill="none" stroke="currentColor" strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M12 2.2V14.6M8.2 14.6H15.8M3.5 3.6H20.5M3.5 3.6L1 9.6M3.5 3.6L6 9.6M20.5 3.6L18 9.6M20.5 3.6L23 9.6" />
+      <path d="M0.8 9.6H6.2Q5.6 12.4 3.5 12.4Q1.4 12.4 0.8 9.6ZM17.8 9.6H23.2Q22.6 12.4 20.5 12.4Q18.4 12.4 17.8 9.6Z" />
+      <circle cx="12" cy="1.6" r="0.9" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+/** Metallic gold for the Pristine badge's lettering, with a fine dark edge. */
+const GOLD_TEXT: CSSProperties = {
+  backgroundImage: "linear-gradient(180deg, #f6e6a8 8%, #c9a44c 55%, #8e6b23 96%)",
+  WebkitBackgroundClip: "text",
+  backgroundClip: "text",
+  color: "transparent",
+  WebkitTextStroke: "0.12cqw rgb(0 0 0 / 0.55)",
+};
+
+/**
+ * A CGC label: a black frame with the scales, CGC and CERTIFIED GUARANTY COMPANY across the
+ * top, and a silver panel with the card's lines, barcode and cert on the left and the grade
+ * behind a fine rule on the right. A Pristine 10 has a cream panel and a black badge with a
+ * gold 10 standing over its right edge. The app's Slab.swift draws the same label.
+ */
+function CgcLabel({ product, grade, cert, pristine, tiny }: { product: Parameters<typeof ProductImage>[0]["product"]; grade: Grade; cert?: string; pristine: boolean; tiny: boolean }) {
+  const lines = cgcLabelLines(product);
+  const certNo = cert?.trim() || fallbackCert(product);
+  return (
+    <div
+      className={cn("relative shrink-0 overflow-hidden", tiny ? "h-[16cqw] rounded-[1.4cqw]" : "h-[36cqw] rounded-[1.6cqw]")}
+      style={{ background: "#101012", boxShadow: "inset 0 0 0 0.15cqw rgb(255 255 255 / 0.06), 0 0.5cqw 1.5cqw rgb(0 0 0 / 0.35)" }}
+    >
+      {!tiny && (
+        <div className="absolute inset-x-0 top-0 flex h-[8cqw] items-center justify-between gap-[3cqw] px-[2.6cqw] text-white">
+          <span className="flex shrink-0 items-center gap-[0.6cqw]">
+            <ScalesGlyph className="h-[3.3cqw] w-[4.9cqw]" />
+            <span className="text-[6cqw] font-medium leading-none tracking-[-0.07em]">CGC</span>
+          </span>
+          <span className="whitespace-nowrap text-[2.75cqw] font-bold uppercase leading-none tracking-[0.035em]">Certified Guaranty Company</span>
+        </div>
+      )}
+      <div
+        className={cn(
+          "absolute",
+          tiny ? "inset-x-[1.6cqw] bottom-[1.6cqw] top-[4.5cqw] rounded-[0.8cqw]" : cn("bottom-[2.6cqw] left-[2cqw] top-[8cqw] rounded-[1cqw]", pristine ? "right-[23.5cqw]" : "right-[2.6cqw]"),
+        )}
+        style={{ background: pristine ? "linear-gradient(180deg, #f4efdf, #e9e1c8)" : "linear-gradient(180deg, #edeef0, #d6d8db)" }}
+      >
+        {!tiny && (
+          <div className="flex h-full text-[#151515]">
+            <div className={cn("flex min-w-0 flex-1 flex-col pb-[1.6cqw] pl-[2.4cqw] pt-[1.4cqw]", pristine ? "pr-[6cqw]" : "pr-[2cqw]")}>
+              <div className="my-auto flex min-w-0 flex-col text-[3.7cqw] font-semibold leading-[1.13] tracking-[-0.01em]">
+                {lines.map((line, i) => (
+                  <span key={i} className="truncate">
+                    {line}
+                  </span>
+                ))}
+              </div>
+              <div className="flex items-end justify-between gap-[2cqw]">
+                <span
+                  aria-hidden
+                  className="block h-[2.8cqw] w-[26cqw] shrink-0"
+                  style={{
+                    background:
+                      "repeating-linear-gradient(90deg, #151515 0 0.25cqw, transparent 0.25cqw 0.5cqw, #151515 0.5cqw 1.1cqw, transparent 1.1cqw 1.35cqw, #151515 1.35cqw 1.55cqw, transparent 1.55cqw 2.05cqw, #151515 2.05cqw 2.6cqw, transparent 2.6cqw 2.8cqw, #151515 2.8cqw 3cqw, transparent 3cqw 3.6cqw)",
+                  }}
+                />
+                <span className="truncate text-[2.6cqw] font-semibold leading-none tabular-nums">{certNo}</span>
+              </div>
+            </div>
+            {!pristine && (
+              <>
+                <span aria-hidden className="my-auto h-[15cqw] w-[0.3cqw] shrink-0 bg-[#151515]" />
+                <div className="flex w-[22cqw] shrink-0 flex-col items-center justify-center">
+                  <span className="whitespace-nowrap text-[3.1cqw] font-bold uppercase leading-none tracking-[0.01em]">{gradeDescriptor(grade)}</span>
+                  <span className="mt-[0.9cqw] block scale-x-[0.88] whitespace-nowrap text-[15cqw] font-bold leading-[0.8] tracking-[-0.05em]">{grade.grade}</span>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+      {pristine && !tiny && (
+        <div
+          className="absolute right-[4.5cqw] top-[8.6cqw] flex h-[25cqw] w-[24cqw] flex-col items-center rounded-[2.8cqw] pt-[1.8cqw]"
+          style={{
+            background: "linear-gradient(180deg, #19191b, #0a0a0b)",
+            boxShadow: "inset 0 0 0 0.25cqw rgb(201 164 76 / 0.9), inset 0 0 0 0.6cqw #0c0c0d, inset 0 0 0 0.75cqw rgb(201 164 76 / 0.22), 0 0.4cqw 1cqw rgb(0 0 0 / 0.45)",
+          }}
+        >
+          <span className="text-[2.9cqw] font-bold uppercase leading-none tracking-[0.1em]" style={GOLD_TEXT}>
+            Pristine
+          </span>
+          <span
+            className="mt-[0.6cqw] block scale-x-[0.84] text-[20cqw] font-bold leading-[0.82] tracking-[-0.06em]"
+            style={{ ...GOLD_TEXT, filter: "drop-shadow(0 0.25cqw 0.3cqw rgb(0 0 0 / 0.6))" }}
+          >
+            10
+          </span>
+        </div>
+      )}
     </div>
   );
 }

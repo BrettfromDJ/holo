@@ -230,7 +230,7 @@ struct HoldingSheet: View {
         }
     }
 
-    /// A slab: its cert number and bumper, and your own value.
+    /// A slab: its cert number and bumper (and Pristine, for a CGC 10), and your own value.
     private func slabRows(_ identity: HoldingIdentity) -> some View {
         let cert = grading.certs[identity.key]
         let bumper = Bumper.byId(grading.bumpers[identity.key])
@@ -239,6 +239,20 @@ struct HoldingSheet: View {
             Rectangle().fill(Theme.border).frame(height: 1).padding(.leading, 44)
             row(icon: "square.dashed", title: "Bumper", value: bumper?.name ?? "Add") { bumpering = true }
             Rectangle().fill(Theme.border).frame(height: 1).padding(.leading, 44)
+            if let company = identity.gradeCompany, let grade = identity.grade, Slab.isCGCTen(company: company, grade: grade) {
+                // CGC's Pristine 10: the slab's label turns black and gold at once.
+                HStack(spacing: 12) {
+                    Image(systemName: "rosette").font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.lime).frame(width: 30)
+                    Toggle("Pristine", isOn: Binding(
+                        get: { grading.pristine.contains(identity.key) },
+                        set: { grading.setPristine(identity.key, $0) }
+                    ))
+                    .font(.geist(15))
+                    .tint(Theme.lime)
+                }
+                .padding(.vertical, 6)
+                Rectangle().fill(Theme.border).frame(height: 1).padding(.leading, 44)
+            }
             row(icon: "pencil", title: "Your value", value: store.manualValue(identity).map { Format.money($0.value) } ?? "Set") { valuing = true }
             if let cert, let company = identity.gradeCompany, let url = URL(string: Grading.certLookupURL(company: company, cert: cert)) {
                 Link(destination: url) { Label("Look up cert \(cert)", systemImage: "arrow.up.right.square") }

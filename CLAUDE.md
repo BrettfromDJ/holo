@@ -139,5 +139,5 @@ and say exactly what to run or click.
   `user_state` `grading-submissions` / `grading-costs`; shelves and portfolios use the
   `shelves` / `portfolios` tables. Screenshot pages: `-HoloPage analytics|gains|grading|master-sets|activity` (plus `-HoloMasterSet`,
   `-HoloBumper`, `-HoloPull`, `-HoloWhatIf`). Slab certs and bumpers: `user_state` `slab-certs`,
-  `slab-bumpers` (in `GradingStore`).
+  `slab-bumpers`, `slab-pristine` (CGC Pristine 10 marks, a list of holding keys; in `GradingStore`).
 - Not in the app on purpose: the separate trade checker (the Deal tab covers trades).

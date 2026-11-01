@@ -1,7 +1,7 @@
 "use client";
 
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { ArrowRight, ChevronRight, Diff, ExternalLink, Hash, MinusCircle, MoreHorizontal, Pencil, Send, Square, Tag, Trash2 } from "lucide-react";
+import { ArrowRight, Award, ChevronRight, Diff, ExternalLink, Hash, MinusCircle, MoreHorizontal, Pencil, Send, Square, Tag, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { DeleteCopyDialog, EditDetailsDialog, RemoveDialog } from "@/components/flows/holding-dialogs";
@@ -14,15 +14,16 @@ import { DeltaPill } from "@/components/product/delta";
 import { usePriceChartingGraded } from "@/components/product/graded-prices";
 import { hasEbayData, SellSpeedFor } from "@/components/product/sell-speed";
 import { ProductImage } from "@/components/product/product-image";
+import { Switch } from "@/components/ui/switch";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { bumperById } from "@/lib/bumpers";
 import { addDays, daysBetween } from "@/lib/finance/dates";
 import { acquisitionCost, saleProceeds } from "@/lib/finance/ledger";
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { formatDate, money, signedMoney } from "@/lib/format";
-import { certLookupUrl, gradeLabel } from "@/lib/graded";
+import { certLookupUrl, gradeLabel, isCgcTen } from "@/lib/graded";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
-import { useSlabBumpers, useSlabCerts } from "@/lib/store/grading";
+import { useSlabBumpers, useSlabCerts, useSlabPristine } from "@/lib/store/grading";
 import { holdingKey, priceKey, type Transaction } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { psaIfGraded } from "@/lib/worth";
@@ -280,10 +281,11 @@ function IfGraded({ h, onSend }: { h: HoldingView; onSend: () => void }) {
   );
 }
 
-/** A slab: its cert number and bumper, and your own value. */
+/** A slab: its cert number and bumper (and Pristine, for a CGC 10), and your own value. */
 function SlabRows({ h, onCert, onBumper, onValue }: { h: HoldingView; onCert: () => void; onBumper: () => void; onValue: () => void }) {
   const { certs } = useSlabCerts();
   const { bumpers } = useSlabBumpers();
+  const { pristine, setPristine } = useSlabPristine();
   const { data } = useStore();
   const cert = certs[h.key];
   const bumper = bumperById(bumpers[h.key]);
@@ -295,6 +297,18 @@ function SlabRows({ h, onCert, onBumper, onValue }: { h: HoldingView; onCert: ()
       <div className="ml-11 h-px bg-foreground/[0.08]" />
       <SlabRow icon={Square} title="Bumper" value={bumper?.name ?? "Add"} onClick={onBumper} />
       <div className="ml-11 h-px bg-foreground/[0.08]" />
+      {isCgcTen(grade) && (
+        <>
+          <label className="flex w-full cursor-pointer items-center gap-3 py-2.5">
+            <span className="flex w-8 justify-center text-[var(--lime)]">
+              <Award className="size-4" strokeWidth={2.25} />
+            </span>
+            <span className="flex-1 text-[15px]">Pristine</span>
+            <Switch checked={pristine.has(h.key)} onCheckedChange={(on) => setPristine(h.key, on)} aria-label="Pristine 10" />
+          </label>
+          <div className="ml-11 h-px bg-foreground/[0.08]" />
+        </>
+      )}
       <SlabRow icon={Pencil} title="Your value" value={manual ? money(manual.value) : "Set"} onClick={onValue} />
       {cert && (
         <a href={certLookupUrl(grade.company, cert)} target="_blank" rel="noreferrer" className="mb-2 mt-1 inline-flex items-center gap-1.5 text-[14px] font-medium text-foreground/90 hover:text-foreground">

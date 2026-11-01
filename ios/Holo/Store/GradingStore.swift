@@ -34,6 +34,8 @@ final class GradingStore {
     var certs: [String: String] = [:]
     /// The bumper guard chosen for each slab, by holding key ("slab-bumpers").
     var bumpers: [String: String] = [:]
+    /// CGC slabs marked Pristine 10, by holding key ("slab-pristine", a list on the website too).
+    var pristine: Set<String> = []
     private(set) var loaded = false
     private var userId: String?
     /// The keys whose account copy loaded. A key that failed to load is never saved, so an
@@ -45,6 +47,7 @@ final class GradingStore {
         costs = Grading.Costs()
         certs = [:]
         bumpers = [:]
+        pristine = []
         loaded = false
         userId = nil
         synced = []
@@ -64,8 +67,9 @@ final class GradingStore {
         do { costs = try await UserState.load("grading-costs", as: Grading.Costs.self) ?? Grading.Costs(); synced.insert("grading-costs") } catch {}
         do { certs = try await UserState.load("slab-certs", as: [String: String].self) ?? [:]; synced.insert("slab-certs") } catch {}
         do { bumpers = try await UserState.load("slab-bumpers", as: [String: String].self) ?? [:]; synced.insert("slab-bumpers") } catch {}
+        do { pristine = try await Set(UserState.load("slab-pristine", as: [String].self) ?? []); synced.insert("slab-pristine") } catch {}
         // Something didn't load: try again the next time the app loads your data.
-        if synced.count < 4 { loaded = false }
+        if synced.count < 5 { loaded = false }
     }
 
     @MainActor
@@ -85,7 +89,16 @@ final class GradingStore {
         Task { try? await UserState.save("slab-bumpers", snapshot, userId: userId) }
     }
 
-    /// When Edit details changes what a slab is, its cert number and bumper follow it to the
+    /// Mark or unmark a CGC 10 as Pristine; its label turns into the Pristine label at once.
+    @MainActor
+    func setPristine(_ holdingKey: String, _ on: Bool) {
+        if on { pristine.insert(holdingKey) } else { pristine.remove(holdingKey) }
+        guard let userId, !Demo.isOn, synced.contains("slab-pristine") else { return }
+        let snapshot = pristine.sorted()
+        Task { try? await UserState.save("slab-pristine", snapshot, userId: userId) }
+    }
+
+    /// When Edit details changes what a slab is, its cert number, bumper and Pristine mark follow it to the
     /// new details (unless that slab already has its own). A copy that is no longer graded
     /// leaves them where they were.
     @MainActor
@@ -98,6 +111,10 @@ final class GradingStore {
         if let bumper = bumpers[old.key], bumpers[new.key] == nil {
             setBumper(old.key, nil)
             setBumper(new.key, bumper)
+        }
+        if pristine.contains(old.key) {
+            setPristine(old.key, false)
+            setPristine(new.key, true)
         }
     }
 

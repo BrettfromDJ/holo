@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PriceResolver } from "./finance/prices";
-import { gradedLadder, gradedPriceKey, gradingOutlook, isStaleValue, liquidityLabel, liquidityOf, sampleMultiple, sampleSalesPerYear, withEbayGradedPrices, withSampleGradedPrices, ebayGradedTargets } from "./graded";
+import { cgcLabelLines, fallbackCert, gradeDescriptor, isCgcTen, gradedLadder, gradedPriceKey, gradingOutlook, isStaleValue, liquidityLabel, liquidityOf, sampleMultiple, sampleSalesPerYear, withEbayGradedPrices, withSampleGradedPrices, ebayGradedTargets } from "./graded";
 import { priceKey, type CollectionData, type NormalizedPrice, type Transaction } from "./types";
 
 const today = "2026-10-28";
@@ -98,5 +98,25 @@ describe("graded prices", () => {
     expect(liquidityLabel(104)).toBe("Easy to sell");
     expect(liquidityOf(24)).toBe("regular");
     expect(liquidityLabel(5)).toBe("Hard to sell");
+  });
+});
+
+describe("CGC labels", () => {
+  it("prints the card, the game, set and number, then rarity", () => {
+    expect(cgcLabelLines({ name: "Charizard V", setName: "Brilliant Stars", number: "154/172", rarity: null })).toEqual(["Charizard V", "Pokémon", "Brilliant Stars - 154/172"]);
+    expect(cgcLabelLines({ name: "Pikachu", setName: null, number: "001", rarity: "Promo" })).toEqual(["Pikachu", "Pokémon", "#001", "Promo"]);
+  });
+
+  it("makes a stable 10-digit stand-in cert (same as the app's Slab.fallbackCert)", () => {
+    expect(fallbackCert({ name: "Charizard V", setName: "Brilliant Stars", number: "154/172" })).toBe("3113800001");
+    expect(fallbackCert({ name: "Pikachu" })).toBe("8875520001");
+  });
+
+  it("calls a CGC 10 Gem Mint and only a CGC 10 can be Pristine", () => {
+    expect(gradeDescriptor({ company: "CGC", grade: "10" })).toBe("GEM MINT");
+    expect(gradeDescriptor({ company: "BGS", grade: "10" })).toBe("PRISTINE");
+    expect(isCgcTen({ company: "cgc", grade: "10" })).toBe(true);
+    expect(isCgcTen({ company: "CGC", grade: "9.5" })).toBe(false);
+    expect(isCgcTen({ company: "PSA", grade: "10" })).toBe(false);
   });
 });

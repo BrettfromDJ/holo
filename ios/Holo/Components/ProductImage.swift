@@ -159,8 +159,13 @@ struct HoldingArt: View {
 
     var body: some View {
         if let id = identity, id.isGraded, let company = id.gradeCompany, let grade = id.grade {
-            // Wearing the bumper chosen for it, if any (shared with the website).
-            Slab(product: product, company: company, grade: grade, bumper: Bumper.byId(grading?.bumpers[id.key]))
+            // Wearing the bumper chosen for it, if any, with its cert and Pristine mark (shared with the website).
+            Slab(
+                product: product, company: company, grade: grade,
+                bumper: Bumper.byId(grading?.bumpers[id.key]),
+                cert: grading?.certs[id.key],
+                pristine: grading?.pristine.contains(id.key) ?? false
+            )
         } else if product?.isSealed == false, product?.imageURL != nil {
             ProductImage(product: product, cornerRadius: cornerRadius, caption: caption)
         } else {

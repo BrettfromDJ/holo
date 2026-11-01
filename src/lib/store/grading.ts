@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { moveSlabKeyed } from "../holding-actions";
 import { DEFAULT_GRADING_COSTS, type GradingCosts } from "../graded";
 import type { HoldingView } from "../finance/portfolio";
@@ -41,20 +41,44 @@ export function useSlabBumpers() {
   return { bumpers, setBumper };
 }
 
+/** CGC slabs marked Pristine 10: a list of `holdingKey`s ("slab-pristine", shared with the app). */
+export function useSlabPristine() {
+  const [list, setList] = useSyncedState<string[]>("slab-pristine", []);
+  const pristine = useMemo(() => new Set(Array.isArray(list) ? list : []), [list]);
+  const setPristine = useCallback(
+    (key: string, on: boolean) =>
+      setList((prev) => {
+        const keys = Array.isArray(prev) ? prev : [];
+        if (keys.includes(key) === on) return keys;
+        return on ? [...keys, key] : keys.filter((k) => k !== key);
+      }),
+    [setList],
+  );
+  return { pristine, setPristine };
+}
+
 /**
- * After Edit details: a slab's cert number and bumper follow it to its new key, unless that key
+ * After Edit details: a slab's cert number, bumper and Pristine mark follow it to its new key, unless that key
  * already has its own (the app's GradingStore.moveSlab). Nothing moves for a raw copy.
  */
 export function useMoveSlab() {
   const [, setCerts] = useSyncedState<Record<string, string>>("slab-certs", {});
   const [, setBumpers] = useSyncedState<Record<string, string>>("slab-bumpers", {});
+  const [, setPristine] = useSyncedState<string[]>("slab-pristine", []);
   return useCallback(
     (old: HoldingIdentity, next: HoldingIdentity) => {
       if (holdingKey(old) === holdingKey(next) || !next.grade) return;
       setCerts((prev) => moveSlabKeyed(prev, old, next));
       setBumpers((prev) => moveSlabKeyed(prev, old, next));
+      // Pristine follows too (only a CGC 10 shows it, but the mark is kept like the others).
+      setPristine((prev) => {
+        const keys = Array.isArray(prev) ? prev : [];
+        const from = holdingKey(old);
+        const to = holdingKey(next);
+        return keys.includes(from) ? [...keys.filter((k) => k !== from && k !== to), to] : keys;
+      });
     },
-    [setCerts, setBumpers],
+    [setCerts, setBumpers, setPristine],
   );
 }
 
