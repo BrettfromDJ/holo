@@ -63,7 +63,8 @@ struct ProductDetailView: View {
                 titleBlock.padding(.top, 12)
                 actions.padding(.top, 24)
                 PriceHistoryCard(productId: productId, printing: printing, owned: owned).padding(.top, 32)
-                if productId.hasPrefix("tcgapi:") {
+                // Catalog cards, and demo ones (sample sales made on the phone).
+                if EbaySalesCache.supports(productId) {
                     EbaySalesPanel(productId: productId, printing: printing, grade: owned.first(where: { $0.identity.isGraded })?.identity.gradeLabel)
                         .padding(.top, 24)
                 }
@@ -95,19 +96,11 @@ struct ProductDetailView: View {
         .replaysAnimations()
         .tabBarClearance()
         .navigationBarTitleDisplayMode(.inline)
-        // The type and rarity pills sit at the top center, where a page title would go.
+        // What it is and its rarity sit at the top center, where a page title would go. Whether
+        // you own it is the lime "Owned" tag under the set line.
         .toolbar {
             ToolbarItem(placement: .principal) {
                 HStack(spacing: 8) {
-                    // Something you own says so first, with a lime check.
-                    if !owned.isEmpty {
-                        HStack(spacing: 4) {
-                            Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.lime)
-                            Text("Owned").font(.geist(12, .semibold))
-                        }
-                        .padding(.horizontal, 10).frame(height: 26)
-                        .liquidGlass(in: Capsule())
-                    }
                     Badge(text: product?.isSealed == true ? (product?.productType ?? "Sealed") : "Card", filled: true)
                     if let rarity = product?.rarity { RarityBadge(rarity: rarity) }
                 }
@@ -178,7 +171,7 @@ struct ProductDetailView: View {
         return VStack(spacing: 10) {
             if !line.isEmpty { MonoLabel(text: line) }
             if owns > 0 {
-                SkewTag(text: "In your collection" + (owns > 1 ? " ×\(Int(owns))" : ""), icon: "checkmark")
+                SkewTag(text: "Owned" + (owns > 1 ? " ×\(Int(owns))" : ""), icon: "checkmark")
             }
         }
         .frame(maxWidth: .infinity)

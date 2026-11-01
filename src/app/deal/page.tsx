@@ -8,6 +8,7 @@ import { DealPicker, type DealItem, type DealSide } from "@/components/deal/deal
 import { ScanSheet, type ScanOutcome, type ScanPick } from "@/components/scan/scan-sheet";
 import { scanValue } from "@/lib/scan-types";
 import { EbaySales } from "@/components/product/ebay-sales";
+import { SellSpeedTag } from "@/components/product/sell-speed";
 import { ProductImage } from "@/components/product/product-image";
 import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
@@ -282,6 +283,7 @@ export default function DealPage() {
             onAdd={() => setPicking(side)}
             onScan={() => setScanning(side)}
             onEbay={setEbayItem}
+            gradeOf={(i) => i.grade ?? (i.holdingKey ? byKey.get(i.holdingKey)?.identity.grade : null) ?? null}
           />
         ))}
       </div>
@@ -457,6 +459,7 @@ function SideCard({
   onAdd,
   onScan,
   onEbay,
+  gradeOf,
 }: {
   side: DealSide;
   items: DealItem[];
@@ -473,6 +476,8 @@ function SideCard({
   onAdd: () => void;
   onScan: () => void;
   onEbay: (item: DealItem) => void;
+  /** A line's grade: its own, or the holding's it came from. */
+  gradeOf: (item: DealItem) => Grade | null;
 }) {
   const set = (key: string, patch: Partial<DealItem>) => onChange(items.map((i) => (i.key === key ? { ...i, ...patch } : i)));
   const Icon = side === "in" ? ArrowDownLeft : ArrowUpRight;
@@ -525,6 +530,7 @@ function SideCard({
           const profit = cost !== null && lineTotal !== null ? lineTotal - cost : null;
           const notInHolo = side === "out" && !item.holdingKey && !item.custom;
           const isTracked = tracked(item);
+          const slab = gradeOf(item);
           return (
             <li key={item.key} className="flex gap-3 rounded-2xl bg-surface p-3 ring-1 ring-inset ring-border">
               <ProductImage product={item.product} size="xs" className="h-16 w-12 shrink-0 rounded-lg" />
@@ -559,6 +565,8 @@ function SideCard({
                     </>
                   )}
                 </p>
+                {/* How easily it sells, only when its eBay sales are already on this device. */}
+                {!item.custom && <SellSpeedTag productId={item.product.id} printing={item.printing ?? null} grade={slab ? gradeLabel(slab) : null} name={item.product.name} market={item.market} className="mt-1" />}
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <div className="flex items-center rounded-full bg-surface-2">
                     <button aria-label="Fewer" className="flex size-7 items-center justify-center text-muted hover:text-foreground disabled:opacity-30" disabled={item.qty <= 1} onClick={() => set(item.key, { qty: item.qty - 1 })}>

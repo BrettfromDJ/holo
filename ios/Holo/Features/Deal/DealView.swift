@@ -736,6 +736,13 @@ private struct DealItemCard: View {
         return nil
     }
 
+    /// "Sells fast" from eBay sales already cached (a card page or Owned sheet loaded them).
+    private func sellSpeed(_ identity: HoldingIdentity?) -> Liquidity.Score? {
+        guard !item.isCustom, EbaySalesCache.supports(item.product.id),
+              let ebay = EbaySalesCache.cached(item.product.id, printing: item.printing, market: item.market) else { return nil }
+        return Liquidity.score(ebay, grade: identity?.gradeLabel, today: Format.day())
+    }
+
     var body: some View {
         let unit = item.unitPrice(side: rate)
         let identity = self.identity
@@ -787,6 +794,11 @@ private struct DealItemCard: View {
                 }
                 .font(.geist(12)).monospacedDigit().lineLimit(1)
                 .padding(.top, 2)
+
+                // How easily it sells, only when its eBay sales are already here (never fetched per line).
+                if let speed = sellSpeed(identity) {
+                    SellSpeedMeter(score: speed, compact: true).padding(.top, 4)
+                }
 
                 HStack(spacing: 6) {
                     stepper

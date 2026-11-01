@@ -12,6 +12,7 @@ import { ebaySoldUrl } from "@/lib/ebay-link";
 import { useStore } from "@/lib/store/collection-store";
 import { priceKey, type Grade } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { SellSpeedFromSales } from "./sell-speed";
 
 type Load = { state: "idle" | "loading" } | { state: "ready"; data: EbayData | null } | { state: "error"; message: string; tier: boolean };
 
@@ -159,6 +160,9 @@ export function EbaySales({
               {stats?.lastSold && <dd className="mt-1 text-[11px] text-muted">{relativeTime(stats.lastSold)}</dd>}
             </div>
           </dl>
+
+          {/* How easily this one sells (the open grade, else ungraded), from the same sales. */}
+          <SellSpeedFromSales ebay={data} grade={tab === UNGRADED ? null : tab} className="mt-4" />
 
           {sales.length ? (
             <ul className="mt-5 divide-y divide-border">

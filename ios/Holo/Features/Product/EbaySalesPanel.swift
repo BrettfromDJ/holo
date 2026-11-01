@@ -36,7 +36,8 @@ struct EbaySalesPanel: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Recent eBay sales").font(.geist(15, .semibold))
                     if let ebay {
-                        Text("Last 30 days · as of \(shortDate(ebay.asOf))").font(.geist(12)).foregroundStyle(Theme.muted)
+                        Text("Last 30 days · as of \(shortDate(ebay.asOf))" + (productId.hasPrefix("sample:") ? " · sample data" : ""))
+                            .font(.geist(12)).foregroundStyle(Theme.muted)
                     }
                 }
                 Spacer(minLength: 0)
@@ -104,6 +105,19 @@ struct EbaySalesPanel: View {
             .frame(maxWidth: .infinity, alignment: .leading).layoutPriority(1.2)
         }
         .padding(.top, 16)
+
+        // How easily this one sells (the open grade, else ungraded), from the same sales.
+        Group {
+            if let speed = Liquidity.score(e, grade: tab == Self.ungradedTab ? nil : tab, today: Format.day()) {
+                SellSpeedMeter(score: speed)
+            } else {
+                HStack(spacing: 8) {
+                    SellSpeedBar(tier: .slow).opacity(0.35)
+                    Text("Not enough sales yet").font(.geist(13)).foregroundStyle(Theme.muted)
+                }
+            }
+        }
+        .padding(.top, 14)
 
         if sales.isEmpty {
             Text("No \(tab == Self.ungradedTab ? "ungraded" : tab) sales in the last 30 days.")
@@ -183,9 +197,9 @@ struct EbaySalesPanel: View {
     }
 
     private func load() async {
-        guard productId.hasPrefix("tcgapi:") else { return state = .ready }
+        guard EbaySalesCache.supports(productId) else { return state = .ready }
         do {
-            ebay = try await EbaySalesCache.sales(productId, printing: printing)
+            ebay = try await EbaySalesCache.sales(productId, printing: printing, market: store.marketPrice(productId, printing: printing)?.market)
             if let grade, ebay?.graded[grade] != nil { tab = grade }
             state = .ready
         } catch {
@@ -195,23 +209,55 @@ struct EbaySalesPanel: View {
 }
 
 /// One eBay request per card and printing, shared by the panels on its page (the sales, graded
-/// prices and worth panels each fetched their own copy) and kept for a few minutes.
+/// prices and worth panels each fetched their own copy), the Owned sheet's "Sells fast" meter and
+/// the Deal tab, and kept for a few minutes. Demo products (`sample:`) get sample sales made on
+/// the phone instead (no request).
 @MainActor
 enum EbaySalesCache {
     private static var entries: [String: (at: Date, task: Task<EbaySales?, Error>)] = [:]
+    /// Answers that have arrived, so a view can show them without asking (the Deal tab).
+    private static var resolved: [String: (at: Date, value: EbaySales?)] = [:]
+    private static let ttl: TimeInterval = 300
 
-    static func sales(_ productId: String, printing: String?) async throws -> EbaySales? {
-        let key = "\(productId)|\(printing ?? "")"
-        if let hit = entries[key], Date().timeIntervalSince(hit.at) < 300 { return try await hit.task.value }
+    private static func cacheKey(_ productId: String, _ printing: String?) -> String { "\(productId)|\(printing ?? "")" }
+
+    /// Whether a product has eBay sales to show: catalog cards, and demo ones (sample sales).
+    nonisolated static func supports(_ productId: String) -> Bool {
+        productId.hasPrefix("tcgapi:") || productId.hasPrefix("sample:")
+    }
+
+    /// `market` is only used for demo products, whose sample sales are made around it.
+    static func sales(_ productId: String, printing: String?, market: Double? = nil) async throws -> EbaySales? {
+        if productId.hasPrefix("sample:") { return sample(productId, printing: printing, market: market) }
+        let key = cacheKey(productId, printing)
+        if let hit = entries[key], Date().timeIntervalSince(hit.at) < ttl { return try await hit.task.value }
         let task = Task { try await Backend.shared.api.ebaySales(productId, printing: printing) }
         entries[key] = (Date(), task)
         do {
-            return try await task.value
+            let value = try await task.value
+            resolved[key] = (Date(), value)
+            return value
         } catch {
             // A failed request isn't kept, so the next look tries again.
             if entries[key]?.task == task { entries[key] = nil }
             throw error
         }
+    }
+
+    /// The sales if they're already here (never fetches); demo products are made on the spot.
+    static func cached(_ productId: String, printing: String?, market: Double? = nil) -> EbaySales? {
+        if productId.hasPrefix("sample:") { return sample(productId, printing: printing, market: market) }
+        guard let hit = resolved[cacheKey(productId, printing)], Date().timeIntervalSince(hit.at) < 3600 else { return nil }
+        return hit.value
+    }
+
+    private static func sample(_ productId: String, printing: String?, market: Double?) -> EbaySales? {
+        let key = cacheKey(productId, printing)
+        if let hit = resolved[key], let value = hit.value, value.asOf == Format.day() { return value }
+        let name = DemoData.items.first { "sample:\($0.slug)" == productId }?.name ?? "Card"
+        let value = DemoEbay.sales(productId: productId, name: name, printing: printing, market: market)
+        if value != nil { resolved[key] = (Date(), value) }
+        return value
     }
 }
 

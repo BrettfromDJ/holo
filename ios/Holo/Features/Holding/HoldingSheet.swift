@@ -55,6 +55,12 @@ struct HoldingSheet: View {
                 if let h = holding {
                     HoldingWorth(holding: h, points: worthPoints(h))
                     tiles(h)
+                    // How easily this exact copy sells (its grade, else ungraded), from the shared
+                    // eBay cache; only cards with eBay data show it.
+                    if EbaySalesCache.supports(identity.productId) {
+                        SellSpeedLine(productId: identity.productId, printing: identity.printing, grade: identity.gradeLabel,
+                                      market: store.marketPrice(identity.productId, printing: identity.printing)?.market)
+                    }
                     if identity.isGraded { slabRows(identity) } else if product?.isSealed == false { ifGraded(identity, h) }
                     actions(h)
                 } else {

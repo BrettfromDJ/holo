@@ -12,6 +12,7 @@ import { AnimatedNumber } from "@/components/motion/animated-number";
 import { Sparkline } from "@/components/overview/sparkline";
 import { DeltaPill } from "@/components/product/delta";
 import { usePriceChartingGraded } from "@/components/product/graded-prices";
+import { hasEbayData, SellSpeedFor } from "@/components/product/sell-speed";
 import { ProductImage } from "@/components/product/product-image";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { bumperById } from "@/lib/bumpers";
@@ -19,7 +20,7 @@ import { addDays, daysBetween } from "@/lib/finance/dates";
 import { acquisitionCost, saleProceeds } from "@/lib/finance/ledger";
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { formatDate, money, signedMoney } from "@/lib/format";
-import { certLookupUrl } from "@/lib/graded";
+import { certLookupUrl, gradeLabel } from "@/lib/graded";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
 import { useSlabBumpers, useSlabCerts } from "@/lib/store/grading";
 import { holdingKey, priceKey, type Transaction } from "@/lib/types";
@@ -110,6 +111,10 @@ function SheetBody({ opened, close }: { opened: HoldingView; close: () => void }
               <SheetStat label="Average cost" value={money(live.avgCost)} />
               <SheetStat label="Each now" value={(live.conditionEstimate && live.price !== null ? "≈ " : "") + money(live.price)} />
             </dl>
+            {/* How easily this exact copy sells (its grade, else ungraded); only cards with eBay data. */}
+            {hasEbayData(live.identity.productId) && (
+              <SellSpeedFor productId={live.identity.productId} printing={live.identity.printing} grade={live.identity.grade ? gradeLabel(live.identity.grade) : null} className="sheet-panel mt-2 rounded-[14px] px-3 py-2.5" />
+            )}
             {graded ? <SlabRows h={live} onCert={() => setOpen("cert")} onBumper={() => setOpen("bumper")} onValue={() => setOpen("value")} /> : rawSingle && <IfGraded h={live} onSend={() => setOpen("grade")} />}
             <div className="mt-5 flex gap-2">
               <button type="button" onClick={() => setOpen("sell")} className="sheet-panel flex h-11 flex-1 items-center justify-center gap-2 rounded-full text-[14px] font-semibold transition-colors hover:bg-foreground/[0.11]">
