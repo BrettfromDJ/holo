@@ -302,9 +302,15 @@ struct CollectionView: View {
         }
         Button { path.append(productId) } label: { Label("Open card", systemImage: "arrow.up.right") }
         Divider()
-        Button { editingDetails = h } label: { Label("Edit details", systemImage: "pencil") }
-        Button { removing = h } label: { Label("Remove (opened, lost…)", systemImage: "minus.circle") }
-        Button(role: .destructive) { deleting = h } label: { Label("Delete from collection", systemImage: "trash") }
+        Button { editingDetails = h } label: {
+            Label { Text("Edit details"); Text("Condition, grade or printing") } icon: { Image(systemName: "pencil") }
+        }
+        Button { removing = h } label: {
+            Label { Text("Remove"); Text("Opened, lost or gave away") } icon: { Image(systemName: "minus.circle") }
+        }
+        Button(role: .destructive) { deleting = h } label: {
+            Label { Text("Delete"); Text("As if you never added it") } icon: { Image(systemName: "trash") }
+        }
     }
 
     private func applyRequest() {

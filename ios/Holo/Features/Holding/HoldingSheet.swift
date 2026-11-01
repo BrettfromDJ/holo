@@ -153,10 +153,18 @@ struct HoldingSheet: View {
 
     private var moreMenu: some View {
         Menu {
-            Button { editingDetails = true } label: { Label("Edit details (condition, grade, printing)", systemImage: "pencil") }
+            // Short titles with a small line under each (iOS sets the menu's width, so long titles
+            // would wrap onto three lines).
+            Button { editingDetails = true } label: {
+                Label { Text("Edit details"); Text("Condition, grade or printing") } icon: { Image(systemName: "pencil") }
+            }
             Button { selling = true } label: { Label("Mark as sold", systemImage: "tag") }
-            Button { removing = true } label: { Label("Remove (opened, lost, gave away…)", systemImage: "minus.circle") }
-            Button(role: .destructive) { confirmDelete = true } label: { Label("Delete from collection", systemImage: "trash") }
+            Button { removing = true } label: {
+                Label { Text("Remove"); Text("Opened, lost or gave away") } icon: { Image(systemName: "minus.circle") }
+            }
+            Button(role: .destructive) { confirmDelete = true } label: {
+                Label { Text("Delete"); Text("As if you never added it") } icon: { Image(systemName: "trash") }
+            }
         } label: {
             Image(systemName: "ellipsis").font(.system(size: 17, weight: .bold)).foregroundStyle(.white)
                 .frame(width: 40, height: 40)
