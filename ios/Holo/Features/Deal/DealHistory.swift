@@ -256,7 +256,7 @@ struct DealCameraView: View {
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            CameraPreview(session: camera.session).ignoresSafeArea()
+            CameraPreview(session: camera.session, running: camera.running).ignoresSafeArea()
             if camera.denied {
                 VStack(spacing: 14) {
                     Image(systemName: "camera.fill").font(.system(size: 30)).foregroundStyle(Theme.lime)
@@ -410,6 +410,8 @@ final class DealCamera: NSObject, AVCapturePhotoCaptureDelegate {
     let session = AVCaptureSession()
     var flash = false
     var denied = false
+    /// The session has started: the preview reconnects to it then (see CameraPreview).
+    var running = false
     @ObservationIgnored var onPhoto: ((UIImage) -> Void)?
     private let output = AVCapturePhotoOutput()
     private let queue = DispatchQueue(label: "holo.deal-camera")
@@ -425,11 +427,15 @@ final class DealCamera: NSObject, AVCapturePhotoCaptureDelegate {
             queue.async {
                 self.configure(self.position)
                 self.session.startRunning()
+                DispatchQueue.main.async { self.running = true }
             }
         }
     }
 
-    func stop() { queue.async { self.session.stopRunning() } }
+    func stop() {
+        running = false
+        queue.async { self.session.stopRunning() }
+    }
 
     func flip() {
         position = position == .back ? .front : .back
