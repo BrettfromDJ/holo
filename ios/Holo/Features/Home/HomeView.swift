@@ -559,9 +559,12 @@ private struct PerformanceSection: View {
         let last = shown?.value ?? days.last?.value ?? 0
         let change = last - first
         VStack(alignment: .leading, spacing: 12) {
-            PageHeader(title: "Performance", size: 30)
-            Text(shown.map { "\($0.date.formatted(date: .abbreviated, time: .omitted)) · \(Format.money($0.value))" } ?? "Drag across the chart to see any day")
-                .font(.geist(15)).foregroundStyle(Theme.muted)
+            // The title and its hint sit together; the figure and range follow.
+            VStack(alignment: .leading, spacing: 2) {
+                PageHeader(title: "Performance", size: 30)
+                Text(shown.map { "\($0.date.formatted(date: .abbreviated, time: .omitted)) · \(Format.money($0.value))" } ?? "Drag across the chart to see any day")
+                    .font(.geist(15)).foregroundStyle(Theme.muted)
+            }
             HStack(spacing: 6) {
                 Text(Format.signedMoney(change)).foregroundStyle(Theme.tone(change))
                 if first > 0 { Text("(\(Format.signedPercent(change / first)))").foregroundStyle(Theme.tone(change)) }
