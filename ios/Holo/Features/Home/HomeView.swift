@@ -297,7 +297,7 @@ private struct Hero: View {
         let s = store.summary
         let top = Array(store.holdings.filter { ($0.value ?? 0) > 0 }.prefix(5))
         VStack(spacing: 10) {
-            CardFan(holdings: top, spread: spread).frame(height: 236)
+            CardFan(holdings: top, spread: spread).frame(height: 200)
             MonoLabel(text: "\(store.holdings.count) products · \(Int(s.items)) items")
             VStack(spacing: 6) {
                 Text("Your collection's worth").font(.display(30)).tracking(-0.8).displayTrim(30)
@@ -341,7 +341,9 @@ private struct Hero: View {
             .padding(.horizontal, 16)
             .padding(.top, 18)
         }
-        .padding(.vertical, 12)
+        // Tucked up close under the search field.
+        .padding(.top, -6)
+        .padding(.bottom, 12)
         .background(HeroBackdrop())
     }
 }
@@ -403,10 +405,10 @@ private struct FanPiece: View {
     /// The website's fan: sideways step (in card widths), tilt, drop, and scale per position.
     private static let steps: [CGFloat] = [0, -1, 1, -2, 2]
     private static let tilts: [Double] = [0, -9, 9, -17, 17]
-    private static let drops: [CGFloat] = [0, 18, 18, 46, 46]
+    private static let drops: [CGFloat] = [0, 15, 15, 38, 38]
     private static let scales: [CGFloat] = [1, 0.86, 0.86, 0.74, 0.74]
-    private static let width: CGFloat = 126
-    private static let height: CGFloat = 176
+    private static let width: CGFloat = 106
+    private static let height: CGFloat = 148
 
     /// Up 9pt and back every 5.5s, each piece 1.1s out of step.
     private var bob: CGFloat {
