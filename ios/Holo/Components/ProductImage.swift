@@ -43,7 +43,7 @@ struct CachedImage<Content: View, Placeholder: View>: View {
 
     var body: some View {
         ZStack {
-            if let image = image ?? url.flatMap({ ImageCache.shared.cached($0, maxPixel: maxPixel) }) {
+            if let image = image ?? url.flatMap({ ImageCache.shared.cached($0, maxPixel: maxPixel) ?? ImageCache.shared.cached($0) }) {
                 content(Image(uiImage: image)).transition(.opacity)
             } else if url == nil || failed {
                 placeholder()
@@ -52,9 +52,13 @@ struct CachedImage<Content: View, Placeholder: View>: View {
             }
         }
         .task(id: url) {
-            guard let url, image == nil, ImageCache.shared.cached(url, maxPixel: maxPixel) == nil else { return }
+            guard let url, image == nil, ImageCache.shared.cached(url, maxPixel: maxPixel) == nil, ImageCache.shared.cached(url) == nil else { return }
             failed = false
-            if let loaded = await ImageCache.shared.load(url, maxPixel: maxPixel) {
+            // A thumbnail that can't be made (some pictures don't shrink cleanly) falls back to the
+            // full-size picture, as Collection shows it, instead of leaving the space empty.
+            var loaded = await ImageCache.shared.load(url, maxPixel: maxPixel)
+            if loaded == nil, maxPixel != nil { loaded = await ImageCache.shared.load(url) }
+            if let loaded {
                 withAnimation(.easeOut(duration: 0.3)) { image = loaded }
             } else {
                 failed = true
@@ -122,8 +126,10 @@ final class ImageCache: @unchecked Sendable {
             kCGImageSourceCreateThumbnailWithTransform: true,
             kCGImageSourceThumbnailMaxPixelSize: maxPixel,
         ]
-        guard let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
-        return UIImage(cgImage: cg)
+        if let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) { return UIImage(cgImage: cg) }
+        guard let full = UIImage(data: data), full.size.width > 0, full.size.height > 0 else { return nil }
+        let scale = min(1, maxPixel / max(full.size.width, full.size.height))
+        return full.preparingThumbnail(of: CGSize(width: full.size.width * scale, height: full.size.height * scale)) ?? full
     }
 }
 
