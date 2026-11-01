@@ -129,6 +129,8 @@ struct GlowPie: View {
                 // The track: a ring of Liquid Glass with a faint lime tint, so it reads clearly
                 // over the dotted backdrop.
                 Color.clear.liquidGlass(in: RingShape(thickness: line), tint: Theme.lime.opacity(0.18))
+                // A fine light edge on both sides of the ring, so its shape is always clear.
+                RingShape(thickness: line).stroke(Color.white.opacity(0.28), lineWidth: 1)
                 // The arc. Even at 0% the round start shows, so the arrow always has a home.
                 Circle()
                     .inset(by: line / 2)
