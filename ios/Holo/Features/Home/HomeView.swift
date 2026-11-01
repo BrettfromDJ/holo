@@ -78,9 +78,28 @@ struct HomeView: View {
                             .transition(.opacity.combined(with: .scale(scale: 0.8)))
                     }
                 }
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button { lists = true } label: { Image(systemName: "heart") }.accessibilityLabel("Watchlist and wishlist")
-                    Button { account = true } label: { Image(systemName: "gearshape") }.accessibilityLabel("Account")
+                // One menu for every main place in the app (replaces the heart and gear).
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Section {
+                            Button { Router.shared.tabRequest = "collection" } label: { Label("Collection", systemImage: "square.grid.2x2") }
+                            Button { Router.shared.tabRequest = "explore" } label: { Label("Explore", systemImage: "safari") }
+                            Button { Router.shared.tabRequest = "deal" } label: { Label("Deal", systemImage: "arrow.left.arrow.right") }
+                        }
+                        Section {
+                            Button { path.append(MorePage.analytics) } label: { Label("Analytics", systemImage: "chart.xyaxis.line") }
+                            Button { path.append(MorePage.grading) } label: { Label("Grading", systemImage: "checkmark.seal") }
+                            Button { path.append(MorePage.masterSets) } label: { Label("Master sets", systemImage: "square.grid.3x3.fill") }
+                            Button { path.append(MorePage.activity) } label: { Label("Activity", systemImage: "list.bullet.rectangle") }
+                            Button { lists = true } label: { Label("Watchlist and wishlist", systemImage: "heart") }
+                        }
+                        Section {
+                            Button { account = true } label: { Label("Account and settings", systemImage: "gearshape") }
+                        }
+                    } label: {
+                        Image(systemName: "line.3.horizontal")
+                    }
+                    .accessibilityLabel("Menu")
                 }
             }
             .toolbarBackground(.hidden, for: .navigationBar)

@@ -204,7 +204,12 @@ struct MainTabView: View {
         }
         .animation(.easeOut(duration: 0.25), value: router.pull)
         .onChange(of: router.tabRequest) { _, request in
-            if request == "collection" { tab = .collection }
+            switch request {
+            case "collection": tab = .collection
+            case "explore": tab = .explore
+            case "deal": tab = .deal
+            default: break
+            }
             router.tabRequest = nil
         }
         .onChange(of: router.addMenu) { _, open in
