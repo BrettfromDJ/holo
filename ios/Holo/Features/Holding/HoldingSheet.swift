@@ -20,6 +20,8 @@ struct HoldingSheet: View {
     @Environment(CollectionStore.self) private var store
     @Environment(GradingStore.self) private var grading
     @State private var selling = false
+    @State private var removing = false
+    @State private var confirmDelete = false
     @State private var whatIf = false
     @State private var valuing = false
     @State private var sending = false
@@ -76,6 +78,19 @@ struct HoldingSheet: View {
             }
         }
         .sheet(isPresented: $selling) { if let h = holding { SellSheet(holding: h) } }
+        .sheet(isPresented: $removing) { if let h = holding { RemoveSheet(holding: h) } }
+        .confirmationDialog("Delete this from your collection?", isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button("Delete from collection", role: .destructive) {
+                Task {
+                    do {
+                        try await store.deleteCopy(identity)
+                        dismiss()
+                    } catch { self.error = error.localizedDescription }
+                }
+            }
+        } message: {
+            Text("It's removed as if you never added it: it leaves your value, cost and gains. To count it as a loss instead, use Remove. You can undo for a few seconds.")
+        }
         .sheet(isPresented: $whatIf) { if let h = holding { SellCalculatorSheet(holding: h) } }
         .sheet(isPresented: $sending) { if let h = holding { SendSheet(holding: h) } }
         .sheet(isPresented: $certing) { if let h = holding { CertSheet(holding: h) } }
@@ -230,6 +245,20 @@ struct HoldingSheet: View {
                 .buttonStyle(GlassButton())
             Button { whatIf = true } label: { Label("What if I sell?", systemImage: "plus.forwardslash.minus") }
                 .buttonStyle(GlassButton())
+            // Everything else you can do with this copy.
+            Menu {
+                Button { selling = true } label: { Label("Mark as sold", systemImage: "tag") }
+                Button { removing = true } label: { Label("Remove (opened, lost, gave away…)", systemImage: "minus.circle") }
+                Button(role: .destructive) { confirmDelete = true } label: { Label("Delete from collection", systemImage: "trash") }
+            } label: {
+                Image(systemName: "ellipsis").font(.system(size: 16, weight: .semibold))
+                    .frame(width: 46, height: 46)
+                    .contentShape(Circle())
+            }
+            .menuStyle(.button)
+            .buttonStyle(GlassButton(height: 46))
+            .frame(width: 52)
+            .accessibilityLabel("More actions")
         }
     }
 
@@ -506,3 +535,62 @@ struct SheetStat: View {
     }
 }
 
+
+
+/// Take copies out of your collection without a sale: opened, lost, gave away or damaged. Their
+/// cost is written off (counts as a loss), like the website's Remove.
+struct RemoveSheet: View {
+    var holding: HoldingView
+    @Environment(CollectionStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    @State private var quantity = 1
+    @State private var reason = "Opened"
+    @State private var date = Date()
+    @State private var saving = false
+    @State private var error: String?
+
+    private static let reasons = ["Opened", "Lost", "Gave away", "Damaged", "Traded away"]
+
+    var body: some View { sheetBody.glassSheet() }
+
+    @ViewBuilder private var sheetBody: some View {
+        NavigationStack {
+            GlassForm {
+                Section {
+                    Text(holding.product?.name ?? "This copy").font(.geist(15, .semibold))
+                }
+                Section {
+                    Picker("Why", selection: $reason) {
+                        ForEach(Self.reasons, id: \.self) { Text($0) }
+                    }
+                    if holding.quantity > 1 {
+                        Stepper("Quantity: \(quantity)", value: $quantity, in: 1...max(1, Int(holding.quantity)))
+                    }
+                    DatePicker("Date", selection: $date, in: ...Date(), displayedComponents: .date)
+                } footer: {
+                    Text("What you paid for \(quantity == 1 ? "it" : "them") is written off, so it shows as a loss in your gains. To erase it as if you never had it, use Delete from collection instead.")
+                }
+                if let error { Section { Text(error).foregroundStyle(Theme.down) } }
+            }
+            .navigationTitle("Remove")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(saving ? "Removing…" : "Remove") {
+                        Task {
+                            saving = true
+                            defer { saving = false }
+                            do {
+                                try await store.remove(holding.identity, quantity: Double(quantity), reason: reason, date: Format.day(date))
+                                dismiss()
+                            } catch { self.error = error.localizedDescription }
+                        }
+                    }
+                    .disabled(saving)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+}

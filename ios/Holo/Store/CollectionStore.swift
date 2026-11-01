@@ -711,6 +711,42 @@ final class CollectionStore {
         recompute()
     }
 
+    /// Take copies out without a sale (opened, lost, gave away, damaged): an adjustment with a
+    /// negative quantity, like the website's "Remove". Their cost is written off, so it counts
+    /// as a loss in your gains. Undo voids it.
+    @MainActor
+    func remove(_ identity: HoldingIdentity, quantity: Double, reason: String, date: String) async throws {
+        try await log(identity: identity, type: "adjustment", date: date, quantity: -abs(quantity), unitPrice: 0, source: "ios", notes: reason)
+        recompute()
+        if let entry = transactions.last(where: { $0.kind == .adjustment && $0.identity == identity }) {
+            Router.shared.undo = UndoItem(message: "Removed \(Int(abs(quantity))) · \(reason.lowercased())") { [weak self] in
+                guard let self else { return }
+                try? await self.log(identity: entry.identity, type: "correction", date: entry.date, quantity: 0, unitPrice: 0, correctsId: entry.id)
+                self.recompute()
+            }
+        }
+    }
+
+    /// Delete a copy from your collection as if you'd never added it: every entry for it is
+    /// voided (corrections, so the record is kept), and it leaves your value, cost and gains.
+    /// Undo restores every entry.
+    @MainActor
+    func deleteCopy(_ identity: HoldingIdentity) async throws {
+        let live = entries(for: identity)
+        for t in live {
+            try await log(identity: t.identity, type: "correction", date: t.date, quantity: 0, unitPrice: 0, correctsId: t.id)
+        }
+        recompute()
+        Router.shared.undo = UndoItem(message: "Deleted from your collection") { [weak self] in
+            guard let self else { return }
+            for t in live {
+                try? await self.log(identity: t.identity, type: "correction", date: t.date, quantity: t.quantity, unitPrice: t.unitPrice,
+                                    fees: t.fees, shipping: t.shipping, tax: t.tax, correctsId: t.id)
+            }
+            self.recompute()
+        }
+    }
+
     /// Delete an entry: a correction with quantity 0 voids it. Offers Undo for a few seconds,
     /// which restores it with another correction carrying its values (history stays intact).
     @MainActor
