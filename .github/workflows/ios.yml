@@ -72,8 +72,8 @@ jobs:
             | tee build.log | grep --line-buffered -E "error:|\*\* (BUILD|TEST)" || true
           grep -q "\*\* TEST BUILD SUCCEEDED \*\*" build.log
       # Then run the tests, with a time limit so a stuck simulator fails fast instead of hanging.
+      # Every run, so a cancelled run (a newer push replaces it) can't leave new tests unrun.
       - name: Test
-        if: steps.changed.outputs.math == 'true'
         timeout-minutes: 10
         run: |
           set -o pipefail
