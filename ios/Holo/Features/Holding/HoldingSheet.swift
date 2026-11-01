@@ -603,6 +603,7 @@ struct RemoveSheet: View {
 /// sales and edits all stay; only what it is changes.
 struct EditDetailsSheet: View {
     var holding: HoldingView
+    @Environment(GradingStore.self) private var grading
     @Environment(CollectionStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @State private var printing: String?
@@ -682,6 +683,7 @@ struct EditDetailsSheet: View {
                             defer { saving = false }
                             do {
                                 try await store.changeDetails(holding.identity, to: edited)
+                                grading.moveSlab(from: holding.identity, to: edited)
                                 dismiss()
                             } catch { self.error = error.localizedDescription }
                         }

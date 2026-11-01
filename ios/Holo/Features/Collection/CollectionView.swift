@@ -19,6 +19,9 @@ struct CollectionView: View {
     /// Quick actions from a long press on a tile: sell, or work out what selling would leave.
     @State private var selling: HoldingView?
     @State private var whatIf: HoldingView?
+    @State private var removing: HoldingView?
+    @State private var editingDetails: HoldingView?
+    @State private var deleting: HoldingView?
     /// A product to put on the shelf being named (from a tile's "Add to shelf → New shelf…").
     @State private var shelfProduct: String?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -148,6 +151,16 @@ struct CollectionView: View {
             }
             .sheet(item: $selling) { h in SellSheet(holding: h) }
             .sheet(item: $whatIf) { h in SellCalculatorSheet(holding: h) }
+            .sheet(item: $removing) { h in RemoveSheet(holding: h) }
+            .sheet(item: $editingDetails) { h in EditDetailsSheet(holding: h) }
+            .confirmationDialog("Delete this from your collection?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
+                                titleVisibility: .visible, presenting: deleting) { h in
+                Button("Delete from collection", role: .destructive) {
+                    Task { await groupRun { try await store.deleteCopy(h.identity) } }
+                }
+            } message: { _ in
+                Text("It's removed as if you never added it: it leaves your value, cost and gains. To count it as a loss instead, use Remove. You can undo for a few seconds.")
+            }
             .fullScreenCover(isPresented: $adding) { SearchScreen(mode: .add) }
             .onAppear {
                 applyRequest()
@@ -268,7 +281,8 @@ struct CollectionView: View {
         if reduceMotion { change() } else { withAnimation(.spring(response: 0.4, dampingFraction: 0.85), change) }
     }
 
-    /// A tile's long-press menu: sell, what if, put it on a shelf, or open the card page.
+    /// A tile's long-press menu: sell, what if, put it on a shelf, open the card page, and the
+    /// Owned sheet's ⋯ actions (edit details, remove, delete).
     @ViewBuilder
     private func quickActions(_ h: HoldingView) -> some View {
         let productId = h.identity.productId
@@ -287,6 +301,10 @@ struct CollectionView: View {
             Label("Add to shelf", systemImage: "square.stack")
         }
         Button { path.append(productId) } label: { Label("Open card", systemImage: "arrow.up.right") }
+        Divider()
+        Button { editingDetails = h } label: { Label("Edit details", systemImage: "pencil") }
+        Button { removing = h } label: { Label("Remove (opened, lost…)", systemImage: "minus.circle") }
+        Button(role: .destructive) { deleting = h } label: { Label("Delete from collection", systemImage: "trash") }
     }
 
     private func applyRequest() {

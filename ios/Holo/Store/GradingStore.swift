@@ -76,6 +76,22 @@ final class GradingStore {
         Task { try? await UserState.save("slab-bumpers", snapshot, userId: userId) }
     }
 
+    /// When Edit details changes what a slab is, its cert number and bumper follow it to the
+    /// new details (unless that slab already has its own). A copy that is no longer graded
+    /// leaves them where they were.
+    @MainActor
+    func moveSlab(from old: HoldingIdentity, to new: HoldingIdentity) {
+        guard old.key != new.key, new.isGraded else { return }
+        if let cert = certs[old.key], certs[new.key] == nil {
+            setCert(old.key, "")
+            setCert(new.key, cert)
+        }
+        if let bumper = bumpers[old.key], bumpers[new.key] == nil {
+            setBumper(old.key, nil)
+            setBumper(new.key, bumper)
+        }
+    }
+
     var sent: [Submission] { submissions.filter { $0.status == "sent" }.sorted { $0.sentOn < $1.sentOn } }
     var returned: [Submission] { Array(submissions.filter { $0.status == "returned" }.sorted { ($0.returnedOn ?? "") > ($1.returnedOn ?? "") }.prefix(5)) }
 
