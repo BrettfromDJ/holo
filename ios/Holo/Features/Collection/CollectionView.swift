@@ -482,9 +482,6 @@ struct CollectionView: View {
 struct HoldingTile: View {
     var holding: HoldingView
 
-    /// Pieces worth over $500 get a slow lime light running around their edge.
-    private var isGrail: Bool { (holding.value ?? 0) > 500 }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             // A fixed 5:7 stage the art is sized into. Sizing the image itself by aspect ratio let
@@ -493,9 +490,6 @@ struct HoldingTile: View {
                 .aspectRatio(0.72, contentMode: .fit)
                 .overlay {
                     HoldingArt(product: holding.product, identity: holding.identity, cornerRadius: holding.product?.imageURL == nil ? 22 : 12)
-                }
-                .overlay {
-                    if isGrail { GrailShimmer(cornerRadius: holding.product?.imageURL == nil ? 22 : 12) }
                 }
                 .overlay(alignment: .topLeading) {
                     if holding.quantity > 1 {
