@@ -966,10 +966,25 @@ final class CollectionStore {
 
     @MainActor
     private func saveWishlist(_ items: [WishItem]) async throws {
-        guard let userId else { throw HoloError.signedOut }
+        // Show the change at once (the heart fills on tap); the save follows. A demo keeps it on
+        // the phone only. If the save fails, the list goes back and the error shows.
+        let before = wishlist
+        wishlist = items
+        guard demo == nil, let userId else { return }
+        do {
+            try await persistWishlist(items, known: before, userId: userId)
+        } catch {
+            wishlist = before
+            throw error
+        }
+    }
+
+    @MainActor
+    private func persistWishlist(_ items: [WishItem], known before: [WishItem], userId: String) async throws {
         // Pick up changes made on the website since loading, so neither side overwrites the other's additions.
         if let remote = try? await UserState.load("wishlist", as: [WishItem].self) {
-            let known = Set(wishlist.map(\.id))
+            // Anything this phone already knew about (including ones just removed) isn't new.
+            let known = Set(before.map(\.id)).union(items.map(\.id))
             let addedElsewhere = remote.filter { !known.contains($0.id) }
             try await UserState.save("wishlist", items + addedElsewhere, userId: userId)
             wishlist = items + addedElsewhere

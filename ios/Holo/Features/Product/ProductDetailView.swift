@@ -96,6 +96,9 @@ struct ProductDetailView: View {
         .replaysAnimations()
         .tabBarClearance()
         .navigationBarTitleDisplayMode(.inline)
+        // Never a bar or blur behind the top, pushed or in a sheet.
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .clearTopEdge()
         // What it is and its rarity sit at the top center, where a page title would go. Whether
         // you own it is the lime "Owned" tag under the set line.
         .toolbar {

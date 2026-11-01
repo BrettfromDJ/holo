@@ -227,6 +227,9 @@ extension View {
     func glassSheet() -> some View {
         environment(\.onGlassSheet, true)
             .scrollContentBackground(.hidden)
+            // No bar or blur behind a sheet's top either.
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .clearTopEdge()
             .nativeGlassSheet()
             // While it's up, the page behind stops its looping motion (see SheetCover).
             .onAppear { SheetCover.shared.opened() }
