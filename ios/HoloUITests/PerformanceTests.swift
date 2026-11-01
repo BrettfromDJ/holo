@@ -24,8 +24,10 @@ final class PerformanceTests: XCTestCase {
     }
 
     /// Tap a card in Collection until Owned is up, then Done until it's gone.
-    func testOwnedSheetOpenClose() {
-        let app = launch(["-HoloTab", "collection"])
+    func testOwnedSheetOpenClose() { runOwnedSheetOpenClose([]) }
+
+    private func runOwnedSheetOpenClose(_ extra: [String]) {
+        let app = launch(["-HoloTab", "collection"] + extra)
         let tile = app.buttons["holding-tile"].firstMatch
         XCTAssertTrue(tile.waitForExistence(timeout: 10))
         measure(metrics: [XCTClockMetric()], options: options()) {
@@ -39,8 +41,10 @@ final class PerformanceTests: XCTestCase {
     }
 
     /// Inside Owned: tap "What if I sell?" until its sheet is up, then close it.
-    func testTapInsideSheet() {
-        let app = launch(["-HoloTab", "collection"])
+    func testTapInsideSheet() { runTapInsideSheet([]) }
+
+    private func runTapInsideSheet(_ extra: [String]) {
+        let app = launch(["-HoloTab", "collection"] + extra)
         let tile = app.buttons["holding-tile"].firstMatch
         XCTAssertTrue(tile.waitForExistence(timeout: 10))
         tile.tap()
@@ -83,11 +87,22 @@ final class PerformanceTests: XCTestCase {
     }
 
     /// Three swipes down Overview and three back.
-    func testScrollOverview() {
-        let app = launch([])
+    func testScrollOverview() { runScrollOverview([]) }
+
+    private func runScrollOverview(_ extra: [String]) {
+        let app = launch(extra)
         measure(metrics: [XCTClockMetric(), XCTCPUMetric(application: app)], options: options(3)) {
             for _ in 0 ..< 3 { app.swipeUp(velocity: .fast) }
             for _ in 0 ..< 3 { app.swipeDown(velocity: .fast) }
         }
     }
+
+    // The same checks with one feature switched off (see Demo.perf* in the app), so a slowdown
+    // can be pinned on the feature that caused it: compare each with its plain version.
+    func testOwnedSheetOpenCloseNoThumbnails() { runOwnedSheetOpenClose(["-HoloPerfNoThumbnails"]) }
+    func testOwnedSheetOpenCloseNoSellMeter() { runOwnedSheetOpenClose(["-HoloPerfNoSellMeter"]) }
+    func testTapInsideSheetNoThumbnails() { runTapInsideSheet(["-HoloPerfNoThumbnails"]) }
+    func testTapInsideSheetNoSellMeter() { runTapInsideSheet(["-HoloPerfNoSellMeter"]) }
+    func testScrollOverviewNoThumbnails() { runScrollOverview(["-HoloPerfNoThumbnails"]) }
+    func testScrollOverviewPlainCGC() { runScrollOverview(["-HoloPerfPlainCGC"]) }
 }

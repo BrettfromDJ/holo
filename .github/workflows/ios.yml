@@ -105,7 +105,7 @@ jobs:
       # Speed: sheet open/close, a tap inside a sheet, idle CPU (Overview, under a sheet) and
       # scrolling. Writes perf.txt; never fails the build.
       - name: Performance
-        timeout-minutes: 15
+        timeout-minutes: 25
         continue-on-error: true
         run: |
           xcodebuild test-without-building \

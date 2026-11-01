@@ -117,6 +117,12 @@ struct NotConfiguredView: View {
 enum Demo {
     static var isOn: Bool { ProcessInfo.processInfo.arguments.contains("-HoloDemo") }
 
+    /// Speed-test switches (CI's PerformanceTests): each turns one feature off so its cost can
+    /// be measured. Read once at launch; never set in normal use.
+    static let perfNoThumbnails = ProcessInfo.processInfo.arguments.contains("-HoloPerfNoThumbnails")
+    static let perfNoSellMeter = ProcessInfo.processInfo.arguments.contains("-HoloPerfNoSellMeter")
+    static let perfPlainCGC = ProcessInfo.processInfo.arguments.contains("-HoloPerfPlainCGC")
+
     static func value(_ flag: String) -> String? {
         let args = ProcessInfo.processInfo.arguments
         guard let i = args.firstIndex(of: flag), i + 1 < args.count else { return nil }

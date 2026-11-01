@@ -30,7 +30,9 @@ struct CachedImage<Content: View, Placeholder: View>: View {
     @ViewBuilder var placeholder: () -> Placeholder
     /// Long lists set this (`.imageMaxPixel(…)`) so pictures are shrunk to thumbnail size off the
     /// main thread instead of decoding full-size photos while you scroll.
-    @Environment(\.imageMaxPixel) private var maxPixel
+    @Environment(\.imageMaxPixel) private var envMaxPixel
+    /// Speed tests can turn thumbnails off to measure what they cost.
+    private var maxPixel: CGFloat? { Demo.perfNoThumbnails ? nil : envMaxPixel }
     @State private var image: UIImage?
     @State private var failed = false
 

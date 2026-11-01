@@ -75,7 +75,7 @@ private struct SlabDrawing: View {
                 .padding(2.2 * u)
 
             VStack(spacing: (tiny ? 5 : 3.5) * u) {
-                if isPSA { psaLabel } else if isCGC { cgcLabel } else { stockLabel }
+                if isPSA { psaLabel } else if isCGC && !Demo.perfPlainCGC { cgcLabel } else { stockLabel }
                 // Card window.
                 ZStack {
                     RoundedRectangle(cornerRadius: 3 * u, style: .continuous)

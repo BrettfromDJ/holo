@@ -57,7 +57,7 @@ struct HoldingSheet: View {
                     tiles(h)
                     // How easily this exact copy sells (its grade, else ungraded), from the shared
                     // eBay cache; only cards with eBay data show it.
-                    if EbaySalesCache.supports(identity.productId) {
+                    if EbaySalesCache.supports(identity.productId), !Demo.perfNoSellMeter {
                         SellSpeedLine(productId: identity.productId, printing: identity.printing, grade: identity.gradeLabel,
                                       market: store.marketPrice(identity.productId, printing: identity.printing)?.market)
                     }
