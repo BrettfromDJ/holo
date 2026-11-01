@@ -36,6 +36,9 @@ final class GradingStore {
     var bumpers: [String: String] = [:]
     private(set) var loaded = false
     private var userId: String?
+    /// The keys whose account copy loaded. A key that failed to load is never saved, so an
+    /// empty list from a bad connection can't overwrite what's in the account.
+    private var synced: Set<String> = []
 
     func reset() {
         submissions = []
@@ -44,6 +47,7 @@ final class GradingStore {
         bumpers = [:]
         loaded = false
         userId = nil
+        synced = []
     }
 
     /// Load once per account; a demo (no account) keeps everything on the phone.
@@ -53,17 +57,22 @@ final class GradingStore {
         self.userId = userId
         loaded = true
         guard userId != nil, !Demo.isOn else { return }
-        submissions = (try? await UserState.load("grading-submissions", as: [Submission].self)) ?? []
-        costs = (try? await UserState.load("grading-costs", as: Grading.Costs.self)) ?? Grading.Costs()
-        certs = (try? await UserState.load("slab-certs", as: [String: String].self)) ?? [:]
-        bumpers = (try? await UserState.load("slab-bumpers", as: [String: String].self)) ?? [:]
+        synced = []
+        // `try?` would flatten "no saved value yet" and "the load failed" into one nil, so each
+        // key is loaded with do/catch: only a real failure leaves it unsynced.
+        do { submissions = try await UserState.load("grading-submissions", as: [Submission].self) ?? []; synced.insert("grading-submissions") } catch {}
+        do { costs = try await UserState.load("grading-costs", as: Grading.Costs.self) ?? Grading.Costs(); synced.insert("grading-costs") } catch {}
+        do { certs = try await UserState.load("slab-certs", as: [String: String].self) ?? [:]; synced.insert("slab-certs") } catch {}
+        do { bumpers = try await UserState.load("slab-bumpers", as: [String: String].self) ?? [:]; synced.insert("slab-bumpers") } catch {}
+        // Something didn't load: try again the next time the app loads your data.
+        if synced.count < 4 { loaded = false }
     }
 
     @MainActor
     func setCert(_ holdingKey: String, _ cert: String) {
         let value = cert.trimmingCharacters(in: .whitespaces)
         certs[holdingKey] = value.isEmpty ? nil : value
-        guard let userId, !Demo.isOn else { return }
+        guard let userId, !Demo.isOn, synced.contains("slab-certs") else { return }
         let snapshot = certs
         Task { try? await UserState.save("slab-certs", snapshot, userId: userId) }
     }
@@ -71,7 +80,7 @@ final class GradingStore {
     @MainActor
     func setBumper(_ holdingKey: String, _ id: String?) {
         bumpers[holdingKey] = id
-        guard let userId, !Demo.isOn else { return }
+        guard let userId, !Demo.isOn, synced.contains("slab-bumpers") else { return }
         let snapshot = bumpers
         Task { try? await UserState.save("slab-bumpers", snapshot, userId: userId) }
     }
@@ -130,12 +139,12 @@ final class GradingStore {
     @MainActor
     func setCosts(_ c: Grading.Costs) {
         costs = c
-        guard let userId, !Demo.isOn else { return }
+        guard let userId, !Demo.isOn, synced.contains("grading-costs") else { return }
         Task { try? await UserState.save("grading-costs", c, userId: userId) }
     }
 
     private func save() {
-        guard let userId, !Demo.isOn else { return }
+        guard let userId, !Demo.isOn, synced.contains("grading-submissions") else { return }
         let snapshot = submissions
         Task { try? await UserState.save("grading-submissions", snapshot, userId: userId) }
     }

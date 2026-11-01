@@ -53,11 +53,19 @@ struct HomeView: View {
                         .padding(.horizontal, 16)
                         .padding(.top, 8)
                         .transition(.move(edge: .top).combined(with: .opacity))
-                        .onTapGesture { withAnimation(.spring) { self.banner = nil } }
+                        .onTapGesture { withAnimation(reduceMotion ? nil : .spring) { self.banner = nil } }
                 }
             }
             .sensoryFeedback(trigger: bannerTick) { _, _ in banner?.isMilestone == true ? .success : .impact(weight: .light) }
-            // Milestone banners are off for now (they repeated); checkMilestones() is kept for later.
+            // Milestones: checked once the numbers settle (loading brings slab and condition
+            // prices a moment after the collection), only for your real, whole collection.
+            .task(id: milestoneTrigger) {
+                guard milestoneTrigger != nil else { return }
+                try? await Task.sleep(for: .seconds(1.5))
+                guard !Task.isCancelled else { return }
+                await checkMilestones()
+            }
+            // The "Prices updated" banner stays off (see refresh()).
             .toolbar {
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button { lists = true } label: { Image(systemName: "heart") }.accessibilityLabel("Watchlist and wishlist")
@@ -191,29 +199,70 @@ struct HomeView: View {
     }
 
     private func show(_ b: HomeBanner) {
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) { banner = b }
+        withAnimation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.8)) { banner = b }
         bannerTick += 1
         let id = b.id
         Task {
             try? await Task.sleep(for: .seconds(b.isMilestone ? 5 : 2.5))
-            if banner?.id == id { withAnimation(.easeOut) { banner = nil } }
+            if banner?.id == id { withAnimation(reduceMotion ? nil : .easeOut) { banner = nil } }
         }
     }
 
-    /// Celebrates a new milestone once (shared with the website's "milestones-seen"). On the very
-    /// first run only the best one shows, so an existing collection isn't greeted by a flood.
+    /// What the milestone check runs on: nil (no check) in a demo, while one portfolio is shown,
+    /// or before the collection is loaded; otherwise it changes with the worth and item count.
+    private var milestoneTrigger: String? {
+        guard store.status == .ready, store.demo == nil, !Demo.isOn, store.holdingFilter == nil else { return nil }
+        return "\(store.summary.value)|\(store.summary.items)"
+    }
+
+    /// Celebrates a new milestone once (shared with the website's "milestones-seen", a list of
+    /// ids like "value:10000"). At most one banner, never one at or below a level already seen.
+    ///
+    /// They used to repeat because a failed or cancelled load of the seen list (the check was
+    /// restarted, cancelling the load, each time the worth changed while loading) was read as
+    /// "nothing seen yet": the top milestone showed again and the account's list was overwritten
+    /// with just the ones reached now. Now a failed load stops the check, the seen list is also
+    /// kept on the phone (marked before the banner shows), and saves merge instead of overwrite.
+    @MainActor
     private func checkMilestones() async {
-        let reached = Milestones.reached(summary: store.summary, holdings: store.holdings)
-        guard !reached.isEmpty else { return }
-        let stored = (try? await UserState.load("milestones-seen", as: [String].self)) ?? nil
-        let seen = Set(stored ?? [])
-        let fresh = reached.filter { !seen.contains($0.id) }.sorted { $0.rank > $1.rank }
-        guard !fresh.isEmpty else { return }
-        if let best = fresh.first {
+        // Only your real, whole collection: a demo or one portfolio would celebrate other totals.
+        guard milestoneTrigger != nil, !store.holdings.isEmpty,
+              case let .signedIn(userId, _) = session.state else { return }
+        let remote: [String]?
+        do {
+            remote = try await UserState.load("milestones-seen", as: [String].self)
+        } catch {
+            return // Unknown is not "nothing seen": try again next time.
+        }
+        // Things may have changed while loading (signed out, demo or a portfolio switched on).
+        guard !Task.isCancelled, milestoneTrigger != nil,
+              case let .signedIn(stillUser, _) = session.state, stillUser == userId else { return }
+
+        let localKey = "milestones-seen:\(userId)"
+        let local = UserDefaults.standard.stringArray(forKey: localKey) ?? []
+        let seen = Set(local).union(remote ?? [])
+        let (best, record) = Milestones.pick(Milestones.reached(summary: store.summary, holdings: store.holdings), seen: seen)
+        let known = seen.union(record)
+        // Remember on the phone first, so it can't show twice even if the save below fails.
+        if known.count != local.count || !known.isSubset(of: Set(local)) {
+            UserDefaults.standard.set(known.sorted(), forKey: localKey)
+        }
+        if let best {
             show(HomeBanner(title: best.title, detail: best.detail, isMilestone: true))
         }
-        if case let .signedIn(userId, _) = session.state {
-            try? await UserState.save("milestones-seen", Array(seen.union(fresh.map(\.id))), userId: userId)
+        // The account is missing something this phone knows (new ones, or an earlier save that
+        // failed): add it. Not tied to this view's task, so leaving Home doesn't cancel it.
+        let remoteSet = Set(remote ?? [])
+        guard !known.isSubset(of: remoteSet) else { return }
+        Task { @MainActor in
+            // Merge with what's there now (the website may have added some meanwhile).
+            let latest = (try? await UserState.load("milestones-seen", as: [String].self)) ?? nil
+            let merged = known.union(remoteSet).union(latest ?? [])
+            do {
+                try await UserState.save("milestones-seen", merged.sorted(), userId: userId)
+            } catch {
+                print("Couldn't save milestones-seen: \(error.localizedDescription)")
+            }
         }
     }
 }
@@ -1346,6 +1395,7 @@ struct HomeBanner: Equatable {
 private struct BannerView: View {
     var banner: HomeBanner
     @State private var glow = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 12) {
@@ -1353,7 +1403,7 @@ private struct BannerView: View {
                 .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(banner.isMilestone ? Theme.ink : Theme.lime)
             VStack(alignment: .leading, spacing: 2) {
-                Text(banner.isMilestone ? banner.title.uppercased() : banner.title)
+                Text(banner.title)
                     .font(banner.isMilestone ? .display(17) : .geist(14, .semibold))
                     .foregroundStyle(banner.isMilestone ? Theme.ink : .white)
                     .lineLimit(2)
@@ -1368,13 +1418,13 @@ private struct BannerView: View {
         .background {
             if banner.isMilestone {
                 RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.lime)
-                    .shadow(color: Theme.lime.opacity(glow ? 0.8 : 0.3), radius: glow ? 24 : 10)
+                    .shadow(color: Theme.lime.opacity(glow ? 0.8 : 0.3), radius: 16)
             } else {
                 Color.clear.liquidGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
         }
         .onAppear {
-            guard banner.isMilestone else { return }
+            guard banner.isMilestone, !reduceMotion else { return }
             withAnimation(.easeOut(duration: 0.35)) { glow = true }
             withAnimation(.easeIn(duration: 0.8).delay(0.4)) { glow = false }
         }
@@ -1410,6 +1460,30 @@ enum Milestones {
             }
         }
         return out
+    }
+
+    /// Splits an id into its kind and step: "value:10000" → ("value", 10000), and
+    /// "gain:<holding key>:2" → ("gain:<holding key>", 2) (holding keys can hold colons).
+    static func level(_ id: String) -> (kind: String, step: Double)? {
+        guard let i = id.lastIndex(of: ":"), let step = Double(id[id.index(after: i)...]) else { return nil }
+        return (String(id[..<i]), step)
+    }
+
+    /// The one new milestone worth a banner (if any) and every new id to record. Never one at or
+    /// below a level of its kind already seen (passing $10k again after a dip, or $5k once $10k
+    /// was celebrated); of the rest, the highest rank wins.
+    static func pick(_ reached: [Milestone], seen: Set<String>) -> (show: Milestone?, record: [String]) {
+        var highest: [String: Double] = [:]
+        for id in seen {
+            guard let l = level(id) else { continue }
+            highest[l.kind] = max(highest[l.kind] ?? -.infinity, l.step)
+        }
+        let fresh = reached.filter { !seen.contains($0.id) }
+        let best = fresh.filter { m in
+            guard let l = level(m.id) else { return true }
+            return l.step > (highest[l.kind] ?? -.infinity)
+        }.max { $0.rank < $1.rank }
+        return (best, fresh.map(\.id))
     }
 }
 

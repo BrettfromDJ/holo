@@ -47,8 +47,8 @@ and say exactly what to run or click.
   Analytics; Overview has a shortcut row (Analytics, Grading, Master sets, Activity).
 - **Loading:** a plain lime spinner (app) and skeleton placeholders (web). No loading animations.
 - **Never red or pink text on lime.** If a card's figure is down, the whole card goes pink.
-- No confetti. No emojis. Toasts bottom-right on the web. Milestone and "Prices updated"
-  banners are off in the app for now (they repeated).
+- No confetti. No emojis. Toasts bottom-right on the web. The "Prices updated" banner is off
+  in the app for now; milestone banners are back on (see Open threads).
 - No lime bar beside section headings (removed). No dots beside card titles (removed).
 - Headings wrap balanced (no lone word on the last line): use `DisplayText` for Anton headings.
 - Sealed products sit in a dark rounded well shaped like their space (card-shaped in the hero
@@ -117,8 +117,14 @@ and say exactly what to run or click.
 
 ## Open threads
 
-- Milestone banners: off because they repeated; `checkMilestones()` in `HomeView.swift` is kept.
-  Find why `milestones-seen` didn't stop repeats before turning it back on.
+- Milestone banners: back on (fixed; check on a device). They repeated because the check re-ran
+  each time the worth changed while loading, cancelling its `milestones-seen` load, and a failed
+  load was read as "nothing seen" (then saved over the list). Now `checkMilestones()` in
+  `HomeView.swift` waits for the numbers to settle, stops on a failed load, keeps the seen list on
+  the phone too (`UserDefaults` `milestones-seen:<user id>`, marked before showing), merges when
+  saving, never shows one at or below a level already seen (`Milestones.pick`), and skips demos
+  and a selected portfolio. Same id format as the website (`value:10000`, `items:50`,
+  `gain:<holding key>:1`).
 - In the app since: Analytics (with Gains inside), Grading, Master Sets (was Binder), Activity —
   all from Overview's shortcut row, shelves (Collection chips, a card's ⋯ menu), portfolios (switcher on
   Collection; `store.holdingFilter` filters holdings, summary and timeline, `allHoldings` is
