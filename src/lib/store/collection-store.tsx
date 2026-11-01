@@ -8,6 +8,7 @@ import { mapLimit } from "@/lib/pricing/cache";
 import type { User } from "@supabase/supabase-js";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { looksSealed } from "../catalog";
+import { moveKeyed, renameEntries } from "../holding-actions";
 import { SAMPLE_BY_ID } from "../demo/catalog";
 import { todayISO } from "../finance/dates";
 import { computeHoldings, computeTimeline, summarize, totalRealized, type HoldingView, type PortfolioSummary, type TimelinePoint } from "../finance/portfolio";
@@ -87,6 +88,8 @@ interface StoreActions {
   addWatch(productId: string, printing: string | null, targetPrice: number | null): Promise<void>;
   updateWatch(id: string, patch: Partial<Pick<WatchlistItem, "targetPrice" | "notes">>): Promise<void>;
   removeWatch(id: string): Promise<void>;
+  /** Fix a copy's details (printing, condition, grade); its entries follow (the app's changeDetails). */
+  changeDetails(old: HoldingIdentity, next: HoldingIdentity): Promise<void>;
   /** `null` clears the manual valuation (back to the graded market price). */
   setManualValue(identity: HoldingIdentity, value: number | null): Promise<void>;
   refreshPrices(force?: boolean): Promise<void>;
@@ -301,6 +304,16 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
     return saved;
   }, []);
 
+  const changeDetails = useCallback(async (old: HoldingIdentity, next: HoldingIdentity) => {
+    const oldKey = holdingKey(old);
+    if (oldKey === holdingKey(next)) return;
+    await repoRef.current.changeDetails(old, next);
+    setState((s) => ({
+      ...s,
+      data: { ...s.data, transactions: renameEntries(s.data.transactions, oldKey, next), manualValues: moveKeyed(s.data.manualValues, oldKey, holdingKey(next)) },
+    }));
+  }, []);
+
   const addWatch = useCallback(async (productId: string, printing: string | null, targetPrice: number | null) => {
     const w = await repoRef.current.addWatch({ productId, printing, targetPrice });
     setState((s) => ({ ...s, data: { ...s.data, watchlist: [...s.data.watchlist, w] } }));
@@ -471,6 +484,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
       mergeHistory,
       setHoldingFilter,
       addTransaction,
+      changeDetails,
       addWatch,
       updateWatch,
       removeWatch,
@@ -483,7 +497,7 @@ export function CollectionProvider({ children }: { children: ReactNode }) {
       openAdd: (opts?: AddOptions) => setAddTarget({ open: true, ...opts }),
       closeAdd: () => setAddTarget({ open: false }),
     }),
-    [state, setMode, importProduct, setProductKind, showCatalogProduct, mergeHistory, setHoldingFilter, addTransaction, addWatch, updateWatch, removeWatch, setManualValue, refreshPrices, savePreferences, resetDemo, signOut, addTarget],
+    [state, setMode, importProduct, setProductKind, showCatalogProduct, mergeHistory, setHoldingFilter, addTransaction, changeDetails, addWatch, updateWatch, removeWatch, setManualValue, refreshPrices, savePreferences, resetDemo, signOut, addTarget],
   );
 
   // Portfolio math (holdings, timeline, realized) is computed once per data

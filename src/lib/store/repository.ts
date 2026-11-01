@@ -5,6 +5,7 @@ import { buildDemoData } from "../demo/dataset";
 import type { Database, HoldingRow } from "../supabase/database.types";
 import { loadCollection } from "../supabase/load";
 import { transactionFromRow, watchFromRow } from "../supabase/mappers";
+import { moveKeyed, renameEntries } from "../holding-actions";
 import {
   DEFAULT_PREFERENCES,
   holdingKey,
@@ -45,6 +46,12 @@ export interface Repository {
   removeWatch(id: string): Promise<void>;
   /** `null` clears the manual valuation so the graded market price is used. */
   setManualValue(identity: HoldingIdentity, value: number | null, date: ISODate): Promise<void>;
+  /**
+   * Fix a copy's details (printing, condition, grade) and keep its history, like the app's
+   * `changeDetails`: the holding is updated in place, or, if you already have a copy with the
+   * new details, its entries move there and the two become one.
+   */
+  changeDetails(old: HoldingIdentity, next: HoldingIdentity): Promise<void>;
   /** Store refreshed prices (and today's snapshot) where the client owns storage. */
   savePrices(prices: NormalizedPrice[], today: ISODate): Promise<void>;
   savePreferences(p: Preferences): Promise<void>;
@@ -141,6 +148,11 @@ export class LocalRepository implements Repository {
     else this.data.manualValues[holdingKey(identity)] = { value, date };
     this.save();
   }
+  async changeDetails(old: HoldingIdentity, next: HoldingIdentity) {
+    this.data.transactions = renameEntries(this.data.transactions, holdingKey(old), next);
+    this.data.manualValues = moveKeyed(this.data.manualValues, holdingKey(old), holdingKey(next));
+    this.save();
+  }
   async savePrices(prices: NormalizedPrice[], today: ISODate) {
     snapshotPrices(this.data, prices, today);
     this.save();
@@ -162,6 +174,8 @@ interface DemoOverlay {
   watchPatches: Record<string, Partial<WatchlistItem>>;
   /** `null` hides a sample manual valuation. */
   manualValues: Record<string, { value: number; date: ISODate } | null>;
+  /** Entries moved to another copy by Edit details, by transaction id (sample ids are stable). */
+  moved?: Record<string, HoldingIdentity>;
   preferences?: Preferences;
 }
 
@@ -173,6 +187,8 @@ interface DemoOverlay {
 export class DemoRepository implements Repository {
   readonly kind: RepositoryKind = "demo";
   private overlay: DemoOverlay = { transactions: [], watchAdded: [], watchRemoved: [], watchPatches: {}, manualValues: {} };
+  /** Every entry as last loaded or added, so Edit details knows which ones belong to a copy. */
+  private loaded: Transaction[] = [];
 
   async load(today: ISODate): Promise<CollectionData> {
     this.overlay = { ...this.overlay, ...(readJSON<DemoOverlay>(DEMO_KEY) ?? {}) };
@@ -180,9 +196,11 @@ export class DemoRepository implements Repository {
     const watchlist = [...base.watchlist, ...this.overlay.watchAdded]
       .filter((w) => !this.overlay.watchRemoved.includes(w.id))
       .map((w) => ({ ...w, ...(this.overlay.watchPatches[w.id] ?? {}) }));
+    const moved = this.overlay.moved ?? {};
+    this.loaded = [...base.transactions, ...this.overlay.transactions].map((t) => (moved[t.id] ? { ...t, ...moved[t.id] } : t));
     return {
       ...base,
-      transactions: [...base.transactions, ...this.overlay.transactions],
+      transactions: [...this.loaded],
       watchlist,
       manualValues: Object.fromEntries(
         Object.entries({ ...base.manualValues, ...this.overlay.manualValues }).filter((e): e is [string, { value: number; date: ISODate }] => e[1] !== null),
@@ -202,6 +220,7 @@ export class DemoRepository implements Repository {
   async addTransaction(tx: NewTransaction) {
     const t: Transaction = { ...tx, id: `sandbox-${newId()}`, createdAt: new Date().toISOString() };
     this.overlay.transactions.push(t);
+    this.loaded.push(t);
     this.save();
     return t;
   }
@@ -222,6 +241,14 @@ export class DemoRepository implements Repository {
   }
   async setManualValue(identity: HoldingIdentity, value: number | null, date: ISODate) {
     this.overlay.manualValues[holdingKey(identity)] = value === null ? null : { value, date };
+    this.save();
+  }
+  async changeDetails(old: HoldingIdentity, next: HoldingIdentity) {
+    const oldKey = holdingKey(old);
+    const moved = { ...(this.overlay.moved ?? {}) };
+    for (const t of this.loaded) if (holdingKey(t) === oldKey) moved[t.id] = { productId: next.productId, printing: next.printing, condition: next.condition, grade: next.grade };
+    this.overlay.moved = moved;
+    this.loaded = renameEntries(this.loaded, oldKey, next);
     this.save();
   }
   async savePrices() {
@@ -271,9 +298,9 @@ export class CloudRepository implements Repository {
     }
   }
 
-  private async holdingFor(identity: HoldingIdentity): Promise<HoldingRow> {
+  private rowFor(identity: HoldingIdentity): HoldingRow | undefined {
     const key = holdingKey(identity);
-    const existing = this.holdings.find(
+    return this.holdings.find(
       (h) =>
         holdingKey({
           productId: h.product_id,
@@ -282,6 +309,10 @@ export class CloudRepository implements Repository {
           grade: h.grade_company && h.grade ? { company: h.grade_company, grade: h.grade } : null,
         }) === key,
     );
+  }
+
+  private async holdingFor(identity: HoldingIdentity): Promise<HoldingRow> {
+    const existing = this.rowFor(identity);
     if (existing) return existing;
     const { data, error } = await this.client
       .from("holdings")
@@ -351,6 +382,23 @@ export class CloudRepository implements Repository {
     const holding = await this.holdingFor(identity);
     const { error } = await this.client.from("holdings").update({ manual_value: value, manual_value_date: value === null ? null : date }).eq("id", holding.id);
     if (error) throw error;
+  }
+
+  async changeDetails(old: HoldingIdentity, next: HoldingIdentity) {
+    if (holdingKey(old) === holdingKey(next)) return;
+    const row = this.rowFor(old);
+    if (!row) return;
+    const target = this.rowFor(next);
+    if (target) {
+      // You already have a copy like this: its entries move there and the two become one.
+      const { error } = await this.client.from("transactions").update({ holding_id: target.id }).eq("holding_id", row.id);
+      if (error) throw error;
+      return;
+    }
+    const details = { printing: next.printing ?? null, condition: next.condition, grade_company: next.grade?.company ?? null, grade: next.grade?.grade ?? null };
+    const { error } = await this.client.from("holdings").update(details).eq("id", row.id);
+    if (error) throw error;
+    Object.assign(row, details);
   }
 
   async savePrices() {

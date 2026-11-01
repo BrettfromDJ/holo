@@ -49,11 +49,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 bottom: "calc(env(safe-area-inset-bottom) + 96px)",
               }}
               theme="dark"
+              // Clickable (Undo) even while a modal sheet has turned off pointer events on the page.
+              style={{ pointerEvents: "auto" }}
               toastOptions={{
                 classNames: {
                   toast:
                     "!rounded-2xl !border-border !bg-surface-2 !text-foreground",
                   description: "!text-muted",
+                  // Undo: plain lime text, no fill (like the app's undo toast).
+                  actionButton: "!h-8 !rounded-full !bg-transparent !px-2 !text-[14px] !font-semibold !text-[var(--lime)] hover:!bg-foreground/[0.08]",
                 },
               }}
             />

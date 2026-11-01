@@ -13,6 +13,8 @@ import { effectiveTransactions } from "@/lib/finance/ledger";
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { fifoCost } from "@/lib/finance/sell";
 import { formatDate, money, signedMoney } from "@/lib/format";
+import { restoreEntry, voidEntry } from "@/lib/holding-actions";
+import { undoToast } from "@/components/ui/undo-toast";
 import { useStore } from "@/lib/store/collection-store";
 import type { Transaction } from "@/lib/types";
 import { Field, MoneyInput, Stepper, SummaryRow, parseMoney } from "./fields";
@@ -67,7 +69,7 @@ export function SaleDialog({ holding, open, onOpenChange }: { holding: HoldingVi
     if (!valid || unit === null) return;
     setSaving(true);
     try {
-      await addTransaction({
+      const sale = await addTransaction({
         ...holding.identity,
         type: "sale",
         date,
@@ -78,8 +80,9 @@ export function SaleDialog({ holding, open, onOpenChange }: { holding: HoldingVi
         tax: 0,
         notes: notes.trim() || null,
       });
-      toast.success(`Recorded sale of ${qty} × ${holding.product?.name ?? "item"}`, { description: `Realized ${signedMoney(gain)}` });
       onOpenChange(false);
+      // Undo for a few seconds voids the sale just recorded (as in the app).
+      undoToast(`Recorded sale of ${qty} × ${holding.product?.name ?? "item"}`, () => addTransaction(voidEntry(sale)), { description: `Realized ${signedMoney(gain)}` });
     } catch (err) {
       toast.error("Couldn't record sale", { description: err instanceof Error ? err.message : undefined });
     } finally {
@@ -246,7 +249,7 @@ export function AdjustDialog({ holding, open, onOpenChange }: { holding: Holding
 }
 
 export function CorrectionDialog({ tx, open, onOpenChange }: { tx: Transaction | null; open: boolean; onOpenChange: (o: boolean) => void }) {
-  const { addTransaction, today } = useStore();
+  const { addTransaction, today, data } = useStore();
   const [qty, setQty] = useState(1);
   const [price, setPrice] = useState("");
   const [date, setDate] = useState(today);
@@ -273,6 +276,7 @@ export function CorrectionDialog({ tx, open, onOpenChange }: { tx: Transaction |
 
   const save = async (voiding: boolean) => {
     setSaving(true);
+    const before = effectiveOf(data.transactions, tx);
     try {
       await addTransaction({
         productId: tx.productId,
@@ -289,7 +293,8 @@ export function CorrectionDialog({ tx, open, onOpenChange }: { tx: Transaction |
         tax: voiding ? 0 : (parseMoney(tax) ?? 0),
         notes: reason.trim() || (voiding ? "Deleted" : "Edited"),
       });
-      toast.success(voiding ? "Entry deleted" : "Entry updated");
+      if (voiding && before) undoToast("Entry deleted", () => addTransaction(restoreEntry(before)));
+      else toast.success("Entry updated");
       onOpenChange(false);
     } catch (err) {
       toast.error("Couldn't save correction", { description: err instanceof Error ? err.message : undefined });
@@ -416,24 +421,13 @@ export function DeleteTransactionDialog({ tx, open, onOpenChange }: { tx: Transa
 
   const confirm = async () => {
     setSaving(true);
+    // What the entry counted as (edits applied), so Undo brings back exactly that.
+    const before = effectiveOf(data.transactions, tx);
     try {
-      await addTransaction({
-        productId: tx.productId,
-        printing: tx.printing,
-        condition: tx.condition,
-        grade: tx.grade,
-        type: "correction",
-        correctsId: tx.id,
-        date: tx.date,
-        quantity: 0,
-        unitPrice: 0,
-        fees: 0,
-        shipping: 0,
-        tax: 0,
-        notes: "Deleted",
-      });
-      toast.success(`Deleted ${label}`);
+      await addTransaction(voidEntry(tx));
       onOpenChange(false);
+      if (before) undoToast(`Deleted ${label}`, () => addTransaction(restoreEntry(before)));
+      else toast.success(`Deleted ${label}`);
     } catch (err) {
       toast.error("Couldn't delete", { description: err instanceof Error ? err.message : undefined });
     } finally {
@@ -488,6 +482,11 @@ export function TransactionActions({ tx }: { tx: Transaction }) {
       <DeleteTransactionDialog tx={tx} open={dialog === "delete"} onOpenChange={(o) => !o && setDialog(null)} />
     </>
   );
+}
+
+/** An entry as it counts now (its latest edit applied), or null when it's already deleted. */
+function effectiveOf(all: Transaction[], tx: Transaction): Transaction | null {
+  return effectiveTransactions(all.filter((t) => t.productId === tx.productId)).find((t) => t.id === tx.id) ?? null;
 }
 
 /**

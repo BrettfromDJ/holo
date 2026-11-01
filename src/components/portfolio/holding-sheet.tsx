@@ -1,9 +1,10 @@
 "use client";
 
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { ArrowRight, ChevronRight, Diff, ExternalLink, Hash, Pencil, Send, Square, Tag } from "lucide-react";
+import { ArrowRight, ChevronRight, Diff, ExternalLink, Hash, MinusCircle, MoreHorizontal, Pencil, Send, Square, Tag, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { DeleteCopyDialog, EditDetailsDialog, RemoveDialog } from "@/components/flows/holding-dialogs";
 import { SellCalculatorDialog } from "@/components/flows/sell-calculator";
 import { ManualValueDialog, SaleDialog, TransactionActions, partitionHistory } from "@/components/flows/transaction-dialogs";
 import { BumperDialog, CertDialog, SendToGraderDialog } from "@/components/grading/grading-items";
@@ -12,6 +13,7 @@ import { Sparkline } from "@/components/overview/sparkline";
 import { DeltaPill } from "@/components/product/delta";
 import { usePriceChartingGraded } from "@/components/product/graded-prices";
 import { ProductImage } from "@/components/product/product-image";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { bumperById } from "@/lib/bumpers";
 import { addDays, daysBetween } from "@/lib/finance/dates";
 import { acquisitionCost, saleProceeds } from "@/lib/finance/ledger";
@@ -43,6 +45,10 @@ export function HoldingSheet({ holding, onOpenChange }: { holding: HoldingView |
         <DialogPrimitive.Overlay className="holding-sheet-overlay fixed inset-0 z-50 bg-black/45" />
         <DialogPrimitive.Content
           aria-describedby={undefined}
+          // Pressing Undo on a toast doesn't close the sheet.
+          onInteractOutside={(e) => {
+            if ((e.target as Element | null)?.closest?.("[data-sonner-toaster]")) e.preventDefault();
+          }}
           className={cn(
             "holding-sheet fixed z-50 flex flex-col overflow-hidden outline-none",
             "bg-[color-mix(in_srgb,var(--background)_74%,transparent)] shadow-2xl shadow-black/50 ring-1 ring-inset ring-foreground/10 backdrop-blur-2xl backdrop-saturate-150",
@@ -57,12 +63,14 @@ export function HoldingSheet({ holding, onOpenChange }: { holding: HoldingView |
   );
 }
 
-type Open = "sell" | "whatif" | "grade" | "cert" | "bumper" | "value" | null;
+type Open = "sell" | "whatif" | "grade" | "cert" | "bumper" | "value" | "details" | "remove" | "delete" | null;
 
 function SheetBody({ opened, close }: { opened: HoldingView; close: () => void }) {
   const { holdings } = usePortfolio({ ignoreFilter: true });
+  // Follows the copy when Edit details gives it a new key.
+  const [key, setKey] = useState(opened.key);
   // The copy now (after a sale or an edit), else as it was when the sheet opened.
-  const live = holdings.find((h) => h.key === opened.key) ?? null;
+  const live = holdings.find((h) => h.key === key) ?? null;
   const h = live ?? opened;
   const product = h.product;
   const [open, setOpen] = useState<Open>(null);
@@ -103,13 +111,14 @@ function SheetBody({ opened, close }: { opened: HoldingView; close: () => void }
               <SheetStat label="Each now" value={(live.conditionEstimate && live.price !== null ? "≈ " : "") + money(live.price)} />
             </dl>
             {graded ? <SlabRows h={live} onCert={() => setOpen("cert")} onBumper={() => setOpen("bumper")} onValue={() => setOpen("value")} /> : rawSingle && <IfGraded h={live} onSend={() => setOpen("grade")} />}
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setOpen("sell")} className="sheet-panel flex h-11 items-center justify-center gap-2 rounded-full text-[14px] font-semibold transition-colors hover:bg-foreground/[0.11]">
+            <div className="mt-5 flex gap-2">
+              <button type="button" onClick={() => setOpen("sell")} className="sheet-panel flex h-11 flex-1 items-center justify-center gap-2 rounded-full text-[14px] font-semibold transition-colors hover:bg-foreground/[0.11]">
                 <Tag className="size-4" /> Sell
               </button>
-              <button type="button" onClick={() => setOpen("whatif")} className="sheet-panel flex h-11 items-center justify-center gap-2 rounded-full text-[14px] font-semibold transition-colors hover:bg-foreground/[0.11]">
+              <button type="button" onClick={() => setOpen("whatif")} className="sheet-panel flex h-11 flex-1 items-center justify-center gap-2 rounded-full text-[14px] font-semibold transition-colors hover:bg-foreground/[0.11]">
                 <Diff className="size-4" /> What if I sell?
               </button>
+              <MoreMenu onPick={setOpen} />
             </div>
           </>
         ) : (
@@ -131,9 +140,40 @@ function SheetBody({ opened, close }: { opened: HoldingView; close: () => void }
           {graded && <CertDialog holding={live} {...dialog("cert")} />}
           {graded && <BumperDialog h={live} {...dialog("bumper")} />}
           {graded && <ManualValueDialog holding={live} {...dialog("value")} />}
+          <EditDetailsDialog holding={live} {...dialog("details")} onChanged={setKey} />
+          <RemoveDialog holding={live} {...dialog("remove")} />
+          <DeleteCopyDialog holding={live} {...dialog("delete")} onDeleted={close} />
         </>
       )}
     </>
+  );
+}
+
+/** Everything else you can do with this copy (the app's ⋯ menu beside Sell). */
+function MoreMenu({ onPick }: { onPick: (o: Open) => void }) {
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <button type="button" aria-label="More actions" className="sheet-panel flex size-11 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-foreground/[0.11] data-[state=open]:bg-foreground/[0.14]">
+          <MoreHorizontal className="size-[18px]" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-[17rem]">
+        <DropdownMenuItem onSelect={() => onPick("details")}>
+          <Pencil /> Edit details (condition, grade, printing)
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onPick("sell")}>
+          <Tag /> Mark as sold
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onPick("remove")}>
+          <MinusCircle /> Remove (opened, lost, gave away…)
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => onPick("delete")} className="text-down">
+          <Trash2 className="!text-down" /> Delete from collection
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

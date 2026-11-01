@@ -18,6 +18,7 @@ import { money } from "@/lib/format";
 import type { SearchHit } from "@/lib/pricing/types";
 import { usePortfolio, useStore, type ImportedProduct } from "@/lib/store/collection-store";
 import { celebratePull } from "@/lib/celebrate";
+import { purchaseDefaults, readPurchaseMemory, rememberPurchase, writePurchaseMemory } from "@/lib/holding-actions";
 import { ALL, MAIN, MAIN_NAME, usePortfolios } from "@/lib/store/portfolios";
 import { CONDITIONS, holdingKey, priceKey, type Condition } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -180,15 +181,18 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
     return fromPrices.length ? fromPrices : hit.printing ? [hit.printing] : [];
   }, [imported, hit.printing]);
 
+  // Your usual details, remembered in this browser (like the app): where you buy, and the
+  // condition or grade you last picked; the date too while you log buys within a few hours.
+  const [remembered] = useState(() => purchaseDefaults(readPurchaseMemory(), { sealed: hit.product.kind === "sealed", today, now: Date.now(), companies: GRADERS }));
   const [printing, setPrinting] = useState<string | null>(hit.printing);
   const [qty, setQty] = useState(1);
   const [priceMode, setPriceMode] = useState<"unit" | "lot">("unit");
   const [price, setPrice] = useState(hit.market !== null ? hit.market.toFixed(2) : "");
-  const [date, setDate] = useState(today);
-  const [condition, setCondition] = useState<Condition>(sealed ? "Sealed" : "Near Mint");
-  const [graded, setGraded] = useState(false);
-  const [grader, setGrader] = useState("PSA");
-  const [grade, setGrade] = useState("10");
+  const [date, setDate] = useState(remembered.date);
+  const [condition, setCondition] = useState<Condition>(remembered.condition);
+  const [graded, setGraded] = useState(remembered.graded);
+  const [grader, setGrader] = useState(remembered.company);
+  const [grade, setGrade] = useState(remembered.grade);
   const [gradedValue, setGradedValue] = useState("");
   const [cert, setCert] = useState("");
   const { setCert: saveCert } = useSlabCerts();
@@ -196,7 +200,7 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
   const [shipping, setShipping] = useState("");
   const [fees, setFees] = useState("");
   const [tax, setTax] = useState("");
-  const [source, setSource] = useState("");
+  const [source, setSource] = useState(remembered.source);
   const [notes, setNotes] = useState("");
   const { portfolios, selected: viewing, portfolioOf, move } = usePortfolios();
   const [pickedPortfolio, setPortfolioId] = useState<string | null>(null);
@@ -255,6 +259,7 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
       if (graded && gv !== null) await setManualValue(identity, gv);
       if (graded && cert.trim()) saveCert(key, cert);
       if (fromWatchId) await removeWatch(fromWatchId);
+      writePurchaseMemory(rememberPurchase(readPurchaseMemory(), { sealed, source, date, graded, company: grader, grade: grade.trim(), condition }, Date.now()));
       onDone();
       celebratePull({ product, quantity: qty, before });
     } catch (err) {
@@ -277,6 +282,9 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
             <Input id="purchase-date" type="date" value={date} max={today} onChange={(e) => setDate(e.target.value)} className="tabular" />
           </Field>
         </div>
+        <Field label="Where" htmlFor="source">
+          <Input id="source" value={source} onChange={(e) => setSource(e.target.value)} placeholder="Card show, eBay, store…" />
+        </Field>
         {portfolios.length > 0 && (
           <Field label="Portfolio">
             <Select value={portfolioId} onValueChange={setPortfolioId}>
@@ -402,9 +410,6 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
                   <MoneyInput id="tax" value={tax} onChange={setTax} />
                 </Field>
               </div>
-              <Field label="Purchased from" htmlFor="source">
-                <Input id="source" value={source} onChange={(e) => setSource(e.target.value)} placeholder="e.g. Local game store, eBay" />
-              </Field>
               <Field label="Notes" htmlFor="notes">
                 <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
               </Field>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
+import { moveSlabKeyed } from "../holding-actions";
 import { DEFAULT_GRADING_COSTS, type GradingCosts } from "../graded";
 import type { HoldingView } from "../finance/portfolio";
 import { holdingKey, type Condition, type Grade, type HoldingIdentity, type ISODate } from "../types";
@@ -38,6 +39,23 @@ export function useSlabBumpers() {
     [setBumpers],
   );
   return { bumpers, setBumper };
+}
+
+/**
+ * After Edit details: a slab's cert number and bumper follow it to its new key, unless that key
+ * already has its own (the app's GradingStore.moveSlab). Nothing moves for a raw copy.
+ */
+export function useMoveSlab() {
+  const [, setCerts] = useSyncedState<Record<string, string>>("slab-certs", {});
+  const [, setBumpers] = useSyncedState<Record<string, string>>("slab-bumpers", {});
+  return useCallback(
+    (old: HoldingIdentity, next: HoldingIdentity) => {
+      if (holdingKey(old) === holdingKey(next) || !next.grade) return;
+      setCerts((prev) => moveSlabKeyed(prev, old, next));
+      setBumpers((prev) => moveSlabKeyed(prev, old, next));
+    },
+    [setCerts, setBumpers],
+  );
 }
 
 /** The grading fee and shipping assumed when weighing whether to grade. */
