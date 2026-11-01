@@ -49,6 +49,15 @@ final class Router {
     var addMenu = false
     /// A card you own, tapped anywhere: opens Your copy (MainTabView shows it).
     var holding: HoldingIdentity?
+    /// The last change that can be undone for a few seconds (a delete, a sale).
+    var undo: UndoItem?
+}
+
+/// Something that can be undone: what happened, and how to put it back.
+struct UndoItem: Identifiable {
+    let id = UUID()
+    var message: String
+    var action: @MainActor () async -> Void
 }
 
 /// A purchase just saved: what it was, how many, and the collection's value just before.

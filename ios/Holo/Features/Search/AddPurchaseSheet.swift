@@ -15,6 +15,16 @@ struct AddPurchaseSheet: View {
     @State private var quantity = 1
     @State private var price = ""
     @State private var date = Date()
+    @State private var source = ""
+    // Your usual details, remembered on this phone: where you buy, and the condition or grade
+    // you last picked; the date too while you're logging buys within a few hours of each other.
+    @AppStorage("holo.add.source") private var lastSource = ""
+    @AppStorage("holo.add.condition") private var lastCondition = ""
+    @AppStorage("holo.add.graded") private var lastGraded = false
+    @AppStorage("holo.add.company") private var lastCompany = "PSA"
+    @AppStorage("holo.add.grade") private var lastGrade = "10"
+    @AppStorage("holo.add.date") private var lastDate = 0.0
+    @AppStorage("holo.add.savedAt") private var lastSavedAt = 0.0
     @State private var saving = false
     @State private var error: String?
 
@@ -75,6 +85,13 @@ struct AddPurchaseSheet: View {
                             .monospacedDigit()
                     }
                     DatePicker("Date", selection: $date, in: ...Date(), displayedComponents: .date)
+                    HStack {
+                        Text("Where")
+                        Spacer()
+                        TextField("Card show, eBay, store…", text: $source)
+                            .multilineTextAlignment(.trailing)
+                            .textInputAutocapitalization(.words)
+                    }
                 }
 
                 if let error {
@@ -92,6 +109,17 @@ struct AddPurchaseSheet: View {
             }
             .onAppear {
                 if printing == nil { printing = hit.printing ?? product.printings?.first }
+                source = lastSource
+                if !product.isSealed {
+                    if CardCondition(rawValue: lastCondition) != nil { condition = lastCondition }
+                    graded = lastGraded
+                    if gradingCompanies.contains(lastCompany) { company = lastCompany }
+                    grade = lastGrade
+                }
+                // Logging several buys (a card show): keep the date you picked for a few hours.
+                if lastDate > 0, Date().timeIntervalSince1970 - lastSavedAt < 6 * 3600 {
+                    date = min(Date(timeIntervalSince1970: lastDate), Date())
+                }
             }
         }
         .presentationDetents([.large])
@@ -112,11 +140,19 @@ struct AddPurchaseSheet: View {
             grade: graded && !product.isSealed ? grade : nil,
             quantity: Double(quantity),
             unitPrice: unit,
-            date: Format.day(date)
+            date: Format.day(date),
+            source: source.trimmingCharacters(in: .whitespaces).isEmpty ? "ios" : source.trimmingCharacters(in: .whitespaces)
         )
         do {
             let before = store.allHoldings.reduce(0) { $0 + ($1.value ?? 0) }
             try await store.add([purchase])
+            lastSource = source.trimmingCharacters(in: .whitespaces)
+            lastDate = date.timeIntervalSince1970
+            lastSavedAt = Date().timeIntervalSince1970
+            if !product.isSealed {
+                lastGraded = graded
+                if graded { lastCompany = company; lastGrade = grade } else { lastCondition = condition }
+            }
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             dismiss()
             onDone?()

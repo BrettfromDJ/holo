@@ -1009,3 +1009,52 @@ struct CardLink<Label: View>: View {
         return store.holdings(for: productId).max { ($0.value ?? 0) < ($1.value ?? 0) }?.identity
     }
 }
+
+
+extension View {
+    /// Shows the latest undoable change ("Entry deleted · Undo") for a few seconds at the
+    /// bottom. Put on the main tabs and on sheets where you can delete or sell.
+    func undoToast(bottom: CGFloat = 24) -> some View { modifier(UndoToast(bottom: bottom)) }
+}
+
+private struct UndoToast: ViewModifier {
+    var bottom: CGFloat
+    @State private var router = Router.shared
+    @State private var working = false
+
+    func body(content: Content) -> some View {
+        content.overlay(alignment: .bottom) {
+            if let item = router.undo {
+                HStack(spacing: 14) {
+                    Text(item.message).font(.geist(14, .medium)).foregroundStyle(.white)
+                    Spacer(minLength: 8)
+                    Button {
+                        guard !working else { return }
+                        working = true
+                        Task {
+                            await item.action()
+                            working = false
+                            if router.undo?.id == item.id { withAnimation(.snappy) { router.undo = nil } }
+                        }
+                    } label: {
+                        Text(working ? "Undoing…" : "Undo").font(.geist(14, .semibold)).foregroundStyle(Theme.lime)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 18)
+                .frame(height: 50)
+                .liquidGlass(in: Capsule())
+                .shadow(color: .black.opacity(0.4), radius: 16, y: 8)
+                .padding(.horizontal, 16)
+                .padding(.bottom, bottom)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .task(id: item.id) {
+                    try? await Task.sleep(nanoseconds: 6_000_000_000)
+                    if router.undo?.id == item.id, !working { withAnimation(.snappy) { router.undo = nil } }
+                }
+                .sensoryFeedback(.success, trigger: item.id)
+            }
+        }
+        .animation(.snappy, value: router.undo?.id)
+    }
+}

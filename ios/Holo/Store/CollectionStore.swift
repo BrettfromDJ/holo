@@ -675,9 +675,17 @@ final class CollectionStore {
 
     /// Record a sale. Proceeds are price × quantity less fees and shipping; cost comes off the oldest units first.
     @MainActor
-    func sell(_ identity: HoldingIdentity, quantity: Double, unitPrice: Double, fees: Double, shipping: Double, date: String, source: String? = "ios", notes: String? = nil) async throws {
+    func sell(_ identity: HoldingIdentity, quantity: Double, unitPrice: Double, fees: Double, shipping: Double, date: String, source: String? = "ios", notes: String? = nil, offerUndo: Bool = true) async throws {
         try await log(identity: identity, type: "sale", date: date, quantity: quantity, unitPrice: unitPrice, fees: fees, shipping: shipping, source: source, notes: notes)
         recompute()
+        // Undo for a few seconds: voids the sale just recorded.
+        if offerUndo, let sale = transactions.last(where: { $0.kind == .sale && $0.identity == identity }) {
+            Router.shared.undo = UndoItem(message: "Sale recorded") { [weak self] in
+                guard let self else { return }
+                try? await self.log(identity: sale.identity, type: "correction", date: sale.date, quantity: 0, unitPrice: 0, correctsId: sale.id)
+                self.recompute()
+            }
+        }
     }
 
     /// Change an entry. Recorded as a correction, never by editing the original, so history stays intact.
@@ -703,11 +711,15 @@ final class CollectionStore {
         recompute()
     }
 
-    /// Delete an entry: a correction with quantity 0 voids it.
+    /// Delete an entry: a correction with quantity 0 voids it. Offers Undo for a few seconds,
+    /// which restores it with another correction carrying its values (history stays intact).
     @MainActor
     func delete(_ entry: Txn) async throws {
         try await log(identity: entry.identity, type: "correction", date: entry.date, quantity: 0, unitPrice: 0, correctsId: entry.id)
         recompute()
+        Router.shared.undo = UndoItem(message: "Entry deleted") { [weak self] in
+            try? await self?.correct(entry, date: entry.date, quantity: entry.quantity, unitPrice: entry.unitPrice, fees: entry.fees, shipping: entry.shipping)
+        }
     }
 
     @MainActor

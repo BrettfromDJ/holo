@@ -127,7 +127,7 @@ final class DealStore {
         for item in deal.outgoing {
             guard let unit = item.unitPrice(side: rates.out) else { continue }
             if let key = item.holdingKey, let h = store.allHoldings.first(where: { $0.identity.key == key }) {
-                try await store.sell(h.identity, quantity: Double(item.qty), unitPrice: unit, fees: 0, shipping: 0, date: today, source: "Card show", notes: note)
+                try await store.sell(h.identity, quantity: Double(item.qty), unitPrice: unit, fees: 0, shipping: 0, date: today, source: "Card show", notes: note, offerUndo: false)
             } else if !item.isCustom, let cost = item.cost {
                 // Not in Holo, but you said what you paid: record that purchase, then the sale,
                 // so your books (and this profit) come out right.
@@ -141,7 +141,7 @@ final class DealStore {
                     gradeCompany: identity.gradeCompany, grade: identity.grade, quantity: Double(item.qty), unitPrice: cost,
                     date: today, source: "Card show", notes: "Added from a deal"
                 )])
-                try await store.sell(identity, quantity: Double(item.qty), unitPrice: unit, fees: 0, shipping: 0, date: today, source: "Card show", notes: note)
+                try await store.sell(identity, quantity: Double(item.qty), unitPrice: unit, fees: 0, shipping: 0, date: today, source: "Card show", notes: note, offerUndo: false)
             }
         }
         var purchases: [CollectionStore.Purchase] = []

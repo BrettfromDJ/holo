@@ -37,7 +37,7 @@ struct HoldingSheet: View {
     private var product: Product? { store.products[identity.productId] }
     private var entries: [Txn] { store.entries(for: identity) }
 
-    var body: some View { sheetBody.glassSheet() }
+    var body: some View { sheetBody.undoToast(bottom: 90).glassSheet() }
 
     @ViewBuilder private var sheetBody: some View {
         ScrollView {
