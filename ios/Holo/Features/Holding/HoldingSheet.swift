@@ -145,7 +145,28 @@ struct HoldingSheet: View {
                     if let set = product?.setName { Text(set).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1) }
                 }
             }
+            Spacer(minLength: 0)
+            // Everything else you can do with this copy, up by its name where it's easy to find.
+            if holding != nil { moreMenu }
         }
+    }
+
+    private var moreMenu: some View {
+        Menu {
+            Button { editingDetails = true } label: { Label("Edit details (condition, grade, printing)", systemImage: "pencil") }
+            Button { selling = true } label: { Label("Mark as sold", systemImage: "tag") }
+            Button { removing = true } label: { Label("Remove (opened, lost, gave away…)", systemImage: "minus.circle") }
+            Button(role: .destructive) { confirmDelete = true } label: { Label("Delete from collection", systemImage: "trash") }
+        } label: {
+            Image(systemName: "ellipsis").font(.system(size: 17, weight: .bold)).foregroundStyle(.white)
+                .frame(width: 40, height: 40)
+                .background(Circle().fill(Color.white.opacity(0.12)))
+                .overlay(Circle().strokeBorder(Color.white.opacity(0.14)))
+                .contentShape(Circle())
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .accessibilityLabel("More actions")
     }
 
     private func value(_ h: HoldingView) -> some View {
@@ -247,21 +268,6 @@ struct HoldingSheet: View {
                 .buttonStyle(GlassButton())
             Button { whatIf = true } label: { Label("What if I sell?", systemImage: "plus.forwardslash.minus") }
                 .buttonStyle(GlassButton())
-            // Everything else you can do with this copy.
-            Menu {
-                Button { editingDetails = true } label: { Label("Edit details (condition, grade, printing)", systemImage: "pencil") }
-                Button { selling = true } label: { Label("Mark as sold", systemImage: "tag") }
-                Button { removing = true } label: { Label("Remove (opened, lost, gave away…)", systemImage: "minus.circle") }
-                Button(role: .destructive) { confirmDelete = true } label: { Label("Delete from collection", systemImage: "trash") }
-            } label: {
-                Image(systemName: "ellipsis").font(.system(size: 16, weight: .semibold))
-                    .frame(width: 46, height: 46)
-                    .contentShape(Circle())
-            }
-            .menuStyle(.button)
-            .buttonStyle(GlassButton(height: 46))
-            .frame(width: 52)
-            .accessibilityLabel("More actions")
         }
     }
 
