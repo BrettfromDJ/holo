@@ -1,5 +1,5 @@
 import type { ConditionPrice, EbaySales } from "./ebay-types";
-import { priceChartingValue, sampleMultiple, type PriceChartingGraded } from "./graded";
+import { companyAdjusted, priceChartingValue, sampleMultiple, type PriceChartingGraded } from "./graded";
 import type { Condition, Grade } from "./types";
 
 /**
@@ -53,8 +53,8 @@ export interface Worth {
 }
 
 const round = (n: number) => Math.round(n * 100) / 100;
-/** A median needs at least this many sales to stand on its own. */
-const MIN_SALES = 2;
+/** A median needs at least this many sales to stand on its own (the app's `WorthCalc.minSales`). */
+export const MIN_SALES = 2;
 
 /**
  * A raw copy's worth. Near Mint is the market price; other conditions use
@@ -116,16 +116,20 @@ export function measuredShares(all: { condition: string; price: number | null; p
 
 /* ----------------------------- Graded prices ------------------------------ */
 
-/** Rows of the graded price table: the 10s by grader, then any grader below (PriceCharting's keys). */
-export const GRADED_ROWS: { key: string; company: string | null; grade: string }[] = [
-  { key: "PSA 10", company: "PSA", grade: "10" },
-  { key: "BGS 10", company: "BGS", grade: "10" },
-  { key: "CGC 10", company: "CGC", grade: "10" },
-  { key: "SGC 10", company: "SGC", grade: "10" },
-  { key: "9.5", company: null, grade: "9.5" },
-  { key: "9", company: null, grade: "9" },
-  { key: "8", company: null, grade: "8" },
-  { key: "7", company: null, grade: "7" },
+/**
+ * Rows of the graded price table. Every row names one company: the 10s by grader, then the
+ * grades people trade most below (BGS for 9.5, which PSA doesn't give; PSA below that). The
+ * lookup covers the rest. Same as the app's GradedPricesPanel.
+ */
+export const GRADED_ROWS: { company: WorthGrader; grade: string }[] = [
+  { company: "PSA", grade: "10" },
+  { company: "BGS", grade: "10" },
+  { company: "CGC", grade: "10" },
+  { company: "SGC", grade: "10" },
+  { company: "BGS", grade: "9.5" },
+  { company: "PSA", grade: "9" },
+  { company: "PSA", grade: "8" },
+  { company: "PSA", grade: "7" },
 ];
 
 /** The grades people look up for a company, 10 down to 5. */
@@ -135,41 +139,74 @@ export function lookupGrades(company: WorthGrader): string[] {
     .reverse();
 }
 
-/** The graded table from the usual grade curve, for a card PriceCharting doesn't cover. */
-export function estimatedGradedTable(productId: string, nm: number | null): PriceChartingGraded | null {
-  if (nm === null || !(nm > 0)) return null;
-  const grades: Record<string, number> = {};
-  for (const r of GRADED_ROWS) grades[r.key] = round(nm * sampleMultiple(productId, { company: r.company ?? "PSA", grade: r.grade }));
-  return { ungraded: nm, grades, updatedAt: "" };
+/** Where a slab's price comes from: eBay sales (with how many), PriceCharting as-is, PriceCharting scaled to the company (≈), or the grade curve (≈). */
+export type GradedSource = { kind: "ebay"; count: number } | { kind: "guide" } | { kind: "adjusted" } | { kind: "curve" };
+
+export interface GradedPrice {
+  value: number;
+  source: GradedSource;
+}
+
+/** Whether a price is an estimate (shown with ≈). */
+export function isEstimate(source: GradedSource): boolean {
+  return source.kind === "adjusted" || source.kind === "curve";
+}
+
+/** The small word beside a price in the table. */
+export function gradedSourceLabel(source: GradedSource): string {
+  return source.kind === "ebay" ? "eBay" : source.kind === "guide" ? "PriceCharting" : "estimate";
+}
+
+/**
+ * One slab's price: recent eBay sales of that exact slab when there are enough, else
+ * PriceCharting (its 10s are per company; below 10 its one price for every company is scaled to
+ * this company, ≈), else the last eBay sale, else the usual grade curve (≈). Same as the app's
+ * `GradedPricesPanel.price`.
+ */
+export function gradedPrice(productId: string, grade: Grade, pc: PriceChartingGraded | null | undefined, ebay: EbaySales | null, nm: number | null): GradedPrice | null {
+  const label = `${grade.company} ${grade.grade}`;
+  const sold = ebay?.graded[label];
+  if (sold && sold.count >= MIN_SALES && sold.median !== null) return { value: sold.median, source: { kind: "ebay", count: sold.count } };
+  const v = priceChartingValue(pc ?? undefined, grade);
+  if (v !== null) return Number(grade.grade) < 10 ? { value: companyAdjusted(v, grade.company), source: { kind: "adjusted" } } : { value: v, source: { kind: "guide" } };
+  const last = sold ? (sold.lastPrice ?? sold.median) : null;
+  if (sold && last !== null) return { value: last, source: { kind: "ebay", count: sold.count } };
+  if (nm !== null && nm > 0) return { value: round(nm * sampleMultiple(productId, grade)), source: { kind: "curve" } };
+  return null;
 }
 
 export interface GradedLookup {
   price: number | null;
-  source: "sales" | "guide" | "estimate" | null;
+  source: GradedSource | null;
   /** Where the number came from, in plain words. */
   detail: string;
 }
 
-/**
- * Any company and grade: the eBay median for that exact slab when it sold enough, else
- * PriceCharting's value (10s per company, lower grades for any company), else the last eBay
- * sale, else the usual grade curve from raw Near Mint.
- */
+/** Any company and grade, with where the number came from in plain words (same as the app's lookup). */
 export function gradedLookup(productId: string, nm: number | null, grade: Grade, ebay: EbaySales | null, pc: PriceChartingGraded | null | undefined): GradedLookup {
   const label = `${grade.company} ${grade.grade}`;
-  const sold = ebay?.graded[label];
-  if (sold && sold.count >= MIN_SALES && sold.median !== null) return { price: sold.median, source: "sales", detail: `Median of ${sold.count} ${label} eBay sales this month` };
-  const guide = priceChartingValue(pc ?? undefined, grade);
-  if (guide !== null) return { price: guide, source: "guide", detail: Number(grade.grade) < 10 ? `PriceCharting · grade ${grade.grade}, any grading company` : `PriceCharting · ${label}` };
-  const last = sold ? (sold.lastPrice ?? sold.median) : null;
-  if (last !== null) return { price: last, source: "sales", detail: `Last ${label} eBay sale` };
-  if (nm !== null && nm > 0) return { price: round(nm * sampleMultiple(productId, grade)), source: "estimate", detail: "Estimate from the usual grade curve" };
-  return { price: null, source: null, detail: "No sales or price guide for this grade yet" };
+  const p = gradedPrice(productId, grade, pc, ebay, nm);
+  if (!p) return { price: null, source: null, detail: "No sales or price guide for this grade yet" };
+  const s = p.source;
+  const detail =
+    s.kind === "ebay"
+      ? s.count >= MIN_SALES
+        ? `Median of ${s.count} ${label} eBay sales this month`
+        : `Last ${label} eBay sale`
+      : s.kind === "guide"
+        ? `PriceCharting · ${label}`
+        : s.kind === "adjusted"
+          ? `Estimate · PriceCharting's grade ${grade.grade} price for any company, adjusted for ${grade.company}`
+          : "Estimate from the usual grade curve";
+  return { price: p.value, source: s, detail };
 }
 
-/** A PSA grade for a raw card you own: PriceCharting's value, else the curve (an estimate). */
+/**
+ * A PSA grade for a raw card you own: PriceCharting's value (its 9 is for any company, so it's
+ * scaled to PSA and marked an estimate), else the curve (an estimate). Same as the app's If graded.
+ */
 export function psaIfGraded(productId: string, nm: number, grade: "10" | "9", pc: PriceChartingGraded | null | undefined): { price: number; estimate: boolean } {
   const v = priceChartingValue(pc ?? undefined, { company: "PSA", grade });
-  if (v !== null) return { price: v, estimate: false };
+  if (v !== null) return grade === "10" ? { price: v, estimate: false } : { price: companyAdjusted(v, "PSA"), estimate: true };
   return { price: round(nm * sampleMultiple(productId, { company: "PSA", grade })), estimate: true };
 }

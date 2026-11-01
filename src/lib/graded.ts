@@ -48,6 +48,16 @@ const GRADE_MULTIPLE: [number, number][] = [
 /** How each company's slabs trade relative to PSA at the same grade. */
 const COMPANY_FACTOR: Record<string, number> = { PSA: 1, BGS: 1.05, CGC: 0.72, SGC: 0.7, TAG: 0.66 };
 
+/**
+ * PriceCharting's prices below 10 mix every company (mostly PSA, which trade a little above the
+ * blend). Scales one to a company using the usual gaps between them. Same as the app's
+ * `WorthCalc.companyAdjusted`.
+ */
+export const BLEND_FACTOR = 0.9;
+export function companyAdjusted(blended: number, company: string): number {
+  return Math.round(((blended * (COMPANY_FACTOR[company.toUpperCase()] ?? 0.7)) / BLEND_FACTOR) * 100) / 100;
+}
+
 function hash(s: string): number {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);

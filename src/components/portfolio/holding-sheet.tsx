@@ -266,7 +266,7 @@ function IfGraded({ h, onSend }: { h: HoldingView; onSend: () => void }) {
         <SheetStat label="PSA 9" value={pc.ready ? (nine.estimate ? "≈ " : "") + money(nine.price) : "—"} />
       </dl>
       <p className="mt-2.5 text-[12px] text-subtle">
-        {!pc.ready ? "Looking up graded prices…" : ten.estimate ? "Estimates from the usual grade curve. The card page has every grade." : "From PriceCharting. The card page has every grade."}
+        {!pc.ready ? "Looking up graded prices…" : ten.estimate ? "Estimates from the usual grade curve. The card page has every grade." : "From PriceCharting (≈ adjusted for PSA). The card page has every grade."}
       </p>
       <button type="button" onClick={onSend} className="sheet-panel mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-full text-[14px] font-semibold transition-colors hover:bg-foreground/[0.11]">
         <Send className="size-4" /> Send for grading
