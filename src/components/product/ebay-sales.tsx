@@ -8,6 +8,7 @@ import { cachedEbay, EbayLoadError, loadEbay } from "@/lib/ebay-client";
 import { ebaySampleFor, sampleEbaySales } from "@/lib/ebay-sample";
 import type { EbaySales as EbayData } from "@/lib/ebay-types";
 import { formatShortDate, money, relativeTime } from "@/lib/format";
+import { ebaySoldUrl } from "@/lib/ebay-link";
 import { useStore } from "@/lib/store/collection-store";
 import { priceKey, type Grade } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -88,6 +89,11 @@ export function EbaySales({
   const [all, setAll] = useState(false);
 
   const stats = data ? (tab === UNGRADED ? data.ungraded : data.graded[tab]) : null;
+  // eBay's own sold listings for this card (and the open grade), for every recent sale.
+  const { data: storeData } = useStore();
+  const product = storeData.products[productId];
+  const soldName = product?.name ?? name;
+  const soldUrl = soldName ? ebaySoldUrl({ name: soldName, number: product?.number, kind: product?.kind ?? "single" }, tab === UNGRADED ? null : tab) : null;
   const sales = data ? data.sales.filter((s) => (tab === UNGRADED ? s.grade === null : s.grade === tab)) : [];
   const shown = all ? sales : sales.slice(0, 6);
 
@@ -183,6 +189,16 @@ export function EbaySales({
             </button>
           )}
         </>
+      )}
+      {soldUrl && (
+        <a
+          href={soldUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-medium text-muted transition-colors hover:text-foreground"
+        >
+          See all {tab === UNGRADED ? "" : `${tab} `}sold on eBay <ExternalLink className="size-3.5" />
+        </a>
       )}
     </div>
   );

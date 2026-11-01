@@ -6,6 +6,7 @@ import SwiftUI
 struct EbaySalesPanel: View {
     var productId: String
     var printing: String?
+    @Environment(CollectionStore.self) private var store
     /// Opens on this grade when you own a slab.
     var grade: String?
 
@@ -119,6 +120,39 @@ struct EbaySalesPanel: View {
                     .padding(.top, 8)
             }
         }
+        // eBay's own sold listings for this card (and the open grade): every recent sale.
+        if let product = store.products[productId], let url = Self.soldURL(product, grade: tab == Self.ungradedTab ? nil : tab) {
+            Link(destination: url) {
+                HStack(spacing: 6) {
+                    Text("See all \(tab == Self.ungradedTab ? "" : "\(tab) ")sold on eBay")
+                    Image(systemName: "arrow.up.right").font(.system(size: 11, weight: .semibold))
+                }
+                .font(.geist(13, .medium)).foregroundStyle(Theme.muted)
+            }
+            .padding(.top, 14)
+        }
+    }
+
+    /// eBay sold-listings search: the name without bracketed notes, plus the card number when the
+    /// name lacks it, plus the grade; ungraded singles leave out slabs. Same as the website.
+    static func soldURL(_ p: Product, grade: String?) -> URL? {
+        var q = p.name.replacingOccurrences(of: #"\([^)]*\)"#, with: " ", options: .regularExpression)
+            .replacingOccurrences(of: #"\s+-\s+"#, with: " ", options: .regularExpression)
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespaces)
+        if let num = p.number?.trimmingCharacters(in: .whitespaces), !num.isEmpty,
+           let head = num.split(separator: "/").first, !q.contains(head) {
+            q += " \(num)"
+        }
+        if let grade { q += " \(grade)" } else if !p.isSealed { q += " -psa -bgs -cgc -sgc" }
+        var c = URLComponents(string: "https://www.ebay.com/sch/i.html")
+        c?.queryItems = [
+            URLQueryItem(name: "_nkw", value: q),
+            URLQueryItem(name: "LH_Sold", value: "1"),
+            URLQueryItem(name: "LH_Complete", value: "1"),
+            URLQueryItem(name: "_sacat", value: "0"),
+        ]
+        return c?.url
     }
 
     private func stat(_ label: String, _ value: String) -> some View {
