@@ -126,9 +126,9 @@ struct GlowPie: View {
             let side = min(geo.size.width, geo.size.height)
             let line = side * 0.2
             ZStack {
-                // The track: frosted, then tinted a deep lime.
-                Circle().strokeBorder(.ultraThinMaterial, lineWidth: line)
-                Circle().strokeBorder(Theme.lime.opacity(0.12), lineWidth: line)
+                // The track: a ring of Liquid Glass with a faint lime tint, so it reads clearly
+                // over the dotted backdrop.
+                Color.clear.liquidGlass(in: RingShape(thickness: line), tint: Theme.lime.opacity(0.18))
                 // The arc. Even at 0% the round start shows, so the arrow always has a home.
                 Circle()
                     .inset(by: line / 2)
@@ -156,5 +156,30 @@ struct GlowPie: View {
         }
         .accessibilityElement()
         .accessibilityLabel("\(Int((f * 100).rounded())) percent complete")
+    }
+}
+
+/// A ring: the outer circle with the middle cut out (drawn as two circles of opposite direction,
+/// so glass and fills leave the center clear).
+struct RingShape: InsettableShape {
+    var thickness: CGFloat
+    var inset: CGFloat = 0
+
+    func path(in rect: CGRect) -> Path {
+        let c = CGPoint(x: rect.midX, y: rect.midY)
+        let outer = min(rect.width, rect.height) / 2 - inset
+        let inner = max(outer - thickness + inset * 2, 0)
+        var p = Path()
+        p.addArc(center: c, radius: outer, startAngle: .zero, endAngle: .degrees(360), clockwise: false)
+        p.closeSubpath()
+        p.addArc(center: c, radius: inner, startAngle: .zero, endAngle: .degrees(360), clockwise: true)
+        p.closeSubpath()
+        return p
+    }
+
+    func inset(by amount: CGFloat) -> RingShape {
+        var r = self
+        r.inset += amount
+        return r
     }
 }
