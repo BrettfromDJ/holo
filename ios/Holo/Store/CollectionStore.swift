@@ -422,6 +422,8 @@ final class CollectionStore {
     /// The holding as it is now: a demo card that has just switched to its real catalog card
     /// is found under its new id.
     func current(_ identity: HoldingIdentity) -> HoldingIdentity {
+        // A copy whose details you just changed (condition, grade, printing): follow it.
+        if holding(identity) == nil, let moved = renamed[identity.key], moved.key != identity.key { return current(moved) }
         guard holding(identity) == nil, let real = demoAlias[identity.productId] else { return identity }
         var i = identity
         i.productId = real.id
@@ -708,6 +710,38 @@ final class CollectionStore {
         }
         let slab = HoldingIdentity(productId: raw.productId, printing: raw.printing, condition: "Near Mint", gradeCompany: company, grade: grade)
         try await log(identity: slab, type: "purchase", date: date, quantity: qty, unitPrice: unit, fees: fee * qty, shipping: shipping * qty, source: "Grading", notes: note)
+        recompute()
+    }
+
+    /// Copies whose details were changed this session, old key → new identity (so an open
+    /// sheet follows the copy).
+    @ObservationIgnored private var renamed: [String: HoldingIdentity] = [:]
+
+    /// Fix a copy's details (condition, grade, printing) and keep its history: the holding row
+    /// is updated in place; if you already have a copy with the new details, its entries move
+    /// there and the two become one.
+    @MainActor
+    func changeDetails(_ old: HoldingIdentity, to new: HoldingIdentity) async throws {
+        guard old.key != new.key else { return }
+        if demo == nil {
+            guard userId != nil else { throw HoloError.signedOut }
+            guard let row = holdingRows.first(where: { $0.identity.key == old.key }) else { return }
+            if let target = holdingRows.first(where: { $0.identity.key == new.key }) {
+                try await db.from("transactions").update(HoldingMove(holding_id: target.id)).eq("holding_id", value: row.id).execute()
+            } else {
+                let details = HoldingDetails(printing: new.printing, condition: new.condition, grade_company: new.gradeCompany, grade: new.grade)
+                try await db.from("holdings").update(details).eq("id", value: row.id).execute()
+                if let i = holdingRows.firstIndex(where: { $0.id == row.id }) {
+                    holdingRows[i].printing = new.printing
+                    holdingRows[i].condition = new.condition
+                    holdingRows[i].grade_company = new.gradeCompany
+                    holdingRows[i].grade = new.grade
+                }
+            }
+        }
+        for i in transactions.indices where transactions[i].identity.key == old.key { transactions[i].identity = new }
+        if let value = manualValues.removeValue(forKey: old.key), manualValues[new.key] == nil { manualValues[new.key] = value }
+        renamed[old.key] = new
         recompute()
     }
 

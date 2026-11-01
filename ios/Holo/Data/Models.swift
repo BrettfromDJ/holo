@@ -231,6 +231,29 @@ struct NewTransactionRow: Codable {
     var corrects_id: String?
 }
 
+/// A holding's details, written with explicit nulls (a raw copy has no grade).
+struct HoldingDetails: Encodable {
+    var printing: String?
+    var condition: String
+    var grade_company: String?
+    var grade: String?
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(printing, forKey: .printing)
+        try c.encode(condition, forKey: .condition)
+        try c.encode(grade_company, forKey: .grade_company)
+        try c.encode(grade, forKey: .grade)
+    }
+
+    enum CodingKeys: String, CodingKey { case printing, condition, grade_company, grade }
+}
+
+/// Move a holding's entries to another holding.
+struct HoldingMove: Encodable {
+    var holding_id: String
+}
+
 struct ManualValueUpdate: Codable {
     var manual_value: Double?
     var manual_value_date: String?

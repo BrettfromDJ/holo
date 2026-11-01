@@ -21,6 +21,7 @@ struct HoldingSheet: View {
     @Environment(GradingStore.self) private var grading
     @State private var selling = false
     @State private var removing = false
+    @State private var editingDetails = false
     @State private var confirmDelete = false
     @State private var whatIf = false
     @State private var valuing = false
@@ -79,6 +80,7 @@ struct HoldingSheet: View {
         }
         .sheet(isPresented: $selling) { if let h = holding { SellSheet(holding: h) } }
         .sheet(isPresented: $removing) { if let h = holding { RemoveSheet(holding: h) } }
+        .sheet(isPresented: $editingDetails) { if let h = holding { EditDetailsSheet(holding: h) } }
         .confirmationDialog("Delete this from your collection?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Delete from collection", role: .destructive) {
                 Task {
@@ -247,6 +249,7 @@ struct HoldingSheet: View {
                 .buttonStyle(GlassButton())
             // Everything else you can do with this copy.
             Menu {
+                Button { editingDetails = true } label: { Label("Edit details (condition, grade, printing)", systemImage: "pencil") }
                 Button { selling = true } label: { Label("Mark as sold", systemImage: "tag") }
                 Button { removing = true } label: { Label("Remove (opened, lost, gave away…)", systemImage: "minus.circle") }
                 Button(role: .destructive) { confirmDelete = true } label: { Label("Delete from collection", systemImage: "trash") }
@@ -589,6 +592,110 @@ struct RemoveSheet: View {
                     }
                     .disabled(saving)
                 }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+}
+
+
+/// Fix a copy's details: its condition (or grade, for a slab) and printing. Its purchases,
+/// sales and edits all stay; only what it is changes.
+struct EditDetailsSheet: View {
+    var holding: HoldingView
+    @Environment(CollectionStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    @State private var printing: String?
+    @State private var condition = CardCondition.nearMint.rawValue
+    @State private var graded = false
+    @State private var company = "PSA"
+    @State private var grade = "10"
+    @State private var saving = false
+    @State private var error: String?
+
+    private var product: Product? { holding.product }
+    private var grades: [String] {
+        let whole = (1...10).map(String.init)
+        let all = company == "BGS" || company == "CGC" ? whole + ["9.5", "8.5", "7.5"] : whole
+        return all.sorted { (Double($0) ?? 0) > (Double($1) ?? 0) }
+    }
+
+    private var edited: HoldingIdentity {
+        var i = holding.identity
+        i.printing = printing
+        if product?.isSealed == true {
+            i.condition = "Sealed"
+        } else if graded {
+            i.condition = CardCondition.nearMint.rawValue
+            i.gradeCompany = company
+            i.grade = grade
+        } else {
+            i.condition = condition
+            i.gradeCompany = nil
+            i.grade = nil
+        }
+        return i
+    }
+
+    var body: some View { sheetBody.glassSheet() }
+
+    @ViewBuilder private var sheetBody: some View {
+        NavigationStack {
+            GlassForm {
+                Section {
+                    Text(product?.name ?? "This copy").font(.geist(15, .semibold))
+                }
+                if let printings = product?.printings, printings.count > 1 {
+                    Picker("Printing", selection: $printing) {
+                        ForEach(printings, id: \.self) { Text($0).tag(Optional($0)) }
+                    }
+                }
+                if product?.isSealed == false {
+                    Section {
+                        Toggle("Graded", isOn: $graded)
+                        if graded {
+                            Picker("Company", selection: $company) {
+                                ForEach(gradingCompanies, id: \.self) { Text($0) }
+                            }
+                            Picker("Grade", selection: $grade) {
+                                ForEach(grades, id: \.self) { Text($0) }
+                            }
+                        } else {
+                            Picker("Condition", selection: $condition) {
+                                ForEach(CardCondition.allCases) { Text($0.rawValue).tag($0.rawValue) }
+                            }
+                        }
+                    } footer: {
+                        Text("Your purchases, sales and edits stay as they are; only what this copy is changes. If you already have a copy with these details, the two become one.")
+                    }
+                }
+                if let error { Section { Text(error).foregroundStyle(Theme.down) } }
+            }
+            .navigationTitle("Edit details")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(saving ? "Saving…" : "Save") {
+                        Task {
+                            saving = true
+                            defer { saving = false }
+                            do {
+                                try await store.changeDetails(holding.identity, to: edited)
+                                dismiss()
+                            } catch { self.error = error.localizedDescription }
+                        }
+                    }
+                    .disabled(saving || edited.key == holding.identity.key)
+                }
+            }
+            .onAppear {
+                let i = holding.identity
+                printing = i.printing ?? product?.printings?.first
+                graded = i.isGraded
+                if let c = i.gradeCompany { company = c }
+                if let g = i.grade { grade = g }
+                if CardCondition(rawValue: i.condition) != nil { condition = i.condition }
             }
         }
         .presentationDetents([.medium, .large])
