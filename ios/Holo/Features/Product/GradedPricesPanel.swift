@@ -86,33 +86,16 @@ struct GradedPricesPanel: View {
     /// guide (10s per company, lower grades for any company), then the usual grade curve.
     private var lookup: some View {
         let r = lookupValue
-        return VStack(alignment: .leading, spacing: 12) {
+        // One calm row: pick the company and grade from two small menus, the price sits beside
+        // them, and where it comes from reads underneath.
+        return VStack(alignment: .leading, spacing: 10) {
             MonoLabel(text: "Look up any grade")
-            ChipPicker(options: gradingCompanies.map { ($0, $0) }, selection: Binding(get: { company }, set: { c in
-                company = c
-                if !Self.lookupGrades(c).contains(grade) { grade = "10" }
-            }), scrolls: true)
-            // 10 down to 5 (the grades people look up), spread across the width: nothing scrolls or clips.
-            HStack(spacing: 2) {
-                ForEach(Self.lookupGrades(company), id: \.self) { g in
-                    Button { grade = g } label: {
-                        Text(g).font(.geist(13, .semibold)).monospacedDigit()
-                            .lineLimit(1).minimumScaleFactor(0.8)
-                            .frame(maxWidth: .infinity, minHeight: 30)
-                            .background(grade == g ? AnyShapeStyle(Theme.lime) : AnyShapeStyle(Color.clear), in: Capsule())
-                            .foregroundStyle(grade == g ? Theme.ink : Theme.muted)
-                            .contentShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
+            HStack(spacing: 8) {
+                lookupMenu(company, options: gradingCompanies) { c in
+                    company = c
+                    if !Self.lookupGrades(c).contains(grade) { grade = "10" }
                 }
-            }
-            .padding(3)
-            .liquidGlass(in: Capsule())
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("\(company) \(grade)").font(.geist(14, .semibold))
-                    Text(r.detail).font(.geist(12)).foregroundStyle(Theme.subtle).lineLimit(2)
-                }
+                lookupMenu(grade, options: Self.lookupGrades(company)) { grade = $0 }
                 Spacer(minLength: 8)
                 // The price rolls to each grade like an odometer.
                 Group {
@@ -122,12 +105,31 @@ struct GradedPricesPanel: View {
                         Text("—")
                     }
                 }
-                .font(.geist(17, .semibold)).monospacedDigit()
+                .font(.display(24)).tracking(-0.6).monospacedDigit()
             }
-            .padding(.horizontal, 14).padding(.vertical, 12)
-            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.surface2))
+            Text(r.detail).font(.geist(12)).foregroundStyle(Theme.subtle).lineLimit(2)
         }
         .sensoryFeedback(.selection, trigger: "\(company)\(grade)")
+    }
+
+    /// A small pill showing the current choice; tap it for the list.
+    private func lookupMenu(_ current: String, options: [String], pick: @escaping (String) -> Void) -> some View {
+        Menu {
+            Picker(selection: Binding(get: { current }, set: pick)) {
+                ForEach(options, id: \.self) { Text($0).tag($0) }
+            } label: { EmptyView() }
+        } label: {
+            HStack(spacing: 6) {
+                Text(current).font(.geist(15, .semibold)).monospacedDigit()
+                Image(systemName: "chevron.up.chevron.down").font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.muted)
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 14).frame(height: 36)
+            .liquidGlass(in: Capsule())
+            .contentShape(Capsule())
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
     }
 
     static func lookupGrades(_ company: String) -> [String] {
