@@ -77,7 +77,7 @@ function SheetBody({ opened, close }: { opened: HoldingView; close: () => void }
         {/* A grab handle on phones, where it's a bottom sheet. */}
         <div aria-hidden className="mx-auto mb-3 h-1 w-9 rounded-full bg-foreground/20 sm:hidden" />
         <div className="relative flex h-9 items-center justify-center">
-          <DialogPrimitive.Title className="text-[17px] font-semibold">Your copy</DialogPrimitive.Title>
+          <DialogPrimitive.Title className="text-[17px] font-semibold">Owned</DialogPrimitive.Title>
           <DialogPrimitive.Close className="absolute right-0 h-9 rounded-full bg-foreground/[0.09] px-3.5 text-[15px] font-semibold text-[var(--lime)] transition-colors hover:bg-foreground/[0.14]">Done</DialogPrimitive.Close>
         </div>
 

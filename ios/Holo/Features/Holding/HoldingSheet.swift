@@ -123,7 +123,7 @@ struct HoldingSheet: View {
 
     private var titleRow: some View {
         ZStack {
-            Text("Your copy").font(.geist(17, .semibold))
+            Text("Owned").font(.geist(17, .semibold))
             HStack {
                 Spacer()
                 Button("Done") { dismiss() }
