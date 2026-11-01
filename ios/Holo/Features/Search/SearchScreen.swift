@@ -204,12 +204,12 @@ struct SearchScreen: View {
                 Button { query = q } label: {
                     HStack(spacing: 12) {
                         Image(systemName: "clock.arrow.circlepath").font(.system(size: 14)).foregroundStyle(Theme.subtle).frame(width: 22)
-                        Text(q).font(.geist(16)).foregroundStyle(.white).lineLimit(1)
+                        Text(q).font(.geist(15)).foregroundStyle(.white).lineLimit(1)
                         Spacer()
                         Image(systemName: "arrow.up.left").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.subtle)
                     }
                     .padding(.horizontal, 16)
-                    .frame(height: 48)
+                    .frame(height: 36)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
