@@ -895,7 +895,7 @@ private struct StarCard: View {
                 HoldingArt(product: holding.product, identity: holding.identity, cornerRadius: 12)
                     .frame(width: artSize.width, height: artSize.height)
                     // A band of white and lime light that slides as you tilt the phone.
-                    .tiltShine(cornerRadius: 12)
+                    .modifier(ShineUnlessSealed(sealed: holding.product?.isSealed == true))
                     .tiltCard(14, foil: holding.product?.isSealed == false && !holding.identity.isGraded, cornerRadius: 12)
                     .background(alignment: .bottom) {
                         Ellipse().fill(.black.opacity(0.6)).frame(width: artSize.width * 0.76, height: 30).blur(radius: 14).offset(y: 16)
@@ -1553,5 +1553,13 @@ private struct ShortcutRow: View {
             .liquidGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// The tilt shine, for cards and slabs only: sealed products have no shine.
+private struct ShineUnlessSealed: ViewModifier {
+    var sealed: Bool
+    func body(content: Content) -> some View {
+        if sealed { content } else { content.tiltShine(cornerRadius: 12) }
     }
 }

@@ -190,7 +190,7 @@ struct MasterSetDetailView: View {
                 Text(known ? "\(owned) of \(total) cards" : "full list not in Lucent yet").font(.geist(13)).foregroundStyle(Theme.muted)
             }
             if known {
-                GlowPie(fraction: sweep ?? ratio).frame(width: 168).padding(.vertical, 22)
+                GlowPie(fraction: sweep ?? ratio).frame(width: 180).padding(.vertical, 10)
                     .shadow(color: Theme.lime.opacity(0.25), radius: 24)
                 HStack(spacing: 10) {
                     heroTile(label: "You own", sub: "worth") {

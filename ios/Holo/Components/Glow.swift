@@ -112,30 +112,39 @@ struct DotMatrixText: View {
     }
 }
 
-/// A disc showing a share as a lit wedge (like a compass dial), with a dotted ring and four
-/// quarter labels around it. The wedge sweeps in from empty when it appears and glides to a new
-/// share when it changes (instantly under Reduce Motion). The disc is frosted, so the dotted
-/// backdrop behind it is blurred rather than showing through.
+/// A share as a thick ring: a dark lime track, and a lime arc with round ends that starts at the
+/// top, with an arrow riding at its start. The arc sweeps in when it appears and glides to a new
+/// share (instantly under Reduce Motion). The track is frosted, so the dots behind are blurred.
 struct GlowPie: View {
     var fraction: Double
-    var labels: [String] = ["0", "25", "50", "75"]
     @State private var shown: Double = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let f = min(max(fraction, 0), 1)
-        ZStack {
-            Circle().fill(.ultraThinMaterial)
-            Circle().fill(LinearGradient(colors: [Color.white.opacity(0.14), Color.white.opacity(0.03)], startPoint: .top, endPoint: .bottom))
-            PieWedge(fraction: shown)
-                .fill(Theme.lime)
-            Circle().strokeBorder(.white.opacity(0.35), style: StrokeStyle(lineWidth: 1, dash: [1, 4]))
-                .padding(-8)
+        GeometryReader { geo in
+            let side = min(geo.size.width, geo.size.height)
+            let line = side * 0.2
+            ZStack {
+                // The track: frosted, then tinted a deep lime.
+                Circle().strokeBorder(.ultraThinMaterial, lineWidth: line)
+                Circle().strokeBorder(Theme.lime.opacity(0.12), lineWidth: line)
+                // The arc. Even at 0% the round start shows, so the arrow always has a home.
+                Circle()
+                    .inset(by: line / 2)
+                    .trim(from: 0, to: max(shown, 0.0001))
+                    .stroke(Theme.lime, style: StrokeStyle(lineWidth: line, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .shadow(color: Theme.lime.opacity(0.35), radius: 10)
+                // The arrow at the top, where the arc begins.
+                Image(systemName: "arrow.right")
+                    .font(.system(size: line * 0.5, weight: .bold))
+                    .foregroundStyle(Theme.ink)
+                    .offset(y: -(side / 2 - line / 2))
+            }
+            .frame(width: side, height: side)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .overlay(alignment: .top) { Text(labels[0]).font(.mono(10)).opacity(0.7).offset(y: -26) }
-        .overlay(alignment: .trailing) { Text(labels[1]).font(.mono(10)).opacity(0.7).offset(x: 26) }
-        .overlay(alignment: .bottom) { Text(labels[2]).font(.mono(10)).opacity(0.7).offset(y: 26) }
-        .overlay(alignment: .leading) { Text(labels[3]).font(.mono(10)).opacity(0.7).offset(x: -26) }
         .aspectRatio(1, contentMode: .fit)
         .onAppear {
             if reduceMotion { shown = f; return }
@@ -145,22 +154,7 @@ struct GlowPie: View {
         .onChange(of: f) { _, new in
             withAnimation(reduceMotion ? nil : .timingCurve(0.3, 0, 0.2, 1, duration: 0.9)) { shown = new }
         }
-    }
-}
-
-private struct PieWedge: Shape {
-    var fraction: Double
-    var animatableData: Double {
-        get { fraction }
-        set { fraction = newValue }
-    }
-
-    func path(in r: CGRect) -> Path {
-        Path { p in
-            let c = CGPoint(x: r.midX, y: r.midY)
-            p.move(to: c)
-            p.addArc(center: c, radius: min(r.width, r.height) / 2, startAngle: .degrees(-90), endAngle: .degrees(-90 + 360 * fraction), clockwise: false)
-            p.closeSubpath()
-        }
+        .accessibilityElement()
+        .accessibilityLabel("\(Int((f * 100).rounded())) percent complete")
     }
 }

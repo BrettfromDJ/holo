@@ -20,7 +20,27 @@ struct Product: Codable, Identifiable, Hashable {
     var tcgplayerUrl: String?
     var printings: [String]?
 
-    var isSealed: Bool { kind == "sealed" }
+    /// Sealed by the catalog, or by a name that only ever means sealed (a few sealed products,
+    /// like sticker collections, were stored as cards). Same rule as the web's looksSealed.
+    var isSealed: Bool { kind == "sealed" || Product.looksSealed(name) }
+
+    /// Checked once per name, then remembered (it's asked for on every redraw of a list).
+    static func looksSealed(_ name: String) -> Bool {
+        sealedLock.lock()
+        if let known = sealedCache[name] { sealedLock.unlock(); return known }
+        sealedLock.unlock()
+        let stripped = name.replacingOccurrences(of: #"\([^)]*\)|\[[^\]]*\]"#, with: " ", options: .regularExpression)
+        let result = stripped.range(of: sealedName, options: [.regularExpression, .caseInsensitive]) != nil
+        sealedLock.lock()
+        sealedCache[name] = result
+        sealedLock.unlock()
+        return result
+    }
+
+    nonisolated(unsafe) private static var sealedCache: [String: Bool] = [:]
+    private static let sealedLock = NSLock()
+
+    private static let sealedName = #"\b(booster (box|bundle|pack|display|case)|elite trainer box|etb|ultra[- ]premium collection|premium collection|illustration collection|special collection|collection box|binder collection|poster collection|figure collection|pin collection|sticker collection|tech sticker|(mini |stacking )?tins?|blister|build (&|and) battle|trainer box|gift (set|box)|deck box|theme deck|starter deck|battle deck|league battle deck|display box|sleeved booster|surprise box|collector chest|booster bundle|bundle)\b"#
     /// Online game code cards ("Code Card - Surging Sparks Booster Pack"): kept out of the app.
     var isCodeCard: Bool {
         "\(name) \(productType ?? "") \(rarity ?? "")".range(of: #"\bcode\s*card\b|\bonline code\b"#, options: [.regularExpression, .caseInsensitive]) != nil

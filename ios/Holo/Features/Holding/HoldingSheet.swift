@@ -123,7 +123,11 @@ struct HoldingSheet: View {
 
     private var titleRow: some View {
         ZStack {
-            Text("Owned").font(.geist(17, .semibold))
+            // A lime check says this one is in your collection.
+            HStack(spacing: 6) {
+                Image(systemName: "checkmark").font(.system(size: 14, weight: .bold)).foregroundStyle(Theme.lime)
+                Text("Owned").font(.geist(17, .semibold))
+            }
             HStack {
                 Spacer()
                 Button("Done") { dismiss() }

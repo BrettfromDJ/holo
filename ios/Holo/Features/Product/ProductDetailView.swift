@@ -99,6 +99,15 @@ struct ProductDetailView: View {
         .toolbar {
             ToolbarItem(placement: .principal) {
                 HStack(spacing: 8) {
+                    // Something you own says so first, with a lime check.
+                    if !owned.isEmpty {
+                        HStack(spacing: 4) {
+                            Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.lime)
+                            Text("Owned").font(.geist(12, .semibold))
+                        }
+                        .padding(.horizontal, 10).frame(height: 26)
+                        .liquidGlass(in: Capsule())
+                    }
                     Badge(text: product?.isSealed == true ? (product?.productType ?? "Sealed") : "Card", filled: true)
                     if let rarity = product?.rarity { RarityBadge(rarity: rarity) }
                 }
@@ -260,7 +269,7 @@ struct ProductDetailView: View {
                     ProductImage(product: product, cornerRadius: 0).frame(width: 260, height: 363)
                 }
             } else {
-                HoloCard(foil: false, textured: false, cornerRadius: 28) {
+                HoloCard(foil: false, textured: false, cornerRadius: 28, showsGlare: false) {
                     SealedWell(product: product, cornerRadius: 28, caption: true).frame(width: 280, height: 280)
                 }
             }

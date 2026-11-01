@@ -337,9 +337,39 @@ struct Button3D: ButtonStyle {
         }
     }
 
-    func makeBody(configuration: Configuration) -> some View {
+    @ViewBuilder func makeBody(configuration: Configuration) -> some View {
+        if kind == .dark {
+            // Dark buttons are Liquid Glass capsules (a faint white fill on glass sheets).
+            glass(configuration)
+        } else {
+            solid(configuration)
+        }
+    }
+
+    private func glass(_ configuration: Configuration) -> some View {
         let pressed = configuration.isPressed
-        configuration.label
+        return configuration.label
+            .font(.geist(16, .semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 18)
+            .frame(maxWidth: fullWidth ? .infinity : nil, minHeight: height)
+            .contentShape(Capsule())
+            .background {
+                if onGlass {
+                    Capsule().fill(Color.white.opacity(pressed ? 0.14 : 0.09))
+                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
+                } else {
+                    Color.clear.liquidGlass(in: Capsule())
+                }
+            }
+            .scaleEffect(pressed ? 0.97 : 1)
+            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: pressed)
+            .sensoryFeedback(.impact(weight: .light), trigger: pressed) { _, isDown in isDown }
+    }
+
+    private func solid(_ configuration: Configuration) -> some View {
+        let pressed = configuration.isPressed
+        return configuration.label
             .font(.geist(16, .semibold))
             .foregroundStyle(text)
             .padding(.horizontal, 18)

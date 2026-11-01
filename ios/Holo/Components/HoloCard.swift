@@ -10,6 +10,8 @@ struct HoloCard<Content: View>: View {
     /// Paper grain and bevel (bare cards only; not slabs or sealed).
     var textured: Bool
     var cornerRadius: CGFloat
+    /// The moving white glare. Off for sealed products, which have no shine.
+    var showsGlare = true
     @ViewBuilder var content: Content
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -45,7 +47,7 @@ struct HoloCard<Content: View>: View {
         return content
             .overlay { if textured { texture(light: light) } }
             .overlay { if foil { foilLayer(light: light, strength: touching ? 0.6 : 0.32) } }
-            .overlay { glare(light: light).opacity(touching ? 1 : 0.5) }
+            .overlay { if showsGlare { glare(light: light).opacity(touching ? 1 : 0.5) } }
             .clipShape(shape)
             .overlay {
                 if textured {
