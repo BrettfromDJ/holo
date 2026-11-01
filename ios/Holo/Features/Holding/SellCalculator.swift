@@ -26,7 +26,7 @@ struct SellCalculatorSheet: View {
         Sell.estimate(lots: holding.lots, quantity: Double(quantity), unitPrice: unitPrice ?? 0, fees: fees, shippingCharged: charged, shippingCost: cost)
     }
 
-    var body: some View { sheetBody.glassSheet() }
+    var body: some View { sheetBody.presentationDetents([.fraction(0.93)]).glassSheet() }
 
     @ViewBuilder private var sheetBody: some View {
         let e = estimate

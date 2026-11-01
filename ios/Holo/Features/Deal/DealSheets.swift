@@ -25,7 +25,7 @@ struct DealPickerSheet: View {
         }
     }
 
-    var body: some View { sheetBody.glassSheet() }
+    var body: some View { sheetBody.presentationDetents([.fraction(0.93)]).glassSheet() }
 
     @ViewBuilder private var sheetBody: some View {
         NavigationStack {

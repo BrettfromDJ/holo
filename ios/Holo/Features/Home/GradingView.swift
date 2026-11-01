@@ -355,7 +355,7 @@ struct SendSheet: View {
     private static let companies = ["PSA", "BGS", "CGC", "SGC", "TAG"]
     private static let services = ["Value", "Regular", "Express", "Super Express"]
 
-    var body: some View { sheetBody.glassSheet() }
+    var body: some View { sheetBody.presentationDetents([.fraction(0.93)]).glassSheet() }
 
     @ViewBuilder private var sheetBody: some View {
         NavigationStack {
@@ -409,7 +409,7 @@ private struct ReturnSheet: View {
     @State private var saving = false
     @State private var error: String?
 
-    var body: some View { sheetBody.glassSheet() }
+    var body: some View { sheetBody.presentationDetents([.fraction(0.93)]).glassSheet() }
 
     @ViewBuilder private var sheetBody: some View {
         NavigationStack {

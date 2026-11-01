@@ -1188,6 +1188,12 @@ private struct CategoryCard: View {
     var items: [HoldingView]
     var total: Double
 
+    private var thumbnails: [HoldingView] {
+        let byValue = items.sorted { ($0.value ?? 0) > ($1.value ?? 0) }
+        let pictured = byValue.filter { $0.product?.imageURL != nil }
+        return Array((pictured.isEmpty ? byValue : pictured).prefix(3))
+    }
+
     var body: some View {
         let value = items.reduce(0) { $0 + ($1.value ?? 0) }
         let cost = items.filter { $0.value != nil }.reduce(0) { $0 + $1.costBasis }
@@ -1200,12 +1206,16 @@ private struct CategoryCard: View {
             }
             Text(category.blurb).font(.geist(14)).foregroundStyle(Theme.muted)
             VStack(alignment: .leading, spacing: 10) {
+                // The three most valuable that have a picture, fanned out from the middle: one stands
+                // straight, two lean apart, three fan with the middle one in front.
+                let shown = thumbnails
+                let mid = Double(shown.count - 1) / 2
                 HStack(spacing: -24) {
-                    ForEach(Array(items.prefix(3).enumerated()), id: \.element.id) { i, h in
+                    ForEach(Array(shown.enumerated()), id: \.element.id) { i, h in
                         HoldingArt(product: h.product, identity: h.identity, cornerRadius: 3, caption: false)
                             .frame(width: 70, height: 96)
-                            .rotationEffect(.degrees(Double(i - 1) * 8))
-                            .zIndex(i == 1 ? 1 : 0)
+                            .rotationEffect(.degrees((Double(i) - mid) * 8), anchor: .bottom)
+                            .zIndex(-abs(Double(i) - mid))
                     }
                 }
                 .frame(maxWidth: .infinity)

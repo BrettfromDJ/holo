@@ -274,7 +274,7 @@ struct HoldingSheet: View {
 
     private func actions(_ h: HoldingView) -> some View {
         HStack(spacing: 8) {
-            Button { selling = true } label: { Label("Sell", systemImage: "tag") }
+            Button { selling = true } label: { Label("Record sale", systemImage: "tag") }
                 .buttonStyle(GlassButton())
             Button { whatIf = true } label: { Label("What if I sell?", systemImage: "plus.forwardslash.minus") }
                 .buttonStyle(GlassButton())
@@ -369,7 +369,7 @@ struct SellSheet: View {
     private var net: Double { gross - fees - ship }
     private var cost: Double { holding.fifoCost(Double(quantity)) }
 
-    var body: some View { sheetBody.glassSheet() }
+    var body: some View { sheetBody.presentationDetents([.fraction(0.93)]).glassSheet() }
 
     @ViewBuilder private var sheetBody: some View {
         NavigationStack {
@@ -443,7 +443,7 @@ struct EntryEditSheet: View {
         _date = State(initialValue: Format.isoDay.date(from: entry.date) ?? Date())
     }
 
-    var body: some View { sheetBody.glassSheet() }
+    var body: some View { sheetBody.presentationDetents([.fraction(0.93)]).glassSheet() }
 
     @ViewBuilder private var sheetBody: some View {
         NavigationStack {
