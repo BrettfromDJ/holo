@@ -40,13 +40,11 @@ struct AnalyticsView: View {
                             GlassStat(label: "Invested", value: Format.money(s.totalCost))
                         }
                         AllocationBar(holdings: holdings, total: s.value)
-                        NavigationLink(value: MorePage.gains) {
-                            Label("Where it comes from", systemImage: "chart.bar.xaxis").lineLimit(1)
-                        }
-                        .buttonStyle(Button3D(kind: .dark, fullWidth: false, height: 40))
                     }
                 }
                 kpis(risk: risk, summary: s, holdings: holdings)
+                // Gains lives here now: which products, sets or types your gains come from.
+                GainsView(embedded: true).reveal()
                 // Its own view, so dragging across the chart redraws only the chart.
                 HistorySection(timeline: timeline).reveal()
                 CollectionMap(holdings: holdings).reveal()
@@ -168,7 +166,7 @@ struct AnalyticsView: View {
                     Text(empty).font(.geist(14)).foregroundStyle(Theme.muted).padding(.vertical, 8).frame(maxWidth: .infinity, alignment: .leading)
                 }
                 ForEach(Array(items.enumerated()), id: \.element.id) { i, h in
-                    NavigationLink(value: h.identity.productId) {
+                    CardLink(productId: h.identity.productId, identity: h.identity) {
                         HStack(spacing: 10) {
                             Text(String(format: "%02d", i + 1)).font(.mono(12)).foregroundStyle(Theme.subtle).frame(width: 20)
                             MiniRow(holding: h, trailing: rankBy == .dollar ? Format.signedMoney(h.gain) : Format.signedPercent(h.gainRatio), tint: Theme.tone(h.gain))
@@ -551,7 +549,7 @@ private struct Diversification: View {
                     .frame(height: 12)
                     .drawIn(duration: 1.0)
                     ForEach(Array(top.enumerated()), id: \.offset) { i, h in
-                        NavigationLink(value: h.identity.productId) {
+                        CardLink(productId: h.identity.productId, identity: h.identity) {
                             HStack(spacing: 10) {
                                 RoundedRectangle(cornerRadius: 3).fill(Theme.planBlue.opacity(0.95 - Double(i) * 0.15)).frame(width: 10, height: 10)
                                 Text(h.product?.name ?? "Unknown").font(.geist(13)).lineLimit(1)
@@ -601,7 +599,7 @@ private struct CollectionMap: View {
                         ZStack(alignment: .topLeading) {
                             ForEach(Array(zip(items, rects).enumerated()), id: \.offset) { i, pair in
                                 let (h, r) = pair
-                                NavigationLink(value: h.identity.productId) { tile(h, size: r.size) }
+                                CardLink(productId: h.identity.productId, identity: h.identity) { tile(h, size: r.size) }
                                     .buttonStyle(.plain)
                                     .frame(width: max(0, r.width - 3), height: max(0, r.height - 3))
                                     .offset(x: r.minX, y: r.minY)

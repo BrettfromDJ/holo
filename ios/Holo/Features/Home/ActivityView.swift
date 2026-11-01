@@ -161,7 +161,7 @@ struct ActivityView: View {
         let meta = [label, detail, day(shown.date), t.source, t.identity.gradeLabel].compactMap { $0 }.joined(separator: " · ")
 
         return HStack(spacing: 12) {
-            NavigationLink(value: t.identity.productId) {
+            CardLink(productId: t.identity.productId, identity: t.identity) {
                 HStack(spacing: 12) {
                     ZStack(alignment: .bottomTrailing) {
                         HoldingArt(product: product, identity: t.identity, cornerRadius: 4, caption: false)

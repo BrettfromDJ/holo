@@ -47,6 +47,8 @@ final class Router {
     var pull: PullEvent?
     /// Another screen (Home's "Add to Collection") asked for the add menu.
     var addMenu = false
+    /// A card you own, tapped anywhere: opens Your copy (MainTabView shows it).
+    var holding: HoldingIdentity?
 }
 
 /// A purchase just saved: what it was, how many, and the collection's value just before.

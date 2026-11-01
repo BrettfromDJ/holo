@@ -321,7 +321,7 @@ struct MasterSetDetailView: View {
                         if e.hit.product.id.hasPrefix("sample-slot:") {
                             CardCell(entry: e)
                         } else {
-                            NavigationLink(value: e.hit.product.id) { CardCell(entry: e) }
+                            CardLink(productId: e.hit.product.id) { CardCell(entry: e) }
                                 .buttonStyle(.plain)
                                 .simultaneousGesture(TapGesture().onEnded { if !e.owned { store.seed(e.hit) } })
                         }

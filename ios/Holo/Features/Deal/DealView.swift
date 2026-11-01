@@ -15,6 +15,7 @@ struct DealView: View {
     @State private var customer = false
     @State private var confirming = false
     @State private var ebayItem: DealItem?
+    @AppStorage("holo.dealHintSeen") private var hintSeen = false
     /// A card in the deal, opened to see its full details in a sheet.
     @State private var detailItem: DealItem?
 
@@ -48,6 +49,11 @@ struct DealView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 32) {
                     VStack(alignment: .leading, spacing: 14) {
+                        // First time here, with nothing in the deal yet: one line on how it works.
+                        if !hintSeen && deals.deal.kind == .empty {
+                            DealHint { withAnimation(.snappy) { hintSeen = true } }
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                        }
                         if !todays.isEmpty { TodayStrip(deals: todays) { path.append(DealRoute.history) } }
                         BalanceCard(totals: totals, roundTo: roundTarget, onRound: roundCash)
                     }
@@ -989,5 +995,32 @@ private struct CustomerViewSheet: View {
                 }
             }
         }
+    }
+}
+
+
+/// The one-time hint on an empty Deal tab.
+private struct DealHint: View {
+    var onDismiss: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "arrow.left.arrow.right").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.lime)
+                .frame(width: 34, height: 34)
+                .background(Theme.lime.opacity(0.12), in: Circle())
+            VStack(alignment: .leading, spacing: 3) {
+                Text("How a deal works").font(.geist(14, .semibold))
+                Text("Add what's coming in and what's going out (search or scan). We'll work out the cash, your profit and whether it's fair.")
+                    .font(.geist(13)).foregroundStyle(Theme.muted).fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 4)
+            Button(action: onDismiss) {
+                Image(systemName: "xmark").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.muted)
+                    .frame(width: 28, height: 28)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Got it")
+        }
+        .surface(radius: 18, padding: 14)
     }
 }

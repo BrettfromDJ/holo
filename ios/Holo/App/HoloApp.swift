@@ -222,6 +222,13 @@ struct MainTabView: View {
         // A new deal asks again.
         .onChange(of: deals.deal.kind) { _, kind in if kind == .empty { scanChoice = nil } }
         .fullScreenCover(isPresented: $searching) { SearchScreen(mode: .add) }
+        // A card you own, tapped on any page (Activity, Master Sets, Analytics, Explore…): Your copy.
+        // "View card details" then opens the full card page.
+        .sheet(item: Binding(get: { router.holding.map(OpenedHolding.init) }, set: { router.holding = $0?.identity })) { o in
+            HoldingSheet(identity: o.identity) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { router.product = o.identity.productId }
+            }
+        }
         // A tapped price alert opens its card.
         .sheet(item: Binding(get: { router.product.map(OpenProduct.init) }, set: { router.product = $0?.id })) { open in
             NavigationStack {

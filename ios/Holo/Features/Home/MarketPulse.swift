@@ -100,7 +100,7 @@ struct MarketPulse: View {
     private func row(_ ticks: [Tick]) -> some View {
         HStack(spacing: 0) {
             ForEach(ticks) { tick in
-                NavigationLink(value: tick.product.id) {
+                CardLink(productId: tick.product.id) {
                     HStack(spacing: 10) {
                         ProductImage(product: tick.product, cornerRadius: 5)
                             .frame(width: 24, height: 24)

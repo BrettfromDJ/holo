@@ -3,6 +3,8 @@ import SwiftUI
 /// Where your gains come from, like the website's Gains page: unrealized, realized or all-time,
 /// by product, set or type, as a waterfall that adds up to the total.
 struct GainsView: View {
+    /// Inside Analytics: just the mode chips and the breakdown (no page top or scroll view).
+    var embedded = false
     @Environment(CollectionStore.self) private var store
     @State private var mode = Gains.Mode.unrealized
     @State private var group = Gains.Group.product
@@ -37,51 +39,68 @@ struct GainsView: View {
     var body: some View {
         let a = Gains.attribute(holdings: store.holdings, transactions: store.portfolioTransactions, products: store.products,
                                 mode: mode, group: group, maxRows: expanded ? nil : Self.collapsedRows)
+        if embedded {
+            VStack(alignment: .leading, spacing: 16) {
+                ChipPicker(options: [(.unrealized, "Unrealized"), (.realized, "Realized"), (.all, "All-time")], selection: $mode)
+                breakdown(a)
+            }
+            .sensoryFeedback(.selection, trigger: "\(mode.rawValue)\(group.rawValue)")
+        } else {
+            page(a)
+        }
+    }
+
+    /// Where it comes from: each product, set or type's share of the gain, as a waterfall.
+    private func breakdown(_ a: Gains.Attribution) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .center) {
+                MoreHeading(title: "Where it comes from", subtitle: nil)
+                // Group by product, set or type: a menu, so there's one row of tabs on the page.
+                Menu {
+                    Picker("Group by", selection: Binding(get: { group }, set: { group = $0; expanded = false })) {
+                        Text("Products").tag(Gains.Group.product)
+                        Text("Sets").tag(Gains.Group.set)
+                        Text("Type").tag(Gains.Group.category)
+                    }
+                } label: {
+                    HStack(spacing: 5) {
+                        Text(noun.many.capitalized).font(.geist(14, .semibold))
+                        Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14).frame(height: 36)
+                    .liquidGlass(in: Capsule())
+                }
+            }
+            Text("Each bar starts where the last one ended, gains first, then losses").font(.geist(14)).foregroundStyle(Theme.muted)
+            if a.steps.isEmpty {
+                Text(mode == .realized ? "No sales or write-offs yet." : "No gains or losses yet.")
+                    .font(.geist(14)).foregroundStyle(Theme.muted)
+                    .frame(maxWidth: .infinity).padding(.vertical, 48)
+                    .surface(radius: 16, padding: 16)
+            } else {
+                VStack(alignment: .leading, spacing: 0) {
+                    Waterfall(steps: a.steps, total: a.total, totalLabel: label, gains: a.gains, group: group)
+                        .id("\(mode.rawValue)\(group.rawValue)\(expanded)")
+                    if a.count > Self.collapsedRows {
+                        Button(expanded ? "Show top contributors only" : "Show all \(a.count) \(noun.many)") { expanded.toggle() }
+                            .buttonStyle(Button3D(kind: .dark, height: 42))
+                            .padding(.top, 16)
+                    }
+                }
+                .surface(radius: 16, padding: 16)
+            }
+        }
+    }
+
+    private func page(_ a: Gains.Attribution) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 TugOfWarHero(label: label, hint: hint, total: a.total, gains: a.gains, losses: a.losses,
                              leaders: a.steps.filter { $0.gain > 0 && $0.members == nil })
                     .id("\(mode.rawValue)\(group.rawValue)")
                 ChipPicker(options: [(.unrealized, "Unrealized"), (.realized, "Realized"), (.all, "All-time")], selection: $mode)
-                VStack(alignment: .leading, spacing: 16) {
-                    HStack(alignment: .center) {
-                        MoreHeading(title: "Where it comes from", subtitle: nil)
-                        // Group by product, set or type: a menu, so there's one row of tabs on the page.
-                        Menu {
-                            Picker("Group by", selection: Binding(get: { group }, set: { group = $0; expanded = false })) {
-                                Text("Products").tag(Gains.Group.product)
-                                Text("Sets").tag(Gains.Group.set)
-                                Text("Type").tag(Gains.Group.category)
-                            }
-                        } label: {
-                            HStack(spacing: 5) {
-                                Text(noun.many.capitalized).font(.geist(14, .semibold))
-                                Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold))
-                            }
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 14).frame(height: 36)
-                            .liquidGlass(in: Capsule())
-                        }
-                    }
-                    Text("Each bar starts where the last one ended, gains first, then losses").font(.geist(14)).foregroundStyle(Theme.muted)
-                    if a.steps.isEmpty {
-                        Text(mode == .realized ? "No sales or write-offs yet." : "No gains or losses yet.")
-                            .font(.geist(14)).foregroundStyle(Theme.muted)
-                            .frame(maxWidth: .infinity).padding(.vertical, 48)
-                            .surface(radius: 16, padding: 16)
-                    } else {
-                        VStack(alignment: .leading, spacing: 0) {
-                            Waterfall(steps: a.steps, total: a.total, totalLabel: label, gains: a.gains, group: group)
-                                .id("\(mode.rawValue)\(group.rawValue)\(expanded)")
-                            if a.count > Self.collapsedRows {
-                                Button(expanded ? "Show top contributors only" : "Show all \(a.count) \(noun.many)") { expanded.toggle() }
-                                    .buttonStyle(Button3D(kind: .dark, height: 42))
-                                    .padding(.top, 16)
-                            }
-                        }
-                        .surface(radius: 16, padding: 16)
-                    }
-                }
+                breakdown(a)
                 .reveal()
 
                 if a.unpriced > 0, mode != .realized {

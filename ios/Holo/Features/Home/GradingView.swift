@@ -146,7 +146,7 @@ struct GradingView: View {
             }
             ForEach(grading.sent) { s in
                 HStack(spacing: 12) {
-                    NavigationLink(value: s.productId) {
+                    CardLink(productId: s.productId) {
                         HStack(spacing: 12) {
                             HoldingArt(product: store.products[s.productId], cornerRadius: 6, caption: false).frame(width: 33, height: 46)
                             VStack(alignment: .leading, spacing: 2) {
@@ -214,7 +214,7 @@ struct GradingView: View {
             ForEach(showAll ? candidates : Array(candidates.prefix(Self.shown)), id: \.0.id) { h, o in
                 let est = o.source == .estimate ? "≈" : ""
                 HStack(spacing: 12) {
-                    NavigationLink(value: h.identity.productId) {
+                    CardLink(productId: h.identity.productId, identity: h.identity) {
                         HStack(spacing: 12) {
                             HoldingArt(product: h.product, identity: h.identity, cornerRadius: 6, caption: false).frame(width: 33, height: 46)
                             VStack(alignment: .leading, spacing: 2) {
@@ -259,7 +259,7 @@ struct GradingView: View {
             MoreHeading(title: "Your slabs", subtitle: slabs.isEmpty ? "No graded cards yet. Add one with Graded switched on, or mark a submission as returned." : "Graded cards, by value")
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 24) {
                 ForEach(Array(slabs.enumerated()), id: \.element.id) { i, h in
-                    NavigationLink(value: h.identity.productId) { slabTile(h) }.buttonStyle(.plain)
+                    CardLink(productId: h.identity.productId, identity: h.identity) { slabTile(h) }.buttonStyle(.plain)
                         .popIn(delay: Double(min(i, 6)) * 0.07)
                 }
             }

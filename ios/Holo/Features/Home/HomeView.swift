@@ -81,7 +81,7 @@ struct HomeView: View {
             .navigationDestination(for: MorePage.self) { p in
                 switch p {
                 case .analytics: AnalyticsView()
-                case .gains: GainsView()
+                case .gains: AnalyticsView()
                 case .grading: GradingView()
                 case .masterSets: MasterSetsView()
                 case .activity: ActivityView()
@@ -144,6 +144,7 @@ struct HomeView: View {
                     .padding(.horizontal, 16)
                 Hero(store: store, spread: refreshing, onRecap: { recap = true }, onAdd: { Router.shared.addMenu = true })
             }
+            ShortcutRow().padding(.horizontal, 16)
             PerformanceSection(store: store).padding(.horizontal, 16).reveal()
             MetricGrid(store: store, onReload: refresh).padding(.horizontal, 16).reveal()
             Spotlight(store: store).padding(.horizontal, 16).reveal()
@@ -151,7 +152,7 @@ struct HomeView: View {
             ValueSplit(store: store).padding(.horizontal, 16).reveal()
             MoversSection(holdings: store.holdings).padding(.horizontal, 16).reveal()
             RecentSection(items: store.recentPurchases()).padding(.horizontal, 16).reveal()
-            MoreSection().padding(.horizontal, 16).reveal()
+
         }
         .padding(.top, 4)
         .padding(.bottom, 40)
@@ -1475,5 +1476,32 @@ extension EnvironmentValues {
     var openHolding: (HoldingIdentity) -> Void {
         get { self[OpenHoldingKey.self] }
         set { self[OpenHoldingKey.self] = newValue }
+    }
+}
+
+
+/// The other pages, one tap from the top of Overview: Analytics (with Gains), Grading, Master
+/// sets and Activity, as four small glass tiles.
+private struct ShortcutRow: View {
+    var body: some View {
+        HStack(spacing: 8) {
+            tile("Analytics", icon: "chart.xyaxis.line", page: .analytics)
+            tile("Grading", icon: "checkmark.seal", page: .grading)
+            tile("Master sets", icon: "square.grid.3x3.fill", page: .masterSets)
+            tile("Activity", icon: "list.bullet.rectangle", page: .activity)
+        }
+    }
+
+    private func tile(_ title: String, icon: String, page: MorePage) -> some View {
+        NavigationLink(value: page) {
+            VStack(spacing: 6) {
+                Image(systemName: icon).font(.system(size: 17, weight: .semibold)).foregroundStyle(Theme.lime)
+                Text(title).font(.geist(11, .medium)).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.8)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .liquidGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 }

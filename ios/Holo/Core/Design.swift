@@ -984,3 +984,28 @@ extension View {
         .overlay(shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.22), .white.opacity(0.05)], startPoint: .top, endPoint: .bottom), lineWidth: 1))
     }
 }
+
+
+/// A tappable card, the same everywhere: one you own opens Your copy (a sheet with "View card
+/// details"), one you don't opens its card page.
+struct CardLink<Label: View>: View {
+    var productId: String
+    /// The exact copy, when the row is about one (a purchase, a slab); else your most valuable.
+    var identity: HoldingIdentity? = nil
+    @ViewBuilder var label: Label
+    @Environment(CollectionStore.self) private var store
+
+    var body: some View {
+        if let owned = ownedIdentity {
+            Button { Router.shared.holding = owned } label: { label }
+                .buttonStyle(.plain)
+        } else {
+            NavigationLink(value: productId) { label }
+        }
+    }
+
+    private var ownedIdentity: HoldingIdentity? {
+        if let identity, store.holding(identity) != nil { return identity }
+        return store.holdings(for: productId).max { ($0.value ?? 0) < ($1.value ?? 0) }?.identity
+    }
+}
