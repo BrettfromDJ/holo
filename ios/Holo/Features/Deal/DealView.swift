@@ -15,6 +15,8 @@ struct DealView: View {
     @State private var customer = false
     @State private var confirming = false
     @State private var ebayItem: DealItem?
+    /// A card in the deal, opened to see its full details in a sheet.
+    @State private var detailItem: DealItem?
 
     private var rates: (in: Double, out: Double) { deals.rates }
     private var defaultRates: (in: Double, out: Double) {
@@ -88,6 +90,19 @@ struct DealView: View {
             .navigationDestination(for: DealRecord.self) { DealRecordDetail(recordId: $0.id) }
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
             .sheet(isPresented: $customer) { CustomerViewSheet(deal: deals.deal, rates: rates, totals: totals) }
+            .sheet(item: $detailItem) { item in
+                // The card's full page (prices, history, eBay sales, graded values) in a sheet,
+                // so the deal stays right where it was underneath.
+                NavigationStack {
+                    ProductDetailView(productId: item.product.id)
+                        .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) { Button("Done") { detailItem = nil } }
+                        }
+                }
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+            }
             .sheet(item: $ebayItem) { item in
                 NavigationStack {
                     ScrollView {
@@ -232,6 +247,7 @@ struct DealView: View {
             ForEach(items) { item in
                 DealItemCard(item: item, incoming: incoming, rate: rate, cost: incoming ? nil : deals.cost(of: item, in: store), accent: accent,
                              tracked: deals.tracked(item, side: side), asksCost: deals.defaults.asksCost,
+                             onOpen: item.product.id.hasPrefix("custom:") ? nil : { detailItem = item },
                              onEbay: { ebayItem = item },
                              onRemove: {
                                  withAnimation(.snappy) {
@@ -709,6 +725,8 @@ private struct DealItemCard: View {
     /// Whether closing records this line in your collection.
     var tracked: Bool
     var asksCost: Bool
+    /// Opens the card's full page in a sheet (nil for custom lines, which have none).
+    var onOpen: (() -> Void)? = nil
     var onEbay: () -> Void
     var onRemove: () -> Void
     var onChange: (DealItem) -> Void
@@ -721,11 +739,22 @@ private struct DealItemCard: View {
         let unit = item.unitPrice(side: rate)
         let total = item.total(side: rate)
         HStack(alignment: .top, spacing: 12) {
-            HoldingArt(product: item.product, identity: nil, cornerRadius: 4, caption: false)
-                .frame(width: 52, height: 72)
+            // Tap the picture or the name to see the card's details (eBay sales and all).
+            Button { onOpen?() } label: {
+                HoldingArt(product: item.product, identity: nil, cornerRadius: 4, caption: false)
+                    .frame(width: 52, height: 72)
+            }
+            .buttonStyle(.plain)
+            .disabled(onOpen == nil)
+            .accessibilityLabel("Details for \(item.product.name)")
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .top, spacing: 8) {
-                    Text(item.product.name).font(.geist(14, .medium)).foregroundStyle(.white).lineLimit(2)
+                    Button { onOpen?() } label: {
+                        Text(item.product.name).font(.geist(14, .medium)).foregroundStyle(.white).lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(onOpen == nil)
                     Spacer(minLength: 0)
                     Button(action: onRemove) {
                         Image(systemName: "trash").font(.system(size: 13, weight: .medium)).foregroundStyle(Theme.subtle)
