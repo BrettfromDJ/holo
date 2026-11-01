@@ -60,16 +60,26 @@ struct RootView: View {
             } else {
                 switch session.state {
                 case .loading:
-                    ProgressView().tint(Theme.lime).frame(maxWidth: .infinity, maxHeight: .infinity).background(Theme.background)
+                    // Restoring the session takes a moment: blank, no spinner.
+                    Theme.background.ignoresSafeArea()
                 case .signedOut:
                     SignInView()
                 case let .signedIn(userId, _):
                     MainTabView()
                         .task(id: userId) {
                             await PushRegistration.refreshIfAllowed()
-                            if let kind = DemoKind.selected { store.loadDemo(kind) } else { await store.load(userId: userId) }
-                            await deals.load(userId: userId)
-                            await groups.load(userId: store.demo == nil ? userId : nil, store: store)
+                            if let kind = DemoKind.selected {
+                                store.loadDemo(kind)
+                                await deals.load(userId: userId)
+                                await groups.load(userId: nil, store: store)
+                            } else {
+                                // Portfolios load alongside, so the selected one applies to the
+                                // collection saved on the phone as soon as it shows.
+                                let portfolios = Task { await groups.load(userId: userId, store: store) }
+                                await store.load(userId: userId)
+                                await portfolios.value
+                                await deals.load(userId: userId)
+                            }
                             await grading.load(userId: store.demo == nil ? userId : nil)
                         }
                 }

@@ -7,6 +7,7 @@ import XCTest
 /// - Sheet open / close and a tap inside a sheet: how long until the next screen is there.
 /// - Idle CPU on Overview and under an open sheet: anything left animating shows up here.
 /// - Scrolling Overview: time and CPU for a few swipes down and back.
+/// - Launch: how long the app takes to open.
 final class PerformanceTests: XCTestCase {
     private func options(_ n: Int = 4) -> XCTMeasureOptions {
         let o = XCTMeasureOptions()
@@ -70,6 +71,15 @@ final class PerformanceTests: XCTestCase {
     func testIdleOverview() {
         let app = launch([])
         measure(metrics: [XCTCPUMetric(application: app)], options: options(3)) { sleep(3) }
+    }
+
+    /// Launch time, cold start to first frame, on the demo (no network: app start only).
+    func testLaunch() {
+        measure(metrics: [XCTApplicationLaunchMetric()], options: options(3)) {
+            let app = XCUIApplication()
+            app.launchArguments = ["-HoloDemo", "-HoloDemoKind", "mixed"]
+            app.launch()
+        }
     }
 
     /// Three swipes down Overview and three back.

@@ -9,6 +9,9 @@ final class CollectionStore {
     enum Status: Equatable { case idle, loading, ready, failed(String) }
 
     var status: Status = .idle
+    /// True once this session's data came from the server; false while the collection on screen
+    /// is the one saved on the phone last time (so milestones wait for fresh figures).
+    private(set) var isFresh = false
     var products: [String: Product] = [:]
     var prices: [String: Price] = [:] { didSet { refreshedCache = nil } }
     var history: [String: [PricePoint]] = [:] { didSet { seriesCache = [:] } }
@@ -61,7 +64,11 @@ final class CollectionStore {
     private var today: String { Format.day() }
 
     func reset() {
+        // Signed out: the collection saved on the phone goes too.
+        SnapshotFile.deleteAll()
         status = .idle
+        isFresh = false
+        monthlyBudget = nil
         products = [:]
         prices = [:]
         history = [:]
@@ -97,11 +104,32 @@ final class CollectionStore {
         return out
     }
 
+    /// Loads your collection. On launch it opens at once on the collection saved on the phone
+    /// last time (if any), then the fresh data replaces it as it arrives: holdings, the log,
+    /// products and current prices first, then the price history (the biggest part) for the
+    /// charts. The value-over-time chart is worked out off the main thread, so the screen shows
+    /// first and the chart fills a moment later.
     @MainActor
     func load(userId: String) async {
+        let wasDemo = demo != nil
+        let sameAccount = self.userId == userId
         self.userId = userId
         demo = nil
-        if status != .ready { status = .loading }
+        // Whether this account's collection is on screen (an earlier load, or the saved copy).
+        var showing = status == .ready && !wasDemo && sameAccount
+        if !showing {
+            isFresh = false
+            if let saved = await SnapshotFile.read(userId: userId) {
+                // Signed out or switched to a demo while reading: drop it.
+                guard self.userId == userId, demo == nil else { return }
+                apply(saved)
+                recompute(timelineSoon: true)
+                status = .ready
+                showing = true
+            }
+        }
+        // A demo or another account's collection on screen is hidden until this one arrives.
+        if !showing { status = .loading }
         do {
             // Everything that doesn't depend on anything else is fetched side by side.
             struct PrefRow: Decodable { var monthly_budget: Double? }
@@ -133,14 +161,13 @@ final class CollectionStore {
                 if let v = h.manual_value, let d = h.manual_value_date { manual[h.identity.key] = ManualValue(value: v, date: d) }
             }
 
-            // Catalog rows for everything you hold or watch, 200 ids at a time: every batch, and
-            // its products, prices and history, all at once rather than one after another.
+            // Catalog rows and current prices for everything you hold or watch, 200 ids at a
+            // time, every batch at once. The price history comes after (below).
             let ids = Array(Set(holdingRows.map(\.product_id) + watchRows.map(\.product_id)))
-            let chunks = stride(from: 0, to: ids.count, by: 200).map { Array(ids[$0..<min($0 + 200, ids.count)]) }
+            let chunks = Self.chunks(ids)
             var products: [String: Product] = [:]
             var prices: [String: Price] = [:]
-            var history: [String: [PricePoint]] = [:]
-            let batches = try await withThrowingTaskGroup(of: ([ProductRow], [PriceRow], [SnapshotRow]).self) { group in
+            let batches = try await withThrowingTaskGroup(of: ([ProductRow], [PriceRow]).self) { group in
                 for chunk in chunks {
                     group.addTask {
                         async let productRows: [ProductRow] = self.all { a, b in
@@ -149,46 +176,122 @@ final class CollectionStore {
                         async let priceRows: [PriceRow] = self.all { a, b in
                             try await self.db.from("product_prices").select().in("product_id", values: chunk).range(from: a, to: b).execute().value
                         }
-                        async let snapRows: [SnapshotRow] = self.all { a, b in
-                            try await self.db.from("price_snapshots").select("product_id,printing,snapshot_date,market_price")
-                                .in("product_id", values: chunk).order("snapshot_date").range(from: a, to: b).execute().value
-                        }
-                        return try await (productRows, priceRows, snapRows)
+                        return try await (productRows, priceRows)
                     }
                 }
-                var results: [([ProductRow], [PriceRow], [SnapshotRow])] = []
+                var results: [([ProductRow], [PriceRow])] = []
                 for try await batch in group { results.append(batch) }
                 return results
             }
-            for (productRows, priceRows, snapRows) in batches {
+            for (productRows, priceRows) in batches {
                 for p in productRows { products[p.id] = p.product }
                 for p in priceRows { prices[priceKey(p.product_id, p.printing.isEmpty ? nil : p.printing)] = p.price }
-                for s in snapRows {
-                    history[priceKey(s.product_id, s.printing.isEmpty ? nil : s.printing), default: []].append(PricePoint(date: s.snapshot_date, price: s.market_price))
-                }
             }
-            // One price per day, in order: duplicate snapshots made the charts' fill fold back.
-            for (key, pts) in history { history[key] = Self.onePerDay(pts) }
             let wishes = await wishLoad
+            let reminderList = await reminderLoad
+            let prefs = await prefLoad
+            // Signed out or switched to a demo meanwhile: this data isn't wanted any more.
+            guard self.userId == userId, demo == nil else { return }
 
             self.holdingRows = holdingRows
             self.transactions = txns
             self.manualValues = manual
             self.products = products
             self.prices = prices
-            self.history = history
             self.watchlist = watchRows
             self.wishlist = wishes ?? []
-            self.reminders = Set(await reminderLoad ?? [])
-            let prefs = await prefLoad
+            self.reminders = Set(reminderList ?? [])
             self.monthlyBudget = prefs?.first?.monthly_budget
-            recompute(timelineNow: true)
+            // The history on hand (the saved copy's, or the last load's) stays until the new one lands.
+            recompute(timelineSoon: true)
             status = .ready
+            isFresh = true
+
+            // The price history, the largest part, last; it rebuilds the chart when it lands.
+            let historyLoad = Task { @MainActor in
+                guard let fresh = try? await self.fetchHistory(ids) else { return }
+                guard self.userId == userId, self.demo == nil else { return }
+                var merged = self.history
+                for (key, points) in fresh { merged[key] = points }
+                self.history = merged
+                self.rebuildTimeline(after: 0)
+            }
             await loadSlabPrices()
             await loadConditionShares()
+            await historyLoad.value
+            // Signed out or switched account meanwhile: don't save a mix under the new account.
+            guard self.userId == userId, demo == nil else { return }
+            saveSnapshot()
         } catch {
-            status = .failed(error.localizedDescription)
+            // Signed out (the load was cancelled) or switched to a demo: nothing to show.
+            guard self.userId == userId, demo == nil else { return }
+            // Keep showing what's on screen (offline, or a refresh that failed); only an empty
+            // screen turns into the error.
+            if !showing { status = .failed(error.localizedDescription) }
         }
+    }
+
+    /// Ids in batches of 200 (the most a request's id list is given).
+    private static func chunks(_ ids: [String]) -> [[String]] {
+        stride(from: 0, to: ids.count, by: 200).map { Array(ids[$0..<min($0 + 200, ids.count)]) }
+    }
+
+    /// Every stored daily price for these products, one per day, in order. Runs off the main thread.
+    private func fetchHistory(_ ids: [String]) async throws -> [String: [PricePoint]] {
+        let chunks = Self.chunks(ids)
+        let batches = try await withThrowingTaskGroup(of: [SnapshotRow].self) { group in
+            for chunk in chunks {
+                group.addTask {
+                    let rows: [SnapshotRow] = try await self.all { a, b in
+                        try await self.db.from("price_snapshots").select("product_id,printing,snapshot_date,market_price")
+                            .in("product_id", values: chunk).order("snapshot_date").range(from: a, to: b).execute().value
+                    }
+                    return rows
+                }
+            }
+            var results: [[SnapshotRow]] = []
+            for try await batch in group { results.append(batch) }
+            return results
+        }
+        var history: [String: [PricePoint]] = [:]
+        for rows in batches {
+            for s in rows {
+                history[priceKey(s.product_id, s.printing.isEmpty ? nil : s.printing), default: []].append(PricePoint(date: s.snapshot_date, price: s.market_price))
+            }
+        }
+        // One price per day, in order: duplicate snapshots made the charts' fill fold back.
+        for (key, pts) in history { history[key] = Self.onePerDay(pts) }
+        return history
+    }
+
+    /// Shows the collection saved on the phone last time.
+    @MainActor
+    private func apply(_ s: CollectionSnapshot) {
+        holdingRows = s.holdingRows
+        manualValues = s.manualValues
+        products = s.products
+        prices = s.prices
+        history = s.history
+        ebayGraded = s.ebayGraded
+        conditionShares = s.conditionShares
+        watchlist = s.watchlist
+        wishlist = s.wishlist
+        reminders = Set(s.reminders)
+        monthlyBudget = s.monthlyBudget
+        transactions = s.transactions
+    }
+
+    /// Saves the collection on the phone (in the background) for the next launch to open on.
+    /// Never in a demo.
+    @MainActor
+    private func saveSnapshot() {
+        guard demo == nil, !Demo.isOn, isFresh, let userId else { return }
+        SnapshotFile.write(CollectionSnapshot(
+            userId: userId, savedAt: Date(), holdingRows: holdingRows, transactions: transactions,
+            manualValues: manualValues, products: products, prices: prices, history: history,
+            ebayGraded: ebayGraded, conditionShares: conditionShares, watchlist: watchlist,
+            wishlist: wishlist, reminders: Array(reminders).sorted(), monthlyBudget: monthlyBudget
+        ))
     }
 
     /// Sorts a price history by day and keeps the last price for each day.

@@ -282,7 +282,7 @@ struct ManualValueUpdate: Codable {
 // MARK: - Shared keys
 
 /// Two units are interchangeable when product, printing, condition and grade all match.
-struct HoldingIdentity: Hashable {
+struct HoldingIdentity: Hashable, Codable {
     var productId: String
     var printing: String?
     var condition: String

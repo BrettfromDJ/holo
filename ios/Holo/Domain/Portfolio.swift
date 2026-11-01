@@ -1,7 +1,7 @@
 import Foundation
 
 /// The owner's own valuation of a graded slab, from a date on.
-struct ManualValue: Hashable {
+struct ManualValue: Hashable, Codable {
     var value: Double
     var date: String
 }

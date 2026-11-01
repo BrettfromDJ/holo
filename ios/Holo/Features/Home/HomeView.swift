@@ -34,7 +34,8 @@ struct HomeView: View {
             ScrollView {
                 switch store.status {
                 case .idle, .loading:
-                    ProgressView().tint(Theme.lime).padding(.top, 160)
+                    // First launch only (later launches open on the saved collection): dim, still shapes.
+                    LoadingPlaceholder(layout: .overview)
                 case let .failed(message):
                     VStack(spacing: 12) {
                         Text("Couldn't load your collection").font(.geist(17, .semibold))
@@ -46,6 +47,8 @@ struct HomeView: View {
                     if store.holdings.isEmpty { empty } else { content }
                 }
             }
+            // No scroll bar beside the placeholder while loading.
+            .scrollIndicators(store.status == .ready ? .automatic : .hidden)
             // A tap on this tab (from anywhere) closes pushed pages and scrolls back to the top.
             .tabTopReset("home", path: $path)
             .background(Theme.background)
@@ -282,9 +285,9 @@ struct HomeView: View {
     }
 
     /// What the milestone check runs on: nil (no check) in a demo, while one portfolio is shown,
-    /// or before the collection is loaded; otherwise it changes with the worth and item count.
+    /// or before the collection is loaded from the server (not the copy saved on the phone); otherwise it changes with the worth and item count.
     private var milestoneTrigger: String? {
-        guard store.status == .ready, store.demo == nil, !Demo.isOn, store.holdingFilter == nil else { return nil }
+        guard store.status == .ready, store.isFresh, store.demo == nil, !Demo.isOn, store.holdingFilter == nil else { return nil }
         return "\(store.summary.value)|\(store.summary.items)"
     }
 

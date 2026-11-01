@@ -125,7 +125,8 @@ struct CollectionView: View {
             ScrollView {
                 switch store.status {
                 case .idle, .loading:
-                    ProgressView().tint(Theme.lime).padding(.top, 160)
+                    // First launch only (later launches open on the saved collection): dim, still shapes.
+                    LoadingPlaceholder(layout: .collection)
                 case let .failed(message):
                     VStack(spacing: 12) {
                         Text("Couldn't load your collection").font(.geist(17, .semibold))
@@ -175,6 +176,8 @@ struct CollectionView: View {
                     .padding(.bottom, 40)
                 }
             }
+            // No scroll bar beside the placeholder while loading.
+            .scrollIndicators(store.status == .ready ? .automatic : .hidden)
             // A tap on this tab (from anywhere) closes pushed pages and scrolls back to the top.
             .tabTopReset("collection", path: $path)
             .background(Theme.background)

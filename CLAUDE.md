@@ -49,7 +49,10 @@ and say exactly what to run or click.
 - **Tapping a card:** one you own opens Owned (`HoldingSheet`) everywhere; one you don't opens
   its card page. Use `CardLink(productId:identity:)` in the app; it decides. Gains lives inside
   Analytics; Overview has a shortcut row (Analytics, Grading, Master sets, Activity).
-- **Loading:** a plain lime spinner (app) and skeleton placeholders (web). No loading animations.
+- **Loading:** no spinners. The app opens on the collection saved on the phone at the last load
+  (`SnapshotFile`, per account, deleted on sign-out; never in a demo) and refreshes it in place;
+  only a first launch with nothing saved shows dim, still placeholders (`LoadingPlaceholder`).
+  The web keeps skeleton placeholders. No loading animations.
 - **Never red or pink text on lime.** If a card's figure is down, the whole card goes pink.
 - No confetti. No emojis. Toasts bottom-right on the web. The "Prices updated" banner is off
   in the app for now; milestone banners are back on (see Open threads).

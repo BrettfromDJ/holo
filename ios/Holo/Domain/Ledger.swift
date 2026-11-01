@@ -1,8 +1,8 @@
 import Foundation
 
 /// One entry in the append-only log. Mirrors the web app's `Transaction`.
-struct Txn: Hashable {
-    enum Kind: String { case purchase, sale, adjustment, correction }
+struct Txn: Hashable, Codable {
+    enum Kind: String, Codable { case purchase, sale, adjustment, correction }
 
     var id: String
     var identity: HoldingIdentity
