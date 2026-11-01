@@ -234,6 +234,8 @@ final class Tilt {
         manager.deviceMotionUpdateInterval = 1 / 30
         manager.startDeviceMotionUpdates(to: .main) { [weak self] motion, _ in
             guard let self, let motion else { return }
+            // Hold still under a sheet: moving cards behind glass make it re-blur every frame.
+            if SheetCover.shared.isOpen { return }
             if self.origin == nil { self.origin = motion.attitude.copy() as? CMAttitude }
             let att = motion.attitude
             if let origin = self.origin { att.multiply(byInverseOf: origin) }
@@ -308,19 +310,38 @@ extension View {
 
 private struct VisibilityChange: ViewModifier {
     var action: (Bool) -> Void
+    @Environment(\.onGlassSheet) private var onGlass
+    @State private var seen = false
+
+    /// Loops run only when seen, not inside a glass sheet, and not under one: anything moving
+    /// behind or on a glass sheet makes iOS redraw its blur every frame, and taps feel slow.
+    private func report() { action(seen && !onGlass && !SheetCover.shared.isOpen) }
 
     func body(content: Content) -> some View {
+        let covered = SheetCover.shared.isOpen
         if #available(iOS 18, *) {
             content
-                .onScrollVisibilityChange(threshold: 0.01) { action($0) }
-                .onAppear { action(true) }
-                .onDisappear { action(false) }
+                .onScrollVisibilityChange(threshold: 0.01) { seen = $0; report() }
+                .onAppear { seen = true; report() }
+                .onDisappear { seen = false; report() }
+                .onChange(of: covered) { _, _ in report() }
         } else {
             content
-                .onAppear { action(true) }
-                .onDisappear { action(false) }
+                .onAppear { seen = true; report() }
+                .onDisappear { seen = false; report() }
+                .onChange(of: covered) { _, _ in report() }
         }
     }
+}
+
+/// How many glass sheets are up. Looping animations pause while any is (see VisibilityChange).
+@Observable
+final class SheetCover {
+    static let shared = SheetCover()
+    private(set) var count = 0
+    var isOpen: Bool { count > 0 }
+    @MainActor func opened() { count += 1 }
+    @MainActor func closed() { count = max(0, count - 1) }
 }
 
 /// Stop a looping animation at once, without animating back.

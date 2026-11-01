@@ -228,6 +228,9 @@ extension View {
         environment(\.onGlassSheet, true)
             .scrollContentBackground(.hidden)
             .nativeGlassSheet()
+            // While it's up, the page behind stops its looping motion (see SheetCover).
+            .onAppear { SheetCover.shared.opened() }
+            .onDisappear { SheetCover.shared.closed() }
     }
 
     /// A panel on a glass sheet: faint white fill, hairline white edge.
