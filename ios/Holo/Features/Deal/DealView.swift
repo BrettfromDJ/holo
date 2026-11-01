@@ -721,14 +721,26 @@ private struct DealItemCard: View {
     @State private var rateText = ""
     @State private var costText = ""
     @State private var showCost = false
+    @Environment(CollectionStore.self) private var store
+
+    /// What this line is, graded or not: a slab coming in carries its grade; a copy going out
+    /// from your collection is that holding. Graded ones show as a slab with a grade tag.
+    private var identity: HoldingIdentity? {
+        if let key = item.holdingKey, let held = store.allHoldings.first(where: { $0.identity.key == key }) { return held.identity }
+        if let g = item.grade {
+            return HoldingIdentity(productId: item.product.id, printing: item.printing, condition: "Near Mint", gradeCompany: g.company, grade: g.grade)
+        }
+        return nil
+    }
 
     var body: some View {
         let unit = item.unitPrice(side: rate)
+        let identity = self.identity
         let total = item.total(side: rate)
         HStack(alignment: .top, spacing: 12) {
             // Tap the picture or the name to see the card's details (eBay sales and all).
             Button { onOpen?() } label: {
-                HoldingArt(product: item.product, identity: nil, cornerRadius: 4, caption: false)
+                HoldingArt(product: item.product, identity: identity, cornerRadius: 4, caption: false)
                     .frame(width: 52, height: 72)
             }
             .buttonStyle(.plain)
@@ -750,6 +762,9 @@ private struct DealItemCard: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel("Remove \(item.product.name)")
                 }
+                if let label = identity?.gradeLabel {
+                    Tag(text: label, tint: Theme.lime).padding(.top, 2).padding(.bottom, 4)
+                }
                 HStack(spacing: 5) {
                     if let market = item.market, let unit, abs(unit - market) > 0.004 {
                         Text(Format.money(market)).strikethrough().foregroundStyle(Theme.subtle)
@@ -762,7 +777,6 @@ private struct DealItemCard: View {
                     } else {
                         Text(subtitle).foregroundStyle(Theme.muted)
                     }
-                    if let g = item.grade { Text("· \(g.company) \(g.grade)").foregroundStyle(Theme.muted) }
                     if item.product.source == "tcgapi" || item.product.source == "sample" {
                         Text("·").foregroundStyle(Theme.muted)
                         Button("eBay sold", action: onEbay).foregroundStyle(.white.opacity(0.85)).buttonStyle(.plain)
