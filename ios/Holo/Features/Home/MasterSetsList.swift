@@ -15,8 +15,9 @@ struct MasterSetsView: View {
     @State private var index: [ExploreSet] = []
     @State private var scope = Scope.mine
     @State private var sort = Sort.progress
+    /// The search, handed over by the field a moment after typing stops (so typing doesn't
+    /// rebuild the deck on every key).
     @State private var query = ""
-    @FocusState private var searchFocused: Bool
     /// How far the page is pulled down past the top; only the deck reads it.
     @State private var fan = DeckFan()
 
@@ -71,7 +72,7 @@ struct MasterSetsView: View {
         let rows = self.rows(owned)
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                header(owned)
+                header(owned, rows: rows)
                 if owned.isEmpty, scope == .mine {
                     VStack(spacing: 10) {
                         Image(systemName: "square.grid.3x3").font(.system(size: 36)).foregroundStyle(Theme.subtle)
@@ -111,8 +112,8 @@ struct MasterSetsView: View {
 
     // MARK: Top
 
-    private func header(_ owned: [MasterSetDetailView.OwnedSet]) -> some View {
-        let rows = self.rows(owned).filter { !$0.holdings.isEmpty }
+    private func header(_ owned: [MasterSetDetailView.OwnedSet], rows all: [Row]) -> some View {
+        let rows = all.filter { !$0.holdings.isEmpty }
         let complete = rows.filter { ($0.ratio ?? 0) >= 1 }.count
         let best = rows.filter { $0.ratio != nil }.max { ($0.ratio ?? 0) < ($1.ratio ?? 0) }
         let cards = owned.reduce(0) { $0 + Set($1.holdings.map(\.identity.productId)).count }
@@ -149,7 +150,7 @@ struct MasterSetsView: View {
     private var controls: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
-                HoloSearchField(text: $query, prompt: "Search sets", focus: $searchFocused)
+                SettledSearchField(prompt: "Search sets", settled: $query, delay: 0.15)
                 Menu {
                     Picker("Sort", selection: $sort) {
                         ForEach(Sort.allCases, id: \.self) { Text($0.rawValue).tag($0) }

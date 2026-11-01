@@ -10,14 +10,36 @@ final class CollectionStore {
 
     var status: Status = .idle
     var products: [String: Product] = [:]
-    var prices: [String: Price] = [:]
+    var prices: [String: Price] = [:] { didSet { refreshedCache = nil } }
     var history: [String: [PricePoint]] = [:] { didSet { seriesCache = [:] } }
     /// What you hold in the selected portfolio (everything when none is picked).
     var holdings: [HoldingView] = []
     /// Everything you hold, whatever portfolio is selected (deals use these).
-    var allHoldings: [HoldingView] = []
+    var allHoldings: [HoldingView] = [] { didSet { indexHoldings() } }
     /// Which holdings the selected portfolio covers, by holding key; nil shows everything.
-    var holdingFilter: ((String) -> Bool)? { didSet { recompute(timelineNow: true) } }
+    /// Switching portfolios (a menu pick) updates holdings and totals at once and rebuilds the
+    /// value-over-time history off the main thread right away, so the menu closes without a hitch.
+    var holdingFilter: ((String) -> Bool)? { didSet { recompute(timelineSoon: true) } }
+
+    /// Where each holding sits in `allHoldings`, by holding key and by product id, so the
+    /// per-row lookups (the Owned sheet, card links, deal rows) don't scan every holding and
+    /// build every key each time.
+    @ObservationIgnored private var holdingIndex: [String: Int] = [:]
+    @ObservationIgnored private var productIndex: [String: [Int]] = [:]
+
+    private func indexHoldings() {
+        var byKey: [String: Int] = [:]
+        var byProduct: [String: [Int]] = [:]
+        byKey.reserveCapacity(allHoldings.count)
+        for (i, h) in allHoldings.enumerated() {
+            let key = h.identity.key
+            // The first match wins, like the `first(where:)` this replaces.
+            if byKey[key] == nil { byKey[key] = i }
+            byProduct[h.identity.productId, default: []].append(i)
+        }
+        holdingIndex = byKey
+        productIndex = byProduct
+    }
     var summary = PortfolioSummary()
     var timeline: [TimelinePoint] = []
     var watchlist: [WatchRow] = []
@@ -56,6 +78,8 @@ final class CollectionStore {
         manualValues = [:]
         conditionShares = [:]
         userId = nil
+        // A history rebuild still running for the old account is dropped when it lands.
+        timelineGeneration += 1
     }
 
     // MARK: Loading
@@ -184,6 +208,8 @@ final class CollectionStore {
     }
 
     @ObservationIgnored private var timelinePending = false
+    /// Goes up with each history rebuild, so an older rebuild that finishes late is dropped.
+    @ObservationIgnored private var timelineGeneration = 0
 
     /// Holdings and totals update at once (screens read them right after a change). The
     /// value-over-time history is the expensive part, so several changes in a row (a deal closing
@@ -200,6 +226,12 @@ final class CollectionStore {
     @ObservationIgnored private var editedCache: Set<String>?
     @ObservationIgnored private var seriesCache: [String: [TimelinePoint]] = [:]
     @ObservationIgnored private var recentCache: [Int: [RecentPurchase]] = [:]
+    /// Each position's entries, newest first, by holding key (built in one pass).
+    @ObservationIgnored private var entriesCache: [String: [Txn]]?
+    /// The newest price refresh (parsing every price's date is slow; Collection reads it on
+    /// every redraw). Outer nil: not worked out yet.
+    @ObservationIgnored private var refreshedCache: Date??
+    @ObservationIgnored private var spentCache: (month: String, value: Double)?
 
     /// The log with corrections applied (cached).
     var effectiveTransactions: [Txn] {
@@ -214,32 +246,48 @@ final class CollectionStore {
         editedCache = nil
         seriesCache = [:]
         recentCache = [:]
+        entriesCache = nil
+        spentCache = nil
     }
 
-    private func recompute(timelineNow: Bool = false) {
+    private func recompute(timelineNow: Bool = false, timelineSoon: Bool = false) {
         clearCaches()
         allHoldings = Portfolio.holdings(transactions: transactions, products: products, prices: prices, manualValues: manualValues, ebayGraded: ebayGraded, conditionShares: conditionShares)
         holdings = holdingFilter.map { f in allHoldings.filter { f($0.identity.key) } } ?? allHoldings
         let realized = Ledger(portfolioTransactions).positions.values.reduce(0) { $0 + $1.realizedGain }
         summary = Portfolio.summary(holdings, realized: realized)
         if timelineNow {
+            timelineGeneration += 1
             timeline = Timeline.compute(transactions: portfolioTransactions, prices: prices, history: history, manualValues: manualValues, ebayGraded: ebayGraded, conditionShares: conditionShares, today: today)
+            return
+        }
+        if timelineSoon {
+            rebuildTimeline(after: 0)
             return
         }
         guard !timelinePending else { return }
         timelinePending = true
+        // Long enough to catch the next write of a batch (they each wait on the network, and
+        // loading brings prices, played-card prices and slab prices one after another).
+        rebuildTimeline(after: 400_000_000)
+    }
+
+    /// The day-by-day replay is the heavy part: do it off the main thread so scrolling, menus
+    /// and animations don't stutter while it runs.
+    private func rebuildTimeline(after delay: UInt64) {
         Task { @MainActor in
-            // Long enough to catch the next write of a batch (they each wait on the network, and
-            // loading brings prices, played-card prices and slab prices one after another).
-            try? await Task.sleep(nanoseconds: 400_000_000)
-            self.timelinePending = false
-            // The day-by-day replay is the heavy part: do it off the main thread so scrolling
-            // and animations don't stutter while it runs.
+            if delay > 0 {
+                try? await Task.sleep(nanoseconds: delay)
+                self.timelinePending = false
+            }
+            self.timelineGeneration += 1
+            let generation = self.timelineGeneration
             let (txns, prices, history, manual, ebay, shares, today) = (self.portfolioTransactions, self.prices, self.history, self.manualValues, self.ebayGraded, self.conditionShares, self.today)
             let result = await Task.detached(priority: .userInitiated) {
                 Timeline.compute(transactions: txns, prices: prices, history: history, manualValues: manual, ebayGraded: ebay, conditionShares: shares, today: today)
             }.value
-            // A newer change may have started another rebuild; that one will land after this.
+            // A newer rebuild started meanwhile: it has newer data and lands after this one.
+            guard generation == self.timelineGeneration else { return }
             self.timeline = result
         }
     }
@@ -299,7 +347,7 @@ final class CollectionStore {
     func showCatalogProduct(_ id: String) async {
         // Once per product per session, even if a search result already put it in `products`
         // (that's just one printing's price; this brings every printing and its history).
-        let owned = allHoldings.contains { $0.identity.productId == id }
+        let owned = !holdings(for: id).isEmpty
         guard !owned, !catalogLoaded.contains(id), let res = try? await Backend.shared.api.catalogProduct(id) else { return }
         catalogLoaded.insert(id)
         let printings = products[id]?.printings
@@ -348,7 +396,7 @@ final class CollectionStore {
             return
         }
         // It may change what your collection was worth on past days.
-        if allHoldings.contains(where: { $0.identity.productId == id }) { recompute() }
+        if !holdings(for: id).isEmpty { recompute() }
     }
 
     /// Keep a search result's product and price so its page opens instantly, even if it isn't stored yet.
@@ -422,9 +470,10 @@ final class CollectionStore {
     /// The holding as it is now: a demo card that has just switched to its real catalog card
     /// is found under its new id.
     func current(_ identity: HoldingIdentity) -> HoldingIdentity {
+        guard holding(identity) == nil else { return identity }
         // A copy whose details you just changed (condition, grade, printing): follow it.
-        if holding(identity) == nil, let moved = renamed[identity.key], moved.key != identity.key { return current(moved) }
-        guard holding(identity) == nil, let real = demoAlias[identity.productId] else { return identity }
+        if let moved = renamed[identity.key], moved.key != identity.key { return current(moved) }
+        guard let real = demoAlias[identity.productId] else { return identity }
         var i = identity
         i.productId = real.id
         i.printing = real.printing
@@ -552,6 +601,15 @@ final class CollectionStore {
 
     /// The newest price refresh across everything you hold.
     var pricesRefreshedAt: Date? {
+        // Read `prices` first so a view showing this still updates when prices change.
+        let prices = self.prices
+        if let hit = refreshedCache { return hit }
+        let latest = Self.newestRefresh(prices)
+        refreshedCache = .some(latest)
+        return latest
+    }
+
+    private static func newestRefresh(_ prices: [String: Price]) -> Date? {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let plain = ISO8601DateFormatter()
@@ -578,8 +636,13 @@ final class CollectionStore {
 
     /// What you spent on purchases this calendar month.
     var spentThisMonth: Double {
+        // Reading `transactions` keeps views showing this updating when the log changes.
+        _ = transactions
         let month = String(Format.day().prefix(7))
-        return effectiveTransactions.filter { $0.kind == .purchase && $0.date.hasPrefix(month) }.reduce(0) { $0 + $1.acquisitionCost }
+        if let hit = spentCache, hit.month == month { return hit.value }
+        let value = effectiveTransactions.filter { $0.kind == .purchase && $0.date.hasPrefix(month) }.reduce(0) { $0 + $1.acquisitionCost }
+        spentCache = (month, value)
+        return value
     }
 
     // MARK: Writing: release reminders
@@ -598,11 +661,19 @@ final class CollectionStore {
 
     /// Copies you hold of one product.
     func holdings(for productId: String) -> [HoldingView] {
-        allHoldings.filter { $0.identity.productId == productId }
+        // Reading `allHoldings` keeps views that call this updating when holdings change.
+        let all = allHoldings
+        guard let at = productIndex[productId] else { return [] }
+        return at.compactMap { $0 < all.count ? all[$0] : nil }
     }
 
-    func holding(_ identity: HoldingIdentity) -> HoldingView? {
-        allHoldings.first { $0.identity.key == identity.key }
+    func holding(_ identity: HoldingIdentity) -> HoldingView? { holding(key: identity.key) }
+
+    /// The copy with this holding key (any portfolio), found without a scan.
+    func holding(key: String) -> HoldingView? {
+        let all = allHoldings
+        guard let i = holdingIndex[key], i < all.count, all[i].identity.key == key else { return nil }
+        return all[i]
     }
 
     /// The Near Mint market price for a product, from the catalog.
@@ -612,7 +683,14 @@ final class CollectionStore {
 
     /// One position's entries as they count now (edits applied, deleted ones gone), newest first.
     func entries(for identity: HoldingIdentity) -> [Txn] {
-        Array(effectiveTransactions.filter { $0.identity.key == identity.key }.reversed())
+        // Reading `transactions` keeps views that call this updating when the log changes.
+        _ = transactions
+        if entriesCache == nil {
+            var byKey: [String: [Txn]] = [:]
+            for t in effectiveTransactions { byKey[t.identity.key, default: []].append(t) }
+            entriesCache = byKey.mapValues { Array($0.reversed()) }
+        }
+        return entriesCache?[identity.key] ?? []
     }
 
     func manualValue(_ identity: HoldingIdentity) -> ManualValue? { manualValues[identity.key] }

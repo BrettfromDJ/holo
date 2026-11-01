@@ -68,7 +68,7 @@ struct WorthPanel: View {
 
     private func load() async {
         guard productId.hasPrefix("tcgapi:") else { return loaded = true }
-        async let sales = try? Backend.shared.api.ebaySales(productId, printing: printing)
+        async let sales = try? EbaySalesCache.sales(productId, printing: printing)
         async let conds = try? Backend.shared.api.conditionPrices(productId, printing: printing)
         let (s, c) = await (sales, conds)
         ebay = s ?? nil

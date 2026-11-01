@@ -33,18 +33,20 @@ struct DealView: View {
     }
 
     /// Equity taken in has gone negative: every lime accent on the page turns pink as a warning.
-    private var warning: Bool {
-        let t = totals
-        return t.kind != .sell && t.kind != .empty && t.inValue > 0 && t.equity < -0.005
+    private static func warning(_ t: DealTotals) -> Bool {
+        t.kind != .sell && t.kind != .empty && t.inValue > 0 && t.equity < -0.005
     }
-
-    private var accent: Color { warning ? Theme.planPink : Theme.lime }
 
     private var todays: [DealRecord] {
         deals.log.filter { Calendar.current.isDateInToday($0.date) }
     }
 
     var body: some View {
+        // The deal's totals, worked out once per change and handed to everything that shows
+        // them (they were recomputed for every number, accent and item card on the page).
+        let totals = self.totals
+        let warning = Self.warning(totals)
+        let accent = warning ? Theme.planPink : Theme.lime
         NavigationStack(path: $path) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 32) {
@@ -55,11 +57,11 @@ struct DealView: View {
                                 .transition(.opacity.combined(with: .move(edge: .top)))
                         }
                         if !todays.isEmpty { TodayStrip(deals: todays) { path.append(DealRoute.history) } }
-                        BalanceCard(totals: totals, roundTo: roundTarget, onRound: roundCash)
+                        BalanceCard(totals: totals, roundTo: roundTarget(totals), onRound: roundCash)
                     }
-                    side(.incoming).reveal()
-                    side(.outgoing).reveal()
-                    photosSection.reveal()
+                    side(.incoming, totals: totals, accent: accent).reveal()
+                    side(.outgoing, totals: totals, accent: accent).reveal()
+                    photosSection(accent: accent).reveal()
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
@@ -86,7 +88,7 @@ struct DealView: View {
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                if deals.deal.kind != .empty { closeBar }
+                if deals.deal.kind != .empty { closeBar(totals, warning: warning) }
             }
             .tabBarClearance()
             .sheet(isPresented: $confirming) { DealCloseSheet() }
@@ -129,7 +131,7 @@ struct DealView: View {
 
     // MARK: Close bar
 
-    private var closeBar: some View {
+    private func closeBar(_ totals: DealTotals, warning: Bool) -> some View {
         VStack(spacing: 8) {
         // The answer, always on screen: who pays and whether you come out ahead.
         HStack(spacing: 6) {
@@ -169,7 +171,7 @@ struct DealView: View {
     // MARK: Rounding the cash
 
     /// The cash rounded to the nearest $5, when it isn't already.
-    private var roundTarget: Double? {
+    private func roundTarget(_ totals: DealTotals) -> Double? {
         let b = totals.balance
         let r = (abs(b) / 5).rounded() * 5
         guard deals.deal.kind != .empty, r >= 5, abs(abs(b) - r) > 0.004 else { return nil }
@@ -179,7 +181,8 @@ struct DealView: View {
     /// Round the cash by nudging the price of the biggest item: one going out if there is one,
     /// else one coming in. It becomes a typed price on that item, so you can see and undo it.
     private func roundCash() {
-        guard let target = roundTarget else { return }
+        let totals = self.totals
+        guard let target = roundTarget(totals) else { return }
         let delta = target - totals.balance
         let r = rates
         withAnimation(.snappy) {
@@ -205,7 +208,7 @@ struct DealView: View {
     // MARK: Photos
 
     /// Photos documenting the deal (the cards on the table, a receipt); they're kept with it when it closes.
-    private var photosSection: some View {
+    private func photosSection(accent: Color) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
@@ -223,7 +226,7 @@ struct DealView: View {
 
     // MARK: A side of the deal
 
-    @ViewBuilder private func side(_ side: DealSide) -> some View {
+    @ViewBuilder private func side(_ side: DealSide, totals: DealTotals, accent: Color) -> some View {
         let incoming = side == .incoming
         let items = incoming ? deals.deal.incoming : deals.deal.outgoing
         let rate = incoming ? rates.in : rates.out

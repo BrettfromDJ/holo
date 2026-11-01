@@ -270,8 +270,14 @@ private struct ScanSweep: View {
                 .offset(y: down ? height / 2 : -height / 2)
                 .frame(maxHeight: .infinity)
                 .allowsHitTesting(false)
-                .onAppear {
-                    withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) { down = true }
+                // Only sweeps while it can be seen: under the review sheet's glass a moving light
+                // makes iOS redraw the blur every frame and the sheet feels slow.
+                .onVisibilityChange { on in
+                    if on {
+                        withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) { down = true }
+                    } else {
+                        stopLoop { down = false }
+                    }
                 }
         }
     }

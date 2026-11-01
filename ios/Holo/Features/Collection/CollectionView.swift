@@ -55,18 +55,60 @@ struct CollectionView: View {
         case value = "Holding value", gain = "Gain", gainPct = "Gain %", day = "Today's move", recent = "Recently added", name = "Name"
     }
 
+    // Filtering, sorting and counting are remembered for the inputs they came from, so a redraw
+    // that changes none of them (tapping a tile, opening a sheet or a menu) doesn't redo them.
+    @State private var shownMemo = CollectionMemo<ShownKey, [HoldingView]>()
+    @State private var countsMemo = CollectionMemo<CountsKey, ChipCounts>()
+    @State private var optionsMemo = CollectionMemo<[HoldingView], FilterOptions>()
+
+    private struct ShownKey: Equatable {
+        var holdings: [HoldingView]
+        var query: String
+        var category: HoldingCategory?
+        var sort: Sort
+        var setFilter: String?
+        var typeFilter: String?
+        var perf: Perf
+        /// The selected shelf's products; nil when no shelf is picked.
+        var shelf: [String]?
+    }
+
+    private struct CountsKey: Equatable {
+        var holdings: [HoldingView]
+        var shelves: [GroupsStore.Shelf]
+    }
+
+    private struct ChipCounts {
+        var categories: [HoldingCategory: Int] = [:]
+        var shelves: [String: Int] = [:]
+    }
+
+    private struct FilterOptions {
+        var sets: [String]
+        var types: [String]
+    }
+
     private var shown: [HoldingView] {
-        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
-        let shelf = groups.shelves.first { $0.id == shelfId }
-        let filtered = store.holdings.filter { h in
-            (shelf == nil || shelf!.product_ids.contains(h.identity.productId)) &&
+        let key = ShownKey(
+            holdings: store.holdings, query: query, category: category, sort: sort, setFilter: setFilter,
+            typeFilter: typeFilter, perf: perf, shelf: groups.shelves.first { $0.id == shelfId }?.product_ids
+        )
+        return shownMemo(key) { Self.filterAndSort(key) }
+    }
+
+    private static func filterAndSort(_ k: ShownKey) -> [HoldingView] {
+        let q = k.query.trimmingCharacters(in: .whitespaces).lowercased()
+        let shelf = k.shelf.map { Set($0) }
+        let category = k.category, setFilter = k.setFilter, typeFilter = k.typeFilter, perf = k.perf
+        let filtered = k.holdings.filter { h in
+            (shelf == nil || shelf!.contains(h.identity.productId)) &&
             (category == nil || h.category == category) &&
             (setFilter == nil || h.product?.setName == setFilter) &&
             (typeFilter == nil || h.product.map(Analytics.category) == typeFilter) &&
             (perf == .all || (perf == .profit ? (h.gain ?? 0) > 0 : (h.gain ?? 0) < 0)) &&
                 (q.isEmpty || (h.product?.name ?? "").lowercased().contains(q) || (h.product?.setName ?? "").lowercased().contains(q))
         }
-        switch sort {
+        switch k.sort {
         case .value: return filtered.sorted { ($0.value ?? -1) > ($1.value ?? -1) }
         case .gain: return filtered.sorted { ($0.gain ?? -.infinity) > ($1.gain ?? -.infinity) }
         case .gainPct: return filtered.sorted { ($0.gainRatio ?? -.infinity) > ($1.gainRatio ?? -.infinity) }
@@ -175,17 +217,33 @@ struct CollectionView: View {
         }
     }
 
+    /// How many holdings each category chip and shelf chip covers (counted once per change).
+    private var chipCounts: ChipCounts {
+        let holdings = store.holdings
+        let shelves = groups.shelves
+        return countsMemo(CountsKey(holdings: holdings, shelves: shelves)) {
+            var counts = ChipCounts()
+            for h in holdings { counts.categories[h.category, default: 0] += 1 }
+            for shelf in shelves {
+                let ids = Set(shelf.product_ids)
+                counts.shelves[shelf.id] = holdings.reduce(0) { $0 + (ids.contains($1.identity.productId) ? 1 : 0) }
+            }
+            return counts
+        }
+    }
+
     /// Category and shelf chips for the track above the grid.
     private var categoryChips: some View {
-        HStack(spacing: 2) {
+        let counts = chipCounts
+        return HStack(spacing: 2) {
             Chip(title: "All", selected: category == nil && shelfId == nil, count: store.holdings.count) { reshuffle { category = nil; shelfId = nil } }
             ForEach(HoldingCategory.allCases) { c in
-                let n = store.holdings.filter { $0.category == c }.count
+                let n = counts.categories[c] ?? 0
                 if n > 0 { Chip(title: c.rawValue, selected: category == c && shelfId == nil, count: n) { reshuffle { category = c; shelfId = nil } } }
             }
             // Your shelves (shared with the website); hold one to rename or delete it.
             ForEach(groups.shelves) { shelf in
-                let n = store.holdings.filter { shelf.product_ids.contains($0.identity.productId) }.count
+                let n = counts.shelves[shelf.id] ?? 0
                 Chip(title: shelf.name, selected: shelfId == shelf.id, count: n) { reshuffle { shelfId = shelf.id; category = nil } }
                     .contextMenu {
                         Button("Delete shelf", role: .destructive) {
@@ -279,7 +337,7 @@ struct CollectionView: View {
 
     /// Category and shelf switches reshuffle the grid with a short spring.
     private func reshuffle(_ change: () -> Void) {
-        if reduceMotion { change() } else { withAnimation(.spring(response: 0.4, dampingFraction: 0.85), change) }
+        if reduceMotion { change() } else { withAnimation(.spring(response: 0.3, dampingFraction: 0.85), change) }
     }
 
     /// A tile's long-press menu: sell, what if, put it on a shelf, open the card page, and the
@@ -431,11 +489,23 @@ struct CollectionView: View {
         return text.prefix(1).uppercased() + text.dropFirst()
     }
 
+    /// The sets and product types you hold, for the filter menu (worked out once per change).
+    private var filterOptions: FilterOptions {
+        let holdings = store.holdings
+        return optionsMemo(holdings) {
+            let sets = Array(Set(holdings.compactMap { $0.product?.setName })).sorted()
+            let present = Set(holdings.compactMap { $0.product.map(Analytics.category) })
+            let types = ["Card", "Booster Box", "Elite Trainer Box", "Ultra Premium Collection", "Booster Bundle", "Collection Box", "Tin", "Booster Pack", "Other Sealed"]
+                .filter { present.contains($0) }
+            return FilterOptions(sets: sets, types: types)
+        }
+    }
+
     /// Filter by set, product type and profit or loss, like the website's filter panel.
     private var filterMenu: some View {
-        let sets = Array(Set(store.holdings.compactMap { $0.product?.setName })).sorted()
-        let types: [String] = ["Card", "Booster Box", "Elite Trainer Box", "Ultra Premium Collection", "Booster Bundle", "Collection Box", "Tin", "Booster Pack", "Other Sealed"]
-            .filter { t in store.holdings.contains { $0.product.map(Analytics.category) == t } }
+        let options = filterOptions
+        let sets = options.sets
+        let types = options.types
         return Menu {
             Picker("Profit", selection: $perf) {
                 ForEach(Perf.allCases, id: \.self) { Text($0.rawValue).tag($0) }
@@ -541,7 +611,7 @@ private struct LiftedPreview<Content: View>: View {
             .background(Theme.background)
             .onAppear {
                 guard !reduceMotion else { return }
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) { lifted = true }
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) { lifted = true }
             }
     }
 }
@@ -689,5 +759,20 @@ private struct BarGlass: ViewModifier {
         } else {
             content.liquidGlass(in: Capsule())
         }
+    }
+}
+
+/// Remembers a value worked out from some inputs and hands it back while the inputs are the
+/// same. Kept in @State (one per view) and not observed, so filling it never causes a redraw.
+private final class CollectionMemo<Key: Equatable, Value> {
+    private var key: Key?
+    private var value: Value?
+
+    func callAsFunction(_ key: Key, _ make: () -> Value) -> Value {
+        if let value, self.key == key { return value }
+        let made = make()
+        self.key = key
+        value = made
+        return made
     }
 }

@@ -36,8 +36,10 @@ struct HoloCard<Content: View>: View {
         if let touch { return touch }
         let t = date.timeIntervalSinceReferenceDate / 9 * 2 * .pi
         let drift = CGPoint(x: sin(t) * 0.45, y: cos(t * 0.8) * 0.35)
+        // Read without observing: the timeline already redraws 30 times a second, so a tilt
+        // update needn't redraw the card a second time in between.
         let tilt = Tilt.shared
-        return CGPoint(x: max(-1, min(1, drift.x + tilt.x * 1.4)), y: max(-1, min(1, drift.y + tilt.y * 1.4)))
+        return CGPoint(x: max(-1, min(1, drift.x + tilt.quietX * 1.4)), y: max(-1, min(1, drift.y + tilt.quietY * 1.4)))
     }
 
     private func card(lean: CGPoint) -> some View {
@@ -154,8 +156,13 @@ extension Product {
     var isFoil: Bool {
         guard !isSealed else { return false }
         let text = "\(rarity ?? "") \(name)"
-        return text.range(of: #"holo|foil|secret|illustration|full art|alternate|alt art|rainbow|gold|hyper|ultra|special|v(max|star)\b|\bex\b|\bgx\b|shiny|prism"#,
-                          options: [.regularExpression, .caseInsensitive]) != nil
+        return Self.foilPattern?.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
     }
+
+    /// Compiled once: tiles ask `isFoil` on every redraw.
+    private static let foilPattern = try? NSRegularExpression(
+        pattern: #"holo|foil|secret|illustration|full art|alternate|alt art|rainbow|gold|hyper|ultra|special|v(max|star)\b|\bex\b|\bgx\b|shiny|prism"#,
+        options: [.caseInsensitive]
+    )
 }
 

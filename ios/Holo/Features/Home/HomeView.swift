@@ -53,7 +53,7 @@ struct HomeView: View {
                         .padding(.horizontal, 16)
                         .padding(.top, 8)
                         .transition(.move(edge: .top).combined(with: .opacity))
-                        .onTapGesture { withAnimation(reduceMotion ? nil : .spring) { self.banner = nil } }
+                        .onTapGesture { withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.85)) { self.banner = nil } }
                 }
             }
             .sensoryFeedback(trigger: bannerTick) { _, _ in banner?.isMilestone == true ? .success : .impact(weight: .light) }
@@ -384,7 +384,12 @@ private struct CardFan: View {
     private func fan(t: Double) -> some View {
         ZStack(alignment: .top) {
             ForEach(Array(holdings.prefix(5).enumerated()).reversed(), id: \.element.id) { pair in
-                FanPiece(holding: pair.element, index: pair.offset, time: t, spread: spread && !reduceMotion ? 1 : 0)
+                // Equatable, so each frame of the clock only moves the bob offset; the piece itself
+                // (its button, picture, shadow and tilt) isn't rebuilt 30 times a second.
+                FanPiece(holding: pair.element, index: pair.offset, spread: spread && !reduceMotion ? 1 : 0)
+                    .equatable()
+                    // The bob is its own offset, so the clock never touches the spread's animation.
+                    .offset(y: FanPiece.bob(index: pair.offset, time: t))
                     .zIndex(Double(10 - pair.offset))
             }
         }
@@ -392,14 +397,17 @@ private struct CardFan: View {
     }
 }
 
-/// One piece of the hero fan at its slot, bobbing with the shared clock.
-private struct FanPiece: View {
+/// One piece of the hero fan at its slot (the fan bobs it with the shared clock).
+private struct FanPiece: View, Equatable {
     @Environment(\.openHolding) private var openHolding
     var holding: HoldingView
     var index: Int
-    var time: Double
     /// 0 at rest, 1 fanned open while refreshing.
     var spread: CGFloat = 0
+
+    static func == (a: FanPiece, b: FanPiece) -> Bool {
+        a.index == b.index && a.spread == b.spread && a.holding == b.holding
+    }
 
     /// The website's fan: sideways step (in card widths), tilt, drop, and scale per position.
     private static let steps: [CGFloat] = [0, -1, 1, -2, 2]
@@ -410,7 +418,7 @@ private struct FanPiece: View {
     private static let height: CGFloat = 148
 
     /// Up 9pt and back every 5.5s, each piece 1.1s out of step.
-    private var bob: CGFloat {
+    static func bob(index: Int, time: Double) -> CGFloat {
         guard time != 0 else { return 0 }
         let phase: Double = (time + Double(index) * 1.1) / 5.5 * 2 * Double.pi
         return CGFloat(-4.5 * (1 - cos(phase)))
@@ -442,8 +450,6 @@ private struct FanPiece: View {
         .scaleEffect(Self.scales[index], anchor: anchor)
         .rotationEffect(.degrees(tilt), anchor: anchor)
         .offset(x: x, y: y)
-        // The bob is its own offset, so the clock never touches the spread's animation.
-        .offset(y: bob)
     }
 }
 
@@ -940,9 +946,12 @@ private struct StarCard: View {
                     RadialGradient(colors: [Theme.lime.opacity(0.16), .clear], center: UnitPoint(x: 0.5, y: 0.25), startRadius: 0, endRadius: 320)
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                // The glow hangs off the card's still background (same shape, so the same glow),
+                // not the whole card: over the spinning border and tilting art it was redrawn
+                // every frame.
+                .shadow(color: Theme.lime.opacity(0.25), radius: 22)
             )
             .overlay(ElectricBorder(radius: 24))
-            .shadow(color: Theme.lime.opacity(0.25), radius: 22)
         }
         .buttonStyle(.plain)
     }
@@ -1252,6 +1261,7 @@ private struct CategoryCard: View {
 
 private struct MoversSection: View {
     @Environment(\.openHolding) private var openHolding
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var holdings: [HoldingView]
     @State private var period = Period.day
     @State private var allUp = false
@@ -1309,7 +1319,7 @@ private struct MoversSection: View {
                     .buttonStyle(.plain)
                 }
                 if rows.count > 3 {
-                    Button(all.wrappedValue ? "Show fewer" : "Show all \(rows.count)") { withAnimation { all.wrappedValue.toggle() } }
+                    Button(all.wrappedValue ? "Show fewer" : "Show all \(rows.count)") { withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.88)) { all.wrappedValue.toggle() } }
                         .font(.geist(14, .medium)).foregroundStyle(Theme.muted)
                 }
             }
@@ -1391,8 +1401,17 @@ private struct RecentSection: View {
                 DispatchQueue.main.async { shown = true }
             }
             .onAppear {
-                if reduceMotion { shown = true; return }
-                withAnimation(.easeOut(duration: 1.6).repeatForever(autoreverses: false)) { pulse = true }
+                if reduceMotion { shown = true }
+            }
+            // The newest dot pulses only while on screen: a forever animation otherwise keeps
+            // Home redrawing every frame, even scrolled away or on another tab.
+            .onVisibilityChange { on in
+                guard !reduceMotion else { return }
+                if on {
+                    withAnimation(.easeOut(duration: 1.6).repeatForever(autoreverses: false)) { pulse = true }
+                } else {
+                    stopLoop { pulse = false }
+                }
             }
         }
     }

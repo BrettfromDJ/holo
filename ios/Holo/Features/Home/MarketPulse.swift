@@ -8,12 +8,14 @@ struct MarketPulse: View {
     @State private var onScreen = true
     @State private var rowWidth: CGFloat = 0
 
-    struct Tick: Identifiable {
+    struct Tick: Identifiable, Equatable {
         var id: String
         var product: Product
         var price: Double
         var change: Double
         var watching: Bool
+        /// The name without its set number or printing, worked out once (not on every frame).
+        var name: String
     }
 
     private var ticks: [Tick] {
@@ -21,15 +23,20 @@ struct MarketPulse: View {
         for h in store.holdings {
             guard let p = h.product, let price = h.price, let pct = h.change24hPct, !h.identity.isGraded else { continue }
             let key = priceKey(h.identity.productId, h.identity.printing)
-            if out[key] == nil { out[key] = Tick(id: key, product: p, price: price, change: pct / 100, watching: false) }
+            if out[key] == nil { out[key] = Tick(id: key, product: p, price: price, change: pct / 100, watching: false, name: "") }
         }
         for w in store.watchlist {
             let key = priceKey(w.product_id, w.printing)
             guard out[key] == nil, let p = store.products[w.product_id], let price = store.prices[key]?.market,
                   let pct = store.prices[key]?.change24hPct else { continue }
-            out[key] = Tick(id: key, product: p, price: price, change: pct / 100, watching: true)
+            out[key] = Tick(id: key, product: p, price: price, change: pct / 100, watching: true, name: "")
         }
-        return Array(out.values.filter { abs($0.change) >= 0.0005 }.sorted { abs($0.change) > abs($1.change) }.prefix(24))
+        return out.values.filter { abs($0.change) >= 0.0005 }.sorted { abs($0.change) > abs($1.change) }.prefix(24)
+            .map { (tick: Tick) -> Tick in
+                var t = tick
+                t.name = Self.shortName(tick.product.name)
+                return t
+            }
     }
 
     var body: some View {
@@ -66,6 +73,7 @@ struct MarketPulse: View {
 
     /// Two copies of the row side by side, slid left by one row's width per loop. The offset is
     /// computed from the clock every frame, so thumbnails that load late move with their row.
+    /// Only the offset changes per frame: the rows are an equatable view SwiftUI skips.
     private func track(_ ticks: [Tick]) -> some View {
         let seconds = max(30, Double(ticks.count) * 5)
         // The moving row sits in an overlay so its width (two copies of every tick) can never
@@ -84,20 +92,37 @@ struct MarketPulse: View {
         TimelineView(.animation(minimumInterval: 1 / 30, paused: reduceMotion || rowWidth == 0 || !onScreen)) { context in
             let t = context.date.timeIntervalSinceReferenceDate
             let shift = reduceMotion || rowWidth == 0 ? 0 : CGFloat(t.truncatingRemainder(dividingBy: seconds) / seconds) * rowWidth
-            HStack(spacing: 0) {
-                row(ticks)
-                    .background(GeometryReader { geo in Color.clear.preference(key: RowWidth.self, value: geo.size.width) })
-                row(ticks)
-            }
-            .fixedSize()
-            .offset(x: -shift)
+            TickerRows(ticks: ticks)
+                .equatable()
+                .offset(x: -shift)
         }
         .onPreferenceChange(RowWidth.self) { rowWidth = $0 }
         // The ticker stops while it's scrolled away or another tab is showing.
         .onVisibilityChange { onScreen = $0 }
     }
 
-    private func row(_ ticks: [Tick]) -> some View {
+    static func shortName(_ name: String) -> String {
+        name.replacingOccurrences(of: #"\s*\(.*?\)\s*"#, with: " ", options: .regularExpression)
+            .replacingOccurrences(of: #"\s+-\s+\d+/\d+$"#, with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespaces)
+    }
+}
+
+/// The ticker's two copies of the row, side by side. Equatable, so the 30-a-second clock that
+/// slides it never rebuilds its links, pictures and labels.
+private struct TickerRows: View, Equatable {
+    var ticks: [MarketPulse.Tick]
+
+    var body: some View {
+        HStack(spacing: 0) {
+            row
+                .background(GeometryReader { geo in Color.clear.preference(key: RowWidth.self, value: geo.size.width) })
+            row
+        }
+        .fixedSize()
+    }
+
+    private var row: some View {
         HStack(spacing: 0) {
             ForEach(ticks) { tick in
                 CardLink(productId: tick.product.id) {
@@ -105,7 +130,7 @@ struct MarketPulse: View {
                         ProductImage(product: tick.product, cornerRadius: 5)
                             .frame(width: 24, height: 24)
                             .background(RoundedRectangle(cornerRadius: 5).fill(Theme.well))
-                        Text(shortName(tick.product.name)).font(.geist(13, .medium)).lineLimit(1).foregroundStyle(.white)
+                        Text(tick.name).font(.geist(13, .medium)).lineLimit(1).foregroundStyle(.white)
                             .frame(maxWidth: 180, alignment: .leading)
                             .fixedSize(horizontal: true, vertical: false)
                         if tick.watching {
@@ -124,12 +149,6 @@ struct MarketPulse: View {
             }
         }
         .fixedSize()
-    }
-
-    private func shortName(_ name: String) -> String {
-        name.replacingOccurrences(of: #"\s*\(.*?\)\s*"#, with: " ", options: .regularExpression)
-            .replacingOccurrences(of: #"\s+-\s+\d+/\d+$"#, with: "", options: .regularExpression)
-            .trimmingCharacters(in: .whitespaces)
     }
 }
 
@@ -151,9 +170,15 @@ private struct LiveDot: View {
             Circle().fill(Theme.up)
         }
         .frame(width: 8, height: 8)
-        .onAppear {
+        // Pings only while on screen: a forever animation otherwise keeps the whole app redrawing
+        // every frame, even scrolled away or on another tab.
+        .onVisibilityChange { on in
             guard !reduceMotion else { return }
-            withAnimation(.easeOut(duration: 1).repeatForever(autoreverses: false)) { ping = true }
+            if on {
+                withAnimation(.easeOut(duration: 1).repeatForever(autoreverses: false)) { ping = true }
+            } else {
+                stopLoop { ping = false }
+            }
         }
     }
 }

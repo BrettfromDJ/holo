@@ -520,17 +520,18 @@ struct FilterBar: View {
     @State private var pricing = false
 
     var body: some View {
+        let facets = Self.facets(items)
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 menu(filters.kind == .all ? "Type" : (filters.kind == .single ? "Cards" : "Sealed"), on: filters.kind != .all) {
                     ForEach(SearchFilters.Kind.allCases, id: \.self) { k in Button(k.rawValue) { filters.kind = k } }
                 }
-                let languages = SearchFilters.facet(items) { SearchFilters.language(of: $0.gameName) }
+                let languages = facets.languages
                 menu(filters.language ?? "Language", on: filters.language != nil) {
                     Button("Any language") { filters.language = nil }
                     ForEach(languages, id: \.value) { l in Button("\(l.value) (\(l.count))") { filters.language = l.value } }
                 }
-                let brands = SearchFilters.facet(items) { SearchFilters.brand(of: $0.gameName) }
+                let brands = facets.brands
                 if brands.count > 1 || filters.brand != nil {
                     menu(filters.brand ?? "Brand", on: filters.brand != nil) {
                         Button("Every brand") { filters.brand = nil }
@@ -552,6 +553,23 @@ struct FilterBar: View {
             .padding(.horizontal, 16)
         }
         .sheet(isPresented: $pricing) { PriceRangeSheet(filters: $filters) }
+    }
+
+    /// The language and brand menus' options with counts (the same as `SearchFilters.facet`),
+    /// counted by catalog first so the name patterns run once per catalog, not once per result.
+    private static func facets(_ items: [SearchHit]) -> (languages: [(value: String, count: Int)], brands: [(value: String, count: Int)]) {
+        var byGame: [String?: Int] = [:]
+        for i in items { byGame[i.gameName, default: 0] += 1 }
+        var languages: [String: Int] = [:]
+        var brands: [String: Int] = [:]
+        for (game, n) in byGame {
+            languages[SearchFilters.language(of: game), default: 0] += n
+            if let b = SearchFilters.brand(of: game) { brands[b, default: 0] += n }
+        }
+        func ranked(_ counts: [String: Int]) -> [(value: String, count: Int)] {
+            counts.map { (value: $0.key, count: $0.value) }.sorted { $0.count != $1.count ? $0.count > $1.count : $0.value < $1.value }
+        }
+        return (ranked(languages), ranked(brands))
     }
 
     private var priceLabel: String {

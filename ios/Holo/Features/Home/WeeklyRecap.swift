@@ -6,13 +6,18 @@ import SwiftUI
 struct WeeklyRecap: View {
     var store: CollectionStore
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var index = 0
     @State private var paused = false
     @State private var progress: CGFloat = 0
 
     private static let slideSeconds: Double = 5.5
 
-    private var slides: [Slide] { Slide.build(store) }
+    /// The slides, built once when the recap opens. Building them replays the ledger, and the
+    /// progress bar redraws this view about 20 times a second, so they must not be rebuilt in
+    /// `body`.
+    @State private var built: [Slide]?
+    private var slides: [Slide] { built ?? Slide.build(store) }
 
     var body: some View {
         let all = slides
@@ -45,7 +50,7 @@ struct WeeklyRecap: View {
                     .id(slide.key)
                     .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .opacity))
                     .frame(maxHeight: .infinity)
-                Text("HOLO").font(.geist(11, .semibold)).tracking(2.2).foregroundStyle(.white.opacity(0.35))
+                Text("LUCENT").font(.geist(11, .semibold)).tracking(2.2).foregroundStyle(.white.opacity(0.35))
             }
             .padding(.horizontal, 28)
             .padding(.top, 12)
@@ -66,6 +71,7 @@ struct WeeklyRecap: View {
                     if value.location.x < width * 0.33 { go(index - 1, of: all.count) } else { go(index + 1, of: all.count) }
                 }
         )
+        .onAppear { if built == nil { built = all } }
         .task(id: index) {
             // Fill this slide's bar, then move on (the last slide waits).
             progress = 0
@@ -76,14 +82,16 @@ struct WeeklyRecap: View {
                 if !paused { progress += 1 / CGFloat(steps) }
                 if progress >= 1 { break }
             }
-            if index < slides.count - 1 { go(index + 1, of: slides.count) }
+            let count = slides.count
+            if index < count - 1 { go(index + 1, of: count) }
         }
         .statusBarHidden()
     }
 
     private func go(_ n: Int, of count: Int) {
         guard n >= 0, n < count else { return }
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) { index = n }
+        // Snappy, so tapping through feels instant.
+        withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.86)) { index = n }
     }
 }
 

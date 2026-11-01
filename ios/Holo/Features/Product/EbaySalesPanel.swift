@@ -63,6 +63,9 @@ struct EbaySalesPanel: View {
     }
 
     @ViewBuilder private func content(_ e: EbaySales) -> some View {
+        // Sorted and filtered once per redraw, not once per use.
+        let labels = self.labels
+        let sales = self.sales
         if !labels.isEmpty {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
@@ -169,7 +172,7 @@ struct EbaySalesPanel: View {
 
     /// "just now", "5m ago", "3h ago", "2d ago", like the website.
     private func relative(_ iso: String) -> String {
-        let date = ISO8601DateFormatter().date(from: iso) ?? Format.isoDay.date(from: String(iso.prefix(10)))
+        let date = ISOTime.plain.date(from: iso) ?? Format.isoDay.date(from: String(iso.prefix(10)))
         guard let date else { return "" }
         let minutes = Int((Date().timeIntervalSince(date) / 60).rounded())
         if minutes < 1 { return "just now" }
@@ -182,11 +185,32 @@ struct EbaySalesPanel: View {
     private func load() async {
         guard productId.hasPrefix("tcgapi:") else { return state = .ready }
         do {
-            ebay = try await Backend.shared.api.ebaySales(productId, printing: printing)
+            ebay = try await EbaySalesCache.sales(productId, printing: printing)
             if let grade, ebay?.graded[grade] != nil { tab = grade }
             state = .ready
         } catch {
             state = .failed
+        }
+    }
+}
+
+/// One eBay request per card and printing, shared by the panels on its page (the sales, graded
+/// prices and worth panels each fetched their own copy) and kept for a few minutes.
+@MainActor
+enum EbaySalesCache {
+    private static var entries: [String: (at: Date, task: Task<EbaySales?, Error>)] = [:]
+
+    static func sales(_ productId: String, printing: String?) async throws -> EbaySales? {
+        let key = "\(productId)|\(printing ?? "")"
+        if let hit = entries[key], Date().timeIntervalSince(hit.at) < 300 { return try await hit.task.value }
+        let task = Task { try await Backend.shared.api.ebaySales(productId, printing: printing) }
+        entries[key] = (Date(), task)
+        do {
+            return try await task.value
+        } catch {
+            // A failed request isn't kept, so the next look tries again.
+            if entries[key]?.task == task { entries[key] = nil }
+            throw error
         }
     }
 }

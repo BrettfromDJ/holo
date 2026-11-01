@@ -5,8 +5,6 @@ import SwiftUI
 /// Percentages are time-weighted: buying and selling never count as performance.
 struct AnalyticsView: View {
     @Environment(CollectionStore.self) private var store
-    @State private var setSort = SetSort.value
-    @State private var rankBy = RankBy.dollar
 
     enum Span: String, CaseIterable {
         case month = "1M", quarter = "3M", year = "1Y", all = "ALL"
@@ -26,7 +24,9 @@ struct AnalyticsView: View {
         let risk = Analytics.risk(timeline)
         let total = s.gain + s.realized
         ScrollView {
-            VStack(alignment: .leading, spacing: 40) {
+            // Lazy, like Home: the charts further down are only built as they scroll near, so the
+            // page pushes in quickly.
+            LazyVStack(alignment: .leading, spacing: 40) {
                 ValueLineHero(label: "Total return", value: total, points: timeline) {
                     HStack(spacing: 8) {
                         if s.totalCost > 0 { DeltaPill(ratio: total / s.totalCost, size: 13) }
@@ -53,9 +53,9 @@ struct AnalyticsView: View {
                 TypeBreakdown(groups: Analytics.byType(holdings)).reveal()
                 Diversification(c: Analytics.concentration(holdings), holdings: holdings).reveal()
                 activity.reveal()
-                sets(holdings).reveal()
-                rank("Best investments", best: true, holdings: holdings, empty: "No holdings are in profit yet.").reveal()
-                rank("Underperformers", best: false, holdings: holdings, empty: "Nothing is below cost. Nice.").reveal()
+                // Each holds its own chips, so flipping one redraws only that section, not the page.
+                SetPerformance(holdings: holdings).reveal()
+                RankSections(holdings: holdings)
                 Text("Performance percentages are time-weighted: daily market returns are chained so that purchases and sales never count as gains. History starts \(timeline.first.map { $0.day.formatted(date: .abbreviated, time: .omitted) } ?? "—").")
                     .font(.geist(12)).foregroundStyle(Theme.subtle)
             }
@@ -116,14 +116,19 @@ struct AnalyticsView: View {
         }
     }
 
-    // MARK: Sets
+}
 
-    private func sets(_ holdings: [HoldingView]) -> some View {
+/// Performance by set, with its own sort chips (so flipping them redraws only this section).
+private struct SetPerformance: View {
+    var holdings: [HoldingView]
+    @State private var setSort = AnalyticsView.SetSort.value
+
+    var body: some View {
         let rows = setSort == .value ? Analytics.bySet(holdings) : Analytics.bySet(holdings).sorted { ($0.ret ?? -.infinity) > ($1.ret ?? -.infinity) }
         let maxShare = max(rows.map(\.share).max() ?? 0, 0.0001)
-        return VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 16) {
             MoreHeading(title: "Performance by set", subtitle: "Share of your value, and how each set has done")
-            ChipPicker(options: [(SetSort.value, "By value"), (.ret, "By return")], selection: $setSort)
+            ChipPicker(options: [(AnalyticsView.SetSort.value, "By value"), (.ret, "By return")], selection: $setSort)
             VStack(spacing: 0) {
                 ForEach(Array(rows.enumerated()), id: \.element.id) { i, r in
                     VStack(alignment: .leading, spacing: 8) {
@@ -147,10 +152,22 @@ struct AnalyticsView: View {
             .surface(radius: 16, padding: 16)
         }
     }
+}
 
-    // MARK: Best and worst
+/// Best investments and underperformers, sharing one $ / % switch (their own state, so flipping
+/// it redraws only these two sections).
+private struct RankSections: View {
+    var holdings: [HoldingView]
+    @State private var rankBy = AnalyticsView.RankBy.dollar
 
-    private func rank(_ heading: String, best: Bool, holdings: [HoldingView], empty: String) -> some View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 40) {
+            rank("Best investments", best: true, empty: "No holdings are in profit yet.").reveal()
+            rank("Underperformers", best: false, empty: "Nothing is below cost. Nice.").reveal()
+        }
+    }
+
+    private func rank(_ heading: String, best: Bool, empty: String) -> some View {
         let key = { (h: HoldingView) in rankBy == .dollar ? (h.gain ?? 0) : (h.gainRatio ?? 0) }
         let priced = holdings.filter { $0.gain != nil }
         let items = best
@@ -159,7 +176,7 @@ struct AnalyticsView: View {
         return VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .center) {
                 MoreHeading(title: heading, subtitle: nil)
-                ChipPicker(options: [(RankBy.dollar, "$"), (.percent, "%")], selection: $rankBy).fixedSize()
+                ChipPicker(options: [(AnalyticsView.RankBy.dollar, "$"), (.percent, "%")], selection: $rankBy).fixedSize()
             }
             VStack(spacing: 0) {
                 if items.isEmpty {
@@ -190,12 +207,39 @@ private struct HistorySection: View {
     @State private var range = AnalyticsView.Span.year
     @State private var mode = AnalyticsView.Mode.value
     @State private var scrubbed: Date?
+    /// The range worked out once per range or timeline change (not on every drag): dates read,
+    /// returns and drawdowns computed, and long ranges thinned to about 180 points.
+    @State private var prepared = Prepared()
 
     private typealias Span = AnalyticsView.Span
     private typealias Mode = AnalyticsView.Mode
 
+    /// One day on the chart, with its date read once.
+    struct Day: Identifiable {
+        var id: Int
+        var date: Date
+        var value: Double
+        var cost: Double
+        var ret: Double
+        var dd: Double
+    }
 
-    var body: some View {
+    struct Prepared {
+        var days: [Day] = []
+        /// Days in the range before thinning.
+        var count = 0
+        var gain = 0.0
+        var twr = 0.0
+        var valueDomain: ClosedRange<Double> = 0 ... 1
+        var retRange: (lo: Double, hi: Double) = (0, 0)
+        var ddRange: (lo: Double, hi: Double) = (0, 0)
+    }
+
+    private var key: String {
+        "\(range.rawValue)-\(timeline.count)-\(timeline.first?.date ?? "")-\(timeline.last?.date ?? "")-\(timeline.last?.value ?? 0)-\(timeline.last?.twrIndex ?? 0)"
+    }
+
+    private func prepare() {
         let slice: [TimelinePoint] = {
             guard let days = range.days, let start = Calendar.current.date(byAdding: .day, value: -days, to: Date()) else { return timeline }
             let from = Format.day(start)
@@ -205,9 +249,46 @@ private struct HistorySection: View {
         let base = slice.first?.twrIndex ?? 1
         let dd = Analytics.drawdowns(slice)
         let rets = slice.map { base > 0 ? $0.twrIndex / base - 1 : 0 }
-        let gain = slice.dropFirst().reduce(0) { $0 + $1.marketGain }
-        let twr = rets.last ?? 0
-        let shownIndex = scrubbed.flatMap { d in slice.firstIndex { Calendar.current.isDate($0.day, inSameDayAs: d) } }
+        var p = Prepared()
+        p.count = slice.count
+        p.gain = slice.dropFirst().reduce(0) { $0 + $1.marketGain }
+        p.twr = rets.last ?? 0
+        p.valueDomain = ChartTicks.domain(slice.map(\.value) + slice.map(\.cost))
+        p.retRange = (rets.min() ?? 0, rets.max() ?? 0)
+        p.ddRange = (dd.min() ?? 0, dd.max() ?? 0)
+        // Thin long ranges, keeping the highs and lows so the line still reaches them.
+        let step = max(1, slice.count / 180)
+        var keep = Set<Int>()
+        if step > 1 {
+            for arr in [slice.map(\.value), rets, dd] {
+                if let i = arr.indices.min(by: { arr[$0] < arr[$1] }) { keep.insert(i) }
+                if let i = arr.indices.max(by: { arr[$0] < arr[$1] }) { keep.insert(i) }
+            }
+        }
+        p.days.reserveCapacity(slice.count / step + keep.count + 2)
+        for i in slice.indices where i % step == 0 || i == slice.count - 1 || keep.contains(i) {
+            let pt = slice[i]
+            p.days.append(Day(id: i, date: pt.day, value: pt.value, cost: pt.cost, ret: rets[i], dd: dd[i]))
+        }
+        prepared = p
+    }
+
+    /// The day nearest the finger: a quick halving search over the sorted days.
+    private var shown: Day? {
+        let days = prepared.days
+        guard let scrubbed, !days.isEmpty else { return nil }
+        var lo = 0, hi = days.count - 1
+        while lo < hi {
+            let mid = (lo + hi) / 2
+            if days[mid].date < scrubbed { lo = mid + 1 } else { hi = mid }
+        }
+        if lo > 0, abs(days[lo - 1].date.timeIntervalSince(scrubbed)) < abs(days[lo].date.timeIntervalSince(scrubbed)) { lo -= 1 }
+        return days[lo]
+    }
+
+    var body: some View {
+        let p = prepared
+        let shown = self.shown
         return VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .center) {
                 MoreHeading(title: "Portfolio history", subtitle: nil)
@@ -227,20 +308,19 @@ private struct HistorySection: View {
             }
             // What the chart says, or the day under your finger.
             Group {
-                if let i = shownIndex {
-                    let p = slice[i]
+                if let d = shown {
                     HStack(spacing: 6) {
                         switch mode {
-                        case .value: Text(Format.money(p.value)).foregroundStyle(.white)
-                        case .ret: Text(Format.signedPercent(rets[i])).foregroundStyle(Theme.tone(rets[i]))
-                        case .drawdown: Text(percent(dd[i], 1)).foregroundStyle(Theme.tone(dd[i]))
+                        case .value: Text(Format.money(d.value)).foregroundStyle(.white)
+                        case .ret: Text(Format.signedPercent(d.ret)).foregroundStyle(Theme.tone(d.ret))
+                        case .drawdown: Text(percent(d.dd, 1)).foregroundStyle(Theme.tone(d.dd))
                         }
-                        Text(p.day.formatted(date: .abbreviated, time: .omitted)).foregroundStyle(Theme.muted)
+                        Text(d.date.formatted(date: .abbreviated, time: .omitted)).foregroundStyle(Theme.muted)
                     }
                 } else {
                     HStack(spacing: 6) {
-                        Text(Format.signedMoney(gain)).foregroundStyle(Theme.tone(gain))
-                        Text("(\(Format.signedPercent(twr)))").foregroundStyle(Theme.tone(twr))
+                        Text(Format.signedMoney(p.gain)).foregroundStyle(Theme.tone(p.gain))
+                        Text("(\(Format.signedPercent(p.twr)))").foregroundStyle(Theme.tone(p.twr))
                         Text(range.phrase).foregroundStyle(Theme.muted)
                     }
                 }
@@ -249,8 +329,8 @@ private struct HistorySection: View {
 
             VStack(alignment: .leading, spacing: 14) {
                 ChipPicker(options: Mode.allCases.map { ($0, $0.rawValue) }, selection: $mode)
-                if slice.count > 1 {
-                    chart(slice, rets: rets, dd: dd, shownIndex: shownIndex)
+                if p.count > 1 {
+                    chart(p, shown: shown)
                     Text(caption).font(.geist(12)).foregroundStyle(Theme.muted)
                 } else {
                     Text("Not enough history yet.").font(.geist(14)).foregroundStyle(Theme.muted).padding(.vertical, 40).frame(maxWidth: .infinity)
@@ -258,6 +338,8 @@ private struct HistorySection: View {
             }
             .surface(radius: 16, padding: 16)
         }
+        // Before the first frame, and again whenever the range or the history changes.
+        .onChange(of: key, initial: true) { _, _ in prepare() }
     }
 
     private var caption: String {
@@ -268,33 +350,41 @@ private struct HistorySection: View {
         }
     }
 
+    private func y(_ d: Day) -> Double {
+        switch mode {
+        case .value: return d.value
+        case .ret: return d.ret
+        case .drawdown: return d.dd
+        }
+    }
+
     @ViewBuilder
-    private func chart(_ slice: [TimelinePoint], rets: [Double], dd: [Double], shownIndex: Int?) -> some View {
-        let values: [Double] = mode == .value ? slice.map(\.value) : mode == .ret ? rets : dd
-        let tint: Color = mode == .value ? Theme.lime : mode == .drawdown ? Theme.down : (rets.last ?? 0) >= 0 ? Theme.up : Theme.down
+    private func chart(_ p: Prepared, shown: Day?) -> some View {
+        let tint: Color = mode == .value ? Theme.lime : mode == .drawdown ? Theme.down : p.twr >= 0 ? Theme.up : Theme.down
         let domain: ClosedRange<Double> = {
-            if mode == .value { return ChartTicks.domain(slice.map(\.value) + slice.map(\.cost)) }
-            let lo = min(values.min() ?? 0, 0)
-            let hi = max(values.max() ?? 0, 0)
+            if mode == .value { return p.valueDomain }
+            let r = mode == .ret ? p.retRange : p.ddRange
+            let lo = min(r.lo, 0)
+            let hi = max(r.hi, 0)
             let pad = max((hi - lo) * 0.12, 0.01)
             return (lo - pad)...(mode == .drawdown ? pad : hi + pad)
         }()
         Chart {
             if mode != .value { RuleMark(y: .value("Zero", 0)).foregroundStyle(Theme.borderStrong) }
-            ForEach(Array(slice.enumerated()), id: \.offset) { i, p in
+            ForEach(p.days) { d in
                 if mode == .value {
-                    LineMark(x: .value("Day", p.day), y: .value("Cost", p.cost), series: .value("Line", "Cost"))
+                    LineMark(x: .value("Day", d.date), y: .value("Cost", d.cost), series: .value("Line", "Cost"))
                         .foregroundStyle(Theme.subtle).lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 4]))
                 }
-                AreaMark(x: .value("Day", p.day), yStart: .value("Base", mode == .value ? domain.lowerBound : 0), yEnd: .value("Y", values[i]))
+                AreaMark(x: .value("Day", d.date), yStart: .value("Base", mode == .value ? domain.lowerBound : 0), yEnd: .value("Y", y(d)))
                     .foregroundStyle(LinearGradient(colors: [tint.opacity(0.28), tint.opacity(0)], startPoint: mode == .drawdown ? .bottom : .top, endPoint: mode == .drawdown ? .top : .bottom))
                     .interpolationMethod(.monotone)
-                LineMark(x: .value("Day", p.day), y: .value("Y", values[i]), series: .value("Line", "Main"))
+                LineMark(x: .value("Day", d.date), y: .value("Y", y(d)), series: .value("Line", "Main"))
                     .foregroundStyle(tint).lineStyle(StrokeStyle(lineWidth: 2.5)).interpolationMethod(.monotone)
             }
-            if let i = shownIndex {
-                RuleMark(x: .value("Day", slice[i].day)).foregroundStyle(.white.opacity(0.3))
-                PointMark(x: .value("Day", slice[i].day), y: .value("Y", values[i])).foregroundStyle(tint).symbolSize(80)
+            if let d = shown {
+                RuleMark(x: .value("Day", d.date)).foregroundStyle(.white.opacity(0.3))
+                PointMark(x: .value("Day", d.date), y: .value("Y", y(d))).foregroundStyle(tint).symbolSize(80)
             }
         }
         .chartXAxis(.hidden)
@@ -304,7 +394,7 @@ private struct HistorySection: View {
         .chartXSelection(value: $scrubbed)
         .frame(height: 240)
         .drawIn(replay: "\(mode.rawValue)\(range.rawValue)")
-        .sensoryFeedback(.selection, trigger: shownIndex)
+        .sensoryFeedback(.selection, trigger: shown?.id)
     }
 
 }
@@ -449,10 +539,13 @@ private struct ReturnVsTime: View {
                     let lo = min(points.map(\.ret).min() ?? 0, 0)
                     let hi = max(points.map(\.ret).max() ?? 0, 0)
                     let pad = max((hi - lo) * 0.18, 0.1)
-                    Chart(points) { p in
-                        PointMark(x: .value("Days held", Double(p.days)), y: .value("Return", p.ret))
-                            .foregroundStyle((p.ret >= 0 ? Theme.up : Theme.down).opacity(0.85))
-                            .symbolSize(30 + min(260, p.value / 4))
+                    Chart {
+                        ForEach(points) { p in
+                            PointMark(x: .value("Days held", Double(p.days)), y: .value("Return", p.ret))
+                                .foregroundStyle((p.ret >= 0 ? Theme.up : Theme.down).opacity(0.85))
+                                .symbolSize(30 + min(260, p.value / 4))
+                        }
+                        // One zero line over the dots (it used to be drawn once per holding).
                         RuleMark(y: .value("Zero", 0)).foregroundStyle(Theme.borderStrong)
                     }
                     .chartXScale(domain: (-maxDays * 0.08)...(maxDays * 1.08 + 1))

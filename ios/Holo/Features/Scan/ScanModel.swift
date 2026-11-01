@@ -48,10 +48,15 @@ final class ScanModel {
 
     @MainActor
     func add(photo: Data) {
-        var e = Entry(photo: photo)
-        e.thumbnail = UIImage(data: photo)?.preparingThumbnail(of: CGSize(width: 96, height: 128))
+        let e = Entry(photo: photo)
         entries.insert(e, at: 0)
         pump()
+        // The strip's thumbnail is decoded off the main thread, so the shutter never stutters.
+        let id = e.id
+        Task {
+            let thumb = await UIImage(data: photo)?.byPreparingThumbnail(ofSize: CGSize(width: 96, height: 128))
+            if let i = entries.firstIndex(where: { $0.id == id }) { entries[i].thumbnail = thumb }
+        }
     }
 
     @MainActor

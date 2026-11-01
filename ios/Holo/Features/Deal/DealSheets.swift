@@ -28,6 +28,8 @@ struct DealPickerSheet: View {
     var body: some View { sheetBody.presentationDetents([.fraction(0.93)]).glassSheet() }
 
     @ViewBuilder private var sheetBody: some View {
+        // Filtered once per keystroke, not once per use.
+        let owned = self.owned
         NavigationStack {
             GlassList {
                 Section {
@@ -83,6 +85,8 @@ struct DealPickerSheet: View {
                 }
             }
             .scrollContentBackground(.hidden)
+            // Thumbnails, decoded off the main thread (a sheet doesn't get the Deal page's setting).
+            .imageMaxPixel(360)
             .safeAreaInset(edge: .top, spacing: 0) {
                 HoloSearchField(text: $query, prompt: side == .incoming ? "Search any card or product" : "Search your inventory or any card",
                                 focus: $focused, loading: searching)

@@ -54,13 +54,19 @@ enum Format {
 
     static func day(_ date: Date = Date()) -> String { isoDay.string(from: date) }
 
+    /// ISO 8601 parsers, made once: a formatter is slow to create and `priceAge` runs in list rows.
+    private static let isoFractional: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+    private static let isoPlain = ISO8601DateFormatter()
+
     /// "3d old" for a price last updated more than a day and a half ago (nil when it's current),
     /// so an older price is never mistaken for today's.
     static func priceAge(_ iso: String?) -> String? {
         guard let iso else { return nil }
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        guard let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return nil }
+        guard let date = isoFractional.date(from: iso) ?? isoPlain.date(from: iso) else { return nil }
         let hours = Date().timeIntervalSince(date) / 3600
         guard hours > 36 else { return nil }
         let days = Int((hours / 24).rounded())

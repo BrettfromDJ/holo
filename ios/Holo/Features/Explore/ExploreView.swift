@@ -9,13 +9,16 @@ struct ExploreView: View {
     @State private var searchOpen = false
     @State private var path = NavigationPath()
 
-    private var today: String { Format.day() }
+    // `today` is read once per list, not once per set: formatting a date is slow and the
+    // catalog has many sets.
     private var upcoming: [ExploreSet] {
-        (index?.sets ?? []).filter { ($0.releaseDate ?? "") >= today }.sorted { ($0.releaseDate ?? "") < ($1.releaseDate ?? "") }
+        let today = Format.day()
+        return (index?.sets ?? []).filter { ($0.releaseDate ?? "") >= today }.sorted { ($0.releaseDate ?? "") < ($1.releaseDate ?? "") }
     }
 
     private var recent: [ExploreSet] {
-        (index?.sets ?? []).filter { ($0.releaseDate ?? "") < today }.sorted { ($0.releaseDate ?? "") > ($1.releaseDate ?? "") }
+        let today = Format.day()
+        return (index?.sets ?? []).filter { ($0.releaseDate ?? "") < today }.sorted { ($0.releaseDate ?? "") > ($1.releaseDate ?? "") }
     }
 
     var body: some View {
@@ -49,6 +52,9 @@ struct ExploreView: View {
         if let failed {
             Text(failed).font(.geist(14)).foregroundStyle(Theme.muted).padding(32)
         } else if let index {
+            // Filtered and sorted once per redraw, not once per use.
+            let upcoming = self.upcoming
+            let recent = self.recent
             VStack(alignment: .leading, spacing: 40) {
                 CatalogHero(index: index, next: upcoming.first)
                 if upcoming.count > 1 {
@@ -162,7 +168,6 @@ private struct BrandView: View {
     var sets: [ExploreSet]
     @State private var loadedOnly = false
 
-    private var today: String { Format.day() }
     private var years: [(year: String, sets: [ExploreSet])] {
         let shown = loadedOnly ? sets.filter(\.loaded) : sets
         let grouped = Dictionary(grouping: shown) { $0.releaseDate.map { String($0.prefix(4)) } ?? "Undated" }
@@ -172,10 +177,12 @@ private struct BrandView: View {
     }
 
     private var next: ExploreSet? {
-        sets.filter { ($0.releaseDate ?? "") >= today }.min { ($0.releaseDate ?? "") < ($1.releaseDate ?? "") }
+        let today = Format.day()
+        return sets.filter { ($0.releaseDate ?? "") >= today }.min { ($0.releaseDate ?? "") < ($1.releaseDate ?? "") }
     }
 
     var body: some View {
+        let today = Format.day()
         ScrollView {
             VStack(alignment: .leading, spacing: 36) {
                 hero
@@ -248,6 +255,8 @@ private struct SetView: View {
     @State private var failed = false
     @State private var tab = SetTab.singles
     @State private var sort = Sort.price
+    /// What the page works out from the set's products, once when it loads (see `SetDerived`).
+    @State private var derived: SetDerived?
 
     enum SetTab { case singles, sealed }
 
@@ -260,60 +269,42 @@ private struct SetView: View {
 
     private var info: ExploreSet { detail?.set ?? set }
     private var products: [SearchHit] { detail?.products ?? [] }
-    private var singles: [SearchHit] { products.filter { !$0.product.isSealed } }
-    private var sealed: [SearchHit] { products.filter(\.product.isSealed) }
-    private var ownedIds: Set<String> { Set(store.holdings.map(\.identity.productId)) }
-    private var ownedCount: Int { products.filter { ownedIds.contains($0.product.id) }.count }
-
-    private func perPack(_ hit: SearchHit) -> Double? {
-        Packs.perPack(hit.market, Packs.count(hit.product, gameSlug: info.gameSlug))
-    }
-
-    private var list: [SearchHit] {
-        let items = tab == .singles ? singles : sealed
-        let by: Sort = tab == .singles && sort == .perPack ? .price : sort
-        switch by {
-        case .price: return items.sorted { ($0.market ?? -1) > ($1.market ?? -1) }
-        case .perPack: return items.sorted { (perPack($0) ?? .infinity) < (perPack($1) ?? .infinity) }
-        case .number:
-            return items.sorted { a, b in
-                guard let x = a.product.number else { return false }
-                guard let y = b.product.number else { return true }
-                return x.localizedStandardCompare(y) == .orderedAscending
-            }
-        case .name: return items.sorted { $0.product.name.localizedStandardCompare($1.product.name) == .orderedAscending }
-        }
-    }
+    private var singles: [SearchHit] { derived?.singles ?? [] }
+    private var sealed: [SearchHit] { derived?.sealed ?? [] }
 
     var body: some View {
+        // Which products you own: built once per redraw (it used to be rebuilt for every tile).
+        let ownedIds = Set(store.holdings.map(\.identity.productId))
+        let products = self.products
+        let ownedCount = products.filter { ownedIds.contains($0.product.id) }.count
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
                 SetHero(set: info, productCount: products.count, ownedCount: ownedCount,
-                        updatedAt: products.compactMap(\.priceUpdatedAt).max())
+                        updatedAt: derived?.updatedAt)
                     .padding(.bottom, 30)
                 if detail == nil && !failed {
                     SkeletonGrid()
                 } else if products.isEmpty {
                     emptyNote
-                } else {
+                } else if let derived {
                     VStack(alignment: .leading, spacing: 36) {
                         HStack(spacing: 8) {
                             StatTile(label: "Singles", value: Double(singles.count))
                             StatTile(label: "Sealed", value: Double(sealed.count))
                             if !singles.isEmpty {
-                                StatTile(label: "Set value", value: singles.compactMap(\.market).reduce(0, +), money: true)
+                                StatTile(label: "Set value", value: derived.setValue, money: true)
                             }
                         }
                         .padding(.horizontal, 16)
                         if ownedCount > 0 {
                             OwnedProgress(owned: ownedCount, total: products.count).padding(.horizontal, 16).reveal()
                         }
-                        chase
-                        packs
+                        chase(derived, ownedIds: ownedIds)
+                        packs(derived)
                     }
                     .padding(.bottom, 36)
                     Section {
-                        grid
+                        grid(derived, ownedIds: ownedIds)
                     } header: {
                         controls
                     }
@@ -332,10 +323,16 @@ private struct SetView: View {
 
     private func load() async {
         guard detail == nil else { return }
+        var loaded: ExploreSetDetail?
         if Demo.isOn {
-            detail = DemoData.exploreSet(set.slug) ?? ExploreSetDetail(set: set, products: [])
+            loaded = DemoData.exploreSet(set.slug) ?? ExploreSetDetail(set: set, products: [])
         } else {
-            do { detail = try await Backend.shared.api.exploreSet(set.slug) } catch { failed = true }
+            do { loaded = try await Backend.shared.api.exploreSet(set.slug) } catch { failed = true }
+        }
+        if let loaded {
+            // Worked out before the page shows the products, so the first redraw has it.
+            derived = SetDerived(products: loaded.products, gameSlug: loaded.set.gameSlug)
+            detail = loaded
         }
         // Open on whichever tab has products.
         if singles.isEmpty && !sealed.isEmpty { tab = .sealed }
@@ -359,10 +356,8 @@ private struct SetView: View {
 
     // MARK: Chase cards
 
-    @ViewBuilder private var chase: some View {
-        // Cards only: the catalog sometimes files a box or pack as a single, so leave out
-        // anything named or typed like sealed product too.
-        let top = Array(singles.filter { $0.market != nil && !Self.looksSealed($0.product) }.sorted { ($0.market ?? 0) > ($1.market ?? 0) }.prefix(10))
+    @ViewBuilder private func chase(_ derived: SetDerived, ownedIds: Set<String>) -> some View {
+        let top = derived.chase
         if let first = top.first {
             VStack(alignment: .leading, spacing: 14) {
                 PageHeader(title: "Chase cards", subtitle: "The most valuable singles in this set", size: 22).padding(.horizontal, 16)
@@ -384,7 +379,7 @@ private struct SetView: View {
         }
     }
 
-    private static func looksSealed(_ p: Product) -> Bool {
+    nonisolated static func looksSealed(_ p: Product) -> Bool {
         let text = "\(p.name) \(p.productType ?? "")".lowercased()
         return text.range(of: #"\b(booster|box|bundle|pack|tin|collection|display|case|blister|deck|kit|trainer box|etb|starter)\b"#,
                           options: .regularExpression) != nil
@@ -392,8 +387,8 @@ private struct SetView: View {
 
     // MARK: Best value per pack
 
-    @ViewBuilder private var packs: some View {
-        let priced = sealed.compactMap { h in perPack(h).map { (hit: h, per: $0) } }.sorted { $0.per < $1.per }
+    @ViewBuilder private func packs(_ derived: SetDerived) -> some View {
+        let priced = derived.packs
         if !priced.isEmpty {
             VStack(alignment: .leading, spacing: 14) {
                 PageHeader(title: "Best value", subtitle: "Sealed by price per pack", size: 22).padding(.horizontal, 16)
@@ -443,8 +438,8 @@ private struct SetView: View {
         withAnimation(.snappy(duration: 0.3)) { tab = t }
     }
 
-    private var grid: some View {
-        let shown = list
+    private func grid(_ derived: SetDerived, ownedIds: Set<String>) -> some View {
+        let shown = derived.list(tab, sort)
         let by: Sort = tab == .singles && sort == .perPack ? .price : sort
         return VStack(alignment: .leading, spacing: 14) {
             MonoLabel(text: "\(shown.count) \(tab == .singles ? "singles" : "sealed") · \(by.rawValue)")
@@ -456,7 +451,7 @@ private struct SetView: View {
             LazyVGrid(columns: twoColumns, alignment: .leading, spacing: 28) {
                 ForEach(shown) { hit in
                     link(hit) {
-                        SetProductTile(hit: hit, owned: ownedIds.contains(hit.product.id), perPack: tab == .sealed ? perPack(hit) : nil)
+                        SetProductTile(hit: hit, owned: ownedIds.contains(hit.product.id), perPack: tab == .sealed ? derived.perPack[hit.id] : nil)
                     }
                 }
             }
@@ -471,6 +466,64 @@ private struct SetView: View {
         CardLink(productId: hit.product.id) { label() }
             .buttonStyle(.plain)
             .simultaneousGesture(TapGesture().onEnded { store.seed(hit) })
+    }
+}
+
+/// Everything a set's page works out from its products, once when the set loads (and each sort
+/// once, on first use), so a tab, sort or reminder tap doesn't refilter and re-sort the whole
+/// set or re-run the pack-count patterns over every sealed product. A reference type held in
+/// `@State`, so filling its sort cache never redraws the page.
+private final class SetDerived {
+    let singles: [SearchHit]
+    let sealed: [SearchHit]
+    /// Price per pack, by product id (sealed products with a known pack count and price).
+    let perPack: [String: Double]
+    /// The most valuable singles, top ten.
+    let chase: [SearchHit]
+    /// Sealed products by price per pack, cheapest first.
+    let packs: [(hit: SearchHit, per: Double)]
+    let setValue: Double
+    let updatedAt: String?
+    private var sorted: [String: [SearchHit]] = [:]
+
+    init(products: [SearchHit], gameSlug: String?) {
+        let singles = products.filter { !$0.product.isSealed }
+        let sealed = products.filter(\.product.isSealed)
+        var perPack: [String: Double] = [:]
+        for hit in sealed {
+            if let per = Packs.perPack(hit.market, Packs.count(hit.product, gameSlug: gameSlug)) { perPack[hit.id] = per }
+        }
+        self.singles = singles
+        self.sealed = sealed
+        self.perPack = perPack
+        // Cards only: the catalog sometimes files a box or pack as a single, so leave out
+        // anything named or typed like sealed product too.
+        chase = Array(singles.filter { $0.market != nil && !SetView.looksSealed($0.product) }.sorted { ($0.market ?? 0) > ($1.market ?? 0) }.prefix(10))
+        packs = sealed.compactMap { h in perPack[h.id].map { (hit: h, per: $0) } }.sorted { $0.per < $1.per }
+        setValue = singles.compactMap(\.market).reduce(0, +)
+        updatedAt = products.compactMap(\.priceUpdatedAt).max()
+    }
+
+    /// A tab's products in the chosen order (singles have no per-pack order: by price instead).
+    func list(_ tab: SetView.SetTab, _ sort: SetView.Sort) -> [SearchHit] {
+        let by: SetView.Sort = tab == .singles && sort == .perPack ? .price : sort
+        let key = "\(tab == .singles ? "singles" : "sealed")|\(by.rawValue)"
+        if let hit = sorted[key] { return hit }
+        let items = tab == .singles ? singles : sealed
+        let list: [SearchHit]
+        switch by {
+        case .price: list = items.sorted { ($0.market ?? -1) > ($1.market ?? -1) }
+        case .perPack: list = items.sorted { (perPack[$0.id] ?? .infinity) < (perPack[$1.id] ?? .infinity) }
+        case .number:
+            list = items.sorted { a, b in
+                guard let x = a.product.number else { return false }
+                guard let y = b.product.number else { return true }
+                return x.localizedStandardCompare(y) == .orderedAscending
+            }
+        case .name: list = items.sorted { $0.product.name.localizedStandardCompare($1.product.name) == .orderedAscending }
+        }
+        sorted[key] = list
+        return list
     }
 }
 
@@ -516,8 +569,9 @@ private struct SetHero: View {
                 .aspectRatio(3.0 / 2.0, contentMode: .fit)
                 .overlay { CachedImage(url: banner) { img in img.resizable().scaledToFill() } placeholder: { Theme.well } }
                 .clipShape(shape)
-                .overlay(ElectricBorder(radius: 22))
+                // Glow first, then the spinning border, so the glow isn't redrawn every frame.
                 .shadow(color: Theme.lime.opacity(0.22), radius: 22)
+                .overlay(ElectricBorder(radius: 22))
                 .tiltCard(4, cornerRadius: 22)
         } else if let sample = set.imageUrl.flatMap(URL.init(string:)) {
             ZStack {
@@ -648,8 +702,9 @@ private struct TopChase: View {
             }
             .clipShape(shape)
         }
-        .overlay(ElectricBorder(radius: 22))
+        // Glow first, then the spinning border, so the glow isn't redrawn every frame.
         .shadow(color: Theme.lime.opacity(0.18), radius: 18)
+        .overlay(ElectricBorder(radius: 22))
     }
 }
 
@@ -784,23 +839,27 @@ struct ReleaseCalendarView: View {
     var sets: [ExploreSet]
     @Environment(CollectionStore.self) private var store
 
-    private var today: String { Format.day() }
     private var upcoming: [ExploreSet] {
-        sets.filter { ($0.releaseDate ?? "") >= today }.sorted { ($0.releaseDate ?? "") < ($1.releaseDate ?? "") }
+        let today = Format.day()
+        return sets.filter { ($0.releaseDate ?? "") >= today }.sorted { ($0.releaseDate ?? "") < ($1.releaseDate ?? "") }
     }
 
-    private var months: [(month: String, sets: [ExploreSet])] {
+    private func months(_ upcoming: [ExploreSet]) -> [(month: String, sets: [ExploreSet])] {
         let grouped = Dictionary(grouping: upcoming) { String(($0.releaseDate ?? "").prefix(7)) }
         return grouped.keys.sorted().map { ($0, grouped[$0]!) }
     }
 
     private var recent: [ExploreSet] {
+        let today = Format.day()
         let since = Format.day(Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date())
         return sets.filter { let d = $0.releaseDate ?? ""; return d < today && d >= since }.sorted { ($0.releaseDate ?? "") > ($1.releaseDate ?? "") }
     }
 
     var body: some View {
         let soon = Format.day(Calendar.current.date(byAdding: .day, value: 30, to: Date()) ?? Date())
+        // Filtered and sorted once per redraw, not once per use.
+        let upcoming = self.upcoming
+        let recent = self.recent
         ScrollView {
             VStack(alignment: .leading, spacing: 36) {
                 VStack(alignment: .leading, spacing: 22) {
@@ -817,7 +876,7 @@ struct ReleaseCalendarView: View {
                 if upcoming.isEmpty {
                     Text("No upcoming releases in the catalog yet.").font(.geist(14)).foregroundStyle(Theme.muted).padding(.horizontal, 16)
                 }
-                ForEach(months, id: \.month) { group in
+                ForEach(months(upcoming), id: \.month) { group in
                     section(monthTitle(group.month), group.sets, upcoming: true)
                 }
                 if !recent.isEmpty {
@@ -1016,9 +1075,7 @@ struct SetArt: View {
 /// "3h ago" from an ISO timestamp.
 private func agoText(_ iso: String?) -> String? {
     guard let iso else { return nil }
-    let f = ISO8601DateFormatter()
-    f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    guard let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return nil }
+    guard let date = ISOTime.fractional.date(from: iso) ?? ISOTime.plain.date(from: iso) else { return nil }
     let minutes = max(0, Int(Date().timeIntervalSince(date) / 60))
     if minutes < 60 { return "\(minutes)m ago" }
     let hours = minutes / 60
@@ -1156,8 +1213,10 @@ private struct NextRelease: View {
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
             }
-            .overlay(ElectricBorder(radius: 22))
+            // The glow is cast before the spinning border goes on, so it's drawn once instead of
+            // every frame the bolt moves (the border sits inside the card, so it looks the same).
             .shadow(color: Theme.lime.opacity(0.2), radius: 18)
+            .overlay(ElectricBorder(radius: 22))
         }
         .buttonStyle(.plain)
     }

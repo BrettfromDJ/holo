@@ -61,7 +61,7 @@ struct BumperSheet: View {
                         Slab(product: holding.product, company: company, grade: grade, bumper: Bumper.byId(pick))
                             .frame(height: 260)
                             .frame(maxWidth: .infinity)
-                            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: pick)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: pick)
                     }
                     group(.glitter, "Glitter")
                     group(.solid, "Solid")

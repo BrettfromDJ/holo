@@ -37,10 +37,12 @@ struct RarityBadge: View {
             .frame(height: 24)
             .background(shape.fill(fill))
             .overlay(shape.strokeBorder(border, lineWidth: tier == .common || tier == .rare ? 1 : 1.2))
+            // The glow comes before the sheen, so the sweeping band doesn't re-render a shadow
+            // every frame.
+            .shadow(color: glow.opacity(0.45), radius: glowRadius)
             .overlay {
                 if shines { Sheen(strength: 0.55).clipShape(shape) }
             }
-            .shadow(color: glow.opacity(0.45), radius: glowRadius)
     }
 
     private var shines: Bool { [.specialIllustration, .gold, .shiny, .amazing, .ultra].contains(tier) }

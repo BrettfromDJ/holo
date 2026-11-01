@@ -32,18 +32,22 @@ struct HoloTabBar<Tab: Hashable>: View {
                     .font(.system(size: 26, weight: .medium))
                     .foregroundStyle(Theme.ink)
                     .rotationEffect(.degrees(plusOpen ? 135 : 0))
-                    .animation(.spring(response: 0.4, dampingFraction: 0.65), value: plusOpen)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.68), value: plusOpen)
                     .frame(width: 64, height: 64)
                     .background(
                         ZStack {
-                            Circle().fill(Theme.limeEdge).offset(y: 4)
-                            Circle().fill(Theme.lime)
-                            Circle().fill(LinearGradient(colors: [.white.opacity(0.25), .clear], startPoint: .top, endPoint: .center))
+                            // The glow is cast by the still button only. It used to include the
+                            // sweeping sheen, which re-rendered the shadow on every frame.
+                            ZStack {
+                                Circle().fill(Theme.limeEdge).offset(y: 4)
+                                Circle().fill(Theme.lime)
+                                Circle().fill(LinearGradient(colors: [.white.opacity(0.25), .clear], startPoint: .top, endPoint: .center))
+                            }
+                            .compositingGroup()
+                            .shadow(color: Theme.lime.opacity(0.4), radius: 12, y: 2)
                             Sheen(strength: 0.6).clipShape(Circle())
                         }
-                        .compositingGroup()
                     )
-                    .shadow(color: Theme.lime.opacity(0.4), radius: 12, y: 2)
             }
             .accessibilityLabel(plusOpen ? "Close" : "Add")
             .offset(y: -18)

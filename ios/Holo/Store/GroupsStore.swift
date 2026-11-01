@@ -29,6 +29,15 @@ final class GroupsStore {
     var error: String?
     private var userId: String?
     private var loadedFor: String?
+    /// The filter last handed to the collection. Setting it again rebuilds every holding and
+    /// the value history, so an unchanged filter isn't set again.
+    @ObservationIgnored private var applied: Applied?
+
+    private struct Applied: Equatable {
+        var store: ObjectIdentifier
+        var selection: String
+        var portfolios: [PortfolioGroup]
+    }
 
     private var db: SupabaseClient { Backend.shared.supabase }
     private static let selectedKey = "holo.portfolio.selected"
@@ -39,6 +48,7 @@ final class GroupsStore {
         selected = Self.all
         userId = nil
         loadedFor = nil
+        applied = nil
     }
 
     /// Load for an account (nil for a demo, which starts with two example shelves).
@@ -92,6 +102,10 @@ final class GroupsStore {
     @MainActor
     func apply(_ store: CollectionStore) {
         let effective = selected == Self.all || selected == Self.main || portfolios.contains { $0.id == selected } ? selected : Self.all
+        // "All" doesn't depend on what's in each portfolio; the others do.
+        let stamp = Applied(store: ObjectIdentifier(store), selection: effective, portfolios: effective == Self.all ? [] : portfolios)
+        guard stamp != applied else { return }
+        applied = stamp
         if effective == Self.all {
             store.holdingFilter = nil
         } else {

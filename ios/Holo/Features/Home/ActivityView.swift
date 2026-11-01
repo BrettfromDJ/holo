@@ -13,9 +13,11 @@ struct ActivityView: View {
 
     enum Filter: String, CaseIterable { case all = "All", purchase = "Purchases", sale = "Sales", adjustment = "Adjustments" }
 
-    /// Everything the page shows, worked out once per change.
-    private struct Model {
-        var months: [(key: String, rows: [Txn])] = []
+    /// The ledger work (corrections applied, FIFO realized gains, totals), done once per change to
+    /// the log, not on every redraw (opening a row's menu, a sheet or the delete prompt redraws
+    /// the page).
+    private struct Base {
+        var all: [Txn] = []
         /// Each live entry as it stands after edits, by its original id.
         var effective: [String: Txn] = [:]
         var byId: [String: Txn] = [:]
@@ -24,51 +26,97 @@ struct ActivityView: View {
         var bought = 0.0
         var sold = 0.0
         var realizedTotal = 0.0
+
+        init() {}
+
+        init(_ all: [Txn]) {
+            self.all = all
+            let live = Ledger.effective(all)
+            let byLive = Dictionary(live.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+            effective = byLive
+            byId = Dictionary(all.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+            hiddenCount = all.filter { $0.kind == .correction || byLive[$0.id] == nil }.count
+            var gains: [String: RealizedEntry] = [:]
+            for pos in Ledger(all).positions.values { for r in pos.realized { gains[r.transactionId] = r } }
+            realized = gains
+            realizedTotal = gains.values.reduce(0) { $0 + $1.gain }
+            for t in live {
+                if t.kind == .purchase || (t.kind == .adjustment && t.quantity > 0) { bought += t.acquisitionCost }
+                if t.kind == .sale { sold += t.saleProceeds }
+            }
+        }
     }
 
-    private var model: Model {
-        let all = store.portfolioTransactions
-        var m = Model()
-        let effective = Ledger.effective(all)
-        m.effective = Dictionary(effective.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-        m.byId = Dictionary(all.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-        let hidden = all.filter { $0.kind == .correction || m.effective[$0.id] == nil }
-        m.hiddenCount = hidden.count
-        for pos in Ledger(all).positions.values { for r in pos.realized { m.realized[r.transactionId] = r } }
-        m.realizedTotal = m.realized.values.reduce(0) { $0 + $1.gain }
-        for t in effective {
-            if t.kind == .purchase || (t.kind == .adjustment && t.quantity > 0) { m.bought += t.acquisitionCost }
-            if t.kind == .sale { m.sold += t.saleProceeds }
-        }
-        let list = (showHidden ? all : all.filter { $0.kind != .correction && m.effective[$0.id] != nil })
-            .filter { t in
-                switch filter {
-                case .all: return true
-                case .purchase: return t.kind == .purchase || (showHidden && t.kind == .correction)
-                case .sale: return t.kind == .sale || (showHidden && t.kind == .correction)
-                case .adjustment: return t.kind == .adjustment || (showHidden && t.kind == .correction)
-                }
-            }
-            .sorted { $0.date != $1.date ? $0.date > $1.date : $0.createdAt > $1.createdAt }
-        var order: [String] = []
-        var groups: [String: [Txn]] = [:]
-        for t in list {
-            let key = String(t.date.prefix(7))
-            if groups[key] == nil { order.append(key) }
-            groups[key, default: []].append(t)
-        }
-        m.months = order.map { ($0, groups[$0] ?? []) }
-        return m
+    /// What the page shows: the ledger work plus the list for the chosen filter, by month.
+    private struct Model {
+        var base = Base()
+        var months: [(key: String, rows: [Txn])] = []
+        var effective: [String: Txn] { base.effective }
+        var byId: [String: Txn] { base.byId }
+        var realized: [String: RealizedEntry] { base.realized }
+        var hiddenCount: Int { base.hiddenCount }
+        var bought: Double { base.bought }
+        var sold: Double { base.sold }
+        var realizedTotal: Double { base.realizedTotal }
     }
+
+    /// Remembers the last model: the ledger replays only when the log changes, and the list is
+    /// regrouped only when the log, the filter or "show deleted" changes. A plain (unobserved)
+    /// object, so filling it while drawing never asks for another redraw.
+    private final class Memo {
+        var log: [Txn]?
+        var base = Base()
+        var listKey: (Filter, Bool)?
+        var months: [(key: String, rows: [Txn])] = []
+
+        func model(log: [Txn], filter: Filter, showHidden: Bool) -> Model {
+            var fresh = false
+            if self.log != log {
+                self.log = log
+                base = Base(log)
+                fresh = true
+            }
+            if fresh || listKey?.0 != filter || listKey?.1 != showHidden {
+                listKey = (filter, showHidden)
+                months = Self.group(base, filter: filter, showHidden: showHidden)
+            }
+            return Model(base: base, months: months)
+        }
+
+        /// The filtered, sorted list, grouped by month.
+        private static func group(_ base: Base, filter: Filter, showHidden: Bool) -> [(key: String, rows: [Txn])] {
+            let list = (showHidden ? base.all : base.all.filter { $0.kind != .correction && base.effective[$0.id] != nil })
+                .filter { t in
+                    switch filter {
+                    case .all: return true
+                    case .purchase: return t.kind == .purchase || (showHidden && t.kind == .correction)
+                    case .sale: return t.kind == .sale || (showHidden && t.kind == .correction)
+                    case .adjustment: return t.kind == .adjustment || (showHidden && t.kind == .correction)
+                    }
+                }
+                .sorted { $0.date != $1.date ? $0.date > $1.date : $0.createdAt > $1.createdAt }
+            var order: [String] = []
+            var groups: [String: [Txn]] = [:]
+            for t in list {
+                let key = String(t.date.prefix(7))
+                if groups[key] == nil { order.append(key) }
+                groups[key, default: []].append(t)
+            }
+            return order.map { ($0, groups[$0] ?? []) }
+        }
+    }
+
+    @State private var memo = Memo()
 
     var body: some View {
-        let m = model
+        let log = store.portfolioTransactions
+        let m = memo.model(log: log, filter: filter, showHidden: showHidden)
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
                 header(m)
                 controls(m)
                 if m.months.isEmpty {
-                    Text(store.portfolioTransactions.isEmpty ? "No activity yet. Add a purchase and it shows up here." : "Nothing matches.")
+                    Text(log.isEmpty ? "No activity yet. Add a purchase and it shows up here." : "Nothing matches.")
                         .font(.geist(15)).foregroundStyle(Theme.muted)
                         .frame(maxWidth: .infinity).padding(.vertical, 40)
                 }

@@ -59,11 +59,11 @@ struct AddMenu: View {
         .rotationEffect(.degrees(open || reduceMotion ? 0 : Double(side) * 25))
         .opacity(open ? 1 : 0)
         .allowsHitTesting(open)
-        .animation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.42, dampingFraction: 0.68).delay(open ? delay : 0), value: open)
+        .animation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.32, dampingFraction: 0.7).delay(open ? delay : 0), value: open)
     }
 
     private func close() {
-        withAnimation(.spring(response: 0.36, dampingFraction: 0.8)) { open = false }
+        withAnimation(.spring(response: 0.26, dampingFraction: 0.85)) { open = false }
     }
 }
 

@@ -68,7 +68,7 @@ struct GradedPricesPanel: View {
             // Only catalog cards have PriceCharting and eBay data; others use the grade curve.
             guard productId.hasPrefix("tcgapi:") else { return loaded = true }
             async let pc = try? await Backend.shared.api.gradedValues([productId])
-            async let sales = try? await Backend.shared.api.ebaySales(productId, printing: printing)
+            async let sales = try? await EbaySalesCache.sales(productId, printing: printing)
             let (p, e) = await (pc, sales)
             values = p?[productId]
             ebay = e ?? nil
@@ -215,9 +215,7 @@ struct GradedPricesPanel: View {
     }
 
     private func relative(_ iso: String) -> String? {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        guard let date = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return nil }
+        guard let date = ISOTime.fractional.date(from: iso) ?? ISOTime.plain.date(from: iso) else { return nil }
         let hours = Int(Date().timeIntervalSince(date) / 3600)
         if hours < 1 { return "just now" }
         if hours < 24 { return "\(hours)h ago" }

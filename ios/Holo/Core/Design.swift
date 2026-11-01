@@ -372,11 +372,20 @@ struct Button3D: ButtonStyle {
 
     private func solid(_ configuration: Configuration) -> some View {
         let pressed = configuration.isPressed
+        let shines = kind == .lime || kind == .blue || kind == .pink
         return configuration.label
             .font(.geist(16, .semibold))
             .foregroundStyle(text)
             .padding(.horizontal, 18)
             .frame(maxWidth: fullWidth ? .infinity : nil, minHeight: height)
+            // The drop shadow falls from the label and the button's body as before, but not from
+            // the sweeping sheen: a shadow on moving content is re-rendered every frame.
+            .shadow(color: .black.opacity(0.5), radius: 9, y: 6)
+            .background {
+                if shines {
+                    Sheen(strength: 0.5).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+            }
             .background(
                 ZStack {
                     RoundedRectangle(cornerRadius: 14, style: .continuous).fill(edge).offset(y: pressed ? 0 : 3)
@@ -385,15 +394,12 @@ struct Button3D: ButtonStyle {
                         .fill(LinearGradient(colors: [.white.opacity(kind == .dark ? 0.06 : 0.16), .clear], startPoint: .top, endPoint: .center))
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .strokeBorder(LinearGradient(colors: [.white.opacity(kind == .dark ? 0.08 : 0.35), .clear], startPoint: .top, endPoint: .bottom), lineWidth: 1)
-                    if kind == .lime || kind == .blue || kind == .pink {
-                        Sheen(strength: 0.5).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    }
                 }
+                .shadow(color: .black.opacity(0.5), radius: 9, y: 6)
             )
             .offset(y: pressed ? 2 : -1)
             .scaleEffect(pressed ? 0.97 : 1)
-            .shadow(color: .black.opacity(0.5), radius: 9, y: 6)
-            .modifier(ElectricGlow(color: fill, on: kind == .lime || kind == .blue || kind == .pink))
+            .modifier(ElectricGlow(color: fill, on: shines))
             .animation(.spring(response: 0.25, dampingFraction: 0.6), value: pressed)
             .sensoryFeedback(.impact(weight: .light), trigger: pressed) { _, isDown in isDown }
     }
@@ -436,6 +442,8 @@ struct ElectricGlow: ViewModifier {
     var radius: CGFloat = 14
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var bright = false
+    /// Room around the shape for the blur to spread into inside its flattened layer.
+    private static let spread: CGFloat = 40
 
     func body(content: Content) -> some View {
         if on && !reduceMotion {
@@ -443,7 +451,12 @@ struct ElectricGlow: ViewModifier {
                 .background(
                     RoundedRectangle(cornerRadius: radius, style: .continuous)
                         .fill(color)
+                        .padding(Self.spread)
                         .blur(radius: 14)
+                        // Flattened into one layer once, so the breathing only fades that layer
+                        // instead of re-blurring the shape on every frame.
+                        .drawingGroup()
+                        .padding(-Self.spread)
                         .opacity(bright ? 0.55 : 0.15)
                         .allowsHitTesting(false)
                 )
@@ -544,7 +557,7 @@ struct StatPill: View {
         .fixedSize()
         .padding(.horizontal, 14)
         .frame(height: 38)
-        .liquidGlass(in: Capsule())
+        .trackGlass(in: Capsule())
     }
 }
 
@@ -568,15 +581,19 @@ struct Chip: View {
             .background(
                 ZStack {
                     if selected {
-                        Capsule().fill(Theme.limeEdge).offset(y: 2)
-                        Capsule().fill(Theme.lime)
+                        // Only the selected chip glows (a clear shadow on every other chip still
+                        // costs a render pass, on glass).
+                        ZStack {
+                            Capsule().fill(Theme.limeEdge).offset(y: 2)
+                            Capsule().fill(Theme.lime)
+                        }
+                        .shadow(color: Theme.lime.opacity(0.35), radius: 8)
                     } else {
                         // Unselected chips are just text; the track behind them shows through.
                         Capsule().fill(Color.clear)
                     }
                 }
             )
-            .shadow(color: selected ? Theme.lime.opacity(0.35) : .clear, radius: 8)
         }
         .buttonStyle(ChipPress())
     }
@@ -623,9 +640,9 @@ struct ChipPicker<T: Hashable>: View {
                     .fadeTrailingEdge()
             }
             .clipShape(Capsule())
-            .liquidGlass(in: Capsule())
+            .trackGlass(in: Capsule())
         } else {
-            chips.padding(4).liquidGlass(in: Capsule())
+            chips.padding(4).trackGlass(in: Capsule())
         }
     }
 
@@ -800,19 +817,24 @@ private struct WordFlow: Layout {
     var spacing: CGFloat
     var lineGap: CGFloat
 
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let rows = balanced(width: proposal.width ?? .infinity, subviews: subviews)
+    /// Each word's natural size, measured once instead of on every step of the balancing search.
+    func makeCache(subviews: Subviews) -> [CGSize] {
+        subviews.map { $0.sizeThatFits(.unspecified) }
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout [CGSize]) -> CGSize {
+        let rows = balanced(width: proposal.width ?? .infinity, sizes: cache)
         let width = rows.map { $0.width }.max() ?? 0
         let height = rows.map { $0.height }.reduce(0, +) + lineGap * CGFloat(max(rows.count - 1, 0))
         return CGSize(width: proposal.width.map { min($0, width) } ?? width, height: height)
     }
 
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout [CGSize]) {
         var y = bounds.minY
-        for row in balanced(width: bounds.width, subviews: subviews) {
+        for row in balanced(width: bounds.width, sizes: cache) {
             var x = bounds.minX
             for i in row.items {
-                let size = subviews[i].sizeThatFits(.unspecified)
+                let size = cache[i]
                 subviews[i].place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
                 x += size.width + spacing
             }
@@ -822,23 +844,23 @@ private struct WordFlow: Layout {
 
     private struct Row { var items: [Int] = []; var width: CGFloat = 0; var height: CGFloat = 0 }
 
-    private func balanced(width: CGFloat, subviews: Subviews) -> [Row] {
-        let full = arrange(width: width, subviews: subviews)
+    private func balanced(width: CGFloat, sizes: [CGSize]) -> [Row] {
+        let full = arrange(width: width, sizes: sizes)
         guard full.count > 1, width.isFinite else { return full }
-        var low = subviews.map { $0.sizeThatFits(.unspecified).width }.max() ?? 0
+        var low = sizes.map { $0.width }.max() ?? 0
         var high = width
         guard low < high else { return full }
         while high - low > 1 {
             let mid = (low + high) / 2
-            if arrange(width: mid, subviews: subviews).count > full.count { low = mid } else { high = mid }
+            if arrange(width: mid, sizes: sizes).count > full.count { low = mid } else { high = mid }
         }
-        return arrange(width: high, subviews: subviews)
+        return arrange(width: high, sizes: sizes)
     }
 
-    private func arrange(width: CGFloat, subviews: Subviews) -> [Row] {
+    private func arrange(width: CGFloat, sizes: [CGSize]) -> [Row] {
         var rows: [Row] = [Row()]
-        for i in subviews.indices {
-            let size = subviews[i].sizeThatFits(.unspecified)
+        for i in sizes.indices {
+            let size = sizes[i]
             let extra = rows[rows.count - 1].items.isEmpty ? size.width : size.width + spacing
             if rows[rows.count - 1].width + extra > width, !rows[rows.count - 1].items.isEmpty {
                 rows.append(Row())
@@ -1008,6 +1030,13 @@ extension View {
         #endif
     }
 
+    /// Liquid Glass for chip tracks and pills, except on a glass sheet, where they take the
+    /// sheet's faint white fill instead (like dark buttons there): glass on glass makes iOS blur
+    /// twice over, which made taps in sheets feel slow.
+    func trackGlass<S: InsettableShape>(in shape: S) -> some View {
+        modifier(TrackGlass(shape: shape))
+    }
+
     private func frosted<S: InsettableShape>(in shape: S, tint: Color?) -> some View {
         background(
             ZStack {
@@ -1020,6 +1049,21 @@ extension View {
     }
 }
 
+
+private struct TrackGlass<S: InsettableShape>: ViewModifier {
+    var shape: S
+    @Environment(\.onGlassSheet) private var onGlass
+
+    func body(content: Content) -> some View {
+        if onGlass {
+            content
+                .background(shape.fill(Color.white.opacity(0.07)))
+                .overlay(shape.strokeBorder(Color.white.opacity(0.1), lineWidth: 1).allowsHitTesting(false))
+        } else {
+            content.liquidGlass(in: shape)
+        }
+    }
+}
 
 /// A tappable card, the same everywhere: one you own opens Your copy (a sheet with "View card
 /// details"), one you don't opens its card page.
@@ -1039,9 +1083,19 @@ struct CardLink<Label: View>: View {
         }
     }
 
+    /// One pass over the holdings (this runs for every card on screen whenever they change):
+    /// the exact copy if you hold it, else your most valuable copy of the product.
     private var ownedIdentity: HoldingIdentity? {
-        if let identity, store.holding(identity) != nil { return identity }
-        return store.holdings(for: productId).max { ($0.value ?? 0) < ($1.value ?? 0) }?.identity
+        let wanted = identity
+        let wantedKey = wanted?.key
+        var exact = false
+        var best: HoldingView?
+        for h in store.allHoldings {
+            if let wanted, !exact, h.identity.productId == wanted.productId, h.identity.key == wantedKey { exact = true }
+            if h.identity.productId == productId, best == nil || (best?.value ?? 0) < (h.value ?? 0) { best = h }
+        }
+        if exact, let wanted { return wanted }
+        return best?.identity
     }
 }
 

@@ -301,12 +301,25 @@ struct DealCameraView: View {
         })
         .onAppear {
             camera.onPhoto = { image in
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) { shots.append(image) }
                 onPhoto(image)
+                // The tray only shows the latest shot at 56 points: keep a small copy, made off the
+                // main thread, instead of drawing (and holding on to) every full-size photo.
+                Task {
+                    let thumb = await image.byPreparingThumbnail(ofSize: Self.thumbSize(image.size)) ?? image
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) { shots.append(thumb) }
+                }
             }
             camera.start()
         }
         .onDisappear { camera.stop() }
+    }
+
+    /// A tray-sized copy: its short side 168 pixels (56 points at 3x), the same shape as the photo.
+    private static func thumbSize(_ size: CGSize) -> CGSize {
+        let short = min(size.width, size.height)
+        guard short > 168 else { return size }
+        let scale = 168 / short
+        return CGSize(width: (size.width * scale).rounded(), height: (size.height * scale).rounded())
     }
 
     private var topBar: some View {
@@ -489,18 +502,21 @@ struct DealHistoryView: View {
 
     private var shown: [DealRecord] { filter.map { k in deals.log.filter { $0.kind == k } } ?? deals.log }
 
-    private var days: [(day: String, records: [DealRecord])] {
+    private static func days(_ shown: [DealRecord]) -> [(day: String, records: [DealRecord])] {
         let grouped = Dictionary(grouping: shown) { Format.day($0.date) }
         return grouped.keys.sorted(by: >).map { ($0, grouped[$0]!.sorted { $0.at > $1.at }) }
     }
 
     var body: some View {
+        // Filtered and grouped once per redraw, not once per use.
+        let shown = self.shown
+        let days = Self.days(shown)
         ScrollView {
             VStack(alignment: .leading, spacing: 34) {
                 if deals.log.isEmpty {
                     empty
                 } else {
-                    hero
+                    hero(shown)
                     if let best = shown.filter({ ($0.profit ?? 0) > 0 }).max(by: { ($0.profit ?? 0) < ($1.profit ?? 0) }), shown.count > 1 {
                         NavigationLink(value: best) { BestDealCard(record: best) }.buttonStyle(.plain).reveal()
                     }
@@ -555,7 +571,7 @@ struct DealHistoryView: View {
 
     // MARK: The top: profit, counts, and profit over time
 
-    private var hero: some View {
+    private func hero(_ shown: [DealRecord]) -> some View {
         let profit = shown.compactMap(\.profit).reduce(0, +)
         let cash = shown.reduce(0) { $0 + $1.balance }
         let items = shown.reduce(0) { $0 + $1.items }
@@ -619,8 +635,10 @@ private struct ProfitClimb: View {
         let data = points
         if data.count >= 2 {
             let tint = (data.last?.total ?? 0) < 0 ? Theme.planPink : Theme.lime
+            // The floor, worked out once (it was recomputed over every deal for each point).
+            let base = min(0, data.map(\.total).min() ?? 0)
             Chart(Array(data.enumerated()), id: \.offset) { i, p in
-                AreaMark(x: .value("Deal", i), yStart: .value("Base", min(0, data.map(\.total).min() ?? 0)), yEnd: .value("Profit", p.total))
+                AreaMark(x: .value("Deal", i), yStart: .value("Base", base), yEnd: .value("Profit", p.total))
                     .interpolationMethod(.monotone)
                     .foregroundStyle(LinearGradient(colors: [tint.opacity(0.35), tint.opacity(0)], startPoint: .top, endPoint: .bottom))
                 LineMark(x: .value("Deal", i), y: .value("Profit", p.total))
@@ -663,8 +681,10 @@ private struct BestDealCard: View {
             }
             .clipShape(shape)
         }
-        .overlay(ElectricBorder(radius: 22))
+        // Glow first, then the spinning border, so the glow isn't redrawn every frame the bolt
+        // moves (the border sits inside the card, so it looks the same).
         .shadow(color: Theme.lime.opacity(0.18), radius: 18)
+        .overlay(ElectricBorder(radius: 22))
     }
 }
 

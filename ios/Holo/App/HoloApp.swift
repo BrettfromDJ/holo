@@ -150,10 +150,14 @@ struct MainTabView: View {
 
     var body: some View {
         TabView(selection: $tab) {
-            HomeView(onScan: { startScan() })
+            // The pages take an action, which SwiftUI can't compare, so without `StablePage`
+            // every tab switch or tap on the + re-ran all of them.
+            StablePage { HomeView(onScan: { startScan() }) }
+                .equatable()
                 .tag(HomeTab.home)
                 .toolbar(.hidden, for: .tabBar)
-            CollectionView(onScan: { startScan() })
+            StablePage { CollectionView(onScan: { startScan() }) }
+                .equatable()
                 .tag(HomeTab.collection)
                 .toolbar(.hidden, for: .tabBar)
             ExploreView()
@@ -184,7 +188,7 @@ struct MainTabView: View {
                 ],
                 selection: $tab,
                 plusOpen: adding,
-                onPlus: { withAnimation(.spring(response: 0.42, dampingFraction: 0.72)) { adding.toggle() } }
+                onPlus: { withAnimation(.spring(response: 0.3, dampingFraction: 0.74)) { adding.toggle() } }
             )
         }
         // The "pack pull" reveal after a purchase is saved.
@@ -206,7 +210,7 @@ struct MainTabView: View {
         .onChange(of: router.addMenu) { _, open in
             guard open else { return }
             router.addMenu = false
-            withAnimation(.spring(response: 0.42, dampingFraction: 0.72)) { adding = true }
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.74)) { adding = true }
         }
         .fullScreenCover(isPresented: $scanning) { ScanView() }
         // Scanning while a deal is open: into the deal (then show it) or into the collection.
@@ -240,6 +244,17 @@ struct MainTabView: View {
             }
         }
     }
+}
+
+/// Shows a page and never re-runs it just because its parent redrew; the page still updates
+/// from its own state and stores. For pages whose only input is an action that never changes
+/// what they show (closures can't be compared, so SwiftUI would otherwise always redraw them).
+private struct StablePage<Content: View>: View, Equatable {
+    @ViewBuilder var content: Content
+
+    static func == (lhs: StablePage, rhs: StablePage) -> Bool { true }
+
+    var body: some View { content }
 }
 
 private struct OpenProduct: Identifiable {

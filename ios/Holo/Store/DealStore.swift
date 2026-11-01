@@ -126,7 +126,7 @@ final class DealStore {
         let saving = store.demo == nil
         for item in deal.outgoing {
             guard let unit = item.unitPrice(side: rates.out) else { continue }
-            if let key = item.holdingKey, let h = store.allHoldings.first(where: { $0.identity.key == key }) {
+            if let key = item.holdingKey, let h = store.holding(key: key) {
                 try await store.sell(h.identity, quantity: Double(item.qty), unitPrice: unit, fees: 0, shipping: 0, date: today, source: "Card show", notes: note, offerUndo: false)
             } else if !item.isCustom, let cost = item.cost {
                 // Not in Holo, but you said what you paid: record that purchase, then the sale,
@@ -147,7 +147,7 @@ final class DealStore {
         var purchases: [CollectionStore.Purchase] = []
         for item in deal.incoming where tracked(item, side: .incoming) {
             guard let unit = item.unitPrice(side: rates.in) else { continue }
-            let held = item.holdingKey.flatMap { key in store.allHoldings.first { $0.identity.key == key } }?.identity
+            let held = item.holdingKey.flatMap { store.holding(key: $0) }?.identity
             purchases.append(CollectionStore.Purchase(
                 product: item.product,
                 printing: held?.printing ?? item.printing,
@@ -195,7 +195,7 @@ final class DealStore {
     /// Your cost for an outgoing row: from your inventory the oldest units first, like the sale
     /// will be recorded; for something not in Holo, what you said you paid.
     func cost(of item: DealItem, in store: CollectionStore) -> Double? {
-        if let key = item.holdingKey, let h = store.allHoldings.first(where: { $0.identity.key == key }) {
+        if let key = item.holdingKey, let h = store.holding(key: key) {
             return round2(h.fifoCost(Double(item.qty)))
         }
         return item.cost.map { round2($0 * Double(item.qty)) }

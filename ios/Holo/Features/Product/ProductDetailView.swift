@@ -250,7 +250,7 @@ struct ProductDetailView: View {
         // Set the direction first, so the outgoing art already knows which way to leave.
         swipeForward = to >= from
         UISelectionFeedbackGenerator().selectionChanged()
-        let animation: Animation = reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.42, dampingFraction: 0.86)
+        let animation: Animation = reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.3, dampingFraction: 0.86)
         DispatchQueue.main.async {
             withAnimation(animation) { chosenPrinting = p }
         }
@@ -344,9 +344,7 @@ struct ProductDetailView: View {
     }
 
     private func relative(_ iso: String) -> String? {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        guard let d = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) else { return nil }
+        guard let d = ISOTime.fractional.date(from: iso) ?? ISOTime.plain.date(from: iso) else { return nil }
         let minutes = Int((Date().timeIntervalSince(d) / 60).rounded())
         if minutes < 1 { return "just now" }
         if minutes < 60 { return "\(minutes)m ago" }
@@ -599,7 +597,7 @@ struct ProductDetailView: View {
     }
 
     private func hiddenLine(_ t: Txn) -> String {
-        let when = ISO8601DateFormatter().date(from: t.createdAt)?.formatted(date: .abbreviated, time: .omitted) ?? String(t.createdAt.prefix(10))
+        let when = ISOTime.plain.date(from: t.createdAt)?.formatted(date: .abbreviated, time: .omitted) ?? String(t.createdAt.prefix(10))
         if t.kind == .correction {
             let note = t.notes.flatMap { ["Deleted", "Edited", "Voided", "Corrected"].contains($0) || $0.isEmpty ? nil : " · \($0)" } ?? ""
             return "\(t.quantity == 0 ? "Deleted" : "Edited") an entry · \(when)\(note)"
@@ -635,6 +633,17 @@ struct ProductDetailView: View {
     }
 }
 
+/// ISO 8601 timestamp parsers, made once: a formatter is slow to create, and the product page,
+/// its panels and Explore parse timestamps on every redraw.
+enum ISOTime {
+    static let fractional: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+    static let plain = ISO8601DateFormatter()
+}
+
 /// A small outlined (or filled) badge: "Card", "Ultra Rare".
 struct Badge: View {
     var text: String
@@ -659,19 +668,22 @@ private struct PriceHistoryCard: View {
     var owned: [HoldingView]
     @Environment(CollectionStore.self) private var store
     @State private var range = 90
+    /// The parsed, thinned series, kept between redraws (see `HistoryMemo`).
+    @State private var memo = HistoryMemo()
 
     private var all: [PricePoint] { store.history[priceKey(productId, printing)] ?? [] }
-    private var points: [PricePoint] {
-        guard range > 0, let last = all.last?.day else { return all }
-        let since = Calendar.current.date(byAdding: .day, value: -range, to: last) ?? last
-        return all.filter { $0.day >= since }
-    }
-    private var buys: [Txn] {
-        guard let first = points.first?.date else { return [] }
+
+    private func purchases(since first: String?) -> [Txn] {
+        guard let first else { return [] }
         return owned.flatMap { store.entries(for: $0.identity) }.filter { $0.kind == .purchase && $0.date >= first }
     }
 
     var body: some View {
+        // Worked out once per redraw (and the series once per history and range), not once
+        // per use: the page redraws often and parsing hundreds of dates each time is slow.
+        let all = self.all
+        let points = memo.points(all, range: range)
+        let buys = purchases(since: points.first?.date)
         VStack(alignment: .leading, spacing: 0) {
             Text("Market price history").font(.geist(15, .semibold))
             Group {
@@ -758,6 +770,69 @@ private struct PriceHistoryCard: View {
     }
 }
 
+/// A price point with its day already parsed.
+private struct DayPrice: Identifiable {
+    var date: String
+    var day: Date
+    var price: Double
+    var id: String { date }
+}
+
+/// The price history card's series, worked out once per history and range instead of on every
+/// redraw: each point's date is parsed once, and a long range is thinned to at most 180 points
+/// (each bucket keeps its low and high, so peaks and dips still show) so the chart stays light.
+/// A reference type held in `@State`, so filling it never redraws the view.
+private final class HistoryMemo {
+    private var source: [PricePoint] = []
+    private var parsed: [DayPrice] = []
+    private var ranged: [Int: [DayPrice]] = [:]
+
+    func points(_ all: [PricePoint], range: Int) -> [DayPrice] {
+        if all != source {
+            source = all
+            parsed = all.map { DayPrice(date: $0.date, day: $0.day, price: $0.price) }
+            ranged = [:]
+        }
+        if let hit = ranged[range] { return hit }
+        var list = parsed
+        if range > 0, let last = parsed.last?.day {
+            let since = Calendar.current.date(byAdding: .day, value: -range, to: last) ?? last
+            list = parsed.filter { $0.day >= since }
+        }
+        let thinned = Self.thin(list)
+        ranged[range] = thinned
+        return thinned
+    }
+
+    /// At most `limit` points: the first and last, then each bucket's low and high in date order.
+    static func thin(_ pts: [DayPrice], to limit: Int = 180) -> [DayPrice] {
+        guard pts.count > limit, limit >= 4 else { return pts }
+        let buckets = (limit - 2) / 2
+        let inner = pts.count - 2
+        let size = Double(inner) / Double(buckets)
+        var out: [DayPrice] = [pts[0]]
+        out.reserveCapacity(limit)
+        for b in 0..<buckets {
+            let lo = 1 + Int(Double(b) * size)
+            let hi = min(pts.count - 1, 1 + Int(Double(b + 1) * size))
+            guard lo < hi else { continue }
+            var low = lo, high = lo
+            for i in lo..<hi {
+                if pts[i].price < pts[low].price { low = i }
+                if pts[i].price > pts[high].price { high = i }
+            }
+            if low == high {
+                out.append(pts[low])
+            } else {
+                out.append(pts[min(low, high)])
+                out.append(pts[max(low, high)])
+            }
+        }
+        out.append(pts[pts.count - 1])
+        return out
+    }
+}
+
 /// The lit stage behind a product: the website's faint grid with a glow in the product's mood
 /// and a pink one opposite, fading out at the top and bottom.
 private struct ProductStage: View {
@@ -769,9 +844,14 @@ private struct ProductStage: View {
         ZStack {
             GridPattern(step: 36, opacity: 0.055)
             // A bright core right behind the piece, then a wide wash, so it reads as light.
-            RadialGradient(colors: [mood.opacity(breathe ? 0.75 : 0.6), mood.opacity(0.25), .clear], center: UnitPoint(x: 0.5, y: 0.5), startRadius: 0, endRadius: 190)
+            // They breathe by fading the finished layers (cheap), not by changing the gradient's
+            // colors, which redrew the blurred core every frame. Same values: at rest the core
+            // is 0.8 × 0.75 = 0.6 and the wash 0.75 × 0.32 = 0.24, as before.
+            RadialGradient(colors: [mood.opacity(0.75), mood.opacity(0.3125), .clear], center: UnitPoint(x: 0.5, y: 0.5), startRadius: 0, endRadius: 190)
                 .blur(radius: 20)
-            RadialGradient(colors: [mood.opacity(breathe ? 0.32 : 0.24), .clear], center: UnitPoint(x: 0.5, y: 0.5), startRadius: 0, endRadius: 320)
+                .opacity(breathe ? 1 : 0.8)
+            RadialGradient(colors: [mood.opacity(0.32), .clear], center: UnitPoint(x: 0.5, y: 0.5), startRadius: 0, endRadius: 320)
+                .opacity(breathe ? 1 : 0.75)
             RadialGradient(colors: [Theme.planPink.opacity(0.28), .clear], center: UnitPoint(x: 0.9, y: 0.2), startRadius: 0, endRadius: 220)
             RadialGradient(colors: [Theme.planBlue.opacity(0.26), .clear], center: UnitPoint(x: 0.1, y: 0.85), startRadius: 0, endRadius: 220)
         }

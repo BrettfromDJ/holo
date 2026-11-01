@@ -223,6 +223,10 @@ final class Tilt {
     /// -1...1 left/right and up/down from where the phone was held when it started.
     private(set) var x: Double = 0
     private(set) var y: Double = 0
+    /// The same reading, without making the reader redraw when it changes: for views that
+    /// already redraw on their own timeline (HoloCard), so a tilt doesn't redraw them twice.
+    @ObservationIgnored private(set) var quietX: Double = 0
+    @ObservationIgnored private(set) var quietY: Double = 0
 
     private let manager = CMMotionManager()
     private var listeners = 0
@@ -242,8 +246,14 @@ final class Tilt {
             let nx = max(-1, min(1, att.roll / 0.5))
             let ny = max(-1, min(1, att.pitch / 0.5))
             // Ease toward the reading so the cards glide rather than jitter.
-            self.x += (nx - self.x) * 0.2
-            self.y += (ny - self.y) * 0.2
+            let ex = self.quietX + (nx - self.quietX) * 0.2
+            let ey = self.quietY + (ny - self.quietY) * 0.2
+            self.quietX = ex
+            self.quietY = ey
+            // Only tell the views when the lean has visibly moved: easing never quite settles,
+            // so without this every tilting card redrew 30 times a second while the phone sat still.
+            if abs(ex - self.x) > 0.001 { self.x = ex }
+            if abs(ey - self.y) > 0.001 { self.y = ey }
         }
     }
 
@@ -254,6 +264,8 @@ final class Tilt {
         origin = nil
         x = 0
         y = 0
+        quietX = 0
+        quietY = 0
     }
 }
 

@@ -14,8 +14,6 @@ struct HoldingSheet: View {
         self.onOpenCard = onOpenCard
     }
 
-    /// The copy now: follows a demo card that switched to its real catalog card while open.
-    private var identity: HoldingIdentity { store.current(opened) }
     @Environment(\.dismiss) private var dismiss
     @Environment(CollectionStore.self) private var store
     @Environment(GradingStore.self) private var grading
@@ -36,28 +34,33 @@ struct HoldingSheet: View {
     /// their final figures instead of jumping from an estimate.
     @State private var gradedReady = false
 
-    private var holding: HoldingView? { store.holding(identity) }
-    private var product: Product? { store.products[identity.productId] }
-    private var entries: [Txn] { store.entries(for: identity) }
+    var body: some View {
+        // The copy now (it follows a demo card that switched to its real catalog card, or a copy
+        // whose details changed, while open), looked up once per redraw and handed down. Tapping
+        // a button here only flips a flag; the price chart and the history are their own views
+        // with plain values, so they aren't redrawn for it.
+        let identity = store.current(opened)
+        let holding = store.holding(identity)
+        return sheetBody(identity, holding).undoToast(bottom: 90).glassSheet()
+    }
 
-    var body: some View { sheetBody.undoToast(bottom: 90).glassSheet() }
-
-    @ViewBuilder private var sheetBody: some View {
+    @ViewBuilder private func sheetBody(_ identity: HoldingIdentity, _ holding: HoldingView?) -> some View {
+        let product = store.products[identity.productId]
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 // Title and Done sit in the content (no navigation bar), so nothing above the
                 // content changes size while the sheet comes up and nothing shifts.
                 titleRow
-                header
+                header(identity, holding, product)
                 if let h = holding {
-                    value(h)
+                    HoldingWorth(holding: h, points: worthPoints(h))
                     tiles(h)
-                    if identity.isGraded { slabRows } else if product?.isSealed == false { ifGraded(h) }
+                    if identity.isGraded { slabRows(identity) } else if product?.isSealed == false { ifGraded(identity, h) }
                     actions(h)
                 } else {
                     Text("You don't hold any of these right now.").font(.geist(14)).foregroundStyle(Theme.muted)
                 }
-                history
+                HoldingHistory(entries: store.entries(for: identity), editing: $editing, deleting: $deleting)
                 if let error { Text(error).font(.geist(13)).foregroundStyle(Theme.down) }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -139,9 +142,12 @@ struct HoldingSheet: View {
         .frame(maxWidth: .infinity)
     }
 
-    private var header: some View {
+    private func header(_ identity: HoldingIdentity, _ holding: HoldingView?, _ product: Product?) -> some View {
         HStack(spacing: 14) {
+            // The same thumbnail size Collection's grid decodes, so the picture the tile already
+            // has shows at once instead of the full-size photo downloading and fading in.
             HoldingArt(product: product, identity: identity, cornerRadius: 6, caption: false).frame(width: 62, height: 86)
+                .imageMaxPixel(600)
             VStack(alignment: .leading, spacing: 5) {
                 Text(product?.name ?? "Unknown").font(.geist(17, .semibold)).lineLimit(2)
                 HStack(spacing: 6) {
@@ -183,32 +189,10 @@ struct HoldingSheet: View {
         .accessibilityLabel("More actions")
     }
 
-    private func value(_ h: HoldingView) -> some View {
-        // Since you first bought it, colored by whether you're up overall.
+    /// Since you first bought it (cached in the store, so this is a lookup).
+    private func worthPoints(_ h: HoldingView) -> [TimelinePoint] {
         let held = h.firstAcquired.map { Timeline.daysBetween($0, Format.day()) } ?? 90
-        let points = store.series(identity, days: min(max(held, 7), 3650))
-        return VStack(alignment: .leading, spacing: 8) {
-            MonoLabel(text: h.quantity > 1 ? "Your \(Int(h.quantity)) are worth" : "Yours is worth")
-            // Everything sits in place; only the figures count and the chart draws.
-            CountingText(value: h.value ?? 0, format: { (h.isConditionEstimate ? "≈ " : "") + Format.money($0) }, duration: 0.9, delay: 0.15)
-                .font(.display(44)).tracking(-1.8).monospacedDigit().displayTrim(44)
-            HStack(spacing: 8) {
-                DeltaPill(ratio: h.gainRatio, size: 13)
-                CountingText(value: h.gain ?? 0, format: { Format.signedMoney($0) }, duration: 0.9, delay: 0.15)
-                    .font(.geist(14, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(h.gain))
-                Text("on what you paid").font(.geist(13)).foregroundStyle(Theme.muted)
-            }
-            if points.count > 1 {
-                let up = (h.gain ?? 0) >= 0
-                // Draws in left to right, quickly, as the sheet arrives.
-                Sparkline(points: points, color: up ? Theme.lime : Theme.planPink, delay: 0.15).frame(height: 56).padding(.top, 6)
-                HStack {
-                    MonoLabel(text: h.firstAcquired.flatMap { Format.isoDay.date(from: $0) }.map { "Since you bought it · \($0.formatted(.dateTime.month(.abbreviated).year()))" } ?? "Since you bought it")
-                    Spacer()
-                    Text(Format.signedMoney(h.gain)).font(.geist(12, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(h.gain))
-                }
-            }
-        }
+        return store.series(h.identity, days: min(max(held, 7), 3650))
     }
 
     private func tiles(_ h: HoldingView) -> some View {
@@ -221,7 +205,7 @@ struct HoldingSheet: View {
     }
 
     /// A raw single: what it could be worth graded, and a way to send it in.
-    private func ifGraded(_ h: HoldingView) -> some View {
+    private func ifGraded(_ identity: HoldingIdentity, _ h: HoldingView) -> some View {
         let nm = store.marketPrice(identity.productId, printing: identity.printing)?.market ?? h.price ?? 0
         func worth(_ grade: String) -> (Double, Bool) {
             // PriceCharting's 9 is for any company; scaled to PSA it's an estimate (≈).
@@ -244,7 +228,7 @@ struct HoldingSheet: View {
     }
 
     /// A slab: its cert number and bumper, and your own value.
-    private var slabRows: some View {
+    private func slabRows(_ identity: HoldingIdentity) -> some View {
         let cert = grading.certs[identity.key]
         let bumper = Bumper.byId(grading.bumpers[identity.key])
         return VStack(spacing: 0) {
@@ -285,8 +269,61 @@ struct HoldingSheet: View {
                 .buttonStyle(GlassButton())
         }
     }
+}
 
-    private var history: some View {
+/// What your copy is worth, its gain and its price line since you bought it. Its own view with
+/// a plain value, so opening a child sheet or menu doesn't redraw the chart.
+private struct HoldingWorth: View {
+    var holding: HoldingView
+    /// The price line since you first bought it, colored by whether you're up overall.
+    var points: [TimelinePoint]
+
+    var body: some View {
+        let h = holding
+        let points = Self.thin(self.points)
+        VStack(alignment: .leading, spacing: 8) {
+            MonoLabel(text: h.quantity > 1 ? "Your \(Int(h.quantity)) are worth" : "Yours is worth")
+            // Everything sits in place; only the figures count and the chart draws.
+            CountingText(value: h.value ?? 0, format: { (h.isConditionEstimate ? "≈ " : "") + Format.money($0) }, duration: 0.9, delay: 0.15)
+                .font(.display(44)).tracking(-1.8).monospacedDigit().displayTrim(44)
+            HStack(spacing: 8) {
+                DeltaPill(ratio: h.gainRatio, size: 13)
+                CountingText(value: h.gain ?? 0, format: { Format.signedMoney($0) }, duration: 0.9, delay: 0.15)
+                    .font(.geist(14, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(h.gain))
+                Text("on what you paid").font(.geist(13)).foregroundStyle(Theme.muted)
+            }
+            if points.count > 1 {
+                let up = (h.gain ?? 0) >= 0
+                // Draws in left to right, quickly, as the sheet arrives.
+                Sparkline(points: points, color: up ? Theme.lime : Theme.planPink, delay: 0.15).frame(height: 56).padding(.top, 6)
+                HStack {
+                    MonoLabel(text: h.firstAcquired.flatMap { Format.isoDay.date(from: $0) }.map { "Since you bought it · \($0.formatted(.dateTime.month(.abbreviated).year()))" } ?? "Since you bought it")
+                    Spacer()
+                    Text(Format.signedMoney(h.gain)).font(.geist(12, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(h.gain))
+                }
+            }
+        }
+    }
+
+    /// A copy held for years has a point for every day (up to 3,650), and Swift Charts lays out
+    /// an area and a line mark for each as the sheet rises. A 56-point-high line can't show more
+    /// than ~200, so keep that many evenly spaced (always the first and the last).
+    private static func thin(_ points: [TimelinePoint], to limit: Int = 200) -> [TimelinePoint] {
+        guard points.count > limit else { return points }
+        let step = Double(points.count - 1) / Double(limit - 1)
+        return (0..<limit).map { points[min(points.count - 1, Int((Double($0) * step).rounded()))] }
+    }
+}
+
+/// The copy's entries, newest first, each with Edit and Delete. Its own view with plain values,
+/// so it isn't rebuilt when a sheet flag flips.
+private struct HoldingHistory: View {
+    var entries: [Txn]
+    @Binding var editing: Txn?
+    @Binding var deleting: Txn?
+
+    var body: some View {
+        let lastId = entries.last?.id
         VStack(alignment: .leading, spacing: 8) {
             MonoLabel(text: "History")
             VStack(spacing: 0) {
@@ -301,7 +338,7 @@ struct HoldingSheet: View {
                         }
                     }
                     .padding(.vertical, 10)
-                    if t.id != entries.last?.id { Rectangle().fill(Theme.border).frame(height: 1) }
+                    if t.id != lastId { Rectangle().fill(Theme.border).frame(height: 1) }
                 }
                 if entries.isEmpty { Text("No entries.").font(.geist(14)).foregroundStyle(Theme.muted).padding(.vertical, 10) }
             }
@@ -615,7 +652,7 @@ struct RemoveSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.medium, .fraction(0.93)])
     }
 }
 
@@ -721,6 +758,6 @@ struct EditDetailsSheet: View {
                 if CardCondition(rawValue: i.condition) != nil { condition = i.condition }
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.medium, .fraction(0.93)])
     }
 }

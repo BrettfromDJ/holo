@@ -88,6 +88,9 @@ struct PullReveal: View {
                 SealedWell(product: event.product, cornerRadius: 24, caption: false).frame(width: 230, height: 230)
             }
         }
+        // The shadow goes on before the foil sweep, so it's drawn once rather than every frame
+        // the band moves (the sweep stays inside the picture, so it looks the same).
+        .shadow(color: .black.opacity(0.6), radius: 30, y: 16)
         .overlay {
             GeometryReader { geo in
                 LinearGradient(stops: [
@@ -104,7 +107,6 @@ struct PullReveal: View {
             .clipShape(shape)
             .allowsHitTesting(false)
         }
-        .shadow(color: .black.opacity(0.6), radius: 30, y: 16)
     }
 
     private func play() {
