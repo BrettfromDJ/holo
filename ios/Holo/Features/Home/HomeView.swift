@@ -11,6 +11,8 @@ struct HomeView: View {
     @State private var account = false
     @State private var lists = false
     @State private var search = false
+    /// The top-right menu of every main place in the app.
+    @State private var menuOpen = false
     /// The search field has scrolled up under the top bar, so a search button shows there.
     @State private var searchTucked = false
     @State private var recap = false
@@ -51,6 +53,22 @@ struct HomeView: View {
             .replaysAnimations()
             .tabBarClearance()
             .refreshable { await pullToRefresh() }
+            .overlay(alignment: .topTrailing) {
+                if menuOpen {
+                    ZStack(alignment: .topTrailing) {
+                        // Tap anywhere else to close.
+                        Color.black.opacity(0.35).ignoresSafeArea()
+                            .contentShape(Rectangle())
+                            .onTapGesture { setMenu(false) }
+                        PlacesMenu(go: go)
+                            .padding(.trailing, 12)
+                            .padding(.top, 4)
+                            .transition(.scale(scale: 0.92, anchor: .topTrailing).combined(with: .opacity))
+                    }
+                    .transition(.opacity)
+                }
+            }
+            .onDisappear { if menuOpen { setMenu(false, animated: false) } }
             .overlay(alignment: .top) {
                 if let banner {
                     BannerView(banner: banner)
@@ -80,28 +98,14 @@ struct HomeView: View {
                             .transition(.opacity.combined(with: .scale(scale: 0.8)))
                     }
                 }
-                // One menu for every main place in the app (replaces the heart and gear).
+                // One menu for every main place in the app (replaces the heart and gear). Our own
+                // glass panel, not a system Menu: it pauses the moving cards behind it while open
+                // and closes instantly when you pick a page, so opening and leaving stay snappy.
                 ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Section {
-                            Button { Router.shared.tabRequest = "collection" } label: { Label("Collection", systemImage: "square.grid.2x2") }
-                            Button { Router.shared.tabRequest = "explore" } label: { Label("Explore", systemImage: "safari") }
-                            Button { Router.shared.tabRequest = "deal" } label: { Label("Deal", systemImage: "arrow.left.arrow.right") }
-                        }
-                        Section {
-                            Button { path.append(MorePage.analytics) } label: { Label("Analytics", systemImage: "chart.xyaxis.line") }
-                            Button { path.append(MorePage.grading) } label: { Label("Grading", systemImage: "checkmark.seal") }
-                            Button { path.append(MorePage.masterSets) } label: { Label("Master sets", systemImage: "square.grid.3x3.fill") }
-                            Button { path.append(MorePage.activity) } label: { Label("Activity", systemImage: "list.bullet.rectangle") }
-                            Button { lists = true } label: { Label("Watchlist and wishlist", systemImage: "heart") }
-                        }
-                        Section {
-                            Button { account = true } label: { Label("Account and settings", systemImage: "gearshape") }
-                        }
-                    } label: {
-                        Image(systemName: "line.3.horizontal")
+                    Button { setMenu(!menuOpen) } label: {
+                        Image(systemName: menuOpen ? "xmark" : "line.3.horizontal")
                     }
-                    .accessibilityLabel("Menu")
+                    .accessibilityLabel(menuOpen ? "Close menu" : "Menu")
                 }
             }
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -234,6 +238,37 @@ struct HomeView: View {
         let before = Dictionary(store.holdings.map { ($0.identity.key, $0.price ?? 0) }, uniquingKeysWith: { a, _ in a })
         await reload()
         _ = before // The "Prices updated" banner is off for now; the numbers still count to their new values.
+    }
+
+    /// Opens or closes the places menu. While it's open the looping motion behind pauses
+    /// (as under a sheet), so the glass doesn't redraw every frame.
+    private func setMenu(_ open: Bool, animated: Bool = true) {
+        guard open != menuOpen else { return }
+        if open { SheetCover.shared.opened() } else { SheetCover.shared.closed() }
+        if animated, !reduceMotion {
+            withAnimation(.snappy(duration: 0.22)) { menuOpen = open }
+        } else {
+            var t = Transaction()
+            t.disablesAnimations = true
+            withTransaction(t) { menuOpen = open }
+        }
+    }
+
+    /// A place picked in the menu: the menu goes at once (no closing animation to wait on),
+    /// then the page opens.
+    private func go(_ place: PlacesMenu.Place) {
+        setMenu(false, animated: false)
+        switch place {
+        case .collection: Router.shared.tabRequest = "collection"
+        case .explore: Router.shared.tabRequest = "explore"
+        case .deal: Router.shared.tabRequest = "deal"
+        case .analytics: path.append(MorePage.analytics)
+        case .grading: path.append(MorePage.grading)
+        case .masterSets: path.append(MorePage.masterSets)
+        case .activity: path.append(MorePage.activity)
+        case .lists: lists = true
+        case .account: account = true
+        }
     }
 
     private func show(_ b: HomeBanner) {
@@ -1615,5 +1650,52 @@ private struct ShineUnlessSealed: ViewModifier {
     var sealed: Bool
     func body(content: Content) -> some View {
         if sealed { content } else { content.tiltShine(cornerRadius: 12) }
+    }
+}
+
+/// The top-right menu's panel: every main place in the app, in three groups, on one glass card.
+private struct PlacesMenu: View {
+    enum Place { case collection, explore, deal, analytics, grading, masterSets, activity, lists, account }
+    var go: (Place) -> Void
+
+    private static let groups: [[(Place, String, String)]] = [
+        [(.collection, "Collection", "square.grid.2x2"), (.explore, "Explore", "safari"), (.deal, "Deal", "arrow.left.arrow.right")],
+        [(.analytics, "Analytics", "chart.xyaxis.line"), (.grading, "Grading", "checkmark.seal"), (.masterSets, "Master sets", "square.grid.3x3.fill"),
+         (.activity, "Activity", "list.bullet.rectangle"), (.lists, "Watchlist and wishlist", "heart")],
+        [(.account, "Account and settings", "gearshape")],
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(Self.groups.enumerated()), id: \.offset) { g, items in
+                if g > 0 { Rectangle().fill(Color.white.opacity(0.1)).frame(height: 1).padding(.vertical, 4) }
+                ForEach(items, id: \.1) { item in
+                    let (place, title, icon) = item
+                    Button { go(place) } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: icon).font(.system(size: 15, weight: .medium)).foregroundStyle(Theme.lime).frame(width: 22)
+                            Text(title).font(.geist(15, .medium)).foregroundStyle(.white)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, 16)
+                        .frame(height: 42)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(MenuRowStyle())
+                }
+            }
+        }
+        .padding(.vertical, 6)
+        .frame(width: 260)
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .shadow(color: .black.opacity(0.35), radius: 18, y: 10)
+    }
+}
+
+/// A menu row: a faint highlight while pressed, no delay.
+private struct MenuRowStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(Color.white.opacity(configuration.isPressed ? 0.1 : 0))
     }
 }
