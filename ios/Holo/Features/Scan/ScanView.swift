@@ -17,7 +17,7 @@ struct ScanView: View {
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            CameraPreview(session: camera.session).ignoresSafeArea()
+            CameraPreview(session: camera.session, running: camera.state == .running).ignoresSafeArea()
             if flash { Color.white.opacity(0.7).ignoresSafeArea().transition(.opacity).allowsHitTesting(false) }
 
             VStack(spacing: 0) {

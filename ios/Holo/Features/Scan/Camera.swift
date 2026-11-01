@@ -42,9 +42,25 @@ final class Camera: NSObject, ObservableObject {
             if !self.configured {
                 guard self.configure() else { return self.set(.unavailable) }
                 self.configured = true
+                self.observeInterruptions()
             }
             if !self.session.isRunning { self.session.startRunning() }
             self.set(.running)
+        }
+    }
+
+    /// After a call, another app taking the camera or a runtime error, start again so the
+    /// picture comes back by itself.
+    private func observeInterruptions() {
+        let center = NotificationCenter.default
+        for name in [AVCaptureSession.interruptionEndedNotification, AVCaptureSession.runtimeErrorNotification] {
+            center.addObserver(forName: name, object: session, queue: nil) { [weak self] _ in
+                guard let self else { return }
+                self.queue.async {
+                    if !self.session.isRunning { self.session.startRunning() }
+                    self.set(.running)
+                }
+            }
         }
     }
 
@@ -111,19 +127,47 @@ extension Camera: AVCapturePhotoCaptureDelegate {
 /// The live camera picture, filling its frame.
 struct CameraPreview: UIViewRepresentable {
     let session: AVCaptureSession
+    /// Whether the camera is running; when it starts, the preview reconnects to it (newer iOS
+    /// can leave a preview attached before the session started showing nothing).
+    var running = true
 
     final class PreviewView: UIView {
         override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
         var previewLayer: AVCaptureVideoPreviewLayer { layer as! AVCaptureVideoPreviewLayer }
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            previewLayer.frame = bounds
+            // Upright, whatever the phone reports (the screen is portrait only).
+            if let connection = previewLayer.connection, connection.isVideoRotationAngleSupported(90) {
+                connection.videoRotationAngle = 90
+            }
+        }
     }
 
     func makeUIView(context: Context) -> PreviewView {
         let view = PreviewView()
-        view.previewLayer.session = session
         view.previewLayer.videoGravity = .resizeAspectFill
         view.backgroundColor = .black
+        view.previewLayer.session = session
         return view
     }
 
-    func updateUIView(_ uiView: PreviewView, context: Context) {}
+    final class Coordinator { var attachedWhileRunning = false }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func updateUIView(_ uiView: PreviewView, context: Context) {
+        guard running else {
+            context.coordinator.attachedWhileRunning = false
+            return
+        }
+        // Reattach once each time the session starts running, so the picture appears.
+        if !context.coordinator.attachedWhileRunning || uiView.previewLayer.connection == nil {
+            context.coordinator.attachedWhileRunning = true
+            uiView.previewLayer.session = nil
+            uiView.previewLayer.session = session
+            uiView.setNeedsLayout()
+        }
+    }
 }
