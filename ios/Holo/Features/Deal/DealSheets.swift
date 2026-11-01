@@ -455,10 +455,10 @@ private struct RecordedScreen: View {
                     .opacity(shown ? 1 : 0)
                 VStack(spacing: 10) {
                     Text(demo ? "DEMO · NOTHING SAVED" : "IN YOUR COLLECTION").font(.mono(11)).tracking(1.6).foregroundStyle(ink.opacity(0.6))
-                    // Anton has tall built-in line spacing; trim each line so they sit tight.
-                    VStack(spacing: 6) {
+                    // Two tight lines in sentence case ("Trade / recorded"), leading about 0.9.
+                    VStack(spacing: -10) {
                         Text(t.kind.noun.capitalized).font(.display(58)).tracking(-2.3).displayTrim(58)
-                        Text("Recorded").font(.display(58)).tracking(-2.3).displayTrim(58)
+                        Text("recorded").font(.display(58)).tracking(-2.3).displayTrim(58)
                     }
                     .foregroundStyle(ink)
                     .lineLimit(1).minimumScaleFactor(0.6)
