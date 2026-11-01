@@ -113,16 +113,21 @@ struct DotMatrixText: View {
 }
 
 /// A disc showing a share as a lit wedge (like a compass dial), with a dotted ring and four
-/// quarter labels around it.
+/// quarter labels around it. The wedge sweeps in from empty when it appears and glides to a new
+/// share when it changes (instantly under Reduce Motion). The disc is frosted, so the dotted
+/// backdrop behind it is blurred rather than showing through.
 struct GlowPie: View {
     var fraction: Double
     var labels: [String] = ["0", "25", "50", "75"]
+    @State private var shown: Double = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let f = min(max(fraction, 0), 1)
         ZStack {
-            Circle().fill(LinearGradient(colors: [Color.white.opacity(0.18), Color.white.opacity(0.05)], startPoint: .top, endPoint: .bottom))
-            PieWedge(fraction: f)
+            Circle().fill(.ultraThinMaterial)
+            Circle().fill(LinearGradient(colors: [Color.white.opacity(0.14), Color.white.opacity(0.03)], startPoint: .top, endPoint: .bottom))
+            PieWedge(fraction: shown)
                 .fill(Theme.lime)
             Circle().strokeBorder(.white.opacity(0.35), style: StrokeStyle(lineWidth: 1, dash: [1, 4]))
                 .padding(-8)
@@ -132,6 +137,14 @@ struct GlowPie: View {
         .overlay(alignment: .bottom) { Text(labels[2]).font(.mono(10)).opacity(0.7).offset(y: 26) }
         .overlay(alignment: .leading) { Text(labels[3]).font(.mono(10)).opacity(0.7).offset(x: -26) }
         .aspectRatio(1, contentMode: .fit)
+        .onAppear {
+            if reduceMotion { shown = f; return }
+            shown = 0
+            withAnimation(.timingCurve(0.3, 0, 0.2, 1, duration: 0.9).delay(0.15)) { shown = f }
+        }
+        .onChange(of: f) { _, new in
+            withAnimation(reduceMotion ? nil : .timingCurve(0.3, 0, 0.2, 1, duration: 0.9)) { shown = new }
+        }
     }
 }
 

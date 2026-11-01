@@ -270,7 +270,6 @@ struct SetDeckCard: View {
         .background {
             ZStack(alignment: .bottomTrailing) {
                 SetGlow(id: row.id)
-                GridPattern(step: 26, opacity: 0.07)
                 art
                     .frame(width: 150, height: 100)
                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))

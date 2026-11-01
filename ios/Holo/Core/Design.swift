@@ -106,7 +106,9 @@ extension View {
     func pageTitle(_ title: String) -> some View {
         toolbar {
             ToolbarItem(placement: .principal) {
+                // Long titles (a set's full name) shrink a little, then end in "…" on one line.
                 Text(title).font(.geist(17, .semibold)).foregroundStyle(.white)
+                    .lineLimit(1).minimumScaleFactor(0.85).truncationMode(.tail)
             }
         }
         // Never a bar behind the top: every page's header is fully transparent.

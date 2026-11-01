@@ -152,7 +152,9 @@ struct HomeView: View {
                     .padding(.horizontal, 16)
                 Hero(store: store, spread: refreshing, onRecap: { recap = true }, onAdd: { Router.shared.addMenu = true })
             }
-            ShortcutRow().padding(.horizontal, 16)
+            // Sits close under the hero's buttons (it belongs with them) and a little nearer the
+            // chart than the usual section gap, with more room between the tiles themselves.
+            ShortcutRow().padding(.horizontal, 16).padding(.top, -22).padding(.bottom, -10)
             PerformanceSection(store: store).padding(.horizontal, 16).reveal()
             MetricGrid(store: store, onReload: refresh).padding(.horizontal, 16).reveal()
             Spotlight(store: store).padding(.horizontal, 16).reveal()
@@ -1517,7 +1519,7 @@ extension EnvironmentValues {
 /// sets and Activity, as four small glass tiles.
 private struct ShortcutRow: View {
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 12) {
             tile("Analytics", icon: "chart.xyaxis.line", page: .analytics)
             tile("Grading", icon: "checkmark.seal", page: .grading)
             tile("Master sets", icon: "square.grid.3x3.fill", page: .masterSets)

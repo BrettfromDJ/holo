@@ -90,10 +90,10 @@ struct MasterSetDetailView: View {
         .imageMaxPixel(400)
         .replaysAnimations()
         .scrollDismissesKeyboard(.immediately)
-        // The lit grid runs up under the clear top bar; the set's name is on it, not in the bar.
+        // The lit grid runs up under the clear top bar; the set's name sits centered in the bar.
         .scrollClipDisabled()
         .navigationBarTitleDisplayMode(.inline)
-        .pageTitle("")
+        .pageTitle(setName)
         .onChange(of: complete, initial: true) { _, done in if done { celebrate() } }
         .sensoryFeedback(.success, trigger: celebrated) { _, now in now }
         .task(id: setId) { await Self.load([current], store: store) }
@@ -177,10 +177,6 @@ struct MasterSetDetailView: View {
         // The set's page opens on the lit grid: the % in glowing lime dot-matrix digits, a dial of
         // how much you own, two tiles, then every card in the set as one tick.
         return VStack(spacing: 18) {
-            HStack {
-                Text(set.name).font(.geist(24, .semibold)).lineLimit(2).minimumScaleFactor(0.7)
-                Spacer()
-            }
             VStack(spacing: 6) {
                 Text(known ? "COMPLETE" : "CARDS OWNED").font(.mono(11)).tracking(1.6).foregroundStyle(Theme.muted)
                 HStack(alignment: .top, spacing: 4) {
