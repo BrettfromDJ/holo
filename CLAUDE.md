@@ -18,6 +18,10 @@ and say exactly what to run or click.
 
 ## Standing rules from the owner
 
+- **Check speed on every change.** Each push to `ios/` runs `HoloUITests/PerformanceTests` in CI
+  (Owned sheet open/close, a tap inside a sheet, idle CPU on Overview and under a sheet,
+  scrolling Overview). Read `perf.txt` in the commit's `ci-screenshots` folder and compare with
+  `perf-history.txt` before reporting a change done; call out anything slower.
 - **See what you build.** Before saying a visual change is done, build it, run it, take a
   screenshot and look at it (see "Seeing the app" below). Most past mistakes came from not looking.
 - **Keep the app and website in step.** New things are often designed in the app first, then

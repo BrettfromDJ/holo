@@ -108,6 +108,7 @@ struct CollectionView: View {
                                 LazyVGrid(columns: columns, spacing: 28) {
                                     ForEach(shown) { h in
                                         Button { opened = h } label: { HoldingTile(holding: h) }.buttonStyle(.plain)
+                                            .accessibilityIdentifier("holding-tile")
                                             // Hold to lift the tile and get quick actions.
                                             .contextMenu { quickActions(h) } preview: { LiftedPreview { HoldingTile(holding: h).frame(width: 190) } }
                                             .transition(.scale(scale: 0.92).combined(with: .opacity))

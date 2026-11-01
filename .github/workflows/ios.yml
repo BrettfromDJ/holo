@@ -97,11 +97,26 @@ jobs:
           TEST_RUNNER_SCREENSHOT_DIR="$PWD/screenshots" xcodebuild test-without-building \
             -project Holo.xcodeproj -scheme Holo \
             -destination "id=${{ steps.sim.outputs.udid }}" \
-            -only-testing:HoloUITests \
+            -only-testing:HoloUITests/ScreenshotTests \
             -parallel-testing-enabled NO \
             CODE_SIGNING_ALLOWED=NO \
             | tee ui.log | grep --line-buffered -E "error:|Test Case|\*\* TEST" || true
           ls -la screenshots
+      # Speed: sheet open/close, a tap inside a sheet, idle CPU (Overview, under a sheet) and
+      # scrolling. Writes perf.txt; never fails the build.
+      - name: Performance
+        timeout-minutes: 15
+        continue-on-error: true
+        run: |
+          xcodebuild test-without-building \
+            -project Holo.xcodeproj -scheme Holo \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -only-testing:HoloUITests/PerformanceTests \
+            -parallel-testing-enabled NO \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee perf.log | grep --line-buffered -E "error:|Test Case|measured|\*\* TEST" || true
+          grep "measured \[" perf.log | sed -E "s/.*PerformanceTests (test[A-Za-z]+)\]' measured \[([^]]+)\] average: ([0-9.]+), relative standard deviation: ([0-9.]+%).*/\1  \2  avg \3  (±\4)/" > perf.txt || true
+          cat perf.txt
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -120,6 +135,14 @@ jobs:
           OUT=$(mktemp -d)
           mkdir -p "$OUT/${GITHUB_SHA::7}"
           cp screenshots/*.png "$OUT/${GITHUB_SHA::7}/"
+          # Speed numbers: this run's, plus a running history carried over from the last publish.
+          if [ -s perf.txt ]; then
+            cp perf.txt "$OUT/${GITHUB_SHA::7}/perf.txt"
+            PREV=$(mktemp -d)
+            git clone -q --depth 1 -b ci-screenshots "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" "$PREV" 2>/dev/null || true
+            cp "$PREV/perf-history.txt" "$OUT/perf-history.txt" 2>/dev/null || true
+            { echo "## ${GITHUB_SHA::7} $(date -u '+%Y-%m-%d %H:%M')"; cat perf.txt; echo; } >> "$OUT/perf-history.txt"
+          fi
           cd "$OUT"
           git init -q -b ci-screenshots
           git config user.name "github-actions"
