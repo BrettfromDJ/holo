@@ -124,18 +124,36 @@ struct MainTabView: View {
         }
     }()
     @State private var scanning = false
+    @Environment(DealStore.self) private var deals
+    @Environment(CollectionStore.self) private var store
+    /// While a deal is open, the scanner asks where cards go; the answer holds until the deal ends.
+    @State private var askScanTarget = false
+    @State private var scanChoice: ScanChoice?
+    @State private var dealScan: DealSide?
+    enum ScanChoice: Equatable { case collection, deal(DealSide) }
     @State private var adding = false
     @State private var searching = false
     @State private var router = Router.shared
 
     enum HomeTab { case home, collection, explore, deal }
 
+    /// The main scanner: straight to the collection, unless a deal is open, then it asks once
+    /// (per deal) whether cards go into the deal or the collection.
+    private func startScan() {
+        guard deals.deal.kind != .empty else { scanning = true; return }
+        switch scanChoice {
+        case .collection: scanning = true
+        case let .deal(side): dealScan = side
+        case nil: askScanTarget = true
+        }
+    }
+
     var body: some View {
         TabView(selection: $tab) {
-            HomeView(onScan: { scanning = true })
+            HomeView(onScan: { startScan() })
                 .tag(HomeTab.home)
                 .toolbar(.hidden, for: .tabBar)
-            CollectionView(onScan: { scanning = true })
+            CollectionView(onScan: { startScan() })
                 .tag(HomeTab.collection)
                 .toolbar(.hidden, for: .tabBar)
             ExploreView()
@@ -152,7 +170,7 @@ struct MainTabView: View {
         // The add menu: Scan and Search pop out from behind the + (drawn under the bar, so the
         // + stays on top and turns into a ×).
         .overlay {
-            AddMenu(open: $adding, onScan: { scanning = true }, onSearch: { searching = true })
+            AddMenu(open: $adding, onScan: { startScan() }, onSearch: { searching = true })
         }
         .overlay(alignment: .bottom) {
             HoloTabBar(
@@ -189,6 +207,20 @@ struct MainTabView: View {
             withAnimation(.spring(response: 0.42, dampingFraction: 0.72)) { adding = true }
         }
         .fullScreenCover(isPresented: $scanning) { ScanView() }
+        // Scanning while a deal is open: into the deal (then show it) or into the collection.
+        .background {
+            Color.clear.fullScreenCover(item: $dealScan, onDismiss: { tab = .deal }) { side in
+                ScanView(dealSide: side, onPick: { c, read in deals.addScanned(c, read: read, to: side, store: store) })
+            }
+        }
+        .confirmationDialog("A deal is open. Where should scanned cards go?", isPresented: $askScanTarget, titleVisibility: .visible) {
+            Button("Deal · coming in") { scanChoice = .deal(.incoming); dealScan = .incoming }
+            Button("Deal · going out") { scanChoice = .deal(.outgoing); dealScan = .outgoing }
+            Button("My collection") { scanChoice = .collection; scanning = true }
+            Button("Cancel", role: .cancel) {}
+        }
+        // A new deal asks again.
+        .onChange(of: deals.deal.kind) { _, kind in if kind == .empty { scanChoice = nil } }
         .fullScreenCover(isPresented: $searching) { SearchScreen(mode: .add) }
         // A tapped price alert opens its card.
         .sheet(item: Binding(get: { router.product.map(OpenProduct.init) }, set: { router.product = $0?.id })) { open in

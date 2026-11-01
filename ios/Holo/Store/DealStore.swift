@@ -215,4 +215,31 @@ final class DealStore {
         let all = deal.incoming.reduce(0) { $0 + $1.qty } + deal.outgoing.reduce(0) { $0 + $1.qty }
         return (adds, sells, all - adds - sells)
     }
+
+    /// A card scanned into the deal (from the Deal tab's scanners or the main scanner while a
+    /// deal is open): coming in, it's priced from your copy if you own one; going out, it uses
+    /// your copy, or goes in marked "not in Lucent".
+    @MainActor
+    func addScanned(_ c: ScanCandidate, read: ScanRead?, to side: DealSide, store: CollectionStore) -> (ok: Bool, note: String) {
+        let grade = read?.kind == "slab" ? read?.grade : nil
+        let sameGrade: (HoldingIdentity) -> Bool = { $0.gradeCompany == grade?.company && $0.grade == grade?.grade }
+        if side == .incoming {
+            if let h = store.allHoldings.first(where: { $0.identity.productId == c.product.id && $0.identity.printing == c.printing && sameGrade($0.identity) }), let p = h.product {
+                add(DealItem(key: "h:\(h.identity.key)", product: p, printing: h.identity.printing, market: h.price ?? c.market, holdingKey: h.identity.key), to: .incoming)
+            } else {
+                let gradeLabel = grade.map { "\($0.company) \($0.grade)" } ?? ""
+                add(DealItem(key: "p:\(c.product.id):\(c.printing ?? ""):\(gradeLabel)", product: c.product, printing: c.printing, market: c.value(for: read), grade: grade), to: .incoming)
+            }
+            return (true, "Added to coming in")
+        }
+        let owned = store.allHoldings.filter { $0.identity.productId == c.product.id }
+        guard let h = owned.first(where: { $0.identity.printing == c.printing && sameGrade($0.identity) }) ?? owned.first, let p = h.product else {
+            // Not in Holo: it still goes in the deal, marked so, with an optional "you paid".
+            let gradeLabel = grade.map { "\($0.company) \($0.grade)" } ?? ""
+            add(DealItem(key: "p:\(c.product.id):\(c.printing ?? ""):\(gradeLabel)", product: c.product, printing: c.printing, market: c.value(for: read), grade: grade), to: .outgoing)
+            return (true, "Added · not in Lucent")
+        }
+        add(DealItem(key: "h:\(h.identity.key)", product: p, printing: h.identity.printing, market: h.price, holdingKey: h.identity.key, maxQty: Int(h.quantity)), to: .outgoing)
+        return (true, "Added to going out")
+    }
 }

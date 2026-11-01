@@ -283,26 +283,7 @@ struct DealView: View {
     /// A scanned card: anything can come in; going out, it has to be something you hold.
     @MainActor
     private func addScan(_ c: ScanCandidate, read: ScanRead?, to side: DealSide) -> (ok: Bool, note: String) {
-        let grade = read?.kind == "slab" ? read?.grade : nil
-        let sameGrade: (HoldingIdentity) -> Bool = { $0.gradeCompany == grade?.company && $0.grade == grade?.grade }
-        if side == .incoming {
-            if let h = store.allHoldings.first(where: { $0.identity.productId == c.product.id && $0.identity.printing == c.printing && sameGrade($0.identity) }), let p = h.product {
-                deals.add(DealItem(key: "h:\(h.identity.key)", product: p, printing: h.identity.printing, market: h.price ?? c.market, holdingKey: h.identity.key), to: .incoming)
-            } else {
-                let gradeLabel = grade.map { "\($0.company) \($0.grade)" } ?? ""
-                deals.add(DealItem(key: "p:\(c.product.id):\(c.printing ?? ""):\(gradeLabel)", product: c.product, printing: c.printing, market: c.value(for: read), grade: grade), to: .incoming)
-            }
-            return (true, "Added to coming in")
-        }
-        let owned = store.allHoldings.filter { $0.identity.productId == c.product.id }
-        guard let h = owned.first(where: { $0.identity.printing == c.printing && sameGrade($0.identity) }) ?? owned.first, let p = h.product else {
-            // Not in Holo: it still goes in the deal, marked so, with an optional "you paid".
-            let gradeLabel = grade.map { "\($0.company) \($0.grade)" } ?? ""
-            deals.add(DealItem(key: "p:\(c.product.id):\(c.printing ?? ""):\(gradeLabel)", product: c.product, printing: c.printing, market: c.value(for: read), grade: grade), to: .outgoing)
-            return (true, "Added · not in Lucent")
-        }
-        deals.add(DealItem(key: "h:\(h.identity.key)", product: p, printing: h.identity.printing, market: h.price, holdingKey: h.identity.key, maxQty: Int(h.quantity)), to: .outgoing)
-        return (true, "Added to going out")
+        deals.addScanned(c, read: read, to: side, store: store)
     }
 }
 
