@@ -117,7 +117,7 @@ export function GradedPrices({ productId, printing, nm, owned, className }: { pr
         ) : (
           <>
             {ungraded !== null && (
-              <div className="mb-2 flex items-baseline justify-between rounded-xl bg-surface-2 px-4 py-3">
+              <div className="flex items-baseline justify-between border-b border-border py-3">
                 <span className="text-[13px] text-muted">Ungraded</span>
                 <span className="tabular text-[17px] font-semibold">{money(ungraded)}</span>
               </div>
@@ -131,7 +131,7 @@ export function GradedPrices({ productId, printing, nm, owned, className }: { pr
                       // The wash sits behind the row and reaches past it, so the row's content stays in line with the others.
                       <li key={`${row.company} ${row.grade}`} className="relative flex items-center gap-2.5 py-3">
                         {mine && <span aria-hidden className="absolute -inset-x-3 inset-y-0 rounded-xl bg-[color-mix(in_srgb,var(--lime)_10%,transparent)]" />}
-                        <span className="relative inline-flex min-w-[4.5rem] items-center gap-1 rounded-[6px] bg-surface-2 px-2 py-1 font-mono text-[12px] font-medium leading-none ring-1 ring-inset ring-border">
+                        <span className="relative inline-flex min-w-[4rem] items-center gap-1 font-mono text-[13px] font-medium leading-none">
                           <span className="text-muted">{row.company}</span>
                           <span className="text-foreground">{row.grade}</span>
                         </span>

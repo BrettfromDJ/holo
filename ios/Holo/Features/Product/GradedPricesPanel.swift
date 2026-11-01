@@ -173,9 +173,8 @@ struct GradedPricesPanel: View {
                     Spacer()
                     Text(Format.money(ungraded)).font(.geist(17, .semibold)).monospacedDigit()
                 }
-                .padding(.horizontal, 14).padding(.vertical, 11)
-                .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.surface2))
-                .padding(.bottom, 6)
+                .padding(.vertical, 11)
+                Divider().overlay(Theme.border)
             }
             ForEach(Array(priced.enumerated()), id: \.element.0.id) { i, pair in
                 let (row, p) = pair
@@ -186,11 +185,8 @@ struct GradedPricesPanel: View {
                         Text(row.company).foregroundStyle(Theme.muted)
                         Text(row.grade).foregroundStyle(.white)
                     }
-                    .font(.mono(12))
-                    .padding(.horizontal, 8).frame(height: 24)
-                    .frame(minWidth: 72, alignment: .leading)
-                    .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Theme.surface2))
-                    .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Theme.border))
+                    .font(.mono(13))
+                    .frame(minWidth: 64, alignment: .leading)
                     if mine { Text("Yours").font(.geist(11, .semibold)).foregroundStyle(Theme.lime) }
                     Spacer(minLength: 8)
                     Text(sourceLabel(p.source)).font(.geist(12)).foregroundStyle(Theme.subtle)
