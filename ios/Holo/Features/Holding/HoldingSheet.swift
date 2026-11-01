@@ -220,7 +220,8 @@ struct HoldingSheet: View {
     private func ifGraded(_ h: HoldingView) -> some View {
         let nm = store.marketPrice(identity.productId, printing: identity.printing)?.market ?? h.price ?? 0
         func worth(_ grade: String) -> (Double, Bool) {
-            if let v = graded?.value(company: "PSA", grade: grade) { return (v, false) }
+            // PriceCharting's 9 is for any company; scaled to PSA it's an estimate (≈).
+            if let v = graded?.value(company: "PSA", grade: grade) { return grade == "10" ? (v, false) : (WorthCalc.companyAdjusted(v, company: "PSA"), true) }
             return ((nm * WorthCalc.multiple(productId: identity.productId, company: "PSA", grade: grade) * 100).rounded() / 100, true)
         }
         let ten = worth("10"), nine = worth("9")
@@ -231,7 +232,7 @@ struct HoldingSheet: View {
                 SheetStat(label: "PSA 9", value: (nine.1 ? "≈ " : "") + Format.money(nine.0))
             }
             .redacted(reason: gradedReady ? [] : .placeholder)
-            Text(!gradedReady ? "Looking up graded prices…" : ten.1 ? "Estimates from the usual grade curve. The card page has every grade." : "From PriceCharting. The card page has every grade.")
+            Text(!gradedReady ? "Looking up graded prices…" : ten.1 ? "Estimates from the usual grade curve. The card page has every grade." : "From PriceCharting (≈ adjusted for PSA). The card page has every grade.")
                 .font(.geist(12)).foregroundStyle(Theme.subtle)
             Button { sending = true } label: { Label("Send for grading", systemImage: "paperplane") }
                 .buttonStyle(GlassButton())

@@ -54,6 +54,14 @@ enum WorthCalc {
     /// How each company's slabs trade relative to PSA at the same grade.
     private static let companyFactor: [String: Double] = ["PSA": 1, "BGS": 1.05, "CGC": 0.72, "SGC": 0.7, "TAG": 0.66]
 
+    /// PriceCharting gives one price for grades below 10 across every grading company. Those
+    /// sales are mostly PSA, so the blend sits a little under PSA; this scales the blend to one
+    /// company using the usual gaps between them (same as the web's companyAdjusted).
+    static let blendFactor = 0.9
+    static func companyAdjusted(_ blended: Double, company: String) -> Double {
+        ((blended * (companyFactor[company.uppercased()] ?? 0.7) / blendFactor) * 100).rounded() / 100
+    }
+
     /// Multiple of the raw price for this product and grade, stable per product (same as the web).
     static func multiple(productId: String, company: String, grade: String) -> Double {
         let n = Double(grade) ?? 0

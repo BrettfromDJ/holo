@@ -19,23 +19,36 @@ struct GradedPricesPanel: View {
     @State private var grade = "9"
 
     private struct Row: Identifiable {
-        var key: String
-        var company: String?
+        var company: String
         var grade: String
-        var id: String { key }
+        var id: String { "\(company) \(grade)" }
     }
 
-    /// The 10s by grader, then any grader below.
+    /// Every row names one company: the 10s by grader, then the grades people trade most below
+    /// (BGS for 9.5, which PSA doesn't give; PSA below that). The lookup covers the rest.
     private static let rows: [Row] = [
-        Row(key: "PSA 10", company: "PSA", grade: "10"),
-        Row(key: "BGS 10", company: "BGS", grade: "10"),
-        Row(key: "CGC 10", company: "CGC", grade: "10"),
-        Row(key: "SGC 10", company: "SGC", grade: "10"),
-        Row(key: "9.5", company: nil, grade: "9.5"),
-        Row(key: "9", company: nil, grade: "9"),
-        Row(key: "8", company: nil, grade: "8"),
-        Row(key: "7", company: nil, grade: "7"),
+        Row(company: "PSA", grade: "10"), Row(company: "BGS", grade: "10"),
+        Row(company: "CGC", grade: "10"), Row(company: "SGC", grade: "10"),
+        Row(company: "BGS", grade: "9.5"), Row(company: "PSA", grade: "9"),
+        Row(company: "PSA", grade: "8"), Row(company: "PSA", grade: "7"),
     ]
+
+    /// Where a slab's price comes from.
+    enum Source { case ebay(Int), guide, adjusted, curve }
+
+    /// One slab's price: recent eBay sales of that exact slab when there are enough, else
+    /// PriceCharting (its 10s are per company; below 10 its one price for every company is
+    /// scaled to this company, ≈), else the last eBay sale, else the usual grade curve (≈).
+    static func price(company: String, grade: String, values: GradedValues?, ebay: EbaySales?, nm: Double?, productId: String) -> (value: Double, source: Source)? {
+        let label = "\(company) \(grade)"
+        if let sold = ebay?.graded[label], sold.count >= WorthCalc.minSales, let median = sold.median { return (median, .ebay(sold.count)) }
+        if let v = values?.value(company: company, grade: grade) {
+            return (Double(grade) ?? 0) < 10 ? (WorthCalc.companyAdjusted(v, company: company), .adjusted) : (v, .guide)
+        }
+        if let sold = ebay?.graded[label], let last = sold.lastPrice ?? sold.median { return (last, .ebay(sold.count)) }
+        if let nm, nm > 0 { return ((nm * WorthCalc.multiple(productId: productId, company: company, grade: grade) * 100).rounded() / 100, .curve) }
+        return nil
+    }
 
     var body: some View {
         Group {
@@ -44,8 +57,7 @@ struct GradedPricesPanel: View {
             } else if values?.grades.isEmpty == false || nm != nil || ebay?.graded.isEmpty == false {
                 card {
                     VStack(alignment: .leading, spacing: 20) {
-                        if let values, !values.grades.isEmpty { table(values, estimate: false) }
-                        else if let est = estimated { table(est, estimate: true) }
+                        table
                         Rectangle().fill(Theme.border).frame(height: 1)
                         lookup
                     }
@@ -72,7 +84,7 @@ struct GradedPricesPanel: View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Graded prices").font(.geist(15, .semibold))
-                Text(values.flatMap { $0.grades.isEmpty ? nil : "What it sells for graded · PriceCharting" + (relative($0.updatedAt).map { " · updated \($0)" } ?? "") } ?? "Estimated from the usual grade curve")
+                Text(values.flatMap { $0.grades.isEmpty ? nil : "What it sells for graded · eBay and PriceCharting" + (relative($0.updatedAt).map { " · updated \($0)" } ?? "") } ?? (ebay?.graded.isEmpty == false ? "What it sells for graded · eBay" : "Estimated from the usual grade curve"))
                     .font(.geist(12)).foregroundStyle(Theme.muted)
             }
             content().padding(.top, 14)
@@ -138,36 +150,24 @@ struct GradedPricesPanel: View {
 
     private var lookupValue: (price: Double?, detail: String) {
         let label = "\(company) \(grade)"
-        if let sold = ebay?.graded[label], sold.count >= WorthCalc.minSales, let median = sold.median {
-            return (median, "Median of \(sold.count) \(label) eBay sales this month")
+        guard let p = Self.price(company: company, grade: grade, values: values, ebay: ebay, nm: nm, productId: productId) else {
+            return (nil, "No sales or price guide for this grade yet")
         }
-        if let v = values?.value(company: company, grade: grade) {
-            let any = (Double(grade) ?? 0) < 10
-            return (v, any ? "PriceCharting · grade \(grade), any grading company" : "PriceCharting · \(label)")
+        switch p.source {
+        case let .ebay(n): return (p.value, n >= WorthCalc.minSales ? "Median of \(n) \(label) eBay sales this month" : "Last \(label) eBay sale")
+        case .guide: return (p.value, "PriceCharting · \(label)")
+        case .adjusted: return (p.value, "Estimate · PriceCharting's grade \(grade) price for any company, adjusted for \(company)")
+        case .curve: return (p.value, "Estimate from the usual grade curve")
         }
-        if let sold = ebay?.graded[label], let last = sold.lastPrice ?? sold.median {
-            return (last, "Last \(label) eBay sale")
-        }
-        if let nm {
-            return ((nm * WorthCalc.multiple(productId: productId, company: company, grade: grade) * 100).rounded() / 100,
-                    "Estimate from the usual grade curve")
-        }
-        return (nil, "No sales or price guide for this grade yet")
     }
 
-    /// The same table from the usual grade curve, when PriceCharting has nothing for the card.
-    private var estimated: GradedValues? {
-        guard let nm, nm > 0 else { return nil }
-        var grades: [String: Double] = [:]
-        for row in Self.rows {
-            grades[row.key] = (nm * WorthCalc.multiple(productId: productId, company: row.company ?? "PSA", grade: row.grade) * 100).rounded() / 100
+    private var table: some View {
+        let ungraded = values?.ungraded ?? nm
+        let priced = Self.rows.compactMap { row in
+            Self.price(company: row.company, grade: row.grade, values: values, ebay: ebay, nm: nm, productId: productId).map { (row, $0) }
         }
-        return GradedValues(ungraded: nm, grades: grades, updatedAt: "")
-    }
-
-    @ViewBuilder private func table(_ v: GradedValues, estimate: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if let ungraded = v.ungraded {
+        return VStack(alignment: .leading, spacing: 0) {
+            if let ungraded {
                 HStack {
                     Text("Ungraded").font(.geist(13)).foregroundStyle(Theme.muted)
                     Spacer()
@@ -177,13 +177,13 @@ struct GradedPricesPanel: View {
                 .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.surface2))
                 .padding(.bottom, 6)
             }
-            let shown = Self.rows.filter { v.grades[$0.key] != nil }
-            ForEach(Array(shown.enumerated()), id: \.element.id) { i, row in
-                let value = v.grades[row.key] ?? 0
+            ForEach(Array(priced.enumerated()), id: \.element.0.id) { i, pair in
+                let (row, p) = pair
                 let mine = isOwned(row)
+                let estimate: Bool = { if case .adjusted = p.source { return true }; if case .curve = p.source { return true }; return false }()
                 HStack(spacing: 10) {
                     HStack(spacing: 4) {
-                        Text(row.company ?? "Any").foregroundStyle(Theme.muted)
+                        Text(row.company).foregroundStyle(Theme.muted)
                         Text(row.grade).foregroundStyle(.white)
                     }
                     .font(.mono(12))
@@ -193,29 +193,29 @@ struct GradedPricesPanel: View {
                     .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Theme.border))
                     if mine { Text("Yours").font(.geist(11, .semibold)).foregroundStyle(Theme.lime) }
                     Spacer(minLength: 8)
-                    if let base = v.ungraded, base > 0 {
-                        let m = value / base
-                        Text("\(m >= 10 ? String(format: "%.0f", m) : String(format: "%.1f", m))× ungraded")
-                            .font(.geist(12)).foregroundStyle(Theme.subtle).monospacedDigit()
-                    }
-                    Text(Format.money(value)).font(.geist(16, .semibold)).monospacedDigit()
-                        .frame(minWidth: 86, alignment: .trailing)
+                    Text(sourceLabel(p.source)).font(.geist(12)).foregroundStyle(Theme.subtle)
+                    Text((estimate ? "≈ " : "") + Format.money(p.value)).font(.geist(16, .semibold)).monospacedDigit()
+                        .frame(minWidth: 96, alignment: .trailing)
                 }
                 .padding(.vertical, 11)
                 .background { if mine { RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.lime.opacity(0.1)).padding(.horizontal, -10) } }
-                if i < shown.count - 1 { Divider().overlay(Theme.border) }
+                if i < priced.count - 1 { Divider().overlay(Theme.border) }
             }
-            Text(estimate ? "No graded sales for this card yet, so these follow the usual grade curve." : "10s are per grading company; lower grades are for any company.")
+            Text("eBay: the median of this month's sales of that exact slab. ≈: an estimate, from PriceCharting's price for the grade (which mixes every company) adjusted for the company, or from the usual grade curve.")
                 .font(.geist(12)).foregroundStyle(Theme.subtle).padding(.top, 10)
         }
     }
 
-    private func isOwned(_ row: Row) -> Bool {
-        owned.contains { o in
-            let g = Double(o.grade) ?? -1
-            if let company = row.company { return o.company.uppercased() == company && g == 10 }
-            return g == Double(row.grade) && g != 10
+    private func sourceLabel(_ s: Source) -> String {
+        switch s {
+        case .ebay: return "eBay"
+        case .guide: return "PriceCharting"
+        case .adjusted, .curve: return "estimate"
         }
+    }
+
+    private func isOwned(_ row: Row) -> Bool {
+        owned.contains { o in o.company.uppercased() == row.company && Double(o.grade) == Double(row.grade) }
     }
 
     private func relative(_ iso: String) -> String? {
