@@ -453,7 +453,7 @@ private struct SetView: View {
             LazyVGrid(columns: twoColumns, alignment: .leading, spacing: 28) {
                 ForEach(shown) { hit in
                     link(hit) {
-                        SetProductTile(hit: hit, owned: ownedIds.contains(hit.product.id), perPack: tab == .sealed ? derived.perPack[hit.id] : nil)
+                        SetProductTile(hit: hit, owned: ownedIds.contains(hit.product.id), perPack: tab == .sealed ? derived.perPack[hit.id] : nil, square: tab == .sealed)
                     }
                 }
             }
@@ -764,6 +764,8 @@ private struct SetProductTile: View {
     var hit: SearchHit
     var owned: Bool
     var perPack: Double?
+    /// A grid of only sealed products: square wells (no card beside them to match).
+    var square = false
 
     var body: some View {
         let p = hit.product
@@ -771,7 +773,7 @@ private struct SetProductTile: View {
         let sub = [p.number.map { "#\($0)" }, rarity ?? (p.isSealed ? p.productType : nil)].compactMap { $0 }.joined(separator: " · ")
         VStack(alignment: .leading, spacing: 0) {
             Color.clear
-                .aspectRatio(5.0 / 7.0, contentMode: .fit)
+                .aspectRatio(square ? 1 : 5.0 / 7.0, contentMode: .fit)
                 .overlay(alignment: .bottom) {
                     if p.isSealed || p.imageURL == nil {
                         SealedWell(product: p, cornerRadius: 14, caption: true)
