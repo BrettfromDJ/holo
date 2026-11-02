@@ -1048,16 +1048,28 @@ private struct CustomerViewSheet: View {
         let b = totals.balance
         ZStack(alignment: flipped ? .bottomTrailing : .topTrailing) {
             backdrop
-            ScrollView {
-                VStack(alignment: .leading, spacing: 34) {
-                    header
-                    if !deal.incoming.isEmpty { section("You hand us", deal.incoming, rates.in, incoming: true, total: totals.inValue) }
-                    if !deal.outgoing.isEmpty { section("You get", deal.outgoing, rates.out, incoming: false, total: totals.outValue) }
-                    cashPanel(b)
+            GeometryReader { geo in
+                // The more cards, the more columns (smaller tiles), so the cash always shows.
+                let cols = columns(width: geo.size.width, height: geo.size.height)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 30) {
+                        header
+                        if !deal.incoming.isEmpty { section("You hand us", deal.incoming, rates.in, incoming: true, total: totals.inValue, cols: cols) }
+                        if !deal.outgoing.isEmpty { section("You get", deal.outgoing, rates.out, incoming: false, total: totals.outValue, cols: cols) }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 72)
+                    .padding(.bottom, 20)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 72)
-                .padding(.bottom, 44)
+                .scrollBounceBehavior(.basedOnSize)
+                // Pinned at the bottom: never scrolled out of sight.
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    cashPanel(b)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
+                        .padding(.bottom, 12)
+                        .background(LinearGradient(colors: [Theme.background.opacity(0), Theme.background], startPoint: .top, endPoint: .init(x: 0.5, y: 0.25)))
+                }
             }
             .rotationEffect(.degrees(flipped ? 180 : 0))
             // The controls stay the right way up for you, at whichever end is yours.
@@ -1116,7 +1128,28 @@ private struct CustomerViewSheet: View {
         }
     }
 
-    private func section(_ title: String, _ items: [DealItem], _ rate: Double, incoming: Bool, total: Double) -> some View {
+    /// Tile measures for a number of columns: width, and height with the name and price under it.
+    private static func tile(cols: Int, width: CGFloat) -> (w: CGFloat, h: CGFloat) {
+        let w = (width - 40 - CGFloat(cols - 1) * 12) / CGFloat(cols)
+        return (w, w * 88 / 63 + (cols >= 4 ? 28 : (cols == 3 ? 52 : 70)))
+    }
+
+    /// The fewest columns (2 to 6) that fit every card above the pinned cash panel.
+    private func columns(width: CGFloat, height: CGFloat) -> Int {
+        let counts = [deal.incoming.count, deal.outgoing.count].filter { $0 > 0 }
+        // Top space for the buttons, the header, each section's heading and the gaps, the cash panel.
+        let fixed: CGFloat = 72 + 96 + CGFloat(counts.count) * (30 + 44) + 20 + 190
+        let room = height - fixed
+        for c in 2...6 {
+            let t = Self.tile(cols: c, width: width)
+            let rows = counts.reduce(0) { $0 + Int((Double($1) / Double(c)).rounded(.up)) }
+            let needed = CGFloat(rows) * t.h + CGFloat(max(0, rows - counts.count)) * 14
+            if needed <= room { return c }
+        }
+        return 6
+    }
+
+    private func section(_ title: String, _ items: [DealItem], _ rate: Double, incoming: Bool, total: Double, cols: Int) -> some View {
         let count = items.reduce(0) { $0 + $1.qty }
         return VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
@@ -1125,31 +1158,35 @@ private struct CustomerViewSheet: View {
                 Spacer(minLength: 8)
                 Text(Format.money(total)).font(.geist(18, .semibold)).monospacedDigit().foregroundStyle(.white)
             }
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], alignment: .leading, spacing: 20) {
-                ForEach(items) { i in tile(i, rate, incoming: incoming) }
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: cols), alignment: .leading, spacing: 14) {
+                ForEach(items) { i in tile(i, rate, incoming: incoming, cols: cols) }
             }
         }
     }
 
     /// A card as a tile: the art large, its name, and the deal price under it.
-    private func tile(_ i: DealItem, _ rate: Double, incoming: Bool) -> some View {
-        Button { looking = Look(item: i, incoming: incoming, rate: rate) } label: {
-            VStack(alignment: .leading, spacing: 10) {
+    private func tile(_ i: DealItem, _ rate: Double, incoming: Bool, cols: Int) -> some View {
+        // Smaller tiles drop the name (tap for it) and set the price smaller.
+        let priceSize: CGFloat = cols >= 4 ? 14 : (cols == 3 ? 18 : 24)
+        return Button { looking = Look(item: i, incoming: incoming, rate: rate) } label: {
+            VStack(alignment: .leading, spacing: cols >= 4 ? 6 : 10) {
                 Color.clear
                     .aspectRatio(i.product.isSealed ? 1 : 63.0 / 88.0, contentMode: .fit)
                     .overlay { HoldingArt(product: i.product, identity: nil, cornerRadius: i.product.isSealed ? 18 : 8, caption: false) }
                     .overlay(alignment: .topTrailing) {
                         if i.qty > 1 {
-                            Text("×\(i.qty)").font(.geist(14, .semibold)).monospacedDigit().foregroundStyle(.white)
-                                .padding(.horizontal, 10).frame(height: 28)
+                            Text("×\(i.qty)").font(.geist(cols >= 4 ? 11 : 14, .semibold)).monospacedDigit().foregroundStyle(.white)
+                                .padding(.horizontal, cols >= 4 ? 6 : 10).frame(height: cols >= 4 ? 20 : 28)
                                 .liquidGlass(in: Capsule())
-                                .padding(8)
+                                .padding(cols >= 4 ? 4 : 8)
                         }
                     }
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(i.product.name).font(.geist(14, .medium)).foregroundStyle(Theme.muted)
-                        .lineLimit(2, reservesSpace: true).multilineTextAlignment(.leading)
-                    Text(Format.money(i.total(side: rate))).font(.display(24)).tracking(-0.6).monospacedDigit().foregroundStyle(.white)
+                    if cols < 4 {
+                        Text(i.product.name).font(.geist(cols == 3 ? 12 : 14, .medium)).foregroundStyle(Theme.muted)
+                            .lineLimit(cols == 3 ? 1 : 2, reservesSpace: true).multilineTextAlignment(.leading)
+                    }
+                    Text(Format.money(i.total(side: rate))).font(.display(priceSize)).tracking(-priceSize * 0.025).monospacedDigit().foregroundStyle(.white)
                         .lineLimit(1).minimumScaleFactor(0.6)
                 }
             }
@@ -1172,12 +1209,12 @@ private struct CustomerViewSheet: View {
             if even {
                 Text("No cash changes hands").font(.geist(17)).foregroundStyle(Theme.muted)
             } else {
-                Text(Format.money(abs(b))).font(.display(76)).tracking(-3).monospacedDigit().foregroundStyle(ink)
-                    .lineLimit(1).minimumScaleFactor(0.5).displayTrim(76)
+                Text(Format.money(abs(b))).font(.display(68)).tracking(-2.6).monospacedDigit().foregroundStyle(ink)
+                    .lineLimit(1).minimumScaleFactor(0.5).displayTrim(68)
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 34)
+        .padding(.vertical, 26)
         .padding(.horizontal, 20)
         .background {
             if wePay {
