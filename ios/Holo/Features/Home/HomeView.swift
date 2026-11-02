@@ -197,7 +197,7 @@ struct HomeView: View {
             }
             // Sits close under the hero's buttons (it belongs with them) and a little nearer the
             // chart than the usual section gap, with more room between the tiles themselves.
-            ShortcutRow().padding(.horizontal, 16).padding(.top, -22).padding(.bottom, -10)
+            ShortcutRow().padding(.horizontal, 16).padding(.top, -34).padding(.bottom, -10)
             PerformanceSection(store: store).padding(.horizontal, 16).reveal()
             MetricGrid(store: store, onReload: refresh).padding(.horizontal, 16).reveal()
             Spotlight(store: store).padding(.horizontal, 16).reveal()
@@ -413,7 +413,7 @@ private struct Hero: View {
             .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             .shadow(color: .black.opacity(0.5), radius: 24, y: 12)
             .padding(.horizontal, 16)
-            .padding(.top, 18)
+            .padding(.top, 2)
         }
         // Tucked up close under the search field.
         .padding(.top, -6)
@@ -1728,7 +1728,7 @@ private struct HeroStats: View {
                 .padding(.horizontal, 6)
             }
         }
-        .padding(.vertical, 12)
+        .padding(.vertical, 10)
         .liquidGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 }
