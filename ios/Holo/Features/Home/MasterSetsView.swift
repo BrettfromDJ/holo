@@ -378,7 +378,7 @@ private struct CardCell: View {
                     if entry.owned {
                         let qty = entry.holdings.reduce(0) { $0 + $1.quantity }
                         HStack(spacing: 3) {
-                            Image(systemName: "checkmark").font(.system(size: 9, weight: .heavy))
+                            Image(systemName: "checkmark").font(.system(size: 9, weight: .medium))
                             if qty > 1 { Text("×\(Int(qty))").font(.geist(10, .bold)).monospacedDigit() }
                         }
                         .foregroundStyle(Theme.ink)

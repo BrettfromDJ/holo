@@ -399,7 +399,7 @@ struct BrandMark: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "circle.circle")
-                .font(.system(size: 17, weight: .bold))
+                .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(Theme.ink)
                 .frame(width: 30, height: 30)
                 .background(RoundedRectangle(cornerRadius: 8).fill(Color(hex: 0xF5F5F7)))
@@ -1570,7 +1570,7 @@ private struct BannerView: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: banner.isMilestone ? "sparkles" : "arrow.triangle.2.circlepath")
-                .font(.system(size: 16, weight: .bold))
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(banner.isMilestone ? Theme.ink : Theme.lime)
             VStack(alignment: .leading, spacing: 2) {
                 Text(banner.title)
@@ -1793,7 +1793,7 @@ private struct HeroStats: View {
             HStack(spacing: 3) {
                 MonoLabel(text: item.label).lineLimit(1)
                 if chevron {
-                    Image(systemName: "chevron.right").font(.system(size: 8, weight: .bold)).foregroundStyle(Theme.subtle)
+                    Image(systemName: "chevron.right").font(.system(size: 8, weight: .semibold)).foregroundStyle(Theme.subtle)
                 }
             }
             HStack(alignment: .firstTextBaseline, spacing: 4) {

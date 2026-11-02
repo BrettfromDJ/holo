@@ -551,7 +551,7 @@ struct ProductDetailView: View {
                             HStack(spacing: 10) {
                                 Circle().fill(bumper?.fill ?? LinearGradient(colors: [.clear], startPoint: .top, endPoint: .bottom))
                                     .overlay(Circle().strokeBorder(.white.opacity(0.2)))
-                                    .overlay { if bumper == nil { Image(systemName: "plus").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.muted) } }
+                                    .overlay { if bumper == nil { Image(systemName: "plus").font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.muted) } }
                                     .frame(width: 22, height: 22)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Bumper").font(.geist(12)).foregroundStyle(Theme.muted)

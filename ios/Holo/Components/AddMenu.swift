@@ -38,7 +38,7 @@ struct AddMenu: View {
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(Theme.ink)
                     .frame(width: 34, height: 34)
                     .background(Circle().fill(Theme.lime))

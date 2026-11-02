@@ -216,14 +216,14 @@ private struct DealPhotoViewer: View {
             .tabViewStyle(.page(indexDisplayMode: photos.count > 1 ? .always : .never))
             HStack {
                 Button { dismiss() } label: {
-                    Image(systemName: "xmark").font(.system(size: 15, weight: .bold)).frame(width: 40, height: 40).contentShape(Circle())
+                    Image(systemName: "xmark").font(.system(size: 15, weight: .semibold)).frame(width: 40, height: 40).contentShape(Circle())
                 }
                 .background { Color.clear.liquidGlass(in: Circle()).allowsHitTesting(false) }
                 Spacer()
                 Text("\(min(index + 1, photos.count)) of \(photos.count)").font(.geist(13, .semibold)).monospacedDigit().foregroundStyle(.white.opacity(0.8))
                 Spacer()
                 Button { confirmDelete = true } label: {
-                    Image(systemName: "trash").font(.system(size: 15, weight: .bold)).frame(width: 40, height: 40).contentShape(Circle())
+                    Image(systemName: "trash").font(.system(size: 15, weight: .semibold)).frame(width: 40, height: 40).contentShape(Circle())
                 }
                 .background { Color.clear.liquidGlass(in: Circle()).allowsHitTesting(false) }
             }
@@ -582,7 +582,7 @@ struct DealHistoryView: View {
 
     private var empty: some View {
         VStack(spacing: 14) {
-            Image(systemName: "arrow.left.arrow.right").font(.system(size: 30, weight: .bold)).foregroundStyle(Theme.ink)
+            Image(systemName: "arrow.left.arrow.right").font(.system(size: 30, weight: .semibold)).foregroundStyle(Theme.ink)
                 .frame(width: 76, height: 76).background(Circle().fill(Theme.lime))
                 .shadow(color: Theme.lime.opacity(0.4), radius: 20)
             Text("No closed deals yet").font(.display(28)).tracking(-0.7)
@@ -861,7 +861,7 @@ private struct DealRecordCard: View {
                 }
             }
             .layoutPriority(1)
-            Image(systemName: "chevron.right").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.subtle)
+            Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.subtle)
         }
         .padding(14)
         .background {
@@ -968,7 +968,7 @@ struct DealRecordDetail: View {
         let shape = RoundedRectangle(cornerRadius: 24, style: .continuous)
         return VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 10) {
-                Image(systemName: r.kind.icon).font(.system(size: 13, weight: .bold)).foregroundStyle(r.kind.color)
+                Image(systemName: r.kind.icon).font(.system(size: 13, weight: .semibold)).foregroundStyle(r.kind.color)
                     .frame(width: 30, height: 30).background(Circle().fill(r.kind.color.opacity(0.16)))
                 Text(r.date.formatted(.dateTime.weekday(.wide).month(.abbreviated).day().hour().minute()).uppercased())
                     .font(.mono(11)).tracking(1).foregroundStyle(Theme.muted)
@@ -1027,7 +1027,7 @@ struct DealRecordDetail: View {
             let incoming = side == .incoming
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .lastTextBaseline) {
-                    Image(systemName: incoming ? "arrow.down.left" : "arrow.up.right").font(.system(size: 14, weight: .bold))
+                    Image(systemName: incoming ? "arrow.down.left" : "arrow.up.right").font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(incoming ? Theme.lime : Theme.planPink)
                     Text(incoming ? "Came in" : "Went out").font(.display(22)).tracking(-0.6)
                     Spacer()

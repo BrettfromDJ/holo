@@ -52,7 +52,7 @@ struct GainsView: View {
                 } label: {
                     HStack(spacing: 5) {
                         Text(noun.many.capitalized).font(.geist(14, .semibold))
-                        Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold))
+                        Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold))
                     }
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14).frame(height: 36)

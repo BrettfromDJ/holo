@@ -292,7 +292,7 @@ struct CollectionView: View {
             HStack(spacing: 6) {
                 Image(systemName: "folder").font(.system(size: 13, weight: .semibold))
                 Text(groups.name(of: groups.selected)).font(.geist(14, .semibold))
-                Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold))
+                Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold))
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 14).frame(height: 36)

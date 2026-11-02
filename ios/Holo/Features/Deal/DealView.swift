@@ -268,7 +268,7 @@ struct DealView: View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
-                    Image(systemName: "camera.fill").font(.system(size: 14, weight: .bold)).foregroundStyle(accent)
+                    Image(systemName: "camera.fill").font(.system(size: 14, weight: .semibold)).foregroundStyle(accent)
                     Text("Photos").font(.display(24)).tracking(-0.6).displayTrim(24)
                     if !deals.deal.photos.isEmpty { MonoLabel(text: "\(deals.deal.photos.count)") }
                 }
@@ -286,7 +286,7 @@ struct DealView: View {
     private func notesSection(accent: Color) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
-                Image(systemName: "note.text").font(.system(size: 14, weight: .bold)).foregroundStyle(accent)
+                Image(systemName: "note.text").font(.system(size: 14, weight: .semibold)).foregroundStyle(accent)
                 Text("Notes").font(.display(24)).tracking(-0.6).displayTrim(24)
             }
             DealNotesField(notes: deals.deal.notes, prompt: "Who it was with, how they paid, anything to remember", accent: accent) { text in
@@ -307,7 +307,7 @@ struct DealView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 8) {
                         Image(systemName: incoming ? "arrow.down.left" : "arrow.up.right")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.system(size: 16, weight: .semibold))
                             .foregroundStyle(incoming ? accent : Theme.planPink)
                         Text(incoming ? "Coming in" : "Going out").font(.display(24)).tracking(-0.6).displayTrim(24)
                     }
@@ -430,7 +430,7 @@ private struct TodayStrip: View {
                     Text(Format.signedMoney(cash)).foregroundStyle(Theme.tone(cash))
                 }
                 Spacer(minLength: 0)
-                Image(systemName: "chevron.right").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.subtle)
+                Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.subtle)
             }
             .font(.geist(13, .semibold)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.8)
             .padding(.horizontal, 14)
@@ -564,7 +564,7 @@ private struct BalanceCard: View {
             if let verdict = t.headline {
                 let score = t.ahead ?? t.net ?? 0
                 HStack(spacing: 8) {
-                    Image(systemName: score >= 0 ? "arrow.up.right" : "arrow.down.right").font(.system(size: 13, weight: .black))
+                    Image(systemName: score >= 0 ? "arrow.up.right" : "arrow.down.right").font(.system(size: 13, weight: .medium))
                     Text(verdict).font(.geist(15, .bold)).lineLimit(1).minimumScaleFactor(0.7)
                     TermInfo(term: t.ahead != nil ? .ahead : .verdict, color: score < -0.005 ? Theme.planPink : fill)
                 }
@@ -600,7 +600,7 @@ private struct BalanceCard: View {
                     // A quiet outlined chip on the card: one line, the round figure.
                     Button(action: onRound) {
                         HStack(spacing: 5) {
-                            Image(systemName: "arrow.up.arrow.down").font(.system(size: 11, weight: .bold))
+                            Image(systemName: "arrow.up.arrow.down").font(.system(size: 11, weight: .semibold))
                             Text("Round to \(Format.money(abs(roundTo)))").font(.geist(13, .semibold)).monospacedDigit()
                         }
                         .foregroundStyle(ink)
@@ -718,7 +718,7 @@ private struct RateCard: View {
                 .sensoryFeedback(.selection, trigger: Int((rate * 20).rounded()))
             if let result {
                 HStack(spacing: 6) {
-                    Image(systemName: "arrow.turn.down.right").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.subtle)
+                    Image(systemName: "arrow.turn.down.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.subtle)
                     Text(result).font(.geist(12, .medium)).foregroundStyle(Theme.muted).monospacedDigit()
                         .lineLimit(1).minimumScaleFactor(0.8)
                         .contentTransition(.numericText())
@@ -806,7 +806,7 @@ private struct DealItemCard: View {
                 HStack(spacing: 5) {
                     if let market = item.market, let unit, abs(unit - market) > 0.004 {
                         Text(Format.money(market)).strikethrough().foregroundStyle(Theme.subtle)
-                        Image(systemName: "arrow.right").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.subtle)
+                        Image(systemName: "arrow.right").font(.system(size: 9, weight: .semibold)).foregroundStyle(Theme.subtle)
                         Text(Format.money(unit)).foregroundStyle(.white).fontWeight(.semibold)
                         Text("\(Int((unit / market * 100).rounded()))%")
                             .font(.geist(10, .bold)).foregroundStyle(Theme.ink)
@@ -940,7 +940,7 @@ private struct DealItemCard: View {
 
     private func qtyButton(_ icon: String, enabled: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: icon).font(.system(size: 10, weight: .bold)).frame(width: 28, height: 30)
+            Image(systemName: icon).font(.system(size: 10, weight: .semibold)).frame(width: 28, height: 30)
         }
         .buttonStyle(.plain)
         .foregroundStyle(enabled ? Color.white : Theme.subtle)
@@ -1151,10 +1151,10 @@ private struct ParkedChip: View {
     var body: some View {
         Button(action: onOpen) {
             HStack(spacing: 8) {
-                Image(systemName: "bookmark.fill").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.lime)
+                Image(systemName: "bookmark.fill").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.lime)
                 Text("Parked").foregroundStyle(.white)
                 Text("(\(count))").foregroundStyle(Theme.muted)
-                Image(systemName: "chevron.right").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.subtle)
+                Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.subtle)
             }
             .font(.geist(13, .semibold)).monospacedDigit()
             .padding(.horizontal, 14)
@@ -1281,7 +1281,7 @@ private struct SwipeToRemove: ViewModifier {
                     onRemove()
                 } label: {
                     VStack(spacing: 5) {
-                        Image(systemName: "trash.fill").font(.system(size: 16, weight: .bold))
+                        Image(systemName: "trash.fill").font(.system(size: 16, weight: .semibold))
                         Text("Remove").font(.geist(12, .semibold))
                     }
                     .foregroundStyle(.white)
@@ -1340,7 +1340,7 @@ private struct DealHint: View {
             }
             Spacer(minLength: 4)
             Button(action: onDismiss) {
-                Image(systemName: "xmark").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.muted)
+                Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.muted)
                     .frame(width: 28, height: 28)
             }
             .buttonStyle(.plain)

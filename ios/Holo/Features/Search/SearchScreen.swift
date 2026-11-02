@@ -537,7 +537,7 @@ private struct ResultRow: View, Equatable {
             }
             .buttonStyle(.plain)
             Button(action: onAdd) {
-                Image(systemName: "plus").font(.system(size: 14, weight: .bold)).foregroundStyle(Theme.ink)
+                Image(systemName: "plus").font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.ink)
                     .frame(width: 34, height: 34)
                     .background(Circle().fill(Theme.lime))
             }

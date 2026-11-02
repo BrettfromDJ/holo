@@ -107,7 +107,7 @@ struct HomeAlertsStrip: View {
                 Circle().fill(Theme.lime).frame(width: 6, height: 6)
             }
             Text(alert.text).font(.geist(13, .medium)).foregroundStyle(.white).lineLimit(1)
-            Image(systemName: "chevron.right").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.subtle)
+            Image(systemName: "chevron.right").font(.system(size: 9, weight: .semibold)).foregroundStyle(Theme.subtle)
         }
         .padding(.horizontal, 12)
         .frame(height: 32)

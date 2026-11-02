@@ -215,7 +215,7 @@ struct ActivityView: View {
                     ZStack(alignment: .bottomTrailing) {
                         HoldingArt(product: product, identity: t.identity, cornerRadius: 4, caption: false)
                             .frame(width: 38, height: 52)
-                        Image(systemName: icon).font(.system(size: 9, weight: .bold))
+                        Image(systemName: icon).font(.system(size: 9, weight: .semibold))
                             .foregroundStyle(t.kind == .sale ? Theme.up : Theme.muted)
                             .frame(width: 18, height: 18)
                             .background(Theme.surface3, in: Circle())

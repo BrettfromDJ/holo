@@ -138,7 +138,7 @@ struct HoldingSheet: View {
         ZStack {
             // A lime check says this one is in your collection.
             HStack(spacing: 6) {
-                Image(systemName: "checkmark").font(.system(size: 14, weight: .bold)).foregroundStyle(Theme.lime)
+                Image(systemName: "checkmark").font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.lime)
                 Text("Owned").font(.geist(17, .semibold))
             }
             HStack {
@@ -185,7 +185,7 @@ struct HoldingSheet: View {
                 Label { Text("Delete"); Text("As if you never added it") } icon: { Image(systemName: "trash") }
             }
         } label: {
-            Image(systemName: "ellipsis").font(.system(size: 17, weight: .bold)).foregroundStyle(.white)
+            Image(systemName: "ellipsis").font(.system(size: 17, weight: .semibold)).foregroundStyle(.white)
                 .frame(width: 40, height: 40)
                 .background(Circle().fill(Color.white.opacity(0.12)))
                 .overlay(Circle().strokeBorder(Color.white.opacity(0.14)))

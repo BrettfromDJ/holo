@@ -518,7 +518,7 @@ struct SkewTag: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            if let icon { Image(systemName: icon).font(.system(size: 9, weight: .black)) }
+            if let icon { Image(systemName: icon).font(.system(size: 9, weight: .medium)) }
             Text(text.uppercased()).font(.geist(11, .bold)).italic().tracking(0.2).lineLimit(1)
         }
         .fixedSize()

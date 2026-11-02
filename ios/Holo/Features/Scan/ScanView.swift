@@ -167,7 +167,7 @@ struct ScanView: View {
                     Circle().strokeBorder(.white, lineWidth: 4).frame(width: 80, height: 80)
                     Circle().fill(Theme.lime).frame(width: 64, height: 64)
                         .shadow(color: Theme.lime.opacity(0.6), radius: 12)
-                    Image(systemName: "viewfinder").font(.system(size: 22, weight: .bold)).foregroundStyle(Theme.ink)
+                    Image(systemName: "viewfinder").font(.system(size: 22, weight: .semibold)).foregroundStyle(Theme.ink)
                 }
             }
             .buttonStyle(ShutterStyle())
@@ -186,7 +186,7 @@ struct ScanView: View {
             } label: {
                 HStack(spacing: 4) {
                     Text(dealSide == nil ? "Next" : "Done")
-                    if dealSide == nil { Image(systemName: "arrow.right").font(.system(size: 12, weight: .bold)) }
+                    if dealSide == nil { Image(systemName: "arrow.right").font(.system(size: 12, weight: .semibold)) }
                 }
             }
             .buttonStyle(Button3D(kind: .lime, fullWidth: false, height: 44))

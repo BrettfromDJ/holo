@@ -806,7 +806,7 @@ private struct SetProductTile: View {
                 .overlay(alignment: .topLeading) {
                     if owned {
                         HStack(spacing: 4) {
-                            Image(systemName: "checkmark").font(.system(size: 9, weight: .black))
+                            Image(systemName: "checkmark").font(.system(size: 9, weight: .medium))
                             Text("Owned").font(.geist(11, .semibold))
                         }
                         .foregroundStyle(.white)
@@ -1413,7 +1413,7 @@ private struct SetTile: View {
                 }
                 .overlay(alignment: .topTrailing) {
                     if upcoming, store.reminders.contains(set.slug) {
-                        Image(systemName: "bell.fill").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.ink)
+                        Image(systemName: "bell.fill").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.ink)
                             .frame(width: 24, height: 24).background(Circle().fill(Theme.lime))
                             .padding(8)
                     }

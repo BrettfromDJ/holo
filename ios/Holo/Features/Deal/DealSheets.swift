@@ -375,7 +375,7 @@ struct DealCloseSheet: View {
         let count = items.reduce(0) { $0 + $1.qty }
         return HStack(spacing: 12) {
             Image(systemName: incoming ? "arrow.down.left" : "arrow.up.right")
-                .font(.system(size: 14, weight: .bold))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(incoming ? Theme.lime : Theme.planPink)
                 .frame(width: 30, height: 30)
                 .background(Circle().fill(Color.white.opacity(0.06)))
@@ -466,7 +466,7 @@ private struct RecordedScreen: View {
             Spacer(minLength: 12)
             VStack(spacing: 16) {
                 Image(systemName: "checkmark")
-                    .font(.system(size: 30, weight: .black))
+                    .font(.system(size: 30, weight: .medium))
                     .foregroundStyle(fill)
                     .frame(width: 74, height: 74)
                     .background(Circle().fill(ink))
@@ -619,7 +619,7 @@ private struct RecordedScreen: View {
             ForEach(shown) { r in
                 HStack(spacing: 10) {
                     Image(systemName: r.incoming ? "arrow.down.left" : "arrow.up.right")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(r.incoming ? Theme.lime : Theme.planPink)
                     Text(r.name).font(.geist(14, .medium)).foregroundStyle(.white).lineLimit(1)
                     if r.qty > 1 { Text("×\(r.qty)").font(.geist(13)).foregroundStyle(Theme.muted) }
