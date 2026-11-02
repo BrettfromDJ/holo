@@ -134,6 +134,13 @@ struct DealView: View {
             .navigationDestination(for: DealRecord.self) { DealRecordDetail(recordId: $0.id) }
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
             .fullScreenCover(isPresented: $customer) { CustomerViewSheet(deal: deals.deal, rates: rates, totals: totals) }
+            .task {
+                // Screenshots: open the customer view (-HoloDealCustomer) or Closed deals (-HoloDealHistory).
+                let args = ProcessInfo.processInfo.arguments
+                guard args.contains("-HoloDealCustomer") || args.contains("-HoloDealHistory") else { return }
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                if args.contains("-HoloDealCustomer") { customer = true } else { path.append(DealRoute.history) }
+            }
             .sheet(isPresented: $parkedList) { ParkedDealsSheet() }
             .alert("Park this deal", isPresented: $parking) {
                 TextField(ParkedDeal.defaultName(), text: $parkName)
@@ -1029,33 +1036,28 @@ private struct CustomerViewSheet: View {
         var id: String { (incoming ? "i" : "o") + item.key }
     }
 
+    private var title: String {
+        switch deal.kind {
+        case .buy: return "We're buying"
+        case .sell: return "You're buying"
+        default: return "Your trade"
+        }
+    }
+
     var body: some View {
         let b = totals.balance
-        let even = abs(b) < 0.005
         ZStack(alignment: flipped ? .bottomTrailing : .topTrailing) {
-            Theme.background.ignoresSafeArea()
+            backdrop
             ScrollView {
-                VStack(alignment: .leading, spacing: 36) {
-                    if !deal.incoming.isEmpty { list("You hand us", deal.incoming, rates.in, incoming: true, total: totals.inValue) }
-                    if !deal.outgoing.isEmpty { list("You get", deal.outgoing, rates.out, incoming: false, total: totals.outValue) }
-                    VStack(spacing: 10) {
-                        Text(even ? "Even swap" : (b > 0 ? "You pay" : "We pay you"))
-                            .font(.display(30)).tracking(-0.8).foregroundStyle(.white)
-                        if even {
-                            Text("No cash changes hands").font(.geist(18)).foregroundStyle(Theme.muted)
-                        } else {
-                            Text(Format.money(abs(b))).font(.display(76)).tracking(-3).monospacedDigit().foregroundStyle(.white)
-                                .lineLimit(1).minimumScaleFactor(0.5).displayTrim(76)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 32)
-                    .padding(.horizontal, 20)
-                    .background(RoundedRectangle(cornerRadius: 26, style: .continuous).fill(Color.white.opacity(0.06)))
+                VStack(alignment: .leading, spacing: 34) {
+                    header
+                    if !deal.incoming.isEmpty { section("You hand us", deal.incoming, rates.in, incoming: true, total: totals.inValue) }
+                    if !deal.outgoing.isEmpty { section("You get", deal.outgoing, rates.out, incoming: false, total: totals.outValue) }
+                    cashPanel(b)
                 }
                 .padding(.horizontal, 20)
-                .padding(.top, 64)
-                .padding(.bottom, 40)
+                .padding(.top, 72)
+                .padding(.bottom, 44)
             }
             .rotationEffect(.degrees(flipped ? 180 : 0))
             // The controls stay the right way up for you, at whichever end is yours.
@@ -1076,6 +1078,7 @@ private struct CustomerViewSheet: View {
             }
             .padding(.horizontal, 16).padding(.vertical, 8)
         }
+        .imageMaxPixel(600)
         .sensoryFeedback(.selection, trigger: flipped)
         .sheet(item: $looking) { look in
             CustomerCardSheet(item: look.item, incoming: look.incoming, rate: look.rate, flipped: flipped)
@@ -1083,38 +1086,111 @@ private struct CustomerViewSheet: View {
         .preferredColorScheme(.dark)
     }
 
-    private func list(_ title: String, _ items: [DealItem], _ rate: Double, incoming: Bool, total: Double) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(title).font(.display(28)).tracking(-0.7).foregroundStyle(.white)
-                Spacer(minLength: 8)
-                Text(Format.money(total)).font(.geist(18, .medium)).monospacedDigit().foregroundStyle(Theme.muted)
+    /// The lit grid behind the top of the page, like Overview and Closed deals. Still.
+    private var backdrop: some View {
+        ZStack(alignment: .top) {
+            Theme.background
+            ZStack {
+                GridPattern(step: 36, opacity: 0.05)
+                RadialGradient(colors: [Theme.lime.opacity(0.18), .clear], center: UnitPoint(x: 0.15, y: 0.3), startRadius: 0, endRadius: 300)
+                RadialGradient(colors: [Theme.planBlue.opacity(0.2), .clear], center: UnitPoint(x: 0.95, y: 0.5), startRadius: 0, endRadius: 280)
             }
-            .padding(.bottom, 8)
-            ForEach(items) { i in
-                Button { looking = Look(item: i, incoming: incoming, rate: rate) } label: {
-                    HStack(spacing: 16) {
-                        HoldingArt(product: i.product, identity: nil, cornerRadius: 4, caption: false).frame(width: 56, height: 78)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(i.product.name).font(.geist(19, .medium)).foregroundStyle(.white)
-                                .lineLimit(3).fixedSize(horizontal: false, vertical: true)
-                                .multilineTextAlignment(.leading)
-                            if i.qty > 1 {
-                                Text("\(i.qty) × \(Format.money(i.unitPrice(side: rate)))").font(.geist(15)).monospacedDigit().foregroundStyle(Theme.muted)
-                            }
-                        }
-                        Spacer(minLength: 8)
-                        Text(Format.money(i.total(side: rate))).font(.geist(22, .semibold)).monospacedDigit().foregroundStyle(.white)
-                            .lineLimit(1).fixedSize()
-                    }
-                    .padding(.vertical, 10)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .disabled(i.isCustom)
-                if i.id != items.last?.id { Divider().overlay(Color.white.opacity(0.1)) }
+            .frame(height: 460)
+            .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.5), .init(color: .clear, location: 1)],
+                                 startPoint: .top, endPoint: .bottom))
+        }
+        .rotationEffect(.degrees(flipped ? 180 : 0))
+        .ignoresSafeArea()
+    }
+
+    /// Lucent and the date, then what this deal is, like the top of a receipt.
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Lucent").font(.display(20)).tracking(-0.5).foregroundStyle(Theme.lime)
+                Spacer()
+                MonoLabel(text: Date.now.formatted(.dateTime.month(.abbreviated).day().year()))
+            }
+            Text(title).font(.display(44)).tracking(-1.6).foregroundStyle(.white)
+                .lineLimit(1).minimumScaleFactor(0.6)
+        }
+    }
+
+    private func section(_ title: String, _ items: [DealItem], _ rate: Double, incoming: Bool, total: Double) -> some View {
+        let count = items.reduce(0) { $0 + $1.qty }
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(title).font(.display(26)).tracking(-0.7).foregroundStyle(.white)
+                MonoLabel(text: "\(count) item\(count == 1 ? "" : "s")")
+                Spacer(minLength: 8)
+                Text(Format.money(total)).font(.geist(18, .semibold)).monospacedDigit().foregroundStyle(.white)
+            }
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], alignment: .leading, spacing: 20) {
+                ForEach(items) { i in tile(i, rate, incoming: incoming) }
             }
         }
+    }
+
+    /// A card as a tile: the art large, its name, and the deal price under it.
+    private func tile(_ i: DealItem, _ rate: Double, incoming: Bool) -> some View {
+        Button { looking = Look(item: i, incoming: incoming, rate: rate) } label: {
+            VStack(alignment: .leading, spacing: 10) {
+                Color.clear
+                    .aspectRatio(i.product.isSealed ? 1 : 63.0 / 88.0, contentMode: .fit)
+                    .overlay { HoldingArt(product: i.product, identity: nil, cornerRadius: i.product.isSealed ? 18 : 8, caption: false) }
+                    .overlay(alignment: .topTrailing) {
+                        if i.qty > 1 {
+                            Text("×\(i.qty)").font(.geist(14, .semibold)).monospacedDigit().foregroundStyle(.white)
+                                .padding(.horizontal, 10).frame(height: 28)
+                                .liquidGlass(in: Capsule())
+                                .padding(8)
+                        }
+                    }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(i.product.name).font(.geist(14, .medium)).foregroundStyle(Theme.muted)
+                        .lineLimit(2, reservesSpace: true).multilineTextAlignment(.leading)
+                    Text(Format.money(i.total(side: rate))).font(.display(24)).tracking(-0.6).monospacedDigit().foregroundStyle(.white)
+                        .lineLimit(1).minimumScaleFactor(0.6)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(i.isCustom)
+    }
+
+    /// The cash, big. Lime when we pay them (the good news for them); a calm glass panel when
+    /// they pay or it's an even swap.
+    private func cashPanel(_ b: Double) -> some View {
+        let even = abs(b) < 0.005
+        let wePay = !even && b < 0
+        let ink = wePay ? Theme.ink : Color.white
+        let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
+        return VStack(spacing: 8) {
+            Text(even ? "Even swap" : (wePay ? "We pay you" : "You pay"))
+                .font(.display(26)).tracking(-0.7).foregroundStyle(ink.opacity(wePay ? 0.75 : 0.8))
+            if even {
+                Text("No cash changes hands").font(.geist(17)).foregroundStyle(Theme.muted)
+            } else {
+                Text(Format.money(abs(b))).font(.display(76)).tracking(-3).monospacedDigit().foregroundStyle(ink)
+                    .lineLimit(1).minimumScaleFactor(0.5).displayTrim(76)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 34)
+        .padding(.horizontal, 20)
+        .background {
+            if wePay {
+                ZStack {
+                    shape.fill(Theme.lime)
+                    GridPattern(step: 28, opacity: 0.08).clipShape(shape)
+                }
+                .shadow(color: Theme.lime.opacity(0.3), radius: 24)
+            } else {
+                shape.fill(Color.white.opacity(0.06))
+            }
+        }
+        .overlay(shape.strokeBorder(Color.white.opacity(wePay ? 0 : 0.1)))
     }
 }
 
