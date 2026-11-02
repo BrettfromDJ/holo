@@ -148,10 +148,21 @@ struct MasterSetDetailView: View {
         "paldean fates": 245, "prismatic evolutions": 180,
     ]
 
+    /// pokemontcg.io set codes for the demo sets, so a missing card shows its real art (faded),
+    /// like the catalog's cards do for a real collection.
+    private static let sampleArtCodes: [String: String] = [
+        "evolving skies": "swsh7", "scarlet & violet—151": "sv3pt5", "surging sparks": "sv8", "lost origin": "swsh11",
+        "base set": "base1", "obsidian flames": "sv3", "silver tempest": "swsh12", "fusion strike": "swsh8",
+        "crown zenith": "swsh12pt5", "paldean fates": "sv4pt5", "prismatic evolutions": "sv8pt5",
+    ]
+
     private static func sampleChecklist(_ s: OwnedSet) -> [SearchHit] {
         let size = sampleSizes[s.name.lowercased()] ?? max(60, s.holdings.count * 12)
+        let code = sampleArtCodes[s.name.lowercased()]
         var cards: [SearchHit] = (1...size).map { n in
-            SearchHit(product: Product(id: "sample-slot:\(s.id):\(n)", name: "#\(n)", setName: s.name, setId: s.id, number: String(n), kind: "single"), market: nil)
+            var p = Product(id: "sample-slot:\(s.id):\(n)", name: "#\(n)", setName: s.name, setId: s.id, number: String(n), kind: "single")
+            if let code { p.imageUrl = "https://images.pokemontcg.io/\(code)/\(n).png" }
+            return SearchHit(product: p, market: nil)
         }
         for h in s.holdings {
             guard let p = h.product, let n = p.number.flatMap({ Int($0.prefix { $0.isNumber }) }), n >= 1, n <= size else { continue }
