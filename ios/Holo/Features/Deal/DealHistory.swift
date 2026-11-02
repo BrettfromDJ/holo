@@ -507,6 +507,9 @@ struct DealHistoryView: View {
     /// Search by card name, notes or kind; only days with a match show.
     @State private var query = ""
     @FocusState private var searchFocused: Bool
+    /// The Parked section starts folded.
+    @State private var parkedOpen = false
+    @Environment(\.dismiss) private var dismiss
 
     private static let filters: [(DealKind?, String)] = [(nil, "All"), (DealKind.buy, "Buys"), (DealKind.sell, "Sales"), (DealKind.trade, "Trades")]
 
@@ -527,6 +530,7 @@ struct DealHistoryView: View {
         let days = Self.days(shown)
         ScrollView {
             VStack(alignment: .leading, spacing: 34) {
+                if !deals.parked.isEmpty { parkedSection }
                 if deals.log.isEmpty {
                     empty
                 } else {
@@ -578,6 +582,35 @@ struct DealHistoryView: View {
         .tabBarClearance()
         .navigationBarTitleDisplayMode(.inline)
         .pageTitle("Closed deals")
+    }
+
+    /// Deals set aside to finish later: a row with the count that opens to the list. Resuming
+    /// one goes back to the Deal page with it.
+    private var parkedSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Button {
+                withAnimation(.snappy(duration: 0.25)) { parkedOpen.toggle() }
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "bookmark.fill").font(.system(size: 14, weight: .medium)).foregroundStyle(Theme.lime)
+                    Text("Parked").font(.display(22)).tracking(-0.5).foregroundStyle(.white)
+                    Text("\(deals.parked.count)").font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(Theme.muted)
+                    Spacer()
+                    Image(systemName: "chevron.down").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.muted)
+                        .rotationEffect(.degrees(parkedOpen ? 180 : 0))
+                }
+                .padding(.horizontal, 14).frame(height: 52)
+                .sheetPanel(radius: 16)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Parked deals, \(deals.parked.count)")
+            .accessibilityValue(parkedOpen ? "Open" : "Closed")
+            if parkedOpen {
+                ParkedDealsList { dismiss() }
+                    .transition(.opacity)
+            }
+        }
     }
 
     private var empty: some View {

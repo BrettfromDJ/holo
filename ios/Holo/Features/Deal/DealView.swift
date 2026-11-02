@@ -1277,34 +1277,50 @@ private struct ParkedChip: View {
 
 /// Deals set aside: resume one (an open deal is parked first, after asking) or delete it.
 private struct ParkedDealsSheet: View {
-    @Environment(DealStore.self) private var deals
     @Environment(\.dismiss) private var dismiss
-    @State private var asking: ParkedDeal?
-    @State private var deleting: ParkedDeal?
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 0) {
                     HStack(alignment: .firstTextBaseline) {
                         Text("Parked deals").font(.display(28)).tracking(-0.7)
                         Spacer()
                         Button("Done") { dismiss() }.font(.geist(16, .semibold)).foregroundStyle(.white)
                     }
-                    Text("Deals you set aside to finish later, here or on the website.").font(.geist(13)).foregroundStyle(Theme.muted)
-                        .padding(.bottom, 6)
-                    if deals.parked.isEmpty {
-                        Text("Nothing parked.").font(.geist(14)).foregroundStyle(Theme.muted).padding(.top, 30)
-                            .frame(maxWidth: .infinity)
-                    }
-                    ForEach(deals.parked) { entry in row(entry) }
+                    Text("Deals you set aside to finish later, here or on the website.").font(.geist(14)).foregroundStyle(Theme.muted)
+                        .padding(.top, 4)
+                        .padding(.bottom, 18)
+                    ParkedDealsList { dismiss() }
                 }
-                .padding(16)
+                .padding(.horizontal, 16)
+                .padding(.top, 28)
+                .padding(.bottom, 16)
             }
             .toolbar(.hidden, for: .navigationBar)
         }
         .presentationDetents([.medium, .fraction(0.93)])
         .glassSheet()
+    }
+}
+
+/// The parked deals as rows (a little fan of the cards, name, what and when, delete and Resume),
+/// with the two questions they can ask. Used by the Parked sheet and the Parked section in
+/// Closed deals; `onResumed` runs after a deal is back on the Deal page.
+struct ParkedDealsList: View {
+    var onResumed: () -> Void
+    @Environment(DealStore.self) private var deals
+    @State private var asking: ParkedDeal?
+    @State private var deleting: ParkedDeal?
+
+    var body: some View {
+        VStack(spacing: 10) {
+            if deals.parked.isEmpty {
+                Text("Nothing parked.").font(.geist(14)).foregroundStyle(Theme.muted).padding(.vertical, 24)
+                    .frame(maxWidth: .infinity)
+            }
+            ForEach(deals.parked) { entry in row(entry) }
+        }
         .confirmationDialog("You have a deal open", isPresented: Binding(get: { asking != nil }, set: { if !$0 { asking = nil } }), titleVisibility: .visible, presenting: asking) { entry in
             Button("Park it and resume \(entry.name)") { resume(entry) }
             Button("Cancel", role: .cancel) {}
@@ -1323,6 +1339,7 @@ private struct ParkedDealsSheet: View {
         let state = entry.state
         let items = state.incoming + state.outgoing
         let count = items.reduce(0) { $0 + $1.qty }
+        let when = entry.date.formatted(.dateTime.month(.abbreviated).day().hour().minute())
         return HStack(spacing: 12) {
             ZStack {
                 if items.isEmpty {
@@ -1339,8 +1356,9 @@ private struct ParkedDealsSheet: View {
             .frame(width: 64, height: 62)
             VStack(alignment: .leading, spacing: 3) {
                 Text(entry.name).font(.geist(15, .semibold)).foregroundStyle(.white).lineLimit(1)
-                Text("\(state.kind.noun) · \(count) item\(count == 1 ? "" : "s") · \(entry.date.formatted(date: .abbreviated, time: .shortened))")
-                    .font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1).minimumScaleFactor(0.85)
+                Text("\(state.kind.noun) · \(count) item\(count == 1 ? "" : "s")")
+                    .font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
+                Text(when).font(.geist(12)).foregroundStyle(Theme.subtle).lineLimit(1)
             }
             Spacer(minLength: 6)
             Button { deleting = entry } label: {
@@ -1360,7 +1378,7 @@ private struct ParkedDealsSheet: View {
     private func resume(_ entry: ParkedDeal) {
         withAnimation(.snappy) { deals.resume(entry) }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        dismiss()
+        onResumed()
     }
 }
 
