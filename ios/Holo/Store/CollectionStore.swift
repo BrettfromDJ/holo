@@ -869,6 +869,10 @@ final class CollectionStore {
         var date: String
         var source: String? = "ios"
         var notes: String?
+        /// Totals for the whole purchase, kept as their own lines (they count toward its cost).
+        var shipping: Double = 0
+        var tax: Double = 0
+        var fees: Double = 0
     }
 
     /// Save products to the shared catalog before they can be held or watched, and keep their prices.
@@ -892,7 +896,8 @@ final class CollectionStore {
         for p in purchases {
             try await ensureInCatalog(p.product, printing: p.printing)
             let identity = HoldingIdentity(productId: p.product.id, printing: p.printing, condition: p.condition, gradeCompany: p.gradeCompany, grade: p.grade)
-            try await log(identity: identity, type: "purchase", date: p.date, quantity: p.quantity, unitPrice: p.unitPrice, source: p.source, notes: p.notes)
+            try await log(identity: identity, type: "purchase", date: p.date, quantity: p.quantity, unitPrice: p.unitPrice,
+                          fees: p.fees, shipping: p.shipping, tax: p.tax, source: p.source, notes: p.notes)
         }
         recompute()
     }

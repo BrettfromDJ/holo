@@ -27,6 +27,11 @@ struct AddPurchaseSheet: View {
     @AppStorage("holo.add.date") private var lastDate = 0.0
     @AppStorage("holo.add.savedAt") private var lastSavedAt = 0.0
     @State private var saving = false
+    /// Shipping, tax and fees for the whole purchase: separate lines, folded away until wanted.
+    @State private var extras = false
+    @State private var shipping = ""
+    @State private var tax = ""
+    @State private var fees = ""
     @State private var error: String?
 
     private var product: Product { hit.product }
@@ -95,6 +100,16 @@ struct AddPurchaseSheet: View {
                             .multilineTextAlignment(.trailing)
                             .monospacedDigit()
                     }
+                    if extras {
+                        MoneyField(title: "Shipping", text: $shipping)
+                        MoneyField(title: "Tax", text: $tax)
+                        MoneyField(title: "Fees", text: $fees)
+                    } else {
+                        Button { withAnimation(.snappy) { extras = true } } label: {
+                            Label("Add shipping, tax or fees", systemImage: "plus")
+                        }
+                        .foregroundStyle(Theme.lime)
+                    }
                     DatePicker("Date", selection: $date, in: ...Date(), displayedComponents: .date)
                     HStack {
                         Text("Where")
@@ -153,7 +168,10 @@ struct AddPurchaseSheet: View {
             quantity: Double(quantity),
             unitPrice: unit,
             date: Format.day(date),
-            source: source.trimmingCharacters(in: .whitespaces).isEmpty ? "ios" : source.trimmingCharacters(in: .whitespaces)
+            source: source.trimmingCharacters(in: .whitespaces).isEmpty ? "ios" : source.trimmingCharacters(in: .whitespaces),
+            shipping: MoneyField.value(shipping) ?? 0,
+            tax: MoneyField.value(tax) ?? 0,
+            fees: MoneyField.value(fees) ?? 0
         )
         do {
             let before = store.allHoldings.reduce(0) { $0 + ($1.value ?? 0) }
