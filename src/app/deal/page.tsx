@@ -422,7 +422,7 @@ function Balance({ totals, kind, roundTo, onRound }: { totals: DealTotals; kind:
         <Stat label="Coming in" term={TERMS.comingIn} value={money(totals.inValue)} />
         <Stat label="Going out" term={TERMS.goingOut} value={money(totals.outValue)} />
         <Stat label="Your profit" term={TERMS.profit} value={totals.profit === null ? "—" : <span className={totals.profit >= 0 ? "text-up" : "text-down"}>{signedMoney(totals.profit)}</span>} />
-        <Stat label="Value gained" term={TERMS.value} value={!showsEquity(totals) ? "—" : <span className={totals.equity >= 0 ? "text-up" : "text-down"}>{signedMoney(totals.equity)}</span>} />
+        <Stat label="Trade-in value" term={TERMS.value} value={!showsEquity(totals) ? "—" : <span className={totals.equity >= 0 ? "text-up" : "text-down"}>{signedMoney(totals.equity)}</span>} />
       </dl>
     </section>
   );
@@ -839,7 +839,7 @@ function RecordedDialog({ recorded, onDone }: { recorded: { record: DealRecord; 
   const ahead = totals.ahead;
   // The headline figure decides the color: down turns the whole card pink (never pink on lime).
   const down = (showsEquity(totals) && totals.equity < -0.005) || (ahead !== null && ahead < -0.005);
-  const headline = totals.profit !== null ? { label: "Profit", value: totals.profit } : totals.inValue > 0 ? { label: "Value gained", value: totals.equity } : null;
+  const headline = totals.profit !== null ? { label: "Profit", value: totals.profit } : totals.inValue > 0 ? { label: "Trade-in value", value: totals.equity } : null;
   const items = [...deal.out, ...deal.in].slice(0, 7);
   return (
     <Dialog open onOpenChange={(o) => !o && onDone()}>
@@ -1087,7 +1087,7 @@ function RecordSummary({ record: d, ahead }: { record: DealRecord; ahead: number
     { label: "Went out", value: money(d.outValue) },
     cash,
     { label: "Profit", value: d.profit === null ? <span className="text-subtle">—</span> : <span className={d.profit >= 0 ? "text-up" : "text-down"}>{signedMoney(d.profit)}</span> },
-    { label: "Value gained", value: equity === null ? <span className="text-subtle">—</span> : <span className={equity >= 0 ? "text-up" : "text-down"}>{signedMoney(equity)}</span> },
+    { label: "Trade-in value", value: equity === null ? <span className="text-subtle">—</span> : <span className={equity >= 0 ? "text-up" : "text-down"}>{signedMoney(equity)}</span> },
   ];
   return (
     <div className="mb-3">
@@ -1117,7 +1117,7 @@ function RecordSummary({ record: d, ahead }: { record: DealRecord; ahead: number
  */
 function AheadBreakdown({ profit, equity, plain, className }: { profit: number | null; equity: number | null; plain?: boolean; className?: string }) {
   const tone = (n: number) => (plain ? "" : n >= 0 ? "text-up" : "text-down");
-  const parts = [profit !== null ? { label: "Profit", value: profit } : null, equity !== null ? { label: "Value gained", value: equity } : null].filter((p): p is { label: string; value: number } => p !== null);
+  const parts = [profit !== null ? { label: "Profit", value: profit } : null, equity !== null ? { label: "Trade-in value", value: equity } : null].filter((p): p is { label: string; value: number } => p !== null);
   if (!parts.length) return null;
   return (
     <div className={cn("text-[13px]", className)}>

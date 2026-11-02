@@ -318,7 +318,7 @@ struct DealCloseSheet: View {
                             }
                             HStack(spacing: 8) {
                                 if let profit = t.profit { pill("Profit", Format.signedMoney(profit), Theme.tone(profit)) }
-                                if deal.kind != .sell, t.inValue > 0 { pill("Value gained", Format.signedMoney(t.equity), Theme.tone(t.equity)) }
+                                if deal.kind != .sell, t.inValue > 0 { pill("Trade-in value", Format.signedMoney(t.equity), Theme.tone(t.equity)) }
                             }
                             if let paper = t.onPaper {
                                 Text("includes \(Format.money(paper)) on paper").font(.geist(12)).foregroundStyle(Theme.muted)
@@ -587,7 +587,7 @@ private struct RecordedScreen: View {
     private static func headline(_ t: DealTotals) -> (label: String, value: Double)? {
         if let ahead = t.ahead { return (dealAheadTitle(ahead, past: true), ahead) }
         if let profit = t.profit { return ("Profit", profit) }
-        if t.inValue > 0 { return ("Value gained", t.equity) }
+        if t.inValue > 0 { return ("Trade-in value", t.equity) }
         return nil
     }
 
@@ -596,7 +596,7 @@ private struct RecordedScreen: View {
     @ViewBuilder private func breakdown(_ t: DealTotals, ink: Color) -> some View {
         if t.ahead != nil {
             let parts = [t.profit.map { "Profit \(Format.signedMoney($0))" },
-                         t.showsEquity ? "Value gained \(Format.signedMoney(t.equity))" : nil].compactMap { $0 }
+                         t.showsEquity ? "Trade-in value \(Format.signedMoney(t.equity))" : nil].compactMap { $0 }
             if !parts.isEmpty {
                 Text(parts.joined(separator: " · ")).font(.geist(14, .semibold)).monospacedDigit().foregroundStyle(ink)
                     .lineLimit(1).minimumScaleFactor(0.75)

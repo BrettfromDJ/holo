@@ -805,7 +805,7 @@ private struct DealRecordCard: View {
     private var headline: (String, Double?) {
         if let a = record.aheadTotal { return (a < 0 ? "Behind" : "Ahead", a) }
         if let p = record.profit { return ("Profit", p) }
-        if record.inValue > 0 { return ("Value gained", record.equity) }
+        if record.inValue > 0 { return ("Trade-in value", record.equity) }
         return ("Profit", nil)
     }
 
@@ -893,7 +893,7 @@ struct DealRecordDetail: View {
                 stat(abs(b) < 0.005 ? "Cash" : (b > 0 ? "They paid you" : "You paid them"), abs(b) < 0.005 ? "Even swap" : Format.money(abs(b)), .white)
                 stat("Items", "\(r.items)", .white)
                 stat("Profit", r.profit.map { Format.signedMoney($0) } ?? "—", r.profit == nil ? Theme.muted : Theme.tone(r.profit))
-                stat("Value gained", r.kind == .sell ? "—" : Format.signedMoney(r.equity), r.kind == .sell ? Theme.muted : Theme.tone(r.equity))
+                stat("Trade-in value", r.kind == .sell ? "—" : Format.signedMoney(r.equity), r.kind == .sell ? Theme.muted : Theme.tone(r.equity))
             }
             .padding(.top, 20)
         }
