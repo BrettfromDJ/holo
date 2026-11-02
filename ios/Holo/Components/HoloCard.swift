@@ -39,8 +39,8 @@ struct HoloCard<Content: View>: View {
                 }
             }
             .background(GeometryReader { geo in Color.clear.onAppear { size = geo.size }.onChange(of: geo.size) { _, s in size = s } })
-            .rotation3DEffect(.degrees(Double(lean.x) * 11), axis: (x: 0, y: 1, z: 0), perspective: 0.55)
-            .rotation3DEffect(.degrees(Double(-lean.y) * 9), axis: (x: 1, y: 0, z: 0), perspective: 0.55)
+            .rotation3DEffect(.degrees(Double(lean.x) * 22), axis: (x: 0, y: 1, z: 0), perspective: 0.45)
+            .rotation3DEffect(.degrees(Double(-lean.y) * 18), axis: (x: 1, y: 0, z: 0), perspective: 0.45)
             .scaleEffect(touching ? 1.035 : 1)
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: touching)
             // The shadow falls away from the light.
@@ -56,14 +56,15 @@ struct HoloCard<Content: View>: View {
                         .scaleEffect(x: 1, y: 0.18)
                         .position(x: w / 2, y: geo.size.height * 0.98)
                 }
-                .offset(x: -lean.x * 22, y: 14 - lean.y * 16)
+                .offset(x: -lean.x * 30, y: 18 - lean.y * 20)
             }
             .simultaneousGesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { g in
                         guard size.width > 0 else { return }
-                        touch = CGPoint(x: max(-1, min(1, (g.location.x / size.width - 0.5) * 2)),
-                                        y: max(-1, min(1, (g.location.y / size.height - 0.5) * 2)))
+                        // Follows the drag from wherever you start: drag right and it swings right.
+                        touch = CGPoint(x: max(-1, min(1, g.translation.width / (size.width * 0.6))),
+                                        y: max(-1, min(1, g.translation.height / (size.height * 0.6))))
                     }
                     .onEnded { _ in
                         // Springs back flat, with the light sliding back to the middle.

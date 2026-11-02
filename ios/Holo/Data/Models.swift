@@ -59,6 +59,14 @@ struct Product: Codable, Identifiable, Hashable {
         if s.contains("images.pokemontcg.io/"), s.hasSuffix(".png"), !s.hasSuffix("_hires.png") {
             return URL(string: String(s.dropLast(4)) + "_hires.png")
         }
+        // TCGdex: /low.webp|png|jpg → /high.png (600×825, the largest it serves).
+        if s.contains("assets.tcgdex.net/"), let r = s.range(of: #"/low\.(webp|png|jpg)$"#, options: .regularExpression) {
+            return URL(string: s.replacingCharacters(in: r, with: "/high.png"))
+        }
+        // Scryfall: small/normal → large.
+        if s.contains("cards.scryfall.io/"), s.contains("/small/") || s.contains("/normal/") {
+            return URL(string: s.replacingOccurrences(of: "/small/", with: "/large/").replacingOccurrences(of: "/normal/", with: "/large/"))
+        }
         return nil
     }
 
