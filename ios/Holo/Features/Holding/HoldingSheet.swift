@@ -203,11 +203,18 @@ struct HoldingSheet: View {
     }
 
     private func tiles(_ h: HoldingView) -> some View {
+        // One copy: what you paid and what it's worth (quantity and average would repeat them).
+        // Several: all four.
         LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
-            SheetStat(label: "Quantity", value: "\(Int(h.quantity))")
-            SheetStat(label: "You paid", value: Format.money(h.costBasis))
-            SheetStat(label: "Average cost", value: Format.money(h.avgCost))
-            SheetStat(label: "Each now", value: Format.money(h.price))
+            if h.quantity > 1 {
+                SheetStat(label: "Quantity", value: "\(Int(h.quantity))")
+                SheetStat(label: "You paid", value: Format.money(h.costBasis))
+                SheetStat(label: "Average cost", value: Format.money(h.avgCost))
+                SheetStat(label: "Each now", value: Format.money(h.price))
+            } else {
+                SheetStat(label: "You paid", value: Format.money(h.costBasis))
+                SheetStat(label: "Worth now", value: Format.money(h.price))
+            }
         }
     }
 
@@ -316,6 +323,10 @@ private struct HoldingWorth: View {
                 CountingText(value: h.gain ?? 0, format: { Format.signedMoney($0) }, duration: 0.9, delay: 0.15)
                     .font(.geist(14, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(h.gain))
                 Text("on what you paid").font(.geist(13)).foregroundStyle(Theme.muted)
+            }
+            // How long you've had it, so the gain has context.
+            if let held = HoldingWorth.heldFor(h.firstAcquired) {
+                Text(held).font(.geist(13)).foregroundStyle(Theme.muted)
             }
             if points.count > 1 {
                 let up = (h.gain ?? 0) >= 0
@@ -784,5 +795,18 @@ struct EditDetailsSheet: View {
             }
         }
         .presentationDetents([.medium, .fraction(0.93)])
+    }
+}
+
+private extension HoldingWorth {
+    /// "Held 7 months", "Held 2 years 3 months", "Held 12 days" from the first purchase date.
+    static func heldFor(_ firstAcquired: String?) -> String? {
+        guard let first = firstAcquired.flatMap({ Format.isoDay.date(from: $0) }) else { return nil }
+        let parts = Calendar.current.dateComponents([.year, .month, .day], from: first, to: Date())
+        let y = parts.year ?? 0, m = parts.month ?? 0, d = parts.day ?? 0
+        func plural(_ n: Int, _ word: String) -> String { "\(n) \(word)\(n == 1 ? "" : "s")" }
+        if y > 0 { return "Held " + plural(y, "year") + (m > 0 ? " " + plural(m, "month") : "") }
+        if m > 0 { return "Held " + plural(m, "month") }
+        return d < 1 ? "Added today" : "Held " + plural(d, "day")
     }
 }
