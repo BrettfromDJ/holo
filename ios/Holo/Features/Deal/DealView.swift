@@ -104,7 +104,12 @@ struct DealView: View {
             .toolbar(pinned ? .hidden : .visible, for: .navigationBar)
             .overlay(alignment: .top) {
                 if pinned {
-                    PinnedBalance(totals: totals)
+                    // Tap to go back up to the full card (the same as tapping the Deal tab).
+                    Button {
+                        Router.shared.tabTap = TabTap(name: "deal", count: Router.shared.tabTap.count + 1)
+                    } label: { PinnedBalance(totals: totals) }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Scrolls back to the top")
                         .padding(.horizontal, 16)
                         .padding(.top, 4)
                         .transition(.move(edge: .top).combined(with: .opacity))
