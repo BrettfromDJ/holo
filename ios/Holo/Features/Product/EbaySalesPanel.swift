@@ -84,7 +84,9 @@ struct EbaySalesPanel: View {
                             .padding(.horizontal, 12)
                             .frame(height: 32)
                             .foregroundStyle(on ? Theme.background : Theme.muted)
-                            .background(Capsule().fill(on ? Color.white : Theme.surface2))
+                            // Selected: filled white. The rest: no fill, just a faint hairline.
+                            .background { if on { Capsule().fill(Color.white) } }
+                            .overlay { if !on { Capsule().strokeBorder(Color.white.opacity(0.12), lineWidth: 1) } }
                         }
                         .buttonStyle(.plain)
                     }

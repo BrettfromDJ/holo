@@ -136,7 +136,7 @@ export function EbaySales({
                     setPicked(l);
                     setAll(false);
                   }}
-                  className={cn("h-8 shrink-0 rounded-full px-3 text-[13px] transition-colors", tab === l ? "bg-foreground font-semibold text-background" : "bg-surface-2 text-muted hover:text-foreground")}
+                  className={cn("h-8 shrink-0 rounded-full px-3 text-[13px] transition-colors", tab === l ? "bg-foreground font-semibold text-background" : "text-muted ring-1 ring-inset ring-white/12 hover:text-foreground")}
                 >
                   {l}
                   <span className="tabular ml-1.5 opacity-60">{l === UNGRADED ? data.ungraded.count : data.graded[l].count}</span>
