@@ -32,13 +32,6 @@ struct DealPickerSheet: View {
         let owned = self.owned
         NavigationStack {
             GlassList {
-                Section {
-                    Button { customOpen = true } label: {
-                        Label("Custom item: a name and a price", systemImage: "square.and.pencil").foregroundStyle(.white)
-                    }
-                } footer: {
-                    Text("For things that aren't in the catalog, like a bulk lot or a binder of commons. Counted in the deal, not tracked in your collection.")
-                }
                 Section(side == .outgoing ? "Your inventory" : "In your inventory") {
                     if owned.isEmpty { Text("Nothing matches.").foregroundStyle(Theme.muted) }
                     ForEach(owned) { h in
@@ -85,13 +78,27 @@ struct DealPickerSheet: View {
                 }
             }
             .scrollContentBackground(.hidden)
+            // The first list sits just under the search bar.
+            .contentMargins(.top, 0, for: .scrollContent)
             // Thumbnails, decoded off the main thread (a sheet doesn't get the Deal page's setting).
             .imageMaxPixel(360)
             .safeAreaInset(edge: .top, spacing: 0) {
-                HoloSearchField(text: $query, prompt: side == .incoming ? "Search any card or product" : "Search your inventory or any card",
-                                focus: $focused, loading: searching)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
+                // Search, with a small Custom button beside it for things not in the catalog.
+                HStack(spacing: 8) {
+                    HoloSearchField(text: $query, prompt: side == .incoming ? "Search any card or product" : "Search your inventory or any card",
+                                    focus: $focused, loading: searching)
+                    Button { customOpen = true } label: {
+                        Label("Custom", systemImage: "plus")
+                            .font(.geist(15, .semibold)).foregroundStyle(.white)
+                            .padding(.horizontal, 14).frame(height: 48)
+                            .liquidGlass(in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Custom item")
+                    .accessibilityHint("A name and a price, for things not in the catalog")
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
             }
             .scrollDismissesKeyboard(.immediately)
             .navigationTitle(side == .incoming ? "Coming in" : "Going out")
@@ -162,9 +169,13 @@ private struct CustomItemSheet: View {
     @ViewBuilder private var sheetBody: some View {
         NavigationStack {
             GlassForm {
-                TextField("What is it? (Bulk lot, binder of commons…)", text: $name)
-                MoneyField(title: "Price each", text: $price, hint: "0.00")
-                Stepper("Quantity: \(qty)", value: $qty, in: 1...999)
+                Section {
+                    TextField("What is it? (Bulk lot, binder of commons…)", text: $name)
+                    MoneyField(title: "Price each", text: $price, hint: "0.00")
+                    Stepper("Quantity: \(qty)", value: $qty, in: 1...999)
+                } footer: {
+                    Text("For things that aren't in the catalog. Counted in the deal, not tracked in your collection.")
+                }
             }
             .scrollContentBackground(.hidden)
             .navigationTitle("Custom item")
