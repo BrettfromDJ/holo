@@ -50,6 +50,8 @@ struct BumperSheet: View {
     @Environment(GradingStore.self) private var grading
     @Environment(\.dismiss) private var dismiss
     @State private var pick: String?
+    /// The first bumper on this slab: a full-screen moment before the sheet closes.
+    @State private var celebrating: String?
 
     var body: some View { sheetBody.presentationDetents([.fraction(0.93)]).glassSheet() }
 
@@ -77,12 +79,20 @@ struct BumperSheet: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
+                        let first = grading.bumpers[holding.identity.key] == nil
                         grading.setBumper(holding.identity.key, pick)
-                        dismiss()
+                        if first, let pick { celebrating = pick } else { dismiss() }
                     }
                 }
             }
             .onAppear { pick = grading.bumpers[holding.identity.key] }
+            .fullScreenCover(item: Binding(get: { celebrating.map(BumperMoment.Item.init) }, set: { if $0 == nil { celebrating = nil } })) { item in
+                BumperMoment(holding: holding, bumperId: item.id) {
+                    celebrating = nil
+                    dismiss()
+                }
+                .presentationBackground(.clear)
+            }
             .sensoryFeedback(.selection, trigger: pick)
         }
     }
@@ -108,5 +118,66 @@ struct BumperSheet: View {
                 }
             }
         }
+    }
+}
+
+/// The first bumper on a slab, shown big: the slab rises into place in its new bumper with a
+/// soft glow in the bumper's colour behind it. Tap anywhere or Done to close. No confetti; under
+/// Reduce Motion it simply fades in.
+struct BumperMoment: View {
+    struct Item: Identifiable { var id: String }
+
+    var holding: HoldingView
+    var bumperId: String
+    var onDone: () -> Void
+    @Environment(GradingStore.self) private var grading
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shown = false
+
+    var body: some View {
+        let bumper = Bumper.byId(bumperId)
+        let glow = bumper?.colors.first ?? Theme.lime
+        ZStack {
+            Rectangle().fill(.ultraThinMaterial).ignoresSafeArea()
+            Theme.background.opacity(0.6).ignoresSafeArea()
+            RadialGradient(colors: [glow.opacity(0.35), .clear], center: .center, startRadius: 0, endRadius: 300)
+                .ignoresSafeArea()
+                .opacity(shown ? 1 : 0)
+                .allowsHitTesting(false)
+            VStack(spacing: 22) {
+                Spacer(minLength: 0)
+                if let company = holding.identity.gradeCompany, let grade = holding.identity.grade {
+                    Slab(product: holding.product, company: company, grade: grade, bumper: bumper,
+                         cert: grading.certs[holding.identity.key], pristine: grading.pristine.contains(holding.identity.key))
+                        .frame(width: 250, height: 400)
+                        .shadow(color: .black.opacity(0.5), radius: 24, y: 16)
+                        .scaleEffect(shown || reduceMotion ? 1 : 0.86)
+                        .rotation3DEffect(.degrees(shown || reduceMotion ? 0 : 14), axis: (x: 1, y: 0, z: 0), perspective: 0.6)
+                        .offset(y: shown || reduceMotion ? 0 : 30)
+                }
+                VStack(spacing: 6) {
+                    MonoLabel(text: "Bumper on")
+                    Text(bumper?.name ?? "Bumper").font(.display(30)).tracking(-0.8)
+                    Text(holding.product?.name ?? "").font(.geist(14)).foregroundStyle(Theme.muted).lineLimit(1)
+                }
+                .multilineTextAlignment(.center)
+                .opacity(shown ? 1 : 0)
+                Spacer(minLength: 0)
+                Button("Done", action: onDone)
+                    .buttonStyle(Button3D(kind: .lime))
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 12)
+                    .opacity(shown ? 1 : 0)
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 16)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onDone)
+        .sensoryFeedback(.success, trigger: shown) { _, now in now }
+        .onAppear {
+            withAnimation(reduceMotion ? .easeOut(duration: 0.25) : .spring(response: 0.6, dampingFraction: 0.78)) { shown = true }
+        }
+        .accessibilityAddTraits(.isModal)
     }
 }
