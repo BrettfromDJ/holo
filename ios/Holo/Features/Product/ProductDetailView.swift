@@ -138,7 +138,8 @@ struct ProductDetailView: View {
         .sheet(isPresented: $watching) {
             if let product { WatchSheet(product: product, printing: printing, market: headline) }
         }
-        .confirmationDialog("Delete this entry?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
+        .alert("Delete this entry?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
+            Button("Cancel", role: .cancel) {}
             Button("Delete", role: .destructive) {
                 guard let t = deleting else { return }
                 Task { await run { try await store.delete(t) } }

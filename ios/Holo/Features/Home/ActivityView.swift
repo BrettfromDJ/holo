@@ -143,7 +143,8 @@ struct ActivityView: View {
         .navigationBarTitleDisplayMode(.inline)
         .pageTitle("Activity")
         .sheet(item: $editing) { EntryEditSheet(entry: $0) }
-        .confirmationDialog("Delete this entry?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
+        .alert("Delete this entry?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
+            Button("Cancel", role: .cancel) {}
             Button("Delete", role: .destructive) {
                 guard let t = deleting else { return }
                 Task {

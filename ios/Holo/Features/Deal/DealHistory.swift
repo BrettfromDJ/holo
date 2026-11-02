@@ -232,7 +232,8 @@ private struct DealPhotoViewer: View {
             .padding(.top, 8)
         }
         .onAppear { index = start }
-        .confirmationDialog("Delete this photo?", isPresented: $confirmDelete, titleVisibility: .visible) {
+        .alert("Delete this photo?", isPresented: $confirmDelete) {
+            Button("Cancel", role: .cancel) {}
             Button("Delete photo", role: .destructive) {
                 guard photos.indices.contains(index) else { return }
                 onDelete(photos[index])

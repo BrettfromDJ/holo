@@ -91,7 +91,8 @@ struct SettingsView: View {
             .toolbarBackground(.hidden, for: .navigationBar)
             .clearTopEdge()
             .toolbar { ToolbarItem(placement: .confirmationAction) { DoneButton() } }
-            .confirmationDialog("Sign out of Lucent?", isPresented: $confirming, titleVisibility: .visible) {
+            .alert("Sign out of Lucent?", isPresented: $confirming) {
+                Button("Cancel", role: .cancel) {}
                 Button("Sign out", role: .destructive) { Task { await session.signOut() } }
             }
         }

@@ -201,8 +201,9 @@ struct CollectionView: View {
             .sheet(item: $whatIf) { h in SellCalculatorSheet(holding: h) }
             .sheet(item: $removing) { h in RemoveSheet(holding: h) }
             .sheet(item: $editingDetails) { h in EditDetailsSheet(holding: h) }
-            .confirmationDialog("Delete this from your collection?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
-                                titleVisibility: .visible, presenting: deleting) { h in
+            .alert("Delete this from your collection?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
+                                presenting: deleting) { h in
+                Button("Cancel", role: .cancel) {}
                 Button("Delete from collection", role: .destructive) {
                     Task { await groupRun { try await store.deleteCopy(h.identity) } }
                 }

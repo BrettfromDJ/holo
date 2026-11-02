@@ -92,7 +92,8 @@ struct HoldingSheet: View {
         .sheet(isPresented: $selling) { if let h = holding { SellSheet(holding: h) } }
         .sheet(isPresented: $removing) { if let h = holding { RemoveSheet(holding: h) } }
         .sheet(isPresented: $editingDetails) { if let h = holding { EditDetailsSheet(holding: h) } }
-        .confirmationDialog("Delete this from your collection?", isPresented: $confirmDelete, titleVisibility: .visible) {
+        .alert("Delete this from your collection?", isPresented: $confirmDelete) {
+            Button("Cancel", role: .cancel) {}
             Button("Delete from collection", role: .destructive) {
                 Task {
                     do {
@@ -110,7 +111,8 @@ struct HoldingSheet: View {
         .sheet(isPresented: $bumpering) { if let h = holding { BumperSheet(holding: h) } }
         .sheet(isPresented: $valuing) { ManualValueSheet(identity: identity, current: store.manualValue(identity)?.value) }
         .sheet(item: $editing) { t in EntryEditSheet(entry: t) }
-        .confirmationDialog("Delete this entry?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
+        .alert("Delete this entry?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
+            Button("Cancel", role: .cancel) {}
             Button("Delete", role: .destructive) {
                 guard let t = deleting else { return }
                 Task {
