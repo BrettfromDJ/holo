@@ -432,11 +432,12 @@ struct ProductDetailView: View {
                 }
             }
         } label: {
-            Image(systemName: "ellipsis")
+            // The shelf icon (as in Collection's "Add to shelf"), filled when it's on a shelf.
+            Image(systemName: groups.shelves.contains { $0.product_ids.contains(productId) } ? "square.stack.fill" : "square.stack")
         }
         .menuStyle(.button)
         .buttonStyle(IconButton3D(size: 36))
-        .accessibilityLabel("Shelves and portfolio")
+        .accessibilityLabel("Add to shelf")
     }
 
     // MARK: Your position
