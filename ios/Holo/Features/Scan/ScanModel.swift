@@ -33,6 +33,8 @@ final class ScanModel {
     var blocked: String?
 
     private let parallel = 2
+    /// Try reading the card on the phone before the paid scan (off in demo, where the catalog search isn't real).
+    var onDeviceFirst = !Demo.isOn
 
     /// Set when scanning into a deal: each confirmed match is handed over straight away.
     var onPick: (@MainActor (ScanCandidate, ScanRead?) -> (ok: Bool, note: String))?
@@ -101,7 +103,15 @@ final class ScanModel {
             entries[i].state = .reading
             let id = entry.id
             let photo = entry.photo
+            let onDevice = onDeviceFirst
             Task {
+                // First the phone reads the card's name and number and finds it in the stored
+                // catalog (instant and free). Only when that isn't a clear single match does the
+                // photo go to the paid server scan.
+                if onDevice, let quick = await OnDeviceScan.identify(jpeg: photo) {
+                    await MainActor.run { self.finish(id, result: quick) }
+                    return
+                }
                 do {
                     let result = try await Backend.shared.api.scan(jpeg: photo)
                     await MainActor.run { self.finish(id, result: result) }
