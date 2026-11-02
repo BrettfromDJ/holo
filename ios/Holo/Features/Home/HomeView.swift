@@ -385,7 +385,8 @@ private struct Hero: View {
                     .padding(.horizontal, 16)
             }
             .padding(.vertical, 8)
-            FlowPills(pills: [
+            // Today, all time and invested on one line: three columns in one glass strip.
+            HeroStats(items: [
                 ("Today", Format.signedMoney(s.dayChange), Theme.tone(s.dayChange), Format.signedPercent(s.dayRatio)),
                 ("All time", Format.signedMoney(s.gain), Theme.tone(s.gain), nil),
                 ("Invested", Format.money(s.totalCost), Color.white, nil),
@@ -1700,5 +1701,34 @@ private struct MenuRowStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .background(Color.white.opacity(configuration.isPressed ? 0.1 : 0))
+    }
+}
+
+/// The hero's figures on one line: a small caps label over each figure, three equal columns
+/// split by hairlines, in one Liquid Glass strip.
+private struct HeroStats: View {
+    var items: [(label: String, value: String, tint: Color, extra: String?)]
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(Array(items.enumerated()), id: \.offset) { i, item in
+                if i > 0 { Rectangle().fill(Color.white.opacity(0.12)).frame(width: 1, height: 30) }
+                VStack(spacing: 4) {
+                    MonoLabel(text: item.label).lineLimit(1)
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text(item.value).font(.geist(15, .semibold)).foregroundStyle(item.tint)
+                        if let extra = item.extra {
+                            Text(extra).font(.geist(11, .medium)).foregroundStyle(item.tint.opacity(0.8))
+                        }
+                    }
+                    .monospacedDigit()
+                    .lineLimit(1).minimumScaleFactor(0.7)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 6)
+            }
+        }
+        .padding(.vertical, 12)
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 }
