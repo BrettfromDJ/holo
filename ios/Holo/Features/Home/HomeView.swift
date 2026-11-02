@@ -8,6 +8,7 @@ struct HomeView: View {
     @Environment(CollectionStore.self) private var store
     @Environment(GroupsStore.self) private var groups
     @Environment(SessionModel.self) private var session
+    @Environment(GradingStore.self) private var grading
     @State private var account = false
     @State private var lists = false
     @State private var search = false
@@ -15,6 +16,11 @@ struct HomeView: View {
     @State private var menuOpen = false
     /// The search field has scrolled up under the top bar, so a search button shows there.
     @State private var searchTucked = false
+    /// The hero's figures have scrolled up under the top: a slim worth bar pins there and the
+    /// top buttons step aside (like Deal's pinned balance).
+    @State private var pinned = false
+    /// What moved today, opened from the hero's Today column.
+    @State private var todayOpen = false
     @State private var recap = false
     /// What's pushed on Home (products by id, More pages); -HoloPage opens one for screenshots.
     @State private var path = NavigationPath()
@@ -56,6 +62,24 @@ struct HomeView: View {
             .replaysAnimations()
             .tabBarClearance()
             .refreshable { await pullToRefresh() }
+            .toolbar(showPinned ? .hidden : .visible, for: .navigationBar)
+            .overlay(alignment: .top) {
+                if showPinned {
+                    // Tap to go back up to the full hero (the same as tapping the Overview tab).
+                    Button {
+                        Router.shared.tabTap = TabTap(name: "home", count: Router.shared.tabTap.count + 1)
+                    } label: {
+                        PinnedWorth(value: store.summary.value, dayChange: store.summary.dayChange, dayRatio: store.summary.dayRatio)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Scrolls back to the top")
+                    .padding(.horizontal, 16)
+                    .padding(.top, 4)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
+            // Loading or emptied out: nothing to pin, and the bar mustn't stay stuck on.
+            .onChange(of: canPin) { _, ok in if !ok { pinned = false } }
             .overlay(alignment: .topTrailing) {
                 if menuOpen {
                     ZStack(alignment: .topTrailing) {
@@ -146,6 +170,13 @@ struct HomeView: View {
                     }
                 }
             }
+            .sheet(isPresented: $todayOpen) {
+                TodaySheet { identity in
+                    // One sheet at a time: Today slides away, then Owned comes up.
+                    todayOpen = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { opened = OpenedHolding(identity: identity) }
+                }
+            }
             .sheet(isPresented: $account) { SettingsView() }
             .sheet(isPresented: $lists) { ListsView() }
             .fullScreenCover(isPresented: $search) { SearchScreen() }
@@ -193,7 +224,23 @@ struct HomeView: View {
                     .onGeometryChange(for: Bool.self) { $0.frame(in: .global).maxY < 100 } action: { tucked in
                         withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) { searchTucked = tucked }
                     }
-                Hero(store: store, spread: refreshing, onRecap: { recap = true }, onAdd: { Router.shared.addMenu = true })
+                // Only when something needs you (a watched card hit its target, cards at the
+                // grader); otherwise nothing at all, not even the gap.
+                let alerts = HomeAlert.collect(store: store, grading: grading)
+                if !alerts.isEmpty {
+                    HomeAlertsStrip(alerts: alerts) { target in
+                        switch target {
+                        case let .product(id): path.append(id)
+                        case .grading: path.append(MorePage.grading)
+                        }
+                    }
+                }
+                Hero(store: store, spread: refreshing, onRecap: { recap = true }, onAdd: { Router.shared.addMenu = true },
+                     onToday: { todayOpen = true },
+                     onPinned: { gone in
+                         guard gone != pinned else { return }
+                         withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) { pinned = gone }
+                     })
             }
             // Sits close under the hero's buttons (it belongs with them) and a little nearer the
             // chart than the usual section gap, with more room between the tiles themselves.
@@ -210,6 +257,10 @@ struct HomeView: View {
         .padding(.top, 4)
         .padding(.bottom, 40)
     }
+
+    /// Only the full Overview pins its worth bar (not while loading, failed or empty).
+    private var canPin: Bool { store.status == .ready && !store.holdings.isEmpty }
+    private var showPinned: Bool { pinned && canPin }
 
     private var empty: some View {
         VStack(spacing: 16) {
@@ -366,6 +417,10 @@ private struct Hero: View {
     var spread = false
     var onRecap: () -> Void
     var onAdd: () -> Void
+    /// The Today column was tapped: show what moved today.
+    var onToday: () -> Void = {}
+    /// The figures crossed under the top bar (true) or came back (false).
+    var onPinned: (Bool) -> Void = { _ in }
 
     var body: some View {
         let s = store.summary
@@ -390,8 +445,13 @@ private struct Hero: View {
                 ("Today", Format.signedMoney(s.dayChange), Theme.tone(s.dayChange), Format.signedPercent(s.dayRatio)),
                 ("All time", Format.signedMoney(s.gain), Theme.tone(s.gain), nil),
                 ("Invested", Format.money(s.totalCost), Color.white, nil),
-            ])
+            ], onFirst: onToday)
             .padding(.horizontal, 16)
+            // Reports only when the figures cross under the top, not on every scroll frame:
+            // then a slim worth bar pins there instead.
+            .onGeometryChange(for: Bool.self) { $0.frame(in: .global).maxY < 120 } action: { gone in
+                onPinned(gone)
+            }
             // The website's floating action bar: your week's recap and the lime add button.
             // Widths split 1 : 1.4 like the website, on one line each.
             GeometryReader { geo in
@@ -1708,27 +1768,46 @@ private struct MenuRowStyle: ButtonStyle {
 /// split by hairlines, in one Liquid Glass strip.
 private struct HeroStats: View {
     var items: [(label: String, value: String, tint: Color, extra: String?)]
+    /// Tapping the first column (Today) opens what moved today; nil leaves it plain.
+    var onFirst: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 0) {
             ForEach(Array(items.enumerated()), id: \.offset) { i, item in
                 if i > 0 { Rectangle().fill(Color.white.opacity(0.12)).frame(width: 1, height: 30) }
-                VStack(spacing: 4) {
-                    MonoLabel(text: item.label).lineLimit(1)
-                    HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        Text(item.value).font(.geist(15, .semibold)).foregroundStyle(item.tint)
-                        if let extra = item.extra {
-                            Text(extra).font(.geist(11, .medium)).foregroundStyle(item.tint.opacity(0.8))
-                        }
-                    }
-                    .monospacedDigit()
-                    .lineLimit(1).minimumScaleFactor(0.7)
+                if i == 0, let onFirst {
+                    Button(action: onFirst) { column(item, chevron: true) }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Shows what moved today")
+                } else {
+                    column(item, chevron: false)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, 6)
             }
         }
         .padding(.vertical, 10)
         .liquidGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    private func column(_ item: (label: String, value: String, tint: Color, extra: String?), chevron: Bool) -> some View {
+        VStack(spacing: 4) {
+            HStack(spacing: 3) {
+                MonoLabel(text: item.label).lineLimit(1)
+                if chevron {
+                    Image(systemName: "chevron.right").font(.system(size: 8, weight: .bold)).foregroundStyle(Theme.subtle)
+                }
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(item.value).font(.geist(15, .semibold)).foregroundStyle(item.tint)
+                if let extra = item.extra {
+                    Text(extra).font(.geist(11, .medium)).foregroundStyle(item.tint.opacity(0.8))
+                }
+            }
+            .monospacedDigit()
+            .lineLimit(1).minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 6)
+        // The whole column takes the tap, not just its text.
+        .contentShape(Rectangle())
     }
 }
