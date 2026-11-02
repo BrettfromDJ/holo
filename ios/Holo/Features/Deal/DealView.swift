@@ -1010,22 +1010,34 @@ private struct DealItemCard: View {
 
 /// What the customer sees, full screen and calm: their cards (what they hand you, what they
 /// get), each at the price you're paying or charging, and the cash, big. Never market prices,
-/// rates, your costs, profit or value gained.
+/// rates, your costs, profit or value gained. Tap a card for a closer look; Flip turns the
+/// page upside down so it reads the right way for someone across the table, while the buttons
+/// stay the right way up for you at your end.
 private struct CustomerViewSheet: View {
     var deal: DealState
     var rates: (in: Double, out: Double)
     var totals: DealTotals
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var flipped = false
+    @State private var looking: Look?
+
+    struct Look: Identifiable {
+        var item: DealItem
+        var incoming: Bool
+        var rate: Double
+        var id: String { (incoming ? "i" : "o") + item.key }
+    }
 
     var body: some View {
         let b = totals.balance
         let even = abs(b) < 0.005
-        ZStack(alignment: .topTrailing) {
+        ZStack(alignment: flipped ? .bottomTrailing : .topTrailing) {
             Theme.background.ignoresSafeArea()
             ScrollView {
                 VStack(alignment: .leading, spacing: 36) {
-                    if !deal.incoming.isEmpty { list("You hand us", deal.incoming, rates.in, total: totals.inValue) }
-                    if !deal.outgoing.isEmpty { list("You get", deal.outgoing, rates.out, total: totals.outValue) }
+                    if !deal.incoming.isEmpty { list("You hand us", deal.incoming, rates.in, incoming: true, total: totals.inValue) }
+                    if !deal.outgoing.isEmpty { list("You get", deal.outgoing, rates.out, incoming: false, total: totals.outValue) }
                     VStack(spacing: 10) {
                         Text(even ? "Even swap" : (b > 0 ? "You pay" : "We pay you"))
                             .font(.display(30)).tracking(-0.8).foregroundStyle(.white)
@@ -1045,16 +1057,33 @@ private struct CustomerViewSheet: View {
                 .padding(.top, 64)
                 .padding(.bottom, 40)
             }
-            Button("Done") { dismiss() }
-                .font(.geist(16, .semibold)).foregroundStyle(.white)
-                .padding(.horizontal, 18).frame(height: 40)
-                .liquidGlass(in: Capsule())
-                .padding(.trailing, 16).padding(.top, 8)
+            .rotationEffect(.degrees(flipped ? 180 : 0))
+            // The controls stay the right way up for you, at whichever end is yours.
+            HStack(spacing: 10) {
+                Button {
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.88)) { flipped.toggle() }
+                } label: {
+                    Label(flipped ? "Flip back" : "Flip", systemImage: "arrow.up.arrow.down")
+                        .font(.geist(16, .semibold)).foregroundStyle(.white)
+                        .padding(.horizontal, 18).frame(height: 40)
+                        .liquidGlass(in: Capsule())
+                }
+                .accessibilityHint("Turns the page around for the person across from you")
+                Button("Done") { dismiss() }
+                    .font(.geist(16, .semibold)).foregroundStyle(.white)
+                    .padding(.horizontal, 18).frame(height: 40)
+                    .liquidGlass(in: Capsule())
+            }
+            .padding(.horizontal, 16).padding(.vertical, 8)
+        }
+        .sensoryFeedback(.selection, trigger: flipped)
+        .sheet(item: $looking) { look in
+            CustomerCardSheet(item: look.item, incoming: look.incoming, rate: look.rate, flipped: flipped)
         }
         .preferredColorScheme(.dark)
     }
 
-    private func list(_ title: String, _ items: [DealItem], _ rate: Double, total: Double) -> some View {
+    private func list(_ title: String, _ items: [DealItem], _ rate: Double, incoming: Bool, total: Double) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline) {
                 Text(title).font(.display(28)).tracking(-0.7).foregroundStyle(.white)
@@ -1063,22 +1092,102 @@ private struct CustomerViewSheet: View {
             }
             .padding(.bottom, 8)
             ForEach(items) { i in
-                HStack(spacing: 16) {
-                    HoldingArt(product: i.product, identity: nil, cornerRadius: 4, caption: false).frame(width: 56, height: 78)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(i.product.name).font(.geist(19, .medium)).foregroundStyle(.white)
-                            .lineLimit(3).fixedSize(horizontal: false, vertical: true)
-                        if i.qty > 1 {
-                            Text("\(i.qty) × \(Format.money(i.unitPrice(side: rate)))").font(.geist(15)).monospacedDigit().foregroundStyle(Theme.muted)
+                Button { looking = Look(item: i, incoming: incoming, rate: rate) } label: {
+                    HStack(spacing: 16) {
+                        HoldingArt(product: i.product, identity: nil, cornerRadius: 4, caption: false).frame(width: 56, height: 78)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(i.product.name).font(.geist(19, .medium)).foregroundStyle(.white)
+                                .lineLimit(3).fixedSize(horizontal: false, vertical: true)
+                                .multilineTextAlignment(.leading)
+                            if i.qty > 1 {
+                                Text("\(i.qty) × \(Format.money(i.unitPrice(side: rate)))").font(.geist(15)).monospacedDigit().foregroundStyle(Theme.muted)
+                            }
                         }
+                        Spacer(minLength: 8)
+                        Text(Format.money(i.total(side: rate))).font(.geist(22, .semibold)).monospacedDigit().foregroundStyle(.white)
+                            .lineLimit(1).fixedSize()
                     }
-                    Spacer(minLength: 8)
-                    Text(Format.money(i.total(side: rate))).font(.geist(22, .semibold)).monospacedDigit().foregroundStyle(.white)
-                        .lineLimit(1).fixedSize()
+                    .padding(.vertical, 10)
+                    .contentShape(Rectangle())
                 }
-                .padding(.vertical, 10)
+                .buttonStyle(.plain)
+                .disabled(i.isCustom)
                 if i.id != items.last?.id { Divider().overlay(Color.white.opacity(0.1)) }
             }
+        }
+    }
+}
+
+/// One card from the customer view, up close: the art (lean it with a finger), what it is, and
+/// the deal price. Like the customer view, never market prices, rates, costs or profit.
+/// Follows the customer view's flip so it reads the right way for the customer too.
+private struct CustomerCardSheet: View {
+    var item: DealItem
+    var incoming: Bool
+    var rate: Double
+    var flipped: Bool
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        let p = item.product
+        VStack(spacing: 0) {
+            HStack {
+                Spacer()
+                Button("Done") { dismiss() }
+                    .font(.geist(16, .semibold)).foregroundStyle(.white)
+                    .padding(.horizontal, 18).frame(height: 40)
+                    .liquidGlass(in: Capsule())
+            }
+            .padding(.horizontal, 16).padding(.top, 14)
+            ScrollView {
+                VStack(spacing: 22) {
+                    art(p).padding(.top, 8)
+                    VStack(spacing: 6) {
+                        Text(p.name).font(.display(28)).tracking(-0.8).foregroundStyle(.white)
+                            .multilineTextAlignment(.center)
+                        let line = [p.setName, p.number.map { "#\($0)" }, item.printing].compactMap { $0 }.filter { !$0.isEmpty }
+                        if !line.isEmpty {
+                            Text(line.joined(separator: " · ")).font(.geist(15)).foregroundStyle(Theme.muted)
+                                .multilineTextAlignment(.center)
+                        }
+                        if let g = item.grade {
+                            Text("\(g.company) \(g.grade)").font(.mono(12)).tracking(1.2).foregroundStyle(.white)
+                                .padding(.horizontal, 10).padding(.vertical, 5)
+                                .background(Capsule().fill(Color.white.opacity(0.1)))
+                                .padding(.top, 4)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    VStack(spacing: 6) {
+                        Text(incoming ? "We pay" : "Price").font(.mono(11)).tracking(1.4).textCase(.uppercase).foregroundStyle(Theme.muted)
+                        Text(Format.money(item.total(side: rate))).font(.display(52)).tracking(-2).monospacedDigit().foregroundStyle(.white)
+                            .lineLimit(1).minimumScaleFactor(0.5)
+                        if item.qty > 1 {
+                            Text("\(item.qty) × \(Format.money(item.unitPrice(side: rate)))").font(.geist(15)).monospacedDigit().foregroundStyle(Theme.muted)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 22)
+                    .sheetPanel(radius: 22)
+                    .padding(.horizontal, 20)
+                }
+                .padding(.bottom, 32)
+            }
+        }
+        .rotationEffect(.degrees(flipped ? 180 : 0))
+        .presentationDetents([.fraction(0.93)])
+        .presentationDragIndicator(.hidden)
+        .glassSheet()
+    }
+
+    @ViewBuilder private func art(_ p: Product) -> some View {
+        if p.isSealed {
+            SealedWell(product: p, cornerRadius: 28, caption: true).frame(width: 260, height: 260)
+        } else {
+            HoloCard(foil: p.isFoil, textured: false, cornerRadius: 12) {
+                ProductImage(product: p, cornerRadius: 13, large: true).frame(width: 240, height: 335)
+            }
+            .environment(\.imageMaxPixel, nil)
         }
     }
 }
