@@ -854,10 +854,14 @@ private struct DealItemCard: View {
                 }
                 .padding(.top, 10)
 
-                statusRow
-                    .padding(.top, 10)
+                // Coming in, the collection switch is a small chip on the total's line.
+                if !(incoming && !item.isCustom) {
+                    statusRow
+                        .padding(.top, 10)
+                }
 
                 HStack(spacing: 6) {
+                    if incoming && !item.isCustom { collectionChip }
                     if let cost {
                         let profit = total - cost
                         if item.holdingKey != nil { Text("You paid \(Format.money(cost)) ·").foregroundStyle(Theme.muted) } else { Text("Profit").foregroundStyle(Theme.muted) }
@@ -882,6 +886,30 @@ private struct DealItemCard: View {
         .onChange(of: item.price) { _, p in
             if let p, MoneyField.value(priceText) != p { priceText = String(format: "%.2f", p) }
         }
+    }
+
+    /// Coming in: whether it goes into your collection, as a chip you tap. Filled with a check when
+    /// it will be added; a faint outline when it won't.
+    private var collectionChip: some View {
+        Button {
+            change { $0.track = !tracked }
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: tracked ? "checkmark" : "plus").font(.system(size: 10, weight: .semibold))
+                Text(tracked ? "Adding to collection" : "Add to collection")
+            }
+            .font(.geist(12, .medium))
+            .foregroundStyle(tracked ? .white : Theme.muted)
+            .padding(.horizontal, 10).frame(height: 26)
+            .background(Capsule().fill(tracked ? accent.opacity(0.16) : .clear))
+            .overlay(Capsule().strokeBorder(tracked ? accent.opacity(0.5) : Color.white.opacity(0.12)))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Add to collection")
+        .accessibilityValue(tracked ? "On" : "Off")
+        .accessibilityAddTraits(.isToggle)
     }
 
     /// What happens to this line in your collection, and the switch or field that changes it.

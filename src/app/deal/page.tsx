@@ -712,10 +712,17 @@ function SideCard({
                 {item.custom ? (
                   <p className="mt-2 text-[11px] font-medium text-subtle">Custom · not tracked</p>
                 ) : side === "in" ? (
-                  <label className="mt-2 flex items-center gap-2 text-[12px] font-medium">
-                    <Switch checked={isTracked} onCheckedChange={(on) => set(item.key, { track: on })} aria-label="Add to collection" className="scale-75" />
-                    <span className={isTracked ? "text-foreground" : "text-muted"}>Add to collection</span>
-                  </label>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={isTracked}
+                    aria-label="Add to collection"
+                    onClick={() => set(item.key, { track: !isTracked })}
+                    className={cn("mt-2 inline-flex h-[26px] items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium ring-1 ring-inset transition-colors", isTracked ? "bg-[var(--lime)]/15 text-foreground ring-[var(--lime)]/50" : "text-muted ring-white/12 hover:text-foreground")}
+                  >
+                    {isTracked ? <Check className="size-3" /> : <Plus className="size-3" />}
+                    {isTracked ? "Adding to collection" : "Add to collection"}
+                  </button>
                 ) : notInHolo ? (
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-muted">{isTracked ? "Not in Holo · will be added" : "Not in Holo · not tracked"}</span>
