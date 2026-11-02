@@ -48,14 +48,16 @@ struct ScanView: View {
         HStack(spacing: 8) {
             glassCircle("xmark", label: "Close") { dismiss() }
             Spacer()
-            HStack(spacing: 8) {
-                Circle().fill(dealSide == .outgoing ? Theme.planPink : Theme.lime).frame(width: 7, height: 7)
-                Text(dealSide == nil ? "Scan cards" : (dealSide == .incoming ? "Coming in" : "Going out"))
-                    .font(.display(16)).tracking(-0.4)
+            // Only in a deal: which side the scans go to. Plain scanning needs no label.
+            if let dealSide {
+                HStack(spacing: 8) {
+                    Circle().fill(dealSide == .outgoing ? Theme.planPink : Theme.lime).frame(width: 7, height: 7)
+                    Text(dealSide == .incoming ? "Coming in" : "Going out").font(.display(16)).tracking(-0.4)
+                }
+                .padding(.horizontal, 16).frame(height: 40)
+                .liquidGlass(in: Capsule())
+                Spacer()
             }
-            .padding(.horizontal, 16).frame(height: 40)
-            .liquidGlass(in: Capsule())
-            Spacer()
             Group {
                 if let left = model.scansLeft {
                     Text("\(left.formatted()) left").font(.mono(12)).monospacedDigit()
