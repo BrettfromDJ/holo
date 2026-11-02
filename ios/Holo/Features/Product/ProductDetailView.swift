@@ -300,7 +300,7 @@ struct ProductDetailView: View {
                     Text(Format.money(nil))
                 }
             }
-            .font(.display(52)).tracking(-2.1).monospacedDigit().displayTrim(52).padding(.top, 24)
+            .font(.display(52)).tracking(-2.1).monospacedDigit().displayTrim(52).padding(.top, 12)
             // The headline is the Near Mint (ungraded) price; copies you own that differ are listed here.
             let differing = owned.filter { $0.identity.isGraded || $0.isConditionEstimate }
             if !differing.isEmpty {
