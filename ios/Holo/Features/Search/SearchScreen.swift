@@ -282,25 +282,31 @@ struct SearchScreen: View {
         // Your own copies first: instant, no waiting on the catalog.
         if !mineNow.isEmpty {
             header("In your collection")
-            ForEach(mineNow) { h in
-                Button {
-                    if let p = h.product { open(SearchHit(product: p, printing: h.identity.printing, market: h.price, priceUpdatedAt: nil, gameName: nil)) }
-                } label: {
-                    HStack(spacing: 12) {
-                        HoldingArt(product: h.product, identity: h.identity, cornerRadius: 4, caption: false).frame(width: 40, height: 56)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(h.product?.name ?? "").font(.geist(15, .medium)).foregroundStyle(.white).lineLimit(1)
-                            Text("×\(Int(h.quantity))" + (h.identity.gradeLabel.map { " · \($0)" } ?? "") + (h.product?.setName.map { " · \($0)" } ?? ""))
-                                .font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
+            // A sideways row of your copies, so they don't push the catalog results down.
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(alignment: .top, spacing: 12) {
+                    ForEach(mineNow) { h in
+                        Button {
+                            if let p = h.product { open(SearchHit(product: p, printing: h.identity.printing, market: h.price, priceUpdatedAt: nil, gameName: nil)) }
+                        } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                HoldingArt(product: h.product, identity: h.identity, cornerRadius: 5, caption: false).frame(width: 84, height: 117)
+                                Text(h.product?.name ?? "").font(.geist(12, .medium)).foregroundStyle(.white).lineLimit(1)
+                                HStack(spacing: 4) {
+                                    Text(Format.money(h.price.map { $0 * h.quantity })).font(.geist(12, .semibold)).monospacedDigit().foregroundStyle(.white)
+                                    if h.quantity > 1 { Text("×\(Int(h.quantity))").font(.geist(11)).foregroundStyle(Theme.muted) }
+                                }
+                                .lineLimit(1)
+                            }
+                            .frame(width: 84, alignment: .leading)
+                            .contentShape(Rectangle())
                         }
-                        Spacer()
-                        Text(Format.money(h.price.map { $0 * h.quantity })).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(.white)
+                        .buttonStyle(.plain)
                     }
-                    .padding(.horizontal, 16).padding(.vertical, 8)
-                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .padding(.horizontal, 16)
             }
+            .padding(.bottom, 4)
         }
 
         header(searching && results.isEmpty ? "Searching the catalog…" : (shown.count == results.count ? "\(total) in the catalog" : "\(shown.count) of \(results.count) loaded match"))
