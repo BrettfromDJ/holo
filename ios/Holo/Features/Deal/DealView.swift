@@ -1028,6 +1028,9 @@ private struct CustomerViewSheet: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var flipped = false
     @State private var looking: Look?
+    /// Measured: the page's height outside the tiles (header, headings, gaps) and the cash panel's.
+    @State private var chrome: CGFloat = 300
+    @State private var cashHeight: CGFloat = 170
 
     struct Look: Identifiable {
         var item: DealItem
@@ -1049,17 +1052,23 @@ private struct CustomerViewSheet: View {
         ZStack(alignment: flipped ? .bottomTrailing : .topTrailing) {
             backdrop
             GeometryReader { geo in
-                // The more cards, the more columns (smaller tiles), so the cash always shows.
-                let cols = columns(width: geo.size.width, height: geo.size.height)
+                // Tiles as big as fit: more columns (smaller tiles) as cards are added, so the cash always shows.
+                let fit = layout(width: geo.size.width, room: geo.size.height - cashHeight - chrome)
                 ScrollView {
                     VStack(alignment: .leading, spacing: 30) {
                         header
-                        if !deal.incoming.isEmpty { section("You hand us", deal.incoming, rates.in, incoming: true, total: totals.inValue, cols: cols) }
-                        if !deal.outgoing.isEmpty { section("You get", deal.outgoing, rates.out, incoming: false, total: totals.outValue, cols: cols) }
+                        if !deal.incoming.isEmpty { section("You hand us", deal.incoming, rates.in, incoming: true, total: totals.inValue, fit: fit) }
+                        if !deal.outgoing.isEmpty { section("You get", deal.outgoing, rates.out, incoming: false, total: totals.outValue, fit: fit) }
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 72)
                     .padding(.bottom, 20)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    // What isn't tiles: the content's height less the tiles' (known from the layout).
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { h in
+                        let c = max(0, h - tilesHeight(fit))
+                        if abs(c - chrome) > 1 { chrome = c }
+                    }
                 }
                 .scrollBounceBehavior(.basedOnSize)
                 // Pinned at the bottom: never scrolled out of sight.
@@ -1069,6 +1078,9 @@ private struct CustomerViewSheet: View {
                         .padding(.top, 8)
                         .padding(.bottom, 12)
                         .background(LinearGradient(colors: [Theme.background.opacity(0), Theme.background], startPoint: .top, endPoint: .init(x: 0.5, y: 0.25)))
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { h in
+                            if abs(h - cashHeight) > 1 { cashHeight = h }
+                        }
                 }
             }
             .rotationEffect(.degrees(flipped ? 180 : 0))
@@ -1128,28 +1140,40 @@ private struct CustomerViewSheet: View {
         }
     }
 
-    /// Tile measures for a number of columns: width, and height with the name and price under it.
-    private static func tile(cols: Int, width: CGFloat) -> (w: CGFloat, h: CGFloat) {
-        let w = (width - 40 - CGFloat(cols - 1) * 12) / CGFloat(cols)
-        return (w, w * 88 / 63 + (cols >= 4 ? 28 : (cols == 3 ? 52 : 70)))
-    }
+    /// How the tiles are laid out: columns, each tile's width, and the text height under the art.
+    struct Fit: Equatable { var cols: Int; var width: CGFloat; var text: CGFloat }
 
-    /// The fewest columns (2 to 6) that fit every card above the pinned cash panel.
-    private func columns(width: CGFloat, height: CGFloat) -> Int {
-        let counts = [deal.incoming.count, deal.outgoing.count].filter { $0 > 0 }
-        // Top space for the buttons, the header, each section's heading and the gaps, the cash panel.
-        let fixed: CGFloat = 72 + 96 + CGFloat(counts.count) * (30 + 44) + 20 + 190
-        let room = height - fixed
+    private static func textHeight(_ cols: Int) -> CGFloat { cols >= 4 ? 28 : (cols == 3 ? 56 : 80) }
+
+    private var sectionCounts: [Int] { [deal.incoming.count, deal.outgoing.count].filter { $0 > 0 } }
+
+    /// The biggest tiles that fit `room`: for 2 to 6 columns, as wide as the column or as the
+    /// height allows, whichever is smaller; the widest wins (fewer columns on a tie).
+    private func layout(width: CGFloat, room: CGFloat) -> Fit {
+        let counts = sectionCounts
+        var best = Fit(cols: 6, width: max(30, (width - 40 - 60) / 6), text: Self.textHeight(6))
+        var bestWidth: CGFloat = 0
         for c in 2...6 {
-            let t = Self.tile(cols: c, width: width)
+            let colW = (width - 40 - CGFloat(c - 1) * 12) / CGFloat(c)
             let rows = counts.reduce(0) { $0 + Int((Double($1) / Double(c)).rounded(.up)) }
-            let needed = CGFloat(rows) * t.h + CGFloat(max(0, rows - counts.count)) * 14
-            if needed <= room { return c }
+            guard rows > 0 else { return Fit(cols: 2, width: colW, text: Self.textHeight(2)) }
+            let perRow = (room - CGFloat(max(0, rows - counts.count)) * 14) / CGFloat(rows) - Self.textHeight(c)
+            let w = min(colW, perRow * 63 / 88)
+            if w > bestWidth + 0.5 { bestWidth = w; best = Fit(cols: c, width: w, text: Self.textHeight(c)) }
         }
-        return 6
+        // Too many to fit even at six across: six across, full column width, and it scrolls.
+        if bestWidth < 40 { best = Fit(cols: 6, width: (width - 40 - 60) / 6, text: Self.textHeight(6)) }
+        return best
     }
 
-    private func section(_ title: String, _ items: [DealItem], _ rate: Double, incoming: Bool, total: Double, cols: Int) -> some View {
+    /// The tiles' total height in a layout (every tile is card-shaped, 63:88, over its text).
+    private func tilesHeight(_ fit: Fit) -> CGFloat {
+        let counts = sectionCounts
+        let rows = counts.reduce(0) { $0 + Int((Double($1) / Double(fit.cols)).rounded(.up)) }
+        return CGFloat(rows) * (fit.width * 88 / 63 + fit.text) + CGFloat(max(0, rows - counts.count)) * 14
+    }
+
+    private func section(_ title: String, _ items: [DealItem], _ rate: Double, incoming: Bool, total: Double, fit: Fit) -> some View {
         let count = items.reduce(0) { $0 + $1.qty }
         return VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
@@ -1158,9 +1182,10 @@ private struct CustomerViewSheet: View {
                 Spacer(minLength: 8)
                 Text(Format.money(total)).font(.geist(18, .semibold)).monospacedDigit().foregroundStyle(.white)
             }
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: cols), alignment: .leading, spacing: 14) {
-                ForEach(items) { i in tile(i, rate, incoming: incoming, cols: cols) }
+            LazyVGrid(columns: Array(repeating: GridItem(.fixed(fit.width), spacing: 12), count: fit.cols), alignment: .leading, spacing: 14) {
+                ForEach(items) { i in tile(i, rate, incoming: incoming, cols: fit.cols).frame(width: fit.width) }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -1169,10 +1194,13 @@ private struct CustomerViewSheet: View {
         // Smaller tiles drop the name (tap for it) and set the price smaller.
         let priceSize: CGFloat = cols >= 4 ? 14 : (cols == 3 ? 18 : 24)
         return Button { looking = Look(item: i, incoming: incoming, rate: rate) } label: {
-            VStack(alignment: .leading, spacing: cols >= 4 ? 6 : 10) {
+            // Every tile is card-shaped (sealed sits in a card-shaped well), with the text block a
+            // fixed height, so the layout's size sums are exact.
+            let gap: CGFloat = cols >= 4 ? 6 : 10
+            VStack(alignment: .leading, spacing: gap) {
                 Color.clear
-                    .aspectRatio(i.product.isSealed ? 1 : 63.0 / 88.0, contentMode: .fit)
-                    .overlay { HoldingArt(product: i.product, identity: nil, cornerRadius: i.product.isSealed ? 18 : 8, caption: false) }
+                    .aspectRatio(63.0 / 88.0, contentMode: .fit)
+                    .overlay { HoldingArt(product: i.product, identity: nil, cornerRadius: i.product.isSealed ? 14 : 8, caption: false) }
                     .overlay(alignment: .topTrailing) {
                         if i.qty > 1 {
                             Text("×\(i.qty)").font(.geist(cols >= 4 ? 11 : 14, .semibold)).monospacedDigit().foregroundStyle(.white)
@@ -1189,6 +1217,7 @@ private struct CustomerViewSheet: View {
                     Text(Format.money(i.total(side: rate))).font(.display(priceSize)).tracking(-priceSize * 0.025).monospacedDigit().foregroundStyle(.white)
                         .lineLimit(1).minimumScaleFactor(0.6)
                 }
+                .frame(height: Self.textHeight(cols) - gap, alignment: .top)
             }
             .contentShape(Rectangle())
         }

@@ -176,6 +176,13 @@ final class DealStore {
         if let h = store.allHoldings.first(where: { $0.identity.productId == "sample:umbreon-vmax-alt" }) ?? store.allHoldings.first, let p = h.product {
             d.outgoing.append(DealItem(key: "h:\(h.identity.key)", product: p, printing: h.identity.printing, market: h.price, holdingKey: h.identity.key, maxQty: Int(h.quantity)))
         }
+        // `-HoloDealMany`: a big deal, to see the customer view's tiles shrink.
+        if ProcessInfo.processInfo.arguments.contains("-HoloDealMany") {
+            for item in DemoData.items.prefix(12) where !d.incoming.contains(where: { $0.product.id == DemoData.product(item).id }) {
+                let p = DemoData.product(item)
+                d.incoming.append(DealItem(key: "p:\(p.id)", product: p, printing: p.printings?.first, market: DemoData.series(item).last?.price))
+            }
+        }
         deal = d
     }
 
