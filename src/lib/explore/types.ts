@@ -21,6 +21,8 @@ export interface ExploreProduct {
   priceUpdatedAt: string | null;
   /** Brand (catalog) the product belongs to, e.g. "Pokemon Japan". */
   gameName?: string | null;
+  /** Release date of the product's set (YYYY-MM-DD), when the catalog knows it. */
+  releaseDate?: string | null;
 }
 
 export interface ExploreGame {

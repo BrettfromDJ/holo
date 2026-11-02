@@ -9,6 +9,7 @@ import { HoloTilt, isFoilCard } from "@/components/motion/holo-tilt";
 import { ProductImage } from "@/components/product/product-image";
 import { WishHeart } from "@/components/wishlist/wish-items";
 import { categoryOf } from "@/lib/catalog";
+import type { ExploreMarket } from "@/lib/explore/movers";
 import type { ExploreGame, ExploreProduct, ExploreSet } from "@/lib/explore/types";
 import { formatDate, money } from "@/lib/format";
 import { packCount, pricePerPack } from "@/lib/packs";
@@ -20,6 +21,22 @@ export function useOwnedIds() {
   // Owned anywhere in the collection, whichever portfolio is shown.
   const { holdings } = usePortfolio({ ignoreFilter: true });
   return useMemo(() => new Set(holdings.map((h) => h.identity.productId)), [holdings]);
+}
+
+/** How many of each product the user holds, across every copy (raw and graded), for "Owned ×N". */
+export function useOwnedQuantities() {
+  const { holdings } = usePortfolio({ ignoreFilter: true });
+  return useMemo(() => {
+    const qty = new Map<string, number>();
+    for (const h of holdings) qty.set(h.identity.productId, (qty.get(h.identity.productId) ?? 0) + h.quantity);
+    return qty;
+  }, [holdings]);
+}
+
+/** "Owned", or "Owned ×3" when there's more than one. */
+export function ownedLabel(quantity: number | undefined): string {
+  const n = Math.round(quantity ?? 0);
+  return n > 1 ? `Owned ×${n}` : "Owned";
 }
 
 function isNew(releaseDate: string | null) {
@@ -115,16 +132,17 @@ export function SetTile({ set }: { set: ExploreSet }) {
   );
 }
 
-let exploreIndex: Promise<{ games: ExploreGame[]; sets: ExploreSet[] }> | null = null;
+type ExploreIndexData = { games: ExploreGame[]; sets: ExploreSet[] } & ExploreMarket;
+let exploreIndex: Promise<ExploreIndexData> | null = null;
 
 /** Brands and sets from /api/explore, fetched once per page load. */
 export function useExploreIndex() {
-  const [state, setState] = useState<{ status: "loading" } | { status: "error"; message: string } | { status: "ready"; games: ExploreGame[]; sets: ExploreSet[] }>({ status: "loading" });
+  const [state, setState] = useState<{ status: "loading" } | { status: "error"; message: string } | ({ status: "ready" } & ExploreIndexData)>({ status: "loading" });
   useEffect(() => {
     exploreIndex ??= fetch("/api/explore").then(async (res) => {
       const body = await res.json().catch(() => null);
       if (!res.ok) throw new Error(body?.error?.message ?? "Couldn't load the catalog.");
-      return { games: body.games ?? [], sets: body.sets ?? [] };
+      return { games: body.games ?? [], sets: body.sets ?? [], trending: body.trending ?? [], drops: body.drops ?? [], boosterBoxes: body.boosterBoxes ?? [] };
     });
     exploreIndex.then(
       (d) => setState({ status: "ready", ...d }),
@@ -138,7 +156,7 @@ export function useExploreIndex() {
 }
 
 /** A catalog product; opens its full product page (served from the stored catalog). */
-export function ProductTile({ item, owned, gameSlug, showBrand }: { item: ExploreProduct; owned: boolean; gameSlug?: string | null; showBrand?: boolean }) {
+export function ProductTile({ item, owned, ownedQty, gameSlug, showBrand }: { item: ExploreProduct; owned: boolean; ownedQty?: number; gameSlug?: string | null; showBrand?: boolean }) {
   const hero = useHeroLink();
   const p = item.product;
   const perPack = pricePerPack(item.market, packCount(p, gameSlug));
@@ -159,8 +177,8 @@ export function ProductTile({ item, owned, gameSlug, showBrand }: { item: Explor
         )}
         <WishHeart product={p} price={item.market} printing={item.printing} className="absolute right-2 top-2" />
         {owned && (
-          <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-background/85 px-2 py-0.5 text-[11px] font-medium backdrop-blur">
-            <Check className="size-3" /> Owned
+          <span className="tabular absolute left-2 top-2 flex items-center gap-1 rounded-full bg-background/85 px-2 py-0.5 text-[11px] font-medium text-up backdrop-blur">
+            <Check className="size-3" /> {ownedLabel(ownedQty)}
           </span>
         )}
       </div>

@@ -98,6 +98,11 @@ struct SearchHit: Codable, Identifiable, Hashable {
     var market: Double?
     var priceUpdatedAt: String?
     var gameName: String?
+    /// Stored price changes in percent (12.5 = +12.5%); sent with Explore's market sections only.
+    var change7dPct: Double? = nil
+    var change30dPct: Double? = nil
+    /// Release date of the product's set ("YYYY-MM-DD"), when the catalog knows it (for "Newest set").
+    var releaseDate: String? = nil
 
     var id: String { product.id }
 }
@@ -466,6 +471,11 @@ struct ExploreSet: Codable, Identifiable, Hashable {
 struct ExploreIndex: Codable {
     var games: [ExploreGame]
     var sets: [ExploreSet]
+    /// Market sections (optional so older responses still decode): singles with the biggest
+    /// 7-day rise and fall, and booster boxes by price.
+    var trending: [SearchHit]? = nil
+    var drops: [SearchHit]? = nil
+    var boosterBoxes: [SearchHit]? = nil
 }
 
 struct ExploreSetDetail: Codable {

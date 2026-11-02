@@ -225,7 +225,24 @@ enum DemoData {
         }
         let game = ExploreGame(slug: "pokemon", name: "Pokémon", logoUrl: "https://images.pokemontcg.io/base1/logo.png",
                                sets: sets.count + upcoming.count, loadedSets: sets.count, cardCount: items.filter { !$0.sealed }.count)
-        return ExploreIndex(games: [game], sets: upcoming + sets)
+        // Market sections from the demo price paths: 7- and 30-day changes in percent.
+        let now = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-3 * 3600))
+        let hits: [SearchHit] = items.map { i in
+            let s = series(i)
+            func change(_ days: Int) -> Double? {
+                guard s.count > days, let last = s.last?.price else { return nil }
+                let then = s[s.count - 1 - days].price
+                return then > 0 ? (last / then - 1) * 100 : nil
+            }
+            return SearchHit(product: product(i), printing: product(i).printings?.first, market: s.last?.price, priceUpdatedAt: now,
+                             gameName: "Pokémon", change7dPct: change(7), change30dPct: change(30))
+        }
+        let singles = hits.filter { !$0.product.isSealed && ($0.market ?? 0) >= 5 }
+        let trending = singles.filter { ($0.change7dPct ?? 0) > 0 }.sorted { ($0.change7dPct ?? 0) > ($1.change7dPct ?? 0) }
+        let drops = singles.filter { ($0.change7dPct ?? 0) < 0 }.sorted { ($0.change7dPct ?? 0) < ($1.change7dPct ?? 0) }
+        let boxes = hits.filter { $0.product.productType == "Booster Box" }.sorted { ($0.market ?? 0) > ($1.market ?? 0) }
+        return ExploreIndex(games: [game], sets: upcoming + sets, trending: Array(trending.prefix(12)),
+                            drops: Array(drops.prefix(12)), boosterBoxes: Array(boxes.prefix(15)))
     }
 
     static func exploreSet(_ slug: String) -> ExploreSetDetail? {

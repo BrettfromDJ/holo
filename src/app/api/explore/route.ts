@@ -1,22 +1,26 @@
 import { NextResponse } from "next/server";
 import type { ExploreGame } from "@/lib/explore/types";
-import { EXPLORE_CACHE, setFromRow } from "@/lib/server/explore";
+import { EXPLORE_CACHE, exploreMarket, setFromRow } from "@/lib/server/explore";
 import { selectAll } from "@/lib/server/paging";
 import type { CatalogSetRow } from "@/lib/supabase/database.types";
 import { getAdminSupabase } from "@/lib/supabase/server";
 
-/** GET /api/explore — brands and every set in the stored catalog, newest first. */
+/**
+ * GET /api/explore — brands and every set in the stored catalog, newest first, plus the market
+ * sections (`trending`, `drops`, `boosterBoxes`) read from stored prices.
+ */
 export async function GET() {
   const admin = getAdminSupabase();
   if (!admin) return NextResponse.json({ error: { message: "Explore needs Supabase to be configured." } }, { status: 503 });
   let data: CatalogSetRow[] = [];
   let error: { message: string } | null = null;
-  const [setsResult, { data: gameRows }] = await Promise.all([
+  const [setsResult, { data: gameRows }, market] = await Promise.all([
     selectAll<CatalogSetRow>((from, to) => admin.from("catalog_sets").select("*").order("release_date", { ascending: false, nullsFirst: false }).order("slug").range(from, to)).then(
       (rows) => ({ rows, err: null }),
       (e: Error) => ({ rows: [] as CatalogSetRow[], err: { message: e.message } }),
     ),
     admin.from("catalog_games").select("*").order("sort"),
+    exploreMarket(admin),
   ]);
   data = setsResult.rows;
   error = setsResult.err;
@@ -43,5 +47,5 @@ export async function GET() {
 
   // Never cache an empty or barely-started catalog, so the first sync shows up right away.
   const cache = sets.some((s) => s.loaded) ? EXPLORE_CACHE : "no-store";
-  return NextResponse.json({ games: ordered, sets }, { headers: { "cache-control": cache } });
+  return NextResponse.json({ games: ordered, sets, ...market }, { headers: { "cache-control": cache } });
 }

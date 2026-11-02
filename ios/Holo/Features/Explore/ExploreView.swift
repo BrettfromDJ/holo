@@ -81,6 +81,28 @@ struct ExploreView: View {
                     }
                     .reveal()
                 }
+                if let trending = index.trending, !trending.isEmpty {
+                    VStack(alignment: .leading, spacing: 14) {
+                        PageHeader(title: "Trending this week", subtitle: "Biggest 7-day rises", size: 22).padding(.horizontal, 16)
+                        MoverCarousel(hits: trending)
+                    }
+                    .reveal()
+                }
+                if let drops = index.drops, !drops.isEmpty {
+                    VStack(alignment: .leading, spacing: 14) {
+                        PageHeader(title: "Biggest drops", subtitle: "Biggest 7-day falls", size: 22).padding(.horizontal, 16)
+                        MoverCarousel(hits: drops)
+                    }
+                    .reveal()
+                }
+                if let boxes = index.boosterBoxes, !boxes.isEmpty {
+                    VStack(alignment: .leading, spacing: 14) {
+                        PageHeader(title: "Booster boxes", subtitle: "How sealed boxes are moving", size: 22)
+                        BoosterBoxList(hits: boxes)
+                    }
+                    .padding(.horizontal, 16)
+                    .reveal()
+                }
                 VStack(alignment: .leading, spacing: 14) {
                     PageHeader(title: "Brands", subtitle: "Every game in the catalog", size: 22)
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
@@ -1223,6 +1245,114 @@ private struct NextRelease: View {
             .overlay(ElectricBorder(radius: 22))
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: Market sections (trending, drops, booster boxes)
+
+/// A stored percent change (12.5 = +12.5%), lime up and pink down.
+private struct ChangeText: View {
+    var pct: Double?
+    var size: CGFloat = 12
+
+    var body: some View {
+        let v = pct ?? 0
+        Text(pct == nil ? "—" : Format.signedPercent(v / 100))
+            .font(.geist(size, .semibold)).monospacedDigit()
+            .foregroundStyle(pct == nil ? Theme.subtle : v > 0 ? Theme.up : v < 0 ? Theme.down : Theme.muted)
+    }
+}
+
+/// Opens a card from Explore's market sections: Owned if you hold it, else its page.
+private struct MarketLink<Label: View>: View {
+    var hit: SearchHit
+    @ViewBuilder var label: Label
+    @Environment(CollectionStore.self) private var store
+
+    var body: some View {
+        CardLink(productId: hit.product.id) { label }
+            .buttonStyle(.plain)
+            .simultaneousGesture(TapGesture().onEnded { store.seed(hit) })
+    }
+}
+
+/// A sideways row of singles with their price and 7-day change (Trending this week, Biggest drops).
+private struct MoverCarousel: View {
+    var hits: [SearchHit]
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(alignment: .top, spacing: 12) {
+                ForEach(hits) { hit in
+                    MarketLink(hit: hit) { MoverTile(hit: hit) }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 4)
+        }
+    }
+}
+
+private struct MoverTile: View {
+    var hit: SearchHit
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ProductImage(product: hit.product, cornerRadius: 5)
+                .frame(width: 96, height: 134)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(hit.product.name).font(.geist(13, .medium)).foregroundStyle(.white).lineLimit(1)
+                Text(Format.money(hit.market)).font(.display(16)).tracking(-0.4).monospacedDigit().foregroundStyle(.white)
+                    .lineLimit(1).minimumScaleFactor(0.8)
+                ChangeText(pct: hit.change7dPct)
+            }
+        }
+        .frame(width: 96, alignment: .leading)
+        .contentShape(Rectangle())
+    }
+}
+
+/// Booster boxes as a compact list: art, name and set, market price and 30-day change.
+private struct BoosterBoxList: View {
+    var hits: [SearchHit]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(hits.enumerated()), id: \.element.id) { i, hit in
+                if i > 0 { Rectangle().fill(Theme.border).frame(height: 1).padding(.leading, 60) }
+                MarketLink(hit: hit) { BoosterBoxRow(hit: hit) }
+            }
+        }
+    }
+}
+
+private struct BoosterBoxRow: View {
+    var hit: SearchHit
+
+    var body: some View {
+        let p = hit.product
+        // 30-day change, or the 7-day one when that's all there is.
+        let use30 = hit.change30dPct != nil || hit.change7dPct == nil
+        HStack(spacing: 12) {
+            SealedWell(product: p, cornerRadius: 10, caption: false)
+                .frame(width: 48, height: 48)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(p.name).font(.geist(14, .medium)).foregroundStyle(.white).lineLimit(1)
+                Text(p.setName ?? hit.gameName ?? "").font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(Format.money(hit.market)).font(.geist(14, .semibold)).monospacedDigit().foregroundStyle(.white)
+                HStack(spacing: 4) {
+                    ChangeText(pct: use30 ? hit.change30dPct : hit.change7dPct)
+                    Text(use30 ? "30d" : "7d").font(.geist(11)).foregroundStyle(Theme.subtle)
+                }
+            }
+            .lineLimit(1)
+            .fixedSize()
+        }
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
     }
 }
 

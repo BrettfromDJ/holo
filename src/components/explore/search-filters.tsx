@@ -17,6 +17,7 @@ const SORTS: { value: SearchFilters["sort"]; label: string }[] = [
   { value: "price-desc", label: "Price: high to low" },
   { value: "price-asc", label: "Price: low to high" },
   { value: "name", label: "Name" },
+  { value: "newest", label: "Newest set" },
 ];
 
 /** One row of filter chips over search results; scrolls sideways on a phone. Options come from the results themselves. */

@@ -131,7 +131,11 @@ struct SearchScreen: View {
     @State private var total = 0
     @State private var loadingMore = false
     /// Pages already fetched, by query, so going back to a query (or deleting a letter) is instant.
-    @State private var cache: [String: (hits: [SearchHit], total: Int, fetched: Int)] = [:]
+    @State private var cache: [String: (hits: [SearchHit], total: Int, fetched: Int, fuzzy: Bool)] = [:]
+    /// The results are close spellings, not exact matches ("charzard" → Charizard).
+    @State private var fuzzy = false
+    /// The scanner, opened from the camera button beside the search box.
+    @State private var scanning = false
     /// How far into the server's list we've read (results can be shorter: code cards are left out).
     @State private var fetched = 0
     @State private var searchedFor = ""
@@ -158,6 +162,20 @@ struct SearchScreen: View {
                         // Pressing Search with nothing found looks in the live catalog.
                         if results.isEmpty && searchedFor == trimmed { Task { await searchLive() } }
                     }
+                    // Scan instead of typing: the same scanner as the + menu (it adds to the collection).
+                    Button {
+                        focused = false
+                        scanning = true
+                    } label: {
+                        Image(systemName: "viewfinder")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 48, height: 48)
+                            .background { Color.clear.blurredGlass(in: Circle()).allowsHitTesting(false) }
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Scan a card")
                     Button("Cancel") { dismiss() }
                         .font(.geist(16, .medium)).foregroundStyle(Theme.lime)
                 }
@@ -189,6 +207,7 @@ struct SearchScreen: View {
                 focused = true
             }
             .sheet(item: $adding) { hit in AddPurchaseSheet(hit: hit, onDone: { if mode == .add { dismiss() } }) }
+            .fullScreenCover(isPresented: $scanning) { ScanView() }
         }
     }
 
@@ -251,11 +270,15 @@ struct SearchScreen: View {
 
     @ViewBuilder private var found: some View {
         // Worked out once per update, not once per row.
-        let owned = Set(store.holdings.map(\.identity.productId))
+        // How many of each product you hold, across every copy and portfolio ("Owned ×2").
+        let ownedQty = Self.ownedQuantities(store.allHoldings)
+        let owned = Set(ownedQty.keys)
         let watched = Set(store.watchlist.map(\.product_id))
         let shown = filters.apply(results, owned: owned, watched: watched)
+        // Cards and sealed under their own headings, unless the Type filter already picked one.
+        let groups = filters.kind == .all ? SearchFilters.grouped(shown) : [SearchGroup(title: nil, hits: shown)]
         let mineNow = mine
-        let lastId = shown.last?.id
+        let lastId = groups.last?.hits.last?.id
         // Your own copies first: instant, no waiting on the catalog.
         if !mineNow.isEmpty {
             header("In your collection")
@@ -282,6 +305,11 @@ struct SearchScreen: View {
 
         header(searching && results.isEmpty ? "Searching the catalog…" : (shown.count == results.count ? "\(total) in the catalog" : "\(shown.count) of \(results.count) loaded match"))
             .padding(.top, mineNow.isEmpty ? 0 : 14)
+        if fuzzy && !results.isEmpty && searchedFor == trimmed {
+            Text("Showing close matches for \u{201C}\(trimmed)\u{201D}")
+                .font(.geist(13)).foregroundStyle(Theme.muted)
+                .padding(.horizontal, 16).padding(.bottom, 8)
+        }
         if !results.isEmpty {
             FilterBar(items: results, filters: $filters).padding(.bottom, 8)
         }
@@ -311,15 +339,23 @@ struct SearchScreen: View {
             Button("No results match these filters. Clear filters") { filters = SearchFilters(sort: filters.sort) }
                 .font(.geist(14)).foregroundStyle(Theme.muted).padding(16)
         }
-        ForEach(shown) { hit in
-            ResultRow(hit: hit, owned: owned.contains(hit.product.id), onOpen: { open(hit) }, onAdd: {
-                history.remember(query: query)
-                store.seed(hit)
-                adding = hit
-            })
-            .equatable()
-            // At the end of what's loaded, fetch the next batch.
-            .onAppear { if hit.id == lastId { Task { await loadMore() } } }
+        ForEach(groups) { group in
+            if let title = group.title {
+                header(title) {
+                    Text("\(group.hits.count)").font(.mono(11)).monospacedDigit().foregroundStyle(Theme.subtle)
+                }
+                .padding(.top, 6)
+            }
+            ForEach(group.hits) { hit in
+                ResultRow(hit: hit, ownedQty: ownedQty[hit.product.id] ?? 0, onOpen: { open(hit) }, onAdd: {
+                    history.remember(query: query)
+                    store.seed(hit)
+                    adding = hit
+                })
+                .equatable()
+                // At the end of what's loaded, fetch the next batch.
+                .onAppear { if hit.id == lastId { Task { await loadMore() } } }
+            }
         }
         if fetched < total {
             HStack(spacing: 8) {
@@ -334,6 +370,13 @@ struct SearchScreen: View {
 
     private func header(_ title: String) -> some View {
         header(title) { EmptyView() }
+    }
+
+    /// Total quantity held per product, over every copy (raw and graded).
+    private static func ownedQuantities(_ holdings: [HoldingView]) -> [String: Double] {
+        var qty: [String: Double] = [:]
+        for h in holdings { qty[h.identity.productId, default: 0] += h.quantity }
+        return qty
     }
 
     private func header<Trailing: View>(_ title: String, @ViewBuilder trailing: () -> Trailing) -> some View {
@@ -363,6 +406,7 @@ struct SearchScreen: View {
             results = []
             total = 0
             fetched = 0
+            fuzzy = false
             error = nil
             searchedFor = ""
             return
@@ -372,6 +416,7 @@ struct SearchScreen: View {
             results = hit.hits
             total = hit.total
             fetched = hit.fetched
+            fuzzy = hit.fuzzy
             error = nil
             searchedFor = q
             return
@@ -389,7 +434,8 @@ struct SearchScreen: View {
                 total = page.total
             }
             fetched = page.count
-            cache[q.lowercased()] = (page.hits, page.total, page.count)
+            fuzzy = page.fuzzy
+            cache[q.lowercased()] = (page.hits, page.total, page.count, page.fuzzy)
             error = nil
             searchedFor = q
         } catch {
@@ -422,7 +468,8 @@ struct SearchScreen: View {
             total = hits.count
         }
         fetched = hits.count
-        cache[q.lowercased()] = (hits, hits.count, hits.count)
+        fuzzy = false
+        cache[q.lowercased()] = (hits, hits.count, hits.count, false)
     }
 
     /// The next batch of results for the same query.
@@ -438,19 +485,26 @@ struct SearchScreen: View {
         // A short page means we've reached the end, whatever the total said.
         fetched += page.count
         if page.count == 0 { total = fetched }
-        cache[q.lowercased()] = (results, total, fetched)
+        cache[q.lowercased()] = (results, total, fetched, fuzzy)
     }
 }
 
-/// One catalog result: its picture, name, brand · set · number, price, an "Owned" mark, and +.
+/// One catalog result: its picture, name, brand · set · number, price, an "Owned ×N" mark, and +.
 /// Equatable, so a row only redraws when its own result changes, not on every list update.
 private struct ResultRow: View, Equatable {
     var hit: SearchHit
-    var owned: Bool
+    /// How many you hold of it in all (0 when you don't own it).
+    var ownedQty: Double
     var onOpen: () -> Void
     var onAdd: () -> Void
 
-    static func == (a: ResultRow, b: ResultRow) -> Bool { a.hit == b.hit && a.owned == b.owned }
+    static func == (a: ResultRow, b: ResultRow) -> Bool { a.hit == b.hit && a.ownedQty == b.ownedQty }
+
+    /// "Owned", or "Owned ×3" when there's more than one.
+    private var ownedLabel: String {
+        let n = Int(ownedQty.rounded())
+        return n > 1 ? "Owned \u{00D7}\(n)" : "Owned"
+    }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -466,8 +520,8 @@ private struct ResultRow: View, Equatable {
                             if let age = Format.priceAge(hit.priceUpdatedAt) {
                                 Text(age).font(.geist(11)).foregroundStyle(Theme.subtle)
                             }
-                            if owned {
-                                Label("Owned", systemImage: "checkmark").font(.geist(11, .semibold)).foregroundStyle(Theme.lime)
+                            if ownedQty > 0 {
+                                Label(ownedLabel, systemImage: "checkmark").font(.geist(11, .semibold)).monospacedDigit().foregroundStyle(Theme.lime)
                             }
                         }
                     }

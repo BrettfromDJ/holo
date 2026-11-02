@@ -4,7 +4,7 @@ import { ArrowRight, Check, Loader2, Search, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { useOwnedIds } from "@/components/explore/explore-items";
+import { ownedLabel, useOwnedIds, useOwnedQuantities } from "@/components/explore/explore-items";
 import { ProductImage } from "@/components/product/product-image";
 import { useCatalogSearch } from "@/lib/explore/use-catalog-search";
 import { money } from "@/lib/format";
@@ -26,6 +26,7 @@ export function HomeSearch({ className }: { className?: string }) {
   const [active, setActive] = useState(-1);
   const results = useCatalogSearch(query);
   const owned = useOwnedIds();
+  const ownedQty = useOwnedQuantities();
   const items = results?.status === "ready" ? results.data.slice(0, PREVIEW) : [];
   const all = `/explore?q=${encodeURIComponent(query.trim())}`;
 
@@ -139,7 +140,11 @@ export function HomeSearch({ className }: { className?: string }) {
                           <span className="block truncate text-[14px] font-medium">{p.name}</span>
                           <span className="block truncate text-[12px] text-muted">{[item.gameName, p.setName, p.number && `#${p.number}`].filter(Boolean).join(" · ")}</span>
                         </span>
-                        {owned.has(p.id) && <Check className="size-3.5 shrink-0 text-muted" aria-label="Owned" />}
+                        {owned.has(p.id) && (
+                          <span className="tabular flex shrink-0 items-center gap-1 text-[11px] font-medium text-up">
+                            <Check className="size-3" /> {ownedLabel(ownedQty.get(p.id))}
+                          </span>
+                        )}
                         <span className="tabular shrink-0 text-[14px] font-semibold">{item.market === null ? <span className="font-normal text-subtle">No price</span> : money(item.market)}</span>
                       </Link>
                     </li>

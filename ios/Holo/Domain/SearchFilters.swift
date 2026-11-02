@@ -4,7 +4,7 @@ import Foundation
 struct SearchFilters: Equatable {
     enum Kind: String, CaseIterable { case all = "Cards and sealed", single = "Cards only", sealed = "Sealed only" }
     enum Owned: String, CaseIterable { case any = "Owned or not", owned = "In my collection", notOwned = "Not in my collection" }
-    enum Sort: String, CaseIterable { case match = "Best match", priceDesc = "Price: high to low", priceAsc = "Price: low to high", name = "Name" }
+    enum Sort: String, CaseIterable { case match = "Best match", priceDesc = "Price: high to low", priceAsc = "Price: low to high", name = "Name", newest = "Newest set" }
 
     var kind = Kind.all
     var language: String?
@@ -64,6 +64,35 @@ struct SearchFilters: Equatable {
         case .name: return out.sorted { $0.product.name < $1.product.name }
         case .priceAsc: return out.sorted { ($0.market ?? .infinity) < ($1.market ?? .infinity) }
         case .priceDesc: return out.sorted { ($0.market.map { -$0 } ?? .infinity) < ($1.market.map { -$0 } ?? .infinity) }
+        case .newest: return SearchFilters.newestFirst(out)
         }
     }
+
+    /// Newest set first, by the set's release date; results without one go last. Stable, so each
+    /// set keeps the order it came in.
+    static func newestFirst(_ items: [SearchHit]) -> [SearchHit] {
+        items.enumerated().sorted { a, b in
+            let da = a.element.releaseDate ?? ""
+            let db = b.element.releaseDate ?? ""
+            if da == db { return a.offset < b.offset }
+            if da.isEmpty { return false }
+            if db.isEmpty { return true }
+            return da > db
+        }.map(\.element)
+    }
+
+    /// Results split into cards and sealed (the Type filter's rule), each in its order.
+    /// Empty groups are left out.
+    static func grouped(_ items: [SearchHit]) -> [SearchGroup] {
+        let cards = items.filter { $0.product.kind != "sealed" }
+        let sealed = items.filter { $0.product.kind == "sealed" }
+        return [SearchGroup(title: "Cards", hits: cards), SearchGroup(title: "Sealed", hits: sealed)].filter { !$0.hits.isEmpty }
+    }
+}
+
+/// One section of search results ("Cards", "Sealed"); no title when the Type filter picked one.
+struct SearchGroup: Identifiable {
+    var title: String?
+    var hits: [SearchHit]
+    var id: String { title ?? "all" }
 }

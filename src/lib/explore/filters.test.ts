@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Product } from "../types";
-import { applyFilters, brandOf, facet, languageOf, NO_FILTERS } from "./filters";
+import { applyFilters, brandOf, facet, groupByKind, languageOf, NO_FILTERS } from "./filters";
 import type { ExploreProduct } from "./types";
 
 const item = (id: string, kind: "single" | "sealed", market: number | null, gameName: string): ExploreProduct => ({
@@ -36,5 +36,23 @@ describe("search filters", () => {
   it("sorts by price with unpriced items last", () => {
     expect(ids(applyFilters(items, { ...NO_FILTERS, sort: "price-desc" }, ctx))).toEqual(["b", "d", "a", "c"]);
     expect(ids(applyFilters(items, { ...NO_FILTERS, sort: "price-asc" }, ctx))).toEqual(["a", "d", "b", "c"]);
+  });
+
+  it("sorts by newest set with undated items last", () => {
+    const dated = [
+      { ...items[0], releaseDate: "2021-08-27" },
+      { ...items[1], releaseDate: null },
+      { ...items[2], releaseDate: "2025-01-17" },
+      { ...items[3], releaseDate: "2021-08-27" },
+    ];
+    expect(ids(applyFilters(dated, { ...NO_FILTERS, sort: "newest" }, ctx))).toEqual(["c", "a", "d", "b"]);
+  });
+
+  it("groups results into cards and sealed", () => {
+    expect(groupByKind(items).map((g) => [g.title, ids(g.items)])).toEqual([
+      ["Cards", ["a", "c", "d"]],
+      ["Sealed", ["b"]],
+    ]);
+    expect(groupByKind([items[1]]).map((g) => g.title)).toEqual(["Sealed"]);
   });
 });

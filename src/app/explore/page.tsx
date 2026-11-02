@@ -4,12 +4,13 @@ import { FlipGrid, FlipItem } from "@/components/motion/flip-grid";
 import { ArrowRight, Compass, Loader2, Search, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { GameTile, ProductTile, useExploreIndex, useOwnedIds } from "@/components/explore/explore-items";
+import { GameTile, ProductTile, useExploreIndex, useOwnedIds, useOwnedQuantities } from "@/components/explore/explore-items";
+import { BoosterBoxList, MarketSection, MoverRow } from "@/components/explore/market-items";
 import { ReleaseRow } from "@/components/explore/release-items";
 import { PageHeader } from "@/components/shell/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchFilterBar } from "@/components/explore/search-filters";
-import { applyFilters, NO_FILTERS, type SearchFilters } from "@/lib/explore/filters";
+import { applyFilters, groupByKind, NO_FILTERS, type SearchFilters } from "@/lib/explore/filters";
 import { useCatalogSearch } from "@/lib/explore/use-catalog-search";
 import { relativeTime } from "@/lib/format";
 import { useStore } from "@/lib/store/collection-store";
@@ -19,10 +20,13 @@ export default function ExplorePage() {
   const [query, setQuery] = useState("");
   const results = useCatalogSearch(query);
   const owned = useOwnedIds();
+  const ownedQty = useOwnedQuantities();
   const { today, data } = useStore();
   const [filters, setFilters] = useState<SearchFilters>(NO_FILTERS);
   const watched = useMemo(() => new Set(data.watchlist.map((w) => w.productId)), [data.watchlist]);
   const shown = useMemo(() => (results?.status === "ready" ? applyFilters(results.data, filters, { owned, watched }) : []), [results, filters, owned, watched]);
+  // Cards and sealed under their own headings, unless the Type filter already picked one.
+  const groups = useMemo(() => (filters.type === "all" ? groupByKind(shown) : [{ kind: filters.type, title: "", items: shown }]), [shown, filters.type]);
 
   // Arriving from the home search ("/explore?q=…") starts with that query.
   useEffect(() => {
@@ -71,18 +75,28 @@ export default function ExplorePage() {
             </div>
           ) : (
             <>
+              {results.fuzzy && <p className="mb-3 text-[14px] text-muted">Showing close matches for “{query.trim()}”</p>}
               <SearchFilterBar items={results.data} filters={filters} onChange={setFilters} />
               <p className="tabular mt-3 text-[12px] text-subtle">
                 {shown.length === results.data.length ? `${results.data.length} result${results.data.length === 1 ? "" : "s"}` : `${shown.length} of ${results.data.length} results`}
               </p>
               {shown.length ? (
-                <FlipGrid className="mt-4 grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
-                  {shown.map((item, i) => (
-                    <FlipItem key={item.product.id} flipKey={item.product.id} index={i}>
-                      <ProductTile item={item} owned={owned.has(item.product.id)} showBrand />
-                    </FlipItem>
-                  ))}
-                </FlipGrid>
+                groups.map((g) => (
+                  <div key={g.kind} className={g.title ? "mt-6" : undefined}>
+                    {g.title && (
+                      <h2 className="flex items-baseline gap-2 font-display text-[18px] leading-none tracking-tight">
+                        {g.title} <span className="tabular font-mono text-[12px] font-normal text-subtle">{g.items.length}</span>
+                      </h2>
+                    )}
+                    <FlipGrid className="mt-4 grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
+                      {g.items.map((item, i) => (
+                        <FlipItem key={item.product.id} flipKey={item.product.id} index={i}>
+                          <ProductTile item={item} owned={owned.has(item.product.id)} ownedQty={ownedQty.get(item.product.id)} showBrand />
+                        </FlipItem>
+                      ))}
+                    </FlipGrid>
+                  </div>
+                ))
               ) : (
                 <div className="py-16 text-center">
                   <p className="font-medium">No results match these filters</p>
@@ -120,6 +134,21 @@ export default function ExplorePage() {
               ))}
             </div>
           </section>
+        )}
+        {index.trending.length > 0 && (
+          <MarketSection title="Trending this week" subtitle="Biggest 7-day rises">
+            <MoverRow items={index.trending} owned={owned} />
+          </MarketSection>
+        )}
+        {index.drops.length > 0 && (
+          <MarketSection title="Biggest drops" subtitle="Biggest 7-day falls">
+            <MoverRow items={index.drops} owned={owned} />
+          </MarketSection>
+        )}
+        {index.boosterBoxes.length > 0 && (
+          <MarketSection title="Booster boxes" subtitle="How sealed boxes are moving">
+            <BoosterBoxList items={index.boosterBoxes} />
+          </MarketSection>
         )}
         <section aria-label="Brands" className="mt-8">
           <div className="mb-4 flex items-baseline gap-3">

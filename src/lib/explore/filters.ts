@@ -9,7 +9,7 @@ export interface SearchFilters {
   watchlist: boolean;
   min: number | null;
   max: number | null;
-  sort: "match" | "price-desc" | "price-asc" | "name";
+  sort: "match" | "price-desc" | "price-asc" | "name" | "newest";
 }
 
 export const NO_FILTERS: SearchFilters = { type: "all", language: null, brand: null, owned: "any", watchlist: false, min: null, max: null, sort: "match" };
@@ -59,8 +59,29 @@ export function applyFilters(items: ExploreProduct[], f: SearchFilters, ctx: { o
     return true;
   });
   if (f.sort === "match") return out;
+  if (f.sort === "newest") return [...out].sort(byNewestSet);
   const priced = (i: ExploreProduct, dir: 1 | -1) => (i.market === null ? Infinity : dir * i.market);
   return [...out].sort((a, b) =>
     f.sort === "name" ? a.product.name.localeCompare(b.product.name) : f.sort === "price-asc" ? priced(a, 1) - priced(b, 1) : priced(a, -1) - priced(b, -1),
   );
+}
+
+/** Newest set first, by the set's release date; items without one go last. Keeps the order within a set. */
+export function byNewestSet(a: ExploreProduct, b: ExploreProduct): number {
+  const da = a.releaseDate ?? "";
+  const db = b.releaseDate ?? "";
+  if (da === db) return 0;
+  if (!da) return 1;
+  if (!db) return -1;
+  return da < db ? 1 : -1;
+}
+
+/** Results split into cards and sealed, each in its existing order. Empty groups are left out. */
+export function groupByKind(items: ExploreProduct[]): { kind: "single" | "sealed"; title: string; items: ExploreProduct[] }[] {
+  const cards = items.filter((i) => i.product.kind !== "sealed");
+  const sealed = items.filter((i) => i.product.kind === "sealed");
+  return [
+    { kind: "single" as const, title: "Cards", items: cards },
+    { kind: "sealed" as const, title: "Sealed", items: sealed },
+  ].filter((g) => g.items.length > 0);
 }
