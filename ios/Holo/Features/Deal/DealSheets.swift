@@ -317,7 +317,7 @@ struct DealCloseSheet: View {
                                     .font(.geist(16, .bold)).foregroundStyle(Theme.tone(t.net))
                             }
                             HStack(spacing: 8) {
-                                if let profit = t.profit { pill("Profit", Format.signedMoney(profit), Theme.tone(profit)) }
+                                if let profit = t.profit { pill("Sale profit", Format.signedMoney(profit), Theme.tone(profit)) }
                                 if deal.kind != .sell, t.inValue > 0 { pill("Trade-in value", Format.signedMoney(t.equity), Theme.tone(t.equity)) }
                             }
                             if let paper = t.onPaper {
@@ -586,7 +586,7 @@ private struct RecordedScreen: View {
     /// How far ahead you came out; without every cost, profit (or for a buy, the equity you took in).
     private static func headline(_ t: DealTotals) -> (label: String, value: Double)? {
         if let ahead = t.ahead { return (dealAheadTitle(ahead, past: true), ahead) }
-        if let profit = t.profit { return ("Profit", profit) }
+        if let profit = t.profit { return ("Sale profit", profit) }
         if t.inValue > 0 { return ("Trade-in value", t.equity) }
         return nil
     }
@@ -595,7 +595,7 @@ private struct RecordedScreen: View {
     /// lime). Without every cost, a short note that the total isn't known.
     @ViewBuilder private func breakdown(_ t: DealTotals, ink: Color) -> some View {
         if t.ahead != nil {
-            let parts = [t.profit.map { "Profit \(Format.signedMoney($0))" },
+            let parts = [t.profit.map { "Sale profit \(Format.signedMoney($0))" },
                          t.showsEquity ? "Trade-in value \(Format.signedMoney(t.equity))" : nil].compactMap { $0 }
             if !parts.isEmpty {
                 Text(parts.joined(separator: " · ")).font(.geist(14, .semibold)).monospacedDigit().foregroundStyle(ink)

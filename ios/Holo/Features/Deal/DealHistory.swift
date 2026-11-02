@@ -595,7 +595,7 @@ struct DealHistoryView: View {
             }
             HStack(spacing: 8) {
                 StatPill(label: "Deals", value: "\(shown.count)")
-                if hasProfit { StatPill(label: "Profit", value: Format.signedMoney(profit), tint: Theme.tone(profit)) }
+                if hasProfit { StatPill(label: "Sale profit", value: Format.signedMoney(profit), tint: Theme.tone(profit)) }
                 StatPill(label: "Cash", value: Format.signedMoney(cash), tint: Theme.tone(cash))
             }
             .lineLimit(1)
@@ -760,7 +760,7 @@ private struct DealRecordCard: View {
                 MonoLabel(text: h.0).lineLimit(1).fixedSize()
                 // Profit stays in view as the second number (a buy has none).
                 if record.aheadTotal != nil, let p = record.profit, record.kind != .buy {
-                    (Text("Profit ").foregroundColor(Theme.muted) + Text(Format.signedMoney(p)).foregroundColor(Theme.tone(p)))
+                    (Text("Sale profit ").foregroundColor(Theme.muted) + Text(Format.signedMoney(p)).foregroundColor(Theme.tone(p)))
                         .font(.geist(11, .medium)).monospacedDigit().lineLimit(1).fixedSize()
                 }
             }
@@ -804,9 +804,9 @@ private struct DealRecordCard: View {
     /// How far ahead it left you; without that, profit, or for a buy the equity taken in.
     private var headline: (String, Double?) {
         if let a = record.aheadTotal { return (a < 0 ? "Behind" : "Ahead", a) }
-        if let p = record.profit { return ("Profit", p) }
+        if let p = record.profit { return ("Sale profit", p) }
         if record.inValue > 0 { return ("Trade-in value", record.equity) }
-        return ("Profit", nil)
+        return ("Sale profit", nil)
     }
 
     private var balanceText: String {
@@ -892,7 +892,7 @@ struct DealRecordDetail: View {
                 stat("Went out", Format.money(r.outValue), .white)
                 stat(abs(b) < 0.005 ? "Cash" : (b > 0 ? "They paid you" : "You paid them"), abs(b) < 0.005 ? "Even swap" : Format.money(abs(b)), .white)
                 stat("Items", "\(r.items)", .white)
-                stat("Profit", r.profit.map { Format.signedMoney($0) } ?? "—", r.profit == nil ? Theme.muted : Theme.tone(r.profit))
+                stat("Sale profit", r.profit.map { Format.signedMoney($0) } ?? "—", r.profit == nil ? Theme.muted : Theme.tone(r.profit))
                 stat("Trade-in value", r.kind == .sell ? "—" : Format.signedMoney(r.equity), r.kind == .sell ? Theme.muted : Theme.tone(r.equity))
             }
             .padding(.top, 20)

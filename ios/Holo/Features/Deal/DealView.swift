@@ -445,7 +445,7 @@ enum DealTerm: String {
         case .cash: return "Cash"
         case .comingIn: return "Coming in"
         case .goingOut: return "Going out"
-        case .profit: return "Your profit"
+        case .profit: return "Sale profit"
         case .value: return "Trade-in value"
         case .rate: return "Share of market"
         }
@@ -574,7 +574,7 @@ private struct BalanceCard: View {
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], alignment: .leading, spacing: 14) {
                 stat("Coming in", .comingIn, Format.money(t.inValue), ink)
                 stat("Going out", .goingOut, Format.money(t.outValue), ink)
-                stat("Your profit", .profit, t.profit.map { Format.signedMoney($0) } ?? "—", ink)
+                stat("Sale profit", .profit, t.profit.map { Format.signedMoney($0) } ?? "—", ink)
                 stat("Trade-in value", .value, t.showsEquity ? Format.signedMoney(t.equity) : "—", ink)
             }
             .padding(.top, 18)
