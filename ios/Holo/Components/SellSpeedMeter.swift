@@ -12,6 +12,14 @@ struct SellSpeedMeter: View {
         score.score >= 70 ? Theme.lime : score.score >= 40 ? .white : Theme.planPink
     }
 
+    private var tierTint: Color {
+        switch score.tier {
+        case .fast: return Theme.lime
+        case .slow: return Theme.planPink
+        default: return .white
+        }
+    }
+
     var body: some View {
         if compact {
             HStack(spacing: 6) {
@@ -40,6 +48,10 @@ struct SellSpeedMeter: View {
                     Text(Liquidity.note).font(.geist(12)).foregroundStyle(Theme.muted).fixedSize(horizontal: false, vertical: true)
                 }
             }
+            // A faint wash in the tier's colour: lime for fast, white for steady, pink for slow.
+            .padding(.horizontal, 12).padding(.vertical, 10)
+            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(tierTint.opacity(0.08)))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(tierTint.opacity(0.14), lineWidth: 1))
         }
     }
 }
@@ -86,18 +98,17 @@ struct SellSpeedLine: View {
                     .frame(maxWidth: .infinity, minHeight: 20, alignment: .leading)
                     .sellSpeedPanel()
             case .ready:
-                Group {
-                    if let score {
-                        SellSpeedMeter(score: score)
-                    } else {
-                        HStack(spacing: 8) {
-                            SellSpeedBar(tier: .slow).opacity(0.35)
-                            Text("Not enough sales yet").font(.geist(13)).foregroundStyle(Theme.muted)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                if let score {
+                    // The meter brings its own tier-coloured panel.
+                    SellSpeedMeter(score: score)
+                } else {
+                    HStack(spacing: 8) {
+                        SellSpeedBar(tier: .slow).opacity(0.35)
+                        Text("Not enough sales yet").font(.geist(13)).foregroundStyle(Theme.muted)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .sellSpeedPanel()
                 }
-                .sellSpeedPanel()
             case .hidden:
                 EmptyView()
             }

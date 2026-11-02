@@ -74,7 +74,7 @@ struct HoldingSheet: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 20)
             .padding(.top, 18)
-            .padding(.bottom, onOpenCard == nil ? 24 : 96)
+            .padding(.bottom, onOpenCard == nil ? 24 : 12)
         }
         // The sheet is glass, so the page behind shows through and it reads as a sheet.
         .scrollContentBackground(.hidden)

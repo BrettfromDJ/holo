@@ -104,11 +104,20 @@ struct AnalyticsView: View {
             MoreHeading(title: "Investment activity", subtitle: "Money invested per month, incl. fees")
             VStack(alignment: .leading, spacing: 12) {
                 if let biggest, biggest.invested > 0 {
-                    (Text("Biggest month: ").foregroundColor(Theme.muted)
-                     + Text(biggest.date.formatted(.dateTime.month(.wide).year())).foregroundColor(.white)
-                     + Text(" · ").foregroundColor(Theme.muted)
-                     + Text(Format.money(biggest.invested)).foregroundColor(.white))
-                        .font(.geist(13, .medium)).monospacedDigit()
+                    // A key for the bar colours: lime is the biggest month, blue the others.
+                    HStack(spacing: 6) {
+                        RoundedRectangle(cornerRadius: 2).fill(Theme.lime).frame(width: 10, height: 10)
+                        (Text("Biggest month: ").foregroundColor(Theme.muted)
+                         + Text(biggest.date.formatted(.dateTime.month(.wide).year())).foregroundColor(.white)
+                         + Text(" · ").foregroundColor(Theme.muted)
+                         + Text(Format.money(biggest.invested)).foregroundColor(.white))
+                            .font(.geist(13, .medium)).monospacedDigit()
+                    }
+                    HStack(spacing: 6) {
+                        RoundedRectangle(cornerRadius: 2).fill(Theme.planBlue).frame(width: 10, height: 10)
+                        Text("Other months").font(.geist(13, .medium)).foregroundStyle(Theme.muted)
+                    }
+                    .padding(.top, -6)
                 }
                 GrowingBars(months: months, highlight: biggest?.month)
             }
