@@ -233,28 +233,8 @@ final class Tilt {
     private var origin: CMAttitude?
 
     func start() {
-        listeners += 1
-        guard listeners == 1, manager.isDeviceMotionAvailable else { return }
-        manager.deviceMotionUpdateInterval = 1 / 30
-        manager.startDeviceMotionUpdates(to: .main) { [weak self] motion, _ in
-            guard let self, let motion else { return }
-            // Hold still under a sheet: moving cards behind glass make it re-blur every frame.
-            if SheetCover.shared.isOpen { return }
-            if self.origin == nil { self.origin = motion.attitude.copy() as? CMAttitude }
-            let att = motion.attitude
-            if let origin = self.origin { att.multiply(byInverseOf: origin) }
-            let nx = max(-1, min(1, att.roll / 0.5))
-            let ny = max(-1, min(1, att.pitch / 0.5))
-            // Ease toward the reading so the cards glide rather than jitter.
-            let ex = self.quietX + (nx - self.quietX) * 0.2
-            let ey = self.quietY + (ny - self.quietY) * 0.2
-            self.quietX = ex
-            self.quietY = ey
-            // Only tell the views when the lean has visibly moved: easing never quite settles,
-            // so without this every tilting card redrew 30 times a second while the phone sat still.
-            if abs(ex - self.x) > 0.001 { self.x = ex }
-            if abs(ey - self.y) > 0.001 { self.y = ey }
-        }
+        // Off: cards no longer move with the phone; they tilt only under your finger
+        // (HoloCard). Motion updates never start, so everything that reads tilt stays still.
     }
 
     func stop() {

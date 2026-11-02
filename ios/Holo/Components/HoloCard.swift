@@ -1,10 +1,10 @@
 import SwiftUI
 import UIKit
 
-/// The website's holo card: the card leans as the phone tilts (or under your finger), a soft
-/// light and glare follow the lean, printed cards get paper grain, a fine print pattern and a
-/// bevelled edge, and foil cards get rainbow foil in etched grooves with glitter, brightest
-/// where the light is. With no tilt it drifts slowly on its own, like the website on a phone.
+/// The holo card: press and drag on it to tilt it any way you like, and the light, glare and
+/// foil move across it as it leans; let go and it springs back flat. It doesn't move with the
+/// phone and doesn't drift on its own. Printed cards get paper grain, a fine print pattern and
+/// a bevelled edge; foil cards get rainbow foil in etched grooves with glitter.
 struct HoloCard<Content: View>: View {
     var foil: Bool
     /// Paper grain and bevel (bare cards only; not slabs or sealed).
@@ -17,29 +17,11 @@ struct HoloCard<Content: View>: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var touch: CGPoint?
     @State private var size: CGSize = .zero
-    @State private var onScreen = true
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 30, paused: reduceMotion || !onScreen)) { context in
-            let lean = lean(at: context.date)
-            card(lean: lean)
-        }
-        .onVisibilityChange { onScreen = $0 }
-        .onAppear { if !reduceMotion { Tilt.shared.start() } }
-        .onDisappear { if !reduceMotion { Tilt.shared.stop() } }
-        .sensoryFeedback(.impact(weight: .light), trigger: touch != nil) { _, touching in touching }
-    }
-
-    /// -1...1 each way: your finger, else the phone's tilt plus a slow drift.
-    private func lean(at date: Date) -> CGPoint {
-        if reduceMotion { return .zero }
-        if let touch { return touch }
-        let t = date.timeIntervalSinceReferenceDate / 9 * 2 * .pi
-        let drift = CGPoint(x: sin(t) * 0.45, y: cos(t * 0.8) * 0.35)
-        // Read without observing: the timeline already redraws 30 times a second, so a tilt
-        // update needn't redraw the card a second time in between.
-        let tilt = Tilt.shared
-        return CGPoint(x: max(-1, min(1, drift.x + tilt.quietX * 1.4)), y: max(-1, min(1, drift.y + tilt.quietY * 1.4)))
+        // Still unless you're touching it: nothing redraws on its own.
+        card(lean: reduceMotion ? .zero : (touch ?? .zero))
+            .sensoryFeedback(.impact(weight: .light), trigger: touch != nil) { _, touching in touching }
     }
 
     private func card(lean: CGPoint) -> some View {
@@ -83,7 +65,10 @@ struct HoloCard<Content: View>: View {
                         touch = CGPoint(x: max(-1, min(1, (g.location.x / size.width - 0.5) * 2)),
                                         y: max(-1, min(1, (g.location.y / size.height - 0.5) * 2)))
                     }
-                    .onEnded { _ in touch = nil }
+                    .onEnded { _ in
+                        // Springs back flat, with the light sliding back to the middle.
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.6)) { touch = nil }
+                    }
             )
     }
 
