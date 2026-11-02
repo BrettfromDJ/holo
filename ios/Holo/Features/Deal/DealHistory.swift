@@ -536,10 +536,6 @@ struct DealHistoryView: View {
                 } else {
                     VStack(alignment: .leading, spacing: 16) {
                         HoloSearchField(text: $query, prompt: "Search cards, notes, buy, sale, trade", focus: $searchFocused)
-                        let todays = deals.log.filter { Calendar.current.isDateInToday($0.date) }
-                        if !todays.isEmpty && query.trimmingCharacters(in: .whitespaces).isEmpty {
-                            TodaySummaryCard(totals: DealDayTotals(todays))
-                        }
                     }
                     hero(shown)
                     if let best = shown.filter({ ($0.aheadTotal ?? 0) > 0 }).max(by: { ($0.aheadTotal ?? 0) < ($1.aheadTotal ?? 0) }), shown.count > 1 {
@@ -643,13 +639,21 @@ struct DealHistoryView: View {
                     .lineLimit(1).minimumScaleFactor(0.5).displayTrim(72)
                     .shadow(color: (ahead < 0 ? Theme.planPink : Theme.lime).opacity(0.35), radius: 18)
             }
-            HStack(spacing: 8) {
-                StatPill(label: "Deals", value: "\(shown.count)")
-                if hasProfit { StatPill(label: "Sale profit", value: Format.signedMoney(profit), tint: Theme.tone(profit)) }
-                StatPill(label: "Cash", value: Format.signedMoney(cash), tint: Theme.tone(cash))
+            // One row when it fits; otherwise two, so the page never runs off the screen's edges.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    StatPill(label: "Deals", value: "\(shown.count)")
+                    if hasProfit { StatPill(label: "Sale profit", value: Format.signedMoney(profit), tint: Theme.tone(profit)) }
+                    StatPill(label: "Cash", value: Format.signedMoney(cash), tint: Theme.tone(cash))
+                }
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        StatPill(label: "Deals", value: "\(shown.count)")
+                        StatPill(label: "Cash", value: Format.signedMoney(cash), tint: Theme.tone(cash))
+                    }
+                    if hasProfit { StatPill(label: "Sale profit", value: Format.signedMoney(profit), tint: Theme.tone(profit)) }
+                }
             }
-            .lineLimit(1)
-            .minimumScaleFactor(0.8)
             ProfitClimb(records: shown)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -714,48 +718,6 @@ private struct DayFigures: View {
     private func figure(_ label: String, _ value: String, _ tint: Color) -> some View {
         (Text(label + " ").foregroundColor(Theme.muted) + Text(value).foregroundColor(tint))
             .font(.geist(12, .medium)).monospacedDigit().lineLimit(1).fixedSize()
-    }
-}
-
-/// Today's deals on a card at the top of the history: how many, cash in and out, net cash, how
-/// far ahead and sale profit.
-private struct TodaySummaryCard: View {
-    var totals: DealDayTotals
-
-    var body: some View {
-        let t = totals
-        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline) {
-                MonoLabel(text: "Today")
-                Spacer()
-                Text("\(t.deals) deal\(t.deals == 1 ? "" : "s")").font(.geist(13, .semibold)).foregroundStyle(.white)
-            }
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], alignment: .leading, spacing: 14) {
-                stat("Cash in", Format.money(t.cashIn), .white)
-                stat("Cash out", Format.money(t.cashOut), .white)
-                stat("Net cash", Format.signedMoney(t.net), Theme.tone(t.net))
-                stat((t.ahead ?? 0) < 0 ? "Behind" : "Ahead", t.ahead.map { Format.signedMoney($0) } ?? "—", t.ahead.map { Theme.tone($0) } ?? Theme.muted)
-                stat("Sale profit", t.profit.map { Format.signedMoney($0) } ?? "—", t.profit.map { Theme.tone($0) } ?? Theme.muted)
-            }
-        }
-        .padding(16)
-        .background {
-            ZStack {
-                shape.fill(Color(hex: 0x070707))
-                GridPattern(step: 28, opacity: 0.05)
-            }
-            .clipShape(shape)
-        }
-        .overlay(shape.strokeBorder(Theme.border))
-    }
-
-    private func stat(_ label: String, _ value: String, _ tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            MonoLabel(text: label)
-            Text(value).font(.geist(16, .semibold)).monospacedDigit().foregroundStyle(tint).lineLimit(1).minimumScaleFactor(0.7)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
