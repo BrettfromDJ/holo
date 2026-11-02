@@ -13,9 +13,13 @@ struct HoloCard<Content: View>: View {
     /// The moving white glare. Off for sealed products, which have no shine.
     var showsGlare = true
     @ViewBuilder var content: Content
+    /// A quick tap (not a tilt): set with `.onCardTap { }`.
+    var tapAction: (() -> Void)? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var touch: CGPoint?
+    /// When the current touch began, to tell a tap from a press-and-tilt.
+    @State private var downAt: Date?
     @State private var size: CGSize = .zero
 
     var body: some View {
@@ -61,16 +65,28 @@ struct HoloCard<Content: View>: View {
             .simultaneousGesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { g in
+                        if downAt == nil || g.translation == .zero { downAt = g.time }
                         guard size.width > 0 else { return }
                         // Follows the drag from wherever you start: drag right and it swings right.
                         touch = CGPoint(x: max(-1, min(1, g.translation.width / (size.width * 0.6))),
                                         y: max(-1, min(1, g.translation.height / (size.height * 0.6))))
                     }
-                    .onEnded { _ in
+                    .onEnded { g in
+                        // A short touch that barely moved is a tap.
+                        let quick = downAt.map { g.time.timeIntervalSince($0) < 0.35 } ?? false
+                        downAt = nil
                         // Springs back flat, with the light sliding back to the middle.
                         withAnimation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.6)) { touch = nil }
+                        if quick, abs(g.translation.width) < 8, abs(g.translation.height) < 8, let tapAction { tapAction() }
                     }
             )
+    }
+
+    /// Runs `action` on a quick tap; pressing and dragging still tilts the card.
+    func onCardTap(_ action: @escaping () -> Void) -> HoloCard {
+        var copy = self
+        copy.tapAction = action
+        return copy
     }
 
     /// Paper grain, a fine print pattern and a soft sheen where the light is.

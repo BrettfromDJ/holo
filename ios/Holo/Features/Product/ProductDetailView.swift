@@ -9,6 +9,9 @@ struct ProductDetailView: View {
     @Environment(CollectionStore.self) private var store
     @Environment(GroupsStore.self) private var groups
     @Environment(GradingStore.self) private var grading
+    @Environment(DealStore.self) private var deals
+    /// The art full screen (tap the card).
+    @State private var viewingArt = false
     @State private var certFor: HoldingView?
     @State private var bumperFor: HoldingView?
     @State private var adding = false
@@ -85,6 +88,10 @@ struct ProductDetailView: View {
                     history.padding(.top, 24)
                     notes
                 }
+                // The same card in other sets, printings, promos and languages.
+                if let product, !product.isSealed {
+                    OtherVersionsRow(product: product)
+                }
                 if let error { Text(error).font(.geist(14)).foregroundStyle(Theme.down) }
             }
             .padding(.horizontal, 16)
@@ -120,6 +127,9 @@ struct ProductDetailView: View {
             }
         }
         .sheet(item: $managing) { h in HoldingSheet(identity: h.identity) }
+        .fullScreenCover(isPresented: $viewingArt) {
+            ArtViewer(product: product, slab: heroSlab?.identity)
+        }
         .sheet(item: $selling) { h in SellSheet(holding: h) }
         .sheet(item: $whatIf) { h in SellCalculatorSheet(holding: h) }
         .sheet(item: $certFor) { h in CertSheet(holding: h) }
@@ -254,24 +264,34 @@ struct ProductDetailView: View {
         Task { await store.loadFullHistory(productId, printing: p) }
     }
 
+    /// The slab the hero shows, when every copy you own is graded.
+    private var heroSlab: HoldingView? {
+        guard let slab = owned.first(where: { $0.identity.isGraded }), owned.allSatisfy({ $0.identity.isGraded }) else { return nil }
+        return slab
+    }
+
     @ViewBuilder private var pieceArt: some View {
         Group {
-            if let slab = owned.first(where: { $0.identity.isGraded }), owned.allSatisfy({ $0.identity.isGraded }) {
+            if let slab = heroSlab {
                 HoloCard(foil: false, textured: false, cornerRadius: 18) {
                     HoldingArt(product: product, identity: slab.identity)
                 }
+                .onCardTap { viewingArt = true }
                 .frame(width: 250, height: 400)
             } else if product?.isSealed == false, product?.imageURL != nil {
                 HoloCard(foil: product?.isFoil == true, textured: false, cornerRadius: 12) {
                     // Rounded like a real card (about 5% of its width), so the scan's white corners don't show.
                     ProductImage(product: product, cornerRadius: 13, large: true).frame(width: 260, height: 363)
                 }
+                .onCardTap { viewingArt = true }
             } else {
                 HoloCard(foil: false, textured: false, cornerRadius: 28, showsGlare: false) {
                     SealedWell(product: product, cornerRadius: 28, caption: true).frame(width: 280, height: 280)
                 }
+                .onCardTap { if product?.imageURL != nil { viewingArt = true } }
             }
         }
+        .accessibilityAction(named: "View full screen") { viewingArt = true }
         // The big art is decoded at full size: the page it was opened from may ask for small
         // thumbnails (Overview, Collection and Explore do, for smooth scrolling).
         .environment(\.imageMaxPixel, nil)
@@ -324,6 +344,10 @@ struct ProductDetailView: View {
                 change("30d", price?.change30dPct ?? histChange(30)).modifier(PopIn(delay: 0.55))
             }
             .padding(.top, 12)
+            // When you own it: how many and how they're doing, tapping through to Owned.
+            if !owned.isEmpty {
+                YourCopyStrip(owned: owned) { managing = $0 }.padding(.top, 14)
+            }
             Text(price != nil
                  ? (price?.source == "pricecharting" ? "Ungraded price via PriceCharting (no TCGplayer price)" : "Market price via TCG API")
                     + (price?.updatedAt.flatMap(relative).map { " · updated \($0)" } ?? "")
@@ -358,8 +382,11 @@ struct ProductDetailView: View {
 
     private var actions: some View {
         HStack(spacing: 6) {
-            Button { adding = true } label: { Label(owned.isEmpty ? "Add to collection" : "Add more", systemImage: "plus") }
+            // While a deal is open the row gains a button, so "Add to collection" says just "Add".
+            let dealOpen = deals.deal.kind != .empty
+            Button { adding = true } label: { Label(owned.isEmpty ? (dealOpen ? "Add" : "Add to collection") : "Add more", systemImage: "plus") }
                 .buttonStyle(Button3D(kind: .light, fullWidth: false, height: 36))
+            DealAddButton(product: product, printing: printing, market: headline, owned: owned)
             if !owned.isEmpty {
                 // What if I sell? (like the website), then record a sale.
                 if owned.count == 1 {
