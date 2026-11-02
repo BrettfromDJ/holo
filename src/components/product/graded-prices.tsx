@@ -199,7 +199,7 @@ function LookupMenu({ label, value, options, optionLabel, onChange }: { label: s
           </option>
         ))}
       </select>
-      <ChevronsUpDown aria-hidden className="pointer-events-none absolute right-3 size-3 text-muted" strokeWidth={2.5} />
+      <ChevronsUpDown aria-hidden className="pointer-events-none absolute right-3 size-3 text-muted" />
     </span>
   );
 }

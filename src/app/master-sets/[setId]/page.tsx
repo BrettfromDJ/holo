@@ -198,7 +198,7 @@ function CardCell({ entry: e }: { entry: Entry }) {
       )}
       {h && (
         <span className={cn("tabular absolute right-1.5 top-1.5 z-[3] flex h-5 min-w-5 items-center justify-center gap-0.5 rounded-full bg-lime text-[10px] font-bold text-[#0b0b0c]", qty > 1 && "px-1.5")}>
-          <Check className="size-2.5" strokeWidth={4} />
+          <Check className="size-2.5" strokeWidth={2.5} />
           {qty > 1 && `×${qty}`}
         </span>
       )}

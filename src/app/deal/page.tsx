@@ -1,7 +1,7 @@
 "use client";
 
-import { AlertTriangle, ArrowDownLeft, ArrowDownRight, ArrowUpRight, Bookmark, Camera, Check, ChevronDown, Eye, History, Info, Loader2, Minus, ScanLine, Plus, Search, SlidersHorizontal, StickyNote, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { AlertTriangle, ArrowDownLeft, ArrowUpDown, ArrowDownRight, ArrowUpRight, Bookmark, Camera, Check, ChevronDown, Eye, History, Info, Loader2, Minus, ScanLine, Plus, Search, SlidersHorizontal, StickyNote, Trash2 } from "lucide-react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { DealPhotos, deleteDealPhoto } from "@/components/deal/deal-photos";
 import { DealPicker, type DealItem, type DealSide } from "@/components/deal/deal-picker";
@@ -420,6 +420,13 @@ export default function DealPage() {
         deals={log}
         onPhotos={(id, next) => setLog((cur) => cur.map((d) => (d.id === id ? { ...d, photos: next.length ? next : undefined } : d)))}
         onNotes={(id, next) => setLog((cur) => cur.map((d) => (d.id === id ? { ...d, notes: next.trim() || undefined } : d)))}
+        parked={parked}
+        hasDeal={hasDeal}
+        onResume={(p) => {
+          resume(p);
+          setHistoryOpen(false);
+        }}
+        onDelete={deleteParked}
       />
       <ParkDialog open={parking} onOpenChange={setParking} onPark={park} />
       <ParkedDialog open={parkedOpen} onOpenChange={setParkedOpen} parked={parked} hasDeal={hasDeal} onResume={resume} onDelete={deleteParked} />
@@ -911,7 +918,7 @@ function RecordedDialog({ recorded, onDone }: { recorded: { record: DealRecord; 
       <DialogContent hideClose className={cn("overflow-hidden border-0 sm:max-w-[460px]", down ? "bg-[var(--plan-pink)] text-white" : "bg-[var(--lime)] text-[#0b0b0c]")} aria-describedby={undefined}>
         <div className="flex flex-col items-center px-6 pb-6 pt-10 text-center">
           <span className={cn("flex size-20 items-center justify-center rounded-full", down ? "bg-white text-[var(--plan-pink)]" : "bg-[#0b0b0c] text-[var(--lime)]")}>
-            <Check className="size-9" strokeWidth={3.5} />
+            <Check className="size-9" strokeWidth={1.75} />
           </span>
           <p className="mt-5 font-mono text-[11px] uppercase tracking-[0.14em] opacity-60">In your collection</p>
           <DialogTitle className="mt-1 font-display text-[38px] leading-[0.92]">
@@ -966,49 +973,163 @@ function RecordedDialog({ recorded, onDone }: { recorded: { record: DealRecord; 
 
 /* ----------------------------- Customer view ------------------------------ */
 
+/** Tile measures for a number of columns: width, and height with the name and price under it. */
+function customerTile(cols: number, width: number) {
+  const w = (width - (cols - 1) * 12) / cols;
+  return { w, h: (w * 88) / 63 + (cols >= 4 ? 28 : cols === 3 ? 52 : 70) };
+}
+
+/** The fewest columns (2 to 6) that fit every card in the space above the pinned cash panel. */
+function customerColumns(counts: number[], width: number, room: number) {
+  for (let c = 2; c <= 6; c++) {
+    const t = customerTile(c, width);
+    const rows = counts.reduce((s, n) => s + Math.ceil(n / c), 0);
+    if (rows * t.h + Math.max(0, rows - counts.length) * 14 <= room) return c;
+  }
+  return 6;
+}
+
+const CUSTOMER_TITLE: Record<DealKind, string> = { buy: "We're buying", sell: "You're buying", trade: "Your trade", empty: "Your trade" };
+
 /**
- * What the customer sees, full screen and calm: their cards (what they hand you, what they get),
- * each at the price you're paying or charging, and the cash, big. Never market prices, rates,
- * your costs, profit or value gained.
+ * What the customer sees, full screen and calm: a receipt-style header, their cards (what they
+ * hand you, what they get) as tiles at the price you're paying or charging, and the cash pinned
+ * at the bottom (lime when we pay them). Tiles shrink as cards are added so the cash always shows.
+ * Click a card for a closer look. Flip turns the page around for someone across the table; the
+ * buttons stay the right way up for you. Never market prices, rates, your costs, profit or value gained.
  */
 function CustomerView({ open, onOpenChange, deal, rate, totals }: { open: boolean; onOpenChange: (o: boolean) => void; deal: DealState; rate: { in: number; out: number }; totals: DealTotals }) {
-  const list = (items: DealItem[], r: number) => (
-    <ul className="mt-3 divide-y divide-white/10">
-      {items.map((i) => (
-        <li key={i.key} className="flex items-center gap-4 py-3.5">
-          <ProductImage product={i.product} size="sm" className="h-20 w-14 shrink-0 rounded-md" />
-          <span className="min-w-0 flex-1 text-[18px] font-medium leading-snug sm:text-[20px]">
-            {i.product.name}
-            {i.qty > 1 && <span className="tabular block text-[15px] font-normal text-muted">{i.qty} × {money(unitPrice(i, r) ?? 0)}</span>}
+  const [flipped, setFlipped] = useState(false);
+  const [looking, setLooking] = useState<{ item: DealItem; incoming: boolean } | null>(null);
+  const [area, setArea] = useState({ w: 0, h: 0 });
+  const observer = useRef<ResizeObserver | null>(null);
+  const measure = useCallback((el: HTMLDivElement | null) => {
+    observer.current?.disconnect();
+    if (!el) return;
+    observer.current = new ResizeObserver(([e]) => setArea({ w: e.contentRect.width, h: e.contentRect.height }));
+    observer.current.observe(el);
+  }, []);
+  const kind = dealKind(deal.in.length, deal.out.length);
+  const counts = [deal.in.length, deal.out.length].filter((n) => n > 0);
+  // Room for the tiles: the scroll area less the header (about 100) and each section's heading.
+  const cols = area.w ? customerColumns(counts, area.w, area.h - 100 - counts.length * (32 + 44)) : 2;
+  const b = totals.balance;
+  const even = Math.abs(b) < 0.005;
+  const wePay = !even && b < 0;
+
+  const section = (title: string, items: DealItem[], r: number, incoming: boolean, total: number) => {
+    const count = items.reduce((s, i) => s + i.qty, 0);
+    return (
+      <section className="mt-8">
+        <div className="flex items-baseline gap-2.5">
+          <h3 className="font-display text-[24px] leading-tight tracking-[-0.025em] sm:text-[26px]">{title}</h3>
+          <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-subtle">
+            {count} item{count === 1 ? "" : "s"}
           </span>
-          <span className="tabular shrink-0 text-[22px] font-semibold sm:text-[24px]">{money((unitPrice(i, r) ?? 0) * i.qty)}</span>
-        </li>
-      ))}
-    </ul>
-  );
-  const even = Math.abs(totals.balance) < 0.005;
-  const heading = (text: string, total: number) => (
-    <div className="flex items-baseline justify-between gap-4">
-      <h3 className="font-display text-[24px] leading-tight tracking-[-0.02em] sm:text-[28px]">{text}</h3>
-      <span className="tabular text-[18px] text-muted">{money(total)}</span>
-    </div>
-  );
+          <span className="tabular ml-auto text-[18px] font-semibold">{money(total)}</span>
+        </div>
+        <div className="mt-3.5 grid gap-x-3 gap-y-3.5" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+          {items.map((i) => {
+            const each = unitPrice(i, r) ?? 0;
+            const priceSize = cols >= 4 ? 14 : cols === 3 ? 18 : 24;
+            return (
+              <button key={i.key} type="button" disabled={i.custom} onClick={() => setLooking({ item: i, incoming })} className="group min-w-0 text-left disabled:cursor-default">
+                <span className="relative block">
+                  <ProductImage product={i.product} grade={i.grade} size={cols <= 2 ? "lg" : "md"} className={cn("w-full transition-transform group-enabled:group-hover:-translate-y-0.5", i.product.kind === "sealed" ? "aspect-square rounded-2xl" : "aspect-[63/88] rounded-lg")} />
+                  {i.qty > 1 && (
+                    <span className={cn("tabular absolute right-1.5 top-1.5 rounded-full bg-black/55 font-semibold text-white ring-1 ring-inset ring-white/15 backdrop-blur", cols >= 4 ? "px-1.5 py-0.5 text-[11px]" : "px-2.5 py-1 text-[14px]")}>×{i.qty}</span>
+                  )}
+                </span>
+                {cols < 4 && <span className={cn("mt-2 block text-muted", cols === 3 ? "truncate text-[12px]" : "line-clamp-2 min-h-[2.6em] text-[14px] leading-snug")}>{i.product.name}</span>}
+                <span className="tabular mt-0.5 block truncate font-display leading-tight" style={{ fontSize: priceSize, letterSpacing: `${-priceSize * 0.025}px` }}>
+                  {money(each * i.qty)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+    );
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="inset-0 h-[100dvh] max-h-none rounded-none border-0 bg-[#0b0b0c] sm:inset-0 sm:left-0 sm:top-0 sm:max-w-none sm:translate-x-0 sm:rounded-none">
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) setFlipped(false);
+        onOpenChange(o);
+      }}
+    >
+      <DialogContent className="inset-0 h-[100dvh] max-h-none rounded-none border-0 bg-[#0b0b0c] sm:inset-0 sm:left-0 sm:top-0 sm:max-w-none sm:translate-x-0 sm:rounded-none" hideClose>
         <DialogTitle className="sr-only">Your deal</DialogTitle>
         <DialogDescription className="sr-only">The deal, for the customer: their cards, the prices and the cash.</DialogDescription>
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-10 pt-14">
-          <div className="mx-auto max-w-[640px] space-y-10">
-            {deal.in.length > 0 && <section>{heading("You hand us", totals.inValue)}{list(deal.in, rate.in)}</section>}
-            {deal.out.length > 0 && <section>{heading("You get", totals.outValue)}{list(deal.out, rate.out)}</section>}
-            <section className="rounded-3xl bg-white/[0.06] px-6 py-8 text-center">
-              <p className="font-display text-[28px] leading-tight tracking-[-0.02em] sm:text-[32px]">{even ? "Even swap" : totals.balance > 0 ? "You pay" : "We pay you"}</p>
-              {!even && <p className="tabular mt-2 font-display text-[72px] leading-none tracking-[-0.03em] sm:text-[96px]">{money(Math.abs(totals.balance))}</p>}
-              {even && <p className="mt-2 text-[18px] text-muted">No cash changes hands</p>}
+        <div className={cn("relative flex min-h-0 flex-1 flex-col transition-transform duration-500 ease-out motion-reduce:transition-none", flipped && "rotate-180")}>
+          {/* The lit grid behind the top, like Home. Still. */}
+          <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[460px] [mask-image:linear-gradient(to_bottom,black_50%,transparent)]">
+            <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:36px_36px]" />
+            <div className="absolute inset-0 bg-[radial-gradient(300px_at_15%_30%,rgba(212,255,58,0.18),transparent),radial-gradient(280px_at_95%_50%,rgba(47,91,255,0.2),transparent)]" />
+          </div>
+          <div className="relative min-h-0 flex-1 overflow-y-auto px-5 pt-[72px] sm:px-6">
+            <div ref={measure} className="mx-auto h-full max-w-[640px]">
+              <div className="flex items-baseline justify-between">
+                <span className="font-display text-[20px] tracking-[-0.025em] text-[var(--lime)]">Lucent</span>
+                <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-subtle">{new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+              </div>
+              <h2 className="mt-3 truncate font-display text-[40px] leading-none tracking-[-0.035em] sm:text-[44px]">{CUSTOMER_TITLE[kind]}</h2>
+              {deal.in.length > 0 && section("You hand us", deal.in, rate.in, true, totals.inValue)}
+              {deal.out.length > 0 && section("You get", deal.out, rate.out, false, totals.outValue)}
+              <div className="h-5" />
+            </div>
+          </div>
+          {/* Pinned at the bottom: never scrolled out of sight. */}
+          <div className="relative px-5 pb-3 pt-2 sm:px-6">
+            <section className={cn("relative mx-auto max-w-[640px] overflow-hidden rounded-[28px] px-5 py-6 text-center", wePay ? "bg-[var(--lime)] text-[#0b0b0c] shadow-[0_0_48px_rgba(212,255,58,0.3)]" : "bg-white/[0.06] ring-1 ring-inset ring-white/10")}>
+              {wePay && <div aria-hidden className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.08)_1px,transparent_1px)] bg-[size:28px_28px]" />}
+              <p className={cn("relative font-display text-[24px] leading-tight tracking-[-0.025em] sm:text-[26px]", wePay ? "text-[#0b0b0c]/75" : "text-white/80")}>{even ? "Even swap" : wePay ? "We pay you" : "You pay"}</p>
+              {even ? <p className="relative mt-2 text-[17px] text-muted">No cash changes hands</p> : <p className="tabular relative mt-1 font-display text-[64px] leading-none tracking-[-0.035em] sm:text-[80px]">{money(Math.abs(b))}</p>}
             </section>
           </div>
         </div>
+        {/* The controls stay the right way up for you, at whichever end is yours. */}
+        <div className={cn("absolute right-4 z-10 flex gap-2", flipped ? "bottom-3" : "top-3")}>
+          <Button variant="secondary" onClick={() => setFlipped((f) => !f)} aria-label="Flip the page for the person across from you">
+            <ArrowUpDown /> {flipped ? "Flip back" : "Flip"}
+          </Button>
+          <Button variant="secondary" onClick={() => onOpenChange(false)}>
+            Done
+          </Button>
+        </div>
+        <CustomerCard look={looking} rate={rate} flipped={flipped} onClose={() => setLooking(null)} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** One card from the customer view, up close: the art, what it is, and the deal price only. */
+function CustomerCard({ look, rate, flipped, onClose }: { look: { item: DealItem; incoming: boolean } | null; rate: { in: number; out: number }; flipped: boolean; onClose: () => void }) {
+  const i = look?.item;
+  const r = look?.incoming ? rate.in : rate.out;
+  const each = i ? (unitPrice(i, r) ?? 0) : 0;
+  return (
+    <Dialog open={!!look} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-[440px]">
+        <DialogTitle className="sr-only">{i?.product.name ?? "Card"}</DialogTitle>
+        <DialogDescription className="sr-only">The card and its price in this deal.</DialogDescription>
+        {i && (
+          <div className={cn("min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-8 text-center", flipped && "rotate-180")}>
+            <ProductImage product={i.product} grade={i.grade} size="xl" priority className={cn("mx-auto", i.product.kind === "sealed" ? "aspect-square w-[240px] rounded-3xl" : "aspect-[63/88] w-[230px] rounded-xl")} />
+            <h3 className="mt-5 font-display text-[26px] leading-tight tracking-[-0.03em]">{i.product.name}</h3>
+            {[i.product.setName, i.product.number && `#${i.product.number}`, i.printing].filter(Boolean).length > 0 && (
+              <p className="mt-1 text-[14px] text-muted">{[i.product.setName, i.product.number && `#${i.product.number}`, i.printing].filter(Boolean).join(" · ")}</p>
+            )}
+            {i.grade && <span className="mt-2 inline-block rounded-full bg-white/10 px-2.5 py-1 font-mono text-[12px] uppercase tracking-[0.08em]">{i.grade.company} {i.grade.grade}</span>}
+            <div className="mt-5 rounded-[22px] bg-white/[0.06] py-5 ring-1 ring-inset ring-white/10">
+              <p className="font-mono text-[11px] uppercase tracking-[0.1em] text-subtle">{look?.incoming ? "We pay" : "Price"}</p>
+              <p className="tabular mt-1 font-display text-[48px] leading-none tracking-[-0.035em]">{money(each * i.qty)}</p>
+              {i.qty > 1 && <p className="tabular mt-1.5 text-[14px] text-muted">{i.qty} × {money(each)}</p>}
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -1079,74 +1200,78 @@ function ParkDialog({ open, onOpenChange, onPark }: { open: boolean; onOpenChang
 
 /** Deals set aside: resume one (an open deal is parked first, after asking) or delete it. */
 function ParkedDialog({ open, onOpenChange, parked, hasDeal, onResume, onDelete }: { open: boolean; onOpenChange: (o: boolean) => void; parked: ParkedDeal[]; hasDeal: boolean; onResume: (p: ParkedDeal) => void; onDelete: (p: ParkedDeal) => void }) {
-  const [asking, setAsking] = useState<string | null>(null);
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(o) => {
-        if (!o) setAsking(null);
-        onOpenChange(o);
-      }}
-    >
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[480px]">
-        <DialogHeader>
+        <DialogHeader className="pt-7">
           <DialogTitle>Parked deals</DialogTitle>
           <DialogDescription>Deals you set aside to finish later, here or in the app.</DialogDescription>
         </DialogHeader>
-        <ul className="min-h-0 flex-1 divide-y divide-border overflow-y-auto px-6 pb-6">
-          {!parked.length && <li className="py-12 text-center text-[14px] text-muted">Nothing parked.</li>}
-          {parked.map((p) => {
-            const state = { ...EMPTY, ...p.state };
-            const items = [...state.in, ...state.out];
-            const count = items.reduce((s, i) => s + i.qty, 0);
-            const kind = dealKind(state.in.length, state.out.length);
-            return (
-              <li key={p.id} className="py-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex shrink-0 -space-x-3">
-                    {items.slice(0, 3).map((i) => (
-                      <ProductImage key={i.key} product={i.product} size="xs" className="h-12 w-[34px] rounded-md shadow-lg shadow-black/40" />
-                    ))}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[14px] font-semibold">{p.name}</p>
-                    <p className="truncate text-[12px] text-muted">
-                      {KIND_NOUN[kind]} · {count} item{count === 1 ? "" : "s"} · {new Date(p.savedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-                    </p>
-                  </div>
-                  <Button variant="ghost" size="icon" aria-label={`Delete ${p.name}`} onClick={() => onDelete(p)}>
-                    <Trash2 />
-                  </Button>
-                  <Button variant="secondary" onClick={() => (hasDeal ? setAsking(p.id) : onResume(p))}>
-                    Resume
-                  </Button>
-                </div>
-                {asking === p.id && (
-                  <div className="mt-2 rounded-2xl bg-surface-2 p-3">
-                    <p className="text-[13px]">You have a deal open. Park it first, then resume this one?</p>
-                    <div className="mt-2 flex gap-2">
-                      <Button variant="secondary" size="sm" onClick={() => setAsking(null)}>
-                        Cancel
-                      </Button>
-                      <Button
-                        variant="lime"
-                        size="sm"
-                        onClick={() => {
-                          setAsking(null);
-                          onResume(p);
-                        }}
-                      >
-                        Park it and resume
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-2">
+          <ParkedList parked={parked} hasDeal={hasDeal} onResume={onResume} onDelete={onDelete} />
+        </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** The parked deals as rows: a little fan of the cards, name, what and when, delete and Resume. */
+function ParkedList({ parked, hasDeal, onResume, onDelete }: { parked: ParkedDeal[]; hasDeal: boolean; onResume: (p: ParkedDeal) => void; onDelete: (p: ParkedDeal) => void }) {
+  const [asking, setAsking] = useState<string | null>(null);
+  return (
+    <ul className="divide-y divide-border">
+      {!parked.length && <li className="py-12 text-center text-[14px] text-muted">Nothing parked.</li>}
+      {parked.map((p) => {
+        const state = { ...EMPTY, ...p.state };
+        const items = [...state.in, ...state.out];
+        const count = items.reduce((s, i) => s + i.qty, 0);
+        const kind = dealKind(state.in.length, state.out.length);
+        return (
+          <li key={p.id} className="py-3">
+            <div className="flex items-center gap-3">
+              <div className="flex shrink-0 -space-x-3">
+                {items.slice(0, 3).map((i) => (
+                  <ProductImage key={i.key} product={i.product} size="xs" className="h-12 w-[34px] rounded-md shadow-lg shadow-black/40" />
+                ))}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[14px] font-semibold">{p.name}</p>
+                <p className="truncate text-[12px] text-muted">
+                  {KIND_NOUN[kind]} · {count} item{count === 1 ? "" : "s"}
+                </p>
+                <p className="truncate text-[12px] text-subtle">{new Date(p.savedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</p>
+              </div>
+              <Button variant="ghost" size="icon" aria-label={`Delete ${p.name}`} onClick={() => onDelete(p)}>
+                <Trash2 />
+              </Button>
+              <Button variant="lime" onClick={() => (hasDeal ? setAsking(p.id) : onResume(p))}>
+                Resume
+              </Button>
+            </div>
+            {asking === p.id && (
+              <div className="mt-2 rounded-2xl bg-surface-2 p-3">
+                <p className="text-[13px]">You have a deal open. Park it first, then resume this one?</p>
+                <div className="mt-2 flex gap-2">
+                  <Button variant="secondary" size="sm" onClick={() => setAsking(null)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="lime"
+                    size="sm"
+                    onClick={() => {
+                      setAsking(null);
+                      onResume(p);
+                    }}
+                  >
+                    Park it and resume
+                  </Button>
+                </div>
+              </div>
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -1166,22 +1291,32 @@ function recordLines(deal: DealState, rate: { in: number; out: number }, tracked
 /** The local day a deal closed on, as YYYY-MM-DD. */
 const dayOf = (at: string) => new Date(at).toLocaleDateString("en-CA");
 
-/** Closed deals, newest first, grouped by day with each day's totals, a Today summary on top and a search. */
+/** Closed deals, newest first, grouped by day with each day's totals, with a search and a folded Parked section on top. */
 function HistoryDialog({
   open,
   onOpenChange,
   deals,
   onPhotos,
   onNotes,
+  parked,
+  hasDeal,
+  onResume,
+  onDelete,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   deals: DealRecord[];
+  parked: ParkedDeal[];
+  hasDeal: boolean;
+  onResume: (p: ParkedDeal) => void;
+  onDelete: (p: ParkedDeal) => void;
   onPhotos: (id: string, photos: string[]) => void;
   onNotes: (id: string, notes: string) => void;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  // The Parked section starts folded.
+  const [parkedOpen, setParkedOpen] = useState(false);
   const today = dayOf(new Date().toISOString());
   const shown = useMemo(() => deals.filter((d) => matchesDealSearch(d, query)), [deals, query]);
   const days = useMemo(() => {
@@ -1192,7 +1327,6 @@ function HistoryDialog({
     }
     return [...map.entries()];
   }, [shown]);
-  const todays = deals.filter((d) => dayOf(d.at) === today);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="h-[85dvh] sm:h-[640px] sm:max-w-[560px]">
@@ -1207,7 +1341,17 @@ function HistoryDialog({
               <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search cards, notes, buy, sale, trade" aria-label="Search closed deals" className="h-10 w-full rounded-full bg-surface-2 pl-10 pr-4 text-[14px] outline-none ring-1 ring-inset ring-border focus:ring-[var(--lime)]/60" />
             </label>
           )}
-          {todays.length > 0 && !query.trim() && <TodaySummary totals={dealDayTotals(todays)} />}
+          {parked.length > 0 && (
+            <section className="mt-3">
+              <button type="button" onClick={() => setParkedOpen((o) => !o)} aria-expanded={parkedOpen} className="flex h-12 w-full items-center gap-2.5 rounded-2xl bg-surface-2 px-3.5 text-left ring-1 ring-inset ring-border hover:bg-surface-3">
+                <Bookmark className="size-3.5 fill-current text-[var(--lime)]" />
+                <span className="text-[15px] font-semibold">Parked</span>
+                <span className="tabular text-[14px] text-muted">{parked.length}</span>
+                <ChevronDown className={cn("ml-auto size-4 text-muted transition-transform", parkedOpen && "rotate-180")} />
+              </button>
+              {parkedOpen && <ParkedList parked={parked} hasDeal={hasDeal} onResume={onResume} onDelete={onDelete} />}
+            </section>
+          )}
           {!deals.length && <p className="py-16 text-center text-[14px] text-muted">No closed deals yet.</p>}
           {deals.length > 0 && !days.length && <p className="py-16 text-center text-[14px] text-muted">No deals match “{query.trim()}”.</p>}
           {days.map(([day, list]) => {
@@ -1322,31 +1466,6 @@ function DayFigures({ totals: t, className }: { totals: DealDayTotals; className
         </span>
       ))}
     </p>
-  );
-}
-
-/** Today's deals on a card at the top of the history: the count, then the day's figures. */
-function TodaySummary({ totals: t }: { totals: DealDayTotals }) {
-  const stats: { label: string; value: React.ReactNode }[] = [
-    { label: "Deals", value: String(t.deals) },
-    { label: "Cash in", value: money(t.cashIn) },
-    { label: "Cash out", value: money(t.cashOut) },
-    { label: "Net cash", value: <span className={t.net >= 0 ? "text-up" : "text-down"}>{signedMoney(t.net)}</span> },
-    { label: t.ahead !== null && t.ahead < 0 ? "Behind" : "Ahead", value: t.ahead === null ? <span className="text-subtle">—</span> : <span className={t.ahead >= 0 ? "text-up" : "text-down"}>{signedMoney(t.ahead)}</span> },
-    { label: "Sale profit", value: t.profit === null ? <span className="text-subtle">—</span> : <span className={t.profit >= 0 ? "text-up" : "text-down"}>{signedMoney(t.profit)}</span> },
-  ];
-  return (
-    <section className="mt-4 rounded-2xl bg-surface-2 p-4">
-      <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-subtle">Today</p>
-      <dl className="mt-2 grid grid-cols-3 gap-x-3 gap-y-2.5">
-        {stats.map((s) => (
-          <div key={s.label} className="min-w-0">
-            <dt className="font-mono text-[10px] uppercase tracking-[0.06em] text-subtle">{s.label}</dt>
-            <dd className="tabular mt-0.5 truncate text-[15px] font-semibold">{s.value}</dd>
-          </div>
-        ))}
-      </dl>
-    </section>
   );
 }
 

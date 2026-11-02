@@ -212,7 +212,7 @@ export function GlowPie({ fraction, size = 180, className }: { fraction: number;
       {/* The arrow at the top, where the arc begins. */}
       <ArrowRight
         aria-hidden
-        strokeWidth={3}
+        strokeWidth={2}
         className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 text-[#0b0b0c]"
         style={{ top: line / 2, width: line * 0.5, height: line * 0.5 }}
       />
