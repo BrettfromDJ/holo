@@ -270,6 +270,9 @@ struct ProductDetailView: View {
                 }
             }
         }
+        // The big art is decoded at full size: the page it was opened from may ask for small
+        // thumbnails (Overview, Collection and Explore do, for smooth scrolling).
+        .environment(\.imageMaxPixel, nil)
         .frame(maxWidth: .infinity)
     }
 
