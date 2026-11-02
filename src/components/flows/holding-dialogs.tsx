@@ -236,7 +236,7 @@ export function DeleteCopyDialog({ holding, open, onOpenChange, onDeleted }: Dia
         <DialogHeader>
           <DialogTitle>Delete this from your collection?</DialogTitle>
           <DialogDescription>
-            It&apos;s removed as if you never added it: it leaves your value, cost and gains. To count it as a loss instead, use Remove. You can undo for a few seconds.
+            It&apos;s removed as if you never added it: it leaves your value, cost and gains. To count it as a loss instead, use Remove.
           </DialogDescription>
         </DialogHeader>
         <div className="flex gap-2 px-6 pb-6 pt-4">

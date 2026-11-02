@@ -207,7 +207,7 @@ struct CollectionView: View {
                     Task { await groupRun { try await store.deleteCopy(h.identity) } }
                 }
             } message: { _ in
-                Text("It's removed as if you never added it: it leaves your value, cost and gains. To count it as a loss instead, use Remove. You can undo for a few seconds.")
+                Text("It's removed as if you never added it: it leaves your value, cost and gains. To count it as a loss instead, use Remove.")
             }
             .fullScreenCover(isPresented: $adding) { SearchScreen(mode: .add) }
             .onAppear {

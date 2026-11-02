@@ -102,7 +102,7 @@ struct HoldingSheet: View {
                 }
             }
         } message: {
-            Text("It's removed as if you never added it: it leaves your value, cost and gains. To count it as a loss instead, use Remove. You can undo for a few seconds.")
+            Text("It's removed as if you never added it: it leaves your value, cost and gains. To count it as a loss instead, use Remove.")
         }
         .sheet(isPresented: $whatIf) { if let h = holding { SellCalculatorSheet(holding: h) } }
         .sheet(isPresented: $sending) { if let h = holding { SendSheet(holding: h) } }
