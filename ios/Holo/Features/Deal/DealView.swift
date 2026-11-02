@@ -41,8 +41,10 @@ struct DealView: View {
     /// same rule the Recorded screen uses.
     private static func warning(_ t: DealTotals) -> Bool {
         guard t.kind != .empty else { return false }
-        if let ahead = t.ahead { return ahead < -0.005 }
-        return t.kind != .sell && t.inValue > 0 && t.equity < -0.005
+        // Pink when what you take in is worth less than you're giving for it, or when the deal
+        // as a whole leaves you behind.
+        let equityDown = t.kind != .sell && t.inValue > 0 && t.equity < -0.005
+        return equityDown || (t.ahead ?? 0) < -0.005
     }
 
     private var todays: [DealRecord] {
@@ -499,7 +501,7 @@ private struct BalanceCard: View {
         let t = totals
         let b = t.balance
         let empty = t.kind == .empty
-        let down = t.ahead.map { $0 < -0.005 } ?? (t.showsEquity && t.equity < -0.005)
+        let down = (t.showsEquity && t.equity < -0.005) || (t.ahead ?? 0) < -0.005
         let fill = down ? Theme.planPink : Theme.lime
         let ink = down ? Color.white : Theme.ink
         let shape = RoundedRectangle(cornerRadius: 24, style: .continuous)
@@ -1043,7 +1045,7 @@ private struct PinnedBalance: View {
 
     var body: some View {
         let b = totals.balance
-        let down = totals.ahead.map { $0 < -0.005 } ?? (totals.showsEquity && totals.equity < -0.005)
+        let down = (totals.showsEquity && totals.equity < -0.005) || (totals.ahead ?? 0) < -0.005
         let fill = down ? Theme.planPink : Theme.lime
         let ink = down ? Color.white : Theme.ink
         HStack(alignment: .center, spacing: 12) {

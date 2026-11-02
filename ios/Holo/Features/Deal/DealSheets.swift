@@ -457,7 +457,7 @@ private struct RecordedScreen: View {
     var body: some View {
         let t = totals
         // The headline figure decides the color: down turns the whole screen pink.
-        let down = t.ahead.map { $0 < -0.005 } ?? (t.kind != .sell && t.inValue > 0 && t.equity < -0.005)
+        let down = (t.kind != .sell && t.inValue > 0 && t.equity < -0.005) || (t.ahead ?? 0) < -0.005
         let fill = down ? Theme.planPink : Theme.lime
         let ink = down ? Color.white : Theme.ink
         let items = Array((deal.outgoing + deal.incoming).prefix(7))

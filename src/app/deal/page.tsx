@@ -838,7 +838,7 @@ function RecordedDialog({ recorded, onDone }: { recorded: { record: DealRecord; 
   const { record, totals, deal } = recorded;
   const ahead = totals.ahead;
   // The headline figure decides the color: down turns the whole card pink (never pink on lime).
-  const down = ahead !== null ? ahead < -0.005 : showsEquity(totals) && totals.equity < -0.005;
+  const down = (showsEquity(totals) && totals.equity < -0.005) || (ahead !== null && ahead < -0.005);
   const headline = totals.profit !== null ? { label: "Profit", value: totals.profit } : totals.inValue > 0 ? { label: "Value gained", value: totals.equity } : null;
   const items = [...deal.out, ...deal.in].slice(0, 7);
   return (
