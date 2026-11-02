@@ -164,8 +164,13 @@ struct SearchScreen: View {
                     }
                     // Scan instead of typing: the same scanner as the + menu (it adds to the collection).
                     Button {
+                        // Let the keyboard go down first, then open the scanner over a still page.
+                        let typing = focused
                         focused = false
-                        scanning = true
+                        Task {
+                            if typing { try? await Task.sleep(nanoseconds: 250_000_000) }
+                            scanning = true
+                        }
                     } label: {
                         Image(systemName: "viewfinder")
                             .font(.system(size: 18, weight: .semibold))

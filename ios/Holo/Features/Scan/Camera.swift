@@ -135,6 +135,33 @@ struct CameraPreview: UIViewRepresentable {
         override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
         var previewLayer: AVCaptureVideoPreviewLayer { layer as! AVCaptureVideoPreviewLayer }
 
+        private var startObserver: NSObjectProtocol?
+
+        /// Reconnect the picture: drop the session from the layer and attach it again.
+        func reattach() {
+            guard let session = previewLayer.session else { return }
+            previewLayer.session = nil
+            previewLayer.session = session
+            setNeedsLayout()
+        }
+
+        /// Watch for the session starting, and reconnect each time it does (on the main thread).
+        func watch(_ session: AVCaptureSession) {
+            guard startObserver == nil else { return }
+            startObserver = NotificationCenter.default.addObserver(forName: AVCaptureSession.didStartRunningNotification, object: session, queue: .main) { [weak self] _ in
+                self?.reattach()
+            }
+        }
+
+        deinit { if let startObserver { NotificationCenter.default.removeObserver(startObserver) } }
+
+        /// Opened on top of another full-screen page (Search), the view can join the window
+        /// after the session started; reconnect then too, or it shows black.
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            if window != nil { reattach() }
+        }
+
         override func layoutSubviews() {
             super.layoutSubviews()
             previewLayer.frame = bounds
@@ -150,6 +177,7 @@ struct CameraPreview: UIViewRepresentable {
         view.previewLayer.videoGravity = .resizeAspectFill
         view.backgroundColor = .black
         view.previewLayer.session = session
+        view.watch(session)
         return view
     }
 
