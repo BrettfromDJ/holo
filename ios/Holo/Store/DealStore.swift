@@ -1,39 +1,49 @@
 import Foundation
 import Observation
 
-/// The deal in progress, your default rates and closed deals. Kept in user_state under the
-/// same keys as the website ("deal", "deal-rates", "deals"), so a deal started on one shows on the other.
+/// The deal in progress, your default rates, closed deals and parked deals. Kept in user_state
+/// under the same keys as the website ("deal", "deal-rates", "deals", "deals-parked"), so a deal
+/// started on one shows on the other.
 @Observable
 final class DealStore {
     var deal = DealState()
     var defaults = DealRates()
     var log: [DealRecord] = []
+    /// Deals set aside to finish later, newest first.
+    var parked: [ParkedDeal] = []
     var loaded = false
     var error: String?
 
     private var userId: String?
     private var saveTask: Task<Void, Never>?
+    /// The account's closed and parked deals loaded. A list that failed to load is read again
+    /// (and merged with what's here) before it's saved, so a bad connection never empties it.
+    @ObservationIgnored private var logSynced = false
+    @ObservationIgnored private var parkedSynced = false
 
     func reset() {
         saveTask?.cancel()
         deal = DealState()
         defaults = DealRates()
         log = []
+        parked = []
         loaded = false
         userId = nil
+        logSynced = false
+        parkedSynced = false
     }
 
     @MainActor
     func load(userId: String) async {
         self.userId = userId
-        do {
-            deal = try await UserState.load("deal", as: DealState.self) ?? DealState()
-            defaults = try await UserState.load("deal-rates", as: DealRates.self) ?? DealRates()
-            log = try await UserState.load("deals", as: [DealRecord].self) ?? []
-            error = nil
-        } catch {
-            self.error = error.localizedDescription
-        }
+        // Each key on its own: "no saved value yet" loads as empty, a failed load leaves that key
+        // unsynced (see logSynced) instead of looking like an empty list.
+        var failure: Error?
+        do { deal = try await UserState.load("deal", as: DealState.self) ?? DealState() } catch { failure = error }
+        do { defaults = try await UserState.load("deal-rates", as: DealRates.self) ?? DealRates() } catch { failure = error }
+        do { log = try await UserState.load("deals", as: [DealRecord].self) ?? []; logSynced = true } catch { failure = error }
+        do { parked = try await UserState.load("deals-parked", as: [ParkedDeal].self) ?? []; parkedSynced = true } catch { failure = error }
+        self.error = failure?.localizedDescription
         loaded = true
     }
 
@@ -47,9 +57,88 @@ final class DealStore {
     func setPhotos(_ photos: [String], forRecord id: String) {
         guard let i = log.firstIndex(where: { $0.id == id }) else { return }
         log[i].photos = photos.isEmpty ? nil : photos
+        Task { await saveLog() }
+    }
+
+    /// Replace a closed deal's notes and save the history.
+    @MainActor
+    func setNotes(_ notes: String, forRecord id: String) {
+        guard let i = log.firstIndex(where: { $0.id == id }) else { return }
+        let text = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard (log[i].notes ?? "") != text else { return }
+        log[i].notes = text.isEmpty ? nil : text
+        Task { await saveLog() }
+    }
+
+    /// Save the closed deals. If the account's list didn't load, read it first and keep both.
+    @MainActor
+    private func saveLog() async {
         guard let userId else { return }
-        let snapshot = log
-        Task { try? await UserState.save("deals", snapshot, userId: userId) }
+        if !logSynced {
+            do {
+                let remote = try await UserState.load("deals", as: [DealRecord].self) ?? []
+                let mine = Set(log.map(\.id))
+                log = Array((log + remote.filter { !mine.contains($0.id) }).sorted { $0.at > $1.at }.prefix(500))
+                logSynced = true
+            } catch { return }
+        }
+        try? await UserState.save("deals", log, userId: userId)
+    }
+
+    // MARK: Parked deals
+
+    /// Parked deals are saved to the account only when signed in with your own collection (not a demo).
+    private var savesParked: Bool { userId != nil && !Demo.isOn && DemoKind.selected == nil }
+
+    /// Set the open deal aside (photos and notes go with it) and start a fresh one.
+    @MainActor
+    func park(name: String) {
+        guard deal.hasContent else { return }
+        let text = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        parked.insert(parkedEntry(deal, name: text), at: 0)
+        update { $0 = DealState() }
+        Task { await saveParked() }
+    }
+
+    /// Pick a parked deal back up. An open deal is parked first (the list asks before this runs).
+    @MainActor
+    func resume(_ entry: ParkedDeal) {
+        var list = parked.filter { $0.id != entry.id }
+        if deal.hasContent { list.insert(parkedEntry(deal, name: ""), at: 0) }
+        parked = list
+        update { $0 = entry.state }
+        Task { await saveParked() }
+    }
+
+    /// Throw a parked deal away, with its photos.
+    @MainActor
+    func deleteParked(_ entry: ParkedDeal) {
+        parked.removeAll { $0.id == entry.id }
+        let photos = entry.state.photos
+        Task {
+            for p in photos { await DealPhotos.delete(p) }
+        }
+        Task { await saveParked() }
+    }
+
+    private func parkedEntry(_ state: DealState, name: String) -> ParkedDeal {
+        ParkedDeal(id: UUID().uuidString.lowercased(), name: name.isEmpty ? ParkedDeal.defaultName() : name,
+                   savedAt: ISO8601DateFormatter.withFraction.string(from: Date()), state: state)
+    }
+
+    /// Save the parked list. If the account's list didn't load, read it first and keep both.
+    @MainActor
+    private func saveParked() async {
+        guard savesParked, let userId else { return }
+        if !parkedSynced {
+            do {
+                let remote = try await UserState.load("deals-parked", as: [ParkedDeal].self) ?? []
+                let mine = Set(parked.map(\.id))
+                parked += remote.filter { !mine.contains($0.id) }
+                parkedSynced = true
+            } catch { return }
+        }
+        try? await UserState.save("deals-parked", parked, userId: userId)
     }
 
     // MARK: Editing (each change saves shortly after, so quick taps make one write)
@@ -163,6 +252,7 @@ final class DealStore {
         }
         if !purchases.isEmpty { try await store.add(purchases) }
 
+        let notes = (deal.notes ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let lines: [DealRecord.Line] =
             deal.incoming.map { line($0, side: .incoming, rate: rates.in) } + deal.outgoing.map { line($0, side: .outgoing, rate: rates.out) }
         let record = DealRecord(
@@ -170,13 +260,14 @@ final class DealStore {
             inValue: totals.inValue, outValue: totals.outValue, balance: totals.balance, profit: totals.profit,
             equity: totals.equity, ahead: totals.ahead, uncosted: totals.uncosted,
             items: deal.incoming.count + deal.outgoing.count, lines: lines,
-            photos: deal.photos.isEmpty ? nil : deal.photos
+            photos: deal.photos.isEmpty ? nil : deal.photos,
+            notes: notes.isEmpty ? nil : notes
         )
         log = Array(([record] + log).prefix(500))
         deal = DealState()
         saveTask?.cancel()
         if saving, let userId {
-            try? await UserState.save("deals", log, userId: userId)
+            await saveLog()
             try? await UserState.save("deal", deal, userId: userId)
         }
         return totals

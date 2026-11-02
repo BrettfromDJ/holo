@@ -164,3 +164,70 @@ export function roundedCash(balance: number): number | null {
 function round2(n: number) {
   return Math.round(n * 100) / 100;
 }
+
+/* ------------------------- Parked deals and history ------------------------- */
+
+/** "Deal at 3:42 PM": the name a parked deal gets when you don't type one. */
+export function parkedDealName(at: Date): string {
+  const h = at.getHours();
+  const m = at.getMinutes();
+  return `Deal at ${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
+}
+
+/** What a closed deal keeps that the history's day totals and search read. */
+export interface DealHistoryRecord extends DealRecordTotals {
+  at: string;
+  /** Positive: the customer paid you. Negative: you paid the customer. */
+  balance: number;
+  notes?: string | null;
+  lines?: { product: { name: string } }[];
+}
+
+/** A day's closed deals in numbers: how many, cash in and out, net cash, how far ahead and sale profit. */
+export interface DealDayTotals {
+  deals: number;
+  /** Cash customers paid you. */
+  cashIn: number;
+  /** Cash you paid customers. */
+  cashOut: number;
+  /** Cash in less cash out. */
+  net: number;
+  /** How far ahead the day's deals left you, from the deals that know it; null when none do. */
+  ahead: number | null;
+  /** Sale profit, from the deals that have one; null when none do. */
+  profit: number | null;
+}
+
+export function dealDayTotals(records: DealHistoryRecord[]): DealDayTotals {
+  const cashIn = round2(records.reduce((s, r) => s + Math.max(0, r.balance), 0));
+  const cashOut = round2(records.reduce((s, r) => s + Math.max(0, -r.balance), 0));
+  const known = records.map(recordAhead).filter((n): n is number => n !== null);
+  const profits = records.map((r) => r.profit).filter((n): n is number => n !== null && n !== undefined);
+  return {
+    deals: records.length,
+    cashIn,
+    cashOut,
+    net: round2(cashIn - cashOut),
+    ahead: known.length ? round2(known.reduce((s, n) => s + n, 0)) : null,
+    profit: profits.length ? round2(profits.reduce((s, n) => s + n, 0)) : null,
+  };
+}
+
+/** Words a deal of each kind answers to in the history search. */
+const KIND_WORDS: Record<DealKind, string> = {
+  buy: "buy buying bought",
+  sell: "sale sell selling sold",
+  trade: "trade trading traded",
+  empty: "deal",
+};
+
+/**
+ * Whether a closed deal matches the history search: every word typed must be found in one of its
+ * cards' names, its notes, or its kind ("buy", "sale", "trade"). An empty search matches everything.
+ */
+export function matchesDealSearch(r: DealHistoryRecord, query: string): boolean {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return true;
+  const text = [...(r.lines ?? []).map((l) => l.product.name), r.notes ?? "", KIND_WORDS[r.kind]].join(" \n ").toLowerCase();
+  return words.every((w) => text.includes(w));
+}

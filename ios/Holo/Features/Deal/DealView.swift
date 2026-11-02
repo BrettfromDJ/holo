@@ -22,6 +22,10 @@ struct DealView: View {
     @AppStorage("holo.dealHintSeen") private var hintSeen = false
     /// A card in the deal, opened to see its full details in a sheet.
     @State private var detailItem: DealItem?
+    /// Parking the deal: asks for an optional name first.
+    @State private var parking = false
+    @State private var parkName = ""
+    @State private var parkedList = false
 
     private var rates: (in: Double, out: Double) { deals.rates }
     private var defaultRates: (in: Double, out: Double) {
@@ -67,6 +71,7 @@ struct DealView: View {
                                 .transition(.opacity.combined(with: .move(edge: .top)))
                         }
                         if !todays.isEmpty { TodayStrip(deals: todays) { path.append(DealRoute.history) } }
+                        if !deals.parked.isEmpty { ParkedChip(count: deals.parked.count) { parkedList = true } }
                         BalanceCard(totals: totals, roundTo: roundTarget(totals), onRound: roundCash)
                             // Reports only when it crosses the top, not on every scroll frame.
                             .onGeometryChange(for: Bool.self) { $0.frame(in: .global).maxY < 150 } action: { gone in
@@ -76,6 +81,7 @@ struct DealView: View {
                     side(.incoming, totals: totals, accent: accent).reveal()
                     side(.outgoing, totals: totals, accent: accent).reveal()
                     photosSection(accent: accent).reveal()
+                    notesSection(accent: accent).reveal()
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
@@ -127,7 +133,20 @@ struct DealView: View {
             .navigationDestination(for: DealRoute.self) { _ in DealHistoryView() }
             .navigationDestination(for: DealRecord.self) { DealRecordDetail(recordId: $0.id) }
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
-            .sheet(isPresented: $customer) { CustomerViewSheet(deal: deals.deal, rates: rates, totals: totals) }
+            .fullScreenCover(isPresented: $customer) { CustomerViewSheet(deal: deals.deal, rates: rates, totals: totals) }
+            .sheet(isPresented: $parkedList) { ParkedDealsSheet() }
+            .alert("Park this deal", isPresented: $parking) {
+                TextField(ParkedDeal.defaultName(), text: $parkName)
+                Button("Cancel", role: .cancel) { parkName = "" }
+                Button("Park") {
+                    let name = parkName
+                    parkName = ""
+                    withAnimation(.snappy) { deals.park(name: name) }
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                }
+            } message: {
+                Text("Set it aside with its photos and notes, and start a fresh one. Pick it back up from Parked.")
+            }
             .sheet(item: $detailItem) { item in
                 // The card's full page (prices, history, eBay sales, graded values) in a sheet,
                 // so the deal stays right where it was underneath.
@@ -187,6 +206,9 @@ struct DealView: View {
                 Task { for p in photos { await DealPhotos.delete(p) } }
             }
             .buttonStyle(Button3D(kind: .dark, fullWidth: false, height: 48))
+            Button { parking = true } label: { Image(systemName: "bookmark") }
+                .buttonStyle(Button3D(kind: .dark, fullWidth: false, height: 48))
+                .accessibilityLabel("Park this deal to finish later")
             Button { confirming = true } label: {
                 Text(unpriced ? "Price every item to close" : "Close \(deals.deal.kind.noun.lowercased())")
                     .frame(maxWidth: .infinity)
@@ -258,6 +280,21 @@ struct DealView: View {
         }
     }
 
+    // MARK: Notes
+
+    /// Your own notes on the deal (who it was with, how they paid); kept with it when it closes.
+    private func notesSection(accent: Color) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "note.text").font(.system(size: 14, weight: .bold)).foregroundStyle(accent)
+                Text("Notes").font(.display(24)).tracking(-0.6).displayTrim(24)
+            }
+            DealNotesField(notes: deals.deal.notes, prompt: "Who it was with, how they paid, anything to remember", accent: accent) { text in
+                deals.update { $0.notes = text.isEmpty ? nil : text }
+            }
+        }
+    }
+
     // MARK: A side of the deal
 
     @ViewBuilder private func side(_ side: DealSide, totals: DealTotals, accent: Color) -> some View {
@@ -304,6 +341,13 @@ struct DealView: View {
                             if let i = d.incoming.firstIndex(where: { $0.key == item.key }) { d.incoming[i] = changed }
                         } else {
                             if let i = d.outgoing.firstIndex(where: { $0.key == item.key }) { d.outgoing[i] = changed }
+                        }
+                    }
+                }
+                .swipeToRemove(item.product.name) {
+                    withAnimation(.snappy) {
+                        deals.update { d in
+                            if incoming { d.incoming.removeAll { $0.key == item.key } } else { d.outgoing.removeAll { $0.key == item.key } }
                         }
                     }
                 }
@@ -964,7 +1008,9 @@ private struct DealItemCard: View {
     }
 }
 
-/// What the customer sees: items and prices, no market, costs or margins.
+/// What the customer sees, full screen and calm: their cards (what they hand you, what they
+/// get), each at the price you're paying or charging, and the cash, big. Never market prices,
+/// rates, your costs, profit or value gained.
 private struct CustomerViewSheet: View {
     var deal: DealState
     var rates: (in: Double, out: Double)
@@ -972,45 +1018,311 @@ private struct CustomerViewSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationStack {
+        let b = totals.balance
+        let even = abs(b) < 0.005
+        ZStack(alignment: .topTrailing) {
+            Theme.background.ignoresSafeArea()
             ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    if !deal.incoming.isEmpty { list("You're bringing", deal.incoming, rates.in) }
-                    if !deal.outgoing.isEmpty { list("You're taking home", deal.outgoing, rates.out) }
-                    let even = abs(totals.balance) < 0.005
-                    VStack(spacing: 8) {
-                        MonoLabel(text: even ? "Straight swap" : (totals.balance > 0 ? "You pay" : "We pay you"))
-                        Text(Format.money(abs(totals.balance))).font(.display(56)).tracking(-2.2).monospacedDigit().displayTrim(56)
+                VStack(alignment: .leading, spacing: 36) {
+                    if !deal.incoming.isEmpty { list("You hand us", deal.incoming, rates.in, total: totals.inValue) }
+                    if !deal.outgoing.isEmpty { list("You get", deal.outgoing, rates.out, total: totals.outValue) }
+                    VStack(spacing: 10) {
+                        Text(even ? "Even swap" : (b > 0 ? "You pay" : "We pay you"))
+                            .font(.display(30)).tracking(-0.8).foregroundStyle(.white)
+                        if even {
+                            Text("No cash changes hands").font(.geist(18)).foregroundStyle(Theme.muted)
+                        } else {
+                            Text(Format.money(abs(b))).font(.display(76)).tracking(-3).monospacedDigit().foregroundStyle(.white)
+                                .lineLimit(1).minimumScaleFactor(0.5).displayTrim(76)
+                        }
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 24)
-                    .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Theme.surface))
+                    .padding(.vertical, 32)
+                    .padding(.horizontal, 20)
+                    .background(RoundedRectangle(cornerRadius: 26, style: .continuous).fill(Color.white.opacity(0.06)))
                 }
-                .padding(16)
+                .padding(.horizontal, 20)
+                .padding(.top, 64)
+                .padding(.bottom, 40)
             }
-            .background(Theme.background)
-            .navigationTitle("Your deal")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            Button("Done") { dismiss() }
+                .font(.geist(16, .semibold)).foregroundStyle(.white)
+                .padding(.horizontal, 18).frame(height: 40)
+                .liquidGlass(in: Capsule())
+                .padding(.trailing, 16).padding(.top, 8)
         }
+        .preferredColorScheme(.dark)
     }
 
-    private func list(_ title: String, _ items: [DealItem], _ rate: Double) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            MonoLabel(text: title)
+    private func list(_ title: String, _ items: [DealItem], _ rate: Double, total: Double) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(title).font(.display(28)).tracking(-0.7).foregroundStyle(.white)
+                Spacer(minLength: 8)
+                Text(Format.money(total)).font(.geist(18, .medium)).monospacedDigit().foregroundStyle(Theme.muted)
+            }
+            .padding(.bottom, 8)
             ForEach(items) { i in
-                HStack(spacing: 12) {
-                    HoldingArt(product: i.product, identity: nil, cornerRadius: 3, caption: false).frame(width: 40, height: 56)
-                    (Text(i.product.name) + Text(i.qty > 1 ? " × \(i.qty)" : "").foregroundColor(Theme.muted))
-                        .font(.geist(15, .medium))
+                HStack(spacing: 16) {
+                    HoldingArt(product: i.product, identity: nil, cornerRadius: 4, caption: false).frame(width: 56, height: 78)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(i.product.name).font(.geist(19, .medium)).foregroundStyle(.white)
+                            .lineLimit(3).fixedSize(horizontal: false, vertical: true)
+                        if i.qty > 1 {
+                            Text("\(i.qty) × \(Format.money(i.unitPrice(side: rate)))").font(.geist(15)).monospacedDigit().foregroundStyle(Theme.muted)
+                        }
+                    }
                     Spacer(minLength: 8)
-                    Text(Format.money(i.total(side: rate))).font(.geist(16, .semibold)).monospacedDigit()
+                    Text(Format.money(i.total(side: rate))).font(.geist(22, .semibold)).monospacedDigit().foregroundStyle(.white)
+                        .lineLimit(1).fixedSize()
                 }
+                .padding(.vertical, 10)
+                if i.id != items.last?.id { Divider().overlay(Color.white.opacity(0.1)) }
             }
         }
     }
 }
 
+/// A deal's notes: one line until you tap in, then room to write. Saves a moment after you stop
+/// typing and when you leave the field.
+struct DealNotesField: View {
+    var notes: String?
+    var prompt: String
+    var accent: Color = Theme.lime
+    var onCommit: (String) -> Void
+    @State private var text = ""
+    @State private var committed: String?
+    @State private var pending: Task<Void, Never>?
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        TextField("", text: $text, prompt: Text(prompt).foregroundColor(Theme.subtle), axis: .vertical)
+            .font(.geist(15))
+            .foregroundStyle(.white)
+            .lineLimit(focused ? 3 ... 8 : 1 ... 1)
+            .focused($focused)
+            .padding(.horizontal, 14).padding(.vertical, 12)
+            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.surface))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(focused ? accent.opacity(0.6) : Theme.border))
+            .contentShape(Rectangle())
+            .onTapGesture { focused = true }
+            .onAppear { text = notes ?? "" }
+            .onChange(of: text) { _, value in
+                pending?.cancel()
+                pending = Task {
+                    try? await Task.sleep(nanoseconds: 600_000_000)
+                    guard !Task.isCancelled else { return }
+                    commit(value)
+                }
+            }
+            .onChange(of: focused) { _, on in
+                if !on {
+                    pending?.cancel()
+                    commit(text)
+                }
+            }
+            // Changed elsewhere (cleared, parked, resumed, or on the website): show that instead.
+            .onChange(of: notes) { _, value in
+                let incoming = value ?? ""
+                guard incoming != (committed ?? ""), incoming != text.trimmingCharacters(in: .whitespacesAndNewlines) else { return }
+                pending?.cancel()
+                committed = incoming
+                text = incoming
+            }
+            .onDisappear {
+                pending?.cancel()
+                commit(text)
+            }
+    }
+
+    private func commit(_ value: String) {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed != (notes ?? "").trimmingCharacters(in: .whitespacesAndNewlines) else { return }
+        committed = trimmed
+        onCommit(trimmed)
+    }
+}
+
+/// "Parked (2)": deals set aside, one tap from the list.
+private struct ParkedChip: View {
+    var count: Int
+    var onOpen: () -> Void
+
+    var body: some View {
+        Button(action: onOpen) {
+            HStack(spacing: 8) {
+                Image(systemName: "bookmark.fill").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.lime)
+                Text("Parked").foregroundStyle(.white)
+                Text("(\(count))").foregroundStyle(Theme.muted)
+                Image(systemName: "chevron.right").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.subtle)
+            }
+            .font(.geist(13, .semibold)).monospacedDigit()
+            .padding(.horizontal, 14)
+            .frame(height: 36)
+            .liquidGlass(in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Parked deals, \(count)")
+    }
+}
+
+/// Deals set aside: resume one (an open deal is parked first, after asking) or delete it.
+private struct ParkedDealsSheet: View {
+    @Environment(DealStore.self) private var deals
+    @Environment(\.dismiss) private var dismiss
+    @State private var asking: ParkedDeal?
+    @State private var deleting: ParkedDeal?
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text("Parked deals").font(.display(28)).tracking(-0.7)
+                        Spacer()
+                        Button("Done") { dismiss() }.font(.geist(16, .semibold)).foregroundStyle(.white)
+                    }
+                    Text("Deals you set aside to finish later, here or on the website.").font(.geist(13)).foregroundStyle(Theme.muted)
+                        .padding(.bottom, 6)
+                    if deals.parked.isEmpty {
+                        Text("Nothing parked.").font(.geist(14)).foregroundStyle(Theme.muted).padding(.top, 30)
+                            .frame(maxWidth: .infinity)
+                    }
+                    ForEach(deals.parked) { entry in row(entry) }
+                }
+                .padding(16)
+            }
+            .toolbar(.hidden, for: .navigationBar)
+        }
+        .presentationDetents([.medium, .fraction(0.93)])
+        .glassSheet()
+        .confirmationDialog("You have a deal open", isPresented: Binding(get: { asking != nil }, set: { if !$0 { asking = nil } }), titleVisibility: .visible, presenting: asking) { entry in
+            Button("Park it and resume \(entry.name)") { resume(entry) }
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            Text("It's parked first, so nothing is lost.")
+        }
+        .confirmationDialog("Delete this parked deal?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible, presenting: deleting) { entry in
+            Button("Delete \(entry.name)", role: .destructive) { withAnimation(.snappy) { deals.deleteParked(entry) } }
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            Text("Its photos are deleted too.")
+        }
+    }
+
+    private func row(_ entry: ParkedDeal) -> some View {
+        let state = entry.state
+        let items = state.incoming + state.outgoing
+        let count = items.reduce(0) { $0 + $1.qty }
+        return HStack(spacing: 12) {
+            ZStack {
+                if items.isEmpty {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Theme.well).frame(width: 40, height: 56)
+                }
+                ForEach(Array(items.prefix(3).enumerated()), id: \.offset) { i, item in
+                    let off = Double(i) - Double(min(items.count, 3) - 1) / 2
+                    HoldingArt(product: item.product, identity: nil, cornerRadius: 3, caption: false)
+                        .frame(width: 40, height: 56)
+                        .rotationEffect(.degrees(off * 9), anchor: .bottom)
+                        .offset(x: off * 10)
+                }
+            }
+            .frame(width: 64, height: 62)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(entry.name).font(.geist(15, .semibold)).foregroundStyle(.white).lineLimit(1)
+                Text("\(state.kind.noun) · \(count) item\(count == 1 ? "" : "s") · \(entry.date.formatted(date: .abbreviated, time: .shortened))")
+                    .font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1).minimumScaleFactor(0.85)
+            }
+            Spacer(minLength: 6)
+            Button { deleting = entry } label: {
+                Image(systemName: "trash").font(.system(size: 14, weight: .medium)).foregroundStyle(Theme.subtle).frame(width: 34, height: 34)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Delete \(entry.name)")
+            Button("Resume") {
+                if deals.deal.hasContent { asking = entry } else { resume(entry) }
+            }
+            .buttonStyle(Button3D(kind: .lime, fullWidth: false, height: 38))
+        }
+        .padding(12)
+        .sheetPanel(radius: 18)
+    }
+
+    private func resume(_ entry: ParkedDeal) {
+        withAnimation(.snappy) { deals.resume(entry) }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        dismiss()
+    }
+}
+
+/// Swipe a deal card left to show a pink Remove button behind it; swipe back, or tap the card,
+/// to close it. Only the card's offset moves while you drag. The trash icon on the card still works.
+private struct SwipeToRemove: ViewModifier {
+    var name: String
+    var onRemove: () -> Void
+    @State private var dragX: CGFloat = 0
+    @State private var open = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private let reveal: CGFloat = 92
+
+    func body(content: Content) -> some View {
+        let x = min(0, max(-reveal * 1.35, (open ? -reveal : 0) + dragX))
+        content
+            .overlay {
+                // While open, a tap anywhere on the card closes it instead of acting on it.
+                if open {
+                    Color.clear.contentShape(Rectangle()).onTapGesture { snap(false) }
+                }
+            }
+            .offset(x: x)
+            .background(alignment: .trailing) {
+                Button {
+                    snap(false)
+                    onRemove()
+                } label: {
+                    VStack(spacing: 5) {
+                        Image(systemName: "trash.fill").font(.system(size: 16, weight: .bold))
+                        Text("Remove").font(.geist(12, .semibold))
+                    }
+                    .foregroundStyle(.white)
+                    .frame(width: reveal - 8)
+                    .frame(maxHeight: .infinity)
+                    .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.planPink))
+                }
+                .buttonStyle(.plain)
+                .opacity(x < -1 ? 1 : 0)
+                .accessibilityHidden(true)
+            }
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 18)
+                    .onChanged { g in
+                        // Only a sideways drag moves the card; an up-and-down one is the page scrolling.
+                        guard abs(g.translation.width) > abs(g.translation.height) * 1.3 else { return }
+                        dragX = g.translation.width
+                    }
+                    .onEnded { g in
+                        guard dragX != 0 else { return }
+                        let end = (open ? -reveal : 0) + g.predictedEndTranslation.width
+                        snap(end < -reveal / 2)
+                    }
+            )
+            .accessibilityAction(named: "Remove \(name)") { onRemove() }
+    }
+
+    private func snap(_ isOpen: Bool) {
+        withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) {
+            open = isOpen
+            dragX = 0
+        }
+    }
+}
+
+extension View {
+    /// Swipe left to reveal a Remove button (see SwipeToRemove).
+    fileprivate func swipeToRemove(_ name: String, onRemove: @escaping () -> Void) -> some View {
+        modifier(SwipeToRemove(name: name, onRemove: onRemove))
+    }
+}
 
 /// The one-time hint on an empty Deal tab.
 private struct DealHint: View {

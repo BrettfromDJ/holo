@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_RATES, aheadTitle, dealKind, dealTotals, defaultSideRates, recordAhead, unitPrice } from "./deal";
+import { DEFAULT_RATES, aheadTitle, dealDayTotals, dealKind, dealTotals, defaultSideRates, matchesDealSearch, parkedDealName, recordAhead, unitPrice, type DealHistoryRecord } from "./deal";
 
 describe("deal maker", () => {
   it("names the deal from its sides", () => {
@@ -102,5 +102,41 @@ describe("deal maker", () => {
     expect(recordAhead({ kind: "buy", profit: null, equity: 45 })).toBe(45);
     expect(recordAhead({ kind: "sell", profit: -20, equity: 0 })).toBe(-20);
     expect(recordAhead({ kind: "trade", profit: null, equity: 40 })).toBeNull();
+  });
+});
+
+describe("parked deals and history", () => {
+  it("names a parked deal after the time it was parked", () => {
+    expect(parkedDealName(new Date(2026, 10, 2, 15, 42))).toBe("Deal at 3:42 PM");
+    expect(parkedDealName(new Date(2026, 10, 2, 0, 5))).toBe("Deal at 12:05 AM");
+    expect(parkedDealName(new Date(2026, 10, 2, 12, 0))).toBe("Deal at 12:00 PM");
+  });
+
+  const rec = (o: Partial<DealHistoryRecord>): DealHistoryRecord => ({ at: "2026-11-02T15:00:00.000Z", kind: "trade", balance: 0, profit: null, equity: 0, ...o });
+
+  it("totals a day's deals: cash both ways, net, ahead and profit", () => {
+    const t = dealDayTotals([
+      rec({ kind: "sell", balance: 120, profit: 40, ahead: 40, uncosted: 0 }),
+      rec({ kind: "buy", balance: -70, equity: 30, ahead: 30, uncosted: 0 }),
+      rec({ kind: "trade", balance: 25, profit: 10, equity: 5, ahead: null, uncosted: 1 }),
+    ]);
+    expect(t).toEqual({ deals: 3, cashIn: 145, cashOut: 70, net: 75, ahead: 70, profit: 50 });
+  });
+
+  it("leaves ahead and profit unknown when no deal knows them", () => {
+    const t = dealDayTotals([rec({ kind: "trade", balance: 0, ahead: null, uncosted: 2 })]);
+    expect(t.ahead).toBeNull();
+    expect(t.profit).toBeNull();
+    expect(t.net).toBe(0);
+  });
+
+  it("searches card names, notes and kind", () => {
+    const r = rec({ kind: "sell", notes: "Paid by Venmo", lines: [{ product: { name: "Charizard ex" } }, { product: { name: "Umbreon VMAX" } }] });
+    expect(matchesDealSearch(r, "")).toBe(true);
+    expect(matchesDealSearch(r, "charizard")).toBe(true);
+    expect(matchesDealSearch(r, "venmo")).toBe(true);
+    expect(matchesDealSearch(r, "sale umbreon")).toBe(true);
+    expect(matchesDealSearch(r, "trade")).toBe(false);
+    expect(matchesDealSearch(r, "pikachu")).toBe(false);
   });
 });

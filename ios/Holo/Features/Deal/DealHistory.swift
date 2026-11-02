@@ -504,10 +504,17 @@ extension DealRecord.Line.Item {
 struct DealHistoryView: View {
     @Environment(DealStore.self) private var deals
     @State private var filter: DealKind? = nil
+    /// Search by card name, notes or kind; only days with a match show.
+    @State private var query = ""
+    @FocusState private var searchFocused: Bool
 
     private static let filters: [(DealKind?, String)] = [(nil, "All"), (DealKind.buy, "Buys"), (DealKind.sell, "Sales"), (DealKind.trade, "Trades")]
 
-    private var shown: [DealRecord] { filter.map { k in deals.log.filter { $0.kind == k } } ?? deals.log }
+    private var shown: [DealRecord] {
+        let byKind = filter.map { k in deals.log.filter { $0.kind == k } } ?? deals.log
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        return q.isEmpty ? byKind : byKind.filter { $0.matches(search: q) }
+    }
 
     private static func days(_ shown: [DealRecord]) -> [(day: String, records: [DealRecord])] {
         let grouped = Dictionary(grouping: shown) { Format.day($0.date) }
@@ -523,6 +530,13 @@ struct DealHistoryView: View {
                 if deals.log.isEmpty {
                     empty
                 } else {
+                    VStack(alignment: .leading, spacing: 16) {
+                        HoloSearchField(text: $query, prompt: "Search cards, notes, buy, sale, trade", focus: $searchFocused)
+                        let todays = deals.log.filter { Calendar.current.isDateInToday($0.date) }
+                        if !todays.isEmpty && query.trimmingCharacters(in: .whitespaces).isEmpty {
+                            TodaySummaryCard(totals: DealDayTotals(todays))
+                        }
+                    }
                     hero(shown)
                     if let best = shown.filter({ ($0.aheadTotal ?? 0) > 0 }).max(by: { ($0.aheadTotal ?? 0) < ($1.aheadTotal ?? 0) }), shown.count > 1 {
                         NavigationLink(value: best) { BestDealCard(record: best) }.buttonStyle(.plain).reveal()
@@ -530,7 +544,9 @@ struct DealHistoryView: View {
                     VStack(alignment: .leading, spacing: 26) {
                         ChipPicker(options: Self.filters, selection: $filter)
                         if days.isEmpty {
-                            Text("No \(filter.map { $0.noun.lowercased() } ?? "deal")s yet.").font(.geist(14)).foregroundStyle(Theme.muted)
+                            let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+                            Text(q.isEmpty ? "No \(filter.map { $0.noun.lowercased() } ?? "deal")s yet." : "No deals match \u{201C}\(q)\u{201D}.")
+                                .font(.geist(14)).foregroundStyle(Theme.muted)
                         }
                         ForEach(days, id: \.day) { group in daySection(group.day, group.records).reveal() }
                     }
@@ -541,6 +557,7 @@ struct DealHistoryView: View {
             .padding(.top, 8)
             .padding(.bottom, 40)
         }
+        .scrollDismissesKeyboard(.interactively)
         .imageMaxPixel(360)
         // The lit grid sits behind the whole page (full width, under the bar), not just the numbers.
         .background {
@@ -608,18 +625,20 @@ struct DealHistoryView: View {
     // MARK: Days
 
     private func daySection(_ day: String, _ records: [DealRecord]) -> some View {
-        let known = records.compactMap(\.aheadTotal)
-        let ahead = known.reduce(0, +)
+        let t = DealDayTotals(records)
         let date = Format.isoDay.date(from: day)
         let title = date.map { Calendar.current.isDateInToday($0) ? "Today" : (Calendar.current.isDateInYesterday($0) ? "Yesterday" : $0.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())) } ?? day
         return VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(title).font(.display(24)).tracking(-0.6)
-                MonoLabel(text: "\(records.count) deal\(records.count == 1 ? "" : "s")")
-                Spacer()
-                if !known.isEmpty {
-                    Text(Format.signedMoney(ahead)).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(ahead))
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Text(title).font(.display(24)).tracking(-0.6)
+                    MonoLabel(text: "\(t.deals) deal\(t.deals == 1 ? "" : "s")")
+                    Spacer()
+                    if let ahead = t.ahead {
+                        Text(Format.signedMoney(ahead)).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(ahead))
+                    }
                 }
+                DayFigures(totals: t)
             }
             VStack(spacing: 12) {
                 ForEach(records) { r in
@@ -627,6 +646,83 @@ struct DealHistoryView: View {
                 }
             }
         }
+    }
+}
+
+/// A day's figures under its heading, wrapping as needed: cash in and out, net cash, sale profit.
+/// (How far ahead sits on the heading's right.) Only the numbers are colored.
+private struct DayFigures: View {
+    var totals: DealDayTotals
+
+    var body: some View {
+        let t = totals
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) { figures(t) }
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 12) {
+                    figure("Cash in", Format.money(t.cashIn), .white)
+                    figure("Cash out", Format.money(t.cashOut), .white)
+                }
+                HStack(spacing: 12) {
+                    figure("Net cash", Format.signedMoney(t.net), Theme.tone(t.net))
+                    if let p = t.profit { figure("Sale profit", Format.signedMoney(p), Theme.tone(p)) }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private func figures(_ t: DealDayTotals) -> some View {
+        figure("Cash in", Format.money(t.cashIn), .white)
+        figure("Cash out", Format.money(t.cashOut), .white)
+        figure("Net cash", Format.signedMoney(t.net), Theme.tone(t.net))
+        if let p = t.profit { figure("Sale profit", Format.signedMoney(p), Theme.tone(p)) }
+    }
+
+    private func figure(_ label: String, _ value: String, _ tint: Color) -> some View {
+        (Text(label + " ").foregroundColor(Theme.muted) + Text(value).foregroundColor(tint))
+            .font(.geist(12, .medium)).monospacedDigit().lineLimit(1).fixedSize()
+    }
+}
+
+/// Today's deals on a card at the top of the history: how many, cash in and out, net cash, how
+/// far ahead and sale profit.
+private struct TodaySummaryCard: View {
+    var totals: DealDayTotals
+
+    var body: some View {
+        let t = totals
+        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                MonoLabel(text: "Today")
+                Spacer()
+                Text("\(t.deals) deal\(t.deals == 1 ? "" : "s")").font(.geist(13, .semibold)).foregroundStyle(.white)
+            }
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], alignment: .leading, spacing: 14) {
+                stat("Cash in", Format.money(t.cashIn), .white)
+                stat("Cash out", Format.money(t.cashOut), .white)
+                stat("Net cash", Format.signedMoney(t.net), Theme.tone(t.net))
+                stat((t.ahead ?? 0) < 0 ? "Behind" : "Ahead", t.ahead.map { Format.signedMoney($0) } ?? "—", t.ahead.map { Theme.tone($0) } ?? Theme.muted)
+                stat("Sale profit", t.profit.map { Format.signedMoney($0) } ?? "—", t.profit.map { Theme.tone($0) } ?? Theme.muted)
+            }
+        }
+        .padding(16)
+        .background {
+            ZStack {
+                shape.fill(Color(hex: 0x070707))
+                GridPattern(step: 28, opacity: 0.05)
+            }
+            .clipShape(shape)
+        }
+        .overlay(shape.strokeBorder(Theme.border))
+    }
+
+    private func stat(_ label: String, _ value: String, _ tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            MonoLabel(text: label)
+            Text(value).font(.geist(16, .semibold)).monospacedDigit().foregroundStyle(tint).lineLimit(1).minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -836,6 +932,13 @@ struct DealRecordDetail: View {
                             .font(.geist(13)).foregroundStyle(Theme.muted)
                     }
                     VStack(alignment: .leading, spacing: 12) {
+                        Text("Notes").font(.display(22)).tracking(-0.6)
+                        DealNotesField(notes: r.notes, prompt: "Add a note") { text in
+                            deals.setNotes(text, forRecord: r.id)
+                        }
+                    }
+                    .reveal()
+                    VStack(alignment: .leading, spacing: 12) {
                         HStack(alignment: .firstTextBaseline, spacing: 10) {
                             Text("Photos").font(.display(22)).tracking(-0.6)
                             MonoLabel(text: "\(r.photos?.count ?? 0)")
@@ -852,6 +955,7 @@ struct DealRecordDetail: View {
             }
         }
         .background(Theme.background)
+        .scrollDismissesKeyboard(.interactively)
         // Room under the last section so Add photos clears the tab bar.
         .tabBarClearance()
         .replaysAnimations()

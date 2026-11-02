@@ -148,11 +148,13 @@ struct DealState: Codable, Equatable {
     var rateOut: Double?
     /// Photos documenting the deal (storage paths, see DealPhotos).
     var photos: [String] = []
+    /// Your own notes on the deal; copied into the record when it closes.
+    var notes: String?
 
     enum CodingKeys: String, CodingKey {
         case incoming = "in"
         case outgoing = "out"
-        case rateIn, rateOut, photos
+        case rateIn, rateOut, photos, notes
     }
 
     init() {}
@@ -164,6 +166,7 @@ struct DealState: Codable, Equatable {
         rateIn = try c.decodeIfPresent(Double.self, forKey: .rateIn)
         rateOut = try c.decodeIfPresent(Double.self, forKey: .rateOut)
         photos = try c.decodeIfPresent([String].self, forKey: .photos) ?? []
+        notes = try c.decodeIfPresent(String.self, forKey: .notes)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -173,6 +176,12 @@ struct DealState: Codable, Equatable {
         try c.encode(rateIn, forKey: .rateIn)
         try c.encode(rateOut, forKey: .rateOut)
         if !photos.isEmpty { try c.encode(photos, forKey: .photos) }
+        if let notes, !notes.isEmpty { try c.encode(notes, forKey: .notes) }
+    }
+
+    /// Anything worth keeping: items, photos or notes.
+    var hasContent: Bool {
+        kind != .empty || !photos.isEmpty || !(notes ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var kind: DealKind {
@@ -269,6 +278,8 @@ struct DealRecord: Codable, Identifiable, Hashable {
     var lines: [Line]?
     /// Photos documenting the deal (storage paths, see DealPhotos).
     var photos: [String]? = nil
+    /// Your notes on the deal (from the open deal, editable on the closed deal's page).
+    var notes: String? = nil
 
     /// How far ahead this deal left you. Deals closed before it was recorded work it out from
     /// profit + value gained (a buy is all value gained); a newer one with it unknown stays unknown.
@@ -281,6 +292,73 @@ struct DealRecord: Codable, Identifiable, Hashable {
     }
 
     var date: Date { ISO8601DateFormatter.withFraction.date(from: at) ?? ISO8601DateFormatter().date(from: at) ?? Date() }
+}
+
+extension DealRecord {
+    /// Words a deal of each kind answers to in the history search (the same as the website's).
+    private var kindWords: String {
+        switch kind {
+        case .buy: return "buy buying bought"
+        case .sell: return "sale sell selling sold"
+        case .trade: return "trade trading traded"
+        case .empty: return "deal"
+        }
+    }
+
+    /// Whether this deal matches the history search: every word typed is found in one of its
+    /// cards' names, its notes, or its kind ("buy", "sale", "trade"). An empty search matches all.
+    func matches(search query: String) -> Bool {
+        let words = query.lowercased().split(whereSeparator: { $0.isWhitespace }).map(String.init)
+        guard !words.isEmpty else { return true }
+        let names = (lines ?? []).map(\.product.name)
+        let text = (names + [notes ?? "", kindWords]).joined(separator: " \n ").lowercased()
+        return words.allSatisfy { text.contains($0) }
+    }
+}
+
+/// A day's closed deals in numbers (the website's dealDayTotals): how many, cash in and out, net
+/// cash, how far ahead (from the deals that know it) and sale profit (from those that have one).
+struct DealDayTotals: Equatable {
+    var deals: Int
+    /// Cash customers paid you.
+    var cashIn: Double
+    /// Cash you paid customers.
+    var cashOut: Double
+    /// Cash in less cash out.
+    var net: Double
+    /// Nil when no deal that day knows it.
+    var ahead: Double?
+    /// Nil when no deal that day has one.
+    var profit: Double?
+
+    init(_ records: [DealRecord]) {
+        deals = records.count
+        cashIn = round2(records.reduce(0) { $0 + max(0, $1.balance) })
+        cashOut = round2(records.reduce(0) { $0 + max(0, -$1.balance) })
+        net = round2(cashIn - cashOut)
+        let known = records.compactMap(\.aheadTotal)
+        ahead = known.isEmpty ? nil : round2(known.reduce(0, +))
+        let profits = records.compactMap(\.profit)
+        profit = profits.isEmpty ? nil : round2(profits.reduce(0, +))
+    }
+}
+
+/// A deal set aside to finish later (user_state "deals-parked", shared with the website).
+struct ParkedDeal: Codable, Identifiable, Equatable {
+    var id: String
+    var name: String
+    var savedAt: String
+    var state: DealState
+
+    var date: Date { ISO8601DateFormatter.withFraction.date(from: savedAt) ?? ISO8601DateFormatter().date(from: savedAt) ?? Date() }
+
+    /// "Deal at 3:42 PM": the name a parked deal gets when you don't type one.
+    static func defaultName(at date: Date = Date(), calendar: Calendar = .current) -> String {
+        let h = calendar.component(.hour, from: date)
+        let m = calendar.component(.minute, from: date)
+        let hour = h % 12 == 0 ? 12 : h % 12
+        return "Deal at \(hour):\(m < 10 ? "0" : "")\(m) \(h < 12 ? "AM" : "PM")"
+    }
 }
 
 extension ISO8601DateFormatter {

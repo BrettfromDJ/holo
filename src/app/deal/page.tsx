@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, ArrowDownLeft, ArrowDownRight, ArrowUpRight, Camera, Check, ChevronDown, Eye, History, Info, Loader2, Minus, ScanLine, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowDownLeft, ArrowDownRight, ArrowUpRight, Bookmark, Camera, Check, ChevronDown, Eye, History, Info, Loader2, Minus, ScanLine, Plus, Search, SlidersHorizontal, StickyNote, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DealPhotos, deleteDealPhoto } from "@/components/deal/deal-photos";
@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Hint } from "@/components/ui/tooltip";
-import { DEFAULT_RATES, aheadTitle, dealKind, dealNet, dealTotals, dealVerdict, defaultSideRates, lineRate, recordAhead, roundedCash, showsEquity, unitPrice, type DealKind, type DealRates, type DealTotals } from "@/lib/deal";
+import { DEFAULT_RATES, aheadTitle, dealDayTotals, dealKind, dealNet, dealTotals, dealVerdict, defaultSideRates, lineRate, matchesDealSearch, parkedDealName, recordAhead, roundedCash, showsEquity, unitPrice, type DealDayTotals, type DealKind, type DealRates, type DealTotals } from "@/lib/deal";
 import { fifoCost } from "@/lib/finance/sell";
 import { money, pct, signedMoney } from "@/lib/format";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
@@ -31,6 +31,16 @@ interface DealState {
   rateOut: number | null;
   /** Photos documenting the deal (storage paths, shared with the app). */
   photos?: string[];
+  /** Your own notes on the deal (kept with it when it closes). */
+  notes?: string;
+}
+
+/** A deal set aside to finish later (user_state "deals-parked", shared with the app). */
+interface ParkedDeal {
+  id: string;
+  name: string;
+  savedAt: string;
+  state: DealState;
 }
 
 interface DealRecord {
@@ -50,6 +60,7 @@ interface DealRecord {
   /** What changed hands, for the history. Missing on deals closed before it was kept. */
   lines?: DealRecordLine[];
   photos?: string[];
+  notes?: string;
 }
 
 interface DealRecordLine {
@@ -94,6 +105,12 @@ export default function DealPage() {
   const [ratesStored, setRates] = useSyncedState<DealRates>("deal-rates", DEFAULT_RATES);
   const rates = { ...DEFAULT_RATES, ...ratesStored };
   const [log, setLog] = useSyncedState<DealRecord[]>("deals", []);
+  // Deals set aside to finish later. Edits are functional so ones made before the account's list
+  // loads are replayed on top of it (a failed load never saves over it).
+  const [parkedStored, setParked] = useSyncedState<ParkedDeal[]>("deals-parked", []);
+  const parked = parkedStored ?? [];
+  const [parking, setParking] = useState(false);
+  const [parkedOpen, setParkedOpen] = useState(false);
   const [picking, setPicking] = useState<DealSide | null>(null);
   const [ratesOpen, setRatesOpen] = useState(false);
   const [customer, setCustomer] = useState(false);
@@ -195,6 +212,30 @@ export default function DealPage() {
     setDeal(EMPTY);
   };
 
+  /** Anything worth keeping in the open deal: items, photos or notes. */
+  const hasDeal = kind !== "empty" || photos.length > 0 || Boolean(deal.notes?.trim());
+  const parkEntry = (state: DealState, name: string): ParkedDeal => ({ id: crypto.randomUUID(), name: name.trim() || parkedDealName(new Date()), savedAt: new Date().toISOString(), state: { ...EMPTY, ...state } });
+  /** Set the open deal aside (photos and notes go with it) and start a fresh one. */
+  const park = (name: string) => {
+    const entry = parkEntry(deal, name);
+    setParked((cur) => [entry, ...(cur ?? [])]);
+    setDeal(EMPTY);
+    setParking(false);
+    toast(`Parked “${entry.name}”`);
+  };
+  /** Pick a parked deal back up; an open one is parked first (the list asks before this runs). */
+  const resume = (p: ParkedDeal) => {
+    const current = hasDeal ? parkEntry(deal, "") : null;
+    setParked((cur) => [...(current ? [current] : []), ...(cur ?? []).filter((x) => x.id !== p.id)]);
+    setDeal({ ...EMPTY, ...p.state });
+    setParkedOpen(false);
+    toast(current ? `Parked the open deal and resumed “${p.name}”` : `Resumed “${p.name}”`);
+  };
+  const deleteParked = (p: ParkedDeal) => {
+    for (const path of p.state.photos ?? []) void deleteDealPhoto(path);
+    setParked((cur) => (cur ?? []).filter((x) => x.id !== p.id));
+  };
+
   const close = async () => {
     if (unpriced || kind === "empty") return;
     setClosing(true);
@@ -236,6 +277,7 @@ export default function DealPage() {
         items: deal.in.length + deal.out.length,
         lines: recordLines(deal, rate, tracked),
         photos: photos.length ? photos : undefined,
+        notes: deal.notes?.trim() || undefined,
       };
       setLog([record, ...log].slice(0, 500));
       setRecorded({ record, totals, deal });
@@ -269,6 +311,11 @@ export default function DealPage() {
       />
 
       {todays.length > 0 && <TodayStrip deals={todays} onOpen={() => setHistoryOpen(true)} />}
+      {parked.length > 0 && (
+        <button type="button" onClick={() => setParkedOpen(true)} className="mb-4 inline-flex items-center gap-2 rounded-full bg-surface px-3.5 py-1.5 text-[13px] font-semibold ring-1 ring-inset ring-border hover:bg-surface-2">
+          <Bookmark className="size-3.5 text-[var(--lime)]" /> Parked <span className="tabular text-muted">({parked.length})</span>
+        </button>
+      )}
 
       <Balance totals={totals} kind={kind} roundTo={roundTo} onRound={roundCash} />
 
@@ -303,6 +350,13 @@ export default function DealPage() {
         <DealPhotos photos={photos} onChange={setPhotos} className="mt-3 max-w-xl" />
       </section>
 
+      <section className="mt-8 max-w-xl">
+        <h2 className="flex items-center gap-2 font-display text-[18px] leading-none ">
+          <StickyNote className="size-5 text-[var(--lime)]" /> Notes
+        </h2>
+        <NotesField className="mt-3" value={deal.notes ?? ""} onChange={(v) => setDeal((cur) => ({ ...EMPTY, ...cur, notes: v || undefined }))} placeholder="Who it was with, how they paid, anything to remember" />
+      </section>
+
       {/* Close bar: pinned above the tab bar on phones. */}
       {kind !== "empty" && (
         <div className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 px-4 lg:static lg:mt-6 lg:px-0">
@@ -326,6 +380,9 @@ export default function DealPage() {
             <div className="flex gap-2">
               <Button variant="secondary" size="lg" onClick={clear}>
                 Clear
+              </Button>
+              <Button variant="secondary" size="lg" onClick={() => setParking(true)} aria-label="Park this deal to finish later">
+                <Bookmark /> <span className="hidden sm:inline">Park</span>
               </Button>
               <Button variant="lime" size="lg" className="flex-1" disabled={unpriced} onClick={() => setConfirming(true)}>
                 {unpriced ? "Price every item to close" : `Close ${KIND_NOUN[kind].toLowerCase()}`}
@@ -357,7 +414,15 @@ export default function DealPage() {
       </Dialog>
       <CloseDialog open={confirming} onOpenChange={setConfirming} kind={kind} totals={totals} deal={deal} rate={rate} effects={effects} closing={closing} onClose={() => void close()} />
       <RecordedDialog recorded={recorded} onDone={() => setRecorded(null)} />
-      <HistoryDialog open={historyOpen} onOpenChange={setHistoryOpen} deals={log} onPhotos={(id, next) => setLog(log.map((d) => (d.id === id ? { ...d, photos: next.length ? next : undefined } : d)))} />
+      <HistoryDialog
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        deals={log}
+        onPhotos={(id, next) => setLog((cur) => cur.map((d) => (d.id === id ? { ...d, photos: next.length ? next : undefined } : d)))}
+        onNotes={(id, next) => setLog((cur) => cur.map((d) => (d.id === id ? { ...d, notes: next.trim() || undefined } : d)))}
+      />
+      <ParkDialog open={parking} onOpenChange={setParking} onPark={park} />
+      <ParkedDialog open={parkedOpen} onOpenChange={setParkedOpen} parked={parked} hasDeal={hasDeal} onResume={resume} onDelete={deleteParked} />
       <CustomerView open={customer} onOpenChange={setCustomer} deal={deal} rate={rate} totals={totals} />
     </div>
   );
@@ -901,45 +966,185 @@ function RecordedDialog({ recorded, onDone }: { recorded: { record: DealRecord; 
 
 /* ----------------------------- Customer view ------------------------------ */
 
-/** What the customer sees: items and prices, no market, costs or margins. */
+/**
+ * What the customer sees, full screen and calm: their cards (what they hand you, what they get),
+ * each at the price you're paying or charging, and the cash, big. Never market prices, rates,
+ * your costs, profit or value gained.
+ */
 function CustomerView({ open, onOpenChange, deal, rate, totals }: { open: boolean; onOpenChange: (o: boolean) => void; deal: DealState; rate: { in: number; out: number }; totals: DealTotals }) {
-  const list = (items: DealItem[], r: number) =>
-    items.map((i) => (
-      <li key={i.key} className="flex items-center gap-3 py-2">
-        <ProductImage product={i.product} size="xs" className="h-14 w-10 shrink-0 rounded-md" />
-        <span className="min-w-0 flex-1 text-[15px] font-medium">
-          {i.product.name}
-          {i.qty > 1 && <span className="text-muted"> × {i.qty}</span>}
-        </span>
-        <span className="tabular shrink-0 text-[16px] font-semibold">{money((unitPrice(i, r) ?? 0) * i.qty)}</span>
-      </li>
-    ));
+  const list = (items: DealItem[], r: number) => (
+    <ul className="mt-3 divide-y divide-white/10">
+      {items.map((i) => (
+        <li key={i.key} className="flex items-center gap-4 py-3.5">
+          <ProductImage product={i.product} size="sm" className="h-20 w-14 shrink-0 rounded-md" />
+          <span className="min-w-0 flex-1 text-[18px] font-medium leading-snug sm:text-[20px]">
+            {i.product.name}
+            {i.qty > 1 && <span className="tabular block text-[15px] font-normal text-muted">{i.qty} × {money(unitPrice(i, r) ?? 0)}</span>}
+          </span>
+          <span className="tabular shrink-0 text-[22px] font-semibold sm:text-[24px]">{money((unitPrice(i, r) ?? 0) * i.qty)}</span>
+        </li>
+      ))}
+    </ul>
+  );
   const even = Math.abs(totals.balance) < 0.005;
+  const heading = (text: string, total: number) => (
+    <div className="flex items-baseline justify-between gap-4">
+      <h3 className="font-display text-[24px] leading-tight tracking-[-0.02em] sm:text-[28px]">{text}</h3>
+      <span className="tabular text-[18px] text-muted">{money(total)}</span>
+    </div>
+  );
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[560px]">
-        <DialogHeader>
-          <DialogTitle>Your deal</DialogTitle>
-          <DialogDescription>Turn the screen around to show the customer.</DialogDescription>
-        </DialogHeader>
-        <div className="flex-1 overflow-y-auto px-6 pb-6">
-          {deal.in.length > 0 && (
-            <>
-              <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.08em] text-subtle">You&apos;re bringing</p>
-              <ul className="divide-y divide-border">{list(deal.in, rate.in)}</ul>
-            </>
-          )}
-          {deal.out.length > 0 && (
-            <>
-              <p className="mt-5 font-mono text-[11px] uppercase tracking-[0.08em] text-subtle">You&apos;re taking home</p>
-              <ul className="divide-y divide-border">{list(deal.out, rate.out)}</ul>
-            </>
-          )}
-          <div className="mt-6 rounded-2xl bg-surface-2 p-5 text-center">
-            <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-subtle">{even ? "Straight swap" : totals.balance > 0 ? "You pay" : "We pay you"}</p>
-            <p className="hype-num tabular mt-1 text-[56px] leading-none">{money(Math.abs(totals.balance))}</p>
+      <DialogContent className="inset-0 h-[100dvh] max-h-none rounded-none border-0 bg-[#0b0b0c] sm:inset-0 sm:left-0 sm:top-0 sm:max-w-none sm:translate-x-0 sm:rounded-none">
+        <DialogTitle className="sr-only">Your deal</DialogTitle>
+        <DialogDescription className="sr-only">The deal, for the customer: their cards, the prices and the cash.</DialogDescription>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-10 pt-14">
+          <div className="mx-auto max-w-[640px] space-y-10">
+            {deal.in.length > 0 && <section>{heading("You hand us", totals.inValue)}{list(deal.in, rate.in)}</section>}
+            {deal.out.length > 0 && <section>{heading("You get", totals.outValue)}{list(deal.out, rate.out)}</section>}
+            <section className="rounded-3xl bg-white/[0.06] px-6 py-8 text-center">
+              <p className="font-display text-[28px] leading-tight tracking-[-0.02em] sm:text-[32px]">{even ? "Even swap" : totals.balance > 0 ? "You pay" : "We pay you"}</p>
+              {!even && <p className="tabular mt-2 font-display text-[72px] leading-none tracking-[-0.03em] sm:text-[96px]">{money(Math.abs(totals.balance))}</p>}
+              {even && <p className="mt-2 text-[18px] text-muted">No cash changes hands</p>}
+            </section>
           </div>
         </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ------------------------------ Parked deals ------------------------------ */
+
+/** A notes box that sits on one line until you click into it (or it holds more than a line). */
+function NotesField({ value, onChange, placeholder, className, onCommit }: { value: string; onChange: (v: string) => void; placeholder?: string; className?: string; onCommit?: () => void }) {
+  const [focused, setFocused] = useState(false);
+  const tall = focused || value.includes("\n") || value.length > 60;
+  return (
+    <textarea
+      value={value}
+      rows={tall ? 4 : 1}
+      placeholder={placeholder}
+      aria-label="Notes"
+      onFocus={() => setFocused(true)}
+      onBlur={() => {
+        setFocused(false);
+        onCommit?.();
+      }}
+      onChange={(e) => onChange(e.target.value)}
+      className={cn("block w-full resize-none rounded-2xl bg-surface px-3.5 py-2.5 text-[14px] leading-snug outline-none ring-1 ring-inset ring-border placeholder:text-subtle focus:ring-[var(--lime)]/60", className)}
+    />
+  );
+}
+
+/** Name the deal you're setting aside (or keep the time it was parked as its name). */
+function ParkDialog({ open, onOpenChange, onPark }: { open: boolean; onOpenChange: (o: boolean) => void; onPark: (name: string) => void }) {
+  const [name, setName] = useState("");
+  const fallback = parkedDealName(new Date());
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) setName("");
+        onOpenChange(o);
+      }}
+    >
+      <DialogContent className="sm:max-w-[420px]">
+        <DialogHeader>
+          <DialogTitle>Park this deal</DialogTitle>
+          <DialogDescription>Set it aside with its photos and notes, and start a fresh one. Pick it back up from Parked.</DialogDescription>
+        </DialogHeader>
+        <form
+          className="space-y-4 px-6 pb-6 pt-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            onPark(name);
+            setName("");
+          }}
+        >
+          <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={fallback} aria-label="Name" maxLength={80} className="h-11 w-full rounded-full bg-surface-2 px-4 text-[15px] outline-none ring-1 ring-inset ring-border focus:ring-[var(--lime)]/60" />
+          <div className="flex gap-2">
+            <Button type="button" variant="secondary" size="lg" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="lime" size="lg" className="flex-1">
+              Park deal
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Deals set aside: resume one (an open deal is parked first, after asking) or delete it. */
+function ParkedDialog({ open, onOpenChange, parked, hasDeal, onResume, onDelete }: { open: boolean; onOpenChange: (o: boolean) => void; parked: ParkedDeal[]; hasDeal: boolean; onResume: (p: ParkedDeal) => void; onDelete: (p: ParkedDeal) => void }) {
+  const [asking, setAsking] = useState<string | null>(null);
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) setAsking(null);
+        onOpenChange(o);
+      }}
+    >
+      <DialogContent className="sm:max-w-[480px]">
+        <DialogHeader>
+          <DialogTitle>Parked deals</DialogTitle>
+          <DialogDescription>Deals you set aside to finish later, here or in the app.</DialogDescription>
+        </DialogHeader>
+        <ul className="min-h-0 flex-1 divide-y divide-border overflow-y-auto px-6 pb-6">
+          {!parked.length && <li className="py-12 text-center text-[14px] text-muted">Nothing parked.</li>}
+          {parked.map((p) => {
+            const state = { ...EMPTY, ...p.state };
+            const items = [...state.in, ...state.out];
+            const count = items.reduce((s, i) => s + i.qty, 0);
+            const kind = dealKind(state.in.length, state.out.length);
+            return (
+              <li key={p.id} className="py-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex shrink-0 -space-x-3">
+                    {items.slice(0, 3).map((i) => (
+                      <ProductImage key={i.key} product={i.product} size="xs" className="h-12 w-[34px] rounded-md shadow-lg shadow-black/40" />
+                    ))}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[14px] font-semibold">{p.name}</p>
+                    <p className="truncate text-[12px] text-muted">
+                      {KIND_NOUN[kind]} · {count} item{count === 1 ? "" : "s"} · {new Date(p.savedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="icon" aria-label={`Delete ${p.name}`} onClick={() => onDelete(p)}>
+                    <Trash2 />
+                  </Button>
+                  <Button variant="secondary" onClick={() => (hasDeal ? setAsking(p.id) : onResume(p))}>
+                    Resume
+                  </Button>
+                </div>
+                {asking === p.id && (
+                  <div className="mt-2 rounded-2xl bg-surface-2 p-3">
+                    <p className="text-[13px]">You have a deal open. Park it first, then resume this one?</p>
+                    <div className="mt-2 flex gap-2">
+                      <Button variant="secondary" size="sm" onClick={() => setAsking(null)}>
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="lime"
+                        size="sm"
+                        onClick={() => {
+                          setAsking(null);
+                          onResume(p);
+                        }}
+                      >
+                        Park it and resume
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
       </DialogContent>
     </Dialog>
   );
@@ -958,17 +1163,36 @@ function recordLines(deal: DealState, rate: { in: number; out: number }, tracked
   return [...deal.in.map(line("in", rate.in)), ...deal.out.map(line("out", rate.out))];
 }
 
-/** Closed deals, newest first, grouped by day with each day's cash and profit. */
-function HistoryDialog({ open, onOpenChange, deals, onPhotos }: { open: boolean; onOpenChange: (o: boolean) => void; deals: DealRecord[]; onPhotos: (id: string, photos: string[]) => void }) {
+/** The local day a deal closed on, as YYYY-MM-DD. */
+const dayOf = (at: string) => new Date(at).toLocaleDateString("en-CA");
+
+/** Closed deals, newest first, grouped by day with each day's totals, a Today summary on top and a search. */
+function HistoryDialog({
+  open,
+  onOpenChange,
+  deals,
+  onPhotos,
+  onNotes,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  deals: DealRecord[];
+  onPhotos: (id: string, photos: string[]) => void;
+  onNotes: (id: string, notes: string) => void;
+}) {
   const [openId, setOpenId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const today = dayOf(new Date().toISOString());
+  const shown = useMemo(() => deals.filter((d) => matchesDealSearch(d, query)), [deals, query]);
   const days = useMemo(() => {
     const map = new Map<string, DealRecord[]>();
-    for (const d of deals) {
-      const day = new Date(d.at).toLocaleDateString("en-CA");
+    for (const d of shown) {
+      const day = dayOf(d.at);
       map.set(day, [...(map.get(day) ?? []), d]);
     }
     return [...map.entries()];
-  }, [deals]);
+  }, [shown]);
+  const todays = deals.filter((d) => dayOf(d.at) === today);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="h-[85dvh] sm:h-[640px] sm:max-w-[560px]">
@@ -977,27 +1201,27 @@ function HistoryDialog({ open, onOpenChange, deals, onPhotos }: { open: boolean;
           <DialogDescription>Every deal you&apos;ve closed here or in the app. The sales and purchases are also in Activity.</DialogDescription>
         </DialogHeader>
         <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
-          {!days.length && <p className="py-16 text-center text-[14px] text-muted">No closed deals yet.</p>}
+          {deals.length > 0 && (
+            <label className="relative mt-1 block">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-subtle" />
+              <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search cards, notes, buy, sale, trade" aria-label="Search closed deals" className="h-10 w-full rounded-full bg-surface-2 pl-10 pr-4 text-[14px] outline-none ring-1 ring-inset ring-border focus:ring-[var(--lime)]/60" />
+            </label>
+          )}
+          {todays.length > 0 && !query.trim() && <TodaySummary totals={dealDayTotals(todays)} />}
+          {!deals.length && <p className="py-16 text-center text-[14px] text-muted">No closed deals yet.</p>}
+          {deals.length > 0 && !days.length && <p className="py-16 text-center text-[14px] text-muted">No deals match “{query.trim()}”.</p>}
           {days.map(([day, list]) => {
-            const cash = list.reduce((s, d) => s + d.balance, 0);
-            const profit = list.reduce((s, d) => s + (d.profit ?? 0), 0);
-            const known = list.map(recordAhead).filter((n): n is number => n !== null);
-            const ahead = known.reduce((s, n) => s + n, 0);
+            const t = dealDayTotals(list);
             return (
-              <section key={day} className="mt-4 first:mt-1">
-                <div className="tabular flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-border pb-2">
-                  <h3 className="text-[14px] font-semibold">{new Date(`${day}T12:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}</h3>
-                  <p className="text-[12px] text-muted">
-                    {list.length} deal{list.length === 1 ? "" : "s"}
-                    {known.length > 0 && (
-                      <>
-                        {" "}
-                        · ahead <span className={cn("font-semibold", ahead >= 0 ? "text-up" : "text-down")}>{signedMoney(ahead)}</span>
-                      </>
-                    )}{" "}
-                    · cash{" "}
-                    <span className={cash >= 0 ? "text-up" : "text-down"}>{signedMoney(cash)}</span> · profit <span className={profit >= 0 ? "text-up" : "text-down"}>{signedMoney(profit)}</span>
-                  </p>
+              <section key={day} className="mt-5">
+                <div className="border-b border-border pb-2">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <h3 className="text-[14px] font-semibold">{day === today ? "Today" : new Date(`${day}T12:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}</h3>
+                    <span className="text-[12px] text-muted">
+                      {t.deals} deal{t.deals === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                  <DayFigures totals={t} className="mt-1" />
                 </div>
                 <ul className="divide-y divide-border">
                   {list.map((d) => {
@@ -1061,6 +1285,8 @@ function HistoryDialog({ open, onOpenChange, deals, onPhotos }: { open: boolean;
                             ) : (
                               <p className="mt-2 text-[12px] text-muted">Item details weren&apos;t kept for deals closed before they were recorded.</p>
                             )}
+                            <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.06em] text-subtle">Notes</p>
+                            <RecordNotes notes={d.notes ?? ""} onSave={(next) => onNotes(d.id, next)} />
                             <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.06em] text-subtle">Photos</p>
                             <DealPhotos photos={d.photos ?? []} onChange={(next) => onPhotos(d.id, next)} className="mt-1.5" />
                           </div>
@@ -1075,6 +1301,68 @@ function HistoryDialog({ open, onOpenChange, deals, onPhotos }: { open: boolean;
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** A day's numbers in one wrapping line: cash in and out, net cash, how far ahead, sale profit. */
+function DayFigures({ totals: t, className }: { totals: DealDayTotals; className?: string }) {
+  const tone = (n: number) => (n >= 0 ? "text-up" : "text-down");
+  const parts: { label: string; value: React.ReactNode }[] = [
+    { label: "Cash in", value: money(t.cashIn) },
+    { label: "Cash out", value: money(t.cashOut) },
+    { label: "Net cash", value: <span className={tone(t.net)}>{signedMoney(t.net)}</span> },
+    ...(t.ahead !== null ? [{ label: t.ahead < 0 ? "Behind" : "Ahead", value: <span className={tone(t.ahead)}>{signedMoney(t.ahead)}</span> }] : []),
+    ...(t.profit !== null ? [{ label: "Sale profit", value: <span className={tone(t.profit)}>{signedMoney(t.profit)}</span> }] : []),
+  ];
+  return (
+    <p className={cn("tabular flex flex-wrap gap-x-3 gap-y-0.5 text-[12px] text-muted", className)}>
+      {parts.map((p) => (
+        <span key={p.label}>
+          {p.label} <span className="font-semibold text-foreground">{p.value}</span>
+        </span>
+      ))}
+    </p>
+  );
+}
+
+/** Today's deals on a card at the top of the history: the count, then the day's figures. */
+function TodaySummary({ totals: t }: { totals: DealDayTotals }) {
+  const stats: { label: string; value: React.ReactNode }[] = [
+    { label: "Deals", value: String(t.deals) },
+    { label: "Cash in", value: money(t.cashIn) },
+    { label: "Cash out", value: money(t.cashOut) },
+    { label: "Net cash", value: <span className={t.net >= 0 ? "text-up" : "text-down"}>{signedMoney(t.net)}</span> },
+    { label: t.ahead !== null && t.ahead < 0 ? "Behind" : "Ahead", value: t.ahead === null ? <span className="text-subtle">—</span> : <span className={t.ahead >= 0 ? "text-up" : "text-down"}>{signedMoney(t.ahead)}</span> },
+    { label: "Sale profit", value: t.profit === null ? <span className="text-subtle">—</span> : <span className={t.profit >= 0 ? "text-up" : "text-down"}>{signedMoney(t.profit)}</span> },
+  ];
+  return (
+    <section className="mt-4 rounded-2xl bg-surface-2 p-4">
+      <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-subtle">Today</p>
+      <dl className="mt-2 grid grid-cols-3 gap-x-3 gap-y-2.5">
+        {stats.map((s) => (
+          <div key={s.label} className="min-w-0">
+            <dt className="font-mono text-[10px] uppercase tracking-[0.06em] text-subtle">{s.label}</dt>
+            <dd className="tabular mt-0.5 truncate text-[15px] font-semibold">{s.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
+/** A closed deal's notes, edited in place and saved when you click away. */
+function RecordNotes({ notes, onSave }: { notes: string; onSave: (notes: string) => void }) {
+  const [text, setText] = useState(notes);
+  return (
+    <NotesField
+      className="mt-1.5"
+      value={text}
+      onChange={setText}
+      placeholder="Add a note"
+      onCommit={() => {
+        if (text.trim() !== notes.trim()) onSave(text);
+      }}
+    />
   );
 }
 
