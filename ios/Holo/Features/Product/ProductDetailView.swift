@@ -262,7 +262,8 @@ struct ProductDetailView: View {
                 .frame(width: 250, height: 400)
             } else if product?.isSealed == false, product?.imageURL != nil {
                 HoloCard(foil: product?.isFoil == true, textured: false, cornerRadius: 12) {
-                    ProductImage(product: product, cornerRadius: 0).frame(width: 260, height: 363)
+                    // Rounded like a real card (about 5% of its width), so the scan's white corners don't show.
+                    ProductImage(product: product, cornerRadius: 13, large: true).frame(width: 260, height: 363)
                 }
             } else {
                 HoloCard(foil: false, textured: false, cornerRadius: 28, showsGlare: false) {

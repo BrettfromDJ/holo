@@ -8,10 +8,15 @@ struct ProductImage: View {
     var cornerRadius: CGFloat = 8
     /// Show the type and set under the silhouette (large tiles).
     var caption = false
+    /// Big on screen (the card page): ask for the catalog's large picture, falling back to the
+    /// usual one, and trim the faint edge some scans have.
+    var large = false
 
     var body: some View {
-        CachedImage(url: product?.imageURL) { image in
+        let big = large ? product?.largeImageURL : nil
+        CachedImage(url: big ?? product?.imageURL, fallback: big == nil ? nil : product?.imageURL) { image in
             image.resizable().aspectRatio(contentMode: .fit)
+                .scaleEffect(large ? 1.015 : 1)
         } placeholder: {
             Silhouette(product: product, showCaption: caption)
         }
@@ -26,6 +31,8 @@ struct ProductImage: View {
 /// placeholder only shows when there's no picture or it couldn't be downloaded.
 struct CachedImage<Content: View, Placeholder: View>: View {
     var url: URL?
+    /// Tried when `url` can't be loaded (e.g. a large version that doesn't exist).
+    var fallback: URL? = nil
     @ViewBuilder var content: (Image) -> Content
     @ViewBuilder var placeholder: () -> Placeholder
     /// Long lists set this (`.imageMaxPixel(…)`) so pictures are shrunk to thumbnail size off the
@@ -36,8 +43,9 @@ struct CachedImage<Content: View, Placeholder: View>: View {
     @State private var image: UIImage?
     @State private var failed = false
 
-    init(url: URL?, @ViewBuilder content: @escaping (Image) -> Content, @ViewBuilder placeholder: @escaping () -> Placeholder) {
+    init(url: URL?, fallback: URL? = nil, @ViewBuilder content: @escaping (Image) -> Content, @ViewBuilder placeholder: @escaping () -> Placeholder) {
         self.url = url
+        self.fallback = fallback
         self.content = content
         self.placeholder = placeholder
         _image = State(initialValue: url.flatMap { ImageCache.shared.cached($0) })
@@ -45,7 +53,9 @@ struct CachedImage<Content: View, Placeholder: View>: View {
 
     var body: some View {
         ZStack {
-            if let image = image ?? url.flatMap({ ImageCache.shared.cached($0, maxPixel: maxPixel) ?? ImageCache.shared.cached($0) }) {
+            // While a large version loads, show any copy of the usual picture already here.
+            if let image = image ?? url.flatMap({ ImageCache.shared.cached($0, maxPixel: maxPixel) ?? ImageCache.shared.cached($0) })
+                ?? fallback.flatMap({ ImageCache.shared.anyCached($0) }) {
                 content(Image(uiImage: image)).transition(.opacity)
             } else if url == nil || failed {
                 placeholder()
@@ -60,6 +70,7 @@ struct CachedImage<Content: View, Placeholder: View>: View {
             // full-size picture, as Collection shows it, instead of leaving the space empty.
             var loaded = await ImageCache.shared.load(url, maxPixel: maxPixel)
             if loaded == nil, maxPixel != nil { loaded = await ImageCache.shared.load(url) }
+            if loaded == nil, let fallback { loaded = await ImageCache.shared.load(fallback, maxPixel: maxPixel) }
             if let loaded {
                 withAnimation(.easeOut(duration: 0.3)) { image = loaded }
             } else {
@@ -87,6 +98,12 @@ final class ImageCache: @unchecked Sendable {
     }
 
     func cached(_ url: URL, maxPixel: CGFloat? = nil) -> UIImage? { memory.object(forKey: key(url, maxPixel) as NSURL) }
+
+    /// Any size of this picture already in memory: full size, or a thumbnail the app's lists use.
+    func anyCached(_ url: URL) -> UIImage? {
+        for px in [nil, 720, 600, 400, 360] as [CGFloat?] { if let hit = cached(url, maxPixel: px) { return hit } }
+        return nil
+    }
 
     func load(_ url: URL, maxPixel: CGFloat? = nil) async -> UIImage? {
         let cacheKey = key(url, maxPixel)

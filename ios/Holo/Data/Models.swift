@@ -47,6 +47,21 @@ struct Product: Codable, Identifiable, Hashable {
     }
     var imageURL: URL? { imageUrl.flatMap(URL.init(string:)) }
 
+    /// The catalog's large version of the picture, when its address follows a known pattern
+    /// (TCGplayer's CDN and pokemontcg.io serve small previews by default). Nil otherwise.
+    var largeImageURL: URL? {
+        guard let s = imageUrl else { return nil }
+        if s.contains("tcgplayer-cdn.tcgplayer.com/product/"),
+           let r = s.range(of: #"_(\d+w|in_\d+x\d+)\.jpg$"#, options: .regularExpression) {
+            let big = s.replacingCharacters(in: r, with: "_in_1000x1000.jpg")
+            return big == s ? nil : URL(string: big)
+        }
+        if s.contains("images.pokemontcg.io/"), s.hasSuffix(".png"), !s.hasSuffix("_hires.png") {
+            return URL(string: String(s.dropLast(4)) + "_hires.png")
+        }
+        return nil
+    }
+
     /// "Evolving Skies · #215/203"
     var subtitle: String {
         [setName, number.map { "#\($0)" }].compactMap { $0 }.joined(separator: " · ")
