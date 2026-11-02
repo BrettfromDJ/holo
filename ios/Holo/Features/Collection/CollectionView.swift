@@ -16,6 +16,8 @@ struct CollectionView: View {
     @State private var naming: Naming?
     @State private var name = ""
     @State private var groupError: String?
+    /// The list of every shelf and portfolio, to rename or delete them.
+    @State private var managing = false
     /// Quick actions from a long press on a tile: sell, or work out what selling would leave.
     @State private var selling: HoldingView?
     @State private var whatIf: HoldingView?
@@ -27,12 +29,13 @@ struct CollectionView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     enum Naming: Identifiable {
-        case shelf, portfolio, renamePortfolio(String)
+        case shelf, portfolio, renamePortfolio(String), renameShelf(String)
         var id: String {
             switch self {
             case .shelf: "shelf"
             case .portfolio: "portfolio"
             case let .renamePortfolio(id): "rename-\(id)"
+            case let .renameShelf(id): "rename-shelf-\(id)"
             }
         }
     }
@@ -252,6 +255,7 @@ struct CollectionView: View {
                 let n = counts.shelves[shelf.id] ?? 0
                 Chip(title: shelf.name, selected: shelfId == shelf.id, count: n) { reshuffle { shelfId = shelf.id; category = nil } }
                     .contextMenu {
+                        Button { name = shelf.name; naming = .renameShelf(shelf.id) } label: { Label("Rename shelf…", systemImage: "pencil") }
                         Button("Delete shelf", role: .destructive) {
                             if shelfId == shelf.id { reshuffle { shelfId = nil } }
                             Task { await groupRun { try await groups.removeShelf(shelf.id) } }
@@ -276,6 +280,7 @@ struct CollectionView: View {
             }
             Divider()
             Button { naming = .portfolio } label: { Label("New portfolio…", systemImage: "plus") }
+            Button { managing = true } label: { Label("Manage shelves and portfolios…", systemImage: "slider.horizontal.3") }
             if groups.portfolios.contains(where: { $0.id == groups.selected }) {
                 let id = groups.selected
                 Button { name = groups.name(of: id); naming = .renamePortfolio(id) } label: { Label("Rename portfolio…", systemImage: "pencil") }
@@ -293,6 +298,9 @@ struct CollectionView: View {
             .padding(.horizontal, 14).frame(height: 36)
             .liquidGlass(in: Capsule())
         }
+        .sheet(isPresented: $managing) {
+            ManageGroupsSheet(onClearShelf: { id in if shelfId == id { shelfId = nil } })
+        }
         .alert(namingTitle, isPresented: Binding(get: { naming != nil }, set: { if !$0 { naming = nil } })) {
             TextField("Name", text: $name)
             Button("Cancel", role: .cancel) { name = ""; shelfProduct = nil }
@@ -305,6 +313,7 @@ struct CollectionView: View {
         case .shelf: "New shelf"
         case .portfolio: "New portfolio"
         case .renamePortfolio: "Rename portfolio"
+        case .renameShelf: "Rename shelf"
         case nil: ""
         }
     }
@@ -326,6 +335,7 @@ struct CollectionView: View {
                     if product == nil { shelfId = shelf.id }
                 case .portfolio: try await groups.createPortfolio(value, store: store)
                 case let .renamePortfolio(id): try await groups.renamePortfolio(id, to: value)
+                case let .renameShelf(id): try await groups.renameShelf(id, to: value)
                 }
             }
         }
@@ -780,5 +790,100 @@ private final class CollectionMemo<Key: Equatable, Value> {
         self.key = key
         value = made
         return made
+    }
+}
+
+/// Every shelf and portfolio in one list: tap to rename, swipe or use Delete to remove.
+/// Shared with the website (the shelves and portfolios tables).
+struct ManageGroupsSheet: View {
+    var onClearShelf: (String) -> Void
+    @Environment(GroupsStore.self) private var groups
+    @Environment(CollectionStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    @State private var renaming: (kind: Kind, id: String)?
+    @State private var name = ""
+    @State private var deleting: (kind: Kind, id: String, name: String)?
+    @State private var error: String?
+
+    enum Kind { case shelf, portfolio }
+
+    var body: some View {
+        NavigationStack {
+            GlassList {
+                Section {
+                    if groups.shelves.isEmpty { Text("No shelves yet.").foregroundStyle(Theme.muted) }
+                    ForEach(groups.shelves) { shelf in
+                        row(shelf.name, sub: "\(shelf.product_ids.count) item\(shelf.product_ids.count == 1 ? "" : "s")", kind: .shelf, id: shelf.id)
+                    }
+                } header: { Text("Shelves") } footer: { Text("Shelves are your own groups, like Grails or For sale. Deleting a shelf keeps its cards in your collection.") }
+                Section {
+                    if groups.portfolios.isEmpty { Text("No portfolios yet.").foregroundStyle(Theme.muted) }
+                    ForEach(groups.portfolios) { p in
+                        row(p.name, sub: nil, kind: .portfolio, id: p.id)
+                    }
+                } header: { Text("Portfolios") } footer: { Text("Portfolios are separate collections with their own totals. Deleting one moves its cards back to Main.") }
+                if let error { Section { Text(error).foregroundStyle(Theme.down) } }
+            }
+            .navigationTitle("Shelves and portfolios")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .alert(renaming?.kind == .shelf ? "Rename shelf" : "Rename portfolio", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
+                TextField("Name", text: $name)
+                Button("Cancel", role: .cancel) { renaming = nil }
+                Button("Save") { saveRename() }
+            }
+            .alert("Delete \(deleting?.name ?? "")?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
+                Button("Cancel", role: .cancel) { deleting = nil }
+                Button("Delete", role: .destructive) { confirmDelete() }
+            } message: {
+                Text(deleting?.kind == .shelf ? "The shelf goes; its cards stay in your collection." : "The portfolio goes; its cards move back to Main.")
+            }
+        }
+        .presentationDetents([.medium, .fraction(0.93)])
+        .glassSheet()
+    }
+
+    private func row(_ title: String, sub: String?, kind: Kind, id: String) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).foregroundStyle(.white)
+                if let sub { Text(sub).font(.geist(12)).foregroundStyle(Theme.muted) }
+            }
+            Spacer()
+            Button { name = title; renaming = (kind, id) } label: { Image(systemName: "pencil") }
+                .buttonStyle(.borderless).foregroundStyle(Theme.muted).accessibilityLabel("Rename \(title)")
+            Button { deleting = (kind, id, title) } label: { Image(systemName: "trash") }
+                .buttonStyle(.borderless).foregroundStyle(Theme.down).accessibilityLabel("Delete \(title)")
+                .padding(.leading, 12)
+        }
+    }
+
+    private func saveRename() {
+        let value = String(name.trimmingCharacters(in: .whitespaces).prefix(40))
+        guard let r = renaming, !value.isEmpty else { renaming = nil; return }
+        renaming = nil
+        Task { await run {
+            switch r.kind {
+            case .shelf: try await groups.renameShelf(r.id, to: value)
+            case .portfolio: try await groups.renamePortfolio(r.id, to: value)
+            }
+        } }
+    }
+
+    private func confirmDelete() {
+        guard let d = deleting else { return }
+        deleting = nil
+        Task { await run {
+            switch d.kind {
+            case .shelf:
+                onClearShelf(d.id)
+                try await groups.removeShelf(d.id)
+            case .portfolio: try await groups.removePortfolio(d.id, store: store)
+            }
+        } }
+    }
+
+    @MainActor private func run(_ work: () async throws -> Void) async {
+        do { error = nil; try await work() } catch { self.error = error.localizedDescription }
     }
 }
