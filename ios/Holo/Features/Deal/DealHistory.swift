@@ -852,6 +852,8 @@ struct DealRecordDetail: View {
             }
         }
         .background(Theme.background)
+        // Room under the last section so Add photos clears the tab bar.
+        .tabBarClearance()
         .replaysAnimations()
         .navigationBarTitleDisplayMode(.inline)
         .pageTitle(record.map { $0.kind.noun } ?? "Deal")
