@@ -63,14 +63,15 @@ struct CountTile: View {
     var tag: String? = nil
 
     var body: some View {
+        // The same rhythm as the stat tiles above it: a small caps label, the figure, then a
+        // muted line close under it. Sized by its content, so there's no empty band below.
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 6) {
-                Text(label).font(.display(14)).tracking(-0.4).foregroundStyle(.white.opacity(0.85))
-                    .lineLimit(1).minimumScaleFactor(0.75).displayTrim(14)
+                MonoLabel(text: label).lineLimit(1).minimumScaleFactor(0.8)
                 Spacer(minLength: 0)
                 if let tag { SkewTag(text: tag, color: glow, textColor: glow == Theme.lime ? Theme.ink : .white) }
             }
-            .frame(height: 24)
+            .frame(height: 20)
             Group {
                 if let value {
                     CountingText(value: value, format: format)
@@ -78,15 +79,13 @@ struct CountTile: View {
                     Text("—")
                 }
             }
-            .font(.display(26)).tracking(-0.7).monospacedDigit().foregroundStyle(valueTint)
-            .lineLimit(1).minimumScaleFactor(0.55).displayTrim(26)
-            .padding(.top, 14)
-            Text(sub).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1).minimumScaleFactor(0.8)
-                .padding(.top, 8)
+            .font(.display(28)).tracking(-0.8).monospacedDigit().foregroundStyle(valueTint)
+            .lineLimit(1).minimumScaleFactor(0.55).displayTrim(28)
+            .padding(.top, 10)
+            Text(sub).font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1).minimumScaleFactor(0.8)
+                .padding(.top, 6)
         }
-        // One fixed size for every tile, tag or not.
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .frame(height: 96, alignment: .top)
         .surface(radius: 16)
     }
 }
