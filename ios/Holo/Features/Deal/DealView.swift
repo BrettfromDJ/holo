@@ -13,6 +13,10 @@ struct DealView: View {
     /// stack properly instead of reopening each other.
     @State private var path = NavigationPath()
     @State private var customer = false
+    /// The balance card has scrolled up under the top: a compact copy pins there instead and
+    /// the top icons step aside.
+    @State private var pinned = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var confirming = false
     @State private var ebayItem: DealItem?
     @AppStorage("holo.dealHintSeen") private var hintSeen = false
@@ -62,6 +66,10 @@ struct DealView: View {
                         }
                         if !todays.isEmpty { TodayStrip(deals: todays) { path.append(DealRoute.history) } }
                         BalanceCard(totals: totals, roundTo: roundTarget(totals), onRound: roundCash)
+                            // Reports only when it crosses the top, not on every scroll frame.
+                            .onGeometryChange(for: Bool.self) { $0.frame(in: .global).maxY < 150 } action: { gone in
+                                withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) { pinned = gone && deals.deal.kind != .empty }
+                            }
                     }
                     side(.incoming, totals: totals, accent: accent).reveal()
                     side(.outgoing, totals: totals, accent: accent).reveal()
@@ -91,6 +99,15 @@ struct DealView: View {
                         .accessibilityLabel("Customer view")
                         .disabled(deals.deal.kind == .empty)
                     Button { settings = true } label: { Image(systemName: "slider.horizontal.3") }.accessibilityLabel("Deal settings")
+                }
+            }
+            .toolbar(pinned ? .hidden : .visible, for: .navigationBar)
+            .overlay(alignment: .top) {
+                if pinned {
+                    PinnedBalance(totals: totals)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 4)
+                        .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -1011,5 +1028,38 @@ private struct DealHint: View {
             .accessibilityLabel("Got it")
         }
         .surface(radius: 18, padding: 14)
+    }
+}
+
+/// The balance card, compact, pinned to the top once the full card scrolls away: the deal kind,
+/// the cash figure and how far ahead it leaves you, on the card's lime (pink when behind).
+private struct PinnedBalance: View {
+    var totals: DealTotals
+
+    var body: some View {
+        let b = totals.balance
+        let down = totals.ahead.map { $0 < -0.005 } ?? (totals.showsEquity && totals.equity < -0.005)
+        let fill = down ? Theme.planPink : Theme.lime
+        let ink = down ? Color.white : Theme.ink
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text((abs(b) < 0.005 ? "Settled · no cash" : (b > 0 ? "Customer pays you" : "You pay the customer")).uppercased())
+                    .font(.mono(10)).tracking(1).opacity(0.7)
+                Text(Format.money(abs(b))).font(.display(26)).tracking(-0.8).monospacedDigit().displayTrim(26)
+            }
+            Spacer(minLength: 8)
+            if let ahead = totals.ahead {
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(ahead >= 0 ? "AHEAD" : "BEHIND").font(.mono(10)).tracking(1).opacity(0.7)
+                    Text(Format.signedMoney(ahead)).font(.geist(17, .semibold)).monospacedDigit()
+                }
+            }
+        }
+        .foregroundStyle(ink)
+        .lineLimit(1).minimumScaleFactor(0.7)
+        .padding(.horizontal, 16).padding(.vertical, 12)
+        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(fill))
+        .shadow(color: .black.opacity(0.35), radius: 14, y: 8)
+        .accessibilityElement(children: .combine)
     }
 }
