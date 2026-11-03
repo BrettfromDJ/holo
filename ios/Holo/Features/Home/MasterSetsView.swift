@@ -362,6 +362,8 @@ private struct SetProgressHeader: View, Equatable {
                     heroTile(label: "To finish", value: missingValue > 0 ? Format.moneyWhole(missingValue) : "Not priced", dim: missingValue <= 0,
                              note: missingValue > 0 ? "Full set \(Format.moneyWhole(missingValue + ownedValue))" : nil)
                 }
+                // The taller tile sets the height of both.
+                .fixedSize(horizontal: false, vertical: true)
             }
         }
         .foregroundStyle(.white)
@@ -387,7 +389,7 @@ private struct SetProgressHeader: View, Equatable {
         }
         .padding(.horizontal, 14).padding(.vertical, 12)
         // Both tiles the same height, whatever their figure.
-        .frame(maxWidth: .infinity, minHeight: 80, alignment: .topLeading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .liquidGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 }
