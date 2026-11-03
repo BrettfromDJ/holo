@@ -26,7 +26,6 @@ struct ScanView: View {
             VStack(spacing: 0) {
                 topBar
                 guide
-                    .overlay(alignment: .bottomLeading) { rail }
                 bottom
             }
         }
@@ -83,7 +82,7 @@ struct ScanView: View {
         .padding(.top, 8)
     }
 
-    // MARK: The side rail: the light
+    // MARK: The light, beside the shutter
 
     private var rail: some View {
         VStack(spacing: 12) {
@@ -169,7 +168,14 @@ struct ScanView: View {
                     .liquidGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), tint: Theme.planPink.opacity(0.4))
                     .padding(.horizontal, 16)
             }
-            shutter
+            // The light on the left, level with the shutter in the middle.
+            ZStack {
+                shutter
+                HStack {
+                    rail
+                    Spacer()
+                }
+            }
             tray
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.75), value: model.entries.count)
