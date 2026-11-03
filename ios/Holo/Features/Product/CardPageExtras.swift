@@ -191,17 +191,25 @@ struct DealAddButton: View {
         }
     }
 
+    private func add(_ side: DealSide) {
+        guard let product else { return }
+        Self.add(side, product: product, printing: printing, market: market, owned: owned, deals: deals)
+        added = true
+    }
+
     /// Your copy to send out: the one in the printing on show, else your most valuable.
-    private var outgoingCopy: HoldingView? {
+    static func outgoingCopy(_ owned: [HoldingView], printing: String?) -> HoldingView? {
         let held = owned.filter { $0.product != nil && $0.quantity > 0 }
         return held.first(where: { $0.identity.printing == printing && !$0.identity.isGraded })
             ?? held.max(by: { ($0.value ?? 0) < ($1.value ?? 0) })
     }
 
-    private func add(_ side: DealSide) {
-        guard let product else { return }
+    /// Puts the card on one side of the open deal (going out, your own copy), with an undo toast.
+    /// Also used by the card page's ⋯ menu.
+    @MainActor
+    static func add(_ side: DealSide, product: Product, printing: String?, market: Double?, owned: [HoldingView], deals: DealStore) {
         let item: DealItem
-        if side == .outgoing, let h = outgoingCopy, let p = h.product {
+        if side == .outgoing, let h = outgoingCopy(owned, printing: printing), let p = h.product {
             item = DealItem(
                 key: "h:\(h.identity.key)", product: p, printing: h.identity.printing, market: h.price,
                 holdingKey: h.identity.key, maxQty: Int(h.quantity)
@@ -213,7 +221,6 @@ struct DealAddButton: View {
         let list = side == .incoming ? deals.deal.incoming : deals.deal.outgoing
         let before = list.first(where: { $0.key == key })?.qty
         deals.add(item, to: side)
-        added = true
         // The undo toast (with its success haptic): "Added to coming in · Undo".
         let store = deals
         Router.shared.undo = UndoItem(message: side == .incoming ? "Added to coming in" : "Added to going out") {

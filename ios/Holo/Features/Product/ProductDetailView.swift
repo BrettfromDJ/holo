@@ -116,15 +116,8 @@ struct ProductDetailView: View {
                 }
                 .fixedSize()
             }
-            // Share the card's page on the website.
-            ToolbarItem(placement: .topBarTrailing) {
-                if let url = webURL {
-                    ShareLink(item: url, subject: Text(product?.name ?? "Card"), message: Text(shareText)) {
-                        Image(systemName: "square.and.arrow.up")
-                    }
-                    .accessibilityLabel("Share")
-                }
-            }
+            // Everything you can do with this card, in one ⋯ menu (share included).
+            ToolbarItem(placement: .topBarTrailing) { moreMenu }
         }
         .sheet(item: $managing) { h in HoldingSheet(identity: h.identity) }
         .fullScreenCover(isPresented: $viewingArt) {
@@ -435,6 +428,73 @@ struct ProductDetailView: View {
             }
         } message: {
             Text("Shelves group products however you like, and show as filters on Collection.")
+        }
+    }
+
+    /// The ⋯ menu at the top right: everything the page can do, in one place.
+    private var moreMenu: some View {
+        Menu {
+            Section {
+                Button { adding = true } label: { Label(owned.isEmpty ? "Add to collection" : "Add more", systemImage: "plus") }
+                if deals.deal.kind != .empty, let product {
+                    Menu {
+                        Button { DealAddButton.add(.incoming, product: product, printing: printing, market: headline, owned: owned, deals: deals) } label: { Label("Coming in", systemImage: "arrow.down.left") }
+                        Button { DealAddButton.add(.outgoing, product: product, printing: printing, market: headline, owned: owned, deals: deals) } label: { Label("Going out", systemImage: "arrow.up.right") }
+                    } label: { Label("Add to deal", systemImage: "arrow.left.arrow.right") }
+                }
+            }
+            if !owned.isEmpty {
+                Section {
+                    copyChoice("Record sale", icon: "tag") { selling = $0 }
+                    copyChoice("What if I sell?", icon: "plus.forwardslash.minus") { whatIf = $0 }
+                }
+            }
+            Section {
+                let watch = store.watch(for: productId)
+                Button {
+                    if let watch { Task { await run { try await store.removeWatch(watch.id) } } } else { watching = true }
+                } label: { Label(watch == nil ? "Watch price" : "Stop watching", systemImage: watch == nil ? "eye" : "eye.slash") }
+                let wish = store.wish(for: productId)
+                Button {
+                    guard let product else { return }
+                    Task { await run { if let wish { try await store.removeWish(wish.id) } else { try await store.addWish(product, printing: printing, price: price?.market) } } }
+                } label: { Label(wish == nil ? "Add to wishlist" : "Remove from wishlist", systemImage: wish == nil ? "heart" : "heart.slash") }
+                Menu {
+                    ForEach(groups.shelves) { shelf in
+                        Button {
+                            Task { await run { try await groups.toggle(shelf.id, productId: productId) } }
+                        } label: {
+                            if shelf.product_ids.contains(productId) { Label(shelf.name, systemImage: "checkmark") } else { Text(shelf.name) }
+                        }
+                    }
+                    Button { naming = true } label: { Label("New shelf…", systemImage: "plus") }
+                } label: { Label("Shelves", systemImage: "square.stack") }
+            }
+            Section {
+                Button { viewingArt = true } label: { Label("View full screen", systemImage: "arrow.up.left.and.arrow.down.right") }
+                if let url = product?.tcgplayerUrl.flatMap(URL.init(string:)) {
+                    Link(destination: url) { Label("View on TCGplayer", systemImage: "arrow.up.right.square") }
+                }
+                if let url = webURL {
+                    ShareLink(item: url, subject: Text(product?.name ?? "Card"), message: Text(shareText)) {
+                        Label("Share", systemImage: "square.and.arrow.up")
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+        }
+        .accessibilityLabel("More")
+    }
+
+    /// One menu item for your copies: a button with one copy, a submenu to pick when there are more.
+    @ViewBuilder private func copyChoice(_ title: String, icon: String, pick: @escaping (HoldingView) -> Void) -> some View {
+        if owned.count == 1, let only = owned.first {
+            Button { pick(only) } label: { Label(title, systemImage: icon) }
+        } else {
+            Menu {
+                ForEach(owned) { h in Button("\(h.label ?? "Near Mint") \u{00D7}\(Int(h.quantity))") { pick(h) } }
+            } label: { Label(title, systemImage: icon) }
         }
     }
 
