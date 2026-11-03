@@ -20,7 +20,11 @@ struct ScanView: View {
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            CameraPreview(session: camera.session, running: camera.state == .running).ignoresSafeArea()
+            // Built fresh once the camera is running: a picture made after the session starts
+            // always connects (one made before can stay black on newer iOS).
+            CameraPreview(session: camera.session, running: camera.state == .running)
+                .id(camera.state == .running)
+                .ignoresSafeArea()
             if flash { Color.white.opacity(0.7).ignoresSafeArea().transition(.opacity).allowsHitTesting(false) }
 
             VStack(spacing: 0) {
