@@ -117,9 +117,10 @@ struct DealView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     if docked {
                         // While the deal bar sits in the tab bar's place, an X at the top left
-                        // steps out of the deal (the tabs come back; the deal stays as it is).
+                        // steps out of the deal to Overview (the deal stays as it is; tap Deal to
+                        // come back to it).
                         Button {
-                            withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) { showTabs = true }
+                            Router.shared.tabRequest = "home"
                         } label: { Image(systemName: "xmark") }
                         .accessibilityLabel("Leave the deal for now")
                     } else {

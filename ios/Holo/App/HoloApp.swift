@@ -244,6 +244,7 @@ struct MainTabView: View {
         .animation(.easeOut(duration: 0.25), value: router.pull)
         .onChange(of: router.tabRequest) { _, request in
             switch request {
+            case "home": tab = .home
             case "collection": tab = .collection
             case "explore": tab = .explore
             case "deal": tab = .deal
