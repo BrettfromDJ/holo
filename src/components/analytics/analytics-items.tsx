@@ -93,9 +93,9 @@ export function CollectionMap({ holdings }: { holdings: HoldingView[] }) {
           />
         </ResponsiveContainer>
       </div>
-      <div className="mt-3 flex items-center justify-end gap-2 text-[11px] text-subtle">
+      <div className="mt-3 flex items-center gap-2 text-[11px] text-subtle">
         <span className="tabular">−{LOSS_CAP * 100}%</span>
-        <span className="h-2 w-32 rounded-full" style={{ background: `linear-gradient(90deg, ${mapHeat(-LOSS_CAP)}, ${mapHeat(0)}, ${mapHeat(MAP_CAP)})` }} />
+        <span className="h-2 flex-1 rounded-full" style={{ background: `linear-gradient(90deg, ${mapHeat(-LOSS_CAP)}, ${mapHeat(0)}, ${mapHeat(MAP_CAP)})` }} />
         <span className="tabular">+{MAP_CAP * 100}%</span>
       </div>
     </Card>

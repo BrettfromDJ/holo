@@ -714,7 +714,7 @@ private struct CollectionMap: View {
                         Text("−50%").font(.geist(11)).monospacedDigit().foregroundStyle(Theme.subtle)
                         Capsule()
                             .fill(LinearGradient(colors: [Self.heat(-Self.lossCap), Self.heat(0), Self.heat(Self.gainCap)], startPoint: .leading, endPoint: .trailing))
-                            .frame(width: 120, height: 8)
+                            .frame(maxWidth: .infinity).frame(height: 8)
                         Text("+200%").font(.geist(11)).monospacedDigit().foregroundStyle(Theme.subtle)
                     }
                 }
