@@ -554,11 +554,12 @@ private struct BalanceCard: View {
         let empty = t.kind == .empty
         let down = (t.showsEquity && t.equity < -0.005) || (t.ahead ?? 0) < -0.005
         let fill = down ? Theme.planPink : Theme.lime
-        let ink = down ? Color.white : Theme.ink
+        // A soft glow of the color around a dark middle, so the text is white on both.
+        let ink = Color.white
         let shape = RoundedRectangle(cornerRadius: 24, style: .continuous)
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                SkewTag(text: empty ? "New deal" : t.kind.label, color: down ? .white : Theme.ink, textColor: down ? Theme.ink : Theme.lime)
+                SkewTag(text: empty ? "New deal" : t.kind.label, color: fill, textColor: down ? .white : Theme.ink)
                 Spacer()
                 if t.belowCost > 0 {
                     Label("\(t.belowCost) below cost", systemImage: "exclamationmark.triangle.fill")
@@ -577,7 +578,7 @@ private struct BalanceCard: View {
                 }
                 .foregroundStyle(score < -0.005 ? Theme.planPink : fill)
                 .padding(.horizontal, 14).frame(height: 36)
-                .background(Capsule().fill(ink))
+                .background(Capsule().fill(Theme.ink.opacity(0.85)))
                 .padding(.top, 16)
                 .contentTransition(.numericText())
                 .animation(.snappy, value: t.ahead ?? t.net)
@@ -634,17 +635,16 @@ private struct BalanceCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             ZStack {
-                shape.fill(fill)
-                // A faint ink grid, like the other tabs' backdrops, printed on the card.
-                Canvas { ctx, size in
-                    var path = Path()
-                    stride(from: 0, through: size.width, by: 28).forEach { x in path.move(to: CGPoint(x: x, y: 0)); path.addLine(to: CGPoint(x: x, y: size.height)) }
-                    stride(from: 0, through: size.height, by: 28).forEach { y in path.move(to: CGPoint(x: 0, y: y)); path.addLine(to: CGPoint(x: size.width, y: y)) }
-                    ctx.stroke(path, with: .color(.black.opacity(0.06)), lineWidth: 1)
-                }
+                // Dark olive (or wine when down) in the middle, the color glowing in from the edges. Still.
+                shape.fill(down ? Color(hex: 0x3A0B22) : Color(hex: 0x2F3A0A))
+                RadialGradient(colors: [fill.opacity(0.75), fill.opacity(0)], center: UnitPoint(x: 0.1, y: -0.05), startRadius: 0, endRadius: 300)
+                RadialGradient(colors: [fill.opacity(0.55), fill.opacity(0)], center: UnitPoint(x: 1.05, y: 0.2), startRadius: 0, endRadius: 230)
+                RadialGradient(colors: [fill.opacity(0.7), fill.opacity(0)], center: UnitPoint(x: 0.55, y: 1.15), startRadius: 0, endRadius: 280)
+                RadialGradient(colors: [Color.black.opacity(0.45), Color.black.opacity(0)], center: UnitPoint(x: 0.45, y: 0.5), startRadius: 0, endRadius: 190)
             }
             .clipShape(shape)
-            .shadow(color: fill.opacity(0.4), radius: 22)
+            .overlay(shape.strokeBorder(fill.opacity(0.25), lineWidth: 1))
+            .shadow(color: fill.opacity(0.25), radius: 22)
         }
         .animation(.easeInOut(duration: 0.3), value: down)
         .animation(.snappy, value: roundTo)
