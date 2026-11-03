@@ -21,9 +21,24 @@ export interface DealRates {
   addIncoming?: boolean;
   /** Whether items going out that aren't in Holo ask what you paid (default on). */
   askCost?: boolean;
+  /** What "Round up" rounds the cash up to the next multiple of, in dollars (one of ROUND_STEPS; default $5). */
+  roundStep?: number | null;
 }
 
 export const DEFAULT_RATES: DealRates = { buy: 0.7, trade: 0.8, sell: 1 };
+
+/** The steps "Round up" can round the cash to (deal settings), and the one it starts at. */
+export const ROUND_STEPS = [1, 5, 10, 25, 50, 100] as const;
+export const DEFAULT_ROUND_STEP = 5;
+
+/** The step the cash rounds up to: the saved one when it's one of ROUND_STEPS, else $5. */
+export function roundStep(rates: Pick<DealRates, "roundStep">): number {
+  const s = rates.roundStep;
+  return typeof s === "number" && (ROUND_STEPS as readonly number[]).includes(s) ? s : DEFAULT_ROUND_STEP;
+}
+
+/** How far a side's % of market can go: the counter-offer slider's range. */
+export const RATE_RANGE = { min: 0.4, max: 1.2 } as const;
 
 export interface DealLine {
   /** Market value per unit, if known. */
@@ -154,10 +169,16 @@ export function dealVerdict(t: DealTotals): string | null {
   return `You come out ${money(Math.abs(n))} ${n > 0 ? "ahead" : "behind"}`;
 }
 
-/** The cash rounded to the nearest $5, when it isn't already (null otherwise). */
-export function roundedCash(balance: number): number | null {
-  const r = Math.round(Math.abs(balance) / 5) * 5;
-  if (r < 5 || Math.abs(Math.abs(balance) - r) <= 0.004) return null;
+/**
+ * The cash rounded up to the next multiple of `step` dollars ($1,151.20 → $1,155 at $5), keeping
+ * who pays whom (the sign). Null when it's already on a multiple, or there's no cash. Same as the
+ * app's roundedCash(_:step:).
+ */
+export function roundedCash(balance: number, step: number = DEFAULT_ROUND_STEP): number | null {
+  const cents = Math.round(Math.abs(balance) * 100);
+  const stepCents = Math.round(step * 100);
+  if (!Number.isFinite(cents) || cents === 0 || stepCents <= 0 || cents % stepCents === 0) return null;
+  const r = (Math.ceil(cents / stepCents) * stepCents) / 100;
   return balance < 0 ? -r : r;
 }
 
@@ -238,6 +259,56 @@ interface DealLineKeyed {
 export function renegotiates(before: PricedDeal, after: PricedDeal): boolean {
   const sig = (items: DealLineKeyed[]) => items.map((i) => `${i.key}|${i.qty}|${i.price ?? "-"}|${i.rate ?? "-"}`).join("\n");
   return (before.rateIn ?? null) !== (after.rateIn ?? null) || (before.rateOut ?? null) !== (after.rateOut ?? null) || sig(before.in) !== sig(after.in) || sig(before.out) !== sig(after.out);
+}
+
+/** A line that follows its side's % (no typed price, no % of its own, a known market). */
+function followsSideRate(l: DealLine) {
+  return (l.price === undefined || l.price === null) && (l.rate === undefined || l.rate === null) && l.market !== null;
+}
+
+/**
+ * The side's % of market that brings the cash to `cash` (signed like `balance`): what goes out
+ * when anything does, else what comes in (the side agreedDeal moves). The cash is linear in that
+ * rate for the lines that follow it (typed prices and lines with their own % stay put), so it's
+ * solved exactly, then held to the slider's range. Null when the deal is empty or no line follows
+ * the side's %. Same as the app's DealState.rate(forCash:rates:).
+ */
+export function rateForCash(incoming: DealLine[], outgoing: DealLine[], rates: { in: number; out: number }, cash: number, range: { min: number; max: number } = RATE_RANGE): { side: "in" | "out"; rate: number } | null {
+  if (!Number.isFinite(cash) || (!incoming.length && !outgoing.length)) return null;
+  const side = outgoing.length ? "out" : "in";
+  const lines = side === "out" ? outgoing : incoming;
+  const market = lines.reduce((s, l) => s + (followsSideRate(l) ? l.market! * l.qty : 0), 0);
+  if (!(market > 0)) return null;
+  const fixed = lines.reduce((s, l) => s + (followsSideRate(l) ? 0 : lineTotal(l, side === "out" ? rates.out : rates.in)), 0);
+  const other = side === "out" ? incoming.reduce((s, l) => s + lineTotal(l, rates.in), 0) : outgoing.reduce((s, l) => s + lineTotal(l, rates.out), 0);
+  // balance = out − in; only `market × rate` moves.
+  const exact = side === "out" ? (cash + other - fixed) / market : (other - cash - fixed) / market;
+  const rate = Math.min(range.max, Math.max(range.min, exact));
+  return { side, rate: Math.round(rate * 1e6) / 1e6 };
+}
+
+/** What setting a cash amount changes: a side's rate and the agreed cash. */
+interface CashDeal {
+  in: DealLine[];
+  out: DealLine[];
+  rateIn?: number | null;
+  rateOut?: number | null;
+  agreedCash?: number | null;
+}
+
+/**
+ * The deal at a cash amount the two of you settled on (signed like `balance`): the side's slider
+ * moves to the rate that gets there (rateForCash), and the agreed cash is set to it as well, so it
+ * lands exactly to the cent even where the slider's range or fixed prices stop short (agreedDeal
+ * spreads the rest). `rates` are the rates each side is at now. Apply it straight to the deal, not
+ * as an edit that renegotiates (which would let the agreed cash go again). Same as the app's
+ * DealState.agreeing(cash:rates:).
+ */
+export function withAgreedCash<D extends CashDeal>(deal: D, rates: { in: number; out: number }, cash: number): D {
+  const amount = round2(cash);
+  const r = rateForCash(deal.in, deal.out, rates, amount);
+  if (!r) return { ...deal, agreedCash: amount };
+  return { ...deal, [r.side === "out" ? "rateOut" : "rateIn"]: r.rate, agreedCash: amount };
 }
 
 /**

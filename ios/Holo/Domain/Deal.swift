@@ -41,9 +41,33 @@ struct DealRates: Codable, Equatable {
     var addIncoming: Bool?
     /// Whether items going out that aren't in Holo ask what you paid (default on).
     var askCost: Bool?
+    /// What "Round up" rounds the cash up to the next multiple of, in dollars (one of
+    /// `roundSteps`; nil or anything else is $5). Optional, so rates saved before it still load.
+    var roundStep: Double?
 
     var addsIncoming: Bool { addIncoming ?? true }
     var asksCost: Bool { askCost ?? true }
+
+    /// The steps "Round up" can round the cash to (deal settings), the same as the website's ROUND_STEPS.
+    static let roundSteps: [Double] = [1, 5, 10, 25, 50, 100]
+    static let defaultRoundStep: Double = 5
+    /// The step the cash rounds up to: the saved one when it's one of the steps, else $5.
+    var step: Double {
+        guard let roundStep, Self.roundSteps.contains(roundStep) else { return Self.defaultRoundStep }
+        return roundStep
+    }
+}
+
+/// The cash rounded up to the next multiple of `step` dollars ($1,151.20 → $1,155 at $5), keeping
+/// who pays whom (the sign). Nil when it's already on a multiple, or there's no cash. Same as the
+/// website's roundedCash().
+func roundedCash(_ balance: Double, step: Double = DealRates.defaultRoundStep) -> Double? {
+    guard balance.isFinite, step.isFinite else { return nil }
+    let cents = Int((abs(balance) * 100).rounded())
+    let stepCents = Int((step * 100).rounded())
+    guard cents > 0, stepCents > 0, cents % stepCents != 0 else { return nil }
+    let r = Double((cents + stepCents - 1) / stepCents * stepCents) / 100
+    return balance < 0 ? -r : r
 }
 
 /// One row of a deal. Same JSON as the website's DealItem; unknowns are written as null.
@@ -274,6 +298,50 @@ extension DealState {
             items.map { item in [item.key, String(item.qty), text(item.price), text(item.rate)].joined(separator: "|") }
         }
         return rateIn != before.rateIn || rateOut != before.rateOut || sig(incoming) != sig(before.incoming) || sig(outgoing) != sig(before.outgoing)
+    }
+}
+
+extension DealState {
+    /// How far a side's % of market can go: the counter-offer slider's range (the website's RATE_RANGE).
+    static let rateRange: ClosedRange<Double> = 0.4...1.2
+
+    /// The side's % of market that brings the cash to `cash` (signed like DealTotals.balance): what
+    /// goes out when anything does, else what comes in (the side `agreed(rates:)` moves). The cash
+    /// is linear in that rate for the lines that follow it (typed prices and lines with their own %
+    /// stay put), so it's solved exactly, then held to the slider's range. Nil when the deal is
+    /// empty or no line follows the side's %. Same as the website's rateForCash().
+    func rate(forCash cash: Double, rates: (in: Double, out: Double), range: ClosedRange<Double> = DealState.rateRange) -> (side: DealSide, rate: Double)? {
+        guard cash.isFinite, kind != .empty else { return nil }
+        let side: DealSide = outgoing.isEmpty ? .incoming : .outgoing
+        let lines = side == .outgoing ? outgoing : incoming
+        let sideRate = side == .outgoing ? rates.out : rates.in
+        func follows(_ l: DealItem) -> Bool { l.price == nil && l.rate == nil && l.market != nil }
+        let market = lines.reduce(0.0) { $0 + (follows($1) ? ($1.market ?? 0) * Double($1.qty) : 0) }
+        guard market > 0 else { return nil }
+        let fixed = lines.reduce(0.0) { $0 + (follows($1) ? 0 : $1.total(side: sideRate)) }
+        let other = side == .outgoing
+            ? incoming.reduce(0.0) { $0 + $1.total(side: rates.in) }
+            : outgoing.reduce(0.0) { $0 + $1.total(side: rates.out) }
+        // balance = out − in; only `market × rate` moves.
+        let exact = side == .outgoing ? (cash + other - fixed) / market : (other - cash - fixed) / market
+        let clamped = min(range.upperBound, max(range.lowerBound, exact))
+        return (side, (clamped * 1_000_000).rounded() / 1_000_000)
+    }
+
+    /// The deal at a cash amount the two of you settled on (signed like DealTotals.balance): the
+    /// side's slider moves to the rate that gets there (`rate(forCash:rates:)`), and the agreed cash
+    /// is set to it as well, so it lands exactly to the cent even where the slider's range or fixed
+    /// prices stop short (`agreed(rates:)` spreads the rest). `rates` are the rates each side is at
+    /// now. Apply it straight to the deal (DealStore.setAgreedCash), not as an edit that
+    /// renegotiates. Same as the website's withAgreedCash().
+    func agreeing(cash: Double, rates: (in: Double, out: Double)) -> DealState {
+        var d = self
+        let amount = round2(cash)
+        if let r = rate(forCash: amount, rates: rates) {
+            if r.side == .outgoing { d.rateOut = r.rate } else { d.rateIn = r.rate }
+        }
+        d.agreedCash = amount
+        return d
     }
 }
 

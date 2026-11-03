@@ -214,6 +214,16 @@ struct DealRatesSheet: View {
                     Text("You can still switch any single item in or out on the deal. Items going out that aren't in Lucent are tracked when you add what you paid.")
                 }
                 .tint(Theme.lime)
+                Section {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Round up to the nearest")
+                        ChipPicker(options: DealRates.roundSteps.map { ($0, "$\(Int($0))") },
+                                   selection: Binding(get: { rates.step }, set: { rates.roundStep = $0 }), scrolls: true)
+                    }
+                    .padding(.vertical, 4)
+                } footer: {
+                    Text("What Round up on the cash rounds to.")
+                }
                 rate("Buying", "What you pay for cards you buy", \.buy)
                 rate("Trade-in", "What you credit for cards taken in on trade", \.trade)
                 rate("Selling", "What you charge for cards going out", \.sell)

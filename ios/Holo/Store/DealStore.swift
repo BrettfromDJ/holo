@@ -158,6 +158,17 @@ final class DealStore {
         scheduleSave()
     }
 
+    /// Settle on a cash amount (signed like the balance): the moving side's slider goes to the %
+    /// that gets there and the agreed cash lands it to the cent (DealState.agreeing(cash:rates:)).
+    /// Applied straight, not through `update`, which would read the slider moving as a
+    /// renegotiation and let the agreed cash go again. A later slider move still does.
+    @MainActor
+    func setAgreedCash(_ cash: Double) {
+        guard deal.kind != .empty else { return }
+        deal = deal.agreeing(cash: cash, rates: rates)
+        scheduleSave()
+    }
+
     @MainActor
     func add(_ item: DealItem, to side: DealSide) {
         update { d in

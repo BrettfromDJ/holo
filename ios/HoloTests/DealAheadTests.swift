@@ -270,4 +270,113 @@ final class DealAheadTests: XCTestCase {
         let web = try JSONDecoder().decode(DealState.self, from: Data(#"{"in":[],"out":[],"rateIn":null,"rateOut":null,"agreedCash":120}"#.utf8))
         XCTAssertEqual(web.agreedCash, 120)
     }
+
+    // MARK: Round up and cash moving the slider (the same cases as src/lib/deal.test.ts)
+
+    func testRoundsUpToTheNextStepKeepingWhoPaysWhom() {
+        XCTAssertEqual(roundedCash(1151.2, step: 5), 1155)
+        XCTAssertEqual(roundedCash(-1151.2, step: 5), -1155)
+        XCTAssertEqual(roundedCash(1151.2, step: 1), 1152)
+        XCTAssertEqual(roundedCash(1151.2, step: 10), 1160)
+        XCTAssertEqual(roundedCash(1151.2, step: 25), 1175)
+        XCTAssertEqual(roundedCash(1151.2, step: 50), 1200)
+        XCTAssertEqual(roundedCash(1151.2, step: 100), 1200)
+        XCTAssertEqual(roundedCash(1151.01), 1155)
+        XCTAssertEqual(roundedCash(0.5, step: 5), 5)
+    }
+
+    func testNothingToRoundOnAMultipleOrWithNoCash() {
+        XCTAssertNil(roundedCash(1155, step: 5))
+        XCTAssertNil(roundedCash(-1200, step: 100))
+        XCTAssertNil(roundedCash(42, step: 1))
+        XCTAssertNil(roundedCash(0, step: 5))
+    }
+
+    func testRoundStepFromTheSettings() throws {
+        XCTAssertEqual(DealRates().step, 5)
+        var r = DealRates()
+        r.roundStep = 25
+        XCTAssertEqual(r.step, 25)
+        r.roundStep = 7
+        XCTAssertEqual(r.step, 5)
+        // Rates saved before the step was added still load; the website's step comes through.
+        let old = try JSONDecoder().decode(DealRates.self, from: Data(#"{"buy":0.7,"trade":0.8,"sell":1}"#.utf8))
+        XCTAssertNil(old.roundStep)
+        XCTAssertEqual(old.step, 5)
+        let web = try JSONDecoder().decode(DealRates.self, from: Data(#"{"buy":0.7,"trade":0.8,"sell":1,"roundStep":10}"#.utf8))
+        XCTAssertEqual(web.step, 10)
+        let back = try JSONDecoder().decode(DealRates.self, from: JSONEncoder().encode(web))
+        XCTAssertEqual(back.roundStep, 10)
+    }
+
+    private func deal(_ incoming: [DealItem], _ outgoing: [DealItem]) -> DealState {
+        var d = DealState()
+        d.incoming = incoming
+        d.outgoing = outgoing
+        return d
+    }
+
+    func testSolvesASalesRateExactly() {
+        let r = deal([], [item("a", market: 1000)]).rate(forCash: 900, rates: (0.7, 1))
+        XCTAssertEqual(r?.side, .outgoing)
+        XCTAssertEqual(r?.rate ?? 0, 0.9, accuracy: 0.000001)
+    }
+
+    func testSolvesABuysRate() {
+        let r = deal([item("a", market: 200)], []).rate(forCash: -150, rates: (0.7, 1))
+        XCTAssertEqual(r?.side, .incoming)
+        XCTAssertEqual(r?.rate ?? 0, 0.75, accuracy: 0.000001)
+    }
+
+    func testTradeMovesWhatGoesOutAroundFixedLines() {
+        var own = item("b", market: 100)
+        own.rate = 0.5
+        let d = deal([item("in", market: 500)], [item("a", market: 300, price: 100), own, item("c", market: 500, qty: 2)])
+        let r = d.rate(forCash: 700, rates: (0.8, 1))
+        XCTAssertEqual(r?.side, .outgoing)
+        XCTAssertEqual(r?.rate ?? 0, 0.95, accuracy: 0.000001)
+        XCTAssertEqual(totals(d, rates: (0.8, r?.rate ?? 0)).balance, 700, accuracy: 0.005)
+    }
+
+    func testStopsAtTheSlidersRange() {
+        let d = deal([], [item("a", market: 100)])
+        XCTAssertEqual(d.rate(forCash: 10, rates: (0.7, 1))?.rate, 0.4)
+        XCTAssertEqual(d.rate(forCash: 500, rates: (0.7, 1))?.rate, 1.2)
+    }
+
+    func testNothingToMoveWhenEveryLineIsFixedOrEmpty() {
+        XCTAssertNil(deal([], [item("a", market: 100, price: 90)]).rate(forCash: 80, rates: (0.7, 1)))
+        XCTAssertNil(DealState().rate(forCash: 80, rates: (0.7, 1)))
+    }
+
+    /// The deal's cash as the page shows it: at its own rates (defaults 0.7 / 1) and agreed cash.
+    private func shownBalance(_ d: DealState) -> Double {
+        let rates = (in: d.rateIn ?? 0.7, out: d.rateOut ?? 1.0)
+        return totals(d.settled(rates: rates), rates: rates).balance
+    }
+
+    func testCashSetsTheRateAndAgreedCashTogether() {
+        let next = deal([], [item("a", market: 1279.11)]).agreeing(cash: 1155, rates: (0.7, 1))
+        XCTAssertEqual(next.agreedCash, 1155)
+        XCTAssertEqual(next.rateOut ?? 0, 1155 / 1279.11, accuracy: 0.000001)
+        XCTAssertEqual(shownBalance(next), 1155)
+        // The slider and the agreed cash moved together: applied straight (DealStore.setAgreedCash),
+        // a later slider move is what renegotiates.
+        var moved = next
+        moved.rateOut = 0.9
+        XCTAssertTrue(moved.renegotiates(from: next))
+    }
+
+    func testAgreedCashCoversWhatTheRangeCannot() {
+        let next = deal([], [item("a", market: 100)]).agreeing(cash: 20, rates: (0.7, 1))
+        XCTAssertEqual(next.rateOut, 0.4)
+        XCTAssertEqual(next.agreedCash, 20)
+        XCTAssertEqual(shownBalance(next), 20)
+    }
+
+    func testOnlyAgreedCashWhenNothingFollowsTheSidesRate() {
+        let next = deal([], [item("a", market: 100, price: 90)]).agreeing(cash: 80, rates: (0.7, 1))
+        XCTAssertNil(next.rateOut)
+        XCTAssertEqual(shownBalance(next), 80)
+    }
 }

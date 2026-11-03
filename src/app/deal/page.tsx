@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, ArrowDownLeft, ArrowUpDown, ArrowDownRight, ArrowUpRight, Bookmark, Camera, Check, ChevronDown, Eye, History, Info, Loader2, Minus, ScanLine, Plus, Search, SlidersHorizontal, StickyNote, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowDownLeft, ArrowUpDown, ArrowDownRight, ArrowUpRight, Bookmark, Camera, Check, ChevronDown, Eye, History, Info, Loader2, Minus, Pencil, ScanLine, Plus, Search, SlidersHorizontal, StickyNote, Trash2 } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { DealPhotos, deleteDealPhoto } from "@/components/deal/deal-photos";
@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Hint } from "@/components/ui/tooltip";
-import { DEFAULT_RATES, agreedDeal, aheadTitle, dealDayTotals, dealKind, dealNet, dealTotals, dealVerdict, defaultSideRates, lineRate, matchesDealSearch, parkedDealName, recordAhead, renegotiates, roundedCash, showsEquity, signedAgreedCash, unitPrice, type DealDayTotals, type DealKind, type DealRates, type DealTotals } from "@/lib/deal";
+import { DEFAULT_RATES, RATE_RANGE, ROUND_STEPS, agreedDeal, aheadTitle, dealDayTotals, dealKind, dealNet, dealTotals, dealVerdict, defaultSideRates, lineRate, matchesDealSearch, parkedDealName, recordAhead, renegotiates, roundStep, roundedCash, showsEquity, signedAgreedCash, unitPrice, withAgreedCash, type DealDayTotals, type DealKind, type DealRates, type DealTotals } from "@/lib/deal";
 import { fifoCost } from "@/lib/finance/sell";
 import { money, pct, signedMoney } from "@/lib/format";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
@@ -99,7 +99,7 @@ const TERMS = {
 /**
  * Deal maker for card shows, the same as the app: what comes in and what goes out, each valued
  * at a share of market, with a plain-English verdict, your profit and the value you take in,
- * cash to settle (rounded to $5 in one click), photos, and items that aren't in Holo or aren't
+ * cash to settle (rounded up in one click, or typed in), photos, and items that aren't in Holo or aren't
  * in the catalog at all. Closing shows what will happen first, then records it.
  */
 export default function DealPage() {
@@ -201,15 +201,27 @@ export default function DealPage() {
     return { ok: true, note: "Added to going out" };
   };
 
-  /** Round the cash to $5: it becomes the agreed cash (the prices spread to reach it). */
-  const roundTo = kind === "empty" || isAgreed ? null : roundedCash(totals.balance);
+  /**
+   * Settle on a cash amount (signed like the balance): the moving side's slider goes to the % that
+   * gets there and the agreed cash lands it to the cent (see withAgreedCash). Straight in, not
+   * through setDeal, which would read the slider moving as a renegotiation and let it go again.
+   */
+  const agreeCash = (cash: number) =>
+    setStored((cur) => {
+      const d = { ...EMPTY, ...cur };
+      if (!d.in.length && !d.out.length) return d;
+      const def = defaultSideRates(dealKind(d.in.length, d.out.length), rates);
+      return withAgreedCash(d, { in: d.rateIn ?? def.in, out: d.rateOut ?? def.out }, cash);
+    });
+  /** Round the cash up to the next step (deal settings, $5 unless changed): it becomes the agreed cash. */
+  const roundTo = kind === "empty" ? null : roundedCash(totals.balance, roundStep(rates));
   const roundCash = () => {
-    if (roundTo === null) return;
-    setDeal((cur) => ({ ...EMPTY, ...cur, agreedCash: roundTo }));
+    if (roundTo !== null) agreeCash(roundTo);
   };
   /** A typed agreed cash: who pays whom stays as it is now. */
   const [editingCash, setEditingCash] = useState(false);
-  const setAgreedCash = (amount: number) => setDeal((cur) => ({ ...EMPTY, ...cur, agreedCash: signedAgreedCash(amount, totals) }));
+  const setAgreedCash = (amount: number) => agreeCash(signedAgreedCash(amount, totals));
+  // Lets go of the agreed cash; the slider stays where it moved to.
   const clearAgreed = () => setDeal((cur) => ({ ...EMPTY, ...cur, agreedCash: undefined }));
 
   const todays = log.filter((d) => d.at.slice(0, 10) === today);
@@ -520,13 +532,13 @@ function Balance({
       </div>
       <div className="mt-1 flex items-center justify-between gap-3">
         {/* Click the figure to type the cash you agreed on. */}
-        <button type="button" onClick={onEditCash} disabled={kind === "empty"} aria-label={`Cash ${money(Math.abs(balance))}. Type the cash you agreed on`} className="hype-num tabular -mx-1 rounded-xl px-1 text-left text-[56px] leading-none transition-colors enabled:hover:bg-white/[0.04] disabled:cursor-default sm:text-[68px]">
-          {money(Math.abs(balance))}
+        <button type="button" onClick={onEditCash} disabled={kind === "empty"} aria-label={`Cash ${money(Math.abs(balance))}. Type the cash you agreed on`} className="group -mx-1 inline-flex min-w-0 items-center gap-2 rounded-xl px-1 text-left transition-colors enabled:hover:bg-white/[0.04] disabled:cursor-default">
+          <span className="hype-num tabular text-[56px] leading-none sm:text-[68px]">{money(Math.abs(balance))}</span>
+          {kind !== "empty" && <Pencil aria-hidden className="size-4 shrink-0 text-foreground/70 transition-colors group-hover:text-foreground" />}
         </button>
         {roundTo !== null && (
-          <button type="button" onClick={onRound} className="btn-3d btn-3d-dark shrink-0 rounded-full bg-surface-2 px-4 py-2 text-center hover:bg-surface-3">
-            <span className="block text-[10px] font-semibold text-muted">Round to</span>
-            <span className="tabular block text-[14px] font-bold">{money(Math.abs(roundTo))}</span>
+          <button type="button" onClick={onRound} aria-label={`Round up to ${money(Math.abs(roundTo))}`} className="btn-3d btn-3d-dark shrink-0 rounded-full bg-surface-2 px-4 py-2 text-[14px] font-bold hover:bg-surface-3">
+            Round up
           </button>
         )}
       </div>
@@ -711,8 +723,8 @@ function SideCard({
         </div>
         <input
           type="range"
-          min={40}
-          max={120}
+          min={RATE_RANGE.min * 100}
+          max={RATE_RANGE.max * 100}
           step={1}
           value={Math.round(rate * 100)}
           onChange={(e) => onRate(Number(e.target.value) / 100)}
@@ -915,6 +927,27 @@ function SettingsDialog({ open, onOpenChange, rates, onSave }: { open: boolean; 
             </span>
             <Switch checked={rates.askCost ?? true} onCheckedChange={(on) => onSave({ ...rates, askCost: on })} />
           </label>
+          <div>
+            <span className="block text-[14px] font-medium">Round up to the nearest</span>
+            <span className="block text-[12px] text-muted">What Round up on the cash rounds to.</span>
+            <div role="radiogroup" aria-label="Round up to the nearest" className="mt-2 inline-flex flex-wrap gap-1 rounded-full bg-surface-2 p-1 ring-1 ring-inset ring-border">
+              {ROUND_STEPS.map((step) => {
+                const on = roundStep(rates) === step;
+                return (
+                  <button
+                    key={step}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    onClick={() => onSave({ ...rates, roundStep: step })}
+                    className={cn("tabular rounded-full px-3 py-1 text-[13px] font-semibold transition-colors", on ? "bg-[var(--lime)] text-black" : "text-muted hover:text-foreground")}
+                  >
+                    ${step}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           {rows.map((r) => (
             <div key={r.key}>
               <div className="flex items-baseline justify-between">

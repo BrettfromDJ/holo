@@ -85,7 +85,7 @@ struct DealView: View {
                         }
                         if !todays.isEmpty { TodayStrip(deals: todays) { path.append(DealRoute.history) } }
                         if !deals.parked.isEmpty { ParkedChip(count: deals.parked.count) { parkedList = true } }
-                        BalanceCard(totals: totals, roundTo: agreed.side == nil ? roundTarget(totals) : nil, onRound: roundCash,
+                        BalanceCard(totals: totals, roundTo: roundTarget(totals), onRound: roundCash,
                                     agreed: agreed.side != nil, share: agreed.share,
                                     onEditCash: { startEditingCash(totals) }, onClearAgreed: clearAgreed)
                             // Reports only when it crosses the top, not on every scroll frame.
@@ -281,19 +281,17 @@ struct DealView: View {
 
     // MARK: Rounding the cash
 
-    /// The cash rounded to the nearest $5, when it isn't already.
+    /// The cash rounded up to the next step (deal settings, $5 unless changed), when it isn't on one.
     private func roundTarget(_ totals: DealTotals) -> Double? {
-        let b = totals.balance
-        let r = (abs(b) / 5).rounded() * 5
-        guard deals.deal.kind != .empty, r >= 5, abs(abs(b) - r) > 0.004 else { return nil }
-        return b < 0 ? -r : r
+        guard deals.deal.kind != .empty else { return nil }
+        return roundedCash(totals.balance, step: deals.defaults.step)
     }
 
-    /// Round the cash to the nearest $5: it becomes the agreed cash (the prices going out, or
-    /// coming in, spread to reach it). Moving a slider or a price lets go of it again.
+    /// Round the cash up: it becomes the agreed cash, and the slider of the side that moves (going
+    /// out, or coming in) goes to the % that gets there. Moving a slider or a price lets go of it.
     private func roundCash() {
         guard let target = roundTarget(totals) else { return }
-        withAnimation(.snappy) { deals.update { $0.agreedCash = target } }
+        withAnimation(.snappy) { deals.setAgreedCash(target) }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
@@ -316,10 +314,11 @@ struct DealView: View {
         let text = cashText
         cashText = ""
         guard let amount = MoneyField.value(text) else { return }
-        withAnimation(.snappy) { deals.update { $0.agreedCash = signedAgreedCash(amount, totals: totals) } }
+        withAnimation(.snappy) { deals.setAgreedCash(signedAgreedCash(amount, totals: totals)) }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
+    /// Lets go of the agreed cash; the slider stays where it moved to.
     private func clearAgreed() {
         withAnimation(.snappy) { deals.update { $0.agreedCash = nil } }
     }
@@ -599,7 +598,7 @@ private struct TermLabel: View {
 }
 
 /// The deal at a glance on a solid electric-lime card: whether you come out ahead, who pays
-/// whom (with a one-tap round to $5), a bar showing what each side puts in, and the four numbers
+/// whom (with a one-tap round up), a bar showing what each side puts in, and the four numbers
 /// in plain words (tap any for what it means). When the value gained is negative the whole card
 /// goes pink, so there's never pink on lime.
 private struct BalanceCard: View {
@@ -672,21 +671,30 @@ private struct BalanceCard: View {
             HStack(alignment: .center, spacing: 10) {
                 // Tap the figure to type the cash you agreed on.
                 Button(action: onEditCash) {
-                    CountingText(value: abs(b), format: { Format.money($0) })
-                        .font(.display(60)).tracking(-2.4).monospacedDigit().foregroundStyle(ink).lineLimit(1).minimumScaleFactor(0.5)
-                        .displayTrim(60)
-                        .contentShape(Rectangle())
+                    // The pencil says the figure can be tapped to type an amount; one tap target.
+                    HStack(alignment: .center, spacing: 6) {
+                        CountingText(value: abs(b), format: { Format.money($0) })
+                            .font(.display(60)).tracking(-2.4).monospacedDigit().foregroundStyle(ink).lineLimit(1).minimumScaleFactor(0.5)
+                            .displayTrim(60)
+                        if !empty {
+                            Image(systemName: "pencil")
+                                .font(.system(size: 17, weight: .medium))
+                                .foregroundStyle(ink.opacity(0.7))
+                                .accessibilityHidden(true)
+                        }
+                    }
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .disabled(empty)
                 .accessibilityHint("Type the cash you agreed on")
                 Spacer(minLength: 0)
                 if let roundTo {
-                    // A quiet outlined chip on the card: one line, the round figure.
+                    // A quiet outlined chip on the card: one line, no figure (it's in the label read aloud).
                     Button(action: onRound) {
                         HStack(spacing: 5) {
-                            Image(systemName: "arrow.up.arrow.down").font(.system(size: 11, weight: .semibold))
-                            Text("Round to \(Format.money(abs(roundTo)))").font(.geist(13, .semibold)).monospacedDigit()
+                            Image(systemName: "arrow.up").font(.system(size: 11, weight: .semibold))
+                            Text("Round up").font(.geist(13, .semibold))
                         }
                         .foregroundStyle(ink)
                         .padding(.horizontal, 12).frame(height: 34)
@@ -695,6 +703,7 @@ private struct BalanceCard: View {
                         .lineLimit(1).fixedSize()
                     }
                     .buttonStyle(ShutterStyle())
+                    .accessibilityLabel("Round up to \(Format.money(abs(roundTo)))")
                     .transition(.scale.combined(with: .opacity))
                 }
             }
@@ -815,7 +824,7 @@ private struct RateCard: View {
                 }
             }
             .font(.geist(14, .medium)).monospacedDigit()
-            Slider(value: Binding(get: { rate }, set: { onChange(($0 * 100).rounded() / 100) }), in: 0.4...1.2, step: 0.01)
+            Slider(value: Binding(get: { rate }, set: { onChange(($0 * 100).rounded() / 100) }), in: DealState.rateRange, step: 0.01)
                 .tint(accent)
                 .sensoryFeedback(.selection, trigger: Int((rate * 20).rounded()))
             if let result {

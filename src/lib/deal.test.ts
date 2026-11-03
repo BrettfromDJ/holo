@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_RATES, agreedDeal, aheadTitle, dealDayTotals, dealKind, dealTotals, defaultSideRates, matchesDealSearch, parkedDealName, recordAhead, renegotiates, signedAgreedCash, unitPrice, type DealHistoryRecord, type DealLine } from "./deal";
+import { DEFAULT_RATES, agreedDeal, rateForCash, roundStep, roundedCash, withAgreedCash, aheadTitle, dealDayTotals, dealKind, dealTotals, defaultSideRates, matchesDealSearch, parkedDealName, recordAhead, renegotiates, signedAgreedCash, unitPrice, type DealHistoryRecord, type DealLine } from "./deal";
 
 describe("deal maker", () => {
   it("names the deal from its sides", () => {
@@ -226,5 +226,97 @@ describe("agreed cash", () => {
     expect(renegotiates(base, { ...base, out: [{ key: "b", qty: 1 }] })).toBe(true);
     // Notes, photos, tracking and undefined-vs-null don't count.
     expect(renegotiates(base, { ...base, in: [{ key: "a", qty: 1 }], rateIn: undefined })).toBe(false);
+  });
+});
+
+describe("round up", () => {
+  it("rounds the cash up to the next step, keeping who pays whom", () => {
+    expect(roundedCash(1151.2, 5)).toBe(1155);
+    expect(roundedCash(-1151.2, 5)).toBe(-1155);
+    expect(roundedCash(1151.2, 1)).toBe(1152);
+    expect(roundedCash(1151.2, 10)).toBe(1160);
+    expect(roundedCash(1151.2, 25)).toBe(1175);
+    expect(roundedCash(1151.2, 50)).toBe(1200);
+    expect(roundedCash(1151.2, 100)).toBe(1200);
+    expect(roundedCash(1151.01)).toBe(1155);
+    expect(roundedCash(0.5, 5)).toBe(5);
+  });
+
+  it("has nothing to do on a multiple or with no cash", () => {
+    expect(roundedCash(1155, 5)).toBeNull();
+    expect(roundedCash(-1200, 100)).toBeNull();
+    expect(roundedCash(42, 1)).toBeNull();
+    expect(roundedCash(0, 5)).toBeNull();
+  });
+
+  it("reads the step from the settings, $5 unless it's one of the steps", () => {
+    expect(roundStep({})).toBe(5);
+    expect(roundStep({ roundStep: null })).toBe(5);
+    expect(roundStep({ roundStep: 25 })).toBe(25);
+    expect(roundStep({ roundStep: 7 })).toBe(5);
+  });
+});
+
+describe("cash moves the slider", () => {
+  type Priced = { in: DealLine[]; out: DealLine[]; rateIn?: number | null; rateOut?: number | null; agreedCash?: number | null };
+  const settled = (d: Priced, defaults: { in: number; out: number }) => {
+    const rates = { in: d.rateIn ?? defaults.in, out: d.rateOut ?? defaults.out };
+    const a = agreedDeal(d.in, d.out, rates, d.agreedCash);
+    return dealTotals(a.incoming, a.outgoing, rates);
+  };
+
+  it("solves a sale's rate exactly", () => {
+    // $1,000 market going out at 100%: the customer pays $900 → 90%.
+    expect(rateForCash([], [{ market: 1000, qty: 1 }], { in: 0.7, out: 1 }, 900)).toEqual({ side: "out", rate: 0.9 });
+  });
+
+  it("solves a buy's rate (you pay, so the cash is negative)", () => {
+    // $200 coming in; you pay $150 → 75%.
+    expect(rateForCash([{ market: 200, qty: 1 }], [], { in: 0.7, out: 1 }, -150)).toEqual({ side: "in", rate: 0.75 });
+  });
+
+  it("moves what goes out in a trade, around fixed prices and lines with their own %", () => {
+    // In: $500 at 80% = $400. Out: a $100 typed price, a line at its own 50% of $100, and $1,000
+    // that follows the side's %. Customer pays $700: 100 + 50 + 1000r − 400 = 700 → r = 0.95.
+    const incoming = [{ market: 500, qty: 1 }];
+    const outgoing = [{ market: 300, qty: 1, price: 100 }, { market: 100, qty: 1, rate: 0.5 }, { market: 500, qty: 2 }];
+    const r = rateForCash(incoming, outgoing, { in: 0.8, out: 1 }, 700);
+    expect(r?.side).toBe("out");
+    expect(r?.rate).toBeCloseTo(0.95, 6);
+    expect(dealTotals(incoming, outgoing, { in: 0.8, out: r!.rate }).balance).toBeCloseTo(700, 2);
+  });
+
+  it("stops at the slider's range", () => {
+    expect(rateForCash([], [{ market: 100, qty: 1 }], { in: 0.7, out: 1 }, 10)?.rate).toBe(0.4);
+    expect(rateForCash([], [{ market: 100, qty: 1 }], { in: 0.7, out: 1 }, 500)?.rate).toBe(1.2);
+  });
+
+  it("has nothing to move when every line is fixed, or the deal is empty", () => {
+    expect(rateForCash([], [{ market: 100, qty: 1, price: 90 }], { in: 0.7, out: 1 }, 80)).toBeNull();
+    expect(rateForCash([], [], { in: 0.7, out: 1 }, 80)).toBeNull();
+  });
+
+  it("sets the rate and the agreed cash together, landing to the cent", () => {
+    const d: Priced = { in: [], out: [{ market: 1279.11, qty: 1 }], rateIn: null, rateOut: null };
+    const next = withAgreedCash(d, { in: 0.7, out: 1 }, 1155);
+    expect(next.agreedCash).toBe(1155);
+    expect(next.rateOut).toBeCloseTo(1155 / 1279.11, 6);
+    expect(settled(next, { in: 0.7, out: 1 }).balance).toBe(1155);
+    // Not a renegotiation the deal should undo: the slider and the agreed cash moved together.
+  });
+
+  it("covers what the range can't with the agreed cash", () => {
+    const d: Priced = { in: [], out: [{ market: 100, qty: 1 }], rateIn: null, rateOut: null };
+    const next = withAgreedCash(d, { in: 0.7, out: 1 }, 20);
+    expect(next.rateOut).toBe(0.4);
+    expect(next.agreedCash).toBe(20);
+    expect(settled(next, { in: 0.7, out: 1 }).balance).toBe(20);
+  });
+
+  it("only sets the agreed cash when nothing follows the side's %", () => {
+    const d: Priced = { in: [], out: [{ market: 100, qty: 1, price: 90 }], rateIn: null, rateOut: null };
+    const next = withAgreedCash(d, { in: 0.7, out: 1 }, 80);
+    expect(next.rateOut).toBeNull();
+    expect(settled(next, { in: 0.7, out: 1 }).balance).toBe(80);
   });
 });
