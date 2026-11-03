@@ -199,7 +199,7 @@ export function EbaySales({
           href={soldUrl}
           target="_blank"
           rel="noreferrer"
-          className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-medium text-muted transition-colors hover:text-foreground"
+          className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[var(--lime)]/12 text-[14px] font-semibold text-[var(--lime)] ring-1 ring-inset ring-[var(--lime)]/45 transition-colors hover:bg-[var(--lime)]/20"
         >
           See all {tab === UNGRADED ? "" : `${tab} `}sold on eBay <ExternalLink className="size-3.5" />
         </a>

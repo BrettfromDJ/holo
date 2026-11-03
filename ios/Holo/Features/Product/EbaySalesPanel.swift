@@ -141,14 +141,20 @@ struct EbaySalesPanel: View {
         }
         // eBay's own sold listings for this card (and the open grade): every recent sale.
         if let product = store.products[productId], let url = Self.soldURL(product, grade: tab == Self.ungradedTab ? nil : tab) {
+            // A clear button, not a quiet link: it's the way to every recent sale.
             Link(destination: url) {
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     Text("See all \(tab == Self.ungradedTab ? "" : "\(tab) ")sold on eBay")
-                    Image(systemName: "arrow.up.right").font(.system(size: 11, weight: .semibold))
+                    Image(systemName: "arrow.up.right").font(.system(size: 12, weight: .semibold))
                 }
-                .font(.geist(13, .medium)).foregroundStyle(Theme.muted)
+                .font(.geist(15, .semibold)).foregroundStyle(Theme.lime)
+                .frame(maxWidth: .infinity).frame(height: 46)
+                .background(Capsule().fill(Theme.lime.opacity(0.12)))
+                .overlay(Capsule().strokeBorder(Theme.lime.opacity(0.45), lineWidth: 1))
+                .contentShape(Capsule())
             }
-            .padding(.top, 14)
+            .buttonStyle(.plain)
+            .padding(.top, 16)
         }
     }
 
