@@ -512,13 +512,14 @@ struct ProductDetailView: View {
                 Button { naming = true } label: { Label("New shelf…", systemImage: "plus") }
             }
             if !owned.isEmpty, !groups.portfolios.isEmpty {
-                let current = groups.portfolioOf(owned[0].identity.key)
+                // A check on every portfolio your copies show in; picking one moves them there.
+                let current = Set(owned.flatMap { groups.portfoliosOf($0.identity.key) })
                 Section("Portfolio") {
                     ForEach([GroupsStore.main] + groups.portfolios.map(\.id), id: \.self) { id in
                         Button {
-                            Task { await run { for h in owned { try await groups.move(h.identity.key, to: id, store: store) } } }
+                            Task { await run { try await groups.moveMany(owned.map(\.identity.key), to: id, store: store) } }
                         } label: {
-                            if current == id { Label(groups.name(of: id), systemImage: "checkmark") } else { Text(groups.name(of: id)) }
+                            if current.contains(id) { Label(groups.name(of: id), systemImage: "checkmark") } else { Text(groups.name(of: id)) }
                         }
                     }
                 }

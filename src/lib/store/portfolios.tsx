@@ -2,10 +2,15 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { getBrowserSupabase } from "../supabase/client";
+import { applyMainChange, copyTo, filterFor, membersOf as membersIn, moveTo, place as placeIn, type MembershipChange } from "../portfolios";
 import type { PortfolioRow } from "../supabase/database.types";
 import { useStore } from "./collection-store";
+import { useSyncedState } from "./synced-state";
 
-/** A named group of holdings. Holdings in no portfolio belong to "Main". */
+/**
+ * A named group of holdings. A holding can be in several; Main is every holding in none of
+ * them, plus the ones kept in Main too (user_state `portfolio-main`). See `src/lib/portfolios.ts`.
+ */
 export interface Portfolio {
   id: string;
   name: string;
@@ -21,8 +26,10 @@ interface PortfoliosState {
   /** "all", "main", or a portfolio id. */
   selected: string;
   select(id: string): void;
-  /** Portfolio id a holding belongs to ("main" when none). */
+  /** The first portfolio a holding shows in ("main" when it's in Main). */
   portfolioOf(holdingKey: string): string;
+  /** Every portfolio a holding shows in, "main" first when it's in Main. */
+  membersOf(holdingKey: string): string[];
   nameOf(id: string): string;
   error: string | null;
   create(name: string): Promise<Portfolio>;
@@ -30,7 +37,15 @@ interface PortfoliosState {
   remove(id: string): Promise<void>;
   /** Move a holding into a portfolio ("main" takes it out of every custom one). */
   move(holdingKey: string, to: string): Promise<void>;
+  /** Move holdings: they end up only in `to`. */
+  moveMany(holdingKeys: string[], to: string): Promise<void>;
+  /** Copy holdings: they also show in `to`, staying where they are (nothing is duplicated). */
+  copyMany(holdingKeys: string[], to: string): Promise<void>;
+  /** Put a holding in exactly these portfolios (a slab back from grading joins its raw card's). */
+  place(holdingKey: string, ids: string[]): Promise<void>;
 }
+
+const NO_KEYS: string[] = [];
 
 const Ctx = createContext<PortfoliosState | null>(null);
 
@@ -68,6 +83,9 @@ export function PortfoliosProvider({ children }: { children: ReactNode }) {
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [selected, setSelected] = useState<string>(ALL);
   const [error, setError] = useState<string | null>(null);
+  // Holdings kept in Main as well as in a named portfolio. Edits replay on the account's list
+  // once it's read, so a failed read never saves over it.
+  const [mainKeys, setMainKeys] = useSyncedState<string[]>("portfolio-main", NO_KEYS);
   const cloud = repoKind === "cloud" && user ? getBrowserSupabase() : null;
 
   useEffect(() => {
@@ -95,20 +113,16 @@ export function PortfoliosProvider({ children }: { children: ReactNode }) {
     };
   }, [status, repoKind, cloud]);
 
-  const owner = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const p of portfolios) for (const k of p.holdingKeys) map.set(k, p.id);
-    return map;
-  }, [portfolios]);
-  const portfolioOf = useCallback((key: string) => owner.get(key) ?? MAIN, [owner]);
+  const membership = useMemo(() => ({ portfolios, main: mainKeys }), [portfolios, mainKeys]);
+  const membersOf = useCallback((key: string) => membersIn(membership, key), [membership]);
+  const portfolioOf = useCallback((key: string) => membersIn(membership, key)[0] ?? MAIN, [membership]);
 
   // A selection that no longer exists falls back to everything.
   const effective = selected === ALL || selected === MAIN || portfolios.some((p) => p.id === selected) ? selected : ALL;
 
   useEffect(() => {
-    if (effective === ALL) setHoldingFilter(null);
-    else setHoldingFilter((key: string) => (owner.get(key) ?? MAIN) === effective);
-  }, [effective, owner, setHoldingFilter]);
+    setHoldingFilter(filterFor(membership, effective));
+  }, [effective, membership, setHoldingFilter]);
 
   const select = useCallback(
     (id: string) => {
@@ -170,27 +184,30 @@ export function PortfoliosProvider({ children }: { children: ReactNode }) {
     [cloud, portfolios, commit, selected, select],
   );
 
-  const move = useCallback(
-    async (holdingKey: string, to: string) => {
-      const next = portfolios.map((p) => {
-        const has = p.holdingKeys.includes(holdingKey);
-        if (p.id === to && !has) return { ...p, holdingKeys: [...p.holdingKeys, holdingKey] };
-        if (p.id !== to && has) return { ...p, holdingKeys: p.holdingKeys.filter((k) => k !== holdingKey) };
-        return p;
-      });
-      await commit(
-        next,
-        next.filter((p, i) => p !== portfolios[i]),
-      );
+  const write = useCallback(
+    async (change: MembershipChange<Portfolio>) => {
+      const changed = new Set(change.changed);
+      if (changed.size) {
+        await commit(
+          change.next.portfolios,
+          change.next.portfolios.filter((p) => changed.has(p.id)),
+        );
+      }
+      if (change.mainAdd.length || change.mainRemove.length) setMainKeys((prev) => applyMainChange(prev, change.mainAdd, change.mainRemove));
     },
-    [portfolios, commit],
+    [commit, setMainKeys],
   );
+
+  const moveMany = useCallback(async (keys: string[], to: string) => write(moveTo(membership, keys, to)), [membership, write]);
+  const copyMany = useCallback(async (keys: string[], to: string) => write(copyTo(membership, keys, to)), [membership, write]);
+  const move = useCallback(async (key: string, to: string) => moveMany([key], to), [moveMany]);
+  const place = useCallback(async (key: string, ids: string[]) => write(placeIn(membership, new Map([[key, ids]]))), [membership, write]);
 
   const nameOf = useCallback((id: string) => (id === ALL ? "All portfolios" : id === MAIN ? MAIN_NAME : (portfolios.find((p) => p.id === id)?.name ?? MAIN_NAME)), [portfolios]);
 
   const value = useMemo(
-    () => ({ portfolios, selected: effective, select, portfolioOf, nameOf, error, create, rename, remove, move }),
-    [portfolios, effective, select, portfolioOf, nameOf, error, create, rename, remove, move],
+    () => ({ portfolios, selected: effective, select, portfolioOf, membersOf, nameOf, error, create, rename, remove, move, moveMany, copyMany, place }),
+    [portfolios, effective, select, portfolioOf, membersOf, nameOf, error, create, rename, remove, move, moveMany, copyMany, place],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

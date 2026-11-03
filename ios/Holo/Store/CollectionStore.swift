@@ -1008,6 +1008,35 @@ final class CollectionStore {
         }
     }
 
+    /// Delete several copies at once (Collection's select mode), the same way as `deleteCopy`,
+    /// with one Undo that restores them all.
+    @MainActor
+    func deleteCopies(_ identities: [HoldingIdentity]) async throws {
+        // Every copy's entries, gathered before any are voided.
+        let live = identities.flatMap { entries(for: $0) }
+        guard !live.isEmpty else { return }
+        var done: [Txn] = []
+        defer {
+            recompute()
+            if !done.isEmpty {
+                let restore = done
+                let n = identities.count
+                Router.shared.undo = UndoItem(message: "Deleted \(n) item\(n == 1 ? "" : "s")") { [weak self] in
+                    guard let self else { return }
+                    for t in restore {
+                        try? await self.log(identity: t.identity, type: "correction", date: t.date, quantity: t.quantity, unitPrice: t.unitPrice,
+                                            fees: t.fees, shipping: t.shipping, tax: t.tax, correctsId: t.id)
+                    }
+                    self.recompute()
+                }
+            }
+        }
+        for t in live {
+            try await log(identity: t.identity, type: "correction", date: t.date, quantity: 0, unitPrice: 0, correctsId: t.id)
+            done.append(t)
+        }
+    }
+
     /// Delete an entry: a correction with quantity 0 voids it. Offers Undo for a few seconds,
     /// which restores it with another correction carrying its values (history stays intact).
     @MainActor

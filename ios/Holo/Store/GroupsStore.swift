@@ -4,6 +4,8 @@ import Supabase
 
 /// Shelves (named groups of products, like "Grails") and portfolios (named groups of holdings
 /// that filter every number), in the same `shelves` and `portfolios` tables the website uses.
+/// A holding can be in several portfolios; Main is every holding in none of them, plus the ones
+/// kept in Main too (user_state `portfolio-main`). The rules are in `PortfolioMembership`.
 /// A demo keeps them on the phone.
 @Observable
 final class GroupsStore {
@@ -24,7 +26,11 @@ final class GroupsStore {
 
     var shelves: [Shelf] = []
     var portfolios: [PortfolioGroup] = []
-    /// "all", "main" (holdings in no portfolio) or a portfolio id.
+    /// Holdings kept in Main as well as in a named portfolio (user_state `portfolio-main`).
+    private(set) var mainKeys: [String] = []
+    /// The account's `portfolio-main` was read this session (a failed read is never saved over).
+    @ObservationIgnored private var mainSynced = false
+    /// "all", "main" (holdings in Main) or a portfolio id.
     private(set) var selected = GroupsStore.all
     var error: String?
     private var userId: String?
@@ -37,6 +43,7 @@ final class GroupsStore {
         var store: ObjectIdentifier
         var selection: String
         var portfolios: [PortfolioGroup]
+        var mainKeys: [String]
     }
 
     private var db: SupabaseClient { Backend.shared.supabase }
@@ -45,6 +52,8 @@ final class GroupsStore {
     func reset() {
         shelves = []
         portfolios = []
+        mainKeys = []
+        mainSynced = false
         selected = Self.all
         userId = nil
         loadedFor = nil
@@ -66,6 +75,13 @@ final class GroupsStore {
             } catch {
                 self.error = error.localizedDescription
             }
+            mainSynced = false
+            do {
+                mainKeys = try await UserState.load("portfolio-main", as: [String].self) ?? []
+                mainSynced = true
+            } catch {
+                mainKeys = []
+            }
             selected = UserDefaults.standard.string(forKey: Self.selectedKey) ?? Self.all
         } else {
             shelves = [
@@ -73,6 +89,7 @@ final class GroupsStore {
                 Shelf(id: "demo-xmas", name: "Opening at Christmas", product_ids: ["sample:pe-etb", "sample:151-bundle"]),
             ]
             portfolios = []
+            mainKeys = []
             selected = Self.all
         }
         apply(store)
@@ -82,9 +99,18 @@ final class GroupsStore {
 
     // MARK: Portfolios
 
-    /// The portfolio a holding belongs to ("main" when none).
+    private var membership: PortfolioMembership.State {
+        PortfolioMembership.State(portfolios: portfolios.map { PortfolioMembership.Group(id: $0.id, keys: $0.holding_keys) }, main: mainKeys)
+    }
+
+    /// Every portfolio a holding shows in, "main" first when it's in Main.
+    func portfoliosOf(_ holdingKey: String) -> [String] {
+        PortfolioMembership.members(membership, holdingKey)
+    }
+
+    /// The first portfolio a holding shows in ("main" when it's in Main).
     func portfolioOf(_ holdingKey: String) -> String {
-        portfolios.first { $0.holding_keys.contains(holdingKey) }?.id ?? Self.main
+        portfoliosOf(holdingKey).first ?? Self.main
     }
 
     func name(of id: String) -> String {
@@ -103,16 +129,11 @@ final class GroupsStore {
     func apply(_ store: CollectionStore) {
         let effective = selected == Self.all || selected == Self.main || portfolios.contains { $0.id == selected } ? selected : Self.all
         // "All" doesn't depend on what's in each portfolio; the others do.
-        let stamp = Applied(store: ObjectIdentifier(store), selection: effective, portfolios: effective == Self.all ? [] : portfolios)
+        let all = effective == Self.all
+        let stamp = Applied(store: ObjectIdentifier(store), selection: effective, portfolios: all ? [] : portfolios, mainKeys: all ? [] : mainKeys)
         guard stamp != applied else { return }
         applied = stamp
-        if effective == Self.all {
-            store.holdingFilter = nil
-        } else {
-            var owner: [String: String] = [:]
-            for p in portfolios { for k in p.holding_keys { owner[k] = p.id } }
-            store.holdingFilter = { (owner[$0] ?? Self.main) == effective }
-        }
+        store.holdingFilter = PortfolioMembership.filter(membership, selected: effective)
     }
 
     @MainActor
@@ -145,20 +166,70 @@ final class GroupsStore {
     /// Move a holding into a portfolio ("main" takes it out of every custom one).
     @MainActor
     func move(_ holdingKey: String, to target: String, store: CollectionStore) async throws {
+        try await moveMany([holdingKey], to: target, store: store)
+    }
+
+    /// Move holdings: they end up only in `target`.
+    @MainActor
+    func moveMany(_ keys: [String], to target: String, store: CollectionStore) async throws {
+        try await write(PortfolioMembership.move(membership, keys, to: target), store: store)
+    }
+
+    /// Copy holdings: they also show in `target`, staying where they are (nothing is duplicated).
+    @MainActor
+    func copyMany(_ keys: [String], to target: String, store: CollectionStore) async throws {
+        try await write(PortfolioMembership.copy(membership, keys, to: target), store: store)
+    }
+
+    /// Put a holding in exactly these portfolios (a slab back from grading joins its raw card's).
+    @MainActor
+    func place(_ holdingKey: String, in ids: [String], store: CollectionStore) async throws {
+        try await write(PortfolioMembership.place(membership, [(key: holdingKey, ids: ids)]), store: store)
+    }
+
+    @MainActor
+    private func write(_ change: PortfolioMembership.Change, store: CollectionStore) async throws {
         struct Patch: Encodable { var holding_keys: [String] }
-        for i in portfolios.indices {
-            let has = portfolios[i].holding_keys.contains(holdingKey)
-            let should = portfolios[i].id == target
-            guard has != should else { continue }
-            var keys = portfolios[i].holding_keys.filter { $0 != holdingKey }
-            if should { keys.append(holdingKey) }
-            if cloud { try await db.from("portfolios").update(Patch(holding_keys: keys)).eq("id", value: portfolios[i].id).execute() }
+        defer { apply(store) }
+        for id in change.changed {
+            guard let keys = change.next.portfolios.first(where: { $0.id == id })?.keys,
+                  let i = portfolios.firstIndex(where: { $0.id == id }) else { continue }
+            if cloud { try await db.from("portfolios").update(Patch(holding_keys: keys)).eq("id", value: id).execute() }
             portfolios[i].holding_keys = keys
         }
-        apply(store)
+        guard !change.mainAdd.isEmpty || !change.mainRemove.isEmpty else { return }
+        guard cloud, let userId else {
+            mainKeys = PortfolioMembership.applyMainChange(mainKeys, add: change.mainAdd, remove: change.mainRemove)
+            return
+        }
+        // Merge onto the account's list (the website may have changed it since loading).
+        let base: [String]
+        do {
+            base = try await UserState.load("portfolio-main", as: [String].self) ?? []
+        } catch {
+            // Never read from the account this session: saving what's on the phone could wipe it.
+            guard mainSynced else { throw HoloError.server(code: nil, message: "Couldn't reach your account. Try again.") }
+            base = mainKeys
+        }
+        let next = PortfolioMembership.applyMainChange(base, add: change.mainAdd, remove: change.mainRemove)
+        try await UserState.save("portfolio-main", next, userId: userId)
+        mainKeys = next
+        mainSynced = true
     }
 
     // MARK: Shelves
+
+    /// Put several products on a shelf (ones already on it stay as they are).
+    @MainActor
+    func addMany(_ shelfId: String, productIds: [String]) async throws {
+        struct Patch: Encodable { var product_ids: [String] }
+        guard let i = shelves.firstIndex(where: { $0.id == shelfId }) else { return }
+        var ids = shelves[i].product_ids
+        for p in productIds where !ids.contains(p) { ids.append(p) }
+        guard ids != shelves[i].product_ids else { return }
+        if cloud { try await db.from("shelves").update(Patch(product_ids: ids)).eq("id", value: shelfId).execute() }
+        shelves[i].product_ids = ids
+    }
 
     @MainActor
     func createShelf(_ name: String, productIds: [String] = []) async throws -> Shelf {

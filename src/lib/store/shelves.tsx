@@ -21,6 +21,8 @@ interface ShelvesState {
   update(id: string, patch: Partial<Pick<Shelf, "name">>): Promise<void>;
   remove(id: string): Promise<void>;
   toggle(id: string, productId: string): Promise<void>;
+  /** Put several products on a shelf (ones already on it stay as they are). */
+  addMany(id: string, productIds: string[]): Promise<void>;
 }
 
 const Ctx = createContext<ShelvesState | null>(null);
@@ -155,7 +157,25 @@ export function ShelvesProvider({ children }: { children: ReactNode }) {
     [cloud, shelves, commitLocal],
   );
 
-  const value = useMemo(() => ({ shelves, error, create, update, remove, toggle }), [shelves, error, create, update, remove, toggle]);
+  const addMany = useCallback(
+    async (id: string, add: string[]) => {
+      const shelf = shelves.find((x) => x.id === id);
+      if (!shelf) return;
+      const fresh = [...new Set(add)].filter((p) => !shelf.productIds.includes(p));
+      if (!fresh.length) return;
+      const productIds = [...shelf.productIds, ...fresh];
+      if (cloud) {
+        const { error: err } = await cloud.from("shelves").update({ product_ids: productIds, updated_at: new Date().toISOString() }).eq("id", id);
+        if (err) throw new Error(err.message);
+        setShelves((s) => s.map((x) => (x.id === id ? { ...x, productIds } : x)));
+        return;
+      }
+      commitLocal(shelves.map((x) => (x.id === id ? { ...x, productIds } : x)));
+    },
+    [cloud, shelves, commitLocal],
+  );
+
+  const value = useMemo(() => ({ shelves, error, create, update, remove, toggle, addMany }), [shelves, error, create, update, remove, toggle, addMany]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

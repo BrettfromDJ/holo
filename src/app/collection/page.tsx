@@ -1,13 +1,14 @@
 "use client";
 
 import { FlipGrid, FlipItem } from "@/components/motion/flip-grid";
-import { ArrowUpDown, LayoutGrid, Library, List, MoreHorizontal, Pencil, Plus, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { ArrowUpDown, CheckCircle2, LayoutGrid, Library, List, MoreHorizontal, Pencil, Plus, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useCallback, useMemo, useState } from "react";
 import { EmptyCollection } from "@/components/portfolio/empty-state";
 import { ErrorState } from "@/components/portfolio/error-state";
-import { HoldingListHeader, HoldingListRow, HoldingTile } from "@/components/portfolio/holding-items";
+import { BulkBar, SelectableHolding } from "@/components/portfolio/bulk-editor";
+import { HoldingListHeader } from "@/components/portfolio/holding-items";
 import { HoldingSheet } from "@/components/portfolio/holding-sheet";
 import { DeltaPill } from "@/components/product/delta";
 import { ProductImage } from "@/components/product/product-image";
@@ -95,6 +96,19 @@ function Collection() {
   const [shelfDialog, setShelfDialog] = useState<"new" | "edit" | null>(null);
   // Your copy, opened in a sheet when a holding is clicked.
   const [opened, setOpened] = useState<HoldingView | null>(null);
+  // Select mode (the bulk editor): the keys picked, all of what's shown to start with.
+  const [selecting, setSelecting] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(() => new Set());
+  const toggle = useCallback(
+    (key: string) =>
+      setPicked((s) => {
+        const next = new Set(s);
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+        return next;
+      }),
+    [],
+  );
   const shelf = shelves.find((x) => x.id === shelfId) ?? null;
   const view = store.data.preferences.defaultView;
 
@@ -127,6 +141,10 @@ function Collection() {
     }
     return { value, gain: value - cost, pct: cost > 0 ? (value - cost) / cost : null };
   }, [filtered]);
+
+  // Only what's shown counts: changing a filter while selecting leaves hidden ones out.
+  const pickedShown = useMemo(() => (selecting ? filtered.filter((h) => picked.has(h.key)) : []), [selecting, filtered, picked]);
+  const bulk = selecting && kind !== "watchlist";
 
   const kindCounts: Record<Kind, number> = {
     all: holdings.length,
@@ -229,6 +247,23 @@ function Collection() {
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
+          {kind !== "watchlist" && (
+            <Button
+              variant={selecting ? "outline" : "secondary"}
+              aria-pressed={selecting}
+              aria-label="Select"
+              onClick={() => {
+                if (selecting) setSelecting(false);
+                else {
+                  setPicked(new Set(filtered.map((h) => h.key)));
+                  setSelecting(true);
+                }
+              }}
+              className="max-sm:size-10 max-sm:px-0"
+            >
+              <CheckCircle2 /> <span className="hidden sm:inline">{selecting ? "Done" : "Select"}</span>
+            </Button>
+          )}
           <Segmented
             ariaLabel="View"
             value={view}
@@ -375,7 +410,7 @@ function Collection() {
           <FlipGrid className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
             {filtered.map((h, i) => (
               <FlipItem key={h.key} flipKey={h.key} index={i}>
-                <HoldingTile h={h} onOpen={setOpened} />
+                <SelectableHolding h={h} view="grid" selecting={bulk} selected={bulk && picked.has(h.key)} onToggle={toggle} onOpen={setOpened} />
               </FlipItem>
             ))}
           </FlipGrid>
@@ -385,13 +420,22 @@ function Collection() {
             <div className="divide-y divide-border">
               {filtered.map((h, i) => (
                 <div key={h.key} className="animate-rise" style={{ animationDelay: `${Math.min(i, 16) * 30}ms` }}>
-                  <HoldingListRow h={h} onOpen={setOpened} />
+                  <SelectableHolding h={h} view="list" selecting={bulk} selected={bulk && picked.has(h.key)} onToggle={toggle} onOpen={setOpened} />
                 </div>
               ))}
             </div>
           </Card>
         )}
       </div>
+      {bulk && (
+        <BulkBar
+          selected={pickedShown}
+          shownCount={filtered.length}
+          onSelectAll={() => setPicked(new Set(filtered.map((h) => h.key)))}
+          onSelectNone={() => setPicked(new Set())}
+          onDone={() => setSelecting(false)}
+        />
+      )}
       <HoldingSheet holding={opened} onOpenChange={(o) => !o && setOpened(null)} />
     </div>
   );

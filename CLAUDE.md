@@ -93,8 +93,13 @@ and say exactly what to run or click.
 - Shared data with the website: `holdings`, `transactions` (edits are corrections: `corrects_id`,
   quantity 0 deletes), `watchlist_items`, `device_tokens`, `user_preferences.monthly_budget`, and
   `user_state` keys `wishlist`, `deal`, `deal-rates`, `deals`, `release-reminders`,
-  `milestones-seen`, `grading-submissions`, `grading-costs`, and the `shelves` / `portfolios`
-  tables.
+  `milestones-seen`, `grading-submissions`, `grading-costs`, `portfolio-main`, and the
+  `shelves` / `portfolios` tables.
+- Portfolios: a holding can be in several (`portfolios.holding_keys`); Main is holdings in no
+  named portfolio plus the keys in `user_state` `portfolio-main`. Move = only there; Copy = also
+  there, nothing duplicated; "All" counts each holding once. Rules in `src/lib/portfolios.ts`
+  and `Domain/PortfolioMembership.swift` (same tests on both). Collection has a select mode
+  (bulk Move, Copy, Add to shelf, Delete).
 
 ### Demo mode
 

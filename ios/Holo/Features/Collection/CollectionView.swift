@@ -26,6 +26,11 @@ struct CollectionView: View {
     @State private var deleting: HoldingView?
     /// A product to put on the shelf being named (from a tile's "Add to shelf → New shelf…").
     @State private var shelfProduct: String?
+    /// Select mode (the bulk editor): the holding keys picked, all of what's shown to start with.
+    @State private var selecting = false
+    @State private var picked: Set<String> = []
+    @State private var confirmingBulkDelete = false
+    @State private var bulkBusy = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     enum Naming: Identifiable {
@@ -139,7 +144,11 @@ struct CollectionView: View {
                     .padding(32)
                 case .ready:
                     VStack(alignment: .leading, spacing: 20) {
-                        portfolioSwitcher
+                        HStack(spacing: 8) {
+                            portfolioSwitcher
+                            Spacer(minLength: 0)
+                            if !store.holdings.isEmpty { selectPill }
+                        }
                         if let groupError { Text(groupError).font(.geist(13)).foregroundStyle(Theme.muted) }
                         header
                         if store.holdings.isEmpty {
@@ -153,10 +162,7 @@ struct CollectionView: View {
                             } else if grid {
                                 LazyVGrid(columns: columns, spacing: 28) {
                                     ForEach(shown) { h in
-                                        Button { opened = h } label: { HoldingTile(holding: h) }.buttonStyle(.plain)
-                                            .accessibilityIdentifier("holding-tile")
-                                            // Hold to lift the tile and get quick actions.
-                                            .contextMenu { quickActions(h) } preview: { LiftedPreview { HoldingTile(holding: h).frame(width: 190) } }
+                                        gridItem(h)
                                             .transition(.scale(scale: 0.92).combined(with: .opacity))
                                     }
                                 }
@@ -164,8 +170,7 @@ struct CollectionView: View {
                                 VStack(spacing: 0) {
                                     ForEach(shown) { h in
                                         VStack(spacing: 0) {
-                                            Button { opened = h } label: { HoldingListRow(holding: h) }.buttonStyle(.plain)
-                                                .contextMenu { quickActions(h) } preview: { LiftedPreview { HoldingListRow(holding: h).frame(width: 340) } }
+                                            listItem(h)
                                             Divider().overlay(Theme.border)
                                         }
                                         .transition(.scale(scale: 0.92).combined(with: .opacity))
@@ -186,6 +191,18 @@ struct CollectionView: View {
             .background(Theme.background)
             .imageMaxPixel(600)
             .replaysAnimations()
+            // Select mode's action bar, above the tab bar.
+            // Only the bar animates in; the tiles switch at once (no per-tile animation).
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                VStack(spacing: 0) {
+                    if selecting, !store.holdings.isEmpty {
+                        bulkBar
+                            .padding(.horizontal, 16).padding(.bottom, 8)
+                            .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+                    }
+                }
+                .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: selecting)
+            }
             .tabBarClearance()
             .refreshable { await reload() }
             .navigationBarTitleDisplayMode(.inline)
@@ -212,6 +229,12 @@ struct CollectionView: View {
                 }
             } message: { _ in
                 Text("It's removed as if you never added it: it leaves your value, cost and gains. To count it as a loss instead, use Remove.")
+            }
+            .alert(bulkDeleteTitle, isPresented: $confirmingBulkDelete) {
+                Button("Cancel", role: .cancel) {}
+                Button("Delete", role: .destructive) { bulkDelete() }
+            } message: {
+                Text("Their purchase and sale records are removed.")
             }
             .fullScreenCover(isPresented: $adding) { SearchScreen(mode: .add) }
             .onAppear {
@@ -385,6 +408,181 @@ struct CollectionView: View {
         }
         Button(role: .destructive) { deleting = h } label: {
             Label { Text("Delete"); Text("As if you never added it") } icon: { Image(systemName: "trash") }
+        }
+    }
+
+    // MARK: Select mode
+
+    /// A grid tile: tap opens Your copy, or toggles it in select mode. Hold for quick actions
+    /// (not while selecting).
+    @ViewBuilder
+    private func gridItem(_ h: HoldingView) -> some View {
+        let key = h.identity.key
+        let button = Button { tap(h) } label: {
+            SelectableTile(holding: h, selecting: selecting, selected: selecting && picked.contains(key))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("holding-tile")
+        .accessibilityAddTraits(selecting && picked.contains(key) ? .isSelected : [])
+        if selecting {
+            button
+        } else {
+            // Hold to lift the tile and get quick actions.
+            button.contextMenu { quickActions(h) } preview: { LiftedPreview { HoldingTile(holding: h).frame(width: 190) } }
+        }
+    }
+
+    @ViewBuilder
+    private func listItem(_ h: HoldingView) -> some View {
+        let key = h.identity.key
+        let button = Button { tap(h) } label: {
+            SelectableRow(holding: h, selecting: selecting, selected: selecting && picked.contains(key))
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selecting && picked.contains(key) ? .isSelected : [])
+        if selecting {
+            button
+        } else {
+            button.contextMenu { quickActions(h) } preview: { LiftedPreview { HoldingListRow(holding: h).frame(width: 340) } }
+        }
+    }
+
+    private func tap(_ h: HoldingView) {
+        guard selecting else { opened = h; return }
+        let key = h.identity.key
+        if picked.contains(key) { picked.remove(key) } else { picked.insert(key) }
+    }
+
+    /// "Select" starts select mode with everything shown picked; "Done" leaves it.
+    private var selectPill: some View {
+        Button {
+            if selecting {
+                leaveSelecting()
+            } else {
+                picked = Set(shown.map(\.identity.key))
+                selecting = true
+            }
+        } label: {
+            Text(selecting ? "Done" : "Select")
+                .font(.geist(14, .semibold))
+                .foregroundStyle(selecting ? Theme.ink : .white)
+                .padding(.horizontal, 16).frame(height: 36)
+                .background { if selecting { Capsule().fill(Theme.lime) } }
+                .liquidGlass(in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("collection-select")
+    }
+
+    private func leaveSelecting() {
+        selecting = false
+        picked = []
+    }
+
+    /// The picked holdings that are shown (changing a filter while selecting leaves hidden ones out).
+    private var pickedShown: [HoldingView] {
+        shown.filter { picked.contains($0.identity.key) }
+    }
+
+    private var bulkDeleteTitle: String {
+        let n = pickedShown.count
+        return "Delete \(n) item\(n == 1 ? "" : "s")?"
+    }
+
+    /// The glass bar along the bottom in select mode: the count, Select all or none, and
+    /// Move, Copy, Shelf and Delete.
+    private var bulkBar: some View {
+        let chosen = pickedShown
+        let n = chosen.count
+        let all = n == shown.count && n > 0
+        let noPortfolios = groups.portfolios.isEmpty
+        let disabled = n == 0 || bulkBusy
+        return VStack(spacing: 10) {
+            HStack {
+                Text("\(n) selected").font(.geist(15, .semibold)).monospacedDigit()
+                    .contentTransition(.numericText())
+                Spacer()
+                Button(all ? "Select none" : "Select all") {
+                    picked = all ? [] : Set(shown.map(\.identity.key))
+                }
+                .font(.geist(14, .medium)).foregroundStyle(Theme.lime)
+            }
+            HStack(spacing: 0) {
+                portfolioMenu("Move", icon: "folder", header: "Move to portfolio", keys: chosen.map(\.identity.key), copy: false)
+                    .disabled(disabled || noPortfolios)
+                portfolioMenu("Copy", icon: "plus.square.on.square", header: "Copy to portfolio", keys: chosen.map(\.identity.key), copy: true)
+                    .disabled(disabled || noPortfolios)
+                shelfMenu(productIds: chosen.map(\.identity.productId))
+                    .disabled(disabled || groups.shelves.isEmpty)
+                Button { confirmingBulkDelete = true } label: { barAction("Delete", "trash") }
+                    .disabled(disabled)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 16).padding(.vertical, 12)
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+    }
+
+    /// Move or Copy: Main and each of your portfolios.
+    private func portfolioMenu(_ title: String, icon: String, header: String, keys: [String], copy: Bool) -> some View {
+        let targets = [GroupsStore.main] + groups.portfolios.map(\.id)
+        return Menu {
+            Section(header) {
+                ForEach(targets, id: \.self) { id in
+                    Button(groups.name(of: id)) {
+                        bulk {
+                            if copy {
+                                try await groups.copyMany(keys, to: id, store: store)
+                            } else {
+                                try await groups.moveMany(keys, to: id, store: store)
+                            }
+                        }
+                    }
+                }
+            }
+        } label: {
+            barAction(title, icon)
+        }
+    }
+
+    private func shelfMenu(productIds: [String]) -> some View {
+        Menu {
+            Section("Add to shelf") {
+                ForEach(groups.shelves) { shelf in
+                    Button(shelf.name) { bulk { try await groups.addMany(shelf.id, productIds: productIds) } }
+                }
+            }
+        } label: {
+            barAction("Shelf", "square.stack")
+        }
+    }
+
+    private func barAction(_ title: String, _ icon: String) -> some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon).font(.system(size: 18, weight: .medium)).frame(height: 22)
+            Text(title).font(.geist(11, .medium))
+        }
+        .foregroundStyle(.white)
+        .frame(maxWidth: .infinity)
+        .contentShape(Rectangle())
+    }
+
+    /// Runs a bulk change; a failure shows above the collection, as other group changes do.
+    private func bulk(_ work: @escaping @MainActor () async throws -> Void) {
+        Task { @MainActor in
+            bulkBusy = true
+            defer { bulkBusy = false }
+            await groupRun { try await work() }
+        }
+    }
+
+    private func bulkDelete() {
+        let identities = pickedShown.map(\.identity)
+        Task { @MainActor in
+            bulkBusy = true
+            defer { bulkBusy = false }
+            await groupRun { try await store.deleteCopies(identities) }
+            leaveSelecting()
         }
     }
 
@@ -607,6 +805,54 @@ struct HoldingTile: View {
     private var subtitle: String {
         let type = holding.identity.isGraded ? (holding.label ?? "Graded") : (holding.product?.isSealed == true ? (holding.product?.productType ?? "Sealed") : (holding.label ?? "Card"))
         return [holding.product?.setName, type].compactMap { $0 }.joined(separator: " · ")
+    }
+}
+
+/// The check in select mode: a lime circle with a dark check, or a faint outline.
+struct SelectCheck: View {
+    var selected: Bool
+
+    var body: some View {
+        ZStack {
+            if selected {
+                Circle().fill(Theme.lime)
+                Image(systemName: "checkmark").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.ink)
+            } else {
+                Circle().fill(Color.black.opacity(0.3))
+                Circle().strokeBorder(Color.white.opacity(0.5), lineWidth: 1.5)
+            }
+        }
+        .frame(width: 26, height: 26)
+    }
+}
+
+/// A grid tile with its select-mode check. Its own view, so toggling one tile redraws only it.
+private struct SelectableTile: View {
+    var holding: HoldingView
+    var selecting: Bool
+    var selected: Bool
+
+    var body: some View {
+        HoldingTile(holding: holding)
+            .opacity(selecting && !selected ? 0.5 : 1)
+            .overlay(alignment: .topTrailing) {
+                if selecting { SelectCheck(selected: selected).padding(10) }
+            }
+    }
+}
+
+/// A list row with its select-mode check.
+private struct SelectableRow: View {
+    var holding: HoldingView
+    var selecting: Bool
+    var selected: Bool
+
+    var body: some View {
+        HStack(spacing: 0) {
+            if selecting { SelectCheck(selected: selected).padding(.leading, 14) }
+            HoldingListRow(holding: holding)
+        }
+        .opacity(selecting && !selected ? 0.5 : 1)
     }
 }
 

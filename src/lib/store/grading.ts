@@ -116,7 +116,7 @@ export interface GradingSubmission {
 export function useGradingSubmissions() {
   const [submissions, setSubmissions, ready] = useSyncedState<GradingSubmission[]>("grading-submissions", []);
   const { addTransaction, today } = useStore();
-  const { portfolioOf, move } = usePortfolios();
+  const { membersOf, place } = usePortfolios();
 
   const send = useCallback(
     (s: Omit<GradingSubmission, "id" | "status">) => setSubmissions((prev) => [...prev, { ...s, id: crypto.randomUUID(), status: "sent" }]),
@@ -156,12 +156,13 @@ export function useGradingSubmissions() {
         source: "Grading",
         notes: note,
       });
-      // Keep the slab in the same portfolio as the raw card it came from.
-      const from = portfolioOf(holdingKey(raw));
-      if (from !== portfolioOf(holdingKey(slab))) await move(holdingKey(slab), from);
+      // Keep the slab in the same portfolios as the raw card it came from.
+      const from = membersOf(holdingKey(raw));
+      const now = membersOf(holdingKey(slab));
+      if (from.join("|") !== now.join("|")) await place(holdingKey(slab), from);
       setSubmissions((prev) => prev.map((s) => (s.id === sub.id ? { ...s, status: "returned", grade: grade.grade, returnedOn } : s)));
     },
-    [addTransaction, portfolioOf, move, setSubmissions, today],
+    [addTransaction, membersOf, place, setSubmissions, today],
   );
 
   return { submissions, ready, send, cancel, complete };

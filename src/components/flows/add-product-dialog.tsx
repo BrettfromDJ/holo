@@ -206,7 +206,7 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
   const [tax, setTax] = useState("");
   const [source, setSource] = useState(remembered.source);
   const [notes, setNotes] = useState("");
-  const { portfolios, selected: viewing, portfolioOf, move } = usePortfolios();
+  const { portfolios, selected: viewing, portfolioOf, membersOf, moveMany, copyMany } = usePortfolios();
   const [pickedPortfolio, setPortfolioId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -214,11 +214,11 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
     if (!printing && printings.length) setPrinting(printings[0]);
   }, [printings, printing]);
 
-  // Until the user picks one: more of something you own stays in its portfolio;
-  // anything new goes to the portfolio being viewed, or Main when viewing all.
+  // Until the user picks one: the portfolio being viewed; when viewing all, more of something
+  // you own stays where it is and anything new goes to Main.
   const currentKey = holdingKey({ productId: product.id, printing, condition: graded ? "Near Mint" : condition, grade: graded ? { company: grader, grade: grade.trim() } : null });
   const alreadyOwned = allHoldings.some((h) => h.key === currentKey);
-  const portfolioId = pickedPortfolio ?? (alreadyOwned ? portfolioOf(currentKey) : viewing !== ALL ? viewing : MAIN);
+  const portfolioId = pickedPortfolio ?? (viewing !== ALL ? viewing : alreadyOwned ? portfolioOf(currentKey) : MAIN);
 
   const entered = parseMoney(price);
   const unitPrice = entered === null ? null : priceMode === "unit" ? entered : qty > 0 ? entered / qty : null;
@@ -258,7 +258,10 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
         notes: notes.trim() || null,
       });
       const key = holdingKey(identity);
-      if (portfolioOf(key) !== portfolioId) await move(key, portfolioId).catch(() => undefined);
+      // More of a copy you own also shows in the picked portfolio (a Copy: it stays where it
+      // is); a new one goes only there.
+      if (alreadyOwned) await copyMany([key], portfolioId).catch(() => undefined);
+      else if (membersOf(key).join("|") !== portfolioId) await moveMany([key], portfolioId).catch(() => undefined);
       const gv = parseMoney(gradedValue);
       if (graded && gv !== null) await setManualValue(identity, gv);
       if (graded && cert.trim()) saveCert(key, cert);

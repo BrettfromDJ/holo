@@ -125,15 +125,15 @@ export function PortfolioBanner() {
   );
 }
 
-/** Move a holding between portfolios (product page). */
+/** Move a holding between portfolios (product page). A check marks every portfolio it shows in. */
 export function MoveToPortfolio({ holdingKey }: { holdingKey: string }) {
-  const { portfolios, portfolioOf, nameOf, move } = usePortfolios();
+  const { portfolios, membersOf, nameOf, move } = usePortfolios();
   if (!portfolios.length) return null;
-  const current = portfolioOf(holdingKey);
+  const current = membersOf(holdingKey);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[12px] text-muted hover:text-foreground">
-        <Briefcase className="size-3" /> {nameOf(current)}
+        <Briefcase className="size-3" /> {current.map(nameOf).join(", ")}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>Move to portfolio</DropdownMenuLabel>
@@ -148,7 +148,7 @@ export function MoveToPortfolio({ holdingKey }: { holdingKey: string }) {
             }
           >
             <span className="flex-1">{p.name}</span>
-            {current === p.id && <Check className="size-4" />}
+            {current.includes(p.id) && <Check className="size-4" />}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
@@ -165,7 +165,7 @@ export function PortfolioManager() {
       <div className="flex items-center justify-between gap-3 px-5 py-4">
         <div className="min-w-0">
           <p className="text-[15px] font-medium">{MAIN_NAME}</p>
-          <p className="mt-0.5 text-[13px] text-muted">Everything not in another portfolio</p>
+          <p className="mt-0.5 text-[13px] text-muted">Everything not in another portfolio, plus what you copied here</p>
         </div>
       </div>
       {portfolios.map((p) => (

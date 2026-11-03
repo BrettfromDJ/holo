@@ -442,11 +442,11 @@ private struct ReturnSheet: View {
         saving = true
         defer { saving = false }
         do {
-            let from = groups.portfolioOf(submission.rawIdentity.key)
+            let from = groups.portfoliosOf(submission.rawIdentity.key)
             try await grading.complete(submission, grade: grade, date: Format.day(date), store: store)
-            // Keep the slab in the same portfolio as the raw card it came from.
+            // Keep the slab in the same portfolios as the raw card it came from.
             let slab = HoldingIdentity(productId: submission.productId, printing: submission.printing, condition: "Near Mint", gradeCompany: submission.company, grade: grade)
-            if from != GroupsStore.main { try await groups.move(slab.key, to: from, store: store) }
+            if groups.portfoliosOf(slab.key) != from { try await groups.place(slab.key, in: from, store: store) }
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             onReturned(grade)
             dismiss()

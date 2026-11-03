@@ -7,6 +7,9 @@ struct AddPurchaseSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(CollectionStore.self) private var store
     @Environment(GradingStore.self) private var grading
+    @Environment(GroupsStore.self) private var groups
+    /// The portfolio picked for this purchase; nil until you pick one (see `portfolioId`).
+    @State private var pickedPortfolio: String?
 
     @State private var printing: String?
     @State private var condition = CardCondition.nearMint.rawValue
@@ -44,6 +47,25 @@ struct AddPurchaseSheet: View {
     }
 
     static let pristine = "Pristine 10"
+
+    /// The copy this purchase adds to (a slab is Near Mint underneath; Pristine is still a 10).
+    private var identity: HoldingIdentity {
+        let isGraded = graded && !product.isSealed
+        return HoldingIdentity(
+            productId: product.id, printing: printing,
+            condition: product.isSealed ? "Sealed" : (isGraded ? CardCondition.nearMint.rawValue : condition),
+            gradeCompany: isGraded ? company : nil,
+            grade: isGraded ? (grade == Self.pristine ? "10" : grade) : nil
+        )
+    }
+
+    /// Until you pick one: the portfolio Collection is showing; when it shows all of them, more
+    /// of a copy you own stays where it is and anything new goes to Main.
+    private var portfolioId: String {
+        if let pickedPortfolio { return pickedPortfolio }
+        if groups.portfolios.contains(where: { $0.id == groups.selected }) || groups.selected == GroupsStore.main { return groups.selected }
+        return store.holding(key: identity.key) != nil ? groups.portfolioOf(identity.key) : GroupsStore.main
+    }
 
     private func gradeTitle(_ g: String) -> String {
         company == "CGC" && g == "10" ? "Gem Mint 10" : g
@@ -118,6 +140,13 @@ struct AddPurchaseSheet: View {
                             .multilineTextAlignment(.trailing)
                             .textInputAutocapitalization(.words)
                     }
+                    // Which portfolio it goes in (only once you have one besides Main).
+                    if !groups.portfolios.isEmpty {
+                        Picker("Portfolio", selection: Binding(get: { portfolioId }, set: { pickedPortfolio = $0 })) {
+                            Text("Main").tag(GroupsStore.main)
+                            ForEach(groups.portfolios) { Text($0.name).tag($0.id) }
+                        }
+                    }
                 }
 
                 if let error {
@@ -175,7 +204,19 @@ struct AddPurchaseSheet: View {
         )
         do {
             let before = store.allHoldings.reduce(0) { $0 + ($1.value ?? 0) }
+            let key = identity.key
+            let owned = store.holding(key: key) != nil
+            let target = portfolioId
             try await store.add([purchase])
+            // More of a copy you own also shows in the picked portfolio (a Copy: it stays where
+            // it is); a new one goes only there. A demo keeps this on the phone.
+            if !groups.portfolios.isEmpty {
+                if owned {
+                    try? await groups.copyMany([key], to: target, store: store)
+                } else if groups.portfoliosOf(key) != [target] {
+                    try? await groups.moveMany([key], to: target, store: store)
+                }
+            }
             if graded, !product.isSealed, company == "CGC", grade == Self.pristine {
                 let id = HoldingIdentity(productId: product.id, printing: printing, condition: CardCondition.nearMint.rawValue, gradeCompany: "CGC", grade: "10")
                 grading.setPristine(id.key, true)
