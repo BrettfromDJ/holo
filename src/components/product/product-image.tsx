@@ -2,7 +2,6 @@
 /* eslint-disable @next/next/no-img-element -- images come from arbitrary pricing-source CDNs */
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { categoryOf } from "@/lib/catalog";
-import { isFoilCard } from "@/components/motion/holo-tilt";
 import { bumperById, GLITTER_SPECKS, type Bumper } from "@/lib/bumpers";
 import { cgcLabelLines, fallbackCert, gradeDescriptor, isCgcTen, slabStyle } from "@/lib/graded";
 import { useSlabBumpers, useSlabCerts, useSlabPristine } from "@/lib/store/grading";
@@ -80,7 +79,7 @@ function ProductPhoto({
       )}
     >
       {showImage && bare && product.kind === "single" ? (
-        // A bare card gets a printed-card finish: grain, a fine print pattern, a sheen and an edge.
+        // A bare card, as printed: no texture laid over it (the grain and print pattern were too much).
         <span className="relative inline-flex h-full max-w-full">
           <img
             ref={imgRef}
@@ -93,7 +92,6 @@ function ProductPhoto({
             // letterboxing them would leave the texture and shine overhanging.
             className="h-full w-auto max-w-full rounded-[4.5%/3.2%] object-cover shadow-[0_8px_24px_rgba(0,0,0,0.45)] transition-transform duration-500 ease-[var(--ease-apple)]"
           />
-          <span aria-hidden className={cn("card-texture pointer-events-none absolute inset-0 rounded-[4.5%/3.2%]", isFoilCard(product) && "is-foil")} />
         </span>
       ) : showImage ? (
         <img
