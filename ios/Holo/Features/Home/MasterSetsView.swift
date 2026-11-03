@@ -122,7 +122,23 @@ struct MasterSetDetailView: View {
         let todo = sets.filter { cache.checklists[$0.id] == nil && !cache.failed.contains($0.id) }
         guard !todo.isEmpty else { return }
         if store.demo != nil || Demo.isOn {
-            for s in todo { cache.checklists[s.id] = sampleChecklist(s) }
+            // Demo sets: the real set from the catalog when it's there (free, Holo's own catalog),
+            // with the demo copies in their numbered places; numbered empty slots otherwise.
+            let index = try? await Backend.shared.api.exploreIndex()
+            for s in todo {
+                if let real = index?.sets.first(where: { $0.loaded && Self.sameSetName($0.name, s.name) }),
+                   let detail = try? await Backend.shared.api.exploreSet(real.slug) {
+                    var cards = detail.products.filter { !$0.product.isSealed }
+                        .sorted { ($0.product.number ?? "~").localizedStandardCompare($1.product.number ?? "~") == .orderedAscending }
+                    for h in s.holdings {
+                        guard let p = h.product, let n = Self.leadingNumber(p.number),
+                              let i = cards.firstIndex(where: { Self.leadingNumber($0.product.number) == n }) else { continue }
+                        cards[i] = SearchHit(product: p, printing: h.identity.printing, market: h.price ?? cards[i].market)
+                    }
+                    if !cards.isEmpty { cache.checklists[s.id] = cards; continue }
+                }
+                cache.checklists[s.id] = sampleChecklist(s)
+            }
             return
         }
         await withTaskGroup(of: (String, [SearchHit]?).self) { group in
@@ -138,6 +154,23 @@ struct MasterSetDetailView: View {
                 if let cards, !cards.isEmpty { cache.checklists[id] = cards } else { cache.failed.insert(id) }
             }
         }
+    }
+
+    /// "SV: Scarlet & Violet 151" and "Scarlet & Violet—151" are the same set: compared without a
+    /// code prefix, punctuation or case.
+    static func sameSetName(_ a: String, _ b: String) -> Bool {
+        func key(_ s: String) -> String {
+            s.lowercased()
+                .replacingOccurrences(of: #"^[a-z]{1,6}\d*(\.\d+)?\s*:\s*"#, with: "", options: .regularExpression)
+                .replacingOccurrences(of: #"[^a-z0-9]+"#, with: " ", options: .regularExpression)
+                .trimmingCharacters(in: .whitespaces)
+        }
+        return key(a) == key(b)
+    }
+
+    /// "025/165" → 25.
+    static func leadingNumber(_ s: String?) -> Int? {
+        s.flatMap { Int($0.prefix { $0.isNumber }) }
     }
 
     /// Demo sets aren't in the catalog: numbered empty slots around the cards you own (like the
@@ -326,14 +359,15 @@ private struct SetProgressHeader: View, Equatable {
                 // Two money figures only: the counts are in the dial and the chips below.
                 HStack(spacing: 10) {
                     heroTile(label: "Yours worth", value: Format.moneyWhole(ownedValue))
-                    heroTile(label: "To finish", value: missingValue > 0 ? Format.moneyWhole(missingValue) : "Not priced", dim: missingValue <= 0)
+                    heroTile(label: "To finish", value: missingValue > 0 ? Format.moneyWhole(missingValue) : "Not priced", dim: missingValue <= 0,
+                             note: missingValue > 0 ? "Full set \(Format.moneyWhole(missingValue + ownedValue))" : nil)
                 }
             }
         }
         .foregroundStyle(.white)
         .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 22)
+        .padding(.top, 4)
+        .padding(.bottom, 8)
         .frame(maxWidth: .infinity)
         // The dotted backdrop of the other pages behind the top, running up under the clear bar.
         .background(alignment: .top) {
@@ -343,15 +377,17 @@ private struct SetProgressHeader: View, Equatable {
     }
 
     /// A tile on the set's lit grid.
-    private func heroTile(label: String, value: String, dim: Bool = false) -> some View {
+    private func heroTile(label: String, value: String, dim: Bool = false, note: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label.uppercased()).font(.mono(10)).tracking(1.2).foregroundStyle(Theme.muted)
             Text(value).font(.geist(dim ? 17 : 24, .semibold)).tracking(-0.8).monospacedDigit()
                 .foregroundStyle(dim ? Theme.muted : .white)
                 .lineLimit(1).minimumScaleFactor(0.6)
+            if let note { Text(note).font(.geist(12)).monospacedDigit().foregroundStyle(Theme.muted).lineLimit(1) }
         }
         .padding(.horizontal, 14).padding(.vertical, 12)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        // Both tiles the same height, whatever their figure.
+        .frame(maxWidth: .infinity, minHeight: 80, alignment: .topLeading)
         .liquidGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 }
