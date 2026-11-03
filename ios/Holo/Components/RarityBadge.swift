@@ -26,6 +26,8 @@ struct RarityBadge: View {
     }
 
     private var tier: Tier { Self.tier(rarity) }
+    /// Frosted glass behind the badge, for when it sits over a picture.
+    var blurred = false
 
     var body: some View {
         let shape = Capsule()
@@ -36,6 +38,8 @@ struct RarityBadge: View {
             .padding(.horizontal, 10)
             .frame(height: 24)
             .background(shape.fill(fill))
+            // Over card art (the card page's top), frosted behind so the words stay readable.
+            .background { if blurred { shape.fill(.ultraThinMaterial).environment(\.colorScheme, .dark) } }
             .overlay(shape.strokeBorder(border, lineWidth: tier == .common || tier == .rare ? 1 : 1.2))
             // The glow comes before the sheen, so the sweeping band doesn't re-render a shadow
             // every frame.

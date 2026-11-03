@@ -112,7 +112,7 @@ struct ProductDetailView: View {
             ToolbarItem(placement: .principal) {
                 HStack(spacing: 8) {
                     Badge(text: product?.isSealed == true ? (product?.productType ?? "Sealed") : "Card", filled: true)
-                    if let rarity = product?.rarity { RarityBadge(rarity: rarity) }
+                    if let rarity = product?.rarity { RarityBadge(rarity: rarity, blurred: true) }
                 }
                 .fixedSize()
             }
