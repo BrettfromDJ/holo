@@ -16,7 +16,6 @@ export function HoloTilt({
   children,
   className,
   max = 12,
-  foil = true,
   radius = "1rem",
   heroName,
 }: {
@@ -24,6 +23,7 @@ export function HoloTilt({
   className?: string;
   /** Maximum tilt in degrees. */
   max?: number;
+  /** Ignored: the foil texture is no longer drawn (kept so callers needn't change). */
   foil?: boolean;
   radius?: string;
   /** View-transition name, so a card can fly into this spot from a grid. */
@@ -81,7 +81,7 @@ export function HoloTilt({
       <span aria-hidden className="holo-shadow" style={{ borderRadius: radius }} />
       <div ref={ref} className="holo-tilt-inner relative h-full w-full" data-active="false" style={{ borderRadius: radius }}>
         {children}
-        {foil && <span aria-hidden className="holo-foil" style={{ borderRadius: radius }} />}
+        {/* The etched foil texture over cards was too busy; only the soft glare remains. */}
         <span aria-hidden className="holo-glare" style={{ borderRadius: radius }} />
       </div>
     </div>
