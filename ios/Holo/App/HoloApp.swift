@@ -264,11 +264,19 @@ struct MainTabView: View {
                 ScanView(dealSide: side, onPick: { c, read in deals.addScanned(c, read: read, to: side, store: store) })
             }
         }
-        .confirmationDialog("A deal is open. Where should scanned cards go?", isPresented: $askScanTarget, titleVisibility: .visible) {
-            Button("Deal · coming in") { scanChoice = .deal(.incoming); dealScan = .incoming }
-            Button("Deal · going out") { scanChoice = .deal(.outgoing); dealScan = .outgoing }
-            Button("My collection") { scanChoice = .collection; scanning = true }
-            Button("Cancel", role: .cancel) {}
+        .sheet(isPresented: $askScanTarget) {
+            ScanTargetSheet { choice in
+                askScanTarget = false
+                // Open the scanner once the sheet is down.
+                Task {
+                    try? await Task.sleep(nanoseconds: 350_000_000)
+                    switch choice {
+                    case .incoming: scanChoice = .deal(.incoming); dealScan = .incoming
+                    case .outgoing: scanChoice = .deal(.outgoing); dealScan = .outgoing
+                    case nil: scanChoice = .collection; scanning = true
+                    }
+                }
+            }
         }
         // A new deal asks again.
         .onChange(of: deals.deal.kind) { _, kind in if kind == .empty { scanChoice = nil } }
@@ -304,4 +312,57 @@ private struct StablePage<Content: View>: View, Equatable {
 
 private struct OpenProduct: Identifiable {
     var id: String
+}
+
+
+/// Scanning while a deal is open: a small glass sheet asking where the cards go, three clear
+/// rows (into the deal, either side, or straight into your collection).
+struct ScanTargetSheet: View {
+    /// The deal side picked, or nil for your collection.
+    var onPick: (DealSide?) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Scan into").font(.display(24)).tracking(-0.6)
+                    Text("A deal is open").font(.geist(13)).foregroundStyle(Theme.muted)
+                }
+                Spacer()
+                Button("Cancel") { dismiss() }.font(.geist(15, .medium)).foregroundStyle(Theme.muted)
+            }
+            VStack(spacing: 8) {
+                row("Coming in", "Cards the customer hands you", icon: "arrow.down.left", tint: Theme.lime) { onPick(.incoming) }
+                row("Going out", "Cards you hand over", icon: "arrow.up.right", tint: Theme.planPink) { onPick(.outgoing) }
+                row("My collection", "Not part of the deal", icon: "square.grid.2x2", tint: .white) { onPick(nil) }
+            }
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 20)
+        .padding(.top, 24)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .presentationDetents([.height(330)])
+        .glassSheet()
+    }
+
+    private func row(_ title: String, _ sub: String, icon: String, tint: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                Image(systemName: icon).font(.system(size: 15, weight: .semibold)).foregroundStyle(tint)
+                    .frame(width: 36, height: 36)
+                    .background(Circle().fill(tint.opacity(0.14)))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.geist(16, .semibold))
+                    Text(sub).font(.geist(13)).foregroundStyle(Theme.muted)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.subtle)
+            }
+            .padding(.horizontal, 14).padding(.vertical, 12)
+            .sheetPanel(radius: 18)
+            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
 }
