@@ -1350,7 +1350,7 @@ function HistoryDialog({
           )}
           {parked.length > 0 && (
             <section className="mt-3">
-              <button type="button" onClick={() => setParkedOpen((o) => !o)} aria-expanded={parkedOpen} className="flex h-12 w-full items-center gap-2.5 rounded-2xl bg-surface-2 px-3.5 text-left ring-1 ring-inset ring-border hover:bg-surface-3">
+              <button type="button" onClick={() => setParkedOpen((o) => !o)} aria-expanded={parkedOpen} className="flex h-12 w-full items-center gap-2.5 rounded-2xl bg-white/[0.06] px-3.5 text-left ring-1 ring-inset ring-white/10 backdrop-blur-xl hover:bg-white/[0.09]">
                 <Bookmark className="size-3.5 fill-current text-[var(--lime)]" />
                 <span className="text-[15px] font-semibold">Parked</span>
                 <span className="tabular text-[14px] text-muted">{parked.length}</span>

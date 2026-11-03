@@ -596,7 +596,8 @@ struct DealHistoryView: View {
                         .rotationEffect(.degrees(parkedOpen ? 180 : 0))
                 }
                 .padding(.horizontal, 14).frame(height: 52)
-                .sheetPanel(radius: 16)
+                // Frosted over the lit grid behind it.
+                .background { Color.clear.blurredGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous)).allowsHitTesting(false) }
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
