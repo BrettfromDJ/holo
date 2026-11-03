@@ -328,17 +328,23 @@ function HeroTiles({ ownedValue, toFinish }: { ownedValue: number; toFinish: num
   return (
     <>
       <HeroTile label="Yours worth" value={moneyWhole(ownedValue)} />
-      <HeroTile label="To finish" value={toFinish !== null && toFinish > 0 ? moneyWhole(toFinish) : "Not priced"} dim={!(toFinish !== null && toFinish > 0)} />
+      <HeroTile
+        label="To finish"
+        value={toFinish !== null && toFinish > 0 ? moneyWhole(toFinish) : "Not priced"}
+        dim={!(toFinish !== null && toFinish > 0)}
+        note={toFinish !== null && toFinish > 0 ? `Full set ${moneyWhole(toFinish + ownedValue)}` : undefined}
+      />
     </>
   );
 }
 
 /** A glass tile on the set's lit grid. */
-function HeroTile({ label, value, dim }: { label: string; value: string; dim?: boolean }) {
+function HeroTile({ label, value, dim, note }: { label: string; value: string; dim?: boolean; note?: string }) {
   return (
-    <div className="min-w-0 rounded-[20px] border border-white/10 bg-white/[0.06] px-3.5 py-3 shadow-[inset_0_1px_0_rgb(255_255_255/0.08)] backdrop-blur-md">
+    <div className="min-h-[80px] min-w-0 rounded-[20px] border border-white/10 bg-white/[0.06] px-3.5 py-3 shadow-[inset_0_1px_0_rgb(255_255_255/0.08)] backdrop-blur-md">
       <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-white/55">{label}</p>
       <p className={cn("tabular mt-1.5 truncate font-semibold tracking-[-0.03em]", dim ? "text-[17px] text-white/55" : "text-[24px]")}>{value}</p>
+      {note && <p className="tabular mt-1 truncate text-[12px] text-white/55">{note}</p>}
     </div>
   );
 }
