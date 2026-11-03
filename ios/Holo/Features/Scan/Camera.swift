@@ -63,24 +63,53 @@ final class Camera: NSObject, ObservableObject {
 
     /// After a call, another app taking the camera or a runtime error, start again so the
     /// picture comes back by itself.
+    /// iOS can pause the camera (for example "not available in the background" while a screen
+    /// is still coming up) and, on newer iOS, never unpause it. So when it's paused while Lucent
+    /// is on screen, and whenever Lucent comes back to the front, the camera is stopped and
+    /// started again (a fresh start always runs).
+    private var interrupted = false
+
     private func observeInterruptions() {
         let center = NotificationCenter.default
-        center.addObserver(forName: AVCaptureSession.wasInterruptedNotification, object: session, queue: .main) { note in
-            let reason = (note.userInfo?[AVCaptureSessionInterruptionReasonKey] as? Int).map { "interrupted (\($0))" } ?? "interrupted"
-            CameraStatus.shared.interrupted = reason
+        center.addObserver(forName: AVCaptureSession.wasInterruptedNotification, object: session, queue: .main) { [weak self] note in
+            let code = note.userInfo?[AVCaptureSessionInterruptionReasonKey] as? Int
+            CameraStatus.shared.interrupted = code.map { "interrupted (\($0))" } ?? "interrupted"
+            self?.interrupted = true
+            // Paused while we're on screen: try again in a moment.
+            if UIApplication.shared.applicationState == .active {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { self?.restartIfPaused() }
+            }
         }
-        center.addObserver(forName: AVCaptureSession.runtimeErrorNotification, object: session, queue: .main) { note in
+        center.addObserver(forName: AVCaptureSession.runtimeErrorNotification, object: session, queue: .main) { [weak self] note in
             let err = (note.userInfo?[AVCaptureSessionErrorKey] as? NSError).map { "error \($0.code)" } ?? "error"
             CameraStatus.shared.interrupted = err
+            self?.interrupted = true
+            self?.restartIfPaused()
         }
-        for name in [AVCaptureSession.interruptionEndedNotification, AVCaptureSession.runtimeErrorNotification] {
-            center.addObserver(forName: name, object: session, queue: nil) { [weak self] _ in
-                guard let self else { return }
-                self.queue.async {
-                    if !self.session.isRunning { self.session.startRunning() }
-                    self.set(.running)
-                }
-            }
+        center.addObserver(forName: AVCaptureSession.interruptionEndedNotification, object: session, queue: .main) { [weak self] _ in
+            CameraStatus.shared.interrupted = ""
+            self?.interrupted = false
+            self?.restart()
+        }
+        center.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.restartIfPaused()
+        }
+    }
+
+    private func restartIfPaused() {
+        guard interrupted, UIApplication.shared.applicationState == .active else { return }
+        interrupted = false
+        CameraStatus.shared.interrupted = "restarted"
+        restart()
+    }
+
+    /// Stop and start the camera on its own queue, so the picture comes back.
+    private func restart() {
+        queue.async { [weak self] in
+            guard let self else { return }
+            if self.session.isRunning { self.session.stopRunning() }
+            self.session.startRunning()
+            self.set(.running)
         }
     }
 
