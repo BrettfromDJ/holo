@@ -115,9 +115,21 @@ struct DealView: View {
             .pageTitle("Deal")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button { path.append(DealRoute.history) } label: { Image(systemName: "clock.arrow.circlepath") }.accessibilityLabel("Closed deals")
+                    if docked {
+                        // While the deal bar sits in the tab bar's place, an X at the top left
+                        // steps out of the deal (the tabs come back; the deal stays as it is).
+                        Button {
+                            withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) { showTabs = true }
+                        } label: { Image(systemName: "xmark") }
+                        .accessibilityLabel("Leave the deal for now")
+                    } else {
+                        Button { path.append(DealRoute.history) } label: { Image(systemName: "clock.arrow.circlepath") }.accessibilityLabel("Closed deals")
+                    }
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
+                    if docked {
+                        Button { path.append(DealRoute.history) } label: { Image(systemName: "clock.arrow.circlepath") }.accessibilityLabel("Closed deals")
+                    }
                     Button { customer = true } label: { Image(systemName: "eye") }
                         .accessibilityLabel("Customer view")
                         .disabled(deals.deal.kind == .empty)
@@ -243,17 +255,6 @@ struct DealView: View {
         .animation(.snappy, value: totals.balance)
         .padding(.top, 4)
         HStack(spacing: 8) {
-            // The way out to the other tabs while the deal bar sits in the tab bar's place.
-            Button {
-                withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) { showTabs.toggle() }
-            } label: {
-                Image(systemName: showTabs ? "chevron.down" : "square.grid.2x2")
-                    .font(.system(size: 16, weight: .semibold)).foregroundStyle(.white)
-                    .frame(width: 44, height: 48)
-                    .liquidGlass(in: Capsule())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(showTabs ? "Hide tabs" : "Show tabs")
             Button("Clear") {
                 let photos = deals.deal.photos
                 withAnimation(.snappy) { deals.update { $0 = DealState() } }
