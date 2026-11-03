@@ -30,6 +30,9 @@ struct ExploreView: View {
                         .padding(.top, 4)
                     landing
                 }
+                // The lit grid behind everything at the top (search bar included, so its glass
+                // blurs it), running up under the status bar.
+                .background(alignment: .top) { ExploreBackdrop().frame(height: 560) }
             }
             // A tap on this tab (from anywhere) closes pushed pages and scrolls back to the top.
             .tabTopReset("explore", path: $path)
@@ -1060,7 +1063,8 @@ private struct ExploreBackdrop: View {
         }
         .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.7), .init(color: .clear, location: 1)],
                              startPoint: .top, endPoint: .bottom))
-        .padding(.top, -160)
+        // Up past the status bar, so no black band shows at the very top.
+        .padding(.top, -400)
         .padding(.bottom, -40)
         .allowsHitTesting(false)
     }
@@ -1182,7 +1186,6 @@ private struct CatalogHero: View {
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
-        .background(alignment: .top) { ExploreBackdrop() }
     }
 }
 
