@@ -125,10 +125,11 @@ export function BulkBar({
       <div className="pointer-events-none sticky bottom-[calc(env(safe-area-inset-bottom)+80px)] z-30 mt-6 flex justify-center lg:bottom-6">
         <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-1.5 rounded-[22px] border border-border bg-surface/85 p-2 shadow-[0_12px_40px_-12px_rgba(0,0,0,0.7)] backdrop-blur-xl">
           <span className="tabular px-2 text-[13px] font-semibold">{n} selected</span>
-          <Button variant="ghost" size="sm" onClick={all ? onSelectNone : onSelectAll}>
+          <Button variant="outline" size="sm" className="mx-1 px-4" onClick={all ? onSelectNone : onSelectAll}>
             {all ? "Select none" : "Select all"}
           </Button>
-          <span aria-hidden className="mx-0.5 h-5 w-px bg-border" />
+          {/* A clear gap before the actions, so Select all is never a slip away from Delete. */}
+          <span aria-hidden className="mx-2 h-5 w-px bg-border" />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="secondary" size="sm" disabled={!n || busy}>

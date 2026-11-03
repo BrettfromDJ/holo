@@ -453,13 +453,14 @@ struct CollectionView: View {
         if picked.contains(key) { picked.remove(key) } else { picked.insert(key) }
     }
 
-    /// "Select" starts select mode with everything shown picked; "Done" leaves it.
+    /// "Select" starts select mode with nothing picked; "Done" leaves it.
     private var selectPill: some View {
         Button {
             if selecting {
                 leaveSelecting()
             } else {
-                picked = Set(shown.map(\.identity.key))
+                // Nothing picked to start: tap cards, or Select all.
+                picked = []
                 selecting = true
             }
         } label: {
@@ -497,16 +498,24 @@ struct CollectionView: View {
         let all = n == shown.count && n > 0
         let noPortfolios = groups.portfolios.isEmpty
         let disabled = n == 0 || bulkBusy
-        return VStack(spacing: 10) {
+        return VStack(spacing: 14) {
             HStack {
                 Text("\(n) selected").font(.geist(15, .semibold)).monospacedDigit()
                     .contentTransition(.numericText())
                 Spacer()
-                Button(all ? "Select none" : "Select all") {
+                // A roomy pill, set well apart from the actions below (Delete sits under it).
+                Button {
                     picked = all ? [] : Set(shown.map(\.identity.key))
+                } label: {
+                    Text(all ? "Select none" : "Select all")
+                        .font(.geist(14, .semibold)).foregroundStyle(Theme.lime)
+                        .padding(.horizontal, 16).frame(height: 38)
+                        .overlay(Capsule().strokeBorder(Theme.lime.opacity(0.4), lineWidth: 1))
+                        .contentShape(Capsule())
                 }
-                .font(.geist(14, .medium)).foregroundStyle(Theme.lime)
+                .buttonStyle(.plain)
             }
+            Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
             HStack(spacing: 0) {
                 portfolioMenu("Move", icon: "folder", header: "Move to portfolio", keys: chosen.map(\.identity.key), copy: false)
                     .disabled(disabled || noPortfolios)

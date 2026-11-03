@@ -255,7 +255,8 @@ function Collection() {
               onClick={() => {
                 if (selecting) setSelecting(false);
                 else {
-                  setPicked(new Set(filtered.map((h) => h.key)));
+                  // Nothing picked to start: click cards, or Select all.
+                  setPicked(new Set());
                   setSelecting(true);
                 }
               }}
