@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_RATES, aheadTitle, dealDayTotals, dealKind, dealTotals, defaultSideRates, matchesDealSearch, parkedDealName, recordAhead, unitPrice, type DealHistoryRecord } from "./deal";
+import { DEFAULT_RATES, agreedDeal, aheadTitle, dealDayTotals, dealKind, dealTotals, defaultSideRates, matchesDealSearch, parkedDealName, recordAhead, renegotiates, signedAgreedCash, unitPrice, type DealHistoryRecord, type DealLine } from "./deal";
 
 describe("deal maker", () => {
   it("names the deal from its sides", () => {
@@ -138,5 +138,93 @@ describe("parked deals and history", () => {
     expect(matchesDealSearch(r, "sale umbreon")).toBe(true);
     expect(matchesDealSearch(r, "trade")).toBe(false);
     expect(matchesDealSearch(r, "pikachu")).toBe(false);
+  });
+});
+
+describe("agreed cash", () => {
+  const settle = (incoming: DealLine[], outgoing: DealLine[], rates: { in: number; out: number }, agreed: number | null) => {
+    const a = agreedDeal(incoming, outgoing, rates, agreed);
+    return { ...a, totals: dealTotals(a.incoming, a.outgoing, rates) };
+  };
+
+  it("leaves the deal alone when nothing is agreed", () => {
+    const out = [{ market: 100, qty: 1 }];
+    const a = agreedDeal([], out, { in: 0.7, out: 1 }, null);
+    expect(a.outgoing).toBe(out);
+    expect(a.side).toBeNull();
+    expect(agreedDeal([], [], { in: 0.7, out: 1 }, 50).side).toBeNull();
+  });
+
+  it("spreads a sale's agreed cash across what goes out, by each line's total", () => {
+    const s = settle([], [{ market: 100, qty: 1 }, { market: 50, qty: 1 }], { in: 0.7, out: 1 }, 120);
+    expect(s.side).toBe("out");
+    expect(s.outgoing.map((l) => l.price)).toEqual([80, 40]);
+    expect(s.totals.balance).toBe(120);
+    expect(s.share).toBeCloseTo(0.8);
+  });
+
+  it("moves what comes in the other way on a buy, exact to the cent", () => {
+    // $100 and $30 market at 70%: $91 coming in. Agreed: you pay $100.
+    const s = settle([{ market: 100, qty: 1 }, { market: 30, qty: 1 }], [], { in: 0.7, out: 1 }, -100);
+    expect(s.side).toBe("in");
+    expect(s.incoming.map((l) => l.price)).toEqual([76.93, 23.07]);
+    expect(s.totals.balance).toBe(-100);
+    expect(s.totals.inValue).toBe(100);
+  });
+
+  it("puts the leftover cent on the biggest line", () => {
+    const s = settle([], [{ market: 10, qty: 1 }, { market: 10, qty: 1 }, { market: 10, qty: 1 }], { in: 0.7, out: 1 }, 25);
+    expect(s.outgoing.map((l) => l.price)).toEqual([8.34, 8.33, 8.33]);
+    expect(s.totals.balance).toBe(25);
+  });
+
+  it("works per unit for several copies", () => {
+    const s = settle([], [{ market: 10, qty: 3 }], { in: 0.7, out: 1 }, 25);
+    expect(s.outgoing[0].price! * 3).toBeCloseTo(25, 10);
+    expect(s.totals.balance).toBe(25);
+  });
+
+  it("never takes a line below $0, getting as close as it can", () => {
+    const s = settle([{ market: 100, qty: 1 }], [{ market: 50, qty: 1 }], { in: 0.8, out: 1 }, -120);
+    // Going out can only drop to $0: you pay $80, not $120.
+    expect(s.outgoing[0].price).toBe(0);
+    expect(s.totals.balance).toBe(-80);
+  });
+
+  it("changes ahead by exactly the cash moved", () => {
+    const rates = { in: 0.8, out: 1 };
+    const base = dealTotals([{ market: 100, qty: 1 }], [{ market: 100, qty: 1, cost: 60 }], rates);
+    const s = settle([{ market: 100, qty: 1 }], [{ market: 100, qty: 1, cost: 60 }], rates, 0);
+    expect(base.balance).toBe(20);
+    expect(s.totals.balance).toBe(0);
+    expect(s.totals.profit).toBe(20);
+    expect(s.totals.ahead).toBe(base.ahead! - 20);
+    expect(s.totals.ahead).toBe(100 - 60 + 0);
+  });
+
+  it("leaves lines with no price as they are", () => {
+    const s = settle([], [{ market: null, qty: 1 }, { market: 40, qty: 1 }], { in: 0.7, out: 1 }, 30);
+    expect(s.outgoing[0].price).toBeUndefined();
+    expect(s.outgoing[1].price).toBe(30);
+    expect(s.share).toBeCloseTo(0.75);
+  });
+
+  it("keeps who pays whom when you type an amount", () => {
+    expect(signedAgreedCash(50, { balance: 42, inValue: 0, outValue: 42 })).toBe(50);
+    expect(signedAgreedCash(50, { balance: -42, inValue: 42, outValue: 0 })).toBe(-50);
+    expect(signedAgreedCash(50, { balance: 0, inValue: 10, outValue: 10 })).toBe(-50);
+    expect(signedAgreedCash(50, { balance: 0, inValue: 0, outValue: 10 })).toBe(50);
+  });
+
+  it("knows a renegotiation from other edits", () => {
+    const base = { in: [{ key: "a", qty: 1, price: null, rate: null }], out: [], rateIn: null, rateOut: null };
+    expect(renegotiates(base, { ...base, rateIn: 0.75 })).toBe(true);
+    expect(renegotiates(base, { ...base, in: [{ key: "a", qty: 2, price: null, rate: null }] })).toBe(true);
+    expect(renegotiates(base, { ...base, in: [{ key: "a", qty: 1, price: 12, rate: null }] })).toBe(true);
+    expect(renegotiates(base, { ...base, in: [{ key: "a", qty: 1, price: null, rate: 0.9 }] })).toBe(true);
+    expect(renegotiates(base, { ...base, in: [] })).toBe(true);
+    expect(renegotiates(base, { ...base, out: [{ key: "b", qty: 1 }] })).toBe(true);
+    // Notes, photos, tracking and undefined-vs-null don't count.
+    expect(renegotiates(base, { ...base, in: [{ key: "a", qty: 1 }], rateIn: undefined })).toBe(false);
   });
 });

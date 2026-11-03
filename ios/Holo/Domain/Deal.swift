@@ -150,11 +150,15 @@ struct DealState: Codable, Equatable {
     var photos: [String] = []
     /// Your own notes on the deal; copied into the record when it closes.
     var notes: String?
+    /// Cash the two of you settled on (signed like DealTotals.balance: positive, the customer pays
+    /// you). While set, one side's prices are spread to reach it (see `agreed(rates:)`); nil
+    /// follows the prices. Any renegotiation clears it (DealStore.update).
+    var agreedCash: Double?
 
     enum CodingKeys: String, CodingKey {
         case incoming = "in"
         case outgoing = "out"
-        case rateIn, rateOut, photos, notes
+        case rateIn, rateOut, photos, notes, agreedCash
     }
 
     init() {}
@@ -167,6 +171,7 @@ struct DealState: Codable, Equatable {
         rateOut = try c.decodeIfPresent(Double.self, forKey: .rateOut)
         photos = try c.decodeIfPresent([String].self, forKey: .photos) ?? []
         notes = try c.decodeIfPresent(String.self, forKey: .notes)
+        agreedCash = try c.decodeIfPresent(Double.self, forKey: .agreedCash)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -177,6 +182,7 @@ struct DealState: Codable, Equatable {
         try c.encode(rateOut, forKey: .rateOut)
         if !photos.isEmpty { try c.encode(photos, forKey: .photos) }
         if let notes, !notes.isEmpty { try c.encode(notes, forKey: .notes) }
+        try c.encodeIfPresent(agreedCash, forKey: .agreedCash)
     }
 
     /// Anything worth keeping: items, photos or notes.
@@ -197,6 +203,86 @@ struct DealState: Codable, Equatable {
     func rates(_ defaults: DealRates) -> (in: Double, out: Double) {
         (rateIn ?? (kind == .trade ? defaults.trade : defaults.buy), rateOut ?? defaults.sell)
     }
+}
+
+/// A deal adjusted to its agreed cash (see DealState.agreed(rates:)).
+struct AgreedDeal {
+    /// The deal with the moved side's lines at their new price per unit.
+    var deal: DealState
+    /// The side whose prices moved; nil when nothing was adjusted.
+    var side: DealSide?
+    /// That side's priced total as a share of its market value (0.74 = 74% of market), when known.
+    var share: Double?
+}
+
+extension DealState {
+    /// The deal as it works out at the agreed cash (the website's agreedDeal). The difference from
+    /// the normal cash is spread across the going-out lines (or, with nothing going out, the
+    /// coming-in lines) in proportion to each line's total, never taking a line below $0 (then it
+    /// gets as close as it can). Exact to the cent: any leftover cent goes on the biggest line.
+    /// The stored deal is never changed; this is worked out each time.
+    func agreed(rates: (in: Double, out: Double)) -> AgreedDeal {
+        let none = AgreedDeal(deal: self, side: nil, share: nil)
+        guard let agreedCash, agreedCash.isFinite, kind != .empty else { return none }
+        let side: DealSide = outgoing.isEmpty ? .incoming : .outgoing
+        let lines = side == .outgoing ? outgoing : incoming
+        let r = side == .outgoing ? rates.out : rates.in
+        let cents: [Int?] = lines.map { l in l.unitPrice(side: r).map { max(0, Int(($0 * Double(l.qty) * 100).rounded())) } }
+        let priced = cents.indices.filter { cents[$0] != nil }
+        guard let first = priced.first else { return none }
+        let inValue = round2(incoming.reduce(0) { $0 + $1.total(side: rates.in) })
+        let outValue = round2(outgoing.reduce(0) { $0 + $1.total(side: rates.out) })
+        let balance = round2(outValue - inValue)
+        let delta = Int(((agreedCash - balance) * 100).rounded())
+        let current = priced.reduce(0) { $0 + (cents[$1] ?? 0) }
+        let target = max(0, current + (side == .outgoing ? delta : -delta))
+        // Each line's share of the move: its total, or an even split when every line is at $0.
+        func weight(_ i: Int) -> Int { current > 0 ? (cents[i] ?? 0) : 1 }
+        let totalWeight = priced.reduce(0) { $0 + weight($1) }
+        var next: [Int: Int] = [:]
+        for i in priced { next[i] = Int((Double(target) * Double(weight(i)) / Double(totalWeight) + 1e-6).rounded(.down)) }
+        let biggest = priced.reduce(first) { weight($1) > weight($0) ? $1 : $0 }
+        let spread = next.values.reduce(0, +)
+        next[biggest, default: 0] += target - spread
+        var adjusted = lines
+        for (i, c) in next {
+            adjusted[i].price = Double(c) / 100 / Double(adjusted[i].qty)
+            adjusted[i].rate = nil
+        }
+        var marketCents = 0.0
+        var marketPriced = 0
+        for i in priced {
+            guard let m = lines[i].market else { continue }
+            marketCents += m * Double(lines[i].qty) * 100
+            marketPriced += next[i] ?? 0
+        }
+        var d = self
+        if side == .outgoing { d.outgoing = adjusted } else { d.incoming = adjusted }
+        return AgreedDeal(deal: d, side: side, share: marketCents > 0 ? Double(marketPriced) / marketCents : nil)
+    }
+
+    /// The deal at its agreed cash, or as it is when none is set: what every total, the customer
+    /// view and the closed deal's record use.
+    func settled(rates: (in: Double, out: Double)) -> DealState { agreed(rates: rates).deal }
+
+    /// Whether this deal was renegotiated from `before` (a side's % moved, a line's % or price or
+    /// quantity changed, a line added or removed), which lets go of an agreed cash figure. The same
+    /// as the website's renegotiates().
+    func renegotiates(from before: DealState) -> Bool {
+        func text(_ n: Double?) -> String { n.map { String($0) } ?? "-" }
+        func sig(_ items: [DealItem]) -> [String] {
+            items.map { item in [item.key, String(item.qty), text(item.price), text(item.rate)].joined(separator: "|") }
+        }
+        return rateIn != before.rateIn || rateOut != before.rateOut || sig(incoming) != sig(before.incoming) || sig(outgoing) != sig(before.outgoing)
+    }
+}
+
+/// The agreed cash for a typed amount: who pays whom stays as it is now (the sign of the balance);
+/// when the cash is even, the customer pays you only if what goes out is worth more than what comes in.
+func signedAgreedCash(_ amount: Double, totals: DealTotals) -> Double {
+    let a = round2(abs(amount))
+    let customerPays = abs(totals.balance) < 0.005 ? totals.outValue > totals.inValue : totals.balance > 0
+    return customerPays ? a : -a
 }
 
 struct DealTotals {

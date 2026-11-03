@@ -106,7 +106,9 @@ final class DealStore {
         var list = parked.filter { $0.id != entry.id }
         if deal.hasContent { list.insert(parkedEntry(deal, name: ""), at: 0) }
         parked = list
-        update { $0 = entry.state }
+        // Straight in, agreed cash and all (not through `update`, which would read it as a renegotiation).
+        deal = entry.state
+        scheduleSave()
         Task { await saveParked() }
     }
 
@@ -143,9 +145,16 @@ final class DealStore {
 
     // MARK: Editing (each change saves shortly after, so quick taps make one write)
 
+    /// Every edit to the open deal goes through here. A change that renegotiates it (a side's %,
+    /// a line's % or price or quantity, a line added or removed) lets go of an agreed cash figure,
+    /// so the sliders and prices always move the deal again.
     @MainActor
     func update(_ change: (inout DealState) -> Void) {
+        let before = deal
         change(&deal)
+        if deal.agreedCash != nil, deal.agreedCash == before.agreedCash, deal.renegotiates(from: before) {
+            deal.agreedCash = nil
+        }
         scheduleSave()
     }
 
@@ -212,15 +221,17 @@ final class DealStore {
     @MainActor
     func close(using store: CollectionStore) async throws -> DealTotals {
         let rates = self.rates
-        let kind = deal.kind
-        let totals = DealTotals(deal, rates: rates, cost: { cost(of: $0, in: store) })
+        // At the agreed cash, when there is one: the record's prices add up to it.
+        let settled = deal.settled(rates: rates)
+        let kind = settled.kind
+        let totals = DealTotals(settled, rates: rates, cost: { cost(of: $0, in: store) })
         let note = "Show deal (\(kind.noun.lowercased()))"
         let today = Format.day()
 
         // A demo collection has no account: its entries stay on the phone (CollectionStore keeps
         // them in memory) and the deal history isn't saved.
         let saving = store.demo == nil
-        for item in deal.outgoing {
+        for item in settled.outgoing {
             guard let unit = item.unitPrice(side: rates.out) else { continue }
             if let key = item.holdingKey, let h = store.holding(key: key) {
                 try await store.sell(h.identity, quantity: Double(item.qty), unitPrice: unit, fees: 0, shipping: 0, date: today, source: "Card show", notes: note, offerUndo: false)
@@ -241,7 +252,7 @@ final class DealStore {
             }
         }
         var purchases: [CollectionStore.Purchase] = []
-        for item in deal.incoming where tracked(item, side: .incoming) {
+        for item in settled.incoming where tracked(item, side: .incoming) {
             guard let unit = item.unitPrice(side: rates.in) else { continue }
             let held = item.holdingKey.flatMap { store.holding(key: $0) }?.identity
             purchases.append(CollectionStore.Purchase(
@@ -261,7 +272,7 @@ final class DealStore {
 
         let notes = (deal.notes ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let lines: [DealRecord.Line] =
-            deal.incoming.map { line($0, side: .incoming, rate: rates.in) } + deal.outgoing.map { line($0, side: .outgoing, rate: rates.out) }
+            settled.incoming.map { line($0, side: .incoming, rate: rates.in) } + settled.outgoing.map { line($0, side: .outgoing, rate: rates.out) }
         let record = DealRecord(
             id: UUID().uuidString.lowercased(), at: ISO8601DateFormatter.withFraction.string(from: Date()), kind: kind,
             inValue: totals.inValue, outValue: totals.outValue, balance: totals.balance, profit: totals.profit,

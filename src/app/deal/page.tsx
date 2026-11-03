@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Hint } from "@/components/ui/tooltip";
-import { DEFAULT_RATES, aheadTitle, dealDayTotals, dealKind, dealNet, dealTotals, dealVerdict, defaultSideRates, lineRate, matchesDealSearch, parkedDealName, recordAhead, roundedCash, showsEquity, unitPrice, type DealDayTotals, type DealKind, type DealRates, type DealTotals } from "@/lib/deal";
+import { DEFAULT_RATES, agreedDeal, aheadTitle, dealDayTotals, dealKind, dealNet, dealTotals, dealVerdict, defaultSideRates, lineRate, matchesDealSearch, parkedDealName, recordAhead, renegotiates, roundedCash, showsEquity, signedAgreedCash, unitPrice, type DealDayTotals, type DealKind, type DealRates, type DealTotals } from "@/lib/deal";
 import { fifoCost } from "@/lib/finance/sell";
 import { money, pct, signedMoney } from "@/lib/format";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
@@ -33,6 +33,12 @@ interface DealState {
   photos?: string[];
   /** Your own notes on the deal (kept with it when it closes). */
   notes?: string;
+  /**
+   * Cash the two of you settled on, signed like the balance (positive: the customer pays you).
+   * While set, one side's prices are spread to reach it (see agreedDeal); unset follows the
+   * prices. Any renegotiation clears it (see setDeal). Shared with the app.
+   */
+  agreedCash?: number | null;
 }
 
 /** A deal set aside to finish later (user_state "deals-parked", shared with the app). */
@@ -99,7 +105,20 @@ const TERMS = {
 export default function DealPage() {
   const { holdings } = usePortfolio({ ignoreFilter: true });
   const { addTransaction, importProduct, today, data } = useStore();
-  const [stored, setDeal] = useSyncedState<DealState>("deal", EMPTY);
+  const [stored, setStored] = useSyncedState<DealState>("deal", EMPTY);
+  /**
+   * Every edit to the open deal goes through here. One that renegotiates it (a side's %, a line's
+   * % or price or quantity, a line added or removed) lets go of an agreed cash figure, so the
+   * sliders and prices always move the deal again. (Resuming a parked deal sets it straight.)
+   */
+  const setDeal = (next: DealState | ((cur: DealState) => DealState)) =>
+    setStored((cur) => {
+      const before = { ...EMPTY, ...cur };
+      const after = typeof next === "function" ? next(before) : next;
+      const agreed = after.agreedCash ?? null;
+      if (agreed === null || agreed !== (before.agreedCash ?? null) || !renegotiates(before, after)) return after;
+      return { ...after, agreedCash: undefined };
+    });
   const deal = { ...EMPTY, ...stored };
   const photos = deal.photos ?? [];
   const [ratesStored, setRates] = useSyncedState<DealRates>("deal-rates", DEFAULT_RATES);
@@ -138,9 +157,14 @@ export default function DealPage() {
     if (side === "in") return item.track ?? rates.addIncoming ?? true;
     return Boolean(item.holdingKey) || (item.cost !== null && item.cost !== undefined);
   };
+  // The deal at its agreed cash, when one is set (the stored prices never change): every total,
+  // the customer view and the closed deal's record use it.
+  const agreed = agreedDeal(deal.in, deal.out, rate, kind === "empty" ? null : deal.agreedCash);
+  const settled: DealState = { ...deal, in: agreed.incoming, out: agreed.outgoing };
+  const isAgreed = agreed.side !== null;
   const totals = dealTotals(
-    deal.in.map((i) => ({ market: i.market, qty: i.qty, price: i.price, rate: i.rate })),
-    deal.out.map((i) => ({ market: i.market, qty: i.qty, price: i.price, rate: i.rate, cost: costOf(i) })),
+    settled.in.map((i) => ({ market: i.market, qty: i.qty, price: i.price, rate: i.rate })),
+    settled.out.map((i) => ({ market: i.market, qty: i.qty, price: i.price, rate: i.rate, cost: costOf(i) })),
     rate,
   );
   const unpriced = [...deal.in.map((i) => unitPrice(i, rate.in)), ...deal.out.map((i) => unitPrice(i, rate.out))].some((p) => p === null);
@@ -177,28 +201,16 @@ export default function DealPage() {
     return { ok: true, note: "Added to going out" };
   };
 
-  /** Round the cash to $5 by nudging the price of the biggest item (going out if any, else coming in). */
-  const roundTo = kind === "empty" ? null : roundedCash(totals.balance);
+  /** Round the cash to $5: it becomes the agreed cash (the prices spread to reach it). */
+  const roundTo = kind === "empty" || isAgreed ? null : roundedCash(totals.balance);
   const roundCash = () => {
     if (roundTo === null) return;
-    const delta = roundTo - totals.balance;
-    setDeal((cur) => {
-      const d = { ...EMPTY, ...cur };
-      const biggest = (items: DealItem[], r: number) => items.reduce<number>((best, it, i) => ((unitPrice(it, r) ?? 0) * it.qty > (best < 0 ? -1 : (unitPrice(items[best], r) ?? 0) * items[best].qty) ? i : best), -1);
-      if (d.out.length) {
-        const i = biggest(d.out, rate.out);
-        const it = d.out[i];
-        const total = (unitPrice(it, rate.out) ?? 0) * it.qty + delta;
-        if (total <= 0) return d;
-        return { ...d, out: d.out.map((x, j) => (j === i ? { ...x, price: Math.round((total / x.qty) * 100) / 100, rate: null } : x)) };
-      }
-      const i = biggest(d.in, rate.in);
-      const it = d.in[i];
-      const total = (unitPrice(it, rate.in) ?? 0) * it.qty - delta;
-      if (total <= 0) return d;
-      return { ...d, in: d.in.map((x, j) => (j === i ? { ...x, price: Math.round((total / x.qty) * 100) / 100, rate: null } : x)) };
-    });
+    setDeal((cur) => ({ ...EMPTY, ...cur, agreedCash: roundTo }));
   };
+  /** A typed agreed cash: who pays whom stays as it is now. */
+  const [editingCash, setEditingCash] = useState(false);
+  const setAgreedCash = (amount: number) => setDeal((cur) => ({ ...EMPTY, ...cur, agreedCash: signedAgreedCash(amount, totals) }));
+  const clearAgreed = () => setDeal((cur) => ({ ...EMPTY, ...cur, agreedCash: undefined }));
 
   const todays = log.filter((d) => d.at.slice(0, 10) === today);
   const effects = {
@@ -227,7 +239,8 @@ export default function DealPage() {
   const resume = (p: ParkedDeal) => {
     const current = hasDeal ? parkEntry(deal, "") : null;
     setParked((cur) => [...(current ? [current] : []), ...(cur ?? []).filter((x) => x.id !== p.id)]);
-    setDeal({ ...EMPTY, ...p.state });
+    // Straight in, agreed cash and all (not through setDeal, which would read it as a renegotiation).
+    setStored({ ...EMPTY, ...p.state });
     setParkedOpen(false);
     toast(current ? `Parked the open deal and resumed “${p.name}”` : `Resumed “${p.name}”`);
   };
@@ -241,7 +254,8 @@ export default function DealPage() {
     setClosing(true);
     const note = `Show deal (${KIND_NOUN[kind].toLowerCase()})`;
     try {
-      for (const item of deal.out) {
+      // At the agreed cash, when there is one: the record's prices add up to it.
+      for (const item of settled.out) {
         const unit = unitPrice(item, rate.out)!;
         const h = item.holdingKey ? byKey.get(item.holdingKey) : undefined;
         if (h) {
@@ -254,7 +268,7 @@ export default function DealPage() {
           await addTransaction({ ...identity, type: "sale", date: today, quantity: item.qty, unitPrice: unit, fees: 0, shipping: 0, tax: 0, source: "Card show", notes: note });
         }
       }
-      for (const item of deal.in) {
+      for (const item of settled.in) {
         if (!tracked(item, "in")) continue;
         const h = item.holdingKey ? byKey.get(item.holdingKey) : undefined;
         // Catalog items need saving before they can be held.
@@ -275,12 +289,12 @@ export default function DealPage() {
         ahead: totals.ahead,
         uncosted: totals.uncosted,
         items: deal.in.length + deal.out.length,
-        lines: recordLines(deal, rate, tracked),
+        lines: recordLines(settled, rate, tracked),
         photos: photos.length ? photos : undefined,
         notes: deal.notes?.trim() || undefined,
       };
       setLog([record, ...log].slice(0, 500));
-      setRecorded({ record, totals, deal });
+      setRecorded({ record, totals, deal: settled });
       setConfirming(false);
       setDeal(EMPTY);
     } catch (err) {
@@ -317,7 +331,8 @@ export default function DealPage() {
         </button>
       )}
 
-      <Balance totals={totals} kind={kind} roundTo={roundTo} onRound={roundCash} />
+      <Balance totals={totals} kind={kind} roundTo={roundTo} onRound={roundCash} agreed={isAgreed} share={agreed.share} onEditCash={() => setEditingCash(true)} onClearAgreed={clearAgreed} />
+      <AgreedCashDialog open={editingCash} onOpenChange={setEditingCash} totals={totals} moving={deal.out.length ? "going out" : "coming in"} onSet={setAgreedCash} />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         {(["in", "out"] as const).map((side) => (
@@ -325,6 +340,7 @@ export default function DealPage() {
             key={side}
             side={side}
             items={deal[side]}
+            agreedUnits={isAgreed ? new Map(settled[side].map((i) => [i.key, unitPrice(i, side === "in" ? rate.in : rate.out)])) : undefined}
             rate={side === "in" ? rate.in : rate.out}
             rateDefault={side === "in" ? defaults.in : defaults.out}
             total={side === "in" ? totals.inValue : totals.outValue}
@@ -412,7 +428,7 @@ export default function DealPage() {
           </div>
         </DialogContent>
       </Dialog>
-      <CloseDialog open={confirming} onOpenChange={setConfirming} kind={kind} totals={totals} deal={deal} rate={rate} effects={effects} closing={closing} onClose={() => void close()} />
+      <CloseDialog open={confirming} onOpenChange={setConfirming} kind={kind} totals={totals} deal={settled} rate={rate} effects={effects} closing={closing} onClose={() => void close()} />
       <RecordedDialog recorded={recorded} onDone={() => setRecorded(null)} />
       <HistoryDialog
         open={historyOpen}
@@ -430,7 +446,7 @@ export default function DealPage() {
       />
       <ParkDialog open={parking} onOpenChange={setParking} onPark={park} />
       <ParkedDialog open={parkedOpen} onOpenChange={setParkedOpen} parked={parked} hasDeal={hasDeal} onResume={resume} onDelete={deleteParked} />
-      <CustomerView open={customer} onOpenChange={setCustomer} deal={deal} rate={rate} totals={totals} />
+      <CustomerView open={customer} onOpenChange={setCustomer} deal={settled} rate={rate} totals={totals} />
     </div>
   );
 }
@@ -452,7 +468,28 @@ function Term({ label, text, className }: { label: string; text: string; classNa
 
 /* ------------------------------- Balance ---------------------------------- */
 
-function Balance({ totals, kind, roundTo, onRound }: { totals: DealTotals; kind: DealKind; roundTo: number | null; onRound: () => void }) {
+function Balance({
+  totals,
+  kind,
+  roundTo,
+  onRound,
+  agreed,
+  share,
+  onEditCash,
+  onClearAgreed,
+}: {
+  totals: DealTotals;
+  kind: DealKind;
+  roundTo: number | null;
+  onRound: () => void;
+  /** The cash is one the two of you agreed on (the prices are spread to reach it). */
+  agreed: boolean;
+  /** What the moved side works out to, as a share of market, at the agreed cash. */
+  share: number | null;
+  /** Click the big figure to type the agreed cash. */
+  onEditCash: () => void;
+  onClearAgreed: () => void;
+}) {
   const { balance } = totals;
   const even = Math.abs(balance) < 0.005;
   const ahead = totals.ahead;
@@ -477,11 +514,15 @@ function Balance({ totals, kind, roundTo, onRound }: { totals: DealTotals; kind:
         </Hint>
       )}
       {onPaper !== null && <p className="mt-2 text-[12px] text-muted">Includes {money(onPaper)} on paper</p>}
-      <div className="mt-4">
+      <div className="mt-4 flex items-center gap-2">
         <Term label={kind === "empty" ? "Add items to start" : even ? "Settled · no cash" : balance > 0 ? "Customer pays you" : "You pay the customer"} text={TERMS.cash} className="text-subtle" />
+        {agreed && <span className="tag-skew tag-lime">Agreed</span>}
       </div>
       <div className="mt-1 flex items-center justify-between gap-3">
-        <p className="hype-num tabular text-[56px] leading-none sm:text-[68px]">{money(Math.abs(balance))}</p>
+        {/* Click the figure to type the cash you agreed on. */}
+        <button type="button" onClick={onEditCash} disabled={kind === "empty"} aria-label={`Cash ${money(Math.abs(balance))}. Type the cash you agreed on`} className="hype-num tabular -mx-1 rounded-xl px-1 text-left text-[56px] leading-none transition-colors enabled:hover:bg-white/[0.04] disabled:cursor-default sm:text-[68px]">
+          {money(Math.abs(balance))}
+        </button>
         {roundTo !== null && (
           <button type="button" onClick={onRound} className="btn-3d btn-3d-dark shrink-0 rounded-full bg-surface-2 px-4 py-2 text-center hover:bg-surface-3">
             <span className="block text-[10px] font-semibold text-muted">Round to</span>
@@ -489,6 +530,14 @@ function Balance({ totals, kind, roundTo, onRound }: { totals: DealTotals; kind:
           </button>
         )}
       </div>
+      {agreed && (
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <p className="tabular truncate text-[12px] text-muted">{share !== null ? `Works out to ${Math.round(share * 100)}% of market` : "Prices spread to match"}</p>
+          <button type="button" onClick={onClearAgreed} aria-label="Clear the agreed cash" className="shrink-0 rounded-full px-2.5 py-1 text-[12px] font-semibold ring-1 ring-inset ring-white/25 hover:bg-white/[0.06]">
+            Clear
+          </button>
+        </div>
+      )}
       {totals.uncosted > 0 && kind !== "empty" && <p className="mt-2 text-[12px] text-muted">Add what you paid for every item to see your total</p>}
       <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Coming in" term={TERMS.comingIn} value={money(totals.inValue)} />
@@ -497,6 +546,60 @@ function Balance({ totals, kind, roundTo, onRound }: { totals: DealTotals; kind:
         <Stat label="Trade-in value" term={TERMS.value} value={!showsEquity(totals) ? "—" : <span className={totals.equity >= 0 ? "text-up" : "text-down"}>{signedMoney(totals.equity)}</span>} />
       </dl>
     </section>
+  );
+}
+
+/** Type the cash the two of you agreed on; who pays whom stays as it is now. */
+function AgreedCashDialog({ open, onOpenChange, totals, moving, onSet }: { open: boolean; onOpenChange: (o: boolean) => void; totals: DealTotals; moving: string; onSet: (amount: number) => void }) {
+  const [text, setText] = useState("");
+  const customerPays = signedAgreedCash(1, totals) > 0;
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (o) setText(Math.abs(totals.balance).toFixed(2));
+        onOpenChange(o);
+      }}
+    >
+      <DialogContent className="sm:max-w-[380px]">
+        <DialogHeader>
+          <DialogTitle>Agreed cash</DialogTitle>
+          <DialogDescription>
+            {customerPays ? "What the customer pays you." : "What you pay the customer."} The prices {moving} move to match.
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          className="space-y-4 px-6 pb-6 pt-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const n = Number(text.replace(/[^0-9.]/g, ""));
+            if (text.trim() !== "" && Number.isFinite(n)) onSet(n);
+            onOpenChange(false);
+          }}
+        >
+          <span className="relative block">
+            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[15px] text-subtle">$</span>
+            <input
+              autoFocus
+              inputMode="decimal"
+              value={text}
+              onChange={(e) => setText(e.target.value.replace(/[^0-9.]/g, ""))}
+              onFocus={(e) => e.target.select()}
+              aria-label="Agreed cash"
+              className="tabular h-11 w-full rounded-full bg-surface-2 pl-8 pr-4 text-[15px] outline-none ring-1 ring-inset ring-border focus:ring-[var(--lime)]/60"
+            />
+          </span>
+          <div className="flex gap-2">
+            <Button type="button" variant="secondary" size="lg" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="lime" size="lg" className="flex-1">
+              Set cash
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -541,6 +644,7 @@ function TodayStrip({ deals, onOpen }: { deals: DealRecord[]; onOpen: () => void
 function SideCard({
   side,
   items,
+  agreedUnits,
   rate,
   rateDefault,
   total,
@@ -557,6 +661,8 @@ function SideCard({
 }: {
   side: DealSide;
   items: DealItem[];
+  /** Each line's price per unit at the deal's agreed cash, when one is set (the typed fields keep its own). */
+  agreedUnits?: Map<string, number | null>;
   rate: number;
   rateDefault: number;
   total: number;
@@ -619,7 +725,8 @@ function SideCard({
       <ul className="mt-3 space-y-2">
         {items.map((item) => {
           const cost = costOf?.(item) ?? null;
-          const p = unitPrice(item, rate);
+          const own = unitPrice(item, rate);
+          const p = agreedUnits?.get(item.key) ?? own;
           const lineTotal = p === null ? null : p * item.qty;
           const profit = cost !== null && lineTotal !== null ? lineTotal - cost : null;
           const notInHolo = side === "out" && !item.holdingKey && !item.custom;
@@ -693,7 +800,7 @@ function SideCard({
                       inputMode="decimal"
                       aria-label="Price each"
                       value={item.price ?? ""}
-                      placeholder={p === null ? "Price" : p.toFixed(2)}
+                      placeholder={own === null ? "Price" : own.toFixed(2)}
                       onChange={(e) => {
                         const v = e.target.value.replace(/[^0-9.]/g, "");
                         set(item.key, { price: v === "" ? null : Number(v), rate: null });

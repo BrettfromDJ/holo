@@ -161,6 +161,95 @@ export function roundedCash(balance: number): number | null {
   return balance < 0 ? -r : r;
 }
 
+/* ------------------------------ Agreed cash ------------------------------- */
+
+/** A deal adjusted to an agreed cash figure (see agreedDeal). */
+export interface AgreedDeal<T extends DealLine> {
+  incoming: T[];
+  outgoing: T[];
+  /** The side whose prices moved to reach the agreed cash; null when nothing was adjusted. */
+  side: "in" | "out" | null;
+  /** That side's priced total as a share of its market value (0.74 = 74% of market), when known. */
+  share: number | null;
+}
+
+/**
+ * The deal as it works out at an agreed cash figure (signed like `balance`). The difference from
+ * the normal cash is spread across the going-out lines (or, with nothing going out, the coming-in
+ * lines) in proportion to each line's total, never taking a line below $0 (then it gets as close
+ * as it can). Exact to the cent: any leftover cent goes on the biggest line. The adjusted lines
+ * carry their new price per unit; the stored deal is never changed. Same math as the app's
+ * DealState.agreed(rates:).
+ */
+export function agreedDeal<T extends DealLine>(incoming: T[], outgoing: T[], rates: { in: number; out: number }, agreedCash: number | null | undefined): AgreedDeal<T> {
+  const none: AgreedDeal<T> = { incoming, outgoing, side: null, share: null };
+  if (agreedCash === null || agreedCash === undefined || !Number.isFinite(agreedCash)) return none;
+  if (!incoming.length && !outgoing.length) return none;
+  const side = outgoing.length ? "out" : "in";
+  const lines = side === "out" ? outgoing : incoming;
+  const r = side === "out" ? rates.out : rates.in;
+  const cents = lines.map((l) => {
+    const p = unitPrice(l, r);
+    return p === null ? null : Math.max(0, Math.round(p * l.qty * 100));
+  });
+  const priced = cents.flatMap((c, i) => (c === null ? [] : [i]));
+  if (!priced.length) return none;
+  const balance = dealTotals(incoming, outgoing, rates).balance;
+  const delta = Math.round((agreedCash - balance) * 100);
+  const current = priced.reduce((s, i) => s + (cents[i] ?? 0), 0);
+  const target = Math.max(0, current + (side === "out" ? delta : -delta));
+  // Each line's share of the move: its total, or an even split when every line is at $0.
+  const weight = (i: number) => (current > 0 ? (cents[i] ?? 0) : 1);
+  const totalWeight = priced.reduce((s, i) => s + weight(i), 0);
+  const next = new Map<number, number>();
+  for (const i of priced) next.set(i, Math.floor((target * weight(i)) / totalWeight + 1e-6));
+  const biggest = priced.reduce((b, i) => (weight(i) > weight(b) ? i : b), priced[0]);
+  const spread = [...next.values()].reduce((s, n) => s + n, 0);
+  next.set(biggest, (next.get(biggest) ?? 0) + target - spread);
+  const adjusted = lines.map((l, i) => {
+    const c = next.get(i);
+    return c === undefined ? l : { ...l, price: c / 100 / l.qty, rate: null };
+  });
+  const marketCents = priced.reduce((s, i) => s + (lines[i].market === null ? 0 : lines[i].market! * lines[i].qty * 100), 0);
+  const marketPriced = priced.reduce((s, i) => s + (lines[i].market === null ? 0 : next.get(i) ?? 0), 0);
+  const share = marketCents > 0 ? marketPriced / marketCents : null;
+  return side === "out" ? { incoming, outgoing: adjusted, side, share } : { incoming: adjusted, outgoing, side, share };
+}
+
+/** What decides a deal's prices: each side's rate and every line's key, quantity, % and price. */
+interface PricedDeal {
+  in: DealLineKeyed[];
+  out: DealLineKeyed[];
+  rateIn?: number | null;
+  rateOut?: number | null;
+}
+interface DealLineKeyed {
+  key: string;
+  qty: number;
+  price?: number | null;
+  rate?: number | null;
+}
+
+/**
+ * Whether a change renegotiates the deal (a side's % moved, a line's % or price or quantity
+ * changed, a line added or removed), which lets go of an agreed cash figure. Same as the app's
+ * DealState.renegotiates(from:).
+ */
+export function renegotiates(before: PricedDeal, after: PricedDeal): boolean {
+  const sig = (items: DealLineKeyed[]) => items.map((i) => `${i.key}|${i.qty}|${i.price ?? "-"}|${i.rate ?? "-"}`).join("\n");
+  return (before.rateIn ?? null) !== (after.rateIn ?? null) || (before.rateOut ?? null) !== (after.rateOut ?? null) || sig(before.in) !== sig(after.in) || sig(before.out) !== sig(after.out);
+}
+
+/**
+ * The agreed cash for a typed amount: who pays whom stays as it is now (the sign of the balance);
+ * when the cash is even, the customer pays you only if what goes out is worth more than what comes in.
+ */
+export function signedAgreedCash(amount: number, totals: Pick<DealTotals, "balance" | "inValue" | "outValue">): number {
+  const a = round2(Math.abs(amount));
+  const customerPays = Math.abs(totals.balance) < 0.005 ? totals.outValue > totals.inValue : totals.balance > 0;
+  return customerPays ? a : -a;
+}
+
 function round2(n: number) {
   return Math.round(n * 100) / 100;
 }

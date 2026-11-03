@@ -46,6 +46,9 @@ final class Router {
     var tabTap = TabTap(name: "", count: 0)
     /// Hides the tab bar while a page shows its own bar in its place (Collection's select mode).
     var tabBarHidden = false
+    /// The Deal page's deal bar sits in the tab bar's place (a deal with items, until "Show tabs").
+    /// Only hides the tab bar while the Deal tab is the one showing.
+    var dealDocked = false
     /// The category the Collection tab should show (from Home's "View sealed" and friends).
     var collectionCategory: HoldingCategory?
     /// Something just added to the collection, for the "pack pull" reveal.

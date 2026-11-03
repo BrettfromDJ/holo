@@ -287,7 +287,8 @@ struct DealCloseSheet: View {
         .presentationDragIndicator(.hidden)
         .interactiveDismissDisabled(phase == .recording)
         .onAppear {
-            deal = deals.deal
+            // At the agreed cash, when there is one: the same prices the record will keep.
+            deal = deals.deal.settled(rates: deals.rates)
             rates = deals.rates
         }
     }

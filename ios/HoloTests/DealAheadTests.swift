@@ -154,4 +154,120 @@ final class DealAheadTests: XCTestCase {
         XCTAssertEqual(round.notes, "Venmo")
         XCTAssertTrue(round.hasContent)
     }
+
+    // MARK: Agreed cash (the same cases as src/lib/deal.test.ts)
+
+    private func settle(_ incoming: [DealItem], _ outgoing: [DealItem], rates: (in: Double, out: Double), agreed: Double?) -> (AgreedDeal, DealTotals) {
+        var d = DealState()
+        d.incoming = incoming
+        d.outgoing = outgoing
+        d.agreedCash = agreed
+        let a = d.agreed(rates: rates)
+        return (a, totals(a.deal, rates: rates))
+    }
+
+    func testNothingAgreedLeavesTheDealAlone() {
+        let (a, t) = settle([], [item("a", market: 100)], rates: (0.7, 1), agreed: nil)
+        XCTAssertNil(a.side)
+        XCTAssertNil(a.deal.outgoing[0].price)
+        XCTAssertEqual(t.balance, 100)
+        XCTAssertNil(settle([], [], rates: (0.7, 1), agreed: 50).0.side)
+    }
+
+    func testSaleSpreadsAcrossWhatGoesOut() {
+        let (a, t) = settle([], [item("a", market: 100), item("b", market: 50)], rates: (0.7, 1), agreed: 120)
+        XCTAssertEqual(a.side, .outgoing)
+        XCTAssertEqual(a.deal.outgoing.map(\.price), [80, 40])
+        XCTAssertEqual(t.balance, 120)
+        XCTAssertEqual(a.share ?? 0, 0.8, accuracy: 0.0001)
+    }
+
+    func testBuyMovesWhatComesInExactToTheCent() {
+        let (a, t) = settle([item("a", market: 100), item("b", market: 30)], [], rates: (0.7, 1), agreed: -100)
+        XCTAssertEqual(a.side, .incoming)
+        XCTAssertEqual(a.deal.incoming[0].price ?? 0, 76.93, accuracy: 0.000001)
+        XCTAssertEqual(a.deal.incoming[1].price ?? 0, 23.07, accuracy: 0.000001)
+        XCTAssertEqual(t.balance, -100)
+        XCTAssertEqual(t.inValue, 100)
+    }
+
+    func testLeftoverCentGoesOnTheBiggestLine() {
+        let (a, t) = settle([], [item("a", market: 10), item("b", market: 10), item("c", market: 10)], rates: (0.7, 1), agreed: 25)
+        XCTAssertEqual(a.deal.outgoing[0].price ?? 0, 8.34, accuracy: 0.000001)
+        XCTAssertEqual(a.deal.outgoing[1].price ?? 0, 8.33, accuracy: 0.000001)
+        XCTAssertEqual(a.deal.outgoing[2].price ?? 0, 8.33, accuracy: 0.000001)
+        XCTAssertEqual(t.balance, 25)
+    }
+
+    func testSeveralCopiesPricedPerUnit() {
+        let (a, t) = settle([], [item("a", market: 10, qty: 3)], rates: (0.7, 1), agreed: 25)
+        XCTAssertEqual((a.deal.outgoing[0].price ?? 0) * 3, 25, accuracy: 0.0000001)
+        XCTAssertEqual(t.balance, 25)
+    }
+
+    func testNeverBelowZero() {
+        let (a, t) = settle([item("a", market: 100)], [item("b", market: 50)], rates: (0.8, 1), agreed: -120)
+        XCTAssertEqual(a.deal.outgoing[0].price, 0)
+        XCTAssertEqual(t.balance, -80)
+    }
+
+    func testAheadMovesByTheCash() {
+        let base = totals({ var d = DealState(); d.incoming = [item("a", market: 100)]; d.outgoing = [item("b", market: 100, cost: 60)]; return d }(), rates: (0.8, 1))
+        let (_, t) = settle([item("a", market: 100)], [item("b", market: 100, cost: 60)], rates: (0.8, 1), agreed: 0)
+        XCTAssertEqual(base.balance, 20)
+        XCTAssertEqual(t.balance, 0)
+        XCTAssertEqual(t.profit, 20)
+        XCTAssertEqual(t.ahead, (base.ahead ?? 0) - 20)
+        XCTAssertEqual(t.ahead, 100 - 60 + 0)
+    }
+
+    func testUnpricedLinesStayAsTheyAre() {
+        let (a, _) = settle([], [item("a", market: nil), item("b", market: 40)], rates: (0.7, 1), agreed: 30)
+        XCTAssertNil(a.deal.outgoing[0].price)
+        XCTAssertEqual(a.deal.outgoing[1].price, 30)
+        XCTAssertEqual(a.share ?? 0, 0.75, accuracy: 0.0001)
+    }
+
+    func testTypedAmountKeepsWhoPaysWhom() {
+        func t(_ inV: Double, _ outV: Double) -> DealTotals {
+            var d = DealState()
+            if inV > 0 { d.incoming = [item("a", market: inV, price: inV)] }
+            if outV > 0 { d.outgoing = [item("b", market: outV, price: outV)] }
+            return totals(d, rates: (1, 1))
+        }
+        XCTAssertEqual(signedAgreedCash(50, totals: t(0, 42)), 50)
+        XCTAssertEqual(signedAgreedCash(50, totals: t(42, 0)), -50)
+        XCTAssertEqual(signedAgreedCash(50, totals: t(10, 10)), -50)
+    }
+
+    func testRenegotiating() {
+        var base = DealState()
+        base.incoming = [item("a", market: 10)]
+        var r = base; r.rateIn = 0.75
+        XCTAssertTrue(r.renegotiates(from: base))
+        var q = base; q.incoming[0].qty = 2
+        XCTAssertTrue(q.renegotiates(from: base))
+        var p = base; p.incoming[0].price = 12
+        XCTAssertTrue(p.renegotiates(from: base))
+        var l = base; l.incoming[0].rate = 0.9
+        XCTAssertTrue(l.renegotiates(from: base))
+        var removed = base; removed.incoming = []
+        XCTAssertTrue(removed.renegotiates(from: base))
+        var added = base; added.outgoing = [item("b", market: 5)]
+        XCTAssertTrue(added.renegotiates(from: base))
+        // Notes, photos and tracking don't count.
+        var n = base; n.notes = "Venmo"; n.incoming[0].track = false
+        XCTAssertFalse(n.renegotiates(from: base))
+    }
+
+    func testAgreedCashRoundTripsAndOldDealsLoad() throws {
+        let old = try JSONDecoder().decode(DealState.self, from: Data(#"{"in":[],"out":[],"rateIn":null,"rateOut":null}"#.utf8))
+        XCTAssertNil(old.agreedCash)
+        var d = DealState()
+        d.agreedCash = -85
+        let back = try JSONDecoder().decode(DealState.self, from: JSONEncoder().encode(d))
+        XCTAssertEqual(back.agreedCash, -85)
+        let web = try JSONDecoder().decode(DealState.self, from: Data(#"{"in":[],"out":[],"rateIn":null,"rateOut":null,"agreedCash":120}"#.utf8))
+        XCTAssertEqual(web.agreedCash, 120)
+    }
 }

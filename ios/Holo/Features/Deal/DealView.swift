@@ -26,6 +26,12 @@ struct DealView: View {
     @State private var parking = false
     @State private var parkName = ""
     @State private var parkedList = false
+    /// Typing the cash the two of you agreed on (tap the big figure on the balance card).
+    @State private var editingCash = false
+    @State private var cashText = ""
+    /// The tab bar brought back over a docked deal bar ("Show tabs"); off again once the deal empties
+    /// or the Deal tab is tapped.
+    @State private var showTabs = false
 
     private var rates: (in: Double, out: Double) { deals.rates }
     private var defaultRates: (in: Double, out: Double) {
@@ -35,7 +41,13 @@ struct DealView: View {
         return d.rates(deals.defaults)
     }
 
-    private var totals: DealTotals { DealTotals(deals.deal, rates: rates, cost: { deals.cost(of: $0, in: store) }) }
+    /// The deal at its agreed cash, when one is set (the stored prices never change).
+    private var agreed: AgreedDeal { deals.deal.agreed(rates: rates) }
+    private var totals: DealTotals { DealTotals(agreed.deal, rates: rates, cost: { deals.cost(of: $0, in: store) }) }
+
+    /// The deal bar takes the tab bar's place while a deal has items (until "Show tabs"), on the
+    /// Deal page itself, not a page pushed on it.
+    private var docked: Bool { deals.deal.kind != .empty && !showTabs && path.isEmpty }
     private var unpriced: Bool {
         deals.deal.incoming.contains { $0.unitPrice(side: rates.in) == nil } || deals.deal.outgoing.contains { $0.unitPrice(side: rates.out) == nil }
     }
@@ -58,7 +70,8 @@ struct DealView: View {
     var body: some View {
         // The deal's totals, worked out once per change and handed to everything that shows
         // them (they were recomputed for every number, accent and item card on the page).
-        let totals = self.totals
+        let agreed = self.agreed
+        let totals = DealTotals(agreed.deal, rates: rates, cost: { deals.cost(of: $0, in: store) })
         let warning = Self.warning(totals)
         let accent = warning ? Theme.planPink : Theme.lime
         NavigationStack(path: $path) {
@@ -72,14 +85,16 @@ struct DealView: View {
                         }
                         if !todays.isEmpty { TodayStrip(deals: todays) { path.append(DealRoute.history) } }
                         if !deals.parked.isEmpty { ParkedChip(count: deals.parked.count) { parkedList = true } }
-                        BalanceCard(totals: totals, roundTo: roundTarget(totals), onRound: roundCash)
+                        BalanceCard(totals: totals, roundTo: agreed.side == nil ? roundTarget(totals) : nil, onRound: roundCash,
+                                    agreed: agreed.side != nil, share: agreed.share,
+                                    onEditCash: { startEditingCash(totals) }, onClearAgreed: clearAgreed)
                             // Reports only when it crosses the top, not on every scroll frame.
                             .onGeometryChange(for: Bool.self) { $0.frame(in: .global).maxY < 150 } action: { gone in
                                 withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) { pinned = gone && deals.deal.kind != .empty }
                             }
                     }
-                    side(.incoming, totals: totals, accent: accent).reveal()
-                    side(.outgoing, totals: totals, accent: accent).reveal()
+                    side(.incoming, totals: totals, settled: agreed.deal, accent: accent).reveal()
+                    side(.outgoing, totals: totals, settled: agreed.deal, accent: accent).reveal()
                     photosSection(accent: accent).reveal()
                     notesSection(accent: accent).reveal()
                 }
@@ -123,17 +138,32 @@ struct DealView: View {
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
-            .safeAreaInset(edge: .bottom) {
-                if deals.deal.kind != .empty { closeBar(totals, warning: warning) }
+            // The deal bar: docked in the tab bar's place while a deal has items (the tab bar hides),
+            // floating above it again after "Show tabs" or on an empty deal.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                VStack(spacing: 0) {
+                    if deals.deal.kind != .empty {
+                        closeBar(totals, warning: warning)
+                            .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+                    }
+                }
+                .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: deals.deal.kind == .empty)
             }
-            .tabBarClearance()
+            .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: docked ? 0 : HoloTabBar<Int>.clearance) }
             .sheet(isPresented: $confirming) { DealCloseSheet() }
             .sheet(item: $picking) { side in DealPickerSheet(side: side) }
             .sheet(isPresented: $settings) { DealRatesSheet() }
             .navigationDestination(for: DealRoute.self) { _ in DealHistoryView() }
             .navigationDestination(for: DealRecord.self) { DealRecordDetail(recordId: $0.id) }
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
-            .fullScreenCover(isPresented: $customer) { CustomerViewSheet(deal: deals.deal, rates: rates, totals: totals) }
+            .fullScreenCover(isPresented: $customer) { CustomerViewSheet(deal: agreed.deal, rates: rates, totals: totals) }
+            .alert("Agreed cash", isPresented: $editingCash) {
+                TextField("0.00", text: $cashText).keyboardType(.decimalPad)
+                Button("Cancel", role: .cancel) { cashText = "" }
+                Button("Set") { setAgreedCash(totals) }
+            } message: {
+                Text(agreedPrompt(totals))
+            }
             .task {
                 // Screenshots: open the customer view (-HoloDealCustomer) or Closed deals (-HoloDealHistory).
                 let args = ProcessInfo.processInfo.arguments
@@ -183,6 +213,13 @@ struct DealView: View {
                 ScanView(dealSide: side, onPick: { candidate, read in addScan(candidate, read: read, to: side) })
             }
         }
+        // The tab bar hides only while this page shows a docked deal bar. MainTabView only reads
+        // this while the Deal tab is the one showing, so every other tab always keeps its tab bar.
+        .onAppear { Router.shared.dealDocked = docked }
+        .onChange(of: docked) { _, on in Router.shared.dealDocked = on }
+        .onChange(of: deals.deal.kind == .empty) { _, empty in if empty { showTabs = false } }
+        // Tapping the Deal tab goes back into the deal: the deal bar docks again.
+        .onChange(of: Router.shared.tabTap) { _, tap in if tap.name == "deal" { showTabs = false } }
     }
 
     // MARK: Close bar
@@ -206,6 +243,17 @@ struct DealView: View {
         .animation(.snappy, value: totals.balance)
         .padding(.top, 4)
         HStack(spacing: 8) {
+            // The way out to the other tabs while the deal bar sits in the tab bar's place.
+            Button {
+                withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) { showTabs.toggle() }
+            } label: {
+                Image(systemName: showTabs ? "chevron.down" : "square.grid.2x2")
+                    .font(.system(size: 16, weight: .semibold)).foregroundStyle(.white)
+                    .frame(width: 44, height: 48)
+                    .liquidGlass(in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(showTabs ? "Hide tabs" : "Show tabs")
             Button("Clear") {
                 let photos = deals.deal.photos
                 withAnimation(.snappy) { deals.update { $0 = DealState() } }
@@ -241,31 +289,39 @@ struct DealView: View {
         return b < 0 ? -r : r
     }
 
-    /// Round the cash by nudging the price of the biggest item: one going out if there is one,
-    /// else one coming in. It becomes a typed price on that item, so you can see and undo it.
+    /// Round the cash to the nearest $5: it becomes the agreed cash (the prices going out, or
+    /// coming in, spread to reach it). Moving a slider or a price lets go of it again.
     private func roundCash() {
-        let totals = self.totals
         guard let target = roundTarget(totals) else { return }
-        let delta = target - totals.balance
-        let r = rates
-        withAnimation(.snappy) {
-            deals.update { d in
-                if let i = d.outgoing.indices.max(by: { d.outgoing[$0].total(side: r.out) < d.outgoing[$1].total(side: r.out) }) {
-                    let item = d.outgoing[i]
-                    let newTotal = item.total(side: r.out) + delta
-                    guard newTotal > 0 else { return }
-                    d.outgoing[i].price = round2(newTotal / Double(item.qty))
-                    d.outgoing[i].rate = nil
-                } else if let i = d.incoming.indices.max(by: { d.incoming[$0].total(side: r.in) < d.incoming[$1].total(side: r.in) }) {
-                    let item = d.incoming[i]
-                    let newTotal = item.total(side: r.in) - delta
-                    guard newTotal > 0 else { return }
-                    d.incoming[i].price = round2(newTotal / Double(item.qty))
-                    d.incoming[i].rate = nil
-                }
-            }
-        }
+        withAnimation(.snappy) { deals.update { $0.agreedCash = target } }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    /// Open the agreed-cash box, filled in with the cash as it stands.
+    private func startEditingCash(_ totals: DealTotals) {
+        guard deals.deal.kind != .empty else { return }
+        cashText = String(format: "%.2f", abs(totals.balance))
+        editingCash = true
+    }
+
+    /// Under the agreed-cash box: which way the cash goes, and which prices move to match.
+    private func agreedPrompt(_ totals: DealTotals) -> String {
+        let customerPays = signedAgreedCash(1, totals: totals) > 0
+        let moving = deals.deal.outgoing.isEmpty ? "coming in" : "going out"
+        return (customerPays ? "What the customer pays you." : "What you pay the customer.") + " The prices \(moving) move to match."
+    }
+
+    /// The typed amount, paid the way the cash goes now (see signedAgreedCash).
+    private func setAgreedCash(_ totals: DealTotals) {
+        let text = cashText
+        cashText = ""
+        guard let amount = MoneyField.value(text) else { return }
+        withAnimation(.snappy) { deals.update { $0.agreedCash = signedAgreedCash(amount, totals: totals) } }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    private func clearAgreed() {
+        withAnimation(.snappy) { deals.update { $0.agreedCash = nil } }
     }
 
     // MARK: Photos
@@ -304,9 +360,12 @@ struct DealView: View {
 
     // MARK: A side of the deal
 
-    @ViewBuilder private func side(_ side: DealSide, totals: DealTotals, accent: Color) -> some View {
+    @ViewBuilder private func side(_ side: DealSide, totals: DealTotals, settled: DealState, accent: Color) -> some View {
         let incoming = side == .incoming
         let items = incoming ? deals.deal.incoming : deals.deal.outgoing
+        // Each line's price at the agreed cash, when one is set (nil: its own price as it stands).
+        let agreedUnits: [String: Double] = deals.deal.agreedCash == nil ? [:]
+            : Dictionary((incoming ? settled.incoming : settled.outgoing).compactMap { i in i.unitPrice(side: incoming ? rates.in : rates.out).map { (i.key, $0) } }, uniquingKeysWith: { a, _ in a })
         let rate = incoming ? rates.in : rates.out
         let fallback = incoming ? defaultRates.in : defaultRates.out
         VStack(alignment: .leading, spacing: 12) {
@@ -332,7 +391,7 @@ struct DealView: View {
             }
 
             ForEach(items) { item in
-                DealItemCard(item: item, incoming: incoming, rate: rate, cost: incoming ? nil : deals.cost(of: item, in: store), accent: accent,
+                DealItemCard(item: item, incoming: incoming, rate: rate, agreedUnit: agreedUnits[item.key], cost: incoming ? nil : deals.cost(of: item, in: store), accent: accent,
                              tracked: deals.tracked(item, side: side), asksCost: deals.defaults.asksCost,
                              onOpen: item.product.id.hasPrefix("custom:") ? nil : { detailItem = item },
                              onEbay: { ebayItem = item },
@@ -547,6 +606,13 @@ private struct BalanceCard: View {
     var totals: DealTotals
     var roundTo: Double?
     var onRound: () -> Void
+    /// The cash is one the two of you agreed on (the prices are spread to reach it).
+    var agreed = false
+    /// What the moved side works out to, as a share of market, at the agreed cash.
+    var share: Double?
+    /// Tap the big figure to type the agreed cash.
+    var onEditCash: () -> Void = {}
+    var onClearAgreed: () -> Void = {}
 
     var body: some View {
         let t = totals
@@ -594,15 +660,26 @@ private struct BalanceCard: View {
                     .padding(.top, 8)
             }
 
-            HStack(alignment: .lastTextBaseline) {
+            HStack(alignment: .center, spacing: 8) {
                 TermLabel(text: empty ? "Add items to start" : (abs(b) < 0.005 ? "Settled · no cash" : (b > 0 ? "Customer pays you" : "You pay the customer")), term: .cash, color: ink.opacity(0.7))
+                if agreed {
+                    SkewTag(text: "Agreed", color: fill, textColor: down ? .white : Theme.ink)
+                        .transition(.opacity)
+                }
                 Spacer()
             }
             .padding(.top, 16)
             HStack(alignment: .center, spacing: 10) {
-                CountingText(value: abs(b), format: { Format.money($0) })
-                    .font(.display(60)).tracking(-2.4).monospacedDigit().foregroundStyle(ink).lineLimit(1).minimumScaleFactor(0.5)
-                    .displayTrim(60)
+                // Tap the figure to type the cash you agreed on.
+                Button(action: onEditCash) {
+                    CountingText(value: abs(b), format: { Format.money($0) })
+                        .font(.display(60)).tracking(-2.4).monospacedDigit().foregroundStyle(ink).lineLimit(1).minimumScaleFactor(0.5)
+                        .displayTrim(60)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(empty)
+                .accessibilityHint("Type the cash you agreed on")
                 Spacer(minLength: 0)
                 if let roundTo {
                     // A quiet outlined chip on the card: one line, the round figure.
@@ -622,6 +699,23 @@ private struct BalanceCard: View {
                 }
             }
             .padding(.top, 8)
+
+            if agreed {
+                HStack(spacing: 10) {
+                    Text(share.map { "Works out to \(Int(($0 * 100).rounded()))% of market" } ?? "Prices spread to match")
+                        .font(.geist(12, .medium)).foregroundStyle(ink.opacity(0.7)).monospacedDigit()
+                        .lineLimit(1).minimumScaleFactor(0.8)
+                    Spacer(minLength: 8)
+                    Button("Clear", action: onClearAgreed)
+                        .font(.geist(12, .semibold)).foregroundStyle(ink)
+                        .padding(.horizontal, 10).frame(height: 26)
+                        .background(Capsule().strokeBorder(ink.opacity(0.35), lineWidth: 1))
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Clear the agreed cash")
+                }
+                .padding(.top, 6)
+                .transition(.opacity)
+            }
 
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], alignment: .leading, spacing: 14) {
                 stat("Coming in", .comingIn, Format.money(t.inValue), ink)
@@ -648,6 +742,7 @@ private struct BalanceCard: View {
         }
         .animation(.easeInOut(duration: 0.3), value: down)
         .animation(.snappy, value: roundTo)
+        .animation(.snappy, value: agreed)
         // A warning buzz the moment value gained goes negative (and a light tap when it recovers).
         .sensoryFeedback(trigger: down) { was, now in
             now && !was ? .warning : (was && !now ? .impact(weight: .light) : nil)
@@ -745,6 +840,8 @@ private struct DealItemCard: View {
     var item: DealItem
     var incoming: Bool
     var rate: Double
+    /// Its price per unit at the deal's agreed cash, when one is set (the typed fields keep its own).
+    var agreedUnit: Double? = nil
     var cost: Double?
     var accent: Color
     /// Whether closing records this line in your collection.
@@ -779,9 +876,10 @@ private struct DealItemCard: View {
     }
 
     var body: some View {
-        let unit = item.unitPrice(side: rate)
+        let own = item.unitPrice(side: rate)
+        let unit = agreedUnit ?? own
         let identity = self.identity
-        let total = item.total(side: rate)
+        let total = (unit ?? 0) * Double(item.qty)
         HStack(alignment: .top, spacing: 12) {
             // Tap the picture or the name to see the card's details (eBay sales and all).
             Button { onOpen?() } label: {
@@ -838,7 +936,7 @@ private struct DealItemCard: View {
                 HStack(spacing: 6) {
                     stepper
                     percentField
-                    priceField(placeholder: unit.map { String(format: "%.2f", $0) } ?? "Price")
+                    priceField(placeholder: own.map { String(format: "%.2f", $0) } ?? "Price")
                     if item.price != nil || item.rate != nil {
                         Button("Use \(Int((rate * 100).rounded()))%") {
                             priceText = ""
