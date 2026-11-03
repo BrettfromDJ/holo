@@ -339,8 +339,6 @@ private struct SetProgressHeader: View, Equatable {
                         }
                     }
                 }
-                // Every card in the set as one tick, lit if you own it, sweeping in left to right.
-                SetStrip(owned: strip)
             }
         }
         .foregroundStyle(.white)
@@ -418,36 +416,6 @@ private struct CardCell: View {
             }
             }
         }
-    }
-}
-
-/// The whole set as a strip of ticks, one per card, lime where you own it. It sweeps in
-/// left to right the first time it appears.
-private struct SetStrip: View {
-    var owned: [Bool]
-
-    var body: some View {
-        let perRow = owned.count > 120 ? 40 : owned.count > 60 ? 30 : 20
-        let rows = (owned.count + perRow - 1) / perRow
-        // One Canvas instead of a view per card (a set can have 250+), drawn the same: rows of
-        // equal ticks 2pt apart, 3pt between rows.
-        Canvas { ctx, size in
-            let gap: CGFloat = 2
-            let w = (size.width - gap * CGFloat(perRow - 1)) / CGFloat(perRow)
-            guard w > 0 else { return }
-            var lit = Path()
-            var dim = Path()
-            for (i, on) in owned.enumerated() {
-                let rect = CGRect(x: CGFloat(i % perRow) * (w + gap), y: CGFloat(i / perRow) * 15, width: w, height: 12)
-                if on { lit.addRoundedRect(in: rect, cornerSize: CGSize(width: 1.5, height: 1.5), style: .circular) } else { dim.addRoundedRect(in: rect, cornerSize: CGSize(width: 1.5, height: 1.5), style: .circular) }
-            }
-            ctx.fill(dim, with: .color(Color.white.opacity(0.13)))
-            ctx.fill(lit, with: .color(Theme.lime))
-        }
-        .frame(height: rows > 0 ? CGFloat(rows) * 12 + CGFloat(rows - 1) * 3 : 0)
-        .drawIn(duration: 1.2)
-        .accessibilityElement()
-        .accessibilityLabel("\(owned.filter { $0 }.count) of \(owned.count) cards owned")
     }
 }
 

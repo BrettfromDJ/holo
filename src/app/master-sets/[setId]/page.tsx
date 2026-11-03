@@ -319,7 +319,6 @@ function SetHero({
         )}
       </div>
 
-      {known && !loading && <SetStrip owned={owned} />}
     </section>
   );
 }
@@ -348,24 +347,6 @@ function HeroTile({ label, sub, children }: { label: string; sub: string; childr
       <p className="text-[13px] font-semibold">{label}</p>
       <p className="text-[11px] text-white/55">{sub}</p>
       <div className="mt-auto pt-3.5">{children}</div>
-    </div>
-  );
-}
-
-/** The whole set as a strip of ticks, one per card, lime where you own it. */
-function SetStrip({ owned }: { owned: boolean[] }) {
-  const perRow = owned.length > 120 ? 40 : owned.length > 60 ? 30 : 20;
-  const have = owned.filter(Boolean).length;
-  return (
-    <div
-      role="img"
-      aria-label={`${have} of ${owned.length} cards owned`}
-      className="mt-6 grid w-full gap-x-[2px] gap-y-[3px] lg:max-w-[940px]"
-      style={{ gridTemplateColumns: `repeat(${perRow}, minmax(0, 1fr))` }}
-    >
-      {owned.map((on, i) => (
-        <span key={i} className={cn("h-3 rounded-[1.5px]", on ? "bg-lime" : "bg-white/[0.12]")} />
-      ))}
     </div>
   );
 }
