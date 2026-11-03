@@ -188,7 +188,7 @@ export function EbaySales({
             <p className="mt-4 text-[13px] text-muted">No {tab === UNGRADED ? "ungraded" : tab} sales in the last 30 days.</p>
           )}
           {sales.length > 6 && (
-            <button type="button" onClick={() => setAll((v) => !v)} className="mt-2 text-[12px] font-medium text-muted hover:text-foreground">
+            <button type="button" onClick={() => setAll((v) => !v)} className="mt-2 block text-[12px] font-medium text-muted hover:text-foreground">
               {all ? "Show fewer" : `Show all ${sales.length}`}
             </button>
           )}
