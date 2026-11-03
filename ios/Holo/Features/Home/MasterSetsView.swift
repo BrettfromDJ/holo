@@ -293,21 +293,36 @@ private struct SetProgressHeader: View, Equatable {
         // The set's page opens on the lit grid: the % in glowing lime dot-matrix digits, a dial of
         // how much you own, two tiles, then every card in the set as one tick.
         VStack(spacing: 18) {
-            VStack(spacing: 6) {
-                Text(known ? "COMPLETE" : "CARDS OWNED").font(.mono(11)).tracking(1.6).foregroundStyle(Theme.muted)
-                HStack(alignment: .top, spacing: 4) {
-                    DotMatrixText(text: known ? "\(pct)" : "\(owned)", dot: 6.5, color: Theme.lime)
-                        .shadow(color: Theme.lime.opacity(0.55), radius: 16)
-                        // A completed set lights up once: brighter and a touch bigger, then back.
-                        .brightness(pulse ? 0.35 : 0)
-                        .scaleEffect(pulse ? 1.08 : 1)
-                    if known { Text("%").font(.geist(16)).foregroundStyle(Theme.lime) }
+            if known {
+                // The % sits inside the dial, so the top stays compact.
+                ZStack {
+                    GlowPie(fraction: sweep ?? ratio)
+                        .shadow(color: Theme.lime.opacity(0.25), radius: 24)
+                    VStack(spacing: 4) {
+                        Text("COMPLETE").font(.mono(10)).tracking(1.4).foregroundStyle(Theme.muted)
+                        HStack(alignment: .top, spacing: 3) {
+                            DotMatrixText(text: "\(pct)", dot: 5.2, color: Theme.lime)
+                                .shadow(color: Theme.lime.opacity(0.55), radius: 12)
+                                // A completed set lights up once: brighter and a touch bigger, then back.
+                                .brightness(pulse ? 0.35 : 0)
+                                .scaleEffect(pulse ? 1.08 : 1)
+                            Text("%").font(.geist(15)).foregroundStyle(Theme.lime)
+                        }
+                        Text("\(owned) of \(total)").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted)
+                    }
                 }
-                Text(known ? "\(owned) of \(total) cards" : "full list not in Lucent yet").font(.geist(13)).foregroundStyle(Theme.muted)
+                .frame(width: 260, height: 260)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(pct)% complete, \(owned) of \(total) cards")
+            } else {
+                VStack(spacing: 6) {
+                    Text("CARDS OWNED").font(.mono(11)).tracking(1.6).foregroundStyle(Theme.muted)
+                    DotMatrixText(text: "\(owned)", dot: 6.5, color: Theme.lime)
+                        .shadow(color: Theme.lime.opacity(0.55), radius: 16)
+                    Text("full list not in Lucent yet").font(.geist(13)).foregroundStyle(Theme.muted)
+                }
             }
             if known {
-                GlowPie(fraction: sweep ?? ratio).frame(width: 180).padding(.vertical, 10)
-                    .shadow(color: Theme.lime.opacity(0.25), radius: 24)
                 HStack(spacing: 10) {
                     heroTile(label: "You own", sub: "worth") {
                         HStack(alignment: .center, spacing: 10) {

@@ -166,7 +166,7 @@ export function deckGlow(id: string): string {
  * caps from the top, and an ink arrow in the lime cap where it starts. The arc
  * sweeps in once on mount (not with Reduce Motion).
  */
-export function GlowPie({ fraction, size = 180, className }: { fraction: number; size?: number; className?: string }) {
+export function GlowPie({ fraction, size = 180, className, children }: { fraction: number; size?: number; className?: string; children?: React.ReactNode }) {
   const f = Math.max(0, Math.min(1, fraction));
   const line = size * 0.2;
   const c = size / 2;
@@ -216,6 +216,8 @@ export function GlowPie({ fraction, size = 180, className }: { fraction: number;
         className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 text-[#0b0b0c]"
         style={{ top: line / 2, width: line * 0.5, height: line * 0.5 }}
       />
+      {/* Whatever sits in the middle (the set page's %). */}
+      {children && <div className="absolute inset-0 flex flex-col items-center justify-center">{children}</div>}
     </div>
   );
 }

@@ -281,21 +281,19 @@ function SetHero({
 
       <div className="mt-5 flex flex-col items-center gap-y-6 lg:mt-4 lg:grid lg:max-w-[940px] lg:grid-cols-[minmax(0,540px)_auto] lg:items-center lg:justify-between lg:gap-x-12">
         <div className="flex w-full flex-col items-center lg:items-start">
-          <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-white/55">{known || loading ? "Complete" : "Cards owned"}</p>
-          <div className="mt-2 flex h-[61px] items-start gap-1">
-            {loading ? (
-              <DotMatrix text="--" dot={7} color="rgb(255 255 255 / 0.25)" glow={0} />
-            ) : (
-              <>
-                <DotMatrix text={String(known ? pct : have)} dot={7} glow={16} />
-                {known && <span className="-mt-1 text-[16px] text-lime">%</span>}
-              </>
-            )}
-          </div>
-          <p className="tabular mt-2 text-[13px] text-white/55">{loading ? "Loading the card list…" : known ? `${have} of ${total} cards` : note}</p>
+          {/* With the full list, the % sits inside the dial (below); otherwise the count shows here. */}
+          {!(known && !loading) && (
+            <>
+              <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-white/55">{loading ? "Complete" : "Cards owned"}</p>
+              <div className="mt-2 flex h-[61px] items-start gap-1">
+                {loading ? <DotMatrix text="--" dot={7} color="rgb(255 255 255 / 0.25)" glow={0} /> : <DotMatrix text={String(have)} dot={7} glow={16} />}
+              </div>
+              <p className="tabular mt-2 text-[13px] text-white/55">{loading ? "Loading the card list…" : note}</p>
+            </>
+          )}
 
           {known && !loading && (
-            <div className="mt-6 hidden w-full grid-cols-2 gap-2.5 lg:grid">
+            <div className="hidden w-full grid-cols-2 gap-2.5 lg:grid">
               <HeroTiles ratio={ratio} ownedValue={ownedValue} toFinish={toFinish} missing={total - have} />
             </div>
           )}
@@ -304,7 +302,16 @@ function SetHero({
         {known && !loading && (
           <>
             {/* No drop-shadow filter here: a filter on the dial would stop its glass track blurring what's behind it. */}
-            <GlowPie fraction={ratio} className="my-2.5 lg:mr-6" />
+            <GlowPie fraction={ratio} size={260} className="lg:mr-6">
+              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/55">Complete</p>
+              <div className="mt-1 flex items-start gap-0.5">
+                <DotMatrix text={String(pct)} dot={5.2} glow={12} />
+                <span className="-mt-0.5 text-[14px] text-lime">%</span>
+              </div>
+              <p className="tabular mt-1 text-[12px] text-white/55">
+                {have} of {total}
+              </p>
+            </GlowPie>
             <div className="grid w-full grid-cols-2 gap-2.5 lg:hidden">
               <HeroTiles ratio={ratio} ownedValue={ownedValue} toFinish={toFinish} missing={total - have} />
             </div>
