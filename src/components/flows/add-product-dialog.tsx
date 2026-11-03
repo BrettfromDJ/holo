@@ -2,30 +2,55 @@
 
 import { GRADERS } from "@/lib/graded";
 import { useSlabCerts, useSlabPristine } from "@/lib/store/grading";
-import { ChevronDown, ChevronLeft, ChevronRight, Loader2, ScanLine } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  ScanLine,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input, Textarea } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { ProductImage } from "@/components/product/product-image";
 import { categoryOf } from "@/lib/catalog";
 import { money } from "@/lib/format";
 import type { SearchHit } from "@/lib/pricing/types";
-import { usePortfolio, useStore, type ImportedProduct } from "@/lib/store/collection-store";
+import {
+  usePortfolio,
+  useStore,
+  type ImportedProduct,
+} from "@/lib/store/collection-store";
 import { celebratePull } from "@/lib/celebrate";
-import { purchaseDefaults, readPurchaseMemory, rememberPurchase, writePurchaseMemory } from "@/lib/holding-actions";
+import {
+  purchaseDefaults,
+  readPurchaseMemory,
+  rememberPurchase,
+  writePurchaseMemory,
+} from "@/lib/holding-actions";
 import { ALL, MAIN, MAIN_NAME, usePortfolios } from "@/lib/store/portfolios";
 import { CONDITIONS, holdingKey, priceKey, type Condition } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Field, MoneyInput, Stepper, SummaryRow, parseMoney } from "./fields";
 import { ProductSearch } from "./product-search";
 import { ScanToCollection } from "@/components/scan/scan-to-collection";
-
 
 export function AddProductDialog() {
   const { addTarget, closeAdd, data } = useStore();
@@ -43,7 +68,12 @@ export function AddProductDialog() {
       const product = data.products[addTarget.productId];
       if (product) {
         const printing = product.printings?.[0] ?? null;
-        setHit({ product, printing, market: data.prices[priceKey(product.id, printing)]?.market ?? null, priceUpdatedAt: null });
+        setHit({
+          product,
+          printing,
+          market: data.prices[priceKey(product.id, printing)]?.market ?? null,
+          priceUpdatedAt: null,
+        });
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -56,11 +86,16 @@ export function AddProductDialog() {
     <>
       <ScanToCollection open={scanning} onOpenChange={setScanning} />
       <Dialog open={addTarget.open} onOpenChange={(o) => !o && closeAdd()}>
-        <DialogContent className="h-[88dvh] sm:h-[640px] sm:max-w-[560px]" aria-describedby={undefined}>
+        <DialogContent
+          className="h-[88dvh] sm:h-[640px] sm:max-w-[560px]"
+          aria-describedby={undefined}
+        >
           {!hit ? (
             <>
               <div className="px-6 pr-14 pt-6">
-                <DialogTitle>{watch ? "Add to Watchlist" : "Add to Collection"}</DialogTitle>
+                <DialogTitle>
+                  {watch ? "Add to Watchlist" : "Add to Collection"}
+                </DialogTitle>
               </div>
               {/* Scanning is the fastest way in, so it leads; search is right below. */}
               {!watch && (
@@ -77,20 +112,43 @@ export function AddProductDialog() {
                       <ScanLine className="size-5" />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-[16px] font-semibold leading-tight">Scan cards</span>
-                      <span className="block text-[13px] leading-tight text-[#0b0b0c]/70">Point your camera at a card. Great for a whole stack.</span>
+                      <span className="block text-[16px] font-semibold leading-tight">
+                        Scan cards
+                      </span>
+                      <span className="block text-[13px] leading-tight text-[#0b0b0c]/70">
+                        Point your camera at a card. Great for a whole stack.
+                      </span>
                     </span>
                     <ChevronRight className="size-5 shrink-0" />
                   </button>
-                  <p className="mt-4 text-center text-[12px] font-medium text-subtle">or search</p>
+                  <p className="mt-4 text-center text-[12px] font-medium text-subtle">
+                    or search
+                  </p>
                 </div>
               )}
               <ProductSearch onSelect={setHit} />
             </>
           ) : watch ? (
-            <WatchForm hit={hit} onBack={addTarget.productId || addTarget.hit ? undefined : () => setHit(null)} onDone={closeAdd} />
+            <WatchForm
+              hit={hit}
+              onBack={
+                addTarget.productId || addTarget.hit
+                  ? undefined
+                  : () => setHit(null)
+              }
+              onDone={closeAdd}
+            />
           ) : (
-            <PurchaseForm hit={hit} fromWatchId={addTarget.fromWatchId} onBack={addTarget.productId || addTarget.hit ? undefined : () => setHit(null)} onDone={closeAdd} />
+            <PurchaseForm
+              hit={hit}
+              fromWatchId={addTarget.fromWatchId}
+              onBack={
+                addTarget.productId || addTarget.hit
+                  ? undefined
+                  : () => setHit(null)
+              }
+              onDone={closeAdd}
+            />
           )}
         </DialogContent>
       </Dialog>
@@ -117,25 +175,49 @@ function useImported(hit: SearchHit) {
   return { imported, error };
 }
 
-function ProductHeader({ hit, imported, printing, onBack }: { hit: SearchHit; imported: ImportedProduct | null; printing: string | null; onBack?: () => void }) {
+function ProductHeader({
+  hit,
+  imported,
+  printing,
+  onBack,
+}: {
+  hit: SearchHit;
+  imported: ImportedProduct | null;
+  printing: string | null;
+  onBack?: () => void;
+}) {
   const product = imported?.product ?? hit.product;
   const price = imported?.prices.find((p) => p.printing === printing) ?? null;
   const market = price ? price.market : hit.market;
   return (
     <div className="flex items-center gap-4 border-b border-border px-6 pb-5 pt-6">
       {onBack && (
-        <button onClick={onBack} aria-label="Back to search" className="-ml-2 rounded-full p-1.5 text-muted hover:bg-surface-2 hover:text-foreground">
+        <button
+          onClick={onBack}
+          aria-label="Back to search"
+          className="-ml-2 rounded-full p-1.5 text-muted hover:bg-surface-2 hover:text-foreground"
+        >
           <ChevronLeft className="size-5" />
         </button>
       )}
-      <ProductImage product={product} size="sm" className="size-16 shrink-0 rounded-xl" />
+      <ProductImage
+        product={product}
+        size="sm"
+        className="size-16 shrink-0 rounded-xl"
+      />
       <div className="min-w-0 flex-1 pr-6">
-        <DialogTitle className="truncate text-[17px]">{product.name}</DialogTitle>
+        <DialogTitle className="truncate text-[17px]">
+          {product.name}
+        </DialogTitle>
         <DialogDescription className="mt-0.5 truncate">
           {[product.setName, categoryOf(product)].filter(Boolean).join(" · ")}
         </DialogDescription>
         <p className="tabular mt-1 text-[13px]">
-          {market === null ? <span className="text-subtle">No market price</span> : <span className="font-medium">{money(market)}</span>}
+          {market === null ? (
+            <span className="text-subtle">No market price</span>
+          ) : (
+            <span className="font-medium">{money(market)}</span>
+          )}
           <span className="text-subtle"> market</span>
           {product.source === "sample" && (
             <Badge variant="sample" className="ml-2">
@@ -148,7 +230,15 @@ function ProductHeader({ hit, imported, printing, onBack }: { hit: SearchHit; im
   );
 }
 
-function PrintingSelect({ options, value, onChange }: { options: string[]; value: string | null; onChange: (v: string) => void }) {
+function PrintingSelect({
+  options,
+  value,
+  onChange,
+}: {
+  options: string[];
+  value: string | null;
+  onChange: (v: string) => void;
+}) {
   if (options.length <= 1) return null;
   return (
     <Field label="Printing">
@@ -168,26 +258,50 @@ function PrintingSelect({ options, value, onChange }: { options: string[]; value
   );
 }
 
-function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fromWatchId?: string; onBack?: () => void; onDone: () => void }) {
+function PurchaseForm({
+  hit,
+  fromWatchId,
+  onBack,
+  onDone,
+}: {
+  hit: SearchHit;
+  fromWatchId?: string;
+  onBack?: () => void;
+  onDone: () => void;
+}) {
   const { addTransaction, setManualValue, removeWatch, today } = useStore();
   // The reveal compares the whole collection, whichever portfolio is being viewed.
-  const { summary, holdings: allHoldings } = usePortfolio({ ignoreFilter: true });
+  const { summary, holdings: allHoldings } = usePortfolio({
+    ignoreFilter: true,
+  });
   const { imported, error } = useImported(hit);
   const product = imported?.product ?? hit.product;
   const sealed = product.kind === "sealed";
 
   const printings = useMemo(() => {
-    const fromPrices = imported?.prices.map((p) => p.printing).filter((p): p is string => Boolean(p)) ?? [];
+    const fromPrices =
+      imported?.prices
+        .map((p) => p.printing)
+        .filter((p): p is string => Boolean(p)) ?? [];
     return fromPrices.length ? fromPrices : hit.printing ? [hit.printing] : [];
   }, [imported, hit.printing]);
 
   // Your usual details, remembered in this browser (like the app): where you buy, and the
   // condition or grade you last picked; the date too while you log buys within a few hours.
-  const [remembered] = useState(() => purchaseDefaults(readPurchaseMemory(), { sealed: hit.product.kind === "sealed", today, now: Date.now(), companies: GRADERS }));
+  const [remembered] = useState(() =>
+    purchaseDefaults(readPurchaseMemory(), {
+      sealed: hit.product.kind === "sealed",
+      today,
+      now: Date.now(),
+      companies: GRADERS,
+    }),
+  );
   const [printing, setPrinting] = useState<string | null>(hit.printing);
   const [qty, setQty] = useState(1);
   const [priceMode, setPriceMode] = useState<"unit" | "lot">("unit");
-  const [price, setPrice] = useState(hit.market !== null ? hit.market.toFixed(2) : "");
+  const [price, setPrice] = useState(
+    hit.market !== null ? hit.market.toFixed(2) : "",
+  );
   const [date, setDate] = useState(remembered.date);
   const [condition, setCondition] = useState<Condition>(remembered.condition);
   const [graded, setGraded] = useState(remembered.graded);
@@ -199,14 +313,22 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
   const { setPristine: savePristine } = useSlabPristine();
   // A CGC 10 is either Pristine 10 (the gold label) or Gem Mint 10.
   const [pristine, setPristine] = useState(false);
-  const isCgc10 = graded && grader.toUpperCase() === "CGC" && Number.parseFloat(grade) === 10;
+  const isCgc10 =
+    graded && grader.toUpperCase() === "CGC" && Number.parseFloat(grade) === 10;
   const [showExtras, setShowExtras] = useState(false);
   const [shipping, setShipping] = useState("");
   const [fees, setFees] = useState("");
   const [tax, setTax] = useState("");
   const [source, setSource] = useState(remembered.source);
   const [notes, setNotes] = useState("");
-  const { portfolios, selected: viewing, portfolioOf, membersOf, moveMany, copyMany } = usePortfolios();
+  const {
+    portfolios,
+    selected: viewing,
+    portfolioOf,
+    membersOf,
+    moveMany,
+    copyMany,
+  } = usePortfolios();
   const [pickedPortfolio, setPortfolioId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -216,12 +338,26 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
 
   // Until the user picks one: the portfolio being viewed; when viewing all, more of something
   // you own stays where it is and anything new goes to Main.
-  const currentKey = holdingKey({ productId: product.id, printing, condition: graded ? "Near Mint" : condition, grade: graded ? { company: grader, grade: grade.trim() } : null });
+  const currentKey = holdingKey({
+    productId: product.id,
+    printing,
+    condition: graded ? "Near Mint" : condition,
+    grade: graded ? { company: grader, grade: grade.trim() } : null,
+  });
   const alreadyOwned = allHoldings.some((h) => h.key === currentKey);
-  const portfolioId = pickedPortfolio ?? (viewing !== ALL ? viewing : alreadyOwned ? portfolioOf(currentKey) : MAIN);
+  const portfolioId =
+    pickedPortfolio ??
+    (viewing !== ALL ? viewing : alreadyOwned ? portfolioOf(currentKey) : MAIN);
 
   const entered = parseMoney(price);
-  const unitPrice = entered === null ? null : priceMode === "unit" ? entered : qty > 0 ? entered / qty : null;
+  const unitPrice =
+    entered === null
+      ? null
+      : priceMode === "unit"
+        ? entered
+        : qty > 0
+          ? entered / qty
+          : null;
   // In per-unit mode, shipping/fees/tax are entered per unit too; stored totals are always per order.
   const extrasFactor = priceMode === "unit" ? qty : 1;
   const shippingTotal = (parseMoney(shipping) ?? 0) * extrasFactor;
@@ -230,7 +366,11 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
   const extras = shippingTotal + feesTotal + taxTotal;
   const subtotal = unitPrice === null ? null : unitPrice * qty;
   const total = subtotal === null ? null : subtotal + extras;
-  const valid = qty >= 1 && unitPrice !== null && date <= today && (!graded || grade.trim() !== "");
+  const valid =
+    qty >= 1 &&
+    unitPrice !== null &&
+    date <= today &&
+    (!graded || grade.trim() !== "");
   const extrasHint = priceMode === "unit" ? "each" : "order total";
 
   const submit = async (e: React.FormEvent) => {
@@ -260,18 +400,36 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
       const key = holdingKey(identity);
       // More of a copy you own also shows in the picked portfolio (a Copy: it stays where it
       // is); a new one goes only there.
-      if (alreadyOwned) await copyMany([key], portfolioId).catch(() => undefined);
-      else if (membersOf(key).join("|") !== portfolioId) await moveMany([key], portfolioId).catch(() => undefined);
+      if (alreadyOwned)
+        await copyMany([key], portfolioId).catch(() => undefined);
+      else if (membersOf(key).join("|") !== portfolioId)
+        await moveMany([key], portfolioId).catch(() => undefined);
       const gv = parseMoney(gradedValue);
       if (graded && gv !== null) await setManualValue(identity, gv);
       if (graded && cert.trim()) saveCert(key, cert);
       if (isCgc10 && pristine) savePristine(key, true);
       if (fromWatchId) await removeWatch(fromWatchId);
-      writePurchaseMemory(rememberPurchase(readPurchaseMemory(), { sealed, source, date, graded, company: grader, grade: grade.trim(), condition }, Date.now()));
+      writePurchaseMemory(
+        rememberPurchase(
+          readPurchaseMemory(),
+          {
+            sealed,
+            source,
+            date,
+            graded,
+            company: grader,
+            grade: grade.trim(),
+            condition,
+          },
+          Date.now(),
+        ),
+      );
       onDone();
       celebratePull({ product, quantity: qty, before });
     } catch (err) {
-      toast.error("Couldn't save purchase", { description: err instanceof Error ? err.message : undefined });
+      toast.error("Couldn't save purchase", {
+        description: err instanceof Error ? err.message : undefined,
+      });
     } finally {
       setSaving(false);
     }
@@ -279,36 +437,56 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
 
   return (
     <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
-      <ProductHeader hit={hit} imported={imported} printing={printing} onBack={onBack} />
+      <ProductHeader
+        hit={hit}
+        imported={imported}
+        printing={printing}
+        onBack={onBack}
+      />
       <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
-        {error && <p className="rounded-xl bg-down-soft px-3 py-2 text-[13px] text-down">{error}</p>}
+        {error && (
+          <p className="rounded-xl bg-down-soft px-3 py-2 text-[13px] text-down">
+            {error}
+          </p>
+        )}
+        {/* Which portfolio it goes in, at the top so it's never missed. */}
+        <Field label="Add to portfolio">
+          <Select value={portfolioId} onValueChange={setPortfolioId}>
+            <SelectTrigger aria-label="Portfolio">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {[{ id: MAIN, name: MAIN_NAME }, ...portfolios].map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Quantity">
             <Stepper value={qty} onChange={setQty} label="Quantity" />
           </Field>
           <Field label="Purchase date" htmlFor="purchase-date">
-            <Input id="purchase-date" type="date" value={date} max={today} onChange={(e) => setDate(e.target.value)} className="tabular" />
+            <Input
+              id="purchase-date"
+              type="date"
+              value={date}
+              max={today}
+              onChange={(e) => setDate(e.target.value)}
+              className="tabular"
+            />
           </Field>
         </div>
         <Field label="Where" htmlFor="source">
-          <Input id="source" value={source} onChange={(e) => setSource(e.target.value)} placeholder="Card show, eBay, store…" />
+          <Input
+            id="source"
+            value={source}
+            onChange={(e) => setSource(e.target.value)}
+            placeholder="Card show, eBay, store…"
+          />
         </Field>
-        {portfolios.length > 0 && (
-          <Field label="Portfolio">
-            <Select value={portfolioId} onValueChange={setPortfolioId}>
-              <SelectTrigger aria-label="Portfolio">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {[{ id: MAIN, name: MAIN_NAME }, ...portfolios].map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-        )}
 
         <Field
           label={priceMode === "unit" ? "Price per unit" : "Total lot price"}
@@ -322,7 +500,8 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
                 // Keep the same order total when switching between per-unit and lot entry.
                 const convert = (raw: string, set: (v: string) => void) => {
                   const v = parseMoney(raw);
-                  if (v !== null && qty > 0) set((m === "lot" ? v * qty : v / qty).toFixed(2));
+                  if (v !== null && qty > 0)
+                    set((m === "lot" ? v * qty : v / qty).toFixed(2));
                 };
                 convert(price, setPrice);
                 convert(shipping, setShipping);
@@ -338,19 +517,35 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
           }
         >
           <MoneyInput id="purchase-price" value={price} onChange={setPrice} />
-          {priceMode === "lot" && unitPrice !== null && qty > 1 && <p className="tabular text-[12px] text-subtle">{money(unitPrice)} per unit</p>}
+          {priceMode === "lot" && unitPrice !== null && qty > 1 && (
+            <p className="tabular text-[12px] text-subtle">
+              {money(unitPrice)} per unit
+            </p>
+          )}
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
-          <PrintingSelect options={printings} value={printing} onChange={setPrinting} />
+          <PrintingSelect
+            options={printings}
+            value={printing}
+            onChange={setPrinting}
+          />
           {!graded && (
-            <Field label="Condition" className={printings.length <= 1 ? "col-span-2" : undefined}>
-              <Select value={condition} onValueChange={(v) => setCondition(v as Condition)}>
+            <Field
+              label="Condition"
+              className={printings.length <= 1 ? "col-span-2" : undefined}
+            >
+              <Select
+                value={condition}
+                onValueChange={(v) => setCondition(v as Condition)}
+              >
                 <SelectTrigger aria-label="Condition">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {CONDITIONS.filter((c) => (sealed ? c === "Sealed" || c === "Damaged" : c !== "Sealed")).map((c) => (
+                  {CONDITIONS.filter((c) =>
+                    sealed ? c === "Sealed" || c === "Damaged" : c !== "Sealed",
+                  ).map((c) => (
                     <SelectItem key={c} value={c}>
                       {c}
                     </SelectItem>
@@ -365,10 +560,19 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
           <div className="rounded-2xl border border-border p-4">
             <label className="flex items-center justify-between gap-3">
               <span>
-                <span className="block text-[14px] font-medium">Graded card</span>
-                <span className="block text-[12px] text-muted">Priced from graded sales (sample data for now). Add your own value to override it.</span>
+                <span className="block text-[14px] font-medium">
+                  Graded card
+                </span>
+                <span className="block text-[12px] text-muted">
+                  Priced from graded sales (sample data for now). Add your own
+                  value to override it.
+                </span>
               </span>
-              <Switch checked={graded} onCheckedChange={setGraded} aria-label="Graded card" />
+              <Switch
+                checked={graded}
+                onCheckedChange={setGraded}
+                aria-label="Graded card"
+              />
             </label>
             {graded && (
               <div className="mt-4 grid grid-cols-3 gap-3">
@@ -387,22 +591,48 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
                   </Select>
                 </Field>
                 <Field label="Grade" htmlFor="grade">
-                  <Input id="grade" value={grade} onChange={(e) => setGrade(e.target.value.slice(0, 6))} inputMode="decimal" />
+                  <Input
+                    id="grade"
+                    value={grade}
+                    onChange={(e) => setGrade(e.target.value.slice(0, 6))}
+                    inputMode="decimal"
+                  />
                 </Field>
                 <Field label="Your value" htmlFor="graded-value">
-                  <MoneyInput id="graded-value" value={gradedValue} onChange={setGradedValue} placeholder="Optional" />
+                  <MoneyInput
+                    id="graded-value"
+                    value={gradedValue}
+                    onChange={setGradedValue}
+                    placeholder="Optional"
+                  />
                 </Field>
                 {isCgc10 && (
                   <label className="col-span-3 flex items-center justify-between gap-3 text-[14px]">
                     <span>
                       <span className="block font-medium">Pristine 10</span>
-                      <span className="block text-[12px] text-muted">The gold label. Off means Gem Mint 10.</span>
+                      <span className="block text-[12px] text-muted">
+                        The gold label. Off means Gem Mint 10.
+                      </span>
                     </span>
-                    <Switch checked={pristine} onCheckedChange={setPristine} aria-label="Pristine 10" />
+                    <Switch
+                      checked={pristine}
+                      onCheckedChange={setPristine}
+                      aria-label="Pristine 10"
+                    />
                   </label>
                 )}
-                <Field label="Cert number" htmlFor="graded-cert" className="col-span-3">
-                  <Input id="graded-cert" value={cert} onChange={(e) => setCert(e.target.value.slice(0, 20))} placeholder="Optional — for verifying the slab" inputMode="numeric" />
+                <Field
+                  label="Cert number"
+                  htmlFor="graded-cert"
+                  className="col-span-3"
+                >
+                  <Input
+                    id="graded-cert"
+                    value={cert}
+                    onChange={(e) => setCert(e.target.value.slice(0, 20))}
+                    placeholder="Optional — for verifying the slab"
+                    inputMode="numeric"
+                  />
                 </Field>
               </div>
             )}
@@ -410,15 +640,29 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
         )}
 
         <div>
-          <button type="button" onClick={() => setShowExtras((s) => !s)} className="flex items-center gap-1.5 text-[13px] font-medium text-muted hover:text-foreground" aria-expanded={showExtras}>
-            <ChevronDown className={cn("size-4 transition-transform", showExtras && "rotate-180")} />
+          <button
+            type="button"
+            onClick={() => setShowExtras((s) => !s)}
+            className="flex items-center gap-1.5 text-[13px] font-medium text-muted hover:text-foreground"
+            aria-expanded={showExtras}
+          >
+            <ChevronDown
+              className={cn(
+                "size-4 transition-transform",
+                showExtras && "rotate-180",
+              )}
+            />
             Shipping, fees, tax &amp; notes
           </button>
           {showExtras && (
             <div className="mt-4 space-y-4 animate-rise">
               <div className="grid grid-cols-3 gap-3">
                 <Field label="Shipping" hint={extrasHint} htmlFor="shipping">
-                  <MoneyInput id="shipping" value={shipping} onChange={setShipping} />
+                  <MoneyInput
+                    id="shipping"
+                    value={shipping}
+                    onChange={setShipping}
+                  />
                 </Field>
                 <Field label="Fees" hint={extrasHint} htmlFor="fees">
                   <MoneyInput id="fees" value={fees} onChange={setFees} />
@@ -428,7 +672,12 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
                 </Field>
               </div>
               <Field label="Notes" htmlFor="notes">
-                <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
+                <Textarea
+                  id="notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Optional"
+                />
               </Field>
             </div>
           )}
@@ -437,11 +686,28 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
 
       <div className="border-t border-border bg-surface px-6 pb-6 pt-4">
         <div className="space-y-1.5">
-          {extras > 0 && <SummaryRow label="Subtotal" value={money(subtotal)} />}
-          {extras > 0 && <SummaryRow label={priceMode === "unit" && qty > 1 ? `Shipping, fees & tax (${qty} × ${money(extras / qty)})` : "Shipping, fees & tax"} value={money(extras)} />}
+          {extras > 0 && (
+            <SummaryRow label="Subtotal" value={money(subtotal)} />
+          )}
+          {extras > 0 && (
+            <SummaryRow
+              label={
+                priceMode === "unit" && qty > 1
+                  ? `Shipping, fees & tax (${qty} × ${money(extras / qty)})`
+                  : "Shipping, fees & tax"
+              }
+              value={money(extras)}
+            />
+          )}
           <SummaryRow strong label="Total cost basis" value={money(total)} />
         </div>
-        <Button type="submit" variant="primary" size="lg" className="mt-4 w-full" disabled={!valid || saving}>
+        <Button
+          type="submit"
+          variant="primary"
+          size="lg"
+          className="mt-4 w-full"
+          disabled={!valid || saving}
+        >
           {saving && <Loader2 className="animate-spin" />}
           Add to Collection
         </Button>
@@ -450,14 +716,28 @@ function PurchaseForm({ hit, fromWatchId, onBack, onDone }: { hit: SearchHit; fr
   );
 }
 
-function WatchForm({ hit, onBack, onDone }: { hit: SearchHit; onBack?: () => void; onDone: () => void }) {
+function WatchForm({
+  hit,
+  onBack,
+  onDone,
+}: {
+  hit: SearchHit;
+  onBack?: () => void;
+  onDone: () => void;
+}) {
   const { addWatch, data } = useStore();
   const { imported, error } = useImported(hit);
-  const printings = imported?.prices.map((p) => p.printing).filter((p): p is string => Boolean(p)) ?? (hit.printing ? [hit.printing] : []);
+  const printings =
+    imported?.prices
+      .map((p) => p.printing)
+      .filter((p): p is string => Boolean(p)) ??
+    (hit.printing ? [hit.printing] : []);
   const [printing, setPrinting] = useState<string | null>(hit.printing);
   const [target, setTarget] = useState("");
   const [saving, setSaving] = useState(false);
-  const exists = data.watchlist.some((w) => w.productId === hit.product.id && w.printing === printing);
+  const exists = data.watchlist.some(
+    (w) => w.productId === hit.product.id && w.printing === printing,
+  );
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -467,7 +747,9 @@ function WatchForm({ hit, onBack, onDone }: { hit: SearchHit; onBack?: () => voi
       toast.success(`Watching ${hit.product.name}`);
       onDone();
     } catch (err) {
-      toast.error("Couldn't add to watchlist", { description: err instanceof Error ? err.message : undefined });
+      toast.error("Couldn't add to watchlist", {
+        description: err instanceof Error ? err.message : undefined,
+      });
     } finally {
       setSaving(false);
     }
@@ -475,17 +757,44 @@ function WatchForm({ hit, onBack, onDone }: { hit: SearchHit; onBack?: () => voi
 
   return (
     <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
-      <ProductHeader hit={hit} imported={imported} printing={printing} onBack={onBack} />
+      <ProductHeader
+        hit={hit}
+        imported={imported}
+        printing={printing}
+        onBack={onBack}
+      />
       <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
-        {error && <p className="rounded-xl bg-down-soft px-3 py-2 text-[13px] text-down">{error}</p>}
-        <PrintingSelect options={printings} value={printing} onChange={setPrinting} />
+        {error && (
+          <p className="rounded-xl bg-down-soft px-3 py-2 text-[13px] text-down">
+            {error}
+          </p>
+        )}
+        <PrintingSelect
+          options={printings}
+          value={printing}
+          onChange={setPrinting}
+        />
         <Field label="Target purchase price" hint="Optional" htmlFor="target">
-          <MoneyInput id="target" value={target} onChange={setTarget} autoFocus />
+          <MoneyInput
+            id="target"
+            value={target}
+            onChange={setTarget}
+            autoFocus
+          />
         </Field>
-        <p className="text-[13px] text-muted">Watchlist items are tracked separately and never affect your portfolio value.</p>
+        <p className="text-[13px] text-muted">
+          Watchlist items are tracked separately and never affect your portfolio
+          value.
+        </p>
       </div>
       <div className="border-t border-border px-6 pb-6 pt-4">
-        <Button type="submit" variant="primary" size="lg" className="w-full" disabled={saving || exists}>
+        <Button
+          type="submit"
+          variant="primary"
+          size="lg"
+          className="w-full"
+          disabled={saving || exists}
+        >
           {saving && <Loader2 className="animate-spin" />}
           {exists ? "Already on your watchlist" : "Add to Watchlist"}
         </Button>

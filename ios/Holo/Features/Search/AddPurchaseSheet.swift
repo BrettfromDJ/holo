@@ -10,6 +10,8 @@ struct AddPurchaseSheet: View {
     @Environment(GroupsStore.self) private var groups
     /// The portfolio picked for this purchase; nil until you pick one (see `portfolioId`).
     @State private var pickedPortfolio: String?
+    @State private var namingPortfolio = false
+    @State private var newPortfolio = ""
 
     @State private var printing: String?
     @State private var condition = CardCondition.nearMint.rawValue
@@ -87,6 +89,18 @@ struct AddPurchaseSheet: View {
                     }
                 }
 
+                // Which portfolio it goes in, right at the top so it's never missed.
+                Section {
+                    Picker("Add to", selection: Binding(get: { portfolioId }, set: { pickedPortfolio = $0 })) {
+                        Text("Main").tag(GroupsStore.main)
+                        ForEach(groups.portfolios) { Text($0.name).tag($0.id) }
+                    }
+                    Button { namingPortfolio = true } label: { Label("New portfolio…", systemImage: "plus") }
+                        .foregroundStyle(Theme.lime)
+                } footer: {
+                    Text("The portfolio this goes into. Main is everything not in another portfolio.")
+                }
+
                 if let printings = product.printings, printings.count > 1 {
                     Picker("Printing", selection: $printing) {
                         ForEach(printings, id: \.self) { Text($0).tag(Optional($0)) }
@@ -140,13 +154,6 @@ struct AddPurchaseSheet: View {
                             .multilineTextAlignment(.trailing)
                             .textInputAutocapitalization(.words)
                     }
-                    // Which portfolio it goes in (only once you have one besides Main).
-                    if !groups.portfolios.isEmpty {
-                        Picker("Portfolio", selection: Binding(get: { portfolioId }, set: { pickedPortfolio = $0 })) {
-                            Text("Main").tag(GroupsStore.main)
-                            ForEach(groups.portfolios) { Text($0.name).tag($0.id) }
-                        }
-                    }
                 }
 
                 if let error {
@@ -154,6 +161,23 @@ struct AddPurchaseSheet: View {
                 }
             }
             .scrollContentBackground(.hidden)
+            .alert("New portfolio", isPresented: $namingPortfolio) {
+                TextField("Resale, PC, Graded…", text: $newPortfolio)
+                Button("Cancel", role: .cancel) { newPortfolio = "" }
+                Button("Create") {
+                    let name = String(newPortfolio.trimmingCharacters(in: .whitespaces).prefix(40))
+                    newPortfolio = ""
+                    guard !name.isEmpty else { return }
+                    Task {
+                        do {
+                            try await groups.createPortfolio(name, store: store)
+                            pickedPortfolio = groups.portfolios.last?.id
+                        } catch { self.error = error.localizedDescription }
+                    }
+                }
+            } message: {
+                Text("This card goes into it.")
+            }
             .navigationTitle("Add to collection")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
