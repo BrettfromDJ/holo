@@ -266,7 +266,7 @@ export function ProductSearch({ onSelect, autoFocus = true }: { onSelect: (hit: 
                       onMouseEnter={() => setCursor(i)}
                       className={cn("flex w-full items-center gap-3.5 rounded-xl px-3 py-2.5 text-left transition-colors", i === cursor && "bg-surface-2")}
                     >
-                      <ProductImage product={hit.product} size="xs" className="size-12 shrink-0 rounded-lg" />
+                      <ProductImage product={hit.product} size="sm" className="h-[72px] w-[52px] shrink-0 rounded-md" />
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-2">
                           <span className="truncate text-[15px] font-medium">{hit.product.name}</span>

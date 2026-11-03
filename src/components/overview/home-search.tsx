@@ -135,7 +135,7 @@ export function HomeSearch({ className }: { className?: string }) {
                         onMouseEnter={() => setActive(i)}
                         className={cn("flex items-center gap-3 rounded-xl px-2.5 py-2", active === i && "bg-surface-3")}
                       >
-                        <ProductImage product={p} size="xs" className="h-12 w-9 shrink-0 rounded-md" />
+                        <ProductImage product={p} size="sm" className="h-[72px] w-[52px] shrink-0 rounded-md" />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[14px] font-medium">{p.name}</span>
                           <span className="block truncate text-[12px] text-muted">{[item.gameName, p.setName, p.number && `#${p.number}`].filter(Boolean).join(" · ")}</span>

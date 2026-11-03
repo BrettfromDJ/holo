@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { canFuzz, fuzzyAnchors, fuzzyFilter, matchesNumber, numberPatterns, splitNumber, type NumberQuery } from "@/lib/search-match";
+import { canFuzz, fuzzyAnchors, fuzzyFilter, matchesNumber, numberPatterns, parseNumberToken, splitNumber, type NumberQuery } from "@/lib/search-match";
+import { SET_CODES, pickSetCode } from "@/lib/set-codes";
 import { parseQuery, rankByQuery, scoreProduct } from "@/lib/search-query";
 import { EXPLORE_CACHE, withPrices } from "@/lib/server/explore";
 import { selectAll } from "@/lib/server/paging";
@@ -14,37 +15,57 @@ import { getAdminSupabase } from "@/lib/supabase/server";
  * products first. A collector number ("215/203", "#215", "TG05") matches the
  * `number` column, alone or with name words ("umbreon 215"). When nothing
  * matches, a typo-tolerant pass looks for close matches ("charzard") and the
- * reply says `fuzzy: true`. Every match is ranked, then returned a page at a time
+ * reply says `fuzzy: true`. A set short-code with a number ("OBF 223", "CRZ GG05",
+ * "151 199"), or typed in capitals alone ("CRZ"), narrows to that set. Every match is ranked, then returned a page at a time
  * with the total, so a whole set ("evolving skies") can be scrolled through.
  */
 export async function GET(req: Request) {
   const params = new URL(req.url).searchParams;
-  const q = parseQuery((params.get("q") ?? "").slice(0, 80));
-  const all = (q.core || q.category?.toLowerCase() || "")
+  const raw = (params.get("q") ?? "").slice(0, 80);
+  const q = parseQuery(raw);
+  let all = (q.core || q.category?.toLowerCase() || "")
     .split(" ")
     .map((w) => w.replace(/[%_,()*]/g, ""))
     .filter(Boolean)
     .slice(0, 6);
-  const { words: rest, number } = splitNumber(all);
-  const words = rest.filter((w) => w.length >= 2);
-  if (!words.length && !number) return NextResponse.json({ products: [], total: 0 });
-  const offset = Math.max(0, Number(params.get("offset")) || 0);
-  const limit = Math.min(200, Math.max(1, Number(params.get("limit")) || 80));
   const admin = getAdminSupabase();
   if (!admin) return NextResponse.json({ error: { message: "Explore needs Supabase to be configured." } }, { status: 503 });
 
+  // A set short-code ("OBF 223", "CRZ GG05", "151 199") narrows to that set; an unknown code
+  // stays an ordinary word.
+  let setFilter: { name: string } | { slugs: string[] } | null = null;
+  const picked = pickSetCode(raw, all, (w) => parseNumberToken(w) !== null);
+  if (picked) {
+    const known = SET_CODES[picked.code];
+    if (known) setFilter = { name: known };
+    // Codes not on the list are looked up only when typed in capitals, so a short card name with
+    // a number ("mew 151") is never mistaken for a set.
+    else if (new RegExp(`(^|[^A-Za-z0-9])${picked.code.toUpperCase()}([^A-Za-z0-9]|$)`).test(raw)) {
+      const { data } = await admin.from("catalog_sets").select("slug").ilike("abbreviation", picked.code).limit(20);
+      if (data?.length) setFilter = { slugs: data.map((d) => d.slug) };
+    }
+    if (setFilter) all = picked.words;
+  }
+
+  const { words: rest, number } = splitNumber(all);
+  const words = rest.filter((w) => w.length >= 2);
+  if (!words.length && !number && !setFilter) return NextResponse.json({ products: [], total: 0 });
+  const offset = Math.max(0, Number(params.get("offset")) || 0);
+  const limit = Math.min(200, Math.max(1, Number(params.get("limit")) || 80));
+
   // The number's own condition: its column, or (for a bare "151") the name or set too.
   const numberClause = number
-    ? [...numberPatterns(number).map((p) => `number.ilike.${p}`), ...(number.explicit ? [] : [`name.ilike.*${numberWordOf(number)}*`, `set_name.ilike.*${numberWordOf(number)}*`])].join(",")
+    ? [...numberPatterns(number).map((p) => `number.ilike.${p}`), ...(number.explicit || setFilter ? [] : [`name.ilike.*${numberWordOf(number)}*`, `set_name.ilike.*${numberWordOf(number)}*`])].join(",")
     : null;
   // A number on its own matches widely ("25"), so fewer rows are read.
-  const cap = words.length ? 3000 : 1000;
+  const cap = words.length || setFilter ? 3000 : 1000;
 
   let rows: ProductRow[];
   let fuzzy = false;
   try {
     rows = await selectAll<ProductRow>((from, to) => {
       let query = admin.from("products").select("*").eq("source", "tcgapi");
+      if (setFilter) query = "name" in setFilter ? query.ilike("set_name", `%${setFilter.name}%`) : query.in("set_id", setFilter.slugs);
       for (const w of words) query = query.or(`name.ilike.*${w}*,set_name.ilike.*${w}*`);
       if (numberClause) query = query.or(numberClause);
       return query.order("id").range(from, to);
@@ -55,6 +76,7 @@ export async function GET(req: Request) {
     if (!rows.length && canFuzz(words)) {
       const candidates = await selectAll<ProductRow>((from, to) => {
         let query = admin.from("products").select("*").eq("source", "tcgapi");
+        if (setFilter) query = "name" in setFilter ? query.ilike("set_name", `%${setFilter.name}%`) : query.in("set_id", setFilter.slugs);
         for (const w of words) query = query.or(fuzzyAnchors(w).flatMap((a) => [`name.ilike.*${a}*`, `set_name.ilike.*${a}*`]).join(","));
         if (numberClause) query = query.or(numberClause);
         return query.order("id").range(from, to);

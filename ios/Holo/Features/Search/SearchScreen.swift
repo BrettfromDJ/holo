@@ -521,7 +521,7 @@ private struct ResultRow: View, Equatable {
         HStack(spacing: 12) {
             Button(action: onOpen) {
                 HStack(spacing: 12) {
-                    HoldingArt(product: hit.product, identity: nil, cornerRadius: 4, caption: false).frame(width: 44, height: 62)
+                    HoldingArt(product: hit.product, identity: nil, cornerRadius: 5, caption: false).frame(width: 64, height: 89)
                     VStack(alignment: .leading, spacing: 3) {
                         Text(hit.product.name).font(.geist(15, .medium)).foregroundStyle(.white).lineLimit(2).multilineTextAlignment(.leading)
                         Text([hit.gameName, hit.product.setName, hit.product.number.map { "#\($0)" }].compactMap { $0 }.joined(separator: " · "))
@@ -561,7 +561,7 @@ private struct SkeletonRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 4).fill(Theme.surface2).frame(width: 44, height: 62)
+            RoundedRectangle(cornerRadius: 5).fill(Theme.surface2).frame(width: 64, height: 89)
             VStack(alignment: .leading, spacing: 8) {
                 Capsule().fill(Theme.surface2).frame(width: 180, height: 12)
                 Capsule().fill(Theme.surface2).frame(width: 120, height: 10)
