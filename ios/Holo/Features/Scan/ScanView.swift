@@ -13,6 +13,9 @@ struct ScanView: View {
     @State private var reviewing = false
     @State private var flash = false
     @State private var focused: UUID?
+    @State private var torch = false
+    @State private var clearing = false
+    @State private var searchingManually = false
 
     var body: some View {
         ZStack {
@@ -23,6 +26,7 @@ struct ScanView: View {
             VStack(spacing: 0) {
                 topBar
                 guide
+                    .overlay(alignment: .bottomLeading) { rail }
                 bottom
             }
         }
@@ -32,7 +36,12 @@ struct ScanView: View {
             if g.translation.height > 120 && abs(g.translation.width) < g.translation.height { dismiss() }
         })
         .onAppear { camera.start() }
-        .onDisappear { camera.stop() }
+        .onDisappear { if torch { camera.setTorch(false) }; camera.stop() }
+        // Search instead: into the collection, or (scanning into a deal) onto that side of it.
+        .fullScreenCover(isPresented: Binding(get: { searchingManually && dealSide == nil }, set: { searchingManually = $0 })) { SearchScreen(mode: .add) }
+        .sheet(isPresented: Binding(get: { searchingManually && dealSide != nil }, set: { searchingManually = $0 })) {
+            if let dealSide { DealPickerSheet(side: dealSide) }
+        }
         .task {
             model.onPick = onPick
             await model.refreshBalance()
@@ -42,29 +51,30 @@ struct ScanView: View {
         }
     }
 
-    // MARK: Top: close, what you're scanning, scans left (all Liquid Glass)
+    // MARK: Top: close, search instead of scanning, scans left (all Liquid Glass)
 
     private var topBar: some View {
         HStack(spacing: 8) {
             glassCircle("xmark", label: "Close") { dismiss() }
-            Spacer()
-            // Only in a deal: which side the scans go to. Plain scanning needs no label.
-            if let dealSide {
+            // Can't scan it (a bad angle, a foreign card)? Look it up by name instead.
+            Button { searchingManually = true } label: {
                 HStack(spacing: 8) {
-                    Circle().fill(dealSide == .outgoing ? Theme.planPink : Theme.lime).frame(width: 7, height: 7)
-                    Text(dealSide == .incoming ? "Coming in" : "Going out").font(.display(16)).tracking(-0.4)
+                    Image(systemName: "magnifyingglass").font(.system(size: 15, weight: .medium))
+                    Text(dealSide == nil ? "Search manually" : (dealSide == .incoming ? "Search · coming in" : "Search · going out"))
+                        .font(.geist(15, .medium)).lineLimit(1)
                 }
-                .padding(.horizontal, 16).frame(height: 40)
-                .liquidGlass(in: Capsule())
-                Spacer()
+                .frame(maxWidth: .infinity).frame(height: 44)
+                .contentShape(Capsule())
             }
+            .buttonStyle(.plain)
+            .background { Color.clear.liquidGlass(in: Capsule()).allowsHitTesting(false) }
             Group {
                 if let left = model.scansLeft {
                     Text("\(left.formatted()) left").font(.mono(12)).monospacedDigit()
-                        .padding(.horizontal, 12).frame(height: 40)
+                        .padding(.horizontal, 12).frame(height: 44)
                         .liquidGlass(in: Capsule())
                 } else {
-                    Color.clear.frame(width: 44, height: 40)
+                    Color.clear.frame(width: 44, height: 44)
                 }
             }
         }
@@ -73,16 +83,46 @@ struct ScanView: View {
         .padding(.top, 8)
     }
 
-    // MARK: The card outline: lime corners with a light sweeping down
+    // MARK: The side rail: the light
+
+    private var rail: some View {
+        VStack(spacing: 12) {
+            if camera.hasTorch || camera.state != .running {
+                railButton(torch ? "flashlight.on.fill" : "flashlight.off.fill", torch ? "Light on" : "Light", active: torch) {
+                    torch.toggle()
+                    camera.setTorch(torch)
+                }
+            }
+        }
+        .padding(.leading, 16)
+    }
+
+    private func railButton(_ icon: String, _ title: String, active: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 5) {
+                Image(systemName: icon).font(.system(size: 18, weight: .medium))
+                Text(title).font(.geist(11, .medium)).lineLimit(1)
+            }
+            .foregroundStyle(active ? Theme.ink : .white)
+            .frame(width: 60, height: 64)
+            .background { if active { RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.lime) } }
+            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .background { Color.clear.liquidGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous)).allowsHitTesting(false) }
+        .accessibilityLabel(title)
+    }
+
+    // MARK: The card outline: a thin lime frame with a light sweeping down
 
     private var guide: some View {
         GeometryReader { geo in
-            let h = min(geo.size.height * 0.88, geo.size.width * 0.8 * 88 / 63)
+            let h = min(geo.size.height * 0.86, geo.size.width * 0.62 * 88 / 63)
             let w = h * 63 / 88
             ZStack {
-                ScanCorners(radius: 18)
-                    .stroke(Theme.lime, style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                    .shadow(color: Theme.lime.opacity(0.7), radius: 8)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(Theme.lime, lineWidth: 2)
+                    .shadow(color: Theme.lime.opacity(0.6), radius: 6)
                     .frame(width: w, height: h)
                 ScanSweep(height: h)
                     .frame(width: w - 16, height: h)
@@ -118,10 +158,10 @@ struct ScanView: View {
         }
     }
 
-    // MARK: Bottom: the scans so far, then the glass tray with the shutter
+    // MARK: Bottom: the shutter, then the docked tray with the scans, the total and Next
 
     private var bottom: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 14) {
             if let blocked = model.blocked {
                 Label(blocked, systemImage: "exclamationmark.triangle.fill")
                     .font(.geist(13, .medium)).foregroundStyle(.white)
@@ -129,76 +169,122 @@ struct ScanView: View {
                     .liquidGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), tint: Theme.planPink.opacity(0.4))
                     .padding(.horizontal, 16)
             }
-            if !model.entries.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(spacing: 8) {
-                        ForEach(Array(model.entries.reversed())) { e in
-                            ScanChip(entry: e) {
-                                if e.state == .failed { model.retry(e.id) } else { focused = e.id; reviewing = true }
-                            }
-                            .transition(.scale(scale: 0.6).combined(with: .opacity))
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                }
-                .frame(height: 64)
-            }
+            shutter
             tray
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.75), value: model.entries.count)
     }
 
-    private var tray: some View {
-        HStack {
-            // How many so far and their total.
-            VStack(alignment: .leading, spacing: 2) {
-                Text("\(model.entries.count)").font(.display(26)).tracking(-0.7).monospacedDigit().foregroundStyle(.white).displayTrim(26)
-                    .contentTransition(.numericText())
-                Text(model.picks.isEmpty ? "scanned" : Format.money(model.total)).font(.geist(12, .semibold)).monospacedDigit()
-                    .foregroundStyle(model.picks.isEmpty ? Theme.muted : Theme.lime)
-                    .lineLimit(1).minimumScaleFactor(0.7)
+    private var shutter: some View {
+        Button(action: shoot) {
+            ZStack {
+                Circle().strokeBorder(.white, lineWidth: 4).frame(width: 78, height: 78)
+                Circle().fill(Theme.lime).frame(width: 62, height: 62)
+                    .shadow(color: Theme.lime.opacity(0.6), radius: 12)
+                Image(systemName: "viewfinder").font(.system(size: 22, weight: .semibold)).foregroundStyle(Theme.ink)
             }
-            .frame(width: 84, alignment: .leading)
-            Spacer()
-            Button(action: shoot) {
-                ZStack {
-                    Circle().strokeBorder(.white, lineWidth: 4).frame(width: 80, height: 80)
-                    Circle().fill(Theme.lime).frame(width: 64, height: 64)
-                        .shadow(color: Theme.lime.opacity(0.6), radius: 12)
-                    Image(systemName: "viewfinder").font(.system(size: 22, weight: .semibold)).foregroundStyle(Theme.ink)
-                }
-            }
-            .buttonStyle(ShutterStyle())
-            .disabled(camera.state != .running || model.blocked != nil)
-            .opacity(camera.state != .running || model.blocked != nil ? 0.5 : 1)
-            .accessibilityLabel("Scan")
-            Spacer()
-            Button {
-                // In a deal, scans are already in it: Done just closes the camera.
-                if dealSide != nil {
-                    dismiss()
-                } else {
-                    focused = nil
-                    reviewing = true
-                }
-            } label: {
-                HStack(spacing: 4) {
-                    Text(dealSide == nil ? "Next" : "Done")
-                    if dealSide == nil { Image(systemName: "arrow.right").font(.system(size: 12, weight: .semibold)) }
-                }
-            }
-            .buttonStyle(Button3D(kind: .lime, fullWidth: false, height: 44))
-            .fixedSize()
-            .frame(minWidth: 84, alignment: .trailing)
-            .opacity(model.entries.isEmpty ? 0 : 1)
-            .disabled(model.entries.isEmpty)
         }
-        // Clear of the tray's big rounded corners on both sides.
-        .padding(.horizontal, 28)
-        .padding(.vertical, 14)
-        .liquidGlass(in: RoundedRectangle(cornerRadius: 36, style: .continuous))
+        .buttonStyle(ShutterStyle())
+        .disabled(camera.state != .running || model.blocked != nil)
+        .opacity(camera.state != .running || model.blocked != nil ? 0.5 : 1)
+        .accessibilityLabel("Scan")
+    }
+
+    /// Docked to the bottom edge: what this scan is and how many, the scans so far (or a short
+    /// hint), then the total with Clear and Next.
+    private var tray: some View {
+        let shape = UnevenRoundedRectangle(topLeadingRadius: 30, topTrailingRadius: 30, style: .continuous)
+        return VStack(spacing: 0) {
+            HStack {
+                Text(dealSide == nil ? "This scan" : (dealSide == .incoming ? "Coming in" : "Going out"))
+                    .font(.geist(16, .semibold))
+                Spacer()
+                Text("\(model.entries.count) card\(model.entries.count == 1 ? "" : "s")")
+                    .font(.geist(13, .medium)).monospacedDigit()
+                    .contentTransition(.numericText())
+                    .padding(.horizontal, 12).frame(height: 30)
+                    .background(Capsule().fill(Color.white.opacity(0.1)))
+            }
+            .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 12)
+            Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+            Group {
+                if model.entries.isEmpty {
+                    HStack(spacing: 12) {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
+                            .frame(width: 48, height: 64)
+                            .overlay(Image(systemName: "rectangle.on.rectangle").font(.system(size: 16)).foregroundStyle(Theme.subtle))
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("No cards yet").font(.geist(15, .semibold))
+                            Text("Line a card up in the frame and tap the shutter.").font(.geist(13)).foregroundStyle(Theme.muted)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 20)
+                } else {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        LazyHStack(spacing: 8) {
+                            ForEach(Array(model.entries.reversed())) { e in
+                                ScanChip(entry: e) {
+                                    if e.state == .failed { model.retry(e.id) } else { focused = e.id; reviewing = true }
+                                }
+                                .transition(.scale(scale: 0.6).combined(with: .opacity))
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                    }
+                }
+            }
+            .frame(height: 76)
+            .padding(.vertical, 10)
+            Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(Format.money(model.total)).font(.display(28)).tracking(-0.8).monospacedDigit()
+                        .contentTransition(.numericText())
+                        .lineLimit(1).minimumScaleFactor(0.6)
+                    Text(model.picks.isEmpty ? "Total value" : "\(model.picks.count) matched").font(.geist(12)).foregroundStyle(Theme.muted)
+                }
+                Spacer()
+                Button { clearing = true } label: {
+                    Image(systemName: "trash").font(.system(size: 16, weight: .medium))
+                        .frame(width: 48, height: 48)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .background { Color.clear.liquidGlass(in: Circle()).allowsHitTesting(false) }
+                .opacity(model.entries.isEmpty ? 0.4 : 1)
+                .disabled(model.entries.isEmpty)
+                .accessibilityLabel("Clear all scans")
+                Button {
+                    // In a deal, scans are already in it: Done just closes the camera.
+                    if dealSide != nil {
+                        dismiss()
+                    } else {
+                        focused = nil
+                        reviewing = true
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(dealSide == nil ? "Next" : "Done")
+                        if dealSide == nil { Image(systemName: "arrow.right").font(.system(size: 13, weight: .semibold)) }
+                    }
+                }
+                .buttonStyle(Button3D(kind: .lime, fullWidth: false, height: 48))
+                .fixedSize()
+                .opacity(model.entries.isEmpty ? 0.4 : 1)
+                .disabled(model.entries.isEmpty)
+            }
+            .padding(.horizontal, 20).padding(.top, 14).padding(.bottom, 10)
+        }
+        .foregroundStyle(.white)
+        .background { Color.clear.liquidGlass(in: shape).ignoresSafeArea(edges: .bottom) }
+        .alert("Clear these scans?", isPresented: $clearing) {
+            Button("Cancel", role: .cancel) {}
+            Button("Clear", role: .destructive) { withAnimation(.snappy) { for e in model.entries { model.remove(e.id) } } }
+        } message: {
+            Text("Nothing has been added to your collection yet.")
+        }
     }
 
     private func glassCircle(_ icon: String, label: String, action: @escaping () -> Void) -> some View {

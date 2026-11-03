@@ -12,6 +12,18 @@ final class Camera: NSObject, ObservableObject {
     private let output = AVCapturePhotoOutput()
     private let queue = DispatchQueue(label: "holo.camera")
     private var configured = false
+    private var device: AVCaptureDevice?
+    /// Whether this camera has a light to turn on.
+    var hasTorch: Bool { device?.hasTorch ?? false }
+
+    /// The light on or off (for dim card shows).
+    func setTorch(_ on: Bool) {
+        queue.async { [weak self] in
+            guard let device = self?.device, device.hasTorch, (try? device.lockForConfiguration()) != nil else { return }
+            device.torchMode = on ? .on : .off
+            device.unlockForConfiguration()
+        }
+    }
     private var pending: [Int64: CheckedContinuation<Data, Error>] = [:]
     private let lock = NSLock()
 
@@ -75,6 +87,7 @@ final class Camera: NSObject, ObservableObject {
         else { return false }
         session.addInput(input)
         session.addOutput(output)
+        self.device = device
         output.maxPhotoQualityPrioritization = .speed
         // Cards are close up: keep focusing continuously.
         if (try? device.lockForConfiguration()) != nil {
