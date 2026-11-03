@@ -94,7 +94,7 @@ export function EbaySales({
   const { data: storeData } = useStore();
   const product = storeData.products[productId];
   const soldName = product?.name ?? name;
-  const soldUrl = soldName ? ebaySoldUrl({ name: soldName, number: product?.number, kind: product?.kind ?? "single" }, tab === UNGRADED ? null : tab) : null;
+  const soldUrl = soldName ? ebaySoldUrl({ name: soldName, number: product?.number, kind: product?.kind ?? "single", setName: product?.setName }, tab === UNGRADED ? null : tab) : null;
   const sales = data ? data.sales.filter((s) => (tab === UNGRADED ? s.grade === null : s.grade === tab)) : [];
   const shown = all ? sales : sales.slice(0, 6);
 

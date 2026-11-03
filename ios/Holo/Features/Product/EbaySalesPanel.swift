@@ -152,16 +152,34 @@ struct EbaySalesPanel: View {
         }
     }
 
-    /// eBay sold-listings search: the name without bracketed notes, plus the card number when the
-    /// name lacks it, plus the grade; ungraded singles leave out slabs. Same as the website.
+    /// The words sellers use for a set in titles: the set's name without its code prefix
+    /// ("SV05:", "ME:") or filler, first two words, or a numbered set's number alone ("151").
+    /// Same as the website's `ebaySetWords`.
+    static func setWords(_ setName: String?) -> String {
+        guard let setName else { return "" }
+        let generic: Set<String> = ["pokemon", "pokémon", "base", "set", "collection", "classic", "the", "and", "&", "of", "promos", "promo", "black", "star", "tcg"]
+        let rest = setName.replacingOccurrences(of: #"^[A-Za-z]{1,6}\d*(\.\d+)?\s*:\s*"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"[:,()]"#, with: " ", options: .regularExpression)
+        let words = rest.split(whereSeparator: { $0.isWhitespace }).map(String.init).filter { !generic.contains($0.lowercased()) }
+        if let numbered = words.first(where: { $0.range(of: #"^\d{2,3}$"#, options: .regularExpression) != nil }) { return numbered }
+        return words.prefix(2).joined(separator: " ")
+    }
+
+    /// eBay sold-listings search: the name without bracketed notes, the set's words (so other
+    /// printings don't fill it), the card number as sellers write it (the part before "/"), and
+    /// the grade; ungraded singles leave out slabs. Same as the website.
     static func soldURL(_ p: Product, grade: String?) -> URL? {
         var q = p.name.replacingOccurrences(of: #"\([^)]*\)"#, with: " ", options: .regularExpression)
+            .replacingOccurrences(of: #"\s+-\s+\S*\d+/\d+\S*"#, with: " ", options: .regularExpression)
             .replacingOccurrences(of: #"\s+-\s+"#, with: " ", options: .regularExpression)
             .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
             .trimmingCharacters(in: .whitespaces)
-        if let num = p.number?.trimmingCharacters(in: .whitespaces), !num.isEmpty,
-           let head = num.split(separator: "/").first, !q.contains(head) {
-            q += " \(num)"
+        if !p.isSealed {
+            let set = setWords(p.setName)
+            if !set.isEmpty, !q.lowercased().contains(set.lowercased()) { q += " \(set)" }
+            if let head = p.number?.trimmingCharacters(in: .whitespaces).split(separator: "/").first.map({ String($0).replacingOccurrences(of: "#", with: "") }), !head.isEmpty {
+                q += " \(head)"
+            }
         }
         if let grade { q += " \(grade)" } else if !p.isSealed { q += " -psa -bgs -cgc -sgc" }
         var c = URLComponents(string: "https://www.ebay.com/sch/i.html")
