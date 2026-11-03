@@ -46,6 +46,8 @@ export async function GET() {
   if (!gameRows?.length) ordered.sort((a, b) => (a.slug === "pokemon" ? -1 : b.slug === "pokemon" ? 1 : a.name.localeCompare(b.name)));
 
   // Never cache an empty or barely-started catalog, so the first sync shows up right away.
-  const cache = sets.some((s) => s.loaded) ? EXPLORE_CACHE : "no-store";
+  // Nor one whose market rows came back empty (a slow or failed read), so they appear on the next visit.
+  const marketEmpty = !market.trending.length && !market.drops.length && !market.hotSealed.length && !market.boosterBoxes.length;
+  const cache = sets.some((s) => s.loaded) && !marketEmpty ? EXPLORE_CACHE : "no-store";
   return NextResponse.json({ games: ordered, sets, ...market }, { headers: { "cache-control": cache } });
 }
