@@ -65,6 +65,14 @@ final class Camera: NSObject, ObservableObject {
     /// picture comes back by itself.
     private func observeInterruptions() {
         let center = NotificationCenter.default
+        center.addObserver(forName: AVCaptureSession.wasInterruptedNotification, object: session, queue: .main) { note in
+            let reason = (note.userInfo?[AVCaptureSessionInterruptionReasonKey] as? Int).map { "interrupted (\($0))" } ?? "interrupted"
+            CameraStatus.shared.interrupted = reason
+        }
+        center.addObserver(forName: AVCaptureSession.runtimeErrorNotification, object: session, queue: .main) { note in
+            let err = (note.userInfo?[AVCaptureSessionErrorKey] as? NSError).map { "error \($0.code)" } ?? "error"
+            CameraStatus.shared.interrupted = err
+        }
         for name in [AVCaptureSession.interruptionEndedNotification, AVCaptureSession.runtimeErrorNotification] {
             center.addObserver(forName: name, object: session, queue: nil) { [weak self] _ in
                 guard let self else { return }
@@ -137,6 +145,15 @@ extension Camera: AVCapturePhotoCaptureDelegate {
     }
 }
 
+/// Temporary: what the camera and its on-screen picture report, shown as one line on the
+/// scanner while we find why the picture can stay black.
+@Observable
+final class CameraStatus {
+    static let shared = CameraStatus()
+    var preview = "picture: not made"
+    var interrupted = ""
+}
+
 /// The live camera picture, filling its frame.
 struct CameraPreview: UIViewRepresentable {
     let session: AVCaptureSession
@@ -171,9 +188,16 @@ struct CameraPreview: UIViewRepresentable {
             if window != nil { setNeedsLayout() }
         }
 
+        func report() {
+            let c = previewLayer.connection
+            let text = "picture: \(window == nil ? "off-screen" : "on screen") \(Int(bounds.width))×\(Int(bounds.height)) · link \(c == nil ? "none" : (c!.isActive ? "active" : (c!.isEnabled ? "enabled, idle" : "disabled")))"
+            if CameraStatus.shared.preview != text { CameraStatus.shared.preview = text }
+        }
+
         override func layoutSubviews() {
             super.layoutSubviews()
             previewLayer.frame = bounds
+            defer { report() }
             if needsReattach, window != nil, bounds.width > 0, let session = previewLayer.session, session.isRunning {
                 needsReattach = false
                 previewLayer.session = nil
