@@ -142,7 +142,7 @@ export function useExploreIndex() {
     exploreIndex ??= fetch("/api/explore").then(async (res) => {
       const body = await res.json().catch(() => null);
       if (!res.ok) throw new Error(body?.error?.message ?? "Couldn't load the catalog.");
-      return { games: body.games ?? [], sets: body.sets ?? [], trending: body.trending ?? [], drops: body.drops ?? [], boosterBoxes: body.boosterBoxes ?? [] };
+      return { games: body.games ?? [], sets: body.sets ?? [], trending: body.trending ?? [], drops: body.drops ?? [], hotSealed: body.hotSealed ?? [], boosterBoxes: body.boosterBoxes ?? [] };
     });
     exploreIndex.then(
       (d) => setState({ status: "ready", ...d }),

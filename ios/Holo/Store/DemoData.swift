@@ -241,8 +241,10 @@ enum DemoData {
         let trending = singles.filter { ($0.change7dPct ?? 0) > 0 }.sorted { ($0.change7dPct ?? 0) > ($1.change7dPct ?? 0) }
         let drops = singles.filter { ($0.change7dPct ?? 0) < 0 }.sorted { ($0.change7dPct ?? 0) < ($1.change7dPct ?? 0) }
         let boxes = hits.filter { $0.product.productType == "Booster Box" }.sorted { ($0.market ?? 0) > ($1.market ?? 0) }
+        let hotSealed = hits.filter { $0.product.isSealed && ($0.market ?? 0) >= 20 && ($0.change7dPct ?? 0) > 0 }
+            .sorted { ($0.change7dPct ?? 0) > ($1.change7dPct ?? 0) }
         return ExploreIndex(games: [game], sets: upcoming + sets, trending: Array(trending.prefix(12)),
-                            drops: Array(drops.prefix(12)), boosterBoxes: Array(boxes.prefix(15)))
+                            drops: Array(drops.prefix(12)), hotSealed: Array(hotSealed.prefix(12)), boosterBoxes: Array(boxes.prefix(15)))
     }
 
     static func exploreSet(_ slug: String) -> ExploreSetDetail? {

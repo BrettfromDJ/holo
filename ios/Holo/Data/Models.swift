@@ -475,6 +475,8 @@ struct ExploreIndex: Codable {
     /// 7-day rise and fall, and booster boxes by price.
     var trending: [SearchHit]? = nil
     var drops: [SearchHit]? = nil
+    /// Sealed products with the biggest 7-day rise.
+    var hotSealed: [SearchHit]? = nil
     var boosterBoxes: [SearchHit]? = nil
 }
 

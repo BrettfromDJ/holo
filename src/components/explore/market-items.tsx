@@ -32,7 +32,8 @@ export function MarketSection({ title, subtitle, children }: { title: string; su
 }
 
 /** A sideways row of singles with their price and 7-day change. */
-export function MoverRow({ items, owned }: { items: ExploreMover[]; owned: Set<string> }) {
+/** A sideways row of movers; `square` for sealed, which sits in a square well. */
+export function MoverRow({ items, owned, square }: { items: ExploreMover[]; owned: Set<string>; square?: boolean }) {
   const hero = useHeroLink();
   return (
     <div className="-mx-4 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:-mx-8 sm:px-8">
@@ -40,10 +41,10 @@ export function MoverRow({ items, owned }: { items: ExploreMover[]; owned: Set<s
         {items.map((m) => {
           const href = productHref(m);
           return (
-            <li key={m.product.id} className="w-[112px] shrink-0">
+            <li key={m.product.id} className={cn("shrink-0", square ? "w-[132px]" : "w-[112px]")}>
               <Link href={href} onClick={(e) => hero(e, href)} className="group flex flex-col">
                 <div className="relative">
-                  <ProductImage product={m.product} size="sm" frame={false} className="aspect-[63/88] w-full transition-transform duration-500 ease-[var(--ease-apple)] group-hover:-translate-y-1" />
+                  <ProductImage product={m.product} size="sm" frame={!!square} className={cn("w-full transition-transform duration-500 ease-[var(--ease-apple)] group-hover:-translate-y-1", square ? "aspect-square rounded-2xl" : "aspect-[63/88]")} />
                   {owned.has(m.product.id) && (
                     <span className="absolute left-1.5 top-1.5 flex items-center gap-0.5 rounded-full bg-background/85 px-1.5 py-0.5 text-[10px] font-medium backdrop-blur">
                       <Check className="size-2.5" /> Owned

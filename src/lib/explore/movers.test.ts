@@ -68,6 +68,11 @@ describe("pickMovers", () => {
     expect(up[1]).toMatchObject({ market: 50, change7dPct: 12.5 });
   });
 
+  it("picks hot sealed with kind: sealed only, above the sealed floor", () => {
+    const rows = [price("box", 900, 40), price("a", 300, 20), price("code", 10, 35)];
+    expect(pickMovers(rows, products, "up", { kind: "sealed", minPrice: 20 }).map((m) => m.product.id)).toEqual(["box"]);
+  });
+
   it("ranks falls, ignoring rises and flat or unknown changes", () => {
     const rows = [price("a", 300, -4), price("b", 50, -25), price("c", 10, 0), price("c", 10, null)];
     expect(pickMovers(rows, products, "down").map((m) => m.product.id)).toEqual(["b", "a"]);

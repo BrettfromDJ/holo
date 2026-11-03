@@ -10,12 +10,18 @@ export interface ExploreMover extends ExploreProduct {
 
 /** Explore's market sections: biggest weekly rises and falls among singles, and booster boxes. */
 export interface ExploreMarket {
+  /** Hot singles: the biggest weekly rises among raw singles. */
   trending: ExploreMover[];
   drops: ExploreMover[];
+  /** Hot sealed: the biggest weekly rises among sealed products (any kind, never code cards). */
+  hotSealed: ExploreMover[];
   boosterBoxes: ExploreMover[];
 }
 
-export const EMPTY_MARKET: ExploreMarket = { trending: [], drops: [], boosterBoxes: [] };
+export const EMPTY_MARKET: ExploreMarket = { trending: [], drops: [], hotSealed: [], boosterBoxes: [] };
+
+/** Sealed starts higher: a $6 pack moving 30% isn't "hot". */
+export const HOT_SEALED_MIN_PRICE = 20;
 
 /** Cheap cards swing by big percentages on pennies, so movers start at $5. */
 export const MOVER_MIN_PRICE = 5;
@@ -61,7 +67,7 @@ function mover(product: Product, row: MoverPriceRow, gameName: string | null): E
 }
 
 /**
- * The biggest weekly rises ("up") or falls ("down") among singles. `rows` should already be
+ * The biggest weekly rises ("up") or falls ("down") among singles (or sealed, with `kind`). `rows` should already be
  * ordered by the 7-day change in that direction; each product appears once (its first printing in
  * that order), priced at least `MOVER_MIN_PRICE`, with a real change, never a code card.
  */
@@ -69,16 +75,17 @@ export function pickMovers(
   rows: MoverPriceRow[],
   products: Map<string, Product>,
   direction: "up" | "down",
-  options: { limit?: number; minPrice?: number; gameName?: (p: Product) => string | null } = {},
+  options: { limit?: number; minPrice?: number; kind?: "single" | "sealed"; gameName?: (p: Product) => string | null } = {},
 ): ExploreMover[] {
   const limit = options.limit ?? MOVERS_LIMIT;
+  const kind = options.kind ?? "single";
   const minPrice = options.minPrice ?? MOVER_MIN_PRICE;
   const seen = new Set<string>();
   const picked: { row: MoverPriceRow; product: Product; change: number }[] = [];
   for (const row of rows) {
     if (seen.has(row.product_id)) continue;
     const product = products.get(row.product_id);
-    if (!product || product.kind !== "single" || isCodeCard(product)) continue;
+    if (!product || product.kind !== kind || isCodeCard(product)) continue;
     const market = num(row.market_price);
     const change = num(row.change_7d_pct);
     if (market === null || market < minPrice || change === null) continue;

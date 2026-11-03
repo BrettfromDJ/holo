@@ -136,8 +136,13 @@ export default function ExplorePage() {
           </section>
         )}
         {index.trending.length > 0 && (
-          <MarketSection title="Trending this week" subtitle="Biggest 7-day rises">
+          <MarketSection title="Hot singles" subtitle="Biggest 7-day rises">
             <MoverRow items={index.trending} owned={owned} />
+          </MarketSection>
+        )}
+        {index.hotSealed.length > 0 && (
+          <MarketSection title="Hot sealed" subtitle="Sealed products rising fastest this week">
+            <MoverRow items={index.hotSealed} owned={owned} square />
           </MarketSection>
         )}
         {index.drops.length > 0 && (

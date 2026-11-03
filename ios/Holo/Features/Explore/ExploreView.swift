@@ -83,8 +83,15 @@ struct ExploreView: View {
                 }
                 if let trending = index.trending, !trending.isEmpty {
                     VStack(alignment: .leading, spacing: 14) {
-                        PageHeader(title: "Trending this week", subtitle: "Biggest 7-day rises", size: 22).padding(.horizontal, 16)
+                        PageHeader(title: "Hot singles", subtitle: "Biggest 7-day rises", size: 22).padding(.horizontal, 16)
                         MoverCarousel(hits: trending)
+                    }
+                    .reveal()
+                }
+                if let hot = index.hotSealed, !hot.isEmpty {
+                    VStack(alignment: .leading, spacing: 14) {
+                        PageHeader(title: "Hot sealed", subtitle: "Sealed products rising fastest this week", size: 22).padding(.horizontal, 16)
+                        MoverCarousel(hits: hot, square: true)
                     }
                     .reveal()
                 }
@@ -1279,12 +1286,14 @@ private struct MarketLink<Label: View>: View {
 /// A sideways row of singles with their price and 7-day change (Trending this week, Biggest drops).
 private struct MoverCarousel: View {
     var hits: [SearchHit]
+    /// Sealed: square wells instead of card-shaped art.
+    var square = false
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(alignment: .top, spacing: 12) {
                 ForEach(hits) { hit in
-                    MarketLink(hit: hit) { MoverTile(hit: hit) }
+                    MarketLink(hit: hit) { MoverTile(hit: hit, square: square) }
                 }
             }
             .padding(.horizontal, 16)
@@ -1295,11 +1304,18 @@ private struct MoverCarousel: View {
 
 private struct MoverTile: View {
     var hit: SearchHit
+    var square = false
 
     var body: some View {
+        let width: CGFloat = square ? 120 : 96
         VStack(alignment: .leading, spacing: 8) {
-            ProductImage(product: hit.product, cornerRadius: 5)
-                .frame(width: 96, height: 134)
+            Group {
+                if square {
+                    SealedWell(product: hit.product, cornerRadius: 18, caption: false).frame(width: 120, height: 120)
+                } else {
+                    ProductImage(product: hit.product, cornerRadius: 5).frame(width: 96, height: 134)
+                }
+            }
             VStack(alignment: .leading, spacing: 3) {
                 Text(hit.product.name).font(.geist(13, .medium)).foregroundStyle(.white).lineLimit(1)
                 Text(Format.money(hit.market)).font(.display(16)).tracking(-0.4).monospacedDigit().foregroundStyle(.white)
@@ -1307,7 +1323,7 @@ private struct MoverTile: View {
                 ChangeText(pct: hit.change7dPct)
             }
         }
-        .frame(width: 96, alignment: .leading)
+        .frame(width: width, alignment: .leading)
         .contentShape(Rectangle())
     }
 }

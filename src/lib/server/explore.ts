@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { EMPTY_MARKET, isBoosterBox, pickBoosterBoxes, pickMovers, type ExploreMarket, type MoverPriceRow } from "../explore/movers";
+import { EMPTY_MARKET, HOT_SEALED_MIN_PRICE, isBoosterBox, pickBoosterBoxes, pickMovers, type ExploreMarket, type MoverPriceRow } from "../explore/movers";
 import type { ExploreProduct, ExploreSet } from "../explore/types";
 import type { Product } from "../types";
 import type { CatalogSetRow, Database, ProductRow } from "../supabase/database.types";
@@ -76,6 +76,8 @@ async function brandNames(admin: SupabaseClient<Database>, setIdList: (string | 
 const MOVER_COLUMNS = "product_id, printing, market_price, change_7d_pct, change_30d_pct, source_updated_at";
 /** Price rows read per direction: more than shown, since sealed rows and extra printings drop out. */
 const MOVER_SCAN = 150;
+/** Rising rows read for hot sealed: singles fill the top of the list, so look further down it. */
+const SEALED_SCAN = 1000;
 
 async function productsById(admin: SupabaseClient<Database>, ids: string[]): Promise<Map<string, Product>> {
   const out = new Map<string, Product>();
@@ -95,13 +97,14 @@ async function productsById(admin: SupabaseClient<Database>, ids: string[]): Pro
  */
 export async function exploreMarket(admin: SupabaseClient<Database>): Promise<ExploreMarket> {
   try {
-    const moversQuery = (ascending: boolean) => {
-      const q = admin.from("product_prices").select(MOVER_COLUMNS).gte("market_price", 5).not("change_7d_pct", "is", null);
-      return (ascending ? q.lt("change_7d_pct", 0) : q.gt("change_7d_pct", 0)).order("change_7d_pct", { ascending }).limit(MOVER_SCAN);
+    const moversQuery = (ascending: boolean, minPrice = 5, scan = MOVER_SCAN) => {
+      const q = admin.from("product_prices").select(MOVER_COLUMNS).gte("market_price", minPrice).not("change_7d_pct", "is", null);
+      return (ascending ? q.lt("change_7d_pct", 0) : q.gt("change_7d_pct", 0)).order("change_7d_pct", { ascending }).limit(scan);
     };
-    const [upRes, downRes, boxRows] = await Promise.all([
+    const [upRes, downRes, sealedUpRes, boxRows] = await Promise.all([
       moversQuery(false),
       moversQuery(true),
+      moversQuery(false, HOT_SEALED_MIN_PRICE, SEALED_SCAN),
       // Booster boxes and displays; `isBoosterBox` drops bundles and the like that also match.
       selectAll<ProductRow>(
         (from, to) =>
@@ -120,6 +123,8 @@ export async function exploreMarket(admin: SupabaseClient<Database>): Promise<Ex
     if (downRes.error) throw new Error(downRes.error.message);
     const up = (upRes.data ?? []) as MoverPriceRow[];
     const down = (downRes.data ?? []) as MoverPriceRow[];
+    // Hot sealed is extra: if its read fails, the other sections still show.
+    const sealedUp = sealedUpRes.error ? [] : ((sealedUpRes.data ?? []) as MoverPriceRow[]);
 
     const boxes = boxRows.map(productFromRow).filter(isBoosterBox);
     const boxPrices: MoverPriceRow[] = [];
@@ -128,13 +133,14 @@ export async function exploreMarket(admin: SupabaseClient<Database>): Promise<Ex
       boxPrices.push(...((data ?? []) as MoverPriceRow[]));
     }
 
-    const products = await productsById(admin, [...up, ...down].map((r) => r.product_id));
+    const products = await productsById(admin, [...up, ...down, ...sealedUp].map((r) => r.product_id));
     const trendingRaw = pickMovers(up, products, "up");
     const dropsRaw = pickMovers(down, products, "down");
+    const hotSealedRaw = pickMovers(sealedUp, products, "up", { kind: "sealed", minPrice: HOT_SEALED_MIN_PRICE });
     const boxesRaw = pickBoosterBoxes(boxes, boxPrices);
-    const brands = await brandNames(admin, [...trendingRaw, ...dropsRaw, ...boxesRaw].map((m) => m.product.setId));
+    const brands = await brandNames(admin, [...trendingRaw, ...dropsRaw, ...hotSealedRaw, ...boxesRaw].map((m) => m.product.setId));
     const named = <T extends { product: Product; gameName?: string | null }>(m: T): T => ({ ...m, gameName: m.product.setId ? (brands.get(m.product.setId) ?? null) : null });
-    return { trending: trendingRaw.map(named), drops: dropsRaw.map(named), boosterBoxes: boxesRaw.map(named) };
+    return { trending: trendingRaw.map(named), drops: dropsRaw.map(named), hotSealed: hotSealedRaw.map(named), boosterBoxes: boxesRaw.map(named) };
   } catch (e) {
     console.error("explore market", e);
     return EMPTY_MARKET;
