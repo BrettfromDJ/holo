@@ -343,7 +343,7 @@ export default function DealPage() {
         </button>
       )}
 
-      <Balance totals={totals} kind={kind} roundTo={roundTo} onRound={roundCash} agreed={isAgreed} share={agreed.share} onEditCash={() => setEditingCash(true)} onClearAgreed={clearAgreed} />
+      <Balance totals={totals} kind={kind} roundTo={roundTo} onRound={roundCash} agreed={isAgreed} onEditCash={() => setEditingCash(true)} onClearAgreed={clearAgreed} />
       <AgreedCashDialog open={editingCash} onOpenChange={setEditingCash} totals={totals} moving={deal.out.length ? "going out" : "coming in"} onSet={setAgreedCash} />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
@@ -486,7 +486,6 @@ function Balance({
   roundTo,
   onRound,
   agreed,
-  share,
   onEditCash,
   onClearAgreed,
 }: {
@@ -496,8 +495,6 @@ function Balance({
   onRound: () => void;
   /** The cash is one the two of you agreed on (the prices are spread to reach it). */
   agreed: boolean;
-  /** What the moved side works out to, as a share of market, at the agreed cash. */
-  share: number | null;
   /** Click the big figure to type the agreed cash. */
   onEditCash: () => void;
   onClearAgreed: () => void;
@@ -543,8 +540,7 @@ function Balance({
         )}
       </div>
       {agreed && (
-        <div className="mt-2 flex items-center justify-between gap-3">
-          <p className="tabular truncate text-[12px] text-muted">{share !== null ? `Works out to ${Math.round(share * 100)}% of market` : "Prices spread to match"}</p>
+        <div className="mt-2 flex items-center justify-end gap-3">
           <button type="button" onClick={onClearAgreed} aria-label="Clear the agreed cash" className="shrink-0 rounded-full px-2.5 py-1 text-[12px] font-semibold ring-1 ring-inset ring-white/25 hover:bg-white/[0.06]">
             Clear
           </button>

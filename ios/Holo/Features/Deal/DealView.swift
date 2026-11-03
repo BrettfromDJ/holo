@@ -663,10 +663,6 @@ private struct BalanceCard: View {
 
             HStack(alignment: .center, spacing: 8) {
                 TermLabel(text: empty ? "Add items to start" : (abs(b) < 0.005 ? "Settled · no cash" : (b > 0 ? "Customer pays you" : "You pay the customer")), term: .cash, color: ink.opacity(0.7))
-                if agreed {
-                    SkewTag(text: "Agreed", color: fill, textColor: down ? .white : Theme.ink)
-                        .transition(.opacity)
-                }
                 Spacer()
             }
             .padding(.top, 16)
@@ -713,9 +709,6 @@ private struct BalanceCard: View {
 
             if agreed {
                 HStack(spacing: 10) {
-                    Text(share.map { "Works out to \(Int(($0 * 100).rounded()))% of market" } ?? "Prices spread to match")
-                        .font(.geist(12, .medium)).foregroundStyle(ink.opacity(0.7)).monospacedDigit()
-                        .lineLimit(1).minimumScaleFactor(0.8)
                     Spacer(minLength: 8)
                     Button("Clear", action: onClearAgreed)
                         .font(.geist(12, .semibold)).foregroundStyle(ink)
