@@ -150,9 +150,10 @@ struct CameraPreview: UIViewRepresentable {
 
         private var startObserver: NSObjectProtocol?
 
-        /// Reconnect the picture: drop the session from the layer and attach it again.
+        /// Reconnect the picture, only if it has come loose (no connection to the camera).
+        /// Reattaching a working picture can leave it black, so a healthy one is left alone.
         func reattach() {
-            guard let session = previewLayer.session else { return }
+            guard window != nil, let session = previewLayer.session, previewLayer.connection == nil else { return }
             previewLayer.session = nil
             previewLayer.session = session
             setNeedsLayout()
@@ -162,7 +163,8 @@ struct CameraPreview: UIViewRepresentable {
         func watch(_ session: AVCaptureSession) {
             guard startObserver == nil else { return }
             startObserver = NotificationCenter.default.addObserver(forName: AVCaptureSession.didStartRunningNotification, object: session, queue: .main) { [weak self] _ in
-                self?.reattach()
+                // A moment later, once the session has wired itself up.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { self?.reattach() }
             }
         }
 
@@ -203,12 +205,11 @@ struct CameraPreview: UIViewRepresentable {
             context.coordinator.attachedWhileRunning = false
             return
         }
-        // Reattach once each time the session starts running, so the picture appears.
-        if !context.coordinator.attachedWhileRunning || uiView.previewLayer.connection == nil {
+        // Once each time the session starts running: reconnect only if the picture came loose.
+        if !context.coordinator.attachedWhileRunning {
             context.coordinator.attachedWhileRunning = true
-            uiView.previewLayer.session = nil
-            uiView.previewLayer.session = session
-            uiView.setNeedsLayout()
+            if uiView.previewLayer.session !== session { uiView.previewLayer.session = session }
+            uiView.reattach()
         }
     }
 }
