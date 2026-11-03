@@ -197,6 +197,7 @@ struct MainTabView: View {
             AddMenu(open: $adding, onScan: { startScan() }, onSearch: { searching = true })
         }
         .overlay(alignment: .bottom) {
+            if !router.tabBarHidden {
             HoloTabBar(
                 items: [
                     .init(tab: .home, title: "Overview", icon: "chart.line.uptrend.xyaxis"),
@@ -217,7 +218,10 @@ struct MainTabView: View {
                     router.tabTap = TabTap(name: name, count: router.tabTap.count + 1)
                 }
             )
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
+        .animation(.snappy(duration: 0.25), value: router.tabBarHidden)
         // The "pack pull" reveal after a purchase is saved.
         .overlay {
             if let event = router.pull {

@@ -191,7 +191,7 @@ struct CollectionView: View {
             .background(Theme.background)
             .imageMaxPixel(600)
             .replaysAnimations()
-            // Select mode's action bar, above the tab bar.
+            // Select mode's action bar, in the tab bar's place (the tab bar hides meanwhile).
             // Only the bar animates in; the tiles switch at once (no per-tile animation).
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 VStack(spacing: 0) {
@@ -203,13 +203,13 @@ struct CollectionView: View {
                 }
                 .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: selecting)
             }
-            .tabBarClearance()
+            // Room for the tab bar, except while selecting: the action bar takes its place.
+            .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: selecting ? 0 : HoloTabBar<Int>.clearance) }
+            .onChange(of: selecting) { _, on in Router.shared.tabBarHidden = on }
+            .onDisappear { if selecting { leaveSelecting() }; Router.shared.tabBarHidden = false }
             .refreshable { await reload() }
             .navigationBarTitleDisplayMode(.inline)
             .pageTitle("Collection")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) { FreshnessChip(refreshedAt: store.pricesRefreshedAt) }
-            }
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
             .sheet(item: $opened) { h in
                 HoldingSheet(identity: h.identity) {

@@ -44,6 +44,8 @@ final class Router {
     /// The last tab-bar tap ("home", "collection", "explore", "deal") and a counter so tapping
     /// the same tab again still registers. Each tab goes back to its top (see TabTopReset).
     var tabTap = TabTap(name: "", count: 0)
+    /// Hides the tab bar while a page shows its own bar in its place (Collection's select mode).
+    var tabBarHidden = false
     /// The category the Collection tab should show (from Home's "View sealed" and friends).
     var collectionCategory: HoldingCategory?
     /// Something just added to the collection, for the "pack pull" reveal.
