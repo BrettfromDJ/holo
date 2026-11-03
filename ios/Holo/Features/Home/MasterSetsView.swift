@@ -323,21 +323,10 @@ private struct SetProgressHeader: View, Equatable {
                 }
             }
             if known {
+                // Two money figures only: the counts are in the dial and the chips below.
                 HStack(spacing: 10) {
-                    heroTile(label: "You own", sub: "worth") {
-                        HStack(alignment: .center, spacing: 10) {
-                            GlowRing(fraction: ratio, label: "").frame(width: 38, height: 38).foregroundStyle(Theme.lime)
-                            Text(Format.moneyWhole(ownedValue)).font(.geist(24, .semibold)).tracking(-0.8).monospacedDigit()
-                                .lineLimit(1).minimumScaleFactor(0.6)
-                        }
-                    }
-                    heroTile(label: "To finish", sub: "\(total - owned) missing") {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text(missingValue > 0 ? Format.moneyWhole(missingValue) : "—").font(.geist(24, .semibold)).tracking(-0.8).monospacedDigit()
-                                .lineLimit(1).minimumScaleFactor(0.6)
-                            GlowTicks(fraction: ratio).frame(height: 16)
-                        }
-                    }
+                    heroTile(label: "Yours worth", value: Format.moneyWhole(ownedValue))
+                    heroTile(label: "To finish", value: missingValue > 0 ? Format.moneyWhole(missingValue) : "Not priced", dim: missingValue <= 0)
                 }
             }
         }
@@ -354,16 +343,16 @@ private struct SetProgressHeader: View, Equatable {
     }
 
     /// A tile on the set's lit grid.
-    private func heroTile<C: View>(label: String, sub: String, @ViewBuilder content: () -> C) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(label).font(.geist(13, .semibold))
-            Text(sub).font(.geist(11)).foregroundStyle(Theme.muted)
-            Spacer(minLength: 14)
-            content()
+    private func heroTile(label: String, value: String, dim: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label.uppercased()).font(.mono(10)).tracking(1.2).foregroundStyle(Theme.muted)
+            Text(value).font(.geist(dim ? 17 : 24, .semibold)).tracking(-0.8).monospacedDigit()
+                .foregroundStyle(dim ? Theme.muted : .white)
+                .lineLimit(1).minimumScaleFactor(0.6)
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, minHeight: 128, alignment: .topLeading)
-        .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .padding(.horizontal, 14).padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 }
 

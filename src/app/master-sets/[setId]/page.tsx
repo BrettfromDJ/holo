@@ -4,7 +4,7 @@ import { Check, ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useDeferredValue, useMemo, useState } from "react";
-import { DotMatrix, GlowPie, gridPattern, MASTER_SETS, SearchSort, ThinRing, TickBar } from "@/components/master-sets/master-set-items";
+import { DotMatrix, GlowPie, gridPattern, MASTER_SETS, SearchSort } from "@/components/master-sets/master-set-items";
 import { HoloTilt, isFoilCard } from "@/components/motion/holo-tilt";
 import { ErrorState } from "@/components/portfolio/error-state";
 import { ProductImage } from "@/components/product/product-image";
@@ -294,7 +294,7 @@ function SetHero({
 
           {known && !loading && (
             <div className="hidden w-full grid-cols-2 gap-2.5 lg:grid">
-              <HeroTiles ratio={ratio} ownedValue={ownedValue} toFinish={toFinish} missing={total - have} />
+              <HeroTiles ownedValue={ownedValue} toFinish={toFinish} />
             </div>
           )}
         </div>
@@ -313,7 +313,7 @@ function SetHero({
               </p>
             </GlowPie>
             <div className="grid w-full grid-cols-2 gap-2.5 lg:hidden">
-              <HeroTiles ratio={ratio} ownedValue={ownedValue} toFinish={toFinish} missing={total - have} />
+              <HeroTiles ownedValue={ownedValue} toFinish={toFinish} />
             </div>
           </>
         )}
@@ -323,30 +323,22 @@ function SetHero({
   );
 }
 
-function HeroTiles({ ratio, ownedValue, toFinish, missing }: { ratio: number; ownedValue: number; toFinish: number | null; missing: number }) {
+/** Two money figures only: the counts are in the dial and the chips below. */
+function HeroTiles({ ownedValue, toFinish }: { ownedValue: number; toFinish: number | null }) {
   return (
     <>
-      <HeroTile label="You own" sub="worth">
-        <div className="flex items-center gap-2.5">
-          <ThinRing fraction={ratio} />
-          <p className="tabular truncate text-[24px] font-semibold tracking-[-0.03em]">{moneyWhole(ownedValue)}</p>
-        </div>
-      </HeroTile>
-      <HeroTile label="To finish" sub={`${missing} missing`}>
-        <p className="tabular truncate text-[24px] font-semibold tracking-[-0.03em]">{toFinish !== null ? moneyWhole(toFinish) : "—"}</p>
-        <TickBar fraction={ratio} className="mt-2.5" />
-      </HeroTile>
+      <HeroTile label="Yours worth" value={moneyWhole(ownedValue)} />
+      <HeroTile label="To finish" value={toFinish !== null && toFinish > 0 ? moneyWhole(toFinish) : "Not priced"} dim={!(toFinish !== null && toFinish > 0)} />
     </>
   );
 }
 
 /** A glass tile on the set's lit grid. */
-function HeroTile({ label, sub, children }: { label: string; sub: string; children: React.ReactNode }) {
+function HeroTile({ label, value, dim }: { label: string; value: string; dim?: boolean }) {
   return (
-    <div className="flex min-h-[128px] min-w-0 flex-col rounded-[22px] border border-white/10 bg-white/[0.06] p-3.5 shadow-[inset_0_1px_0_rgb(255_255_255/0.08)] backdrop-blur-md">
-      <p className="text-[13px] font-semibold">{label}</p>
-      <p className="text-[11px] text-white/55">{sub}</p>
-      <div className="mt-auto pt-3.5">{children}</div>
+    <div className="min-w-0 rounded-[20px] border border-white/10 bg-white/[0.06] px-3.5 py-3 shadow-[inset_0_1px_0_rgb(255_255_255/0.08)] backdrop-blur-md">
+      <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-white/55">{label}</p>
+      <p className={cn("tabular mt-1.5 truncate font-semibold tracking-[-0.03em]", dim ? "text-[17px] text-white/55" : "text-[24px]")}>{value}</p>
     </div>
   );
 }
