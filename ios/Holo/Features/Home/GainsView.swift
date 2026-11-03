@@ -40,6 +40,8 @@ struct GainsView: View {
     /// Where it comes from: each product, set or type's share of the gain, as a waterfall.
     private func breakdown(_ a: Gains.Attribution) -> some View {
         VStack(alignment: .leading, spacing: 16) {
+            // The title with its note tight under it, the grouping menu beside the title.
+            VStack(alignment: .leading, spacing: 3) {
             HStack(alignment: .center) {
                 MoreHeading(title: "Where it comes from", subtitle: nil)
                 // Group by product, set or type: a menu, so there's one row of tabs on the page.
@@ -60,6 +62,7 @@ struct GainsView: View {
                 }
             }
             Text("Each bar starts where the last one ended, gains first, then losses").font(.geist(14)).foregroundStyle(Theme.muted)
+            }
             if a.steps.isEmpty {
                 Text(mode == .realized ? "No sales or write-offs yet." : "No gains or losses yet.")
                     .font(.geist(14)).foregroundStyle(Theme.muted)
