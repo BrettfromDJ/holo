@@ -187,6 +187,12 @@ struct MainTabView: View {
         }
         // Every page, and everything pushed on it: a fully clear top bar (no iOS 26 tinted blur).
         .clearTopEdge()
+        // Screenshots: -HoloScan opens the scanner.
+        .task {
+            guard ProcessInfo.processInfo.arguments.contains("-HoloScan") else { return }
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            scanning = true
+        }
         // Undo for a few seconds after a delete or a sale, above the tab bar.
         .undoToast(bottom: 104)
         // The website's bar: Overview, Collection, the lime +, Explore, Deal. It floats over the
