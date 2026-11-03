@@ -46,6 +46,8 @@ final class Router {
     var tabTap = TabTap(name: "", count: 0)
     /// Hides the tab bar while a page shows its own bar in its place (Collection's select mode).
     var tabBarHidden = false
+    /// Another screen (Search) asking for the scanner; the root opens it, like the + button does.
+    var scanRequest = 0
     /// The Deal page's deal bar sits in the tab bar's place (a deal with items, until "Show tabs").
     /// Only hides the tab bar while the Deal tab is the one showing.
     var dealDocked = false
