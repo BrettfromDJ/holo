@@ -718,7 +718,7 @@ function SideCard({
                     aria-checked={isTracked}
                     aria-label="Add to collection"
                     onClick={() => set(item.key, { track: !isTracked })}
-                    className={cn("mt-2 inline-flex h-[26px] items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium ring-1 ring-inset transition-colors", isTracked ? "bg-[var(--lime)]/15 text-foreground ring-[var(--lime)]/50" : "text-muted ring-white/12 hover:text-foreground")}
+                    className={cn("mt-2 inline-flex h-[26px] items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium ring-1 ring-inset transition-colors", isTracked ? "bg-[var(--lime)]/15 text-[var(--lime)] ring-[var(--lime)]/50" : "text-muted ring-white/12 hover:text-foreground")}
                   >
                     {isTracked ? <Check className="size-3" /> : <Plus className="size-3" />}
                     {isTracked ? "Adding to collection" : "Add to collection"}

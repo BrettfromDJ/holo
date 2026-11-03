@@ -900,7 +900,7 @@ private struct DealItemCard: View {
                 Text(tracked ? "Adding to collection" : "Add to collection")
             }
             .font(.geist(12, .medium))
-            .foregroundStyle(tracked ? .white : Theme.muted)
+            .foregroundStyle(tracked ? accent : Theme.muted)
             .padding(.horizontal, 10).frame(height: 26)
             .background(Capsule().fill(tracked ? accent.opacity(0.16) : .clear))
             .overlay(Capsule().strokeBorder(tracked ? accent.opacity(0.5) : Color.white.opacity(0.12)))
