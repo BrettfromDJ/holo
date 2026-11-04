@@ -119,6 +119,21 @@ final class ScanModel {
         UINotificationFeedbackGenerator().notificationOccurred(result.ok ? .success : .warning)
     }
 
+    /// The scan matched the wrong card: this is the right one (picked from search). Its photo
+    /// stays. In a deal it's handed over if the wrong one wasn't yet (the wrong one, if it was,
+    /// is removed from the deal by hand).
+    @MainActor
+    func replace(_ id: UUID, with hit: SearchHit) {
+        guard let i = entries.firstIndex(where: { $0.id == id }) else { return }
+        let result = OnDeviceScan.result(for: hit)
+        entries[i].state = .done
+        entries[i].error = nil
+        entries[i].result = result
+        entries[i].picked = result.candidates.first
+        entries[i].rejected = false
+        if onPick != nil, entries[i].note == nil { hand(i) }
+    }
+
     @MainActor
     func remove(_ id: UUID) {
         entries.removeAll { $0.id == id }

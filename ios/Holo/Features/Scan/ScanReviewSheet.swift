@@ -10,6 +10,9 @@ struct ScanReviewSheet: View {
     @State private var pulled = false
     @State private var saving = false
     @State private var error: String?
+    /// The scan whose match is being swapped for the right card (search opens).
+    @State private var fixing: Fixing?
+    private struct Fixing: Identifiable { let id: UUID }
 
     var body: some View { sheetBody.presentationDetents([.fraction(0.93)]).glassSheet() }
 
@@ -42,7 +45,8 @@ struct ScanReviewSheet: View {
                     }
                     ForEach($model.entries) { $entry in
                         ReviewRow(entry: $entry, inDeal: model.onPick != nil, onPick: { model.pick($0, for: entry.id) }, onRetry: { model.retry(entry.id) },
-                                  onRemove: { withAnimation(.snappy) { model.remove(entry.id) } })
+                                  onRemove: { withAnimation(.snappy) { model.remove(entry.id) } },
+                                  onWrong: { fixing = Fixing(id: entry.id) })
                             .id(entry.id)
                             .listRowBackground(Color.white.opacity(0.07))
                             // Swipe left: pink with a trash icon, like a deal card's.
@@ -72,6 +76,10 @@ struct ScanReviewSheet: View {
             }
         }
         .presentationDragIndicator(.visible)
+        // Pick the right card from search; the scan's entry takes it over.
+        .sheet(item: $fixing) { f in
+            SearchScreen(mode: .add, onPick: { hit in model.replace(f.id, with: hit) })
+        }
     }
 
     /// What a blank price means (bought at market, or pulled for $0) as a chip pair in the
@@ -123,6 +131,7 @@ private struct ReviewRow: View {
     var onPick: (ScanCandidate) -> Void
     var onRetry: () -> Void
     var onRemove: () -> Void
+    var onWrong: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -180,6 +189,16 @@ private struct ReviewRow: View {
             }
             if let picked = entry.picked, !inDeal {
                 HStack(spacing: 10) {
+                    // Matched the wrong card (even a confident match, even another game): pick
+                    // the right one from search.
+                    Button(action: onWrong) {
+                        Text("Wrong card?").font(.geist(12, .medium)).foregroundStyle(.white)
+                            .padding(.horizontal, 10).frame(height: 30)
+                            .background(Capsule().fill(Color.white.opacity(0.12)))
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Wrong card? Pick the right one")
                     if !picked.product.isSealed && entry.result?.read?.kind != "slab" {
                         Picker("Condition", selection: $entry.condition) {
                             ForEach(CardCondition.allCases) { Text($0.short).tag($0.rawValue) }

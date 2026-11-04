@@ -157,6 +157,9 @@ struct SearchScreen: View {
     }
 
     var mode: Mode = .browse
+    /// Set by a caller that just wants a card chosen (the scan review's "Wrong card?"): tapping
+    /// a result (or its +) hands it over and closes the search.
+    var onPick: ((SearchHit) -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
     @Environment(CollectionStore.self) private var store
     @State private var query = ""
@@ -190,7 +193,7 @@ struct SearchScreen: View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
                 HStack(spacing: 10) {
-                    HoloSearchField(text: $query, prompt: mode == .add ? "Add a card or sealed product" : "Search any card or sealed product",
+                    HoloSearchField(text: $query, prompt: onPick != nil ? "Which card is it?" : (mode == .add ? "Add a card or sealed product" : "Search any card or sealed product"),
                                     focus: $focused, loading: searching || liveSearching,
                                     // Scan instead of typing (it adds to the collection), over Search.
                                     scan: SearchScan {
@@ -385,7 +388,12 @@ struct SearchScreen: View {
                 ResultRow(hit: hit, ownedQty: ownedQty[hit.product.id] ?? 0, onOpen: { open(hit) }, onAdd: {
                     history.remember(query: query)
                     store.seed(hit)
-                    adding = hit
+                    if let onPick {
+                        onPick(hit)
+                        dismiss()
+                    } else {
+                        adding = hit
+                    }
                 })
                 .equatable()
                 // At the end of what's loaded, fetch the next batch.
@@ -430,7 +438,14 @@ struct SearchScreen: View {
         history.remember(viewed: hit)
         store.seed(hit)
         focused = false
-        if mode == .add { adding = hit } else { path.append(hit.product.id) }
+        if let onPick {
+            onPick(hit)
+            dismiss()
+        } else if mode == .add {
+            adding = hit
+        } else {
+            path.append(hit.product.id)
+        }
     }
 
     private static let pageSize = 40

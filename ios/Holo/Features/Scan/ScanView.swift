@@ -277,6 +277,8 @@ struct ScanView: View {
                         LazyVStack(spacing: 8) {
                             ForEach(model.entries) { e in
                                 chip(e, fills: true)
+                                    // Swipe either way to remove.
+                                    .swipeAway(e.picked?.product.name ?? "this scan") { withAnimation(.snappy) { model.remove(e.id) } }
                                     .transition(.opacity)
                             }
                         }
@@ -529,17 +531,21 @@ private struct ScanSweep: View {
 }
 
 /// A scan in the strip: the card's picture, what it matched (name, set, number and price), or
-/// what it still needs. A long press offers to remove it. A faint white tile with a hairline,
-/// not glass: glass on the glass tray looked like a smudge.
+/// what it still needs. A long press shows a Remove button on the tile itself (a system menu
+/// would blur the live camera behind, which lags). A faint white tile with a hairline, not
+/// glass: glass on the glass tray looked like a smudge.
 struct ScanChip: View {
     var entry: ScanModel.Entry
     /// Full width (in the opened-out list) rather than a fixed strip tile.
     var fills = false
     var onTap: () -> Void
     var onRemove: () -> Void = {}
+    /// After a long press: the Remove button is up (until tapped, tapped away, or 3 s).
+    @State private var armed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        Button(action: onTap) {
+        Button(action: { if armed { disarm() } else { onTap() } }) {
             HStack(spacing: 12) {
                 thumb.frame(width: 66, height: 92).clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                 VStack(alignment: .leading, spacing: 3) {
@@ -557,13 +563,43 @@ struct ScanChip: View {
             .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.white.opacity(0.1)))
             .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
             .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
         .buttonStyle(.plain)
-        .contextMenu {
-            Button(role: .destructive, action: onRemove) { Label("Remove", systemImage: "trash") }
+        .overlay {
+            if armed {
+                RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.black.opacity(0.45))
+                    .overlay {
+                        Button {
+                            disarm()
+                            onRemove()
+                        } label: {
+                            Label("Remove", systemImage: "trash.fill").font(.geist(14, .semibold)).foregroundStyle(.white)
+                                .padding(.horizontal, 16).frame(height: 40)
+                                .background(Capsule().fill(Theme.planPink))
+                                .contentShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .onTapGesture { disarm() }
+                    .transition(.opacity)
+            }
         }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: armed)
+        .simultaneousGesture(LongPressGesture(minimumDuration: 0.35).onEnded { _ in
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            armed = true
+        })
+        // Put away by itself after a few seconds.
+        .task(id: armed) {
+            guard armed else { return }
+            try? await Task.sleep(for: .seconds(3))
+            if !Task.isCancelled { armed = false }
+        }
+        .accessibilityAction(named: "Remove") { onRemove() }
     }
+
+    private func disarm() { armed = false }
 
     @ViewBuilder private var thumb: some View {
         if let p = entry.picked?.product {
