@@ -13,8 +13,6 @@ struct CardQuad: Equatable, Sendable {
 
     var corners: [CGPoint] { [topLeft, topRight, bottomRight, bottomLeft] }
 
-    var center: CGPoint { CGPoint(x: corners.map(\.x).reduce(0, +) / 4, y: corners.map(\.y).reduce(0, +) / 4) }
-
     /// Roughly how much of the frame it covers (shoelace formula), for picking the biggest card.
     var area: CGFloat {
         let c = corners
@@ -59,18 +57,17 @@ struct CardQuad: Equatable, Sendable {
     }
 }
 
-/// Follows the cards the camera sees and reads the main one before you tap.
+/// Follows the card the camera sees and reads it before you tap.
 ///
-/// Flow: `Camera` hands each processed frame's rectangles to `update` (main queue, ~10 a
-/// second). Each is matched to the card it was nearest to last frame (so a card keeps its
-/// border and identity while others come and go), smoothed (half-way toward each new reading;
-/// a big jump snaps) and dropped after 0.4 s unseen. `quad` is the biggest card in view: when
-/// it has held still (corners within 3% for 0.5 s), one identification runs: `snapshot` (the
-/// camera's flattened crop) → `OnDeviceScan.read` → `OnDeviceScan.lookUp`, cached by the read
-/// number so the same card never asks the catalog twice. The result shows as `label` above
-/// its border, and `liveMatch` lets a tap add it with no paid scan. Only the border view reads
-/// `cards`/`label`; the scanner reads just `isTracking` (which changes rarely), so nothing
-/// else redraws per frame. Used on the main thread only.
+/// Flow: `Camera` hands each processed frame's corners to `update` (main queue, ~10 a second).
+/// They're smoothed (half-way toward each new reading; a big jump snaps) and dropped after
+/// 0.4 s without a card. When the card has held still (corners within 3% for 0.5 s), one
+/// identification runs: `snapshot` (the camera's flattened crop) → `OnDeviceScan.read` →
+/// `OnDeviceScan.lookUp`, cached by the read number so the same card never asks the catalog
+/// twice. The result shows as `label` above the border, and `liveMatch` lets a tap add it
+/// with no paid scan. Only the border view reads `quad`/`label`; the scanner reads just
+/// `isTracking` (which changes rarely), so nothing else redraws per frame.
+/// Used on the main thread only.
 @Observable
 final class CardTracker {
     enum LiveRead: Equatable {
@@ -85,27 +82,16 @@ final class CardTracker {
         var quad: CardQuad
     }
 
-    /// One card being followed: a stable id for the view, its smoothed corners, when it was
-    /// last seen.
-    struct Card: Identifiable, Equatable {
-        let id: Int
-        var quad: CardQuad
-        var lastSeen: CFTimeInterval
-    }
-
-    /// Every card in view, smoothed, in a stable order (new ones go on the end).
-    private(set) var cards: [Card] = []
+    /// The smoothed corners of the card in view, or nil.
+    private(set) var quad: CardQuad?
     /// The upright frame's size in pixels, for mapping the corners onto the preview.
     private(set) var frameSize: CGSize = .zero
-    /// Whether any card is being followed. Stored (and only set on change) so the scanner,
+    /// Whether a card is being followed. Stored (and only set on change) so the scanner,
     /// which reads it to hide the guide, doesn't redraw with every corner update.
     private(set) var isTracking = false
     private(set) var label: LiveRead?
 
-    /// The main card: the biggest in view, or nil.
-    var quad: CardQuad? { cards.max { $0.quad.area < $1.quad.area }?.quad }
-
-    /// Takes a flattened crop of the main card in the next frame (set by the scanner).
+    /// Takes a flattened crop of the card in the next frame (set by the scanner).
     @ObservationIgnored var snapshot: (() async -> CardCrop?)?
     /// Off in a demo, where the catalog search isn't real.
     @ObservationIgnored var identifies = !Demo.isOn
@@ -116,7 +102,7 @@ final class CardTracker {
     }
 
     @ObservationIgnored private(set) var liveMatch: LiveMatch?
-    @ObservationIgnored private var nextId = 1
+    @ObservationIgnored private var lastSeen: CFTimeInterval = 0
     @ObservationIgnored private var steadyRef: CardQuad?
     @ObservationIgnored private var steadySince: CFTimeInterval = 0
     @ObservationIgnored private var identifying = false
@@ -127,56 +113,33 @@ final class CardTracker {
     /// Read numbers already looked up: the match, or nil for "no clear match".
     @ObservationIgnored private var cache: [String: SearchHit?] = [:]
 
-    /// The live match, when it is for the main card in view now.
+    /// The live match, when it is for the card in view now.
     var readyMatch: LiveMatch? {
         guard let m = liveMatch, let q = quad, m.quad.distance(to: q) < 0.15 else { return nil }
         return m
     }
 
-    func update(_ raws: [CardQuad], frame: CGSize) {
+    func update(_ raw: CardQuad?, frame: CGSize) {
         guard active else { return }
         let now = CACurrentMediaTime()
-        if frameSize != frame { frameSize = frame }
-
-        // Match each reading to the card it is nearest (by centre), one reading per card;
-        // the rest are new cards. Cards unseen for 0.4 s are dropped.
-        var next = cards
-        var unmatched: [CardQuad] = []
-        var taken = Set<Int>()
-        for raw in raws {
-            var best: (index: Int, distance: CGFloat)?
-            for (i, card) in next.enumerated() where !taken.contains(i) {
-                let d = hypot(card.quad.center.x - raw.center.x, card.quad.center.y - raw.center.y)
-                if d < 0.12, best == nil || d < best!.distance { best = (i, d) }
-            }
-            if let best {
-                taken.insert(best.index)
-                let current = next[best.index].quad
-                next[best.index].quad = current.distance(to: raw) < 0.12 ? current.blended(toward: raw, by: 0.5) : raw
-                next[best.index].lastSeen = now
-            } else {
-                unmatched.append(raw)
-            }
-        }
-        next.removeAll { now - $0.lastSeen > 0.4 }
-        for raw in unmatched where next.count < 12 {
-            next.append(Card(id: nextId, quad: raw, lastSeen: now))
-            nextId += 1
-        }
-        if next != cards { cards = next }
-
-        if cards.isEmpty {
-            if isTracking { reset() }
+        guard let raw else {
+            if quad != nil, now - lastSeen > 0.4 { reset() }
             return
+        }
+        lastSeen = now
+        if frameSize != frame { frameSize = frame }
+        if let current = quad, current.distance(to: raw) < 0.12 {
+            quad = current.blended(toward: raw, by: 0.5)
+        } else {
+            quad = raw
         }
         if !isTracking { isTracking = true }
 
-        // The main card held still for half a second: read it (once per steady card).
-        guard let main = quad else { return }
-        if let ref = steadyRef, ref.distance(to: main) < 0.03 {
-            if now - steadySince >= 0.5 { identifyIfNeeded(main, now: now) }
+        // Held still for half a second: read it (once per steady card).
+        if let ref = steadyRef, ref.distance(to: raw) < 0.03 {
+            if now - steadySince >= 0.5 { identifyIfNeeded(raw, now: now) }
         } else {
-            steadyRef = main
+            steadyRef = raw
             steadySince = now
         }
     }
@@ -186,10 +149,10 @@ final class CardTracker {
         label = .matched(name: name, number: number, price: price)
     }
 
-    /// The cards are gone (or the scanner paused): forget them and anything read in flight.
+    /// The card is gone (or the scanner paused): forget it and anything read in flight.
     func reset() {
         generation += 1
-        if !cards.isEmpty { cards = [] }
+        if quad != nil { quad = nil }
         if isTracking { isTracking = false }
         if label != nil { label = nil }
         liveMatch = nil
@@ -244,9 +207,8 @@ final class CardTracker {
 
 // MARK: - The border
 
-/// A lime border on every card in view, the live read above the main one, how many are in
-/// view when there are several, and the tap that adds them. The only view that reads the
-/// corners, so it's the only one that redraws per frame.
+/// The lime border that follows the card, the live read above it, and the tap that adds it.
+/// The only view that reads the corners, so it's the only one that redraws per frame.
 struct CardTrackingOverlay: View {
     let tracker: CardTracker
     var onTap: () -> Void
@@ -254,42 +216,28 @@ struct CardTrackingOverlay: View {
 
     var body: some View {
         GeometryReader { geo in
-            let cards = tracker.cards
-            if !cards.isEmpty {
-                let mainId = cards.max { $0.quad.area < $1.quad.area }?.id
-                ZStack {
-                    ForEach(cards) { card in
-                        let points = card.quad.viewPoints(frame: tracker.frameSize, view: geo.size)
-                        if points.count == 4 {
-                            let shape = CardQuadShape(points: points)
-                            ZStack {
-                                // A soft glow done cheaply: a wide faint stroke under the line.
-                                shape.stroke(Theme.lime.opacity(0.22), style: StrokeStyle(lineWidth: 11, lineCap: .round, lineJoin: .round))
-                                shape.stroke(Theme.lime, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
-                            }
-                            // Glides between the ~10 readings a second (just this one path).
-                            .animation(reduceMotion ? nil : .linear(duration: 0.1), value: points)
-                            .contentShape(shape)
-                            .onTapGesture { onTap() }
-                            .accessibilityElement()
-                            .accessibilityLabel(cards.count == 1 ? "Add this card" : "Add these \(cards.count) cards")
-                            .accessibilityAddTraits(.isButton)
-
-                            if card.id == mainId, let label = tracker.label {
-                                let top = CGPoint(x: (points[0].x + points[1].x) / 2, y: min(points[0].y, points[1].y))
-                                LiveLabel(label: label)
-                                    .fixedSize()
-                                    .position(x: min(max(top.x, 120), geo.size.width - 120), y: max(top.y - 26, 80))
-                                    .allowsHitTesting(false)
-                            }
-                        }
+            if let quad = tracker.quad {
+                let points = quad.viewPoints(frame: tracker.frameSize, view: geo.size)
+                if points.count == 4 {
+                    let shape = CardQuadShape(points: points)
+                    ZStack {
+                        // A soft glow done cheaply: a wide faint stroke under the line.
+                        shape.stroke(Theme.lime.opacity(0.22), style: StrokeStyle(lineWidth: 11, lineCap: .round, lineJoin: .round))
+                        shape.stroke(Theme.lime, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
                     }
-                    if cards.count > 1 {
-                        Text("\(cards.count) cards in view")
-                            .font(.geist(13, .semibold)).foregroundStyle(Theme.ink).monospacedDigit()
-                            .padding(.horizontal, 12).frame(height: 30)
-                            .background(Capsule().fill(Theme.lime))
-                            .position(x: geo.size.width / 2, y: 92)
+                    // Glides between the ~10 readings a second (just this one path).
+                    .animation(reduceMotion ? nil : .linear(duration: 0.1), value: points)
+                    .contentShape(shape)
+                    .onTapGesture { onTap() }
+                    .accessibilityElement()
+                    .accessibilityLabel("Add this card")
+                    .accessibilityAddTraits(.isButton)
+
+                    if let label = tracker.label {
+                        let top = CGPoint(x: (points[0].x + points[1].x) / 2, y: min(points[0].y, points[1].y))
+                        LiveLabel(label: label)
+                            .fixedSize()
+                            .position(x: min(max(top.x, 120), geo.size.width - 120), y: max(top.y - 26, 80))
                             .allowsHitTesting(false)
                     }
                 }

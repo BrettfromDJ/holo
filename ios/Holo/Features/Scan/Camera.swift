@@ -11,10 +11,10 @@ import Vision
 /// own queue, and everything is taken from those frames. `capture()` returns the next frame as
 /// a JPEG (the "photo" for a scan); `snapshotCard()` returns a flattened crop of the card in the
 /// next frame (perspective-corrected) so it can be read before you tap. While `setTracking(true)`
-/// (the scanner is up and uncovered), about ten times a second Vision looks for card-shaped
-/// rectangles (up to twelve); their corners (0...1, Vision's space: origin bottom-left, in the
-/// upright frame) go to `onCards` on the main queue, where `CardTracker` follows each one and
-/// the scanner draws the borders. With tracking off the frames are dropped unread.
+/// (the scanner is up and uncovered), about ten times a second Vision looks for one card-shaped
+/// rectangle; its four corners (0...1, Vision's space: origin bottom-left, in the upright frame)
+/// go to `onCard` on the main queue, where `CardTracker` smooths them and the scanner draws the
+/// border. With tracking off the frames are dropped unread.
 ///
 /// There is no photo output on purpose. On recent iOS, taking a still through
 /// `AVCapturePhotoOutput` can leave the phone's camera black for every app, Apple's Camera
@@ -36,6 +36,8 @@ final class Camera: NSObject, ObservableObject {
     private let videoOutput = AVCaptureVideoDataOutput()
     private let videoQueue = DispatchQueue(label: "holo.camera.video", qos: .userInitiated)
     private var lastDetection: CFTimeInterval = 0
+    /// The card followed in the last frame, so the same one is kept while others are in view.
+    private var lastQuad: CardQuad?
     private lazy var rectangles: VNDetectRectanglesRequest = {
         let r = VNDetectRectanglesRequest()
         // A trading card is 63 x 88 mm (0.716); allow for tilt and perspective.
@@ -43,13 +45,14 @@ final class Camera: NSObject, ObservableObject {
         r.maximumAspectRatio = 0.9
         r.minimumSize = 0.2
         r.quadratureTolerance = 20
-        // Several cards laid out together are scanned in one photo (CardSight reads them all).
+        // Every card in view is found, so the one followed can be chosen (see `captureOutput`)
+        // rather than whichever Vision lists first, which flips between cards.
         r.maximumObservations = 12
         r.minimumConfidence = 0.6
         return r
     }()
     private var trackingOn = false
-    private var cardHandler: (([CardQuad], CGSize) -> Void)?
+    private var cardHandler: ((CardQuad?, CGSize) -> Void)?
     private var snapshotWaiter: CheckedContinuation<CardCrop?, Never>?
     /// A scan waiting for the next frame as a JPEG, how big it wants it, and which request it is
     /// (so a timeout can't fail a later one).
@@ -57,9 +60,9 @@ final class Camera: NSObject, ObservableObject {
     private var frameRequests = 0
     private static let ciContext = CIContext()
 
-    /// Called on the main queue for each processed frame: every card's corners (empty when
-    /// none was found) and the upright frame's size in pixels.
-    var onCards: (([CardQuad], CGSize) -> Void)? {
+    /// Called on the main queue for each processed frame: the card's corners (nil when none
+    /// was found) and the upright frame's size in pixels.
+    var onCard: ((CardQuad?, CGSize) -> Void)? {
         get { lock.lock(); defer { lock.unlock() }; return cardHandler }
         set { lock.lock(); cardHandler = newValue; lock.unlock() }
     }
@@ -308,8 +311,15 @@ extension Camera: AVCaptureVideoDataOutputSampleBufferDelegate {
                 CardQuad(topLeft: r.topLeft, topRight: r.topRight, bottomRight: r.bottomRight, bottomLeft: r.bottomLeft)
             }
         }
-        // The crop (for reading one card on the phone) is of the biggest card in view.
-        let quad = quads.max { $0.area < $1.area }
+        // One card at a time: keep following the card from the last frame when it's still
+        // there; otherwise take the biggest in view.
+        var quad: CardQuad?
+        if let last = lastQuad, let same = quads.filter({ $0.distance(to: last) < 0.12 }).min(by: { $0.distance(to: last) < $1.distance(to: last) }) {
+            quad = same
+        } else {
+            quad = quads.max { $0.area < $1.area }
+        }
+        lastQuad = quad
 
         if wantsSnapshot {
             lock.lock()
@@ -323,8 +333,8 @@ extension Camera: AVCaptureVideoDataOutputSampleBufferDelegate {
             waiter?.resume(returning: crop)
         }
 
-        let deliver = onCards
-        DispatchQueue.main.async { deliver?(quads, size) }
+        let deliver = onCard
+        DispatchQueue.main.async { deliver?(quad, size) }
     }
 
     /// `image` (upright) as a JPEG no larger than `maxEdge` on its long side.
