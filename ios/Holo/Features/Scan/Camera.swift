@@ -1,32 +1,40 @@
 import AVFoundation
 import CoreImage
+import ImageIO
 import SwiftUI
 import UIKit
 import Vision
 
-/// The back camera, ready to take still photos for scanning.
+/// The back camera, streaming 1080p frames for scanning.
 ///
-/// Live card tracking: besides the photo output, a video data output feeds frames (upright,
-/// BGRA) to `captureOutput` on its own queue. About ten times a second Vision looks for one
-/// card-shaped rectangle; its four corners (0...1, Vision's space: origin bottom-left, in the
-/// upright frame) go to `onCard` on the main queue, where `CardTracker` smooths them and the
-/// scanner draws the border. `snapshotCard()` asks the next frame for a flattened crop of the
-/// card (perspective-corrected) so it can be read before you tap. Frames are only processed
-/// while `setTracking(true)`: the scanner turns it off when it's covered or closed.
+/// One output only: a video data output feeds frames (upright, BGRA) to `captureOutput` on its
+/// own queue, and everything is taken from those frames. `capture()` returns the next frame as
+/// a JPEG (the "photo" for a scan); `snapshotCard()` returns a flattened crop of the card in the
+/// next frame (perspective-corrected) so it can be read before you tap. While `setTracking(true)`
+/// (the scanner is up and uncovered), about ten times a second Vision looks for one card-shaped
+/// rectangle; its four corners (0...1, Vision's space: origin bottom-left, in the upright frame)
+/// go to `onCard` on the main queue, where `CardTracker` smooths them and the scanner draws the
+/// border. With tracking off the frames are dropped unread.
+///
+/// There is no photo output on purpose. On recent iOS, taking a still through
+/// `AVCapturePhotoOutput` can leave the phone's camera black for every app, Apple's Camera
+/// included, until the phone is restarted; a frame from the stream the camera is already
+/// producing (the same 1080p the preview shows) asks nothing extra of it.
 final class Camera: NSObject, ObservableObject {
     enum State { case starting, running, denied, unavailable }
+
+    /// The camera couldn't hand over a frame (stopped or interrupted while a scan was asked for).
+    struct NoFrame: Error {}
 
     @Published var state: State = .starting
     let session = AVCaptureSession()
 
-    private let output = AVCapturePhotoOutput()
     private let queue = DispatchQueue(label: "holo.camera")
 
-    // Live tracking (see the header). `videoQueue` owns `rectangles` and `lastDetection`;
-    // everything shared with other threads sits behind `lock`.
+    // Frames (see the header). `videoQueue` owns `rectangles` and `lastDetection`; everything
+    // shared with other threads sits behind `lock`.
     private let videoOutput = AVCaptureVideoDataOutput()
     private let videoQueue = DispatchQueue(label: "holo.camera.video", qos: .userInitiated)
-    private var hasVideoOutput = false
     private var lastDetection: CFTimeInterval = 0
     private lazy var rectangles: VNDetectRectanglesRequest = {
         let r = VNDetectRectanglesRequest()
@@ -42,6 +50,10 @@ final class Camera: NSObject, ObservableObject {
     private var trackingOn = false
     private var cardHandler: ((CardQuad?, CGSize) -> Void)?
     private var snapshotWaiter: CheckedContinuation<CardCrop?, Never>?
+    /// A scan waiting for the next frame as a JPEG, how big it wants it, and which request it is
+    /// (so a timeout can't fail a later one).
+    private var frameWaiter: (cont: CheckedContinuation<Data, Error>, maxEdge: CGFloat, quality: CGFloat, id: Int)?
+    private var frameRequests = 0
     private static let ciContext = CIContext()
 
     /// Called on the main queue for each processed frame: the card's corners (nil when none
@@ -63,7 +75,6 @@ final class Camera: NSObject, ObservableObject {
             device.unlockForConfiguration()
         }
     }
-    private var pending: [Int64: CheckedContinuation<Data, Error>] = [:]
     private let lock = NSLock()
 
     /// True only while the scanner is on screen. The camera is never started, or restarted after
@@ -71,6 +82,7 @@ final class Camera: NSObject, ObservableObject {
     /// the camera away from other apps (Apple's Camera included).
     private var wanted = false
     private var appObservers: [NSObjectProtocol] = []
+    private var sessionObservers: [NSObjectProtocol] = []
 
     func start() {
         wanted = true
@@ -90,13 +102,30 @@ final class Camera: NSObject, ObservableObject {
     func stop() {
         wanted = false
         setTracking(false)
-        queue.async { [session] in if session.isRunning { session.stopRunning() } }
+        failFrameWaiter()
+        // Holds on to `self` so the camera is never stopped twice at once (here and in `deinit`).
+        queue.async { [self] in if session.isRunning { session.stopRunning() } }
     }
 
     deinit {
-        appObservers.forEach(NotificationCenter.default.removeObserver)
+        (appObservers + sessionObservers).forEach(NotificationCenter.default.removeObserver)
+        failFrameWaiter()
+        // Everything that touches the session runs on `queue`, this included.
         let session = self.session
-        if session.isRunning { DispatchQueue.global(qos: .userInitiated).async { session.stopRunning() } }
+        queue.async { if session.isRunning { session.stopRunning() } }
+    }
+
+    /// Fails the waiting scan (only request `id`, when given).
+    private func failFrameWaiter(id: Int? = nil) {
+        lock.lock()
+        let waiter = frameWaiter
+        if let id, waiter?.id != id {
+            lock.unlock()
+            return
+        }
+        frameWaiter = nil
+        lock.unlock()
+        waiter?.cont.resume(throwing: NoFrame())
     }
 
     /// Let go of the camera the moment Lucent leaves the front; take it back on return only if
@@ -114,20 +143,15 @@ final class Camera: NSObject, ObservableObject {
         })
     }
 
-    /// Process frames for live tracking, or stop (no Vision work at all while off).
+    /// Read frames for live tracking, or stop (no Vision work at all while off). The frames
+    /// keep arriving either way; the camera itself is never reconfigured for this.
     func setTracking(_ on: Bool) {
         lock.lock()
-        let changed = trackingOn != on
         trackingOn = on
         let waiter = on ? nil : snapshotWaiter
         if !on { snapshotWaiter = nil }
         lock.unlock()
         waiter?.resume(returning: nil)
-        guard changed else { return }
-        queue.async { [weak self] in
-            guard let self, self.hasVideoOutput else { return }
-            self.videoOutput.setSampleBufferDelegate(on ? self : nil, queue: on ? self.videoQueue : nil)
-        }
     }
 
     /// A flattened, upright crop of the card in the next frame, or nil when no card is found
@@ -169,7 +193,7 @@ final class Camera: NSObject, ObservableObject {
     private func observeInterruptions() {
         let center = NotificationCenter.default
         for name in [AVCaptureSession.interruptionEndedNotification, AVCaptureSession.runtimeErrorNotification] {
-            center.addObserver(forName: name, object: session, queue: nil) { [weak self] _ in
+            sessionObservers.append(center.addObserver(forName: name, object: session, queue: nil) { [weak self] _ in
                 guard let self else { return }
                 // Only while the scanner is open and Lucent is in front: never fight another app
                 // (or the system) for the camera.
@@ -181,41 +205,32 @@ final class Camera: NSObject, ObservableObject {
                         self.set(.running)
                     }
                 }
-            }
+            })
         }
     }
 
     private func configure() -> Bool {
         session.beginConfiguration()
         defer { session.commitConfiguration() }
-        // 1080p, not full photo resolution: plenty for a card (photos are shrunk to 1000–1400px
-        // anyway) and a far lighter pipeline. Live frames and stills then share one format, so
-        // taking a photo while tracking never asks the camera for two heavy streams at once.
+        // 1080p: plenty for a card (scans are shrunk to 1000–1400px anyway) and a light pipeline.
         session.sessionPreset = session.canSetSessionPreset(.hd1920x1080) ? .hd1920x1080 : .high
         guard
             let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
             let input = try? AVCaptureDeviceInput(device: device),
-            session.canAddInput(input), session.canAddOutput(output)
+            session.canAddInput(input)
         else { return false }
         session.addInput(input)
-        session.addOutput(output)
         self.device = device
-        output.maxPhotoQualityPrioritization = .speed
-        // Live tracking frames: optional, the scanner works without them.
+        // The one output: live frames, for tracking and for the scans themselves.
         videoOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)]
         videoOutput.alwaysDiscardsLateVideoFrames = true
-        if session.canAddOutput(videoOutput) {
-            session.addOutput(videoOutput)
-            hasVideoOutput = true
-            // Upright like the preview, so Vision's corners map straight onto it.
-            if let connection = videoOutput.connection(with: .video), connection.isVideoRotationAngleSupported(90) {
-                connection.videoRotationAngle = 90
-            }
-            lock.lock()
-            let on = trackingOn
-            lock.unlock()
-            if on { videoOutput.setSampleBufferDelegate(self, queue: videoQueue) }
+        guard session.canAddOutput(videoOutput) else { return false }
+        session.addOutput(videoOutput)
+        // Upright like the preview, so Vision's corners map straight onto it.
+        if let connection = videoOutput.connection(with: .video), connection.isVideoRotationAngleSupported(90) {
+            connection.videoRotationAngle = 90
         }
+        videoOutput.setSampleBufferDelegate(self, queue: videoQueue)
         // Cards are close up: keep focusing continuously.
         if (try? device.lockForConfiguration()) != nil {
             if device.isFocusModeSupported(.continuousAutoFocus) { device.focusMode = .continuousAutoFocus }
@@ -225,66 +240,25 @@ final class Camera: NSObject, ObservableObject {
         return true
     }
 
-    /// Take a photo and return it as a JPEG no larger than `maxEdge` pixels on its long side.
+    /// The next frame as a JPEG no larger than `maxEdge` pixels on its long side: the "photo"
+    /// for a scan. Fails if no frame comes within a second (the camera is stopped or
+    /// interrupted), so the shutter never hangs. One at a time.
     func capture(maxEdge: CGFloat = 1400, quality: CGFloat = 0.85) async throws -> Data {
-        // Live frames pause while the photo is taken, then resume: one job for the camera at a time.
-        let wasTracking = pauseTracking()
-        defer { if wasTracking { resumeTracking() } }
-        let raw: Data = try await withCheckedThrowingContinuation { cont in
-            queue.async { [weak self] in
-                guard let self else { return }
-                let settings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.jpeg])
-                settings.photoQualityPrioritization = .speed
-                self.lock.lock()
-                self.pending[settings.uniqueID] = cont
-                self.lock.unlock()
-                self.output.capturePhoto(with: settings, delegate: self)
+        let data: Data = try await withCheckedThrowingContinuation { cont in
+            lock.lock()
+            guard frameWaiter == nil else {
+                lock.unlock()
+                cont.resume(throwing: NoFrame())
+                return
             }
+            frameRequests += 1
+            let id = frameRequests
+            frameWaiter = (cont, maxEdge, quality, id)
+            lock.unlock()
+            // No frame in a second: the camera isn't delivering; give up on this scan.
+            queue.asyncAfter(deadline: .now() + 1) { [weak self] in self?.failFrameWaiter(id: id) }
         }
-        return Camera.downscale(raw, maxEdge: maxEdge, quality: quality) ?? raw
-    }
-
-    /// Stops frame delivery without changing what the scanner asked for; returns whether it was on.
-    private func pauseTracking() -> Bool {
-        lock.lock()
-        let on = trackingOn
-        lock.unlock()
-        guard on, hasVideoOutput else { return false }
-        queue.sync { videoOutput.setSampleBufferDelegate(nil, queue: nil) }
-        return true
-    }
-
-    private func resumeTracking() {
-        lock.lock()
-        let on = trackingOn
-        lock.unlock()
-        guard on, hasVideoOutput else { return }
-        queue.async { [weak self] in
-            guard let self else { return }
-            self.videoOutput.setSampleBufferDelegate(self, queue: self.videoQueue)
-        }
-    }
-
-    static func downscale(_ data: Data, maxEdge: CGFloat, quality: CGFloat = 0.85) -> Data? {
-        guard let image = UIImage(data: data) else { return nil }
-        let size = image.size
-        let scale = min(1, maxEdge / max(size.width, size.height))
-        let target = CGSize(width: (size.width * scale).rounded(), height: (size.height * scale).rounded())
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 1
-        let resized = UIGraphicsImageRenderer(size: target, format: format).image { _ in image.draw(in: CGRect(origin: .zero, size: target)) }
-        return resized.jpegData(compressionQuality: quality)
-    }
-}
-
-extension Camera: AVCapturePhotoCaptureDelegate {
-    func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
-        lock.lock()
-        let cont = pending.removeValue(forKey: photo.resolvedSettings.uniqueID)
-        lock.unlock()
-        if let error { cont?.resume(throwing: error) }
-        else if let data = photo.fileDataRepresentation() { cont?.resume(returning: data) }
-        else { cont?.resume(throwing: CocoaError(.fileReadCorruptFile)) }
+        return data
     }
 }
 
@@ -295,18 +269,34 @@ extension Camera: AVCaptureVideoDataOutputSampleBufferDelegate {
         lock.lock()
         let on = trackingOn
         let wantsSnapshot = snapshotWaiter != nil
+        let wantsFrame = frameWaiter
+        frameWaiter = nil
         lock.unlock()
+        guard let pixels = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+            wantsFrame?.cont.resume(throwing: NoFrame())
+            return
+        }
+
+        // Rotated by the connection: already upright. Otherwise the sensor's landscape frame.
+        let rotated = connection.videoRotationAngle == 90
+        let orientation: CGImagePropertyOrientation = rotated ? .up : .right
+
+        // A scan asked for this frame: hand it over as a JPEG, whether or not tracking is on.
+        if let wantsFrame {
+            let image = CIImage(cvPixelBuffer: pixels).oriented(orientation)
+            if let jpeg = Camera.jpeg(image, maxEdge: wantsFrame.maxEdge, quality: wantsFrame.quality) {
+                wantsFrame.cont.resume(returning: jpeg)
+            } else {
+                wantsFrame.cont.resume(throwing: NoFrame())
+            }
+        }
+
         guard on else { return }
         // About ten a second; frames that arrive while one is being read are dropped by the
         // output itself (this queue is serial and Vision runs synchronously on it).
         let now = CACurrentMediaTime()
         guard wantsSnapshot || now - lastDetection >= 0.1 else { return }
         lastDetection = now
-        guard let pixels = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
-
-        // Rotated by the connection: already upright. Otherwise the sensor's landscape frame.
-        let rotated = connection.videoRotationAngle == 90
-        let orientation: CGImagePropertyOrientation = rotated ? .up : .right
         let w = CGFloat(CVPixelBufferGetWidth(pixels)), h = CGFloat(CVPixelBufferGetHeight(pixels))
         let size = rotated ? CGSize(width: w, height: h) : CGSize(width: h, height: w)
 
@@ -330,6 +320,19 @@ extension Camera: AVCaptureVideoDataOutputSampleBufferDelegate {
 
         let deliver = onCard
         DispatchQueue.main.async { deliver?(quad, size) }
+    }
+
+    /// `image` (upright) as a JPEG no larger than `maxEdge` on its long side.
+    static func jpeg(_ image: CIImage, maxEdge: CGFloat, quality: CGFloat) -> Data? {
+        var out = image
+        let long = max(out.extent.width, out.extent.height)
+        guard long > 0 else { return nil }
+        if long > maxEdge {
+            let s = maxEdge / long
+            out = out.transformed(by: CGAffineTransform(scaleX: s, y: s))
+        }
+        let space = out.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
+        return ciContext.jpegRepresentation(of: out, colorSpace: space, options: [CIImageRepresentationOption(rawValue: kCGImageDestinationLossyCompressionQuality as String): quality])
     }
 
     /// The card in `photo` (a JPEG from `capture`) flattened to its four corners, or nil.
@@ -372,8 +375,9 @@ struct CardCrop: @unchecked Sendable {
 /// The live camera picture, filling its frame.
 struct CameraPreview: UIViewRepresentable {
     let session: AVCaptureSession
-    /// Whether the camera is running; when it starts, the preview reconnects to it (newer iOS
-    /// can leave a preview attached before the session started showing nothing).
+    /// Whether the camera is running. The preview is attached only once it is, so it never
+    /// touches the session while that is being set up on the camera's queue, and a preview
+    /// attached before the session started (which newer iOS can leave blank) can't happen.
     var running = true
 
     final class PreviewView: UIView {
@@ -394,23 +398,14 @@ struct CameraPreview: UIViewRepresentable {
         let view = PreviewView()
         view.previewLayer.videoGravity = .resizeAspectFill
         view.backgroundColor = .black
-        view.previewLayer.session = session
         return view
     }
 
-    final class Coordinator { var attachedWhileRunning = false }
-
-    func makeCoordinator() -> Coordinator { Coordinator() }
-
     func updateUIView(_ uiView: PreviewView, context: Context) {
-        guard running else {
-            context.coordinator.attachedWhileRunning = false
-            return
-        }
-        // Reattach once each time the session starts running, so the picture appears.
-        if !context.coordinator.attachedWhileRunning || uiView.previewLayer.connection == nil {
-            context.coordinator.attachedWhileRunning = true
-            uiView.previewLayer.session = nil
+        guard running else { return }
+        // Attach once the camera runs, and again only if the link has come loose.
+        if uiView.previewLayer.session !== session || uiView.previewLayer.connection == nil {
+            if uiView.previewLayer.session != nil { uiView.previewLayer.session = nil }
             uiView.previewLayer.session = session
             uiView.setNeedsLayout()
         }

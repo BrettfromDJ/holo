@@ -59,7 +59,17 @@ struct ScanView: View {
         }
         // Live tracking only while the scanner can be seen.
         .onChange(of: reviewing) { _, _ in syncTracking() }
-        .onChange(of: searchingManually) { _, _ in syncTracking() }
+        // Search manually covers the scanner and has a scanner of its own: this camera is let
+        // go while it's up (two at once would fight over the lens) and taken back after.
+        .onChange(of: searchingManually) { _, searching in
+            if searching {
+                if torch { torch = false; camera.setTorch(false) }
+                camera.stop()
+            } else {
+                camera.start()
+            }
+            syncTracking()
+        }
         .onChange(of: camera.state) { _, _ in syncTracking() }
         // Search instead: into the collection, or (scanning into a deal) onto that side of it.
         .fullScreenCover(isPresented: Binding(get: { searchingManually && dealSide == nil }, set: { searchingManually = $0 })) { SearchScreen(mode: .add) }
