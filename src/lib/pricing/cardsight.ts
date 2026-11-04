@@ -1,9 +1,10 @@
 import "server-only";
 import { matchesNumber, numberPatterns, parseNumberToken } from "../search-match";
 import type { ScanCandidate, ScanResult } from "../scan-types";
-import { dbCached } from "../server/api-cache";
 import { withPrices } from "../server/explore";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getAdminSupabase } from "../supabase/server";
+import type { Database } from "../supabase/database.types";
 import type { ProductRow } from "../supabase/database.types";
 import { ScanFailure } from "./identify";
 import type { Stopwatch } from "../server/timing";
@@ -122,17 +123,31 @@ async function toResult(detection: CsDetection): Promise<ScanResult> {
   }
 
   const admin = getAdminSupabase();
+  if (!admin) return { status: "not_found", message: "Couldn't tell which card this is. Try again, or search for it.", read, candidates: [], scansRemaining: null };
   // Which catalog products this CardSight card is, remembered for 30 days: a card scanned
-  // before skips the catalog search (prices are still read fresh below).
+  // before skips the catalog search. Prices are read fresh below, with the set names, both at
+  // once; the memo is saved alongside rather than before.
   const memoKey = `cardsight-map:${card.id ?? [card.name, card.number, card.setName ?? card.releaseName].join("|").toLowerCase()}`;
-  const ids = await dbCached(memoKey, async () => (await findInCatalog(card)).map((r) => r.id), (v) => (v.length ? 30 * 24 * 3600 * 1000 : 0));
+  const db = admin as unknown as SupabaseClient<Database>;
+  const { data: memo } = await db.from("api_cache").select("value, expires_at").eq("key", memoKey).maybeSingle();
+  const knownIds = memo && Date.parse(memo.expires_at) > Date.now() ? (memo.value as string[]) : null;
   let rows: ProductRow[] = [];
-  if (admin && ids.length) {
-    const { data } = await admin.from("products").select("*").in("id", ids);
-    const byId = new Map((data ?? []).map((r) => [r.id, r as ProductRow]));
-    rows = ids.map((id) => byId.get(id)).filter((r): r is ProductRow => Boolean(r));
+  let saving: PromiseLike<unknown> = Promise.resolve();
+  if (knownIds) {
+    if (knownIds.length) {
+      const { data } = await admin.from("products").select("*").in("id", knownIds);
+      const byId = new Map((data ?? []).map((r) => [r.id, r as ProductRow]));
+      rows = knownIds.map((id) => byId.get(id)).filter((r): r is ProductRow => Boolean(r));
+    }
+  } else {
+    rows = await findInCatalog(card);
+    if (rows.length) {
+      const expires = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString();
+      // Best effort, started now and finished while the prices load.
+      saving = db.from("api_cache").upsert({ key: memoKey, value: rows.map((r) => r.id) as never, expires_at: expires }).then(() => undefined, () => undefined);
+    }
   }
-  const priced = admin && rows.length ? await withPrices(admin, rows) : [];
+  const [priced] = await Promise.all([rows.length ? withPrices(admin, rows) : Promise.resolve([]), saving]);
   const candidates: ScanCandidate[] = priced.map((p, i) => ({
     product: p.product,
     printing: p.printing,

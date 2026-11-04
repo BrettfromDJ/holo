@@ -1,7 +1,6 @@
 import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { User } from "@supabase/supabase-js";
 import { cookies, headers } from "next/headers";
 import { SUPABASE_ANON_KEY, SUPABASE_URL, isSupabaseConfigured } from "./config";
 import type { Database } from "./database.types";
@@ -24,22 +23,42 @@ export async function getServerSupabase(): Promise<SupabaseClient<Database> | nu
   });
 }
 
+/** Who is asking: enough to key their data and allowances by. */
+export interface RequestUser {
+  id: string;
+  email?: string;
+}
+
+/**
+ * One stateless client, kept across requests on a warm server, for checking the app's tokens.
+ * With asymmetric signing keys the check is done here, against the project's public keys
+ * (fetched once and remembered), so a scan no longer waits on a round trip to Supabase Auth.
+ * Projects still on the legacy shared secret are checked with Supabase as before.
+ */
+let verifier: SupabaseClient<Database> | null = null;
+function tokenVerifier(): SupabaseClient<Database> {
+  verifier ??= createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+  return verifier;
+}
+
 /**
  * The signed-in user for this request, or null. The website signs in with
  * cookies; the iOS app sends its Supabase access token as
- * `Authorization: Bearer <token>`, which is verified with Supabase.
+ * `Authorization: Bearer <token>`, which is verified here.
  */
-export async function getRequestUser(): Promise<User | null> {
+export async function getRequestUser(): Promise<RequestUser | null> {
   if (!isSupabaseConfigured()) return null;
   const auth = (await headers()).get("authorization");
   const token = auth?.match(/^Bearer\s+(.+)$/i)?.[1];
   if (token) {
-    const client = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
-    const { data } = await client.auth.getUser(token);
-    return data.user ?? null;
+    const { data, error } = await tokenVerifier().auth.getClaims(token);
+    const claims = error ? null : data?.claims;
+    if (!claims?.sub) return null;
+    return { id: claims.sub, email: typeof claims.email === "string" ? claims.email : undefined };
   }
   const supabase = await getServerSupabase();
-  return supabase ? ((await supabase.auth.getUser()).data.user ?? null) : null;
+  const user = supabase ? ((await supabase.auth.getUser()).data.user ?? null) : null;
+  return user ? { id: user.id, email: user.email } : null;
 }
 
 /**

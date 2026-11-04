@@ -29,26 +29,44 @@ export function setFromRow(r: CatalogSetRow): ExploreSet {
 export async function withPrices(admin: SupabaseClient<Database>, rows: ProductRow[]): Promise<ExploreProduct[]> {
   const ids = rows.map((r) => r.id);
   const prices = new Map<string, { printing: string; market_price: number | null; source_updated_at: string | null }>();
-  // Several printings per product, so keep each request well under the 1,000-row cap.
-  for (let i = 0; i < ids.length; i += 150) {
-    const { data } = await admin.from("product_prices").select("product_id, printing, market_price, source_updated_at").in("product_id", ids.slice(i, i + 150));
-    for (const p of data ?? []) {
-      const prev = prices.get(p.product_id);
-      // Prefer the row with a price; otherwise keep the first.
-      if (!prev || (prev.market_price === null && p.market_price !== null)) prices.set(p.product_id, p);
-    }
-  }
   // Brand names and release dates, from each product's set.
   const setIds = [...new Set(rows.map((r) => r.set_id).filter((x): x is string => Boolean(x)))];
   const brands = new Map<string, string>();
   const released = new Map<string, string>();
-  for (let i = 0; i < setIds.length; i += 300) {
-    const { data } = await admin.from("catalog_sets").select("slug, game_name, release_date").in("slug", setIds.slice(i, i + 300));
-    for (const s of data ?? []) {
-      brands.set(s.slug, s.game_name);
-      if (s.release_date) released.set(s.slug, s.release_date);
-    }
+  // Prices and sets are independent: both at once. Several printings per product, so each
+  // request stays well under the 1,000-row cap.
+  const priceChunks: PromiseLike<void>[] = [];
+  for (let i = 0; i < ids.length; i += 150) {
+    priceChunks.push(
+      admin
+        .from("product_prices")
+        .select("product_id, printing, market_price, source_updated_at")
+        .in("product_id", ids.slice(i, i + 150))
+        .then(({ data }) => {
+          for (const p of data ?? []) {
+            const prev = prices.get(p.product_id);
+            // Prefer the row with a price; otherwise keep the first.
+            if (!prev || (prev.market_price === null && p.market_price !== null)) prices.set(p.product_id, p);
+          }
+        }),
+    );
   }
+  const setChunks: PromiseLike<void>[] = [];
+  for (let i = 0; i < setIds.length; i += 300) {
+    setChunks.push(
+      admin
+        .from("catalog_sets")
+        .select("slug, game_name, release_date")
+        .in("slug", setIds.slice(i, i + 300))
+        .then(({ data }) => {
+          for (const s of data ?? []) {
+            brands.set(s.slug, s.game_name);
+            if (s.release_date) released.set(s.slug, s.release_date);
+          }
+        }),
+    );
+  }
+  await Promise.all([...priceChunks, ...setChunks]);
   return rows.map((r) => {
     const p = prices.get(r.id);
     return {

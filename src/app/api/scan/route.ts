@@ -26,31 +26,35 @@ export async function POST(req: Request) {
   // Each step is timed; the laps come back with the result so a slow scan says where its
   // seconds went (and the Vercel log keeps a line per scan).
   const clock = new Stopwatch();
-  // Sign-in and the daily allowance are checked at the same time (each is a database trip).
-  const [signedIn, withinQuota] = await Promise.all([authorized(), takeQuota(req, "scan")]);
+  // Who is asking (checked on this server, no round trip) while the photo is read in.
+  const [user, formResult] = await Promise.all([
+    isSupabaseConfigured() ? getRequestUser() : ({ id: "local" } as const),
+    req.formData().then(
+      (form) => ({ form, error: null }),
+      () => ({ form: null, error: "Send the photo as form data." }),
+    ),
+  ]);
   clock.lap("auth");
-  if (!signedIn) return fail("unauthorized", "Sign in to scan.", 401);
+  if (!user) return fail("unauthorized", "Sign in to scan.", 401);
   if (!allowRequest(clientKey(req, "scan"), 20, 40)) return fail("rate_limited", "Scanning too fast. Give it a second.", 429);
-
-  let image: File | null = null;
-  try {
-    const form = await req.formData();
-    const f = form.get("image");
-    image = f instanceof File ? f : null;
-  } catch {
-    return fail("bad_image", "Send the photo as form data.", 400);
-  }
-  clock.lap("form");
+  if (!formResult.form) return fail("bad_image", formResult.error ?? "Send the photo as form data.", 400);
+  const f = formResult.form.get("image");
+  const image = f instanceof File ? f : null;
   if (!image || !/^image\/(jpeg|png|webp)$/.test(image.type)) return fail("bad_image", "Send a JPEG, PNG or WebP photo.", 400);
   if (image.size > MAX_IMAGE_BYTES) return fail("bad_image", "That photo is over 8 MB.", 400);
-  // Each scan is paid for, so each person has a daily allowance.
-  if (!withinQuota) return NextResponse.json(overLimit("scans"), { status: 429 });
+  // Each scan is paid for, so each person has a daily allowance. It's counted while the
+  // scanner works rather than before (a database trip off the wait); someone over the limit
+  // gets their answer refused after one more paid call, which is the cheaper trade.
+  const quota = takeQuota(req, "scan", isSupabaseConfigured() ? user : null);
 
   try {
     const game = new URL(req.url).searchParams.get("game") ?? undefined;
     // CardSight AI when its key is set on the server; otherwise TCG API's scanner.
     const result = cardSightConfigured() ? await identifyWithCardSight(image, { game, clock }) : await identifyPhoto(image, { game });
     if (!cardSightConfigured()) clock.lap("identify");
+    const withinQuota = await quota;
+    clock.lap("quota");
+    if (!withinQuota) return NextResponse.json(overLimit("scans"), { status: 429 });
     const timing = clock.report();
     console.log("scan timing", JSON.stringify({ ...timing, bytes: image.size, status: result.status }));
     return NextResponse.json({ ...result, timing }, { headers: { "Server-Timing": clock.header() } });

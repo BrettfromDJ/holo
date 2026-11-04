@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../supabase/database.types";
-import { getAdminSupabase, getRequestUser } from "../supabase/server";
+import { getAdminSupabase, getRequestUser, type RequestUser } from "../supabase/server";
 
 const HOUR = 60 * 60 * 1000;
 
@@ -39,10 +39,11 @@ export const DAILY_LIMITS = {
  * Count one paid action for whoever is asking (their account, or their address when signed
  * out) and say whether it's within today's limit. Without a database it always allows.
  */
-export async function takeQuota(req: Request, action: keyof typeof DAILY_LIMITS): Promise<boolean> {
+export async function takeQuota(req: Request, action: keyof typeof DAILY_LIMITS, asking?: RequestUser | null): Promise<boolean> {
   const admin = getAdminSupabase();
   if (!admin) return true;
-  const user = await getRequestUser().catch(() => null);
+  // The caller usually knows who is asking already; otherwise look it up.
+  const user = asking !== undefined ? asking : await getRequestUser().catch(() => null);
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "local";
   const who = user ? `user:${user.id}` : `ip:${ip}`;
   const { data, error } = await (admin as unknown as SupabaseClient<Database>).rpc("take_quota", { p_who: who, p_action: action, p_limit: DAILY_LIMITS[action] });
