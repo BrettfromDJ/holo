@@ -29,6 +29,9 @@ struct ScanView: View {
     @State private var searchingManually = false
     /// A scanned card's page, open over the scanner (tap a matched card in the strip).
     @State private var viewing: ViewedProduct?
+    /// The strip opened out into a list over the camera (tap the card count), to look through
+    /// what's been scanned; tap again to go back to scanning.
+    @State private var expanded = false
     /// "Tap the card to scan it", until the first tap ever.
     @State private var showTip = !UserDefaults.standard.bool(forKey: "scan-tip-seen")
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -69,6 +72,7 @@ struct ScanView: View {
         // Live tracking only while the scanner can be seen.
         .onChange(of: reviewing) { _, _ in syncTracking() }
         .onChange(of: viewing) { _, _ in syncTracking() }
+        .onChange(of: expanded) { _, _ in syncTracking() }
         // Search manually covers the scanner and has a scanner of its own: this camera is let
         // go while it's up (two at once would fight over the lens) and taken back after.
         .onChange(of: searchingManually) { _, searching in
@@ -245,16 +249,41 @@ struct ScanView: View {
                 Text(dealSide == nil ? "This scan" : (dealSide == .incoming ? "Coming in" : "Going out"))
                     .font(.geist(16, .semibold))
                 Spacer()
-                Text("\(model.entries.count) card\(model.entries.count == 1 ? "" : "s")")
-                    .font(.geist(13, .medium)).monospacedDigit()
-                    .contentTransition(.numericText())
+                // The count opens the strip out into a list (and closes it again).
+                Button {
+                    withAnimation(reduceMotion ? nil : .snappy(duration: 0.3)) { expanded.toggle() }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text("\(model.entries.count) card\(model.entries.count == 1 ? "" : "s")")
+                            .font(.geist(13, .medium)).monospacedDigit()
+                            .contentTransition(.numericText())
+                        Image(systemName: "chevron.up").font(.system(size: 11, weight: .semibold))
+                            .rotationEffect(.degrees(expanded ? 180 : 0))
+                    }
                     .padding(.horizontal, 12).frame(height: 30)
-                    .background(Capsule().fill(Color.white.opacity(0.1)))
+                    .background(Capsule().fill(Color.white.opacity(expanded ? 0.18 : 0.1)))
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(model.entries.isEmpty)
+                .accessibilityLabel(expanded ? "Back to the strip" : "See all scanned cards")
             }
             .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 12)
             Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
             Group {
-                if model.entries.isEmpty {
+                if expanded {
+                    // Every scan, top to bottom, newest first.
+                    ScrollView(showsIndicators: false) {
+                        LazyVStack(spacing: 8) {
+                            ForEach(model.entries) { e in
+                                chip(e, fills: true)
+                                    .transition(.opacity)
+                            }
+                        }
+                        .padding(.horizontal, 20).padding(.vertical, 8)
+                    }
+                    .scrollClipDisabled()
+                } else if model.entries.isEmpty {
                     HStack(spacing: 12) {
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
@@ -272,21 +301,8 @@ struct ScanView: View {
                         LazyHStack(spacing: 8) {
                             // Newest first, so the card you just scanned lands on the left.
                             ForEach(model.entries) { e in
-                                ScanChip(entry: e, onTap: {
-                                    // A matched card opens its page; anything else goes to the review
-                                    // (to pick between matches), and a failed read is tried again.
-                                    if e.state == .failed {
-                                        model.retry(e.id)
-                                    } else if e.state == .done, let p = e.picked?.product {
-                                        viewing = ViewedProduct(id: p.id)
-                                    } else {
-                                        focused = e.id
-                                        reviewing = true
-                                    }
-                                }, onRemove: {
-                                    withAnimation(.snappy) { model.remove(e.id) }
-                                })
-                                .transition(.scale(scale: 0.6).combined(with: .opacity))
+                                chip(e, fills: false)
+                                    .transition(.scale(scale: 0.6).combined(with: .opacity))
                             }
                         }
                         .padding(.horizontal, 20)
@@ -296,7 +312,7 @@ struct ScanView: View {
                     .scrollClipDisabled()
                 }
             }
-            .frame(height: 128)
+            .frame(height: expanded ? min(CGFloat(model.entries.count) * 120 + 16, 480) : 128)
             .padding(.vertical, 4)
             Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
             HStack(spacing: 10) {
@@ -348,6 +364,24 @@ struct ScanView: View {
         }
     }
 
+    /// One scan's tile, in the strip (fixed width) or the opened-out list (full width).
+    private func chip(_ e: ScanModel.Entry, fills: Bool) -> some View {
+        ScanChip(entry: e, fills: fills, onTap: {
+            // A matched card opens its page; anything else goes to the review (to pick
+            // between matches), and a failed read is tried again.
+            if e.state == .failed {
+                model.retry(e.id)
+            } else if e.state == .done, let p = e.picked?.product {
+                viewing = ViewedProduct(id: p.id)
+            } else {
+                focused = e.id
+                reviewing = true
+            }
+        }, onRemove: {
+            withAnimation(.snappy) { model.remove(e.id) }
+        })
+    }
+
     private func glassCircle(_ icon: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon).font(.system(size: 16, weight: .semibold))
@@ -362,7 +396,7 @@ struct ScanView: View {
 
     /// Process camera frames only while the scanner is up and nothing covers it.
     private func syncTracking() {
-        let on = camera.state == .running && !reviewing && !searchingManually && viewing == nil
+        let on = camera.state == .running && !reviewing && !searchingManually && viewing == nil && !expanded
         camera.setTracking(on)
         tracker.active = on
     }
@@ -499,6 +533,8 @@ private struct ScanSweep: View {
 /// not glass: glass on the glass tray looked like a smudge.
 struct ScanChip: View {
     var entry: ScanModel.Entry
+    /// Full width (in the opened-out list) rather than a fixed strip tile.
+    var fills = false
     var onTap: () -> Void
     var onRemove: () -> Void = {}
 
@@ -516,7 +552,8 @@ struct ScanChip: View {
                 Spacer(minLength: 0)
             }
             .padding(10)
-            .frame(width: 256, height: 112)
+            .frame(width: fills ? nil : 256, height: 112)
+            .frame(maxWidth: fills ? .infinity : nil)
             .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.white.opacity(0.1)))
             .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
             .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))

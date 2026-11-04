@@ -17,6 +17,29 @@ struct ScanReviewSheet: View {
         NavigationStack {
             ScrollViewReader { proxy in
                 GlassList {
+                    // The heading sits in the content (no navigation bar on a display sheet):
+                    // how many were scanned, and a glass pill back to the camera.
+                    Section {
+                        HStack(spacing: 12) {
+                            Text("\(model.entries.count) scanned").font(.display(26)).tracking(-0.7).foregroundStyle(.white)
+                            Spacer()
+                            Button { dismiss() } label: {
+                                HStack(spacing: 7) {
+                                    Image(systemName: "camera.fill").font(.system(size: 14, weight: .semibold))
+                                    Text("Camera").font(.geist(14, .semibold))
+                                }
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 14).frame(height: 38)
+                                .contentShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .background { Color.clear.liquidGlass(in: Capsule()).allowsHitTesting(false) }
+                            .accessibilityLabel("Back to camera")
+                        }
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets(top: 6, leading: 20, bottom: 4, trailing: 20))
+                        .listRowSeparator(.hidden)
+                    }
                     ForEach($model.entries) { $entry in
                         ReviewRow(entry: $entry, inDeal: model.onPick != nil, onPick: { model.pick($0, for: entry.id) }, onRetry: { model.retry(entry.id) },
                                   onRemove: { withAnimation(.snappy) { model.remove(entry.id) } })
@@ -39,11 +62,7 @@ struct ScanReviewSheet: View {
             }
             // A matched card's picture and name lead to its page.
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
-            .navigationTitle("\(model.entries.count) scanned")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Back to camera") { dismiss() } }
-            }
+            .toolbar(.hidden, for: .navigationBar)
             .safeAreaInset(edge: .bottom) {
                 if model.onPick == nil {
                     footer
