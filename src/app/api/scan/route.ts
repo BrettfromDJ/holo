@@ -3,6 +3,7 @@ import { cardSightConfigured, identifyWithCardSight } from "@/lib/pricing/cardsi
 import { identifyPhoto, MAX_IMAGE_BYTES, ScanFailure, scanBalance } from "@/lib/pricing/identify";
 import { overLimit, takeQuota } from "@/lib/server/api-cache";
 import { allowRequest, clientKey } from "@/lib/server/rate-limit";
+import type { ScanResult } from "@/lib/scan-types";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getRequestUser } from "@/lib/supabase/server";
 
@@ -45,10 +46,9 @@ export async function POST(req: Request) {
   try {
     const game = new URL(req.url).searchParams.get("game") ?? undefined;
     // CardSight AI when its key is set on the server; otherwise TCG API's scanner.
-    const result = cardSightConfigured() ? await identifyWithCardSight(image, { game }) : await identifyPhoto(image, { game });
+    const result: ScanResult & { timing?: Record<string, number> } = cardSightConfigured() ? await identifyWithCardSight(image, { game }) : await identifyPhoto(image, { game });
     // How the server's time was spent (checks, then the scanner's own breakdown), for tuning.
-    const inner: Record<string, number> = ("timing" in result && result.timing) || ({} as Record<string, number>);
-    const timing = { checks, ...inner, server: Date.now() - t0 };
+    const timing: Record<string, number> = { checks, ...(result.timing ?? {}), server: Date.now() - t0 };
     return NextResponse.json({ ...result, timing }, { headers: { "x-scan-timing": JSON.stringify(timing) } });
   } catch (err) {
     if (err instanceof ScanFailure) return fail(err.code, err.message, err.status);
