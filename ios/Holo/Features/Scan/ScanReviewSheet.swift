@@ -163,7 +163,6 @@ private struct ReviewRow: View, Equatable {
                 HStack(spacing: 5) {
                     if let line = detail { Text(line).font(.geist(13)).foregroundStyle(.white).monospacedDigit().lineLimit(1) }
                     if owned > 0 { Tag(text: "Owned ×\(owned)", tint: Theme.lime) }
-                    if entry.picked != nil, entry.unsure { Tag(text: "Check", tint: Theme.warn) }
                 }
                 if let note = entry.note {
                     Text(note).font(.geist(12, .medium)).foregroundStyle(entry.rejected ? Theme.down : .white)

@@ -67,7 +67,6 @@ private struct ScanPanel: View {
                         if let g = entry.result?.read?.grade { Tag(text: "\(g.company) \(g.grade)", tint: Theme.lime) }
                         let owned = store.allHoldings.filter { $0.identity.productId == c.product.id }.reduce(0) { $0 + $1.quantity }
                         if owned > 0 { Tag(text: "Owned ×\(Int(owned))", tint: Theme.lime) }
-                        if entry.unsure { Tag(text: "Check it's right", tint: Theme.warn) }
                     }
                 }
                 VStack(alignment: .leading, spacing: 2) {

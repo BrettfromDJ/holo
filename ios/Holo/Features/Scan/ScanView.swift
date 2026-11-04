@@ -588,12 +588,8 @@ struct ScanChip: View {
                         Text(p.subtitle).font(.geist(12)).foregroundStyle(.white).lineLimit(1)
                     }
                     detail.font(.geist(13)).lineLimit(1)
-                    if entry.picked != nil, owned > 0 || entry.unsure {
-                        HStack(spacing: 5) {
-                            if owned > 0 { Tag(text: "Owned ×\(owned)", tint: Theme.lime) }
-                            if entry.unsure { Tag(text: "Check", tint: Theme.warn) }
-                        }
-                        .padding(.top, 1)
+                    if entry.picked != nil, owned > 0 {
+                        Tag(text: "Owned ×\(owned)", tint: Theme.lime).padding(.top, 1)
                     }
                 }
                 Spacer(minLength: 0)

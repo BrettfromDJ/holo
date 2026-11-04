@@ -33,8 +33,6 @@ final class ScanModel {
         var note: String?
         var rejected = false
 
-        /// CardSight was only fairly sure: worth a look before adding.
-        var unsure: Bool { (picked?.score ?? 1) < 0.9 }
         var isSlab: Bool { result?.read?.kind == "slab" }
     }
 
