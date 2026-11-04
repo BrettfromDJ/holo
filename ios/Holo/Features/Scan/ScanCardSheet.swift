@@ -70,7 +70,7 @@ private struct ScanPanel: View {
                     }
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(Format.money(entry.value)).font(.display(30)).tracking(-0.9).monospacedDigit().foregroundStyle(.white)
+                    Text(Format.money(entry.value)).font(.display(30)).tracking(-0.9).padding(.trailing, 0.9).monospacedDigit().foregroundStyle(.white)
                         .contentTransition(.numericText())
                         .animation(.snappy(duration: 0.25), value: entry.value)
                     Text(entry.priceNote ?? "No price yet").font(.geist(12)).foregroundStyle(.white).lineLimit(2)

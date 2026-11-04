@@ -681,7 +681,7 @@ private struct BalanceCard: View {
                     // The pencil says the figure can be tapped to type an amount; one tap target.
                     HStack(alignment: .center, spacing: 6) {
                         CountingText(value: abs(b), format: { Format.money($0) })
-                            .font(.display(60)).tracking(-2.4).monospacedDigit().foregroundStyle(ink).lineLimit(1).minimumScaleFactor(0.5)
+                            .font(.display(60)).tracking(-2.4).padding(.trailing, 2.4).monospacedDigit().foregroundStyle(ink).lineLimit(1).minimumScaleFactor(0.5)
                             .displayTrim(60)
                         if !empty {
                             Image(systemName: "pencil")
@@ -1380,7 +1380,7 @@ private struct CustomerViewSheet: View {
             if even {
                 Text("No cash changes hands").font(.geist(17)).foregroundStyle(Theme.muted)
             } else {
-                Text(Format.money(abs(b))).font(.display(68)).tracking(-2.6).monospacedDigit().foregroundStyle(ink)
+                Text(Format.money(abs(b))).font(.display(68)).tracking(-2.6).padding(.trailing, 2.6).monospacedDigit().foregroundStyle(ink)
                     .lineLimit(1).minimumScaleFactor(0.5).displayTrim(68)
             }
         }
@@ -1444,7 +1444,7 @@ private struct CustomerCardSheet: View {
                     .padding(.horizontal, 20)
                     VStack(spacing: 6) {
                         Text(incoming ? "We pay" : "Price").font(.mono(11)).tracking(1.4).textCase(.uppercase).foregroundStyle(Theme.muted)
-                        Text(Format.money(item.total(side: rate))).font(.display(52)).tracking(-2).monospacedDigit().foregroundStyle(.white)
+                        Text(Format.money(item.total(side: rate))).font(.display(52)).tracking(-2).padding(.trailing, 2).monospacedDigit().foregroundStyle(.white)
                             .lineLimit(1).minimumScaleFactor(0.5)
                         if item.qty > 1 {
                             Text("\(item.qty) × \(Format.money(item.unitPrice(side: rate)))").font(.geist(15)).monospacedDigit().foregroundStyle(Theme.muted)

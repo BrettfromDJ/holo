@@ -417,7 +417,7 @@ private struct ScanTray: View {
             Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(Format.money(model.total)).font(.display(28)).tracking(-0.8).monospacedDigit()
+                    Text(Format.money(model.total)).font(.display(28)).tracking(-0.8).padding(.trailing, 0.8).monospacedDigit()
                         .contentTransition(.numericText())
                         .lineLimit(1).minimumScaleFactor(0.6)
                     Text(model.picks.isEmpty ? "Total value" : "\(model.picks.count) matched").font(.geist(12)).foregroundStyle(.white)

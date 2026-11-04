@@ -793,6 +793,9 @@ extension HoldingView {
 
 // MARK: - Display type
 
+// A big number with tight tracking needs `.padding(.trailing, <the tracking>)` after `.tracking`:
+// tracking shortens the measured line by that much, so the last digit's right edge otherwise
+// falls outside the text's box and is cut off (seen on the deal card's $735.00).
 extension View {
     /// Anton's line box is about 1.5× its size, with a third of an em of air above the capitals
     /// and below the baseline. This trims that air so headings sit as tight as the website's.
