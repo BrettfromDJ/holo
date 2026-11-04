@@ -185,7 +185,7 @@ final class Camera: NSObject, ObservableObject {
     }
 
     /// Take a photo and return it as a JPEG no larger than `maxEdge` pixels on its long side.
-    func capture(maxEdge: CGFloat = 1400) async throws -> Data {
+    func capture(maxEdge: CGFloat = 1400, quality: CGFloat = 0.85) async throws -> Data {
         let raw: Data = try await withCheckedThrowingContinuation { cont in
             queue.async { [weak self] in
                 guard let self else { return }
@@ -197,10 +197,10 @@ final class Camera: NSObject, ObservableObject {
                 self.output.capturePhoto(with: settings, delegate: self)
             }
         }
-        return Camera.downscale(raw, maxEdge: maxEdge) ?? raw
+        return Camera.downscale(raw, maxEdge: maxEdge, quality: quality) ?? raw
     }
 
-    static func downscale(_ data: Data, maxEdge: CGFloat) -> Data? {
+    static func downscale(_ data: Data, maxEdge: CGFloat, quality: CGFloat = 0.85) -> Data? {
         guard let image = UIImage(data: data) else { return nil }
         let size = image.size
         let scale = min(1, maxEdge / max(size.width, size.height))
@@ -208,7 +208,7 @@ final class Camera: NSObject, ObservableObject {
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
         let resized = UIGraphicsImageRenderer(size: target, format: format).image { _ in image.draw(in: CGRect(origin: .zero, size: target)) }
-        return resized.jpegData(compressionQuality: 0.85)
+        return resized.jpegData(compressionQuality: quality)
     }
 }
 

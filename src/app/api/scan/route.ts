@@ -22,7 +22,9 @@ function fail(code: string, message: string, status: number) {
 }
 
 export async function POST(req: Request) {
-  if (!(await authorized())) return fail("unauthorized", "Sign in to scan.", 401);
+  // Sign-in and the daily allowance are checked at the same time (each is a database trip).
+  const [signedIn, withinQuota] = await Promise.all([authorized(), takeQuota(req, "scan")]);
+  if (!signedIn) return fail("unauthorized", "Sign in to scan.", 401);
   if (!allowRequest(clientKey(req, "scan"), 20, 40)) return fail("rate_limited", "Scanning too fast. Give it a second.", 429);
 
   let image: File | null = null;
@@ -36,7 +38,7 @@ export async function POST(req: Request) {
   if (!image || !/^image\/(jpeg|png|webp)$/.test(image.type)) return fail("bad_image", "Send a JPEG, PNG or WebP photo.", 400);
   if (image.size > MAX_IMAGE_BYTES) return fail("bad_image", "That photo is over 8 MB.", 400);
   // Each scan is paid for, so each person has a daily allowance.
-  if (!(await takeQuota(req, "scan"))) return NextResponse.json(overLimit("scans"), { status: 429 });
+  if (!withinQuota) return NextResponse.json(overLimit("scans"), { status: 429 });
 
   try {
     const game = new URL(req.url).searchParams.get("game") ?? undefined;

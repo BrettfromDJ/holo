@@ -68,6 +68,12 @@ struct ScanView: View {
         }
         .task {
             model.onPick = onPick
+            // The answer appears on the card itself as soon as it's back.
+            model.onResult = { result in
+                if let top = result.candidates.first, result.status == "matched" || result.status == "ambiguous" {
+                    tracker.showResult(name: top.product.name, number: top.product.number, price: top.market)
+                }
+            }
             await model.refreshBalance()
             // CardSight does the identifying: the live border stays, the phone's own read doesn't run.
             if model.cardSight { tracker.identifies = false }
@@ -363,7 +369,9 @@ struct ScanView: View {
         flashOnce()
         Task {
             do {
-                let jpeg = try await camera.capture()
+                // CardSight reads a card fine from a smaller photo, which uploads in about half the time.
+                let small = model.cardSight
+                let jpeg = small ? try await camera.capture(maxEdge: 1000, quality: 0.75) : try await camera.capture()
                 // Crop to the tracked card (off the main thread); the whole photo if that fails.
                 var photo = jpeg
                 // With CardSight the whole photo goes up: it finds every card in it.

@@ -1,6 +1,7 @@
 import "server-only";
 import { matchesNumber, numberPatterns, parseNumberToken } from "../search-match";
 import type { ScanCandidate, ScanResult } from "../scan-types";
+import { dbCached } from "../server/api-cache";
 import { withPrices } from "../server/explore";
 import { getAdminSupabase } from "../supabase/server";
 import type { ProductRow } from "../supabase/database.types";
@@ -112,8 +113,17 @@ async function toResult(detection: CsDetection): Promise<ScanResult> {
     return { status: "not_found", message: "Couldn't tell which card this is. Try again, or search for it.", read, candidates: [], scansRemaining: null };
   }
 
-  const rows = await findInCatalog(card);
   const admin = getAdminSupabase();
+  // Which catalog products this CardSight card is, remembered for 30 days: a card scanned
+  // before skips the catalog search (prices are still read fresh below).
+  const memoKey = `cardsight-map:${card.id ?? [card.name, card.number, card.setName ?? card.releaseName].join("|").toLowerCase()}`;
+  const ids = await dbCached(memoKey, async () => (await findInCatalog(card)).map((r) => r.id), (v) => (v.length ? 30 * 24 * 3600 * 1000 : 0));
+  let rows: ProductRow[] = [];
+  if (admin && ids.length) {
+    const { data } = await admin.from("products").select("*").in("id", ids);
+    const byId = new Map((data ?? []).map((r) => [r.id, r as ProductRow]));
+    rows = ids.map((id) => byId.get(id)).filter((r): r is ProductRow => Boolean(r));
+  }
   const priced = admin && rows.length ? await withPrices(admin, rows) : [];
   const candidates: ScanCandidate[] = priced.map((p, i) => ({
     product: p.product,

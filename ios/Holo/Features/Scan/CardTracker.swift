@@ -133,6 +133,11 @@ final class CardTracker {
         }
     }
 
+    /// A scan's answer (from the server), shown on the card the moment it arrives.
+    func showResult(name: String, number: String?, price: Double?) {
+        label = .matched(name: name, number: number, price: price)
+    }
+
     /// The card is gone (or the scanner paused): forget it and anything read in flight.
     func reset() {
         generation += 1

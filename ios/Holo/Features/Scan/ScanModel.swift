@@ -38,6 +38,9 @@ final class ScanModel {
     /// Try reading the card on the phone before the paid scan (off in demo, where the catalog search isn't real).
     var onDeviceFirst = !Demo.isOn
 
+    /// Told each scan's answer as soon as it arrives (the scanner shows it on the card).
+    var onResult: (@MainActor (ScanResult) -> Void)?
+
     /// Set when scanning into a deal: each confirmed match is handed over straight away.
     var onPick: (@MainActor (ScanCandidate, ScanRead?) -> (ok: Bool, note: String))?
 
@@ -157,6 +160,7 @@ final class ScanModel {
         let others = first.others ?? []
         first.others = nil
         entries[i].result = first
+        onResult?(first)
         if first.status == "matched", let top = first.candidates.first {
             entries[i].picked = top
             hand(i)
