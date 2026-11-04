@@ -368,7 +368,7 @@ struct ScanView: View {
 
     /// One scan's tile, in the strip (fixed width) or the opened-out list (full width).
     private func chip(_ e: ScanModel.Entry, fills: Bool) -> some View {
-        ScanChip(entry: e, fills: fills, onTap: {
+        ScanChip(entry: e, fills: fills) {
             // A matched card opens its page; anything else goes to the review (to pick
             // between matches), and a failed read is tried again.
             if e.state == .failed {
@@ -379,9 +379,7 @@ struct ScanView: View {
                 focused = e.id
                 reviewing = true
             }
-        }, onRemove: {
-            withAnimation(.snappy) { model.remove(e.id) }
-        })
+        }
     }
 
     private func glassCircle(_ icon: String, label: String, action: @escaping () -> Void) -> some View {
@@ -531,21 +529,17 @@ private struct ScanSweep: View {
 }
 
 /// A scan in the strip: the card's picture, what it matched (name, set, number and price), or
-/// what it still needs. A long press shows a Remove button on the tile itself (a system menu
-/// would blur the live camera behind, which lags). A faint white tile with a hairline, not
-/// glass: glass on the glass tray looked like a smudge.
+/// what it still needs. Removing is done in the opened-out list (a swipe) or the review; the
+/// tile itself only opens the card. A faint white tile with a hairline, not glass: glass on
+/// the glass tray looked like a smudge.
 struct ScanChip: View {
     var entry: ScanModel.Entry
     /// Full width (in the opened-out list) rather than a fixed strip tile.
     var fills = false
     var onTap: () -> Void
-    var onRemove: () -> Void = {}
-    /// After a long press: the Remove button is up (until tapped, tapped away, or 3 s).
-    @State private var armed = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        Button(action: { if armed { disarm() } else { onTap() } }) {
+        Button(action: onTap) {
             HStack(spacing: 12) {
                 thumb.frame(width: 66, height: 92).clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                 VStack(alignment: .leading, spacing: 3) {
@@ -565,41 +559,7 @@ struct ScanChip: View {
             .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
         .buttonStyle(.plain)
-        .overlay {
-            if armed {
-                RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.black.opacity(0.45))
-                    .overlay {
-                        Button {
-                            disarm()
-                            onRemove()
-                        } label: {
-                            Label("Remove", systemImage: "trash.fill").font(.geist(14, .semibold)).foregroundStyle(.white)
-                                .padding(.horizontal, 16).frame(height: 40)
-                                .background(Capsule().fill(Theme.planPink))
-                                .contentShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                    .onTapGesture { disarm() }
-                    .transition(.opacity)
-            }
-        }
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: armed)
-        .simultaneousGesture(LongPressGesture(minimumDuration: 0.35).onEnded { _ in
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            armed = true
-        })
-        // Put away by itself after a few seconds.
-        .task(id: armed) {
-            guard armed else { return }
-            try? await Task.sleep(for: .seconds(3))
-            if !Task.isCancelled { armed = false }
-        }
-        .accessibilityAction(named: "Remove") { onRemove() }
     }
-
-    private func disarm() { armed = false }
 
     @ViewBuilder private var thumb: some View {
         if let p = entry.picked?.product {
