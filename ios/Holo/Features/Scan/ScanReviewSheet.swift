@@ -74,17 +74,14 @@ struct ScanReviewSheet: View {
         .presentationDragIndicator(.visible)
     }
 
+    /// What a blank price means (bought at market, or pulled for $0) as a chip pair in the
+    /// app's own style, then the Add button. Sits on the sheet's glass under a hairline.
     private var footer: some View {
         VStack(spacing: 12) {
-            HStack {
-                Text("If you leave a price blank, you paid").font(.footnote).foregroundStyle(Theme.muted)
+            HStack(spacing: 12) {
+                Text("Blank price means").font(.geist(13, .medium)).foregroundStyle(.white)
                 Spacer()
-                Picker("", selection: $pulled) {
-                    Text("Market").tag(false)
-                    Text("$0 (pulled)").tag(true)
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 170)
+                ChipPicker(options: [(false, "Paid market"), (true, "Pulled, $0")], selection: $pulled)
             }
             Button {
                 Task { await add() }
@@ -94,8 +91,9 @@ struct ScanReviewSheet: View {
             .buttonStyle(LimeButtonStyle())
             .disabled(saving || model.picks.isEmpty)
         }
-        .padding(16)
-        .background(.bar)
+        .padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 8)
+        .background(alignment: .top) { Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1) }
+        .background(Color.black.opacity(0.18))
     }
 
     private func add() async {
