@@ -55,7 +55,10 @@ export async function POST(req: Request) {
     console.log("scan timing", JSON.stringify({ ...timing, bytes: image.size, status: result.status }));
     return NextResponse.json({ ...result, timing }, { headers: { "Server-Timing": clock.header() } });
   } catch (err) {
-    if (err instanceof ScanFailure) return fail(err.code, err.message, err.status);
+    if (err instanceof ScanFailure) {
+      console.error("scan failed", err.code, err.status, err.message);
+      return fail(err.code, err.message, err.status);
+    }
     console.error(err);
     return fail("upstream", "The scanner had a problem. Try again.", 502);
   }

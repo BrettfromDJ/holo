@@ -88,6 +88,8 @@ export async function identifyWithCardSight(image: Blob, opts: { game?: string; 
   const body = (await res.json().catch(() => null)) as (CsResult & { data?: CsResult; error?: { message?: string } | string; message?: string }) | null;
   opts.clock?.lap("cardsight");
   if (!res.ok) {
+    // What CardSight said, for the Vercel log (never the key).
+    console.error("cardsight error", res.status, JSON.stringify(body).slice(0, 500));
     if (res.status === 429) throw new ScanFailure("rate_limited", "Scanning too fast. Give it a second.", 429);
     if (res.status === 402) throw new ScanFailure("scan_balance_empty", "You're out of CardSight scans.", 402);
     if (res.status === 400 || res.status === 413 || res.status === 415) throw new ScanFailure("bad_image", "That photo couldn't be read.", 400);
@@ -95,6 +97,7 @@ export async function identifyWithCardSight(image: Blob, opts: { game?: string; 
     throw new ScanFailure("upstream", "The scanner had a problem. Try again.", 502);
   }
   const data: CsResult = body?.data ?? body ?? {};
+  console.log("cardsight reply", JSON.stringify({ status: res.status, success: data.success, detections: data.detections?.length ?? null, messages: data.messages ?? null, keys: Object.keys(body ?? {}) }).slice(0, 600));
   const found = (data.detections ?? []).filter((d) => d.card?.name || d.grading);
   if (!found.length) {
     return { status: "retake", message: "No card found in the photo. Fill the frame with the card and try again.", read: null, candidates: [], scansRemaining: null };
