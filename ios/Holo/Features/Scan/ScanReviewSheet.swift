@@ -1,6 +1,8 @@
 import SwiftUI
 
-/// After scanning: pick between close matches, set condition and what you paid, then add them all.
+/// After scanning: a checklist of what was scanned, what each is worth and what you paid. Tap a
+/// row to open it close up (condition, printing, price, the right card, remove); swipe to
+/// remove; then add them all.
 struct ScanReviewSheet: View {
     @Bindable var model: ScanModel
     var focus: UUID?
@@ -10,80 +12,82 @@ struct ScanReviewSheet: View {
     @State private var pulled = false
     @State private var saving = false
     @State private var error: String?
-    /// The scan whose match is being swapped for the right card (search opens).
-    @State private var fixing: Fixing?
-    private struct Fixing: Identifiable { let id: UUID }
+    /// The scan open close up.
+    @State private var editing: EditingScan?
 
     var body: some View { sheetBody.presentationDetents([.fraction(0.93)]).glassSheet() }
 
     @ViewBuilder private var sheetBody: some View {
-        NavigationStack {
-            ScrollViewReader { proxy in
-                GlassList {
-                    // The heading sits in the content (no navigation bar on a display sheet):
-                    // how many were scanned, and a glass pill back to the camera.
-                    Section {
-                        HStack(spacing: 12) {
+        ScrollViewReader { proxy in
+            GlassList {
+                // The heading sits in the content (no navigation bar on a display sheet):
+                // how many were scanned and what they're worth, and a glass pill back to the camera.
+                Section {
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 2) {
                             Text("\(model.entries.count) scanned").font(.display(26)).tracking(-0.7).foregroundStyle(.white)
-                            Spacer()
-                            Button { dismiss() } label: {
-                                HStack(spacing: 7) {
-                                    Image(systemName: "camera.fill").font(.system(size: 14, weight: .semibold))
-                                    Text("Camera").font(.geist(14, .semibold))
-                                }
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 14).frame(height: 38)
-                                .contentShape(Capsule())
-                            }
-                            .buttonStyle(.plain)
-                            .background { Color.clear.liquidGlass(in: Capsule()).allowsHitTesting(false) }
-                            .accessibilityLabel("Back to camera")
+                            Text("\(model.picks.count) matched · \(Format.money(model.total))").font(.geist(13)).foregroundStyle(.white).monospacedDigit()
                         }
-                        .listRowBackground(Color.clear)
-                        .listRowInsets(EdgeInsets(top: 6, leading: 20, bottom: 4, trailing: 20))
-                        .listRowSeparator(.hidden)
-                    }
-                    ForEach(model.entries) { entry in
-                        // Rows are compared by value: a keystroke in one Paid field redraws
-                        // that row, not every row.
-                        ReviewRow(entry: entry, inDeal: model.onPick != nil, onPick: { model.pick($0, for: entry.id) }, onRetry: { model.retry(entry.id) },
-                                  onRemove: { withAnimation(.snappy) { model.remove(entry.id) } },
-                                  onWrong: { fixing = Fixing(id: entry.id) },
-                                  onPaid: { model.setPaid(entry.id, $0) }, onCondition: { model.setCondition(entry.id, $0) })
-                            .equatable()
-                            .id(entry.id)
-                            .listRowBackground(Color.white.opacity(0.07))
-                            // Swipe left: pink with a trash icon, like a deal card's.
-                            .swipeActions {
-                                Button(role: .destructive) { withAnimation(.snappy) { model.remove(entry.id) } } label: {
-                                    Label("Remove", systemImage: "trash.fill")
-                                }
-                                .tint(Theme.planPink)
+                        Spacer()
+                        Button { dismiss() } label: {
+                            HStack(spacing: 7) {
+                                Image(systemName: "camera.fill").font(.system(size: 14, weight: .semibold))
+                                Text("Camera").font(.geist(14, .semibold))
                             }
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 14).frame(height: 38)
+                            .contentShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .background { Color.clear.liquidGlass(in: Capsule()).allowsHitTesting(false) }
+                        .accessibilityLabel("Back to camera")
                     }
-                    if let error {
-                        Text(error).foregroundStyle(Theme.down)
-                    }
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 6, leading: 20, bottom: 4, trailing: 20))
+                    .listRowSeparator(.hidden)
                 }
-                .scrollContentBackground(.hidden)
-                .onAppear { if let focus { proxy.scrollTo(focus, anchor: .center) } }
+                ForEach(model.entries) { entry in
+                    // Rows are compared by value: a change to one scan redraws that row alone.
+                    ReviewRow(entry: entry, owned: owned(entry))
+                        .equatable()
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            if entry.state == .failed { model.retry(entry.id) }
+                            editing = EditingScan(id: entry.id)
+                        }
+                        .id(entry.id)
+                        .listRowBackground(Color.white.opacity(0.07))
+                        // Swipe: pink with a trash icon, like a deal card's.
+                        .swipeActions {
+                            Button(role: .destructive) { withAnimation(.snappy) { model.remove(entry.id) } } label: {
+                                Label("Remove", systemImage: "trash.fill")
+                            }
+                            .tint(Theme.planPink)
+                        }
+                }
+                if let error {
+                    Text(error).foregroundStyle(Theme.down)
+                }
             }
-            // A matched card's picture and name lead to its page.
-            .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
-            .toolbar(.hidden, for: .navigationBar)
-            .safeAreaInset(edge: .bottom) {
-                if model.onPick == nil {
-                    footer
-                } else {
-                    Button("Done") { dismiss() }.buttonStyle(LimeButtonStyle()).padding(16).background(.bar)
-                }
+            .scrollContentBackground(.hidden)
+            .onAppear { if let focus { proxy.scrollTo(focus, anchor: .center) } }
+        }
+        .safeAreaInset(edge: .bottom) {
+            if model.onPick == nil {
+                footer
+            } else {
+                Button("Done") { dismiss() }.buttonStyle(LimeButtonStyle()).padding(16)
             }
         }
-        .presentationDragIndicator(.visible)
-        // Pick the right card from search; the scan's entry takes it over.
-        .sheet(item: $fixing) { f in
-            SearchScreen(mode: .add, onPick: { hit in model.replace(f.id, with: hit) })
+        .sheet(item: $editing) { e in
+            ScanCardSheet(model: model, id: e.id, onRemove: { withAnimation(.snappy) { model.remove(e.id) } })
         }
+    }
+
+    /// How many of this card you already have.
+    private func owned(_ e: ScanModel.Entry) -> Int {
+        guard let id = e.picked?.product.id else { return 0 }
+        return Int(store.allHoldings.filter { $0.identity.productId == id }.reduce(0) { $0 + $1.quantity })
     }
 
     /// What a blank price means (bought at market, or pulled for $0) as a chip pair in the
@@ -129,109 +133,12 @@ struct ScanReviewSheet: View {
     }
 }
 
+/// One line of the checklist: picture, name, set and number, condition and price, what you paid.
 private struct ReviewRow: View, Equatable {
     var entry: ScanModel.Entry
-    var inDeal = false
-    var onPick: (ScanCandidate) -> Void
-    var onRetry: () -> Void
-    var onRemove: () -> Void
-    var onWrong: () -> Void
-    var onPaid: (String) -> Void
-    var onCondition: (String) -> Void
-
-    /// Same scan, same values: nothing to redraw (the closures don't count).
-    static func == (a: ReviewRow, b: ReviewRow) -> Bool { a.entry == b.entry && a.inDeal == b.inDeal }
+    var owned = 0
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 12) {
-                // The picture and name: a link to the card's page once it has matched.
-                Group {
-                    if let p = entry.picked?.product {
-                        NavigationLink(value: p.id) { heading }.buttonStyle(.plain)
-                    } else {
-                        heading
-                    }
-                }
-                Spacer()
-                if entry.picked != nil {
-                    Text(Format.money(entry.value)).font(.subheadline.weight(.semibold)).monospacedDigit()
-                } else if entry.state == .failed {
-                    Button("Retry", action: onRetry).font(.footnote)
-                } else if entry.state == .queued || entry.state == .reading {
-                    ProgressView()
-                }
-                // Plain to see, as on a deal card; swiping left works too.
-                Button(action: onRemove) {
-                    Image(systemName: "trash").font(.system(size: 13, weight: .medium)).foregroundStyle(.white)
-                        .frame(width: 30, height: 30)
-                        .background(Circle().fill(Color.white.opacity(0.12)))
-                        .contentShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Remove \(title)")
-            }
-
-            // Close matches: tap the right one.
-            if entry.state == .done, let candidates = entry.result?.candidates, candidates.count > 1 || entry.picked == nil, !candidates.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(Array(candidates.prefix(5).enumerated()), id: \.offset) { _, c in
-                            Button { onPick(c) } label: {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    ProductImage(product: c.product, cornerRadius: 5).frame(width: 70, height: 96)
-                                    Text(c.product.name).font(.caption2.weight(.medium)).lineLimit(1)
-                                    Text(c.product.number.map { "#\($0)" } ?? "").font(.caption2).foregroundStyle(Theme.muted)
-                                }
-                                .frame(width: 80)
-                                .padding(6)
-                                .background(entry.picked == c ? Theme.lime.opacity(0.18) : Theme.surface2, in: RoundedRectangle(cornerRadius: 10))
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
-            }
-
-            if let note = entry.note {
-                Text(note).font(.caption.weight(.medium)).foregroundStyle(entry.rejected ? Theme.down : Theme.muted)
-            }
-            if let picked = entry.picked, !inDeal {
-                HStack(spacing: 10) {
-                    // Matched the wrong card (even a confident match, even another game): pick
-                    // the right one from search.
-                    Button(action: onWrong) {
-                        Text("Wrong card?").font(.geist(12, .medium)).foregroundStyle(.white)
-                            .padding(.horizontal, 10).frame(height: 30)
-                            .background(Capsule().fill(Color.white.opacity(0.12)))
-                            .contentShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Wrong card? Pick the right one")
-                    if !picked.product.isSealed && entry.result?.read?.kind != "slab" {
-                        Picker("Condition", selection: Binding(get: { entry.condition }, set: onCondition)) {
-                            ForEach(CardCondition.allCases) { Text($0.short).tag($0.rawValue) }
-                        }
-                        .pickerStyle(.menu)
-                        .fixedSize()
-                    }
-                    Spacer()
-                    Text("Paid").font(.footnote).foregroundStyle(Theme.muted)
-                    TextField(Format.money(entry.value ?? 0), text: Binding(get: { entry.paid }, set: onPaid))
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                        .monospacedDigit()
-                        .frame(width: 90)
-                        .padding(.horizontal, 10)
-                        .frame(height: 36)
-                        .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 10))
-                }
-            }
-        }
-        .padding(.vertical, 6)
-    }
-
-    private var heading: some View {
         HStack(spacing: 12) {
             Group {
                 if let p = entry.picked?.product {
@@ -239,29 +146,55 @@ private struct ReviewRow: View, Equatable {
                 } else if let img = entry.thumbnail {
                     Image(uiImage: img).resizable().scaledToFill()
                 } else {
-                    Theme.surface2
+                    Color.white.opacity(0.08)
                 }
             }
-            .frame(width: 44, height: 60)
-            .clipShape(RoundedRectangle(cornerRadius: 5))
+            .frame(width: 48, height: 66)
+            .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.subheadline.weight(.semibold))
-                if let c = entry.picked {
-                    Text([c.product.subtitle, c.printing, entry.result?.read?.grade.map { "\($0.company) \($0.grade)" }]
-                        .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "))
-                        .font(.caption).foregroundStyle(Theme.muted).lineLimit(2)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(.geist(15, .semibold)).foregroundStyle(.white).lineLimit(1)
+                if let p = entry.picked?.product {
+                    Text(p.subtitle).font(.geist(12)).foregroundStyle(.white).lineLimit(1)
                 } else if let message = entry.error ?? entry.result?.message {
-                    Text(message).font(.caption).foregroundStyle(Theme.muted)
+                    Text(message).font(.geist(12)).foregroundStyle(.white).lineLimit(2)
                 }
+                HStack(spacing: 5) {
+                    if let line = detail { Text(line).font(.geist(13)).foregroundStyle(.white).monospacedDigit().lineLimit(1) }
+                    if owned > 0 { Tag(text: "Owned ×\(owned)", tint: Theme.lime) }
+                    if entry.picked != nil, entry.unsure { Tag(text: "Check", tint: Theme.warn) }
+                }
+                if let note = entry.note {
+                    Text(note).font(.geist(12, .medium)).foregroundStyle(entry.rejected ? Theme.down : .white)
+                }
+            }
+            Spacer(minLength: 8)
+            VStack(alignment: .trailing, spacing: 3) {
+                if entry.picked != nil {
+                    Text(Format.money(entry.value)).font(.geist(15, .semibold)).foregroundStyle(.white).monospacedDigit()
+                    if !entry.paid.isEmpty { Text("Paid \(entry.paid)").font(.geist(12)).foregroundStyle(.white).monospacedDigit() }
+                } else if entry.state == .queued || entry.state == .reading {
+                    ProgressView().tint(.white)
+                }
+                Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(.white.opacity(0.5))
             }
         }
+        .padding(.vertical, 6)
+    }
+
+    /// Condition (or grade), the printing when the card has several.
+    private var detail: String? {
+        guard let p = entry.picked else { return nil }
+        let condition = entry.isSlab ? entry.result?.read?.grade.map { "\($0.company) \($0.grade)" } : (p.product.isSealed ? nil : CardCondition(rawValue: entry.condition)?.short)
+        let printing = (p.product.printings?.count ?? 0) > 1 ? (entry.printing ?? p.printing) : nil
+        let line = [condition, printing].compactMap { $0 }.joined(separator: " · ")
+        return line.isEmpty ? nil : line
     }
 
     private var title: String {
         switch entry.state {
         case .queued, .reading: return "Reading…"
-        case .failed: return "Couldn't read"
+        case .failed: return "Couldn't read · tap to try again"
         case .done:
             if let p = entry.picked { return p.product.name }
             switch entry.result?.status {

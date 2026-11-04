@@ -27,8 +27,8 @@ struct ScanView: View {
     @State private var focused: UUID?
     @State private var torch = false
     @State private var searchingManually = false
-    /// A scanned card's page, open over the scanner (tap a matched card in the strip).
-    @State private var viewing: ViewedProduct?
+    /// The scan open close up (tap a tile): condition, printing, price, paid, remove.
+    @State private var editing: EditingScan?
     /// The strip opened out into a list over the camera (tap the card count), to look through
     /// what's been scanned; tap again to go back to scanning.
     @State private var expanded = false
@@ -68,7 +68,7 @@ struct ScanView: View {
         }
         // Live tracking only while the scanner can be seen.
         .onChange(of: reviewing) { _, _ in syncTracking() }
-        .onChange(of: viewing) { _, _ in syncTracking() }
+        .onChange(of: editing) { _, _ in syncTracking() }
         .onChange(of: expanded) { _, _ in syncTracking() }
         // Search manually covers the scanner and has a scanner of its own: this camera is let
         // go while it's up (two at once would fight over the lens) and taken back after.
@@ -98,16 +98,9 @@ struct ScanView: View {
         .sheet(isPresented: $reviewing) {
             ScanReviewSheet(model: model, focus: focused, onAdded: { dismiss() })
         }
-        // The card's page, as everywhere else in the app, over the camera.
-        .sheet(item: $viewing) { v in
-            NavigationStack {
-                ProductDetailView(productId: v.id)
-                    .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
-                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { viewing = nil } } }
-            }
-            .presentationDetents([.fraction(0.93)])
-            .presentationDragIndicator(.visible)
-            .glassSheet()
+        // One scan close up, over the camera.
+        .sheet(item: $editing) { e in
+            ScanCardSheet(model: model, id: e.id, onRemove: { withAnimation(.snappy) { model.remove(e.id) } })
         }
     }
 
@@ -193,7 +186,9 @@ struct ScanView: View {
                 }
                 .foregroundStyle(.white)
                 .padding(.horizontal, 16).frame(height: 40)
-                .liquidGlass(in: Capsule())
+                // Solid, not glass: glass over the live picture is re-blurred every frame.
+                .background(Capsule().fill(Color.black.opacity(0.72)))
+                .overlay(Capsule().strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
                 .padding(.bottom, 18)
                 .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .bottom)))
                 .allowsHitTesting(false)
@@ -224,17 +219,10 @@ struct ScanView: View {
                  onNext: { focused = nil; reviewing = true }, onDone: { dismiss() })
     }
 
-    /// A tapped scan: a matched card opens its page; anything else goes to the review (to pick
-    /// between matches), and a failed read is tried again.
+    /// A tapped scan opens close up (a failed read is tried again first).
     private func open(_ e: ScanModel.Entry) {
-        if e.state == .failed {
-            model.retry(e.id)
-        } else if e.state == .done, let p = e.picked?.product {
-            viewing = ViewedProduct(id: p.id)
-        } else {
-            focused = e.id
-            reviewing = true
-        }
+        if e.state == .failed { model.retry(e.id) }
+        editing = EditingScan(id: e.id)
     }
 
     private func glassCircle(_ icon: String, label: String, action: @escaping () -> Void) -> some View {
@@ -259,7 +247,7 @@ struct ScanView: View {
 
     /// Process camera frames only while the scanner is up and nothing covers it.
     private func syncTracking() {
-        let on = camera.state == .running && !reviewing && !searchingManually && viewing == nil && !expanded
+        let on = camera.state == .running && !reviewing && !searchingManually && editing == nil && !expanded
         camera.setTracking(on)
         tracker.active = on
     }
@@ -309,9 +297,9 @@ struct ScanView: View {
     }
 }
 
-/// A product whose page is open over the scanner.
-struct ViewedProduct: Identifiable, Equatable {
-    let id: String
+/// A scan open close up over the scanner.
+struct EditingScan: Identifiable, Equatable {
+    let id: UUID
 }
 
 /// The docked tray: what this scan is and how many, the scans so far (a strip, or opened out
@@ -326,6 +314,7 @@ private struct ScanTray: View {
     var onDone: () -> Void
     @State private var clearing = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(CollectionStore.self) private var store
 
     var body: some View {
         VStack(spacing: 14) {
@@ -345,8 +334,16 @@ private struct ScanTray: View {
         let shape = UnevenRoundedRectangle(topLeadingRadius: 30, topTrailingRadius: 30, style: .continuous)
         return VStack(spacing: 0) {
             HStack {
-                Text(dealSide == nil ? "This scan" : (dealSide == .incoming ? "Coming in" : "Going out"))
-                    .font(.geist(16, .semibold))
+                // What this scan is, and the running total.
+                HStack(spacing: 8) {
+                    Text(dealSide == nil ? "This scan" : (dealSide == .incoming ? "Coming in" : "Going out"))
+                        .font(.geist(16, .semibold))
+                    if !model.picks.isEmpty {
+                        Text(Format.money(model.total)).font(.geist(16, .semibold)).monospacedDigit()
+                            .contentTransition(.numericText())
+                            .foregroundStyle(Theme.lime)
+                    }
+                }
                 Spacer()
                 // The count opens the strip out into a list (and closes it again).
                 Button {
@@ -439,7 +436,7 @@ private struct ScanTray: View {
                     if dealSide != nil { onDone() } else { onNext() }
                 } label: {
                     HStack(spacing: 6) {
-                        Text(dealSide == nil ? "Next" : "Done")
+                        Text(dealSide == nil ? "Review \(model.entries.count)" : "Done")
                         if dealSide == nil { Image(systemName: "arrow.right").font(.system(size: 13, weight: .semibold)) }
                     }
                 }
@@ -462,7 +459,13 @@ private struct ScanTray: View {
 
     /// One scan's tile, in the strip (fixed width) or the opened-out list (full width).
     private func chip(_ e: ScanModel.Entry, fills: Bool) -> some View {
-        ScanChip(entry: e, fills: fills) { onOpen(e) }
+        ScanChip(entry: e, owned: owned(e), fills: fills) { onOpen(e) }
+    }
+
+    /// How many of this card you already have.
+    private func owned(_ e: ScanModel.Entry) -> Int {
+        guard let id = e.picked?.product.id else { return 0 }
+        return Int(store.allHoldings.filter { $0.identity.productId == id }.reduce(0) { $0 + $1.quantity })
     }
 }
 
@@ -477,7 +480,9 @@ private struct ReadingPill: View {
                 Text("\(model.busy) reading").font(.geist(12, .semibold)).foregroundStyle(.white)
             }
             .padding(.horizontal, 12).frame(height: 30)
-            .liquidGlass(in: Capsule())
+            // Solid, not glass: glass over the live picture is re-blurred every frame.
+            .background(Capsule().fill(Color.black.opacity(0.72)))
+            .overlay(Capsule().strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
         }
     }
 }
@@ -565,6 +570,8 @@ private struct ScanSweep: View {
 /// the glass tray looked like a smudge.
 struct ScanChip: View {
     var entry: ScanModel.Entry
+    /// How many of this card you already own (a tag when more than none).
+    var owned = 0
     /// Full width (in the opened-out list) rather than a fixed strip tile.
     var fills = false
     var onTap: () -> Void
@@ -574,11 +581,18 @@ struct ScanChip: View {
             HStack(spacing: 12) {
                 thumb.frame(width: 66, height: 92).clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(title).font(.geist(15, .semibold)).foregroundStyle(.white).lineLimit(2)
-                    if entry.state == .done, let set = entry.picked?.product.setName {
-                        Text(set).font(.geist(12)).foregroundStyle(.white).lineLimit(1)
+                    Text(title).font(.geist(15, .semibold)).foregroundStyle(.white).lineLimit(fills ? 2 : 1)
+                    if entry.state == .done, let p = entry.picked?.product {
+                        Text(p.subtitle).font(.geist(12)).foregroundStyle(.white).lineLimit(1)
                     }
                     detail.font(.geist(13)).lineLimit(1)
+                    if entry.picked != nil, owned > 0 || entry.unsure {
+                        HStack(spacing: 5) {
+                            if owned > 0 { Tag(text: "Owned ×\(owned)", tint: Theme.lime) }
+                            if entry.unsure { Tag(text: "Check", tint: Theme.warn) }
+                        }
+                        .padding(.top, 1)
+                    }
                 }
                 Spacer(minLength: 0)
             }
@@ -622,7 +636,11 @@ struct ScanChip: View {
             if entry.rejected, let note = entry.note {
                 Text(note).foregroundStyle(Theme.down)
             } else if let p = entry.picked {
-                (Text(p.product.number.map { "#\($0) · " } ?? "").foregroundStyle(.white)
+                // Condition (or grade), the printing when the card has several, and the price.
+                let condition = entry.isSlab ? entry.result?.read?.grade.map { "\($0.company) \($0.grade)" } : (p.product.isSealed ? nil : CardCondition(rawValue: entry.condition)?.short)
+                let printing = (p.product.printings?.count ?? 0) > 1 ? (entry.printing ?? p.printing) : nil
+                let lead = [condition, printing].compactMap { $0 }.joined(separator: " · ")
+                (Text(lead.isEmpty ? "" : lead + " · ").foregroundStyle(.white)
                     + Text(Format.money(entry.value)).bold().foregroundStyle(.white))
                     .monospacedDigit()
             } else {

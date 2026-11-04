@@ -24,11 +24,18 @@ final class ScanModel {
         /// What you paid each, as typed; blank uses the default below.
         var paid = ""
         var condition = CardCondition.nearMint.rawValue
+        /// The printing (Normal, Holofoil, Reverse Holofoil); the matched one until you change it.
+        var printing: String?
+        /// What it's worth in this condition and printing (see `reprice`), and where that came from.
+        var value: Double?
+        var priceNote: String?
         /// In a deal: what happened when it was added ("Added to coming in", "Not in your inventory").
         var note: String?
         var rejected = false
 
-        var value: Double? { picked?.value(for: result?.read) }
+        /// CardSight was only fairly sure: worth a look before adding.
+        var unsure: Bool { (picked?.score ?? 1) < 0.9 }
+        var isSlab: Bool { result?.read?.kind == "slab" }
     }
 
     var entries: [Entry] = []
@@ -40,6 +47,11 @@ final class ScanModel {
     var blocked: String?
 
     private let parallel = 2
+    /// Per product, fetched once a scan matches it: TCGplayer's prices by condition, and the
+    /// market price of each printing. Used by `reprice`.
+    private var conditionRows: [String: [ConditionPrice]] = [:]
+    private var printingPrices: [String: [Price]] = [:]
+    private var fetching: Set<String> = []
     /// Try reading the card on the phone before the paid scan (off in demo, where the catalog search isn't real).
     var onDeviceFirst = !Demo.isOn
 
@@ -89,8 +101,68 @@ final class ScanModel {
         e.result = result
         e.thumbnail = thumbnail?.preparingThumbnail(of: CGSize(width: 96, height: 128)) ?? thumbnail
         e.picked = result.candidates.first
+        e.printing = e.picked?.printing
         entries.insert(e, at: 0)
+        reprice(0)
         if e.picked != nil { hand(0) }
+    }
+
+    // MARK: What each scan is worth
+
+    /// Works out `value` for one entry: a slab at its grade's price; otherwise the market price
+    /// of the chosen printing in the chosen condition, the way the Owned sheet does it
+    /// (TCGplayer's price for that condition, then eBay sales in it, then a share of Near Mint).
+    @MainActor
+    private func reprice(_ i: Int) {
+        guard entries.indices.contains(i) else { return }
+        var e = entries[i]
+        guard let c = e.picked else {
+            e.value = nil
+            e.priceNote = nil
+            entries[i] = e
+            return
+        }
+        let id = c.product.id
+        prefetch(c.product)
+        if e.isSlab, let slab = c.slabMarket {
+            e.value = slab
+            e.priceNote = "eBay sales at this grade"
+        } else {
+            let printing = e.printing ?? c.printing
+            let nm = printingPrices[id]?.first(where: { $0.printing == printing })?.market ?? (printing == c.printing ? c.market : nil) ?? c.market
+            if let nm, !c.product.isSealed {
+                let condition = CardCondition(rawValue: e.condition) ?? .nearMint
+                let worth = WorthCalc.raw(nm: nm, condition: condition, ebay: EbaySalesCache.cached(id, printing: printing, market: nm),
+                                          conditions: conditionRows[id] ?? [], printing: printing)
+                e.value = worth.price
+                e.priceNote = worth.detail
+            } else {
+                e.value = nm
+                e.priceNote = nm == nil ? nil : "TCGplayer market price"
+            }
+        }
+        if e.value != entries[i].value || e.priceNote != entries[i].priceNote { entries[i] = e }
+    }
+
+    /// Fetches a product's prices by condition and by printing once, then reprices its scans,
+    /// so the scan sheet opens with the numbers already there.
+    @MainActor
+    private func prefetch(_ product: Product) {
+        let id = product.id
+        guard !product.isSealed, !fetching.contains(id), conditionRows[id] == nil else { return }
+        fetching.insert(id)
+        Task { [weak self] in
+            async let rows = try? Backend.shared.api.conditionPrices(id, printing: nil)
+            async let catalog = try? Backend.shared.api.catalogProduct(id)
+            let (conditions, prices) = await (rows ?? [], catalog?.prices ?? [])
+            await MainActor.run {
+                guard let self else { return }
+                self.conditionRows[id] = conditions
+                if !prices.isEmpty { self.printingPrices[id] = prices }
+                self.fetching.remove(id)
+                for i in self.entries.indices where self.entries[i].picked?.product.id == id { self.reprice(i) }
+            }
+        }
     }
 
     @MainActor
@@ -107,6 +179,8 @@ final class ScanModel {
         // In a deal, each scan is handed over once.
         if onPick != nil, entries[i].picked != nil, !entries[i].rejected { return }
         entries[i].picked = candidate
+        entries[i].printing = candidate.printing
+        reprice(i)
         hand(i)
     }
 
@@ -130,7 +204,9 @@ final class ScanModel {
         entries[i].error = nil
         entries[i].result = result
         entries[i].picked = result.candidates.first
+        entries[i].printing = entries[i].picked?.printing
         entries[i].rejected = false
+        reprice(i)
         if onPick != nil, entries[i].note == nil { hand(i) }
     }
 
@@ -145,6 +221,14 @@ final class ScanModel {
     func setCondition(_ id: UUID, _ value: String) {
         guard let i = entries.firstIndex(where: { $0.id == id }), entries[i].condition != value else { return }
         entries[i].condition = value
+        reprice(i)
+    }
+
+    @MainActor
+    func setPrinting(_ id: UUID, _ value: String?) {
+        guard let i = entries.firstIndex(where: { $0.id == id }), entries[i].printing != value else { return }
+        entries[i].printing = value
+        reprice(i)
     }
 
     @MainActor
@@ -223,6 +307,8 @@ final class ScanModel {
         entries[i].result = first
         if first.status == "matched", let top = first.candidates.first {
             entries[i].picked = top
+            entries[i].printing = top.printing
+            reprice(i)
             hand(i)
         }
         // Every other card in the same photo gets its own entry, right after this one.
@@ -231,9 +317,13 @@ final class ScanModel {
             e.thumbnail = entries[i].thumbnail
             e.state = .done
             e.result = other
-            if other.status == "matched", let top = other.candidates.first { e.picked = top }
+            if other.status == "matched", let top = other.candidates.first {
+                e.picked = top
+                e.printing = top.printing
+            }
             let at = min(i + 1 + n, entries.count)
             entries.insert(e, at: at)
+            reprice(at)
             if e.picked != nil { hand(at) }
         }
         pump()
@@ -260,7 +350,7 @@ final class ScanModel {
             let slab = e.result?.read?.kind == "slab" ? e.result?.read?.grade : nil
             return CollectionStore.Purchase(
                 product: c.product,
-                printing: c.printing,
+                printing: e.printing ?? c.printing,
                 condition: c.product.isSealed ? "Sealed" : (slab != nil ? CardCondition.nearMint.rawValue : e.condition),
                 gradeCompany: slab?.company,
                 grade: slab?.grade,
