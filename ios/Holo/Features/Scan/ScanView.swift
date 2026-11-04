@@ -290,11 +290,14 @@ struct ScanView: View {
                             }
                         }
                         .padding(.horizontal, 20)
+                        .padding(.vertical, 8)
                     }
+                    // A long-pressed tile lifts a little past its edges: don't cut it off.
+                    .scrollClipDisabled()
                 }
             }
-            .frame(height: 112)
-            .padding(.vertical, 12)
+            .frame(height: 128)
+            .padding(.vertical, 4)
             Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 1) {
@@ -517,6 +520,7 @@ struct ScanChip: View {
             .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.white.opacity(0.1)))
             .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
             .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
         .buttonStyle(.plain)
         .contextMenu {
