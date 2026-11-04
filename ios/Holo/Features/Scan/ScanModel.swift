@@ -32,9 +32,9 @@ final class ScanModel {
     }
 
     var entries: [Entry] = []
-    /// Where the last scan's seconds went ("4.8s · camera 0.1 · request 4.2 · ..."), for the
-    /// timing line in the scanner while scanning is being made faster.
-    var lastTiming: String?
+    /// Where the last scan's seconds went ("4.8s · camera 0.1 · request 4.2 · ..."), printed to
+    /// the console (and kept here for a debugger); the server logs its own split on Vercel.
+    @ObservationIgnored var lastTiming: String?
     var scansLeft: Int?
     /// Stops new scans: the balance is empty or the account can't scan.
     var blocked: String?
