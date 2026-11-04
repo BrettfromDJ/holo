@@ -1,14 +1,15 @@
 import AVFoundation
 import SwiftUI
 
-/// Full-screen scanner. Shoot card after card; each lands in a slim strip you can
-/// swipe through. Next opens the review, where you set what you paid and add them all.
+/// Full-screen scanner. Tap the card (or anywhere on the picture) to scan it; each lands in a
+/// strip you can swipe through. Next opens the review, where you set what you paid and add
+/// them all. The first time, a small hint says to tap the card. There is no shutter button.
 ///
 /// Live tracking: while the scanner is on screen and uncovered, the camera finds the card
 /// in view and `CardTracker` follows it; `CardTrackingOverlay` (its own small view, the only
-/// one redrawn per frame) draws the lime border, and the static guide fades out. Tapping the card or the shutter adds it: straight from the live read when it matched
-/// (no paid scan), else as a photo cropped to the card. With no card tracked the shutter works
-/// as before.
+/// one redrawn per frame) draws the lime border, and the static guide fades out. Tapping the
+/// card adds it: straight from the live read when it matched (no paid scan), else as a photo
+/// cropped to the card. With no card tracked a tap scans the whole picture.
 struct ScanView: View {
     /// When scanning into a deal: which side, and where each match goes.
     var dealSide: DealSide?
@@ -24,11 +25,16 @@ struct ScanView: View {
     @State private var torch = false
     @State private var clearing = false
     @State private var searchingManually = false
+    /// "Tap the card to scan it", until the first tap ever.
+    @State private var showTip = !UserDefaults.standard.bool(forKey: "scan-tip-seen")
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
             CameraPreview(session: camera.session, running: camera.state == .running).ignoresSafeArea()
+                .contentShape(Rectangle())
+                .onTapGesture { shoot() }
             CardTrackingOverlay(tracker: tracker, onTap: { shoot() })
             if flash { Color.white.opacity(0.7).ignoresSafeArea().transition(.opacity).allowsHitTesting(false) }
 
@@ -103,49 +109,32 @@ struct ScanView: View {
             }
             .buttonStyle(.plain)
             .background { Color.clear.liquidGlass(in: Capsule()).allowsHitTesting(false) }
-            Group {
-                if let left = model.scansLeft {
-                    Text("\(left.formatted()) left").font(.mono(12)).monospacedDigit()
-                        .padding(.horizontal, 12).frame(height: 44)
-                        .liquidGlass(in: Capsule())
-                } else {
-                    Color.clear.frame(width: 44, height: 44)
+            if let left = model.scansLeft {
+                Text("\(left.formatted()) left").font(.mono(12)).monospacedDigit()
+                    .padding(.horizontal, 12).frame(height: 44)
+                    .liquidGlass(in: Capsule())
+            }
+            // The light, for dim card shows: lime while on.
+            if camera.hasTorch || camera.state != .running {
+                Button {
+                    torch.toggle()
+                    camera.setTorch(torch)
+                } label: {
+                    Image(systemName: torch ? "flashlight.on.fill" : "flashlight.off.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(torch ? Theme.ink : .white)
+                        .frame(width: 44, height: 44)
+                        .background { if torch { Circle().fill(Theme.lime) } }
+                        .contentShape(Circle())
                 }
+                .buttonStyle(.plain)
+                .background { Color.clear.liquidGlass(in: Circle()).allowsHitTesting(false) }
+                .accessibilityLabel(torch ? "Light on" : "Light")
             }
         }
         .foregroundStyle(.white)
         .padding(.horizontal, 16)
         .padding(.top, 8)
-    }
-
-    // MARK: The light, beside the shutter
-
-    private var rail: some View {
-        VStack(spacing: 12) {
-            if camera.hasTorch || camera.state != .running {
-                railButton(torch ? "flashlight.on.fill" : "flashlight.off.fill", torch ? "Light on" : "Light", active: torch) {
-                    torch.toggle()
-                    camera.setTorch(torch)
-                }
-            }
-        }
-        .padding(.leading, 16)
-    }
-
-    private func railButton(_ icon: String, _ title: String, active: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(spacing: 5) {
-                Image(systemName: icon).font(.system(size: 18, weight: .medium))
-                Text(title).font(.geist(11, .medium)).lineLimit(1)
-            }
-            .foregroundStyle(active ? Theme.ink : .white)
-            .frame(width: 60, height: 64)
-            .background { if active { RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.lime) } }
-            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .background { Color.clear.liquidGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous)).allowsHitTesting(false) }
-        .accessibilityLabel(title)
     }
 
     // MARK: The card outline: a thin lime frame with a light sweeping down
@@ -183,6 +172,21 @@ struct ScanView: View {
             .allowsHitTesting(false)
         }
         .padding(.vertical, 10)
+        .overlay(alignment: .bottom) {
+            if showTip, camera.state == .running {
+                HStack(spacing: 8) {
+                    Image(systemName: "hand.tap.fill").font(.system(size: 15, weight: .medium)).foregroundStyle(Theme.lime)
+                    Text("Tap the card to scan it").font(.geist(14, .medium))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 16).frame(height: 40)
+                .liquidGlass(in: Capsule())
+                .padding(.bottom, 18)
+                .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .bottom)))
+                .allowsHitTesting(false)
+            }
+        }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: showTip)
         .overlay {
             if camera.state == .denied {
                 VStack(spacing: 14) {
@@ -200,7 +204,7 @@ struct ScanView: View {
         }
     }
 
-    // MARK: Bottom: the shutter, then the docked tray with the scans, the total and Next
+    // MARK: Bottom: the docked tray with the scans, the total and Next
 
     private var bottom: some View {
         VStack(spacing: 14) {
@@ -211,32 +215,9 @@ struct ScanView: View {
                     .liquidGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), tint: Theme.planPink.opacity(0.4))
                     .padding(.horizontal, 16)
             }
-            // The light on the left, level with the shutter in the middle.
-            ZStack {
-                shutter
-                HStack {
-                    rail
-                    Spacer()
-                }
-            }
             tray
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.75), value: model.entries.count)
-    }
-
-    private var shutter: some View {
-        Button(action: shoot) {
-            ZStack {
-                Circle().strokeBorder(.white, lineWidth: 4).frame(width: 78, height: 78)
-                Circle().fill(Theme.lime).frame(width: 62, height: 62)
-                    .shadow(color: Theme.lime.opacity(0.6), radius: 12)
-                Image(systemName: "viewfinder").font(.system(size: 22, weight: .semibold)).foregroundStyle(Theme.ink)
-            }
-        }
-        .buttonStyle(ShutterStyle())
-        .disabled(camera.state != .running || model.blocked != nil)
-        .opacity(camera.state != .running || model.blocked != nil ? 0.5 : 1)
-        .accessibilityLabel("Scan")
     }
 
     /// Docked to the bottom edge: what this scan is and how many, the scans so far (or a short
@@ -265,7 +246,7 @@ struct ScanView: View {
                             .overlay(Image(systemName: "rectangle.on.rectangle").font(.system(size: 16)).foregroundStyle(Theme.subtle))
                         VStack(alignment: .leading, spacing: 3) {
                             Text("No cards yet").font(.geist(15, .semibold))
-                            Text("Hold a card in view, then tap it or the shutter.").font(.geist(13)).foregroundStyle(Theme.muted)
+                            Text("Hold a card in view, then tap it.").font(.geist(13)).foregroundStyle(Theme.muted)
                         }
                         Spacer(minLength: 0)
                     }
@@ -285,8 +266,8 @@ struct ScanView: View {
                     }
                 }
             }
-            .frame(height: 76)
-            .padding(.vertical, 10)
+            .frame(height: 112)
+            .padding(.vertical, 12)
             Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 1) {
@@ -356,10 +337,14 @@ struct ScanView: View {
         tracker.active = on
     }
 
-    /// The shutter, or a tap on the tracked card. A card already read live goes straight in;
+    /// A tap on the card (or the picture). A card already read live goes straight in;
     /// a tracked card is photographed and cropped to its corners; otherwise a plain photo.
     private func shoot() {
         guard camera.state == .running else { return }
+        if showTip {
+            showTip = false
+            UserDefaults.standard.set(true, forKey: "scan-tip-seen")
+        }
         // Reading the tracker here (an action, not `body`) doesn't make this view observe it.
         if let live = tracker.readyMatch {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -474,31 +459,35 @@ private struct ScanSweep: View {
     }
 }
 
-/// A compact scan in the strip: what it matched and its price, or what it still needs.
+/// A scan in the strip: the card's picture, what it matched (name, set, number and price), or
+/// what it still needs.
 struct ScanChip: View {
     var entry: ScanModel.Entry
     var onTap: () -> Void
 
     var body: some View {
         Button(action: onTap) {
-            HStack(spacing: 10) {
-                thumb.frame(width: 36, height: 48).clipShape(RoundedRectangle(cornerRadius: 5))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.system(size: 13, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
-                    detail.font(.system(size: 12)).lineLimit(1)
+            HStack(spacing: 12) {
+                thumb.frame(width: 66, height: 92).clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title).font(.geist(15, .semibold)).foregroundStyle(.white).lineLimit(2)
+                    if entry.state == .done, let set = entry.picked?.product.setName {
+                        Text(set).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
+                    }
+                    detail.font(.geist(13)).lineLimit(1)
                 }
                 Spacer(minLength: 0)
             }
-            .padding(8)
-            .frame(width: 188, height: 64)
-            .liquidGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .padding(10)
+            .frame(width: 256, height: 112)
+            .liquidGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
         .buttonStyle(.plain)
     }
 
     @ViewBuilder private var thumb: some View {
         if let p = entry.picked?.product {
-            ProductImage(product: p, cornerRadius: 5)
+            ProductImage(product: p, cornerRadius: 7)
         } else if let img = entry.thumbnail {
             Image(uiImage: img).resizable().scaledToFill()
         } else {
