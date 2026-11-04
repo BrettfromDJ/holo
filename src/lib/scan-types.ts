@@ -30,6 +30,15 @@ export interface ScanResult {
   scansRemaining: number | null;
   /** More cards found in the same photo (CardSight reads several at once), each its own result. */
   others?: ScanResult[];
+  /** How long each server step took, in milliseconds, and whether the server had to wake up first. */
+  timing?: ScanTiming;
+}
+
+/** Server-side laps for one scan (`auth`, `form`, `cardsight`, `catalog` or `identify`, `total`). */
+export interface ScanTiming {
+  [step: string]: number | boolean | undefined;
+  total?: number;
+  cold?: boolean;
 }
 
 export interface ScanError {

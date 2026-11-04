@@ -293,6 +293,13 @@ struct ScanView: View {
             }
             .frame(height: 76)
             .padding(.vertical, 10)
+            // Temporary, while scanning is being made faster: where the last scan's time went.
+            if let timing = model.lastTiming {
+                Text(timing).font(.mono(10)).foregroundStyle(Theme.muted).monospacedDigit()
+                    .lineLimit(2).minimumScaleFactor(0.8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20).padding(.bottom, 8)
+            }
             Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 1) {
@@ -375,6 +382,7 @@ struct ScanView: View {
         }
         guard model.blocked == nil else { return }
         let quad = tracker.quad
+        let tappedAt = Date()
         UIImpactFeedbackGenerator(style: quad == nil ? .medium : .light).impactOccurred()
         flashOnce()
         Task {
@@ -389,7 +397,7 @@ struct ScanView: View {
                     let crop = await Task.detached(priority: .userInitiated) { Camera.crop(photo: jpeg, to: quad)?.jpeg }.value
                     if let crop { photo = crop }
                 }
-                await MainActor.run { model.add(photo: photo) }
+                await MainActor.run { model.add(photo: photo, tappedAt: tappedAt) }
             } catch {
                 UINotificationFeedbackGenerator().notificationOccurred(.error)
             }
