@@ -1,8 +1,18 @@
 import AVFoundation
+import CoreImage
 import SwiftUI
 import UIKit
+import Vision
 
 /// The back camera, ready to take still photos for scanning.
+///
+/// Live card tracking: besides the photo output, a video data output feeds frames (upright,
+/// BGRA) to `captureOutput` on its own queue. About ten times a second Vision looks for one
+/// card-shaped rectangle; its four corners (0...1, Vision's space: origin bottom-left, in the
+/// upright frame) go to `onCard` on the main queue, where `CardTracker` smooths them and the
+/// scanner draws the border. `snapshotCard()` asks the next frame for a flattened crop of the
+/// card (perspective-corrected) so it can be read before you tap. Frames are only processed
+/// while `setTracking(true)`: the scanner turns it off when it's covered or closed.
 final class Camera: NSObject, ObservableObject {
     enum State { case starting, running, denied, unavailable }
 
@@ -11,6 +21,35 @@ final class Camera: NSObject, ObservableObject {
 
     private let output = AVCapturePhotoOutput()
     private let queue = DispatchQueue(label: "holo.camera")
+
+    // Live tracking (see the header). `videoQueue` owns `rectangles` and `lastDetection`;
+    // everything shared with other threads sits behind `lock`.
+    private let videoOutput = AVCaptureVideoDataOutput()
+    private let videoQueue = DispatchQueue(label: "holo.camera.video", qos: .userInitiated)
+    private var hasVideoOutput = false
+    private var lastDetection: CFTimeInterval = 0
+    private lazy var rectangles: VNDetectRectanglesRequest = {
+        let r = VNDetectRectanglesRequest()
+        // A trading card is 63 x 88 mm (0.716); allow for tilt and perspective.
+        r.minimumAspectRatio = 0.55
+        r.maximumAspectRatio = 0.9
+        r.minimumSize = 0.2
+        r.quadratureTolerance = 20
+        r.maximumObservations = 1
+        r.minimumConfidence = 0.6
+        return r
+    }()
+    private var trackingOn = false
+    private var cardHandler: ((CardQuad?, CGSize) -> Void)?
+    private var snapshotWaiter: CheckedContinuation<CardCrop?, Never>?
+    private static let ciContext = CIContext()
+
+    /// Called on the main queue for each processed frame: the card's corners (nil when none
+    /// was found) and the upright frame's size in pixels.
+    var onCard: ((CardQuad?, CGSize) -> Void)? {
+        get { lock.lock(); defer { lock.unlock() }; return cardHandler }
+        set { lock.lock(); cardHandler = newValue; lock.unlock() }
+    }
     private var configured = false
     private var device: AVCaptureDevice?
     /// Whether this camera has a light to turn on.
@@ -41,7 +80,39 @@ final class Camera: NSObject, ObservableObject {
     }
 
     func stop() {
+        setTracking(false)
         queue.async { [session] in if session.isRunning { session.stopRunning() } }
+    }
+
+    /// Process frames for live tracking, or stop (no Vision work at all while off).
+    func setTracking(_ on: Bool) {
+        lock.lock()
+        let changed = trackingOn != on
+        trackingOn = on
+        let waiter = on ? nil : snapshotWaiter
+        if !on { snapshotWaiter = nil }
+        lock.unlock()
+        waiter?.resume(returning: nil)
+        guard changed else { return }
+        queue.async { [weak self] in
+            guard let self, self.hasVideoOutput else { return }
+            self.videoOutput.setSampleBufferDelegate(on ? self : nil, queue: on ? self.videoQueue : nil)
+        }
+    }
+
+    /// A flattened, upright crop of the card in the next frame, or nil when no card is found
+    /// there (or tracking is off). One at a time: a second call while one waits gets nil.
+    func snapshotCard() async -> CardCrop? {
+        await withCheckedContinuation { (cont: CheckedContinuation<CardCrop?, Never>) in
+            lock.lock()
+            guard trackingOn, snapshotWaiter == nil else {
+                lock.unlock()
+                cont.resume(returning: nil)
+                return
+            }
+            snapshotWaiter = cont
+            lock.unlock()
+        }
     }
 
     private func set(_ s: State) {
@@ -89,6 +160,21 @@ final class Camera: NSObject, ObservableObject {
         session.addOutput(output)
         self.device = device
         output.maxPhotoQualityPrioritization = .speed
+        // Live tracking frames: optional, the scanner works without them.
+        videoOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)]
+        videoOutput.alwaysDiscardsLateVideoFrames = true
+        if session.canAddOutput(videoOutput) {
+            session.addOutput(videoOutput)
+            hasVideoOutput = true
+            // Upright like the preview, so Vision's corners map straight onto it.
+            if let connection = videoOutput.connection(with: .video), connection.isVideoRotationAngleSupported(90) {
+                connection.videoRotationAngle = 90
+            }
+            lock.lock()
+            let on = trackingOn
+            lock.unlock()
+            if on { videoOutput.setSampleBufferDelegate(self, queue: videoQueue) }
+        }
         // Cards are close up: keep focusing continuously.
         if (try? device.lockForConfiguration()) != nil {
             if device.isFocusModeSupported(.continuousAutoFocus) { device.focusMode = .continuousAutoFocus }
@@ -135,6 +221,87 @@ extension Camera: AVCapturePhotoCaptureDelegate {
         else if let data = photo.fileDataRepresentation() { cont?.resume(returning: data) }
         else { cont?.resume(throwing: CocoaError(.fileReadCorruptFile)) }
     }
+}
+
+// MARK: - Live tracking
+
+extension Camera: AVCaptureVideoDataOutputSampleBufferDelegate {
+    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        lock.lock()
+        let on = trackingOn
+        let wantsSnapshot = snapshotWaiter != nil
+        lock.unlock()
+        guard on else { return }
+        // About ten a second; frames that arrive while one is being read are dropped by the
+        // output itself (this queue is serial and Vision runs synchronously on it).
+        let now = CACurrentMediaTime()
+        guard wantsSnapshot || now - lastDetection >= 0.1 else { return }
+        lastDetection = now
+        guard let pixels = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+
+        // Rotated by the connection: already upright. Otherwise the sensor's landscape frame.
+        let rotated = connection.videoRotationAngle == 90
+        let orientation: CGImagePropertyOrientation = rotated ? .up : .right
+        let w = CGFloat(CVPixelBufferGetWidth(pixels)), h = CGFloat(CVPixelBufferGetHeight(pixels))
+        let size = rotated ? CGSize(width: w, height: h) : CGSize(width: h, height: w)
+
+        let handler = VNImageRequestHandler(cvPixelBuffer: pixels, orientation: orientation, options: [:])
+        var quad: CardQuad?
+        if (try? handler.perform([rectangles])) != nil, let r = rectangles.results?.first {
+            quad = CardQuad(topLeft: r.topLeft, topRight: r.topRight, bottomRight: r.bottomRight, bottomLeft: r.bottomLeft)
+        }
+
+        if wantsSnapshot {
+            lock.lock()
+            let waiter = snapshotWaiter
+            snapshotWaiter = nil
+            lock.unlock()
+            var crop: CardCrop?
+            if let quad {
+                crop = Camera.flatten(CIImage(cvPixelBuffer: pixels).oriented(orientation), quad: quad, maxEdge: 1200)
+            }
+            waiter?.resume(returning: crop)
+        }
+
+        let deliver = onCard
+        DispatchQueue.main.async { deliver?(quad, size) }
+    }
+
+    /// The card in `photo` (a JPEG from `capture`) flattened to its four corners, or nil.
+    static func crop(photo: Data, to quad: CardQuad, maxEdge: CGFloat = 1400) -> CardCrop? {
+        guard let image = CIImage(data: photo, options: [.applyOrientationProperty: true]) else { return nil }
+        return flatten(image, quad: quad, maxEdge: maxEdge)
+    }
+
+    /// Perspective-corrects the quad (0...1, origin bottom-left like Core Image) out of `image`,
+    /// a little wider than the detected edge so the border isn't clipped.
+    static func flatten(_ image: CIImage, quad: CardQuad, maxEdge: CGFloat) -> CardCrop? {
+        let e = image.extent
+        guard e.width > 0, e.height > 0, let filter = CIFilter(name: "CIPerspectiveCorrection") else { return nil }
+        let q = quad.expanded(by: 0.03)
+        func vector(_ p: CGPoint) -> CIVector { CIVector(x: e.minX + p.x * e.width, y: e.minY + p.y * e.height) }
+        filter.setValue(image, forKey: kCIInputImageKey)
+        filter.setValue(vector(q.topLeft), forKey: "inputTopLeft")
+        filter.setValue(vector(q.topRight), forKey: "inputTopRight")
+        filter.setValue(vector(q.bottomRight), forKey: "inputBottomRight")
+        filter.setValue(vector(q.bottomLeft), forKey: "inputBottomLeft")
+        guard var flat = filter.outputImage, flat.extent.width >= 1, flat.extent.height >= 1 else { return nil }
+        let long = max(flat.extent.width, flat.extent.height)
+        if long > maxEdge {
+            let s = maxEdge / long
+            flat = flat.transformed(by: CGAffineTransform(scaleX: s, y: s))
+        }
+        guard let cg = ciContext.createCGImage(flat, from: flat.extent.integral) else { return nil }
+        let ui = UIImage(cgImage: cg)
+        guard let jpeg = ui.jpegData(compressionQuality: 0.85) else { return nil }
+        return CardCrop(jpeg: jpeg, image: ui)
+    }
+}
+
+/// A flattened picture of one card: the JPEG to read or scan, and the image for the strip.
+struct CardCrop: @unchecked Sendable {
+    var jpeg: Data
+    var image: UIImage
 }
 
 /// The live camera picture, filling its frame.

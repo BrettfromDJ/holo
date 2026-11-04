@@ -6,6 +6,10 @@ import Vision
 /// paid scan) is asked for that card. Only a clear, single match is accepted; anything unsure
 /// (slabs, sealed, glare, two printings that read the same) returns nil and the caller falls back
 /// to the paid server scan.
+///
+/// The live scanner (`CardTracker`) uses the same two steps on a flattened crop of the card in
+/// view: `read(jpeg:)` then `lookUp`, cached by `cacheKey`, and `result(for:)` turns its match
+/// into a scan entry when you tap.
 enum OnDeviceScan {
     /// What the text recognition found on the card.
     struct Reading: Equatable {
@@ -18,9 +22,25 @@ enum OnDeviceScan {
     static func identify(jpeg: Data) async -> ScanResult? {
         guard let reading = await read(jpeg: jpeg) else { return nil }
         guard let hit = await lookUp(reading) else { return nil }
+        return result(for: hit)
+    }
+
+    /// A catalog match as a matched raw-card scan result.
+    static func result(for hit: SearchHit) -> ScanResult {
         let candidate = ScanCandidate(product: hit.product, printing: hit.printing, printings: hit.product.printings ?? [],
                                       market: hit.market, slabMarket: nil, score: 1)
         return ScanResult(status: "matched", message: nil, read: ScanRead(kind: "raw", grade: nil), candidates: [candidate], scansRemaining: nil)
+    }
+
+    /// A rough key for a reading, so the same card isn't looked up twice: the number in
+    /// canonical form ("TG05/TG30" → "TG5/TG30"), plus the name when one was read.
+    static func cacheKey(_ reading: Reading) -> String {
+        let number = reading.number.uppercased().split(separator: "/").map { part -> String in
+            let letters = part.prefix { $0.isLetter }
+            let digits = part.drop { $0.isLetter }.drop { $0 == "0" }
+            return String(letters) + (digits.isEmpty ? "0" : String(digits))
+        }.joined(separator: "/")
+        return number + "|" + (reading.name?.lowercased() ?? "")
     }
 
     // MARK: Reading the photo

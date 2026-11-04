@@ -3,6 +3,13 @@ import SwiftUI
 
 /// Full-screen scanner. Shoot card after card; each lands in a slim strip you can
 /// swipe through. Next opens the review, where you set what you paid and add them all.
+///
+/// Live tracking: while the scanner is on screen and uncovered, the camera finds the card
+/// in view and `CardTracker` follows it; `CardTrackingOverlay` (its own small view, the only
+/// one redrawn per frame) draws the lime border and the live read, and the static guide fades
+/// out. Tapping the card or the shutter adds it: straight from the live read when it matched
+/// (no paid scan), else as a photo cropped to the card. With no card tracked the shutter works
+/// as before.
 struct ScanView: View {
     /// When scanning into a deal: which side, and where each match goes.
     var dealSide: DealSide?
@@ -11,6 +18,7 @@ struct ScanView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var camera = Camera()
     @State private var model = ScanModel()
+    @State private var tracker = CardTracker()
     @State private var reviewing = false
     @State private var flash = false
     @State private var focused: UUID?
@@ -22,6 +30,7 @@ struct ScanView: View {
         ZStack {
             Color.black.ignoresSafeArea()
             CameraPreview(session: camera.session, running: camera.state == .running).ignoresSafeArea()
+            CardTrackingOverlay(tracker: tracker, onTap: { shoot() })
             if flash { Color.white.opacity(0.7).ignoresSafeArea().transition(.opacity).allowsHitTesting(false) }
 
             VStack(spacing: 0) {
@@ -35,8 +44,23 @@ struct ScanView: View {
         .simultaneousGesture(DragGesture(minimumDistance: 30).onEnded { g in
             if g.translation.height > 120 && abs(g.translation.width) < g.translation.height { dismiss() }
         })
-        .onAppear { camera.start() }
-        .onDisappear { if torch { camera.setTorch(false) }; camera.stop() }
+        .onAppear {
+            let liveTracker = self.tracker
+            let liveCamera = self.camera
+            liveCamera.onCard = { [weak liveTracker] quad, size in liveTracker?.update(quad, frame: size) }
+            liveTracker.snapshot = { [weak liveCamera] in await liveCamera?.snapshotCard() }
+            camera.start()
+            syncTracking()
+        }
+        .onDisappear {
+            if torch { camera.setTorch(false) }
+            camera.stop()
+            tracker.active = false
+        }
+        // Live tracking only while the scanner can be seen.
+        .onChange(of: reviewing) { _, _ in syncTracking() }
+        .onChange(of: searchingManually) { _, _ in syncTracking() }
+        .onChange(of: camera.state) { _, _ in syncTracking() }
         // Search instead: into the collection, or (scanning into a deal) onto that side of it.
         .fullScreenCover(isPresented: Binding(get: { searchingManually && dealSide == nil }, set: { searchingManually = $0 })) { SearchScreen(mode: .add) }
         .sheet(isPresented: Binding(get: { searchingManually && dealSide != nil }, set: { searchingManually = $0 })) {
@@ -120,13 +144,18 @@ struct ScanView: View {
             let h = min(geo.size.height * 0.86, geo.size.width * 0.62 * 88 / 63)
             let w = h * 63 / 88
             ZStack {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(Theme.lime, lineWidth: 2)
-                    .shadow(color: Theme.lime.opacity(0.6), radius: 6)
-                    .frame(width: w, height: h)
-                ScanSweep(height: h)
-                    .frame(width: w - 16, height: h)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                // Gives way to the live border while a card is tracked.
+                TrackingFade(tracker: tracker) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .strokeBorder(Theme.lime, lineWidth: 2)
+                            .shadow(color: Theme.lime.opacity(0.6), radius: 6)
+                            .frame(width: w, height: h)
+                        ScanSweep(height: h)
+                            .frame(width: w - 16, height: h)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
+                }
                 if model.busy > 0 {
                     HStack(spacing: 6) {
                         ProgressView().controlSize(.mini).tint(Theme.lime)
@@ -139,6 +168,8 @@ struct ScanView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Taps go through to the tracked card underneath.
+            .allowsHitTesting(false)
         }
         .padding(.vertical, 10)
         .overlay {
@@ -223,7 +254,7 @@ struct ScanView: View {
                             .overlay(Image(systemName: "rectangle.on.rectangle").font(.system(size: 16)).foregroundStyle(Theme.subtle))
                         VStack(alignment: .leading, spacing: 3) {
                             Text("No cards yet").font(.geist(15, .semibold))
-                            Text("Line a card up in the frame and tap the shutter.").font(.geist(13)).foregroundStyle(Theme.muted)
+                            Text("Hold a card in view, then tap it or the shutter.").font(.geist(13)).foregroundStyle(Theme.muted)
                         }
                         Spacer(minLength: 0)
                     }
@@ -306,18 +337,66 @@ struct ScanView: View {
         .accessibilityLabel(label)
     }
 
+    /// Process camera frames only while the scanner is up and nothing covers it.
+    private func syncTracking() {
+        let on = camera.state == .running && !reviewing && !searchingManually
+        camera.setTracking(on)
+        tracker.active = on
+    }
+
+    /// The shutter, or a tap on the tracked card. A card already read live goes straight in;
+    /// a tracked card is photographed and cropped to its corners; otherwise a plain photo.
     private func shoot() {
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        withAnimation(.easeOut(duration: 0.05)) { flash = true }
-        withAnimation(.easeOut(duration: 0.25).delay(0.05)) { flash = false }
+        guard camera.state == .running else { return }
+        // Reading the tracker here (an action, not `body`) doesn't make this view observe it.
+        if let live = tracker.readyMatch {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            flashOnce()
+            model.add(matched: OnDeviceScan.result(for: live.hit), photo: live.crop.jpeg, thumbnail: live.crop.image)
+            return
+        }
+        guard model.blocked == nil else { return }
+        let quad = tracker.quad
+        UIImpactFeedbackGenerator(style: quad == nil ? .medium : .light).impactOccurred()
+        flashOnce()
         Task {
             do {
                 let jpeg = try await camera.capture()
-                await MainActor.run { model.add(photo: jpeg) }
+                // Crop to the tracked card (off the main thread); the whole photo if that fails.
+                var photo = jpeg
+                if let quad {
+                    let crop = await Task.detached(priority: .userInitiated) { Camera.crop(photo: jpeg, to: quad)?.jpeg }.value
+                    if let crop { photo = crop }
+                }
+                await MainActor.run { model.add(photo: photo) }
             } catch {
                 UINotificationFeedbackGenerator().notificationOccurred(.error)
             }
         }
+    }
+
+    private func flashOnce() {
+        withAnimation(.easeOut(duration: 0.05)) { flash = true }
+        withAnimation(.easeOut(duration: 0.25).delay(0.05)) { flash = false }
+    }
+}
+
+/// Shows its content only while no card is tracked. Reads just `isTracking`, so the corner
+/// updates never redraw it.
+private struct TrackingFade<Content: View>: View {
+    let tracker: CardTracker
+    let content: Content
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    init(tracker: CardTracker, @ViewBuilder content: () -> Content) {
+        self.tracker = tracker
+        self.content = content()
+    }
+
+    var body: some View {
+        content
+            .opacity(tracker.isTracking ? 0 : 1)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: tracker.isTracking)
     }
 }
 

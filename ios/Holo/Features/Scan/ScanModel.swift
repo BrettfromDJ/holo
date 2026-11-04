@@ -4,6 +4,8 @@ import UIKit
 
 /// Rapid scanning: every photo is queued and read in the background, a couple at a time,
 /// so you can keep shooting. Clear matches are accepted straight away; others wait for you.
+/// Cards the live scanner already recognised come in through `add(matched:photo:thumbnail:)`,
+/// done and picked, without being read again.
 @Observable
 final class ScanModel {
     struct Entry: Identifiable {
@@ -59,6 +61,20 @@ final class ScanModel {
             let thumb = await UIImage(data: photo)?.byPreparingThumbnail(ofSize: CGSize(width: 96, height: 128))
             if let i = entries.firstIndex(where: { $0.id == id }) { entries[i].thumbnail = thumb }
         }
+    }
+
+    /// A card the live scanner already identified on the phone (`CardTracker`): it goes in
+    /// matched and picked, with no paid scan. `photo` is the flattened crop, kept so a retry
+    /// or a later look has the picture.
+    @MainActor
+    func add(matched result: ScanResult, photo: Data, thumbnail: UIImage?) {
+        var e = Entry(photo: photo)
+        e.state = .done
+        e.result = result
+        e.thumbnail = thumbnail?.preparingThumbnail(of: CGSize(width: 96, height: 128)) ?? thumbnail
+        e.picked = result.candidates.first
+        entries.insert(e, at: 0)
+        if e.picked != nil { hand(0) }
     }
 
     @MainActor
