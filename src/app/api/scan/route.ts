@@ -22,8 +22,10 @@ function fail(code: string, message: string, status: number) {
 }
 
 export async function POST(req: Request) {
+  const t0 = Date.now();
   // Sign-in and the daily allowance are checked at the same time (each is a database trip).
   const [signedIn, withinQuota] = await Promise.all([authorized(), takeQuota(req, "scan")]);
+  const checks = Date.now() - t0;
   if (!signedIn) return fail("unauthorized", "Sign in to scan.", 401);
   if (!allowRequest(clientKey(req, "scan"), 20, 40)) return fail("rate_limited", "Scanning too fast. Give it a second.", 429);
 
@@ -43,7 +45,11 @@ export async function POST(req: Request) {
   try {
     const game = new URL(req.url).searchParams.get("game") ?? undefined;
     // CardSight AI when its key is set on the server; otherwise TCG API's scanner.
-    return NextResponse.json(cardSightConfigured() ? await identifyWithCardSight(image, { game }) : await identifyPhoto(image, { game }));
+    const result = cardSightConfigured() ? await identifyWithCardSight(image, { game }) : await identifyPhoto(image, { game });
+    // How the server's time was spent (checks, then the scanner's own breakdown), for tuning.
+    const inner: Record<string, number> = ("timing" in result && result.timing) || ({} as Record<string, number>);
+    const timing = { checks, ...inner, server: Date.now() - t0 };
+    return NextResponse.json({ ...result, timing }, { headers: { "x-scan-timing": JSON.stringify(timing) } });
   } catch (err) {
     if (err instanceof ScanFailure) return fail(err.code, err.message, err.status);
     console.error(err);

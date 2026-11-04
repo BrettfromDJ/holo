@@ -66,7 +66,9 @@ async function findInCatalog(card: CsCard): Promise<ProductRow[]> {
 }
 
 /** Identify the card or slab in one photo with CardSight, then match it in the catalog. */
-export async function identifyWithCardSight(image: Blob, opts: { game?: string } = {}): Promise<ScanResult> {
+export async function identifyWithCardSight(image: Blob, opts: { game?: string } = {}): Promise<ScanResult & { timing?: Record<string, number> }> {
+  const t0 = Date.now();
+  const timing: Record<string, number> = {};
   const apiKey = process.env.CARDSIGHT_API_KEY;
   if (!apiKey) throw new ScanFailure("not_configured", "Scanning needs a CardSight key on the server.", 503);
   const segment = opts.game ? SEGMENTS[opts.game.toLowerCase()] : undefined;
@@ -85,6 +87,7 @@ export async function identifyWithCardSight(image: Blob, opts: { game?: string }
     throw new ScanFailure("upstream", "Couldn't reach the scanner. Try again.", 502);
   }
   const body = (await res.json().catch(() => null)) as (CsResult & { data?: CsResult; error?: { message?: string } | string; message?: string }) | null;
+  timing.cardsight = Date.now() - t0;
   if (!res.ok) {
     if (res.status === 429) throw new ScanFailure("rate_limited", "Scanning too fast. Give it a second.", 429);
     if (res.status === 402) throw new ScanFailure("scan_balance_empty", "You're out of CardSight scans.", 402);
@@ -98,9 +101,13 @@ export async function identifyWithCardSight(image: Blob, opts: { game?: string }
     return { status: "retake", message: "No card found in the photo. Fill the frame with the card and try again.", read: null, candidates: [], scansRemaining: null };
   }
   // Every card in the photo, each matched in the catalog; the first leads, the rest ride along.
+  const t1 = Date.now();
   const results = await Promise.all(found.slice(0, 12).map(toResult));
+  timing.catalog = Date.now() - t1;
+  timing.total = Date.now() - t0;
+  console.log("scan timing", JSON.stringify(timing));
   const [first, ...others] = results;
-  return others.length ? { ...first, others } : first;
+  return { ...(others.length ? { ...first, others } : first), timing };
 }
 
 /** One detected card (or slab) as a scan result, matched in our catalog. */
