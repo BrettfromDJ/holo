@@ -6,8 +6,7 @@ import SwiftUI
 ///
 /// Live tracking: while the scanner is on screen and uncovered, the camera finds the card
 /// in view and `CardTracker` follows it; `CardTrackingOverlay` (its own small view, the only
-/// one redrawn per frame) draws the lime border and the live read, and the static guide fades
-/// out. Tapping the card or the shutter adds it: straight from the live read when it matched
+/// one redrawn per frame) draws the lime border, and the static guide fades out. Tapping the card or the shutter adds it: straight from the live read when it matched
 /// (no paid scan), else as a photo cropped to the card. With no card tracked the shutter works
 /// as before.
 struct ScanView: View {
@@ -78,12 +77,6 @@ struct ScanView: View {
         }
         .task {
             model.onPick = onPick
-            // The answer appears on the card itself as soon as it's back.
-            model.onResult = { result in
-                if let top = result.candidates.first, result.status == "matched" || result.status == "ambiguous" {
-                    tracker.showResult(name: top.product.name, number: top.product.number, price: top.market)
-                }
-            }
             await model.refreshBalance()
             // CardSight does the identifying: the live border stays, the phone's own read doesn't run.
             if model.cardSight { tracker.identifies = false }

@@ -64,17 +64,12 @@ struct CardQuad: Equatable, Sendable {
 /// 0.4 s without a card. When the card has held still (corners within 3% for 0.5 s), one
 /// identification runs: `snapshot` (the camera's flattened crop) → `OnDeviceScan.read` →
 /// `OnDeviceScan.lookUp`, cached by the read number so the same card never asks the catalog
-/// twice. The result shows as `label` above the border, and `liveMatch` lets a tap add it
-/// with no paid scan. Only the border view reads `quad`/`label`; the scanner reads just
-/// `isTracking` (which changes rarely), so nothing else redraws per frame.
+/// twice. A match (`liveMatch`) lets a tap add it with no paid scan. Only the border view
+/// reads `quad`; the scanner reads just `isTracking` (which changes rarely), so nothing else
+/// redraws per frame.
 /// Used on the main thread only.
 @Observable
 final class CardTracker {
-    enum LiveRead: Equatable {
-        case reading
-        case matched(name: String, number: String?, price: Double?)
-    }
-
     struct LiveMatch {
         var hit: SearchHit
         var crop: CardCrop
@@ -89,7 +84,6 @@ final class CardTracker {
     /// Whether a card is being followed. Stored (and only set on change) so the scanner,
     /// which reads it to hide the guide, doesn't redraw with every corner update.
     private(set) var isTracking = false
-    private(set) var label: LiveRead?
 
     /// Takes a flattened crop of the card in the next frame (set by the scanner).
     @ObservationIgnored var snapshot: (() async -> CardCrop?)?
@@ -144,17 +138,11 @@ final class CardTracker {
         }
     }
 
-    /// A scan's answer (from the server), shown on the card the moment it arrives.
-    func showResult(name: String, number: String?, price: Double?) {
-        label = .matched(name: name, number: number, price: price)
-    }
-
     /// The card is gone (or the scanner paused): forget it and anything read in flight.
     func reset() {
         generation += 1
         if quad != nil { quad = nil }
         if isTracking { isTracking = false }
-        if label != nil { label = nil }
         liveMatch = nil
         steadyRef = nil
         missQuad = nil
@@ -168,7 +156,6 @@ final class CardTracker {
         // Couldn't read it here a moment ago: wait for a move or two seconds.
         if let miss = missQuad, miss.distance(to: current) < 0.05, now - missAt < 2 { return }
         identifying = true
-        if misses == 0, liveMatch == nil, label == nil { label = .reading }
         let gen = generation
         // On the main actor, but each step's work runs elsewhere (the frame queue, Vision's
         // queue, the network); only the cache and the result are touched here.
@@ -194,20 +181,17 @@ final class CardTracker {
         if let hit, let crop {
             liveMatch = LiveMatch(hit: hit, crop: crop, quad: read)
             missQuad = nil
-            label = .matched(name: hit.product.name, number: hit.product.number, price: hit.market)
         } else {
             misses += 1
             missQuad = read
             missAt = CACurrentMediaTime()
-            // Nothing on failure, unless an earlier match for this card is still showing.
-            if case .reading = label { label = nil }
         }
     }
 }
 
 // MARK: - The border
 
-/// The lime border that follows the card, the live read above it, and the tap that adds it.
+/// The lime border that follows the card, and the tap that adds it.
 /// The only view that reads the corners, so it's the only one that redraws per frame.
 struct CardTrackingOverlay: View {
     let tracker: CardTracker
@@ -232,41 +216,10 @@ struct CardTrackingOverlay: View {
                     .accessibilityElement()
                     .accessibilityLabel("Add this card")
                     .accessibilityAddTraits(.isButton)
-
-                    if let label = tracker.label {
-                        let top = CGPoint(x: (points[0].x + points[1].x) / 2, y: min(points[0].y, points[1].y))
-                        LiveLabel(label: label)
-                            .fixedSize()
-                            .position(x: min(max(top.x, 120), geo.size.width - 120), y: max(top.y - 26, 80))
-                            .allowsHitTesting(false)
-                    }
                 }
             }
         }
         .ignoresSafeArea()
-    }
-}
-
-/// The card's name, number and market price (or "Reading…") in a small glass pill.
-private struct LiveLabel: View {
-    var label: CardTracker.LiveRead
-
-    var body: some View {
-        HStack(spacing: 6) {
-            switch label {
-            case .reading:
-                Text("Reading…").font(.geist(13, .semibold)).foregroundStyle(.white)
-            case let .matched(name, number, price):
-                Text(name.count > 24 ? String(name.prefix(23)) + "…" : name).font(.geist(13, .semibold)).foregroundStyle(.white).lineLimit(1)
-                if let number { Text("#\(number)").font(.mono(11)).foregroundStyle(Theme.muted).lineLimit(1) }
-                Text(Format.money(price)).font(.geist(13, .bold)).monospacedDigit().foregroundStyle(.white)
-            }
-        }
-        .padding(.horizontal, 12)
-        .frame(height: 30)
-        // A solid dark pill: it moves with the card, and glass would re-blur every frame.
-        .background(Capsule().fill(Color.black.opacity(0.72)))
-        .overlay(Capsule().strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
     }
 }
 
