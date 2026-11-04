@@ -90,12 +90,11 @@ private struct ScanPanel: View {
                         }
                     }
                     HStack(spacing: 12) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Paid").font(.geist(13, .semibold)).foregroundStyle(.white)
-                            Text("Blank: the price above, or $0 if pulled").font(.geist(11)).foregroundStyle(.white).lineLimit(1)
-                        }
+                        Text("Paid").font(.geist(13, .semibold)).foregroundStyle(.white)
                         Spacer()
-                        TextField(Format.money(entry.value ?? 0), text: Binding(get: { entry.paid }, set: { model.setPaid(id, $0) }))
+                        // The price shows in white when nothing is typed (it's what a blank means).
+                        TextField("", text: Binding(get: { entry.paid }, set: { model.setPaid(id, $0) }),
+                                  prompt: Text(Format.money(entry.value ?? 0)).foregroundColor(.white))
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
                             .font(.geist(16, .semibold)).monospacedDigit().foregroundStyle(.white)
