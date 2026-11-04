@@ -4,12 +4,13 @@ import SwiftUI
 /// Full-screen scanner. Shoot card after card; each lands in a slim strip you can
 /// swipe through. Next opens the review, where you set what you paid and add them all.
 ///
-/// Live tracking: while the scanner is on screen and uncovered, the camera finds the card
-/// in view and `CardTracker` follows it; `CardTrackingOverlay` (its own small view, the only
-/// one redrawn per frame) draws the lime border and the live read, and the static guide fades
-/// out. Tapping the card or the shutter adds it: straight from the live read when it matched
-/// (no paid scan), else as a photo cropped to the card. With no card tracked the shutter works
-/// as before.
+/// Live tracking: while the scanner is on screen and uncovered, the camera finds the cards
+/// in view and `CardTracker` follows each; `CardTrackingOverlay` (its own small view, the only
+/// one redrawn per frame) draws a lime border on every card, the live read, and how many are
+/// in view, and the static guide fades out. Tapping a card or the shutter adds what's in view:
+/// straight from the live read when one card matched (no paid scan), else as a photo. With
+/// CardSight a photo of several cards (up to twelve, laid out flat) comes back as one entry
+/// per card; it goes up at full size so each card is still readable.
 struct ScanView: View {
     /// When scanning into a deal: which side, and where each match goes.
     var dealSide: DealSide?
@@ -47,7 +48,7 @@ struct ScanView: View {
         .onAppear {
             let liveTracker = self.tracker
             let liveCamera = self.camera
-            liveCamera.onCard = { [weak liveTracker] quad, size in liveTracker?.update(quad, frame: size) }
+            liveCamera.onCards = { [weak liveTracker] quads, size in liveTracker?.update(quads, frame: size) }
             liveTracker.snapshot = { [weak liveCamera] in await liveCamera?.snapshotCard() }
             camera.start()
             syncTracking()
@@ -382,14 +383,20 @@ struct ScanView: View {
         }
         guard model.blocked == nil else { return }
         let quad = tracker.quad
+        let inView = tracker.cards.count
         let tappedAt = Date()
         UIImpactFeedbackGenerator(style: quad == nil ? .medium : .light).impactOccurred()
         flashOnce()
         Task {
             do {
-                // CardSight reads a card fine from a smaller photo, which uploads in about half the time.
-                let small = model.cardSight
-                let jpeg = small ? try await camera.capture(maxEdge: 1000, quality: 0.75) : try await camera.capture()
+                // CardSight reads one card fine from a smaller photo, which uploads in about half
+                // the time; several cards share the frame, so that photo goes up at full size.
+                let jpeg: Data
+                if model.cardSight {
+                    jpeg = inView > 1 ? try await camera.capture(maxEdge: 1920, quality: 0.8) : try await camera.capture(maxEdge: 1000, quality: 0.75)
+                } else {
+                    jpeg = try await camera.capture()
+                }
                 // Crop to the tracked card (off the main thread); the whole photo if that fails.
                 var photo = jpeg
                 // With CardSight the whole photo goes up: it finds every card in it.
