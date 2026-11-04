@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cardSightConfigured, identifyWithCardSight } from "@/lib/pricing/cardsight";
 import { identifyPhoto, MAX_IMAGE_BYTES, ScanFailure, scanBalance } from "@/lib/pricing/identify";
 import { overLimit, takeQuota } from "@/lib/server/api-cache";
 import { allowRequest, clientKey } from "@/lib/server/rate-limit";
@@ -6,7 +7,8 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getRequestUser } from "@/lib/supabase/server";
 
 /**
- * Card scanning. Every call spends one prepaid TCG API scan, so when accounts
+ * Card scanning (CardSight AI when CARDSIGHT_API_KEY is set, else TCG API). Every call is paid
+ * for, so when accounts
  * are set up only signed-in users may scan, and each client is rate limited
  * (bursty enough for rapid scanning, not for draining the balance).
  */
@@ -38,7 +40,8 @@ export async function POST(req: Request) {
 
   try {
     const game = new URL(req.url).searchParams.get("game") ?? undefined;
-    return NextResponse.json(await identifyPhoto(image, { game }));
+    // CardSight AI when its key is set on the server; otherwise TCG API's scanner.
+    return NextResponse.json(cardSightConfigured() ? await identifyWithCardSight(image, { game }) : await identifyPhoto(image, { game }));
   } catch (err) {
     if (err instanceof ScanFailure) return fail(err.code, err.message, err.status);
     console.error(err);
@@ -46,9 +49,10 @@ export async function POST(req: Request) {
   }
 }
 
-/** Scans left on the account. Free to call. */
+/** Scans left on the account. Free to call. (CardSight doesn't report a balance.) */
 export async function GET() {
   if (!(await authorized())) return fail("unauthorized", "Sign in to scan.", 401);
+  if (cardSightConfigured()) return NextResponse.json({ scansRemaining: null });
   try {
     return NextResponse.json({ scansRemaining: await scanBalance() });
   } catch (err) {
