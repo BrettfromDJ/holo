@@ -104,8 +104,10 @@ final class HoloAPI {
         return try await send(req, as: CatalogImport.self)
     }
 
-    /// Identify the card, slab or sealed product in a photo. Uses one scan.
-    func scan(jpeg: Data) async throws -> ScanResult {
+    /// Identify the card, slab or sealed product in a photo. Uses one scan. `request` is how long
+    /// the round trip took (upload, server, download), in seconds.
+    func scan(jpeg: Data) async throws -> (result: ScanResult, request: TimeInterval) {
+        let started = Date()
         var req = try await request("api/scan")
         req.httpMethod = "POST"
         req.timeoutInterval = 75
@@ -118,7 +120,8 @@ final class HoloAPI {
         body.append(jpeg)
         body.append(Data("\r\n--\(boundary)--\r\n".utf8))
         req.httpBody = body
-        return try await send(req, as: ScanResult.self)
+        let result = try await send(req, as: ScanResult.self)
+        return (result, Date().timeIntervalSince(started))
     }
 
     // MARK: Explore and market data (stored catalog; eBay and conditions are cached 12h at the CDN)

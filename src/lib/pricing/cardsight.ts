@@ -6,6 +6,7 @@ import { withPrices } from "../server/explore";
 import { getAdminSupabase } from "../supabase/server";
 import type { ProductRow } from "../supabase/database.types";
 import { ScanFailure } from "./identify";
+import type { Stopwatch } from "../server/timing";
 
 /**
  * Card scanning with CardSight AI (`POST https://api.cardsight.ai/v1/identify/card[/segment]`,
@@ -66,7 +67,7 @@ async function findInCatalog(card: CsCard): Promise<ProductRow[]> {
 }
 
 /** Identify the card or slab in one photo with CardSight, then match it in the catalog. */
-export async function identifyWithCardSight(image: Blob, opts: { game?: string } = {}): Promise<ScanResult> {
+export async function identifyWithCardSight(image: Blob, opts: { game?: string; clock?: Stopwatch } = {}): Promise<ScanResult> {
   const apiKey = process.env.CARDSIGHT_API_KEY;
   if (!apiKey) throw new ScanFailure("not_configured", "Scanning needs a CardSight key on the server.", 503);
   const segment = opts.game ? SEGMENTS[opts.game.toLowerCase()] : undefined;
@@ -85,6 +86,7 @@ export async function identifyWithCardSight(image: Blob, opts: { game?: string }
     throw new ScanFailure("upstream", "Couldn't reach the scanner. Try again.", 502);
   }
   const body = (await res.json().catch(() => null)) as (CsResult & { data?: CsResult; error?: { message?: string } | string; message?: string }) | null;
+  opts.clock?.lap("cardsight");
   if (!res.ok) {
     if (res.status === 429) throw new ScanFailure("rate_limited", "Scanning too fast. Give it a second.", 429);
     if (res.status === 402) throw new ScanFailure("scan_balance_empty", "You're out of CardSight scans.", 402);
@@ -99,6 +101,7 @@ export async function identifyWithCardSight(image: Blob, opts: { game?: string }
   }
   // Every card in the photo, each matched in the catalog; the first leads, the rest ride along.
   const results = await Promise.all(found.slice(0, 12).map(toResult));
+  opts.clock?.lap("catalog");
   const [first, ...others] = results;
   return others.length ? { ...first, others } : first;
 }

@@ -160,6 +160,20 @@ struct ScanResult: Codable, Hashable {
     var scansRemaining: Int?
     /// More cards found in the same photo (CardSight reads several at once).
     var others: [ScanResult]? = nil
+    /// How long each server step took (milliseconds) and whether the server had to wake up.
+    var timing: ScanTiming? = nil
+}
+
+/// The server's laps for one scan: `auth`, `form`, `cardsight` (or `identify`), `catalog`, `total`
+/// in milliseconds, plus `cold` when that request also paid the server's wake-up.
+struct ScanTiming: Codable, Hashable {
+    var auth: Double?
+    var form: Double?
+    var cardsight: Double?
+    var identify: Double?
+    var catalog: Double?
+    var total: Double?
+    var cold: Bool?
 }
 
 struct APIErrorBody: Codable {

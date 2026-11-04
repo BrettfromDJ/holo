@@ -13,6 +13,8 @@ final class ScanModel {
 
         let id = UUID()
         let photo: Data
+        /// When the shutter was tapped, for the timing line.
+        var tappedAt = Date()
         var thumbnail: UIImage?
         var state: State = .queued
         var result: ScanResult?
@@ -30,6 +32,9 @@ final class ScanModel {
     }
 
     var entries: [Entry] = []
+    /// Where the last scan's seconds went ("4.8s · camera 0.1 · request 4.2 · ..."), for the
+    /// timing line in the scanner while scanning is being made faster.
+    var lastTiming: String?
     var scansLeft: Int?
     /// Stops new scans: the balance is empty or the account can't scan.
     var blocked: String?
@@ -64,8 +69,9 @@ final class ScanModel {
     }
 
     @MainActor
-    func add(photo: Data) {
-        let e = Entry(photo: photo)
+    func add(photo: Data, tappedAt: Date = Date()) {
+        var e = Entry(photo: photo)
+        e.tappedAt = tappedAt
         entries.insert(e, at: 0)
         pump()
         // The strip's thumbnail is decoded off the main thread, so the shutter never stutters.
@@ -133,22 +139,52 @@ final class ScanModel {
             let id = entry.id
             let photo = entry.photo
             let onDevice = onDeviceFirst
+            let tappedAt = entry.tappedAt
+            let queuedAt = Date()
             Task {
                 // First the phone reads the card's name and number and finds it in the stored
                 // catalog (instant and free). Only when that isn't a clear single match does the
                 // photo go to the paid server scan.
-                if onDevice, let quick = await OnDeviceScan.identify(jpeg: photo) {
-                    await MainActor.run { self.finish(id, result: quick) }
-                    return
+                var phone: TimeInterval?
+                if onDevice {
+                    let began = Date()
+                    let quick = await OnDeviceScan.identify(jpeg: photo)
+                    phone = Date().timeIntervalSince(began)
+                    if let quick {
+                        let line = ScanModel.timingLine(tappedAt: tappedAt, queuedAt: queuedAt, phone: phone, request: nil, server: nil, bytes: photo.count)
+                        await MainActor.run { self.lastTiming = line; self.finish(id, result: quick) }
+                        return
+                    }
                 }
                 do {
-                    let result = try await Backend.shared.api.scan(jpeg: photo)
-                    await MainActor.run { self.finish(id, result: result) }
+                    let (result, request) = try await Backend.shared.api.scan(jpeg: photo)
+                    let line = ScanModel.timingLine(tappedAt: tappedAt, queuedAt: queuedAt, phone: phone, request: request, server: result.timing, bytes: photo.count)
+                    await MainActor.run { self.lastTiming = line; self.finish(id, result: result) }
                 } catch {
                     await MainActor.run { self.fail(id, error: error) }
                 }
             }
         }
+    }
+
+    /// One line saying where a scan's time went: the whole wait, then the camera (tap to
+    /// photo), the phone's own read, the request round trip, and inside it the server's steps.
+    /// Also printed, for the Xcode console.
+    static func timingLine(tappedAt: Date, queuedAt: Date, phone: TimeInterval?, request: TimeInterval?, server: ScanTiming?, bytes: Int) -> String {
+        func s(_ t: TimeInterval) -> String { String(format: "%.1f", t) }
+        var parts = ["\(s(Date().timeIntervalSince(tappedAt)))s", "camera \(s(queuedAt.timeIntervalSince(tappedAt)))"]
+        if let phone { parts.append("phone \(s(phone))") }
+        if let request { parts.append("request \(s(request))") }
+        if let server {
+            let steps: [(String, Double?)] = [("sign-in", server.auth), ("photo", server.form), ("CardSight", server.cardsight), ("TCG", server.identify), ("catalog", server.catalog)]
+            for (name, ms) in steps { if let ms { parts.append("\(name) \(s(ms / 1000))") } }
+            if let total = server.total, let request { parts.append("network \(s(max(0, request - total / 1000)))") }
+            if server.cold == true { parts.append("cold start") }
+        }
+        parts.append("\(bytes / 1024) KB")
+        let line = parts.joined(separator: " · ")
+        print("scan timing:", line)
+        return line
     }
 
     @MainActor
