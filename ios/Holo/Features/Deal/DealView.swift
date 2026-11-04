@@ -164,7 +164,16 @@ struct DealView: View {
             }
             .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: docked ? 0 : HoloTabBar<Int>.clearance) }
             .sheet(isPresented: $confirming) { DealCloseSheet() }
-            .sheet(item: $picking) { side in DealPickerSheet(side: side) }
+            .sheet(item: $picking) { side in
+                DealPickerSheet(side: side, onScan: {
+                    picking = nil
+                    // Once the sheet is down, the scanner for that side.
+                    Task {
+                        try? await Task.sleep(nanoseconds: 350_000_000)
+                        scanning = side
+                    }
+                })
+            }
             .sheet(isPresented: $settings) { DealRatesSheet() }
             .navigationDestination(for: DealRoute.self) { _ in DealHistoryView() }
             .navigationDestination(for: DealRecord.self) { DealRecordDetail(recordId: $0.id) }

@@ -218,7 +218,7 @@ struct HomeView: View {
                 }
                 MarketPulse(store: store)
                 // Opens search with the keyboard already up.
-                SearchFieldButton(prompt: "Search any card or sealed product") { search = true }
+                SearchFieldButton(prompt: "Search any card or sealed product", scan: .collection) { search = true }
                     .padding(.horizontal, 16)
                     // Only reports when it crosses under the top bar, not on every scroll frame.
                     .onGeometryChange(for: Bool.self) { $0.frame(in: .global).maxY < 100 } action: { tucked in

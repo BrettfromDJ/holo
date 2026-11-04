@@ -25,7 +25,7 @@ struct ExploreView: View {
         NavigationStack(path: $path) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    SearchFieldButton(prompt: "Search cards and sealed, any brand") { searchOpen = true }
+                    SearchFieldButton(prompt: "Search cards and sealed, any brand", scan: .collection) { searchOpen = true }
                         .padding(.horizontal, 16)
                         .padding(.top, 4)
                     landing

@@ -4,6 +4,8 @@ import SwiftUI
 /// that's something you have that isn't in Holo yet), or a custom line with just a name and price.
 struct DealPickerSheet: View {
     var side: DealSide
+    /// Scan into this side instead (the page closes this sheet and opens the scanner).
+    var onScan: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
     @Environment(CollectionStore.self) private var store
     @Environment(DealStore.self) private var deals
@@ -86,7 +88,7 @@ struct DealPickerSheet: View {
                 // Search, with a small Custom button beside it for things not in the catalog.
                 HStack(spacing: 8) {
                     HoloSearchField(text: $query, prompt: side == .incoming ? "Search any card or product" : "Search your inventory or any card",
-                                    focus: $focused, loading: searching)
+                                    focus: $focused, loading: searching, scan: onScan.map { SearchScan(action: $0) })
                     Button { customOpen = true } label: {
                         Label("Custom", systemImage: "plus")
                             .font(.geist(15, .semibold)).foregroundStyle(.white)

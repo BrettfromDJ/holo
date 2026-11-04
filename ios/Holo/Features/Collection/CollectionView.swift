@@ -661,7 +661,7 @@ struct CollectionView: View {
     private var controls: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
-                HoloSearchField(text: $query, prompt: "Search your collection", focus: $searchFocused)
+                HoloSearchField(text: $query, prompt: "Search your collection", focus: $searchFocused, scan: .collection)
                 Menu {
                     Picker("Sort", selection: $sort) {
                         ForEach(Sort.allCases, id: \.self) { Text($0.rawValue).tag($0) }

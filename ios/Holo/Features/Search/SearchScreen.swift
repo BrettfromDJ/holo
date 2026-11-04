@@ -9,6 +9,8 @@ struct HoloSearchField: View {
     var prompt: String
     var focus: FocusState<Bool>.Binding
     var loading = false
+    /// When set, a scan icon sits inside the box, at its end.
+    var scan: SearchScan? = nil
     var onSubmit: () -> Void = {}
 
     var body: some View {
@@ -33,6 +35,7 @@ struct HoloSearchField: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Clear")
             }
+            if let scan { ScanIconButton(scan: scan) }
         }
         .padding(.horizontal, 16)
         .frame(height: 48)
@@ -42,24 +45,55 @@ struct HoloSearchField: View {
     }
 }
 
+/// What a search box's scan icon does. (A small wrapper, so it can never be mistaken for the
+/// box's trailing submit closure.)
+struct SearchScan {
+    var action: () -> Void
+    /// Opens the app's scanner (the same one as the + button), adding to the collection.
+    static let collection = SearchScan { Router.shared.scanRequest += 1 }
+}
+
+/// The scan icon inside a search box: lime viewfinder, a comfortable tap target.
+struct ScanIconButton: View {
+    var scan: SearchScan
+
+    var body: some View {
+        Button(action: scan.action) {
+            Image(systemName: "viewfinder")
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(Theme.lime)
+                .frame(width: 36, height: 40)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.trailing, -6)
+        .accessibilityLabel("Scan a card")
+    }
+}
+
 /// The same box as a button, for pages where tapping it opens search (with the keyboard up).
 struct SearchFieldButton: View {
     var prompt: String
+    var scan: SearchScan? = nil
     var action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass").font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.muted)
-                Text(prompt).font(.geist(16)).foregroundStyle(Theme.subtle).lineLimit(1)
-                Spacer(minLength: 0)
+        HStack(spacing: 10) {
+            Button(action: action) {
+                HStack(spacing: 10) {
+                    Image(systemName: "magnifyingglass").font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.muted)
+                    Text(prompt).font(.geist(16)).foregroundStyle(Theme.subtle).lineLimit(1)
+                    Spacer(minLength: 0)
+                }
+                .frame(maxHeight: .infinity)
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 16)
-            .frame(height: 48)
-            .background { Color.clear.blurredGlass(in: Capsule()).allowsHitTesting(false) }
-            .contentShape(Capsule())
+            .buttonStyle(.plain)
+            if let scan { ScanIconButton(scan: scan) }
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 16)
+        .frame(height: 48)
+        .background { Color.clear.blurredGlass(in: Capsule()).allowsHitTesting(false) }
     }
 }
 
@@ -157,30 +191,20 @@ struct SearchScreen: View {
             VStack(spacing: 0) {
                 HStack(spacing: 10) {
                     HoloSearchField(text: $query, prompt: mode == .add ? "Add a card or sealed product" : "Search any card or sealed product",
-                                    focus: $focused, loading: searching || liveSearching) {
+                                    focus: $focused, loading: searching || liveSearching,
+                                    // Scan instead of typing (it adds to the collection), over Search.
+                                    scan: SearchScan {
+                                        let typing = focused
+                                        focused = false
+                                        Task {
+                                            if typing { try? await Task.sleep(nanoseconds: 250_000_000) }
+                                            scanning = true
+                                        }
+                                    }) {
                         history.remember(query: query)
                         // Pressing Search with nothing found looks in the live catalog.
                         if results.isEmpty && searchedFor == trimmed { Task { await searchLive() } }
                     }
-                    // Scan instead of typing: the same scanner as the + menu (it adds to the collection).
-                    Button {
-                        // Let the keyboard go down first, then open the scanner over Search.
-                        let typing = focused
-                        focused = false
-                        Task {
-                            if typing { try? await Task.sleep(nanoseconds: 250_000_000) }
-                            scanning = true
-                        }
-                    } label: {
-                        Image(systemName: "viewfinder")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .frame(width: 48, height: 48)
-                            .background { Color.clear.blurredGlass(in: Circle()).allowsHitTesting(false) }
-                            .contentShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Scan a card")
                     Button("Cancel") { dismiss() }
                         .font(.geist(16, .medium)).foregroundStyle(Theme.lime)
                 }
