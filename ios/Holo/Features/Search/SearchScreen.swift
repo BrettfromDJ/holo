@@ -164,11 +164,13 @@ struct SearchScreen: View {
                     }
                     // Scan instead of typing: the same scanner as the + menu (it adds to the collection).
                     Button {
-                        // Close Search and open the same scanner as the + button (a scanner opened on
-                        // top of Search could show no camera picture).
+                        // Let the keyboard go down first, then open the scanner over Search.
+                        let typing = focused
                         focused = false
-                        dismiss()
-                        Router.shared.scanRequest += 1
+                        Task {
+                            if typing { try? await Task.sleep(nanoseconds: 250_000_000) }
+                            scanning = true
+                        }
                     } label: {
                         Image(systemName: "viewfinder")
                             .font(.system(size: 18, weight: .semibold))

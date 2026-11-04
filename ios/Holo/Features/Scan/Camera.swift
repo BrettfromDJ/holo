@@ -9,15 +9,6 @@ final class Camera: NSObject, ObservableObject {
     @Published var state: State = .starting
     let session = AVCaptureSession()
 
-    override init() {
-        super.init()
-        DispatchQueue.main.async { CameraStatus.shared.cameras += 1 }
-    }
-
-    deinit {
-        DispatchQueue.main.async { CameraStatus.shared.cameras -= 1 }
-    }
-
     private let output = AVCapturePhotoOutput()
     private let queue = DispatchQueue(label: "holo.camera")
     private var configured = false
@@ -72,53 +63,16 @@ final class Camera: NSObject, ObservableObject {
 
     /// After a call, another app taking the camera or a runtime error, start again so the
     /// picture comes back by itself.
-    /// iOS can pause the camera (for example "not available in the background" while a screen
-    /// is still coming up) and, on newer iOS, never unpause it. So when it's paused while Lucent
-    /// is on screen, and whenever Lucent comes back to the front, the camera is stopped and
-    /// started again (a fresh start always runs).
-    private var interrupted = false
-
     private func observeInterruptions() {
         let center = NotificationCenter.default
-        center.addObserver(forName: AVCaptureSession.wasInterruptedNotification, object: session, queue: .main) { [weak self] note in
-            let code = note.userInfo?[AVCaptureSessionInterruptionReasonKey] as? Int
-            CameraStatus.shared.interrupted = code.map { "interrupted (\($0))" } ?? "interrupted"
-            self?.interrupted = true
-            // Paused while we're on screen: try again in a moment.
-            if UIApplication.shared.applicationState == .active {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { self?.restartIfPaused() }
+        for name in [AVCaptureSession.interruptionEndedNotification, AVCaptureSession.runtimeErrorNotification] {
+            center.addObserver(forName: name, object: session, queue: nil) { [weak self] _ in
+                guard let self else { return }
+                self.queue.async {
+                    if !self.session.isRunning { self.session.startRunning() }
+                    self.set(.running)
+                }
             }
-        }
-        center.addObserver(forName: AVCaptureSession.runtimeErrorNotification, object: session, queue: .main) { [weak self] note in
-            let err = (note.userInfo?[AVCaptureSessionErrorKey] as? NSError).map { "error \($0.code)" } ?? "error"
-            CameraStatus.shared.interrupted = err
-            self?.interrupted = true
-            self?.restartIfPaused()
-        }
-        center.addObserver(forName: AVCaptureSession.interruptionEndedNotification, object: session, queue: .main) { [weak self] _ in
-            CameraStatus.shared.interrupted = ""
-            self?.interrupted = false
-            self?.restart()
-        }
-        center.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
-            self?.restartIfPaused()
-        }
-    }
-
-    private func restartIfPaused() {
-        guard interrupted, UIApplication.shared.applicationState == .active else { return }
-        interrupted = false
-        CameraStatus.shared.interrupted = "restarted"
-        restart()
-    }
-
-    /// Stop and start the camera on its own queue, so the picture comes back.
-    private func restart() {
-        queue.async { [weak self] in
-            guard let self else { return }
-            if self.session.isRunning { self.session.stopRunning() }
-            self.session.startRunning()
-            self.set(.running)
         }
     }
 
@@ -183,19 +137,7 @@ extension Camera: AVCapturePhotoCaptureDelegate {
     }
 }
 
-/// Temporary: what the camera and its on-screen picture report, shown as one line on the
-/// scanner while we find why the picture can stay black.
-@Observable
-final class CameraStatus {
-    static let shared = CameraStatus()
-    var preview = "picture: not made"
-    /// How many cameras exist at once (two fighting over the lens would show black).
-    var cameras = 0
-    var interrupted = ""
-}
-
-/// The live camera picture, filling its frame. (As it was when the picture last worked on
-/// iOS 27: attached when made, reconnected once when the camera starts running.)
+/// The live camera picture, filling its frame.
 struct CameraPreview: UIViewRepresentable {
     let session: AVCaptureSession
     /// Whether the camera is running; when it starts, the preview reconnects to it (newer iOS
@@ -206,13 +148,6 @@ struct CameraPreview: UIViewRepresentable {
         override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
         var previewLayer: AVCaptureVideoPreviewLayer { layer as! AVCaptureVideoPreviewLayer }
 
-        /// Temporary: the picture's state for the scanner's status line.
-        func report() {
-            let c = previewLayer.connection
-            let text = "picture: \(window == nil ? "off-screen" : "on screen") \(Int(bounds.width))×\(Int(bounds.height)) · link \(c == nil ? "none" : (c!.isActive ? "active" : (c!.isEnabled ? "enabled, idle" : "disabled")))"
-            if CameraStatus.shared.preview != text { CameraStatus.shared.preview = text }
-        }
-
         override func layoutSubviews() {
             super.layoutSubviews()
             previewLayer.frame = bounds
@@ -220,7 +155,6 @@ struct CameraPreview: UIViewRepresentable {
             if let connection = previewLayer.connection, connection.isVideoRotationAngleSupported(90) {
                 connection.videoRotationAngle = 90
             }
-            report()
         }
     }
 
