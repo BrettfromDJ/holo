@@ -18,10 +18,17 @@ struct ScanReviewSheet: View {
             ScrollViewReader { proxy in
                 GlassList {
                     ForEach($model.entries) { $entry in
-                        ReviewRow(entry: $entry, inDeal: model.onPick != nil, onPick: { model.pick($0, for: entry.id) }, onRetry: { model.retry(entry.id) })
+                        ReviewRow(entry: $entry, inDeal: model.onPick != nil, onPick: { model.pick($0, for: entry.id) }, onRetry: { model.retry(entry.id) },
+                                  onRemove: { withAnimation(.snappy) { model.remove(entry.id) } })
                             .id(entry.id)
                             .listRowBackground(Color.white.opacity(0.07))
-                            .swipeActions { Button("Remove", role: .destructive) { model.remove(entry.id) } }
+                            // Swipe left: pink with a trash icon, like a deal card's.
+                            .swipeActions {
+                                Button(role: .destructive) { withAnimation(.snappy) { model.remove(entry.id) } } label: {
+                                    Label("Remove", systemImage: "trash.fill")
+                                }
+                                .tint(Theme.planPink)
+                            }
                     }
                     if let error {
                         Text(error).foregroundStyle(Theme.down)
@@ -98,6 +105,7 @@ private struct ReviewRow: View {
     var inDeal = false
     var onPick: (ScanCandidate) -> Void
     var onRetry: () -> Void
+    var onRemove: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -118,6 +126,15 @@ private struct ReviewRow: View {
                 } else if entry.state == .queued || entry.state == .reading {
                     ProgressView()
                 }
+                // Plain to see, as on a deal card; swiping left works too.
+                Button(action: onRemove) {
+                    Image(systemName: "trash").font(.system(size: 13, weight: .medium)).foregroundStyle(.white)
+                        .frame(width: 30, height: 30)
+                        .background(Circle().fill(Color.white.opacity(0.12)))
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Remove \(title)")
             }
 
             // Close matches: tap the right one.

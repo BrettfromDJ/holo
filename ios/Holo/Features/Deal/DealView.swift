@@ -911,9 +911,12 @@ private struct DealItemCard: View {
                     .buttonStyle(.plain)
                     .disabled(onOpen == nil)
                     Spacer(minLength: 0)
+                    // Plain to see: white on a faint circle (it was a faint grey icon before).
                     Button(action: onRemove) {
-                        Image(systemName: "trash").font(.system(size: 13, weight: .medium)).foregroundStyle(Theme.subtle)
-                            .frame(width: 28, height: 28)
+                        Image(systemName: "trash").font(.system(size: 13, weight: .medium)).foregroundStyle(.white)
+                            .frame(width: 30, height: 30)
+                            .background(Circle().fill(Color.white.opacity(0.12)))
+                            .contentShape(Circle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Remove \(item.product.name)")
