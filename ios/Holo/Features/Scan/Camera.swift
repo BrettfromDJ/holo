@@ -188,7 +188,10 @@ final class Camera: NSObject, ObservableObject {
     private func configure() -> Bool {
         session.beginConfiguration()
         defer { session.commitConfiguration() }
-        session.sessionPreset = .photo
+        // 1080p, not full photo resolution: plenty for a card (photos are shrunk to 1000–1400px
+        // anyway) and a far lighter pipeline. Live frames and stills then share one format, so
+        // taking a photo while tracking never asks the camera for two heavy streams at once.
+        session.sessionPreset = session.canSetSessionPreset(.hd1920x1080) ? .hd1920x1080 : .high
         guard
             let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
             let input = try? AVCaptureDeviceInput(device: device),
@@ -224,6 +227,9 @@ final class Camera: NSObject, ObservableObject {
 
     /// Take a photo and return it as a JPEG no larger than `maxEdge` pixels on its long side.
     func capture(maxEdge: CGFloat = 1400, quality: CGFloat = 0.85) async throws -> Data {
+        // Live frames pause while the photo is taken, then resume: one job for the camera at a time.
+        let wasTracking = pauseTracking()
+        defer { if wasTracking { resumeTracking() } }
         let raw: Data = try await withCheckedThrowingContinuation { cont in
             queue.async { [weak self] in
                 guard let self else { return }
@@ -236,6 +242,27 @@ final class Camera: NSObject, ObservableObject {
             }
         }
         return Camera.downscale(raw, maxEdge: maxEdge, quality: quality) ?? raw
+    }
+
+    /// Stops frame delivery without changing what the scanner asked for; returns whether it was on.
+    private func pauseTracking() -> Bool {
+        lock.lock()
+        let on = trackingOn
+        lock.unlock()
+        guard on, hasVideoOutput else { return false }
+        queue.sync { videoOutput.setSampleBufferDelegate(nil, queue: nil) }
+        return true
+    }
+
+    private func resumeTracking() {
+        lock.lock()
+        let on = trackingOn
+        lock.unlock()
+        guard on, hasVideoOutput else { return }
+        queue.async { [weak self] in
+            guard let self else { return }
+            self.videoOutput.setSampleBufferDelegate(self, queue: self.videoQueue)
+        }
     }
 
     static func downscale(_ data: Data, maxEdge: CGFloat, quality: CGFloat = 0.85) -> Data? {
