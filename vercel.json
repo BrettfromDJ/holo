@@ -10,5 +10,5 @@
       "schedule": "43 9 * * *"
     }
   ],
-  "ignoreCommand": "git diff --quiet ${VERCEL_GIT_PREVIOUS_SHA:-HEAD^} HEAD -- . ':(exclude)ios' ':(exclude).github' ':(exclude)CLAUDE.md'"
+  "ignoreCommand": "[ \"$VERCEL_GIT_COMMIT_REF\" = ci-screenshots ] && exit 0; git diff --quiet ${VERCEL_GIT_PREVIOUS_SHA:-HEAD^} HEAD -- . ':(exclude)ios' ':(exclude).github' ':(exclude)CLAUDE.md' 2>/dev/null; [ $? -eq 0 ]"
 }
