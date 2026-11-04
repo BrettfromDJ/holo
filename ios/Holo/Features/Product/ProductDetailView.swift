@@ -6,6 +6,9 @@ import SwiftUI
 /// purchase history and notes.
 struct ProductDetailView: View {
     var productId: String
+    /// A panel shown under the title: the scanner puts this scan's condition, printing, paid
+    /// and ways out here, so the full page (comps, history) is a tap away while scanning.
+    var extra: AnyView? = nil
     @Environment(CollectionStore.self) private var store
     @Environment(GroupsStore.self) private var groups
     @Environment(GradingStore.self) private var grading
@@ -64,6 +67,7 @@ struct ProductDetailView: View {
             VStack(alignment: .leading, spacing: 0) {
                 hero.padding(.top, 8)
                 titleBlock.padding(.top, 12)
+                if let extra { extra.padding(.top, 20) }
                 actions.padding(.top, 24)
                 PriceHistoryCard(productId: productId, printing: printing, owned: owned).padding(.top, 32)
                 // Catalog cards, and demo ones (sample sales made on the phone).

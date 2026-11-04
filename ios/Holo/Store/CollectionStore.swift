@@ -535,6 +535,11 @@ final class CollectionStore {
 
     func takeOpenPrinting(_ id: String) -> String? { openPrinting.removeValue(forKey: id) }
 
+    /// The printing a card page should open on next (a scan's chosen printing).
+    func setOpenPrinting(_ printing: String?, for id: String) {
+        if let printing { openPrinting[id] = printing } else { openPrinting.removeValue(forKey: id) }
+    }
+
     func seed(_ hit: SearchHit) {
         if let p = hit.printing { openPrinting[hit.product.id] = p }
         if products[hit.product.id] == nil { products[hit.product.id] = hit.product }

@@ -18,6 +18,7 @@ struct ScanView: View {
     var onPick: (@MainActor (ScanCandidate, ScanRead?) -> (ok: Bool, note: String))?
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(CollectionStore.self) private var store
     /// One camera for every scanner: set up once, then just restarted, so reopening is quick.
     @ObservedObject private var camera = Camera.shared
     @State private var model = ScanModel()
@@ -219,9 +220,10 @@ struct ScanView: View {
                  onNext: { focused = nil; reviewing = true }, onDone: { dismiss() })
     }
 
-    /// A tapped scan opens close up (a failed read is tried again first).
+    /// A tapped scan opens (its card page on the scan's printing; a failed read is tried again first).
     private func open(_ e: ScanModel.Entry) {
         if e.state == .failed { model.retry(e.id) }
+        if let p = e.picked { store.setOpenPrinting(e.printing ?? p.printing, for: p.product.id) }
         editing = EditingScan(id: e.id)
     }
 

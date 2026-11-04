@@ -53,6 +53,7 @@ struct ScanReviewSheet: View {
                         .contentShape(Rectangle())
                         .onTapGesture {
                             if entry.state == .failed { model.retry(entry.id) }
+                            if let p = entry.picked { store.setOpenPrinting(entry.printing ?? p.printing, for: p.product.id) }
                             editing = EditingScan(id: entry.id)
                         }
                         .id(entry.id)
