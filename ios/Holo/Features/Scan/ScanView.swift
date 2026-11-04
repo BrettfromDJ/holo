@@ -4,6 +4,8 @@ import SwiftUI
 /// Full-screen scanner. Tap the card (or anywhere on the picture) to scan it; each lands in a
 /// strip you can swipe through. Next opens the review, where you set what you paid and add
 /// them all. The first time, a small hint says to tap the card. There is no shutter button.
+/// Text on the glass is white, never grey: grey reads as dull on a see-through surface, so
+/// secondary lines differ by size and weight only.
 ///
 /// Live tracking: while the scanner is on screen and uncovered, the camera finds the card
 /// in view and `CardTracker` follows it; `CardTrackingOverlay` (its own small view, the only
@@ -192,7 +194,7 @@ struct ScanView: View {
                 VStack(spacing: 14) {
                     Image(systemName: "camera.fill").font(.system(size: 30)).foregroundStyle(Theme.lime)
                     Text("Camera is off for Lucent").font(.display(22)).tracking(-0.6)
-                    Text("Turn it on in Settings to scan cards.").font(.geist(14)).foregroundStyle(Theme.muted)
+                    Text("Turn it on in Settings to scan cards.").font(.geist(14)).foregroundStyle(.white)
                     Button("Open Settings") { if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) } }
                         .buttonStyle(Button3D(kind: .lime, fullWidth: false, height: 44))
                 }
@@ -243,10 +245,10 @@ struct ScanView: View {
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
                             .frame(width: 48, height: 64)
-                            .overlay(Image(systemName: "rectangle.on.rectangle").font(.system(size: 16)).foregroundStyle(Theme.subtle))
+                            .overlay(Image(systemName: "rectangle.on.rectangle").font(.system(size: 16)).foregroundStyle(.white))
                         VStack(alignment: .leading, spacing: 3) {
                             Text("No cards yet").font(.geist(15, .semibold))
-                            Text("Hold a card in view, then tap it.").font(.geist(13)).foregroundStyle(Theme.muted)
+                            Text("Hold a card in view, then tap it.").font(.geist(13)).foregroundStyle(.white)
                         }
                         Spacer(minLength: 0)
                     }
@@ -274,7 +276,7 @@ struct ScanView: View {
                     Text(Format.money(model.total)).font(.display(28)).tracking(-0.8).monospacedDigit()
                         .contentTransition(.numericText())
                         .lineLimit(1).minimumScaleFactor(0.6)
-                    Text(model.picks.isEmpty ? "Total value" : "\(model.picks.count) matched").font(.geist(12)).foregroundStyle(Theme.muted)
+                    Text(model.picks.isEmpty ? "Total value" : "\(model.picks.count) matched").font(.geist(12)).foregroundStyle(.white)
                 }
                 Spacer()
                 Button { clearing = true } label: {
@@ -472,7 +474,7 @@ struct ScanChip: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title).font(.geist(15, .semibold)).foregroundStyle(.white).lineLimit(2)
                     if entry.state == .done, let set = entry.picked?.product.setName {
-                        Text(set).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
+                        Text(set).font(.geist(12)).foregroundStyle(.white).lineLimit(1)
                     }
                     detail.font(.geist(13)).lineLimit(1)
                 }
@@ -510,12 +512,12 @@ struct ScanChip: View {
         case .queued, .reading:
             ProgressView().controlSize(.mini).tint(.white)
         case .failed:
-            Label("Try again", systemImage: "arrow.clockwise").foregroundStyle(.white.opacity(0.7))
+            Label("Try again", systemImage: "arrow.clockwise").foregroundStyle(.white)
         case .done:
             if entry.rejected, let note = entry.note {
                 Text(note).foregroundStyle(Theme.down)
             } else if let p = entry.picked {
-                (Text(p.product.number.map { "#\($0) · " } ?? "").foregroundStyle(.white.opacity(0.7))
+                (Text(p.product.number.map { "#\($0) · " } ?? "").foregroundStyle(.white)
                     + Text(Format.money(entry.value)).bold().foregroundStyle(.white))
                     .monospacedDigit()
             } else {
