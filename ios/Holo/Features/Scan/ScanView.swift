@@ -280,7 +280,8 @@ struct ScanView: View {
                 } else {
                     ScrollView(.horizontal, showsIndicators: false) {
                         LazyHStack(spacing: 8) {
-                            ForEach(Array(model.entries.reversed())) { e in
+                            // Newest first, so the card you just scanned lands on the left.
+                            ForEach(model.entries) { e in
                                 ScanChip(entry: e) {
                                     if e.state == .failed { model.retry(e.id) } else { focused = e.id; reviewing = true }
                                 }
