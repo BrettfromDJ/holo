@@ -272,7 +272,7 @@ struct ScanView: View {
                         LazyHStack(spacing: 8) {
                             // Newest first, so the card you just scanned lands on the left.
                             ForEach(model.entries) { e in
-                                ScanChip(entry: e) {
+                                ScanChip(entry: e, onTap: {
                                     // A matched card opens its page; anything else goes to the review
                                     // (to pick between matches), and a failed read is tried again.
                                     if e.state == .failed {
@@ -283,7 +283,9 @@ struct ScanView: View {
                                         focused = e.id
                                         reviewing = true
                                     }
-                                }
+                                }, onRemove: {
+                                    withAnimation(.snappy) { model.remove(e.id) }
+                                })
                                 .transition(.scale(scale: 0.6).combined(with: .opacity))
                             }
                         }
@@ -490,10 +492,12 @@ private struct ScanSweep: View {
 }
 
 /// A scan in the strip: the card's picture, what it matched (name, set, number and price), or
-/// what it still needs.
+/// what it still needs. A long press offers to remove it. A faint white tile with a hairline,
+/// not glass: glass on the glass tray looked like a smudge.
 struct ScanChip: View {
     var entry: ScanModel.Entry
     var onTap: () -> Void
+    var onRemove: () -> Void = {}
 
     var body: some View {
         Button(action: onTap) {
@@ -510,9 +514,14 @@ struct ScanChip: View {
             }
             .padding(10)
             .frame(width: 256, height: 112)
-            .liquidGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.white.opacity(0.1)))
+            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
+            .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Button(role: .destructive, action: onRemove) { Label("Remove", systemImage: "trash") }
+        }
     }
 
     @ViewBuilder private var thumb: some View {
