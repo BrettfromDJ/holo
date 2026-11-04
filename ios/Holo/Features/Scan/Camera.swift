@@ -66,7 +66,15 @@ final class Camera: NSObject, ObservableObject {
     private var pending: [Int64: CheckedContinuation<Data, Error>] = [:]
     private let lock = NSLock()
 
+    /// True only while the scanner is on screen. The camera is never started, or restarted after
+    /// an interruption, unless the scanner wants it and Lucent is in front, so Lucent never holds
+    /// the camera away from other apps (Apple's Camera included).
+    private var wanted = false
+    private var appObservers: [NSObjectProtocol] = []
+
     func start() {
+        wanted = true
+        watchApp()
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
             run()
@@ -80,8 +88,30 @@ final class Camera: NSObject, ObservableObject {
     }
 
     func stop() {
+        wanted = false
         setTracking(false)
         queue.async { [session] in if session.isRunning { session.stopRunning() } }
+    }
+
+    deinit {
+        appObservers.forEach(NotificationCenter.default.removeObserver)
+        let session = self.session
+        if session.isRunning { DispatchQueue.global(qos: .userInitiated).async { session.stopRunning() } }
+    }
+
+    /// Let go of the camera the moment Lucent leaves the front; take it back on return only if
+    /// the scanner is still open.
+    private func watchApp() {
+        guard appObservers.isEmpty else { return }
+        let center = NotificationCenter.default
+        appObservers.append(center.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            guard let self else { return }
+            self.queue.async { if self.session.isRunning { self.session.stopRunning() } }
+        })
+        appObservers.append(center.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            guard let self, self.wanted else { return }
+            self.queue.async { if self.wanted, !self.session.isRunning { self.session.startRunning() } }
+        })
     }
 
     /// Process frames for live tracking, or stop (no Vision work at all while off).
@@ -127,6 +157,8 @@ final class Camera: NSObject, ObservableObject {
                 self.configured = true
                 self.observeInterruptions()
             }
+            // Closed again before the camera was ready: don't start it.
+            guard self.wanted else { return }
             if !self.session.isRunning { self.session.startRunning() }
             self.set(.running)
         }
@@ -139,9 +171,15 @@ final class Camera: NSObject, ObservableObject {
         for name in [AVCaptureSession.interruptionEndedNotification, AVCaptureSession.runtimeErrorNotification] {
             center.addObserver(forName: name, object: session, queue: nil) { [weak self] _ in
                 guard let self else { return }
-                self.queue.async {
-                    if !self.session.isRunning { self.session.startRunning() }
-                    self.set(.running)
+                // Only while the scanner is open and Lucent is in front: never fight another app
+                // (or the system) for the camera.
+                DispatchQueue.main.async {
+                    guard self.wanted, UIApplication.shared.applicationState == .active else { return }
+                    self.queue.async {
+                        guard self.wanted, !self.session.isRunning else { return }
+                        self.session.startRunning()
+                        self.set(.running)
+                    }
                 }
             }
         }
