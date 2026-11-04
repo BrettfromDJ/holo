@@ -18,14 +18,14 @@ struct ScanView: View {
     var onPick: (@MainActor (ScanCandidate, ScanRead?) -> (ok: Bool, note: String))?
 
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var camera = Camera()
+    /// One camera for every scanner: set up once, then just restarted, so reopening is quick.
+    @ObservedObject private var camera = Camera.shared
     @State private var model = ScanModel()
     @State private var tracker = CardTracker()
     @State private var reviewing = false
     @State private var flash = false
     @State private var focused: UUID?
     @State private var torch = false
-    @State private var clearing = false
     @State private var searchingManually = false
     /// A scanned card's page, open over the scanner (tap a matched card in the strip).
     @State private var viewing: ViewedProduct?
@@ -57,10 +57,7 @@ struct ScanView: View {
             if g.translation.height > 120 && abs(g.translation.width) < g.translation.height { dismiss() }
         })
         .onAppear {
-            let liveTracker = self.tracker
-            let liveCamera = self.camera
-            liveCamera.onCard = { [weak liveTracker] quad, size in liveTracker?.update(quad, frame: size) }
-            liveTracker.snapshot = { [weak liveCamera] in await liveCamera?.snapshotCard() }
+            wire()
             camera.start()
             syncTracking()
         }
@@ -80,6 +77,8 @@ struct ScanView: View {
                 if torch { torch = false; camera.setTorch(false) }
                 camera.stop()
             } else {
+                // Search's own scanner may have pointed the shared camera at its tracker.
+                wire()
                 camera.start()
             }
             syncTracking()
@@ -176,16 +175,10 @@ struct ScanView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     }
                 }
-                if model.busy > 0 {
-                    HStack(spacing: 6) {
-                        ProgressView().controlSize(.mini).tint(Theme.lime)
-                        Text("\(model.busy) reading").font(.geist(12, .semibold)).foregroundStyle(.white)
-                    }
-                    .padding(.horizontal, 12).frame(height: 30)
-                    .liquidGlass(in: Capsule())
+                // Its own view: it's the only part of the guide that watches the scans.
+                ReadingPill(model: model)
                     .frame(width: w, height: h, alignment: .bottom)
                     .padding(.bottom, 14)
-                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             // Taps go through to the tracked card underneath.
@@ -224,9 +217,117 @@ struct ScanView: View {
         }
     }
 
-    // MARK: Bottom: the docked tray with the scans, the total and Next
+    // MARK: Bottom: the docked tray (its own view, so the scans redraw only it)
 
     private var bottom: some View {
+        ScanTray(model: model, dealSide: dealSide, expanded: $expanded, onOpen: { open($0) },
+                 onNext: { focused = nil; reviewing = true }, onDone: { dismiss() })
+    }
+
+    /// A tapped scan: a matched card opens its page; anything else goes to the review (to pick
+    /// between matches), and a failed read is tried again.
+    private func open(_ e: ScanModel.Entry) {
+        if e.state == .failed {
+            model.retry(e.id)
+        } else if e.state == .done, let p = e.picked?.product {
+            viewing = ViewedProduct(id: p.id)
+        } else {
+            focused = e.id
+            reviewing = true
+        }
+    }
+
+    private func glassCircle(_ icon: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon).font(.system(size: 16, weight: .semibold))
+                .frame(width: 44, height: 44)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        // The glass sits behind the button and never takes the touch itself.
+        .background { Color.clear.liquidGlass(in: Circle()).allowsHitTesting(false) }
+        .accessibilityLabel(label)
+    }
+
+    /// Points the shared camera at this scanner's tracker (and the tracker at the camera).
+    private func wire() {
+        let liveTracker = self.tracker
+        let liveCamera = self.camera
+        liveCamera.onCard = { [weak liveTracker] quad, size in liveTracker?.update(quad, frame: size) }
+        liveTracker.snapshot = { [weak liveCamera] in await liveCamera?.snapshotCard() }
+    }
+
+    /// Process camera frames only while the scanner is up and nothing covers it.
+    private func syncTracking() {
+        let on = camera.state == .running && !reviewing && !searchingManually && viewing == nil && !expanded
+        camera.setTracking(on)
+        tracker.active = on
+    }
+
+    /// A tap on the card (or the picture). A card already read live goes straight in;
+    /// a tracked card is photographed and cropped to its corners; otherwise a plain photo.
+    private func shoot() {
+        guard camera.state == .running else { return }
+        if showTip {
+            showTip = false
+            UserDefaults.standard.set(true, forKey: "scan-tip-seen")
+        }
+        // Reading the tracker here (an action, not `body`) doesn't make this view observe it.
+        if let live = tracker.readyMatch {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            flashOnce()
+            model.add(matched: OnDeviceScan.result(for: live.hit), photo: live.crop.jpeg, thumbnail: live.crop.image)
+            return
+        }
+        guard model.blocked == nil else { return }
+        let quad = tracker.quad
+        let tappedAt = Date()
+        UIImpactFeedbackGenerator(style: quad == nil ? .medium : .light).impactOccurred()
+        flashOnce()
+        Task {
+            do {
+                // CardSight reads a card fine from a smaller photo, which uploads in about half the time.
+                let small = model.cardSight
+                let jpeg = small ? try await camera.capture(maxEdge: 1000, quality: 0.75) : try await camera.capture()
+                // Crop to the tracked card (off the main thread); the whole photo if that fails.
+                var photo = jpeg
+                // With CardSight the whole photo goes up: it finds every card in it.
+                if let quad, !model.cardSight {
+                    let crop = await Task.detached(priority: .userInitiated) { Camera.crop(photo: jpeg, to: quad)?.jpeg }.value
+                    if let crop { photo = crop }
+                }
+                await MainActor.run { model.add(photo: photo, tappedAt: tappedAt) }
+            } catch {
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
+            }
+        }
+    }
+
+    private func flashOnce() {
+        withAnimation(.easeOut(duration: 0.05)) { flash = true }
+        withAnimation(.easeOut(duration: 0.25).delay(0.05)) { flash = false }
+    }
+}
+
+/// A product whose page is open over the scanner.
+struct ViewedProduct: Identifiable, Equatable {
+    let id: String
+}
+
+/// The docked tray: what this scan is and how many, the scans so far (a strip, or opened out
+/// into a list), then the total with Clear and Next. Its own view so that the scans coming
+/// and going redraw only this, never the camera, the top bar or the overlays.
+private struct ScanTray: View {
+    let model: ScanModel
+    var dealSide: DealSide?
+    @Binding var expanded: Bool
+    var onOpen: (ScanModel.Entry) -> Void
+    var onNext: () -> Void
+    var onDone: () -> Void
+    @State private var clearing = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
         VStack(spacing: 14) {
             if let blocked = model.blocked {
                 Label(blocked, systemImage: "exclamationmark.triangle.fill")
@@ -240,8 +341,6 @@ struct ScanView: View {
         .animation(.spring(response: 0.4, dampingFraction: 0.75), value: model.entries.count)
     }
 
-    /// Docked to the bottom edge: what this scan is and how many, the scans so far (or a short
-    /// hint), then the total with Clear and Next.
     private var tray: some View {
         let shape = UnevenRoundedRectangle(topLeadingRadius: 30, topTrailingRadius: 30, style: .continuous)
         return VStack(spacing: 0) {
@@ -337,12 +436,7 @@ struct ScanView: View {
                 .accessibilityLabel("Clear all scans")
                 Button {
                     // In a deal, scans are already in it: Done just closes the camera.
-                    if dealSide != nil {
-                        dismiss()
-                    } else {
-                        focused = nil
-                        reviewing = true
-                    }
+                    if dealSide != nil { onDone() } else { onNext() }
                 } label: {
                     HStack(spacing: 6) {
                         Text(dealSide == nil ? "Next" : "Done")
@@ -368,87 +462,24 @@ struct ScanView: View {
 
     /// One scan's tile, in the strip (fixed width) or the opened-out list (full width).
     private func chip(_ e: ScanModel.Entry, fills: Bool) -> some View {
-        ScanChip(entry: e, fills: fills) {
-            // A matched card opens its page; anything else goes to the review (to pick
-            // between matches), and a failed read is tried again.
-            if e.state == .failed {
-                model.retry(e.id)
-            } else if e.state == .done, let p = e.picked?.product {
-                viewing = ViewedProduct(id: p.id)
-            } else {
-                focused = e.id
-                reviewing = true
-            }
-        }
-    }
-
-    private func glassCircle(_ icon: String, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: icon).font(.system(size: 16, weight: .semibold))
-                .frame(width: 44, height: 44)
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        // The glass sits behind the button and never takes the touch itself.
-        .background { Color.clear.liquidGlass(in: Circle()).allowsHitTesting(false) }
-        .accessibilityLabel(label)
-    }
-
-    /// Process camera frames only while the scanner is up and nothing covers it.
-    private func syncTracking() {
-        let on = camera.state == .running && !reviewing && !searchingManually && viewing == nil && !expanded
-        camera.setTracking(on)
-        tracker.active = on
-    }
-
-    /// A tap on the card (or the picture). A card already read live goes straight in;
-    /// a tracked card is photographed and cropped to its corners; otherwise a plain photo.
-    private func shoot() {
-        guard camera.state == .running else { return }
-        if showTip {
-            showTip = false
-            UserDefaults.standard.set(true, forKey: "scan-tip-seen")
-        }
-        // Reading the tracker here (an action, not `body`) doesn't make this view observe it.
-        if let live = tracker.readyMatch {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            flashOnce()
-            model.add(matched: OnDeviceScan.result(for: live.hit), photo: live.crop.jpeg, thumbnail: live.crop.image)
-            return
-        }
-        guard model.blocked == nil else { return }
-        let quad = tracker.quad
-        let tappedAt = Date()
-        UIImpactFeedbackGenerator(style: quad == nil ? .medium : .light).impactOccurred()
-        flashOnce()
-        Task {
-            do {
-                // CardSight reads a card fine from a smaller photo, which uploads in about half the time.
-                let small = model.cardSight
-                let jpeg = small ? try await camera.capture(maxEdge: 1000, quality: 0.75) : try await camera.capture()
-                // Crop to the tracked card (off the main thread); the whole photo if that fails.
-                var photo = jpeg
-                // With CardSight the whole photo goes up: it finds every card in it.
-                if let quad, !model.cardSight {
-                    let crop = await Task.detached(priority: .userInitiated) { Camera.crop(photo: jpeg, to: quad)?.jpeg }.value
-                    if let crop { photo = crop }
-                }
-                await MainActor.run { model.add(photo: photo, tappedAt: tappedAt) }
-            } catch {
-                UINotificationFeedbackGenerator().notificationOccurred(.error)
-            }
-        }
-    }
-
-    private func flashOnce() {
-        withAnimation(.easeOut(duration: 0.05)) { flash = true }
-        withAnimation(.easeOut(duration: 0.25).delay(0.05)) { flash = false }
+        ScanChip(entry: e, fills: fills) { onOpen(e) }
     }
 }
 
-/// A product whose page is open over the scanner.
-struct ViewedProduct: Identifiable, Equatable {
-    let id: String
+/// "2 reading" while scans are being read. Its own view so that only it watches the scans.
+private struct ReadingPill: View {
+    let model: ScanModel
+
+    var body: some View {
+        if model.busy > 0 {
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.mini).tint(Theme.lime)
+                Text("\(model.busy) reading").font(.geist(12, .semibold)).foregroundStyle(.white)
+            }
+            .padding(.horizontal, 12).frame(height: 30)
+            .liquidGlass(in: Capsule())
+        }
+    }
 }
 
 /// Shows its content only while no card is tracked. Reads just `isTracking`, so the corner

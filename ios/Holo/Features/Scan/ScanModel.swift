@@ -8,7 +8,7 @@ import UIKit
 /// done and picked, without being read again.
 @Observable
 final class ScanModel {
-    struct Entry: Identifiable {
+    struct Entry: Identifiable, Equatable {
         enum State { case queued, reading, done, failed }
 
         let id = UUID()
@@ -132,6 +132,19 @@ final class ScanModel {
         entries[i].picked = result.candidates.first
         entries[i].rejected = false
         if onPick != nil, entries[i].note == nil { hand(i) }
+    }
+
+    /// What you paid for one scan, as typed.
+    @MainActor
+    func setPaid(_ id: UUID, _ text: String) {
+        guard let i = entries.firstIndex(where: { $0.id == id }), entries[i].paid != text else { return }
+        entries[i].paid = text
+    }
+
+    @MainActor
+    func setCondition(_ id: UUID, _ value: String) {
+        guard let i = entries.firstIndex(where: { $0.id == id }), entries[i].condition != value else { return }
+        entries[i].condition = value
     }
 
     @MainActor

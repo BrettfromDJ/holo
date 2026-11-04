@@ -43,10 +43,14 @@ struct ScanReviewSheet: View {
                         .listRowInsets(EdgeInsets(top: 6, leading: 20, bottom: 4, trailing: 20))
                         .listRowSeparator(.hidden)
                     }
-                    ForEach($model.entries) { $entry in
-                        ReviewRow(entry: $entry, inDeal: model.onPick != nil, onPick: { model.pick($0, for: entry.id) }, onRetry: { model.retry(entry.id) },
+                    ForEach(model.entries) { entry in
+                        // Rows are compared by value: a keystroke in one Paid field redraws
+                        // that row, not every row.
+                        ReviewRow(entry: entry, inDeal: model.onPick != nil, onPick: { model.pick($0, for: entry.id) }, onRetry: { model.retry(entry.id) },
                                   onRemove: { withAnimation(.snappy) { model.remove(entry.id) } },
-                                  onWrong: { fixing = Fixing(id: entry.id) })
+                                  onWrong: { fixing = Fixing(id: entry.id) },
+                                  onPaid: { model.setPaid(entry.id, $0) }, onCondition: { model.setCondition(entry.id, $0) })
+                            .equatable()
                             .id(entry.id)
                             .listRowBackground(Color.white.opacity(0.07))
                             // Swipe left: pink with a trash icon, like a deal card's.
@@ -125,13 +129,18 @@ struct ScanReviewSheet: View {
     }
 }
 
-private struct ReviewRow: View {
-    @Binding var entry: ScanModel.Entry
+private struct ReviewRow: View, Equatable {
+    var entry: ScanModel.Entry
     var inDeal = false
     var onPick: (ScanCandidate) -> Void
     var onRetry: () -> Void
     var onRemove: () -> Void
     var onWrong: () -> Void
+    var onPaid: (String) -> Void
+    var onCondition: (String) -> Void
+
+    /// Same scan, same values: nothing to redraw (the closures don't count).
+    static func == (a: ReviewRow, b: ReviewRow) -> Bool { a.entry == b.entry && a.inDeal == b.inDeal }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -200,7 +209,7 @@ private struct ReviewRow: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel("Wrong card? Pick the right one")
                     if !picked.product.isSealed && entry.result?.read?.kind != "slab" {
-                        Picker("Condition", selection: $entry.condition) {
+                        Picker("Condition", selection: Binding(get: { entry.condition }, set: onCondition)) {
                             ForEach(CardCondition.allCases) { Text($0.short).tag($0.rawValue) }
                         }
                         .pickerStyle(.menu)
@@ -208,7 +217,7 @@ private struct ReviewRow: View {
                     }
                     Spacer()
                     Text("Paid").font(.footnote).foregroundStyle(Theme.muted)
-                    TextField(Format.money(entry.value ?? 0), text: $entry.paid)
+                    TextField(Format.money(entry.value ?? 0), text: Binding(get: { entry.paid }, set: onPaid))
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
                         .monospacedDigit()

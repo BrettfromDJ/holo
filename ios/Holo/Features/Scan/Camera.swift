@@ -23,6 +23,10 @@ import Vision
 final class Camera: NSObject, ObservableObject {
     enum State { case starting, running, denied, unavailable }
 
+    /// The one camera every scanner uses: set up on first use and kept, so opening the
+    /// scanner again only restarts it (a restart is quick; the set-up is what took time).
+    static let shared = Camera()
+
     /// The camera couldn't hand over a frame (stopped or interrupted while a scan was asked for).
     struct NoFrame: Error {}
 
