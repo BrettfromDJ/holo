@@ -27,6 +27,8 @@ struct ScanView: View {
     @State private var torch = false
     @State private var clearing = false
     @State private var searchingManually = false
+    /// A scanned card's page, open over the scanner (tap a matched card in the strip).
+    @State private var viewing: ViewedProduct?
     /// "Tap the card to scan it", until the first tap ever.
     @State private var showTip = !UserDefaults.standard.bool(forKey: "scan-tip-seen")
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -66,6 +68,7 @@ struct ScanView: View {
         }
         // Live tracking only while the scanner can be seen.
         .onChange(of: reviewing) { _, _ in syncTracking() }
+        .onChange(of: viewing) { _, _ in syncTracking() }
         // Search manually covers the scanner and has a scanner of its own: this camera is let
         // go while it's up (two at once would fight over the lens) and taken back after.
         .onChange(of: searchingManually) { _, searching in
@@ -91,6 +94,17 @@ struct ScanView: View {
         }
         .sheet(isPresented: $reviewing) {
             ScanReviewSheet(model: model, focus: focused, onAdded: { dismiss() })
+        }
+        // The card's page, as everywhere else in the app, over the camera.
+        .sheet(item: $viewing) { v in
+            NavigationStack {
+                ProductDetailView(productId: v.id)
+                    .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
+                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { viewing = nil } } }
+            }
+            .presentationDetents([.fraction(0.93)])
+            .presentationDragIndicator(.visible)
+            .glassSheet()
         }
     }
 
@@ -259,7 +273,16 @@ struct ScanView: View {
                             // Newest first, so the card you just scanned lands on the left.
                             ForEach(model.entries) { e in
                                 ScanChip(entry: e) {
-                                    if e.state == .failed { model.retry(e.id) } else { focused = e.id; reviewing = true }
+                                    // A matched card opens its page; anything else goes to the review
+                                    // (to pick between matches), and a failed read is tried again.
+                                    if e.state == .failed {
+                                        model.retry(e.id)
+                                    } else if e.state == .done, let p = e.picked?.product {
+                                        viewing = ViewedProduct(id: p.id)
+                                    } else {
+                                        focused = e.id
+                                        reviewing = true
+                                    }
                                 }
                                 .transition(.scale(scale: 0.6).combined(with: .opacity))
                             }
@@ -334,7 +357,7 @@ struct ScanView: View {
 
     /// Process camera frames only while the scanner is up and nothing covers it.
     private func syncTracking() {
-        let on = camera.state == .running && !reviewing && !searchingManually
+        let on = camera.state == .running && !reviewing && !searchingManually && viewing == nil
         camera.setTracking(on)
         tracker.active = on
     }
@@ -382,6 +405,11 @@ struct ScanView: View {
         withAnimation(.easeOut(duration: 0.05)) { flash = true }
         withAnimation(.easeOut(duration: 0.25).delay(0.05)) { flash = false }
     }
+}
+
+/// A product whose page is open over the scanner.
+struct ViewedProduct: Identifiable, Equatable {
+    let id: String
 }
 
 /// Shows its content only while no card is tracked. Reads just `isTracking`, so the corner

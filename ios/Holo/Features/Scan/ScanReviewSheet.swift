@@ -30,6 +30,8 @@ struct ScanReviewSheet: View {
                 .scrollContentBackground(.hidden)
                 .onAppear { if let focus { proxy.scrollTo(focus, anchor: .center) } }
             }
+            // A matched card's picture and name lead to its page.
+            .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
             .navigationTitle("\(model.entries.count) scanned")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -100,26 +102,12 @@ private struct ReviewRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 12) {
+                // The picture and name: a link to the card's page once it has matched.
                 Group {
                     if let p = entry.picked?.product {
-                        ProductImage(product: p, cornerRadius: 5)
-                    } else if let img = entry.thumbnail {
-                        Image(uiImage: img).resizable().scaledToFill()
+                        NavigationLink(value: p.id) { heading }.buttonStyle(.plain)
                     } else {
-                        Theme.surface2
-                    }
-                }
-                .frame(width: 44, height: 60)
-                .clipShape(RoundedRectangle(cornerRadius: 5))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.subheadline.weight(.semibold))
-                    if let c = entry.picked {
-                        Text([c.product.subtitle, c.printing, entry.result?.read?.grade.map { "\($0.company) \($0.grade)" }]
-                            .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "))
-                            .font(.caption).foregroundStyle(Theme.muted).lineLimit(2)
-                    } else if let message = entry.error ?? entry.result?.message {
-                        Text(message).font(.caption).foregroundStyle(Theme.muted)
+                        heading
                     }
                 }
                 Spacer()
@@ -179,6 +167,33 @@ private struct ReviewRow: View {
             }
         }
         .padding(.vertical, 6)
+    }
+
+    private var heading: some View {
+        HStack(spacing: 12) {
+            Group {
+                if let p = entry.picked?.product {
+                    ProductImage(product: p, cornerRadius: 5)
+                } else if let img = entry.thumbnail {
+                    Image(uiImage: img).resizable().scaledToFill()
+                } else {
+                    Theme.surface2
+                }
+            }
+            .frame(width: 44, height: 60)
+            .clipShape(RoundedRectangle(cornerRadius: 5))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.subheadline.weight(.semibold))
+                if let c = entry.picked {
+                    Text([c.product.subtitle, c.printing, entry.result?.read?.grade.map { "\($0.company) \($0.grade)" }]
+                        .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "))
+                        .font(.caption).foregroundStyle(Theme.muted).lineLimit(2)
+                } else if let message = entry.error ?? entry.result?.message {
+                    Text(message).font(.caption).foregroundStyle(Theme.muted)
+                }
+            }
+        }
     }
 
     private var title: String {
