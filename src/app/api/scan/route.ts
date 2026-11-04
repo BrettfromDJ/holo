@@ -52,9 +52,10 @@ export async function POST(req: Request) {
 /** Scans left on the account. Free to call. (CardSight doesn't report a balance.) */
 export async function GET() {
   if (!(await authorized())) return fail("unauthorized", "Sign in to scan.", 401);
-  if (cardSightConfigured()) return NextResponse.json({ scansRemaining: null });
+  // Which scanner answers, so the app skips its own on-phone read when CardSight does it all.
+  if (cardSightConfigured()) return NextResponse.json({ scansRemaining: null, provider: "cardsight" });
   try {
-    return NextResponse.json({ scansRemaining: await scanBalance() });
+    return NextResponse.json({ scansRemaining: await scanBalance(), provider: "tcgapi" });
   } catch (err) {
     if (err instanceof ScanFailure) return fail(err.code, err.message, err.status);
     return NextResponse.json({ scansRemaining: null });

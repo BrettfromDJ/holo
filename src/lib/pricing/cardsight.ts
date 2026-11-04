@@ -92,11 +92,18 @@ export async function identifyWithCardSight(image: Blob, opts: { game?: string }
     throw new ScanFailure("upstream", "The scanner had a problem. Try again.", 502);
   }
   const data: CsResult = body?.data ?? body ?? {};
-  const detection = data.detections?.find((d) => d.card?.name) ?? data.detections?.[0];
-  if (!detection) {
+  const found = (data.detections ?? []).filter((d) => d.card?.name || d.grading);
+  if (!found.length) {
     return { status: "retake", message: "No card found in the photo. Fill the frame with the card and try again.", read: null, candidates: [], scansRemaining: null };
   }
+  // Every card in the photo, each matched in the catalog; the first leads, the rest ride along.
+  const results = await Promise.all(found.slice(0, 12).map(toResult));
+  const [first, ...others] = results;
+  return others.length ? { ...first, others } : first;
+}
 
+/** One detected card (or slab) as a scan result, matched in our catalog. */
+async function toResult(detection: CsDetection): Promise<ScanResult> {
   const g = detection.grading;
   const grade = g?.company?.name && g.grade?.value !== undefined ? { company: g.company.name, grade: String(g.grade.value) } : null;
   const read: ScanResult["read"] = { kind: g ? "slab" : "raw", grade };

@@ -158,6 +158,8 @@ struct ScanResult: Codable, Hashable {
     var read: ScanRead?
     var candidates: [ScanCandidate]
     var scansRemaining: Int?
+    /// More cards found in the same photo (CardSight reads several at once).
+    var others: [ScanResult]? = nil
 }
 
 struct APIErrorBody: Codable {

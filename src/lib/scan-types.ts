@@ -28,6 +28,8 @@ export interface ScanResult {
   candidates: ScanCandidate[];
   /** Scans left on the account after this one, when reported. */
   scansRemaining: number | null;
+  /** More cards found in the same photo (CardSight reads several at once), each its own result. */
+  others?: ScanResult[];
 }
 
 export interface ScanError {

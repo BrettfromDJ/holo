@@ -45,9 +45,19 @@ final class ScanModel {
     var busy: Int { entries.filter { $0.state == .queued || $0.state == .reading }.count }
     var total: Double { picks.reduce(0) { $0 + ($1.value ?? 0) } }
 
+    /// The server scans with CardSight: it reads every card itself (several per photo, under a
+    /// second), so the phone's own read is skipped and photos aren't cropped to one card.
+    var cardSight = false
+
     func refreshBalance() async {
-        let left = await Backend.shared.api.scansRemaining()
-        await MainActor.run { scansLeft = left }
+        let info = await Backend.shared.api.scanInfo()
+        await MainActor.run {
+            scansLeft = info.left
+            if info.provider == "cardsight" {
+                cardSight = true
+                onDeviceFirst = false
+            }
+        }
     }
 
     @MainActor
@@ -143,10 +153,24 @@ final class ScanModel {
         if let left = result.scansRemaining { scansLeft = left }
         guard let i = entries.firstIndex(where: { $0.id == id }) else { return pump() }
         entries[i].state = .done
-        entries[i].result = result
-        if result.status == "matched", let top = result.candidates.first {
+        var first = result
+        let others = first.others ?? []
+        first.others = nil
+        entries[i].result = first
+        if first.status == "matched", let top = first.candidates.first {
             entries[i].picked = top
             hand(i)
+        }
+        // Every other card in the same photo gets its own entry, right after this one.
+        for (n, other) in others.enumerated() {
+            var e = Entry(photo: entries[i].photo)
+            e.thumbnail = entries[i].thumbnail
+            e.state = .done
+            e.result = other
+            if other.status == "matched", let top = other.candidates.first { e.picked = top }
+            let at = min(i + 1 + n, entries.count)
+            entries.insert(e, at: at)
+            if e.picked != nil { hand(at) }
         }
         pump()
     }

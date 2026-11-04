@@ -193,8 +193,13 @@ final class HoloAPI {
 
     /// Scans left on the account (free to ask).
     func scansRemaining() async -> Int? {
-        struct Balance: Decodable { var scansRemaining: Int? }
-        guard let req = try? await request("api/scan") else { return nil }
-        return (try? await send(req, as: Balance.self))?.scansRemaining
+        await scanInfo().left
+    }
+
+    /// Scans left, and which scanner the server uses ("cardsight" or "tcgapi").
+    func scanInfo() async -> (left: Int?, provider: String?) {
+        struct Balance: Decodable { var scansRemaining: Int?; var provider: String? }
+        guard let req = try? await request("api/scan"), let b = try? await send(req, as: Balance.self) else { return (nil, nil) }
+        return (b.scansRemaining, b.provider)
     }
 }

@@ -69,6 +69,8 @@ struct ScanView: View {
         .task {
             model.onPick = onPick
             await model.refreshBalance()
+            // CardSight does the identifying: the live border stays, the phone's own read doesn't run.
+            if model.cardSight { tracker.identifies = false }
         }
         .sheet(isPresented: $reviewing) {
             ScanReviewSheet(model: model, focus: focused, onAdded: { dismiss() })
@@ -364,7 +366,8 @@ struct ScanView: View {
                 let jpeg = try await camera.capture()
                 // Crop to the tracked card (off the main thread); the whole photo if that fails.
                 var photo = jpeg
-                if let quad {
+                // With CardSight the whole photo goes up: it finds every card in it.
+                if let quad, !model.cardSight {
                     let crop = await Task.detached(priority: .userInitiated) { Camera.crop(photo: jpeg, to: quad)?.jpeg }.value
                     if let crop { photo = crop }
                 }
