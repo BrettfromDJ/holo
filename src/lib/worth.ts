@@ -65,19 +65,28 @@ export const MIN_SALES = 2;
 export function rawWorth(nm: number, condition: RawCondition, ebay: EbaySales | null, conditions?: ConditionPrice[] | null, printing?: string | null): Worth {
   const c = RAW_CONDITIONS.find((x) => x.id === condition)!;
   if (condition === "NM") return { price: nm, source: "market", detail: "TCGplayer market price, Near Mint", sold: null };
+  // A played copy is never worth more than Near Mint. Near Mint is what copies sold for; the
+  // condition figures are what sellers ask (or a few sales), which on older cards can sit above
+  // it. A figure at or over Near Mint is set aside and the share estimate is used instead.
+  let above = false;
   const rows = (conditions ?? []).filter((r) => r.condition === c.label && r.price !== null);
   const listed = rows.find((r) => r.printing === (printing ?? null)) ?? rows[0];
   if (listed?.price != null) {
-    return { price: round(listed.price), source: "market", detail: listed.basis === "median" ? `TCGplayer ${c.label} listings · median of ${listed.samples}` : `Lowest TCGplayer ${c.label} listing`, sold: null };
+    if (listed.price < nm) {
+      return { price: round(listed.price), source: "market", detail: listed.basis === "median" ? `TCGplayer ${c.label} listings · median of ${listed.samples}` : `Lowest TCGplayer ${c.label} listing`, sold: null };
+    }
+    above = true;
   }
   const sales = (ebay?.sales ?? []).filter((s) => s.grade === null && s.condition === c.label).map((s) => s.price);
   if (sales.length >= MIN_SALES + 1) {
     const sorted = [...sales].sort((a, b) => a - b);
     const m = Math.floor(sorted.length / 2);
     const median = sorted.length % 2 ? sorted[m] : (sorted[m - 1] + sorted[m]) / 2;
-    return { price: round(median), source: "sales", detail: `Median of ${sales.length} ${c.label} eBay sales this month`, sold: sales.length };
+    if (median < nm) return { price: round(median), source: "sales", detail: `Median of ${sales.length} ${c.label} eBay sales this month`, sold: sales.length };
+    above = true;
   }
-  return { price: round(nm * c.share), source: "estimate", detail: `Estimated at ${Math.round(c.share * 100)}% of Near Mint`, sold: null };
+  const why = above ? " · listings ran above Near Mint" : "";
+  return { price: round(nm * c.share), source: "estimate", detail: `Estimated at ${Math.round(c.share * 100)}% of Near Mint${why}`, sold: null };
 }
 
 /**

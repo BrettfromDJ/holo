@@ -19,6 +19,14 @@ describe("what's it worth", () => {
     expect(rawWorth(100, "MP", null, rows, "Holofoil").source).toBe("estimate");
   });
 
+  it("never prices a played copy above Near Mint", () => {
+    // Asks on an older card sit above what Near Mint copies sell for: the share estimate wins.
+    const rows = [{ printing: "Holofoil", condition: "Lightly Played", price: 209.98, basis: "median" as const, samples: 7, updatedAt: null }];
+    expect(rawWorth(127.47, "LP", null, rows, "Holofoil")).toMatchObject({ price: 108.35, source: "estimate", detail: "Estimated at 85% of Near Mint · listings ran above Near Mint" });
+    const e = ebay({ sales: [sale(130, "Lightly Played"), sale(140, "Lightly Played"), sale(150, "Lightly Played")] });
+    expect(rawWorth(100, "LP", e)).toMatchObject({ price: 85, source: "estimate" });
+  });
+
   it("prefers real condition sales when there are enough", () => {
     const e = ebay({ sales: [sale(70, "Lightly Played"), sale(80, "Lightly Played"), sale(90, "Lightly Played")] });
     expect(rawWorth(100, "LP", e)).toMatchObject({ price: 80, source: "sales", sold: 3 });

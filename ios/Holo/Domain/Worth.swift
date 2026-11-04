@@ -22,20 +22,31 @@ enum WorthCalc {
     /// for that condition, then eBay sales in it, then a share of Near Mint.
     static func raw(nm: Double, condition: CardCondition, ebay: EbaySales?, conditions: [ConditionPrice], printing: String?) -> Worth {
         if condition == .nearMint { return Worth(price: nm, source: .market, detail: "TCGplayer market price, Near Mint") }
+        // A played copy is never worth more than Near Mint. Near Mint is what copies sold for;
+        // the condition figures are what sellers ask (or a few sales), which on older cards can
+        // sit above it. A figure at or over Near Mint is set aside and the share estimate is used.
+        var above = false
         let rows = conditions.filter { $0.condition == condition.rawValue && $0.price != nil }
         if let listed = rows.first(where: { $0.printing == printing }) ?? rows.first, let price = listed.price {
-            return Worth(
-                price: round2(price), source: .market,
-                detail: listed.basis == "median" ? "TCGplayer \(condition.rawValue) listings · median of \(listed.samples)" : "Lowest TCGplayer \(condition.rawValue) listing"
-            )
+            if price < nm {
+                return Worth(
+                    price: round2(price), source: .market,
+                    detail: listed.basis == "median" ? "TCGplayer \(condition.rawValue) listings · median of \(listed.samples)" : "Lowest TCGplayer \(condition.rawValue) listing"
+                )
+            }
+            above = true
         }
         let sales = (ebay?.sales ?? []).filter { $0.grade == nil && $0.condition == condition.rawValue }.map(\.price).sorted()
         if sales.count >= minSales + 1 {
             let m = sales.count / 2
             let median = sales.count % 2 == 1 ? sales[m] : (sales[m - 1] + sales[m]) / 2
-            return Worth(price: round2(median), source: .sales, detail: "Median of \(sales.count) \(condition.rawValue) eBay sales this month", sold: sales.count)
+            if median < nm {
+                return Worth(price: round2(median), source: .sales, detail: "Median of \(sales.count) \(condition.rawValue) eBay sales this month", sold: sales.count)
+            }
+            above = true
         }
-        return Worth(price: round2(nm * condition.share), source: .estimate, detail: "Estimated at \(Int(condition.share * 100))% of Near Mint")
+        let why = above ? " · listings ran above Near Mint" : ""
+        return Worth(price: round2(nm * condition.share), source: .estimate, detail: "Estimated at \(Int(condition.share * 100))% of Near Mint\(why)")
     }
 
     /// A graded copy: recent eBay sales for that exact grade, else the usual grade curve (always labeled an estimate).
