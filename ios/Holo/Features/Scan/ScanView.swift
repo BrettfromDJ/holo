@@ -26,7 +26,6 @@ struct ScanView: View {
 
             VStack(spacing: 0) {
                 topBar
-                statusLine
                 guide
                 bottom
             }
@@ -49,39 +48,6 @@ struct ScanView: View {
         }
         .sheet(isPresented: $reviewing) {
             ScanReviewSheet(model: model, focus: focused, onAdded: { dismiss() })
-        }
-    }
-
-    // MARK: Temporary camera status (to find a black picture)
-
-    private var statusLine: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { _ in
-            let st = CameraStatus.shared
-            let auth: String = {
-                switch AVCaptureDevice.authorizationStatus(for: .video) {
-                case .authorized: return "allowed"
-                case .denied: return "denied"
-                case .restricted: return "restricted"
-                default: return "not asked"
-                }
-            }()
-            let state: String = {
-                switch camera.state {
-                case .starting: return "starting"
-                case .running: return "running"
-                case .denied: return "denied"
-                case .unavailable: return "unavailable"
-                }
-            }()
-            VStack(spacing: 2) {
-                Text("camera: \(state) · session \(camera.session.isRunning ? "on" : "off") · inputs \(camera.session.inputs.count) · \(auth)\(st.interrupted.isEmpty ? "" : " · \(st.interrupted)")")
-                Text("\(st.preview) · cameras \(st.cameras)")
-            }
-            .font(.mono(10)).foregroundStyle(.white)
-            .multilineTextAlignment(.center)
-            .padding(.horizontal, 10).padding(.vertical, 6)
-            .background(RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(0.6)))
-            .padding(.top, 6)
         }
     }
 
