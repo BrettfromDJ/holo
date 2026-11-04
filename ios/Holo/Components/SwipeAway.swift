@@ -13,6 +13,9 @@ struct SwipeAway: ViewModifier {
     private let threshold: CGFloat = 120
 
     func body(content: Content) -> some View {
+        // How far the row has moved: the panel behind grows with it and fades in over 50 pt.
+        let moved: CGFloat = abs(dragX)
+        let fade: Double = Double(min(moved, 50) / 50)
         content
             .offset(x: dragX)
             .background(alignment: dragX < 0 ? .trailing : .leading) {
@@ -21,10 +24,10 @@ struct SwipeAway: ViewModifier {
                     Text("Remove").font(.geist(12, .semibold))
                 }
                 .foregroundStyle(.white)
-                .frame(width: max(0, min(abs(dragX), 120)))
+                .frame(width: min(moved, 120))
                 .frame(maxHeight: .infinity)
                 .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Theme.planPink))
-                .opacity(min(1, abs(dragX) / 50))
+                .opacity(fade)
                 .accessibilityHidden(true)
             }
             .simultaneousGesture(
