@@ -88,8 +88,10 @@ export async function identifyWithCardSight(image: Blob, opts: { game?: string; 
   const body = (await res.json().catch(() => null)) as (CsResult & { data?: CsResult; error?: { message?: string } | string; message?: string }) | null;
   opts.clock?.lap("cardsight");
   if (!res.ok) {
-    // What CardSight said, for the Vercel log (never the key).
-    console.error("cardsight error", res.status, JSON.stringify(body).slice(0, 500));
+    // What CardSight said, for the Vercel log, plus the key's length and whether it has
+    // stray spaces or quotes (never the key itself), so a mispasted one can be spotted.
+    const hint = `${apiKey.length} chars${/\s/.test(apiKey) ? ", has whitespace" : ""}${/["']/.test(apiKey) ? ", has quotes" : ""}`;
+    console.error("cardsight error", res.status, JSON.stringify(body).slice(0, 500), "key:", hint);
     if (res.status === 429) throw new ScanFailure("rate_limited", "Scanning too fast. Give it a second.", 429);
     if (res.status === 402) throw new ScanFailure("scan_balance_empty", "You're out of CardSight scans.", 402);
     if (res.status === 400 || res.status === 413 || res.status === 415) throw new ScanFailure("bad_image", "That photo couldn't be read.", 400);
