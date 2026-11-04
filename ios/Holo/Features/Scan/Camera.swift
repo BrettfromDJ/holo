@@ -9,6 +9,15 @@ final class Camera: NSObject, ObservableObject {
     @Published var state: State = .starting
     let session = AVCaptureSession()
 
+    override init() {
+        super.init()
+        DispatchQueue.main.async { CameraStatus.shared.cameras += 1 }
+    }
+
+    deinit {
+        DispatchQueue.main.async { CameraStatus.shared.cameras -= 1 }
+    }
+
     private let output = AVCapturePhotoOutput()
     private let queue = DispatchQueue(label: "holo.camera")
     private var configured = false
@@ -180,10 +189,13 @@ extension Camera: AVCapturePhotoCaptureDelegate {
 final class CameraStatus {
     static let shared = CameraStatus()
     var preview = "picture: not made"
+    /// How many cameras exist at once (two fighting over the lens would show black).
+    var cameras = 0
     var interrupted = ""
 }
 
-/// The live camera picture, filling its frame.
+/// The live camera picture, filling its frame. (As it was when the picture last worked on
+/// iOS 27: attached when made, reconnected once when the camera starts running.)
 struct CameraPreview: UIViewRepresentable {
     let session: AVCaptureSession
     /// Whether the camera is running; when it starts, the preview reconnects to it (newer iOS
@@ -194,29 +206,7 @@ struct CameraPreview: UIViewRepresentable {
         override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
         var previewLayer: AVCaptureVideoPreviewLayer { layer as! AVCaptureVideoPreviewLayer }
 
-        private var startObserver: NSObjectProtocol?
-        /// Set when the session (re)starts; the picture is then reconnected exactly once, as
-        /// soon as the view is on screen with a real size. Newer iOS shows black otherwise, and
-        /// reconnecting more than once can leave it black too.
-        private var needsReattach = false
-
-        /// Watch for the session starting (on the main thread).
-        func watch(_ session: AVCaptureSession) {
-            guard startObserver == nil else { return }
-            startObserver = NotificationCenter.default.addObserver(forName: AVCaptureSession.didStartRunningNotification, object: session, queue: .main) { [weak self] _ in
-                self?.needsReattach = true
-                self?.setNeedsLayout()
-            }
-            if session.isRunning { needsReattach = true }
-        }
-
-        deinit { if let startObserver { NotificationCenter.default.removeObserver(startObserver) } }
-
-        override func didMoveToWindow() {
-            super.didMoveToWindow()
-            if window != nil { setNeedsLayout() }
-        }
-
+        /// Temporary: the picture's state for the scanner's status line.
         func report() {
             let c = previewLayer.connection
             let text = "picture: \(window == nil ? "off-screen" : "on screen") \(Int(bounds.width))×\(Int(bounds.height)) · link \(c == nil ? "none" : (c!.isActive ? "active" : (c!.isEnabled ? "enabled, idle" : "disabled")))"
@@ -226,16 +216,11 @@ struct CameraPreview: UIViewRepresentable {
         override func layoutSubviews() {
             super.layoutSubviews()
             previewLayer.frame = bounds
-            defer { report() }
-            if needsReattach, window != nil, bounds.width > 0, let session = previewLayer.session, session.isRunning {
-                needsReattach = false
-                previewLayer.session = nil
-                previewLayer.session = session
-            }
             // Upright, whatever the phone reports (the screen is portrait only).
             if let connection = previewLayer.connection, connection.isVideoRotationAngleSupported(90) {
                 connection.videoRotationAngle = 90
             }
+            report()
         }
     }
 
@@ -244,13 +229,24 @@ struct CameraPreview: UIViewRepresentable {
         view.previewLayer.videoGravity = .resizeAspectFill
         view.backgroundColor = .black
         view.previewLayer.session = session
-        view.watch(session)
         return view
     }
 
+    final class Coordinator { var attachedWhileRunning = false }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
     func updateUIView(_ uiView: PreviewView, context: Context) {
-        if uiView.previewLayer.session !== session { uiView.previewLayer.session = session }
-        // When the camera reports it's running, let the view reconnect once it's laid out.
-        if running { uiView.setNeedsLayout() }
+        guard running else {
+            context.coordinator.attachedWhileRunning = false
+            return
+        }
+        // Reattach once each time the session starts running, so the picture appears.
+        if !context.coordinator.attachedWhileRunning || uiView.previewLayer.connection == nil {
+            context.coordinator.attachedWhileRunning = true
+            uiView.previewLayer.session = nil
+            uiView.previewLayer.session = session
+            uiView.setNeedsLayout()
+        }
     }
 }
