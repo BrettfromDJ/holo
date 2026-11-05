@@ -196,23 +196,23 @@ private struct WelcomeBackdrop: View {
 /// Three full-bleed columns of demo cards (singles with real art only), each drifting on its
 /// own: the outer two up, the middle one down, at slightly different speeds and out of step, so
 /// the grid feels alive. Each column is its list of cards stacked three times and loops by one
-/// list's height, so there's never a gap: one repeating offset animation per column, nothing
-/// per frame. The bottom fades into the page, and a glass pill over it counts up the worth.
+/// list's height, so there's never a gap. The drift is read off the clock (like the scanner
+/// page), so each frame only moves three offsets; nothing is laid out again. The bottom fades
+/// into the page, and a glass pill over it counts up the worth.
 private struct WelcomeGrid: View {
     private static let gap: CGFloat = 8
     /// How long one column takes to travel one list's height, per column.
     private static let durations: [Double] = [22, 26, 24]
     /// Where each column starts in its loop (a share of one list's height), so they never line up.
-    private static let phases: [CGFloat] = [0.15, 0.55, 0.35]
+    private static let phases: [Double] = [0.15, 0.55, 0.35]
     /// The middle column drifts down; the others up.
     private static let down: [Bool] = [false, true, false]
-    @State private var drift = false
-    /// The card pictures, held by the grid itself and handed to the tiles. The tiles used to
-    /// load their own (fading in), and inside the endlessly drifting columns those never showed.
+    private static let start = Date()
+    /// The card pictures, held by the grid itself and handed to the tiles.
     @State private var images: [String: UIImage] = Self.cachedImages()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private static func url(_ item: DemoData.Item) -> URL? { WelcomeTile.product(item).imageURL }
+    static func url(_ item: DemoData.Item) -> URL? { WelcomeTile.product(item).imageURL }
 
     private static func cachedImages() -> [String: UIImage] {
         var out: [String: UIImage] = [:]
@@ -232,9 +232,13 @@ private struct WelcomeGrid: View {
         GeometryReader { geo in
             let tileW = (geo.size.width - Self.gap * 2) / 3
             let tileH = tileW * 88 / 63
-            HStack(alignment: .top, spacing: Self.gap) {
-                ForEach(0 ..< 3, id: \.self) { i in
-                    column(i, tileW: tileW, tileH: tileH)
+            Group {
+                if reduceMotion {
+                    columns(at: 0, tileW: tileW, tileH: tileH)
+                } else {
+                    TimelineView(.animation) { context in
+                        columns(at: context.date.timeIntervalSince(Self.start), tileW: tileW, tileH: tileH)
+                    }
                 }
             }
             .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
@@ -242,7 +246,6 @@ private struct WelcomeGrid: View {
         }
         .mask(fade)
         .overlay(alignment: .bottom) { WelcomeWorthPill().padding(.bottom, 10) }
-        .onAppear { if !reduceMotion { drift = true } }
         .task {
             await withTaskGroup(of: (String, UIImage?).self) { group in
                 for item in Self.columns.joined() where images[item.slug] == nil {
@@ -262,23 +265,21 @@ private struct WelcomeGrid: View {
         .accessibilityLabel("Columns of cards from a collection, worth \(Format.money(WelcomeWorthPill.worth)) today")
     }
 
-    /// One column: its cards three times over, moving by one list's height and starting over.
-    private func column(_ i: Int, tileW: CGFloat, tileH: CGFloat) -> some View {
-        let items = Self.columns[i]
-        let listH = CGFloat(items.count) * (tileH + Self.gap)
-        let from = -listH * Self.phases[i]
-        let to = Self.down[i] ? from + listH : from - listH
-        return VStack(spacing: Self.gap) {
-            ForEach(0 ..< 3, id: \.self) { _ in
-                ForEach(items, id: \.slug) { item in
-                    WelcomeTile(image: images[item.slug]).frame(width: tileW, height: tileH)
-                }
+    /// The three columns at one moment of the drift (`seconds` since the page appeared).
+    private func columns(at seconds: Double, tileW: CGFloat, tileH: CGFloat) -> some View {
+        HStack(alignment: .top, spacing: Self.gap) {
+            ForEach(0 ..< 3, id: \.self) { i in
+                let items = Self.columns[i]
+                let listH = CGFloat(items.count) * (tileH + Self.gap)
+                // How far through its loop this column is, 0 to 1 (its own start and speed).
+                let progress = CGFloat((Self.phases[i] + seconds / Self.durations[i]).truncatingRemainder(dividingBy: 1))
+                // Up: the list slides up by one list's height and starts over (the copies match).
+                // Down: it starts one list higher and slides down to 0.
+                let y = Self.down[i] ? -listH + listH * progress : -listH * progress
+                WelcomeColumn(items: items, images: images, tileW: tileW, tileH: tileH)
+                    .offset(y: y)
             }
         }
-        .frame(width: tileW, alignment: .top)
-        // Going down starts a list higher so there's always card above the top edge.
-        .offset(y: Self.down[i] ? (drift ? from : from - listH) : (drift ? to : from))
-        .animation(reduceMotion ? nil : .linear(duration: Self.durations[i]).repeatForever(autoreverses: false), value: drift)
     }
 
     /// Solid right to the top edge of the screen; fading to the page over the bottom 40%.
@@ -291,6 +292,28 @@ private struct WelcomeGrid: View {
             ],
             startPoint: .top, endPoint: .bottom
         )
+    }
+}
+
+/// One column: its cards three times over. Its inputs only change when a picture arrives, so
+/// the clock's frames move it (the offset outside) without laying it out again.
+private struct WelcomeColumn: View {
+    var items: [DemoData.Item]
+    var images: [String: UIImage]
+    var tileW: CGFloat
+    var tileH: CGFloat
+
+    var body: some View {
+        VStack(spacing: 8) {
+            ForEach(0 ..< 3, id: \.self) { _ in
+                ForEach(items, id: \.slug) { item in
+                    // From the grid's pictures, or straight from the cache once it's there.
+                    WelcomeTile(image: images[item.slug] ?? WelcomeGrid.url(item).flatMap { ImageCache.shared.cached($0) })
+                        .frame(width: tileW, height: tileH)
+                }
+            }
+        }
+        .frame(width: tileW, alignment: .top)
     }
 }
 
