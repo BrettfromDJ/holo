@@ -99,13 +99,10 @@ struct WelcomeView: View {
     /// Continue on the first pages; the ways in on the last.
     @ViewBuilder private var footer: some View {
         if page < last {
-            VStack(spacing: 14) {
-                Button("Continue") { go(to: page + 1) }
-                    .buttonStyle(Button3D(kind: .lime))
-                    .accessibilityIdentifier("welcome-continue")
-                // Same height as the last page's three rows, so the pages don't jump.
-                Color.clear.frame(height: 50 + 14 + 22)
-            }
+            // Sits at the bottom of the screen, like the last page's buttons.
+            Button("Continue") { go(to: page + 1) }
+                .buttonStyle(Button3D(kind: .lime))
+                .accessibilityIdentifier("welcome-continue")
         } else {
             VStack(spacing: 14) {
                 if preview {
