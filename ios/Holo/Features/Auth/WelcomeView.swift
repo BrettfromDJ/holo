@@ -79,7 +79,7 @@ struct WelcomeView: View {
             .tag(1)
             WelcomePage(
                 title: "Graded cards, in their slabs",
-                line: "Add a PSA, CGC or BGS grade. It's shown in its slab and priced\u{00A0}as\u{00A0}graded.",
+                line: "Add a PSA, CGC or BGS grade. It's shown\nin its slab and priced\u{00A0}as\u{00A0}graded.",
                 graphicHeight: graphicHeight
             ) {
                 WelcomeGrading()
