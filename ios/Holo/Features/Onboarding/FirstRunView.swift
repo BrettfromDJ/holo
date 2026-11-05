@@ -67,12 +67,14 @@ struct FirstRunView: View {
                                     Image(systemName: on ? "checkmark.circle.fill" : "circle")
                                         .font(.system(size: 15, weight: .semibold))
                                         .foregroundStyle(on ? Theme.ink : Theme.subtle)
-                                    Text(g.name).font(.geist(15, .semibold)).lineLimit(1).minimumScaleFactor(0.8)
+                                    // Two lines when a name needs them ("Magic: The Gathering").
+                                    Text(g.name).font(.geist(15, .semibold)).lineLimit(2).multilineTextAlignment(.leading)
+                                        .fixedSize(horizontal: false, vertical: true)
                                     Spacer(minLength: 0)
                                 }
                                 .foregroundStyle(on ? Theme.ink : .white)
                                 .padding(.horizontal, 14)
-                                .frame(height: 50)
+                                .frame(minHeight: 50)
                                 .background {
                                     if on {
                                         ZStack {
@@ -141,11 +143,7 @@ struct FirstRunView: View {
                 .padding(.top, 36)
                 .padding(.bottom, 24)
             }
-            Button("Later") { finish() }
-                .font(.geist(15, .medium)).foregroundStyle(Theme.muted)
-                .frame(maxWidth: .infinity, minHeight: 50)
-                .padding(.horizontal, 24)
-                .padding(.bottom, 12)
+            // (Later lives at the top right, like the first step.)
         }
     }
 
