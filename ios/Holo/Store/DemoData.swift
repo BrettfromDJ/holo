@@ -35,7 +35,7 @@ enum DemoData {
         Item(slug: "mew-ex-gold", name: "Mew ex - 205/165", set: "Scarlet & Violet—151", type: "Cards", sealed: false, start: 44, now: 27.9, image: card("sv3pt5", "205"), number: "205/165", rarity: "Hyper Rare"),
         Item(slug: "lugia-v-alt", name: "Lugia V (Alternate Full Art)", set: "Silver Tempest", type: "Cards", sealed: false, start: 190, now: 262, image: card("swsh12", "186"), number: "186/195", rarity: "Ultra Rare"),
         Item(slug: "gengar-vmax-alt", name: "Gengar VMAX (Alternate Art Secret)", set: "Fusion Strike", type: "Cards", sealed: false, start: 310, now: 404, image: card("swsh8", "271"), number: "271/264", rarity: "Secret Rare"),
-        Item(slug: "espeon-vmax-alt", name: "Espeon VMAX (Alternate Art Secret)", set: "Evolving Skies", type: "Cards", sealed: false, start: 320, now: 512, image: card("swsh7", "270"), number: "270/203", rarity: "Secret Rare"),
+        Item(slug: "espeon-vmax-alt", name: "Espeon VMAX (Alternate Art Secret)", set: "Fusion Strike", type: "Cards", sealed: false, start: 320, now: 512, image: card("swsh8", "270"), number: "270/264", rarity: "Secret Rare"),
         Item(slug: "charizard-ex-of", name: "Charizard ex - 223/197", set: "Obsidian Flames", type: "Cards", sealed: false, start: 72, now: 58.3, image: card("sv3", "223"), number: "223/197", rarity: "Special Illustration Rare"),
     ]
 

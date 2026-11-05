@@ -55,10 +55,12 @@ struct WelcomeView: View {
             Spacer()
             if page < last {
                 Button("Skip") { go(to: last) }
-                    .font(.geist(15, .medium)).foregroundStyle(Theme.muted)
+                    .font(.geist(15, .medium)).foregroundStyle(.white)
                     .accessibilityIdentifier("welcome-skip")
             }
         }
+        // Readable over the card art the pictures now run under (a still shadow, not a scrim).
+        .shadow(color: .black.opacity(0.8), radius: 6, y: 1)
         .padding(.horizontal, 24)
         .padding(.top, 12)
         .padding(.bottom, 8)
