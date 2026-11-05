@@ -1246,6 +1246,8 @@ private struct WelcomeFit<Content: View>: View {
     var height: CGFloat
     /// How much it may grow on a taller page (1: never).
     var grow: CGFloat = 1
+    /// Where it sits in its space when there's room to spare (bottom: close to the heading).
+    var alignment: Alignment = .center
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -1253,9 +1255,9 @@ private struct WelcomeFit<Content: View>: View {
             let scale = min(grow, geo.size.height / height)
             // Laid out at the width it will fill once scaled, so its margins stay on screen.
             content
-                .frame(width: geo.size.width / scale, height: height)
-                .scaleEffect(scale)
-                .frame(width: geo.size.width, height: geo.size.height)
+                .frame(width: geo.size.width / scale, height: height, alignment: alignment)
+                .scaleEffect(scale, anchor: alignment == .bottom ? .bottom : .center)
+                .frame(width: geo.size.width, height: geo.size.height, alignment: alignment)
         }
     }
 }
@@ -1552,7 +1554,7 @@ private struct WelcomeMasterSet: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        WelcomeFit(height: 560, grow: 1.12) {
+        WelcomeFit(height: 520, grow: 1.12, alignment: .bottom) {
             ZStack {
                 Ellipse()
                     .fill(Theme.lime.opacity(0.2))
@@ -1621,10 +1623,10 @@ private struct MasterSetScene: View {
         let boughtFlash: Double = state.flash
         let tick: Double = Ease.back(t, Self.boughtAt + 0.35, 0.35)
         let ownedOnPage: Int = flips.filter { $0 >= 0.5 }.count
-        VStack(spacing: 12) {
+        VStack(spacing: 10) {
             // The set: logo, count and a thin bar, the dial; on glass.
             HStack(alignment: .center, spacing: 14) {
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 8) {
                     MasterSetLogo()
                         .equatable()
                         .frame(width: 140, height: 50, alignment: .leading)
@@ -1643,12 +1645,12 @@ private struct MasterSetScene: View {
                 }
                 Spacer(minLength: 0)
                 MasterSetDial(share: share, flash: boughtFlash)
-                    .frame(width: 92, height: 92)
+                    .frame(width: 88, height: 88)
             }
-            .padding(16)
-            .liquidGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .padding(14)
+            .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             BinderPage(flips: flips, glow: glow, flash: boughtFlash, t: t, owned: ownedOnPage)
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 MasterSetTile(label: "Yours worth", value: Format.moneyWhole(worth), lime: true)
                 MasterSetTile(label: "To finish", value: Format.moneyWhole(toFinish), lime: false)
             }
@@ -1733,14 +1735,14 @@ private struct BinderPage: View {
     var owned: Int
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 24, style: .continuous)
-        VStack(spacing: 10) {
+        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
+        VStack(spacing: 8) {
             HStack {
                 MonoLabel(text: "Binder · page 1")
                 Spacer()
                 MonoLabel(text: "\(owned) of \(MasterSetScene.pockets.count)", color: Theme.lime)
             }
-            .padding(.horizontal, 4)
+            .padding(.horizontal, 2)
             .padding(.bottom, 2)
             ForEach(0 ..< 2, id: \.self) { row in
                 HStack(spacing: 8) {
@@ -1848,10 +1850,9 @@ private struct MasterSetTile: View {
                 .foregroundStyle(lime ? Theme.lime : .white)
                 .lineLimit(1).minimumScaleFactor(0.7)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .liquidGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 }
 
