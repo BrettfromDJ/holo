@@ -240,9 +240,15 @@ private struct WelcomeScanStill: View {
         let c = CGFloat(cos(a)), s = CGFloat(sin(a))
         let pad: CGFloat = 6
         let hw = w / 2 + pad, hh = h / 2 + pad
-        return [CGPoint(x: -hw, y: -hh), CGPoint(x: hw, y: -hh), CGPoint(x: hw, y: hh), CGPoint(x: -hw, y: hh)].map { p in
-            CGPoint(x: center.x + p.x * c - p.y * s, y: center.y + p.x * s + p.y * c)
+        let local: [CGPoint] = [CGPoint(x: -hw, y: -hh), CGPoint(x: hw, y: -hh), CGPoint(x: hw, y: hh), CGPoint(x: -hw, y: hh)]
+        // Spelled out step by step: one long expression here is too much for the type checker.
+        var out: [CGPoint] = []
+        for p in local {
+            let rx: CGFloat = p.x * c - p.y * s
+            let ry: CGFloat = p.x * s + p.y * c
+            out.append(CGPoint(x: center.x + rx, y: center.y + ry))
         }
+        return out
     }
 }
 
