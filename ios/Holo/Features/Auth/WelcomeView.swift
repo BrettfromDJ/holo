@@ -70,7 +70,7 @@ struct WelcomeView: View {
         TabView(selection: $page) {
             WelcomePage(
                 title: "See what your collection is worth",
-                line: "Every card you own, priced daily, with how it\u{00A0}has\u{00A0}moved.",
+                line: "Every card you own, priced daily,\nwith how it\u{00A0}has\u{00A0}moved.",
                 graphicHeight: graphicHeight
             ) {
                 // The page slider gives each page the status bar's inset again; the grid runs up
