@@ -4,6 +4,8 @@ import SwiftUI
 /// the demo collection), then the ways in: Sign in with Apple, email, or the demo without an
 /// account. Seen once; a signed-out app later opens on the sign-in form.
 struct WelcomeView: View {
+    /// A look from Account: the buttons close it and nothing is remembered.
+    var preview = false
     /// "Continue with email": show the sign-in form.
     var onEmail: () -> Void
     /// "Try the demo": the made-up collection, no account.
@@ -76,15 +78,21 @@ struct WelcomeView: View {
             }
         } else {
             VStack(spacing: 14) {
-                AppleSignInButton(onSuccess: { Onboarding.shared.welcomeSeen = true }) { message in error = message }
+                if preview {
+                    // Already signed in: a look-alike that just closes the preview.
+                    Button { onEmail() } label: { Label("Sign in with Apple", systemImage: "apple.logo") }
+                        .buttonStyle(Button3D(kind: .light))
+                } else {
+                    AppleSignInButton(onSuccess: { Onboarding.shared.welcomeSeen = true }) { message in error = message }
+                }
                 Button("Continue with email") {
-                    Onboarding.shared.welcomeSeen = true
+                    if !preview { Onboarding.shared.welcomeSeen = true }
                     onEmail()
                 }
                 .buttonStyle(Button3D(kind: .dark))
                 .accessibilityIdentifier("welcome-email")
                 Button("Try the demo") {
-                    Onboarding.shared.welcomeSeen = true
+                    if !preview { Onboarding.shared.welcomeSeen = true }
                     onDemo()
                 }
                 .font(.geist(15, .medium)).foregroundStyle(Theme.muted)

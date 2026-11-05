@@ -4,6 +4,8 @@ struct SettingsView: View {
     @Environment(SessionModel.self) private var session
     @Environment(CollectionStore.self) private var store
     @State private var confirming = false
+    @State private var showingWelcome = false
+    @State private var showingFirstRun = false
     @State private var testing = false
     @State private var testResult: String?
     @State private var demo: DemoKind? = DemoKind.selected
@@ -49,6 +51,14 @@ struct SettingsView: View {
                     Text("Notifications")
                 } footer: {
                     Text("Price alerts arrive after the daily price check when a watched card is at or below your target.")
+                }
+                Section {
+                    Button("Welcome pages") { showingWelcome = true }
+                    Button("First-run steps") { showingFirstRun = true }
+                } header: {
+                    Text("Onboarding")
+                } footer: {
+                    Text("What a new person sees: the welcome pages before sign-in, then the first-run steps on an empty collection. A look only; nothing is saved.")
                 }
                 Section {
                     Picker("Show", selection: $demo) {
@@ -106,7 +116,19 @@ struct SettingsView: View {
             .toolbar { ToolbarItem(placement: .confirmationAction) { DoneButton() } }
             .alert("Sign out of Lucent?", isPresented: $confirming) {
                 Button("Cancel", role: .cancel) {}
-                Button("Sign out", role: .destructive) { Task { await session.signOut() } }
+                Button("Sign out", role: .destructive) {
+                    // Signed out, the welcome pages show again (the ways in, demo included).
+                    Onboarding.shared.welcomeSeen = false
+                    Task { await session.signOut() }
+                }
+            }
+            .fullScreenCover(isPresented: $showingWelcome) {
+                // A look at the welcome pages; its buttons just close it here.
+                WelcomeView(preview: true, onEmail: { showingWelcome = false }, onDemo: { showingWelcome = false })
+            }
+            .fullScreenCover(isPresented: $showingFirstRun) {
+                // A look at the first-run steps; nothing is remembered from a preview.
+                FirstRunView(userId: nil)
             }
         }
     }
