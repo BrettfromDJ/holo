@@ -1527,132 +1527,106 @@ private struct BumperPickerDemo: View {
 
 // MARK: - Page 4: a master set filling in
 
-/// One pocket of the binder page: a card of Evolving Skies by its number, owned or missing,
-/// with what it costs to buy.
-private struct BinderPocket {
+/// A card of Evolving Skies in the page's row: owned, missing, or bought during the loop.
+private struct SetStripCard {
     var number: Int
-    var missing: Bool
-    var price: Double
-    /// Bought during the loop (the finishing moment).
+    var missing: Bool = false
     var bought: Bool = false
 
-    /// The catalog's picture: the large one for the chase cards (already on the phone from the
-    /// demo), the small one for the rest.
+    /// The catalog's picture: large for the chase cards (already on the phone from the demo),
+    /// small for the rest.
     var url: URL? {
         let big = [215, 218].contains(number)
         return URL(string: "https://images.pokemontcg.io/swsh7/\(number)\(big ? "_hires" : "").png")
     }
 }
 
-/// The master set page on loop, off one clock: the set's logo and dial over a binder page whose
-/// cards flip in from their backs one by one; the missing ones wait as faded outlines with their
-/// prices; then one is bought (it flips in with a lime flash and the dial ticks up), while the
-/// chase card still missing glows. The worth and the cost to finish count along underneath.
+/// The master set page, in the real Master Sets look: the set's name, the big lime dial with
+/// the share counting up, and one row of the set's cards drifting slowly by (missing ones dim,
+/// one filling in as it's bought), with what you own and what's left to buy underneath.
 private struct WelcomeMasterSet: View {
-    static let cycle: Double = 7.5
+    static let cycle: Double = 7
     private static let start = Date()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        WelcomeFit(height: 520, grow: 1.12, alignment: .bottom) {
+        WelcomeFit(height: 470, grow: 1.1, alignment: .bottom) {
             ZStack {
                 Ellipse()
-                    .fill(Theme.lime.opacity(0.2))
-                    .frame(width: 320, height: 150)
-                    .blur(radius: 50)
-                    .offset(y: 120)
-                Group {
-                    if reduceMotion {
-                        MasterSetScene(t: 6, clock: 0)
-                    } else {
-                        TimelineView(.animation) { context in
-                            let s = context.date.timeIntervalSince(Self.start)
-                            let n = Int(s / Self.cycle)
-                            MasterSetScene(t: s - Double(n) * Self.cycle, clock: s)
-                        }
+                    .fill(Theme.lime.opacity(0.16))
+                    .frame(width: 320, height: 200)
+                    .blur(radius: 60)
+                    .offset(y: -40)
+                if reduceMotion {
+                    MasterSetScene(t: 5, clock: 0)
+                } else {
+                    TimelineView(.animation) { context in
+                        let s = context.date.timeIntervalSince(Self.start)
+                        let n = Int(s / Self.cycle)
+                        MasterSetScene(t: s - Double(n) * Self.cycle, clock: s)
                     }
                 }
-                .padding(.horizontal, 24)
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Evolving Skies master set: cards flipping into a binder, the missing ones with their prices, \(MasterSetScene.finalCount) of 203 cards")
+        .accessibilityLabel("Evolving Skies master set, \(MasterSetScene.endCount) of 203 cards, the missing ones dimmed")
     }
 }
 
-/// The set at local time `t`.
+/// The set at local time `t` (and `clock`, for the row's drift).
 private struct MasterSetScene: View {
     var t: Double
     var clock: Double
 
-    static let pockets: [BinderPocket] = [
-        BinderPocket(number: 218, missing: false, price: 548),
-        BinderPocket(number: 7, missing: false, price: 6),
-        BinderPocket(number: 215, missing: true, price: 1392),
-        BinderPocket(number: 8, missing: false, price: 14),
-        BinderPocket(number: 3, missing: false, price: 2),
-        BinderPocket(number: 14, missing: false, price: 9),
-        BinderPocket(number: 1, missing: false, price: 1),
-        BinderPocket(number: 9, missing: true, price: 4, bought: true),
+    static let cards: [SetStripCard] = [
+        SetStripCard(number: 218), SetStripCard(number: 7), SetStripCard(number: 215, missing: true),
+        SetStripCard(number: 8), SetStripCard(number: 3), SetStripCard(number: 9, missing: true, bought: true),
+        SetStripCard(number: 14), SetStripCard(number: 1), SetStripCard(number: 12, missing: true),
+        SetStripCard(number: 10),
     ]
     static let total = 203
-    /// Owned before the page's cards count in.
-    static let base = 146
+    static let startCount = 140
+    static let endCount = 153
+    static let worth: Double = 580
+    static let toFinish: Double = 1400
+    static let boughtPrice: Double = 4
     static let boughtAt: Double = 3.4
-    static var finalCount: Int { base + pockets.filter { !$0.missing || $0.bought }.count }
-
-    /// When pocket `i` flips in (owned cards in turn; the bought one later; never for the chase).
-    static func flipStart(_ i: Int) -> Double? {
-        let p = pockets[i]
-        if p.bought { return boughtAt }
-        if p.missing { return nil }
-        let k = pockets[..<i].filter { !$0.missing }.count
-        return 0.45 + Double(k) * 0.24
-    }
 
     var body: some View {
-        let appear: Double = Ease.out(t, 0, 0.4)
+        let appear: Double = Ease.out(t, 0, 0.5)
         let leave: Double = 1 - Ease.out(t, WelcomeMasterSet.cycle - 0.5, 0.45)
-        let state = MasterSetState(t: t)
-        let flips: [Double] = state.flips
-        let count: Int = state.count
-        let share: Double = state.share
-        let worth: Double = state.worth
-        let toFinish: Double = state.toFinish
-        let glow: Double = Ease.out(t, 2.2, 0.4) * (0.6 + 0.4 * sin(clock * 3))
-        let boughtFlash: Double = state.flash
-        let tick: Double = Ease.back(t, Self.boughtAt + 0.35, 0.35)
-        let ownedOnPage: Int = flips.filter { $0 >= 0.5 }.count
-        VStack(spacing: 10) {
-            // The set: logo, count and a thin bar, the dial; on glass.
-            HStack(alignment: .center, spacing: 14) {
-                VStack(alignment: .leading, spacing: 8) {
-                    MasterSetLogo()
-                        .equatable()
-                        .frame(width: 140, height: 50, alignment: .leading)
-                    HStack(spacing: 6) {
-                        Text("\(count) of \(Self.total) cards").font(.geist(13, .medium)).monospacedDigit().foregroundStyle(Theme.muted)
-                        SkewTag(text: "+1", icon: "plus")
-                            .scaleEffect(CGFloat(0.6 + 0.4 * tick))
-                            .opacity(Ease.clamp(tick * 2) * (1 - Ease.out(t, Self.boughtAt + 2.2, 0.4)))
-                    }
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(Color.white.opacity(0.1))
-                        Capsule().fill(Theme.lime)
-                            .scaleEffect(x: CGFloat(max(share, 0.001)), anchor: .leading)
-                    }
-                    .frame(width: 150, height: 4)
-                }
-                Spacer(minLength: 0)
-                MasterSetDial(share: share, flash: boughtFlash)
-                    .frame(width: 88, height: 88)
+        let climb: Double = Ease.out(t, 0.3, 2.2)
+        let bought: Double = Ease.out(t, Self.boughtAt, 0.5)
+        let climbed: Double = Double(Self.endCount - 1 - Self.startCount) * climb
+        let extra: Int = bought >= 0.5 ? 1 : 0
+        let count: Int = Self.startCount + Int(climbed.rounded()) + extra
+        let share: Double = Double(count) / Double(Self.total)
+        let left: Double = Self.toFinish - Self.boughtPrice * bought
+        let owned: Double = Self.worth * climb + Self.boughtPrice * bought
+        VStack(spacing: 22) {
+            VStack(spacing: 4) {
+                MonoLabel(text: "Master set")
+                Text("Evolving Skies").font(.display(26)).tracking(-0.8)
             }
-            .padding(14)
-            .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-            BinderPage(flips: flips, glow: glow, flash: boughtFlash, t: t, owned: ownedOnPage)
-            HStack(spacing: 10) {
-                MasterSetTile(label: "Yours worth", value: Format.moneyWhole(worth), lime: true)
-                MasterSetTile(label: "To finish", value: Format.moneyWhole(toFinish), lime: false)
+            ZStack {
+                MasterSetDial(share: share)
+                VStack(spacing: 2) {
+                    HStack(alignment: .top, spacing: 2) {
+                        Text("\(Int((share * 100).rounded()))").font(.display(56)).tracking(-2).monospacedDigit()
+                            .displayTrim(56)
+                        Text("%").font(.geist(17, .semibold)).padding(.top, 4)
+                    }
+                    .foregroundStyle(Theme.lime)
+                    Text("\(count) of \(Self.total) cards").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted)
+                }
+            }
+            .frame(width: 210, height: 210)
+            SetStrip(clock: clock, bought: bought)
+                .frame(height: 96)
+            HStack(spacing: 28) {
+                MasterSetFigure(label: "Yours", value: Format.moneyWhole(owned), lime: true)
+                Rectangle().fill(Color.white.opacity(0.12)).frame(width: 1, height: 34)
+                MasterSetFigure(label: "To finish", value: Format.moneyWhole(left), lime: false)
             }
         }
         .foregroundStyle(.white)
@@ -1660,172 +1634,91 @@ private struct MasterSetScene: View {
     }
 }
 
-/// The master set page's figures at local time `t`: how far each pocket's card has flipped in,
-/// the count and share, the worth, the cost to finish and the bought card's flash.
-private struct MasterSetState {
-    var flips: [Double] = []
-    var count = 0
-    var share: Double = 0
-    var worth: Double = 0
-    var toFinish: Double = 0
-    var flash: Double = 0
-
-    init(t: Double) {
-        let pockets = MasterSetScene.pockets
-        var landed: Double = 0
-        for i in 0 ..< pockets.count {
-            var f: Double = 0
-            if let start = MasterSetScene.flipStart(i) { f = Ease.out(t, start, 0.45) }
-            flips.append(f)
-            landed += f
-            worth += pockets[i].price * f
-            if pockets[i].missing { toFinish += pockets[i].price * (1 - f) }
-        }
-        count = Int((Double(MasterSetScene.base) + landed).rounded())
-        share = Double(count) / Double(MasterSetScene.total)
-        let from = MasterSetScene.boughtAt + 0.3
-        if t >= from, t <= from + 0.6 { flash = sin(Double.pi * (t - from) / 0.6) }
-    }
-}
-
-/// The set's logo from the catalog, drawn once.
-private struct MasterSetLogo: View, Equatable {
-    var body: some View {
-        CachedImage(url: URL(string: "https://images.pokemontcg.io/swsh7/logo.png")) { image in
-            image.resizable().aspectRatio(contentMode: .fit)
-        } placeholder: {
-            Text("Evolving Skies").font(.display(24)).tracking(-0.7)
-        }
-    }
-}
-
-/// The dial: a lime ring of how much of the set you own, the share in big lime figures inside.
+/// The dial, as on the real Master Sets page: a Liquid Glass ring with a lime arc and the arrow
+/// riding at its start. Its share comes from the page's clock, so it never animates on its own.
 private struct MasterSetDial: View {
     var share: Double
-    var flash: Double
 
     var body: some View {
-        let pct = Int((share * 100).rounded())
-        let end = CGFloat(max(min(share, 1), 0.001))
-        ZStack {
-            Circle().stroke(Theme.lime.opacity(0.16), lineWidth: 9)
-            Circle().trim(from: 0, to: end)
-                .stroke(Theme.lime, style: StrokeStyle(lineWidth: 9, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-            Circle().stroke(Color.white, lineWidth: 3).opacity(0.8 * flash).padding(-6)
-            HStack(alignment: .top, spacing: 1) {
-                Text("\(pct)").font(.display(30)).tracking(-1).monospacedDigit()
-                    .displayTrim(30)
-                Text("%").font(.geist(12, .semibold)).padding(.top, 2)
+        GeometryReader { geo in
+            let side = min(geo.size.width, geo.size.height)
+            let line = side * 0.13
+            ZStack {
+                Color.clear.liquidGlass(in: RingShape(thickness: line), tint: Theme.lime.opacity(0.14))
+                RingShape(thickness: line).stroke(Color.white.opacity(0.22), lineWidth: 1)
+                Circle()
+                    .inset(by: line / 2)
+                    .trim(from: 0, to: CGFloat(max(min(share, 1), 0.001)))
+                    .stroke(Theme.lime, style: StrokeStyle(lineWidth: line, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                Image(systemName: "arrow.right")
+                    .font(.system(size: line * 0.5, weight: .bold))
+                    .foregroundStyle(Theme.ink)
+                    .offset(y: -(side / 2 - line / 2))
             }
-            .foregroundStyle(Theme.lime)
+            .frame(width: side, height: side)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .padding(5)
     }
 }
 
-/// The binder page: two rows of four plastic pockets. Owned cards flip in from their backs; a
-/// missing one is a faded outline with a "Need" price; the bought one flips in with a flash.
-private struct BinderPage: View {
-    var flips: [Double]
-    var glow: Double
-    var flash: Double
-    var t: Double
-    /// Cards in this page's pockets so far.
-    var owned: Int
+/// One row of the set's cards drifting slowly left, faded at both edges. Missing cards sit dim
+/// and grey with a hairline lime edge; the bought one comes up to full colour.
+private struct SetStrip: View {
+    var clock: Double
+    /// 0 to 1: the bought card filling in.
+    var bought: Double
+
+    private static let w: CGFloat = 66
+    private static let gap: CGFloat = 10
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
-        VStack(spacing: 8) {
-            HStack {
-                MonoLabel(text: "Binder · page 1")
-                Spacer()
-                MonoLabel(text: "\(owned) of \(MasterSetScene.pockets.count)", color: Theme.lime)
-            }
-            .padding(.horizontal, 2)
-            .padding(.bottom, 2)
-            ForEach(0 ..< 2, id: \.self) { row in
-                HStack(spacing: 8) {
-                    ForEach(0 ..< 4, id: \.self) { col in
-                        let i = row * 4 + col
-                        BinderSlot(pocket: MasterSetScene.pockets[i], flip: flips[i], glow: glow, flash: flash,
-                                   shown: Ease.out(t, 0.2 + Double(i) * 0.03, 0.3))
-                    }
-                }
+        let cards = MasterSetScene.cards
+        let listW = CGFloat(cards.count) * (Self.w + Self.gap)
+        let x = -CGFloat((clock * 16).truncatingRemainder(dividingBy: Double(listW)))
+        HStack(spacing: Self.gap) {
+            ForEach(0 ..< cards.count * 2, id: \.self) { i in
+                SetStripTile(card: cards[i % cards.count], bought: bought)
+                    .frame(width: Self.w, height: Self.w * 88 / 63)
             }
         }
-        .padding(14)
-        .background(SetGlow(id: "swsh7").clipShape(shape))
-        .overlay(shape.strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
+        .offset(x: x)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .clipped()
+        .mask(
+            LinearGradient(stops: [
+                Gradient.Stop(color: .clear, location: 0),
+                Gradient.Stop(color: .black, location: 0.12),
+                Gradient.Stop(color: .black, location: 0.88),
+                Gradient.Stop(color: .clear, location: 1),
+            ], startPoint: .leading, endPoint: .trailing)
+        )
     }
 }
 
-/// One pocket: the sleeve, then the card flipping from its back, or the missing card's outline.
-private struct BinderSlot: View {
-    var pocket: BinderPocket
-    var flip: Double
-    var glow: Double
-    var flash: Double
-    var shown: Double
+/// One card in the row.
+private struct SetStripTile: View {
+    var card: SetStripCard
+    var bought: Double
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 6, style: .continuous)
-        let angle: Double = 180 * (1 - flip)
-        let showBack: Bool = angle > 90
-        let waiting: Bool = pocket.missing && flip < 0.5
-        let lit: Double = pocket.bought ? flash : 0
+        let shape = RoundedRectangle(cornerRadius: 5, style: .continuous)
+        let filled: Double = card.missing ? (card.bought ? bought : 0) : 1
         ZStack {
-            // The sleeve.
-            shape.fill(Color.white.opacity(0.05))
-            shape.strokeBorder(Color.white.opacity(0.10), lineWidth: 1)
-            if waiting {
-                // Missing: the card faded to an outline, glowing, with what it costs.
-                BinderCardArt(url: pocket.url)
-                    .equatable()
-                    .clipShape(shape)
-                    .saturation(0)
-                    .opacity(0.22)
-                shape.strokeBorder(Theme.lime.opacity(0.3 + 0.6 * glow), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
-                VStack {
-                    Spacer()
-                    Text("Need " + Format.moneyWhole(pocket.price))
-                        .font(.geist(10, .bold)).monospacedDigit()
-                        .foregroundStyle(Theme.ink)
-                        .padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(Capsule().fill(Theme.lime.opacity(0.75 + 0.25 * glow)))
-                        .padding(.bottom, 6)
-                }
-            } else if flip > 0 {
-                ZStack {
-                    if showBack {
-                        BinderCardBack().clipShape(shape)
-                    } else {
-                        BinderCardArt(url: pocket.url).equatable().clipShape(shape)
-                    }
-                    shape.strokeBorder(Theme.lime, lineWidth: 2.5).opacity(lit)
-                }
-                .rotation3DEffect(.degrees(angle), axis: (x: 0, y: 1, z: 0), perspective: 0.6)
-                .scaleEffect(CGFloat(1 + 0.08 * sin(Double.pi * flip)))
+            SetCardArt(url: card.url)
+                .equatable()
+                .clipShape(shape)
+                .saturation(filled)
+                .opacity(0.28 + 0.72 * filled)
+            if card.missing {
+                shape.strokeBorder(Theme.lime.opacity(0.55 * (1 - filled)), lineWidth: 1)
             }
-        }
-        .aspectRatio(63.0 / 88.0, contentMode: .fit)
-        .opacity(shown)
-    }
-}
-
-/// A card's back as the page draws it: dark, with a lime ring in the middle.
-private struct BinderCardBack: View {
-    var body: some View {
-        ZStack {
-            LinearGradient(colors: [Color(hex: 0x1B2A6B), Color(hex: 0x0E1230)], startPoint: .top, endPoint: .bottom)
-            Circle().stroke(Theme.lime.opacity(0.8), lineWidth: 2).padding(18)
-            Circle().fill(Theme.lime.opacity(0.18)).padding(26)
         }
     }
 }
 
 /// A card of the set, drawn once.
-private struct BinderCardArt: View, Equatable {
+private struct SetCardArt: View, Equatable {
     var url: URL?
 
     var body: some View {
@@ -1837,22 +1730,18 @@ private struct BinderCardArt: View, Equatable {
     }
 }
 
-/// A money tile under the binder: a mono label and the figure (lime for what you own).
-private struct MasterSetTile: View {
+/// A quiet figure under the row: a mono label and the amount.
+private struct MasterSetFigure: View {
     var label: String
     var value: String
     var lime: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(spacing: 4) {
             MonoLabel(text: label)
             Text(value).font(.display(22)).tracking(-0.6).monospacedDigit()
                 .foregroundStyle(lime ? Theme.lime : .white)
-                .lineLimit(1).minimumScaleFactor(0.7)
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 }
 
