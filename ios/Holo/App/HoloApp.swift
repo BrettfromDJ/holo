@@ -35,10 +35,6 @@ struct RootView: View {
     @Environment(GradingStore.self) private var grading
     @Environment(GroupsStore.self) private var groups
     @State private var onboarding = Onboarding.shared
-    /// The first-run steps (what you collect, add your first card) over the tabs.
-    @State private var firstRun = false
-    /// The account the first-run steps are for (nil in a screenshot demo).
-    @State private var firstRunUser: String?
 
     private var signedIn: Bool {
         if case .signedIn = session.state { return true }
@@ -54,11 +50,6 @@ struct RootView: View {
                 // Screenshots and tryouts: the made-up collection, no account needed.
                 MainTabView()
                     .onAppear {
-                        // Screenshots: the first-run steps over the demo.
-                        if ProcessInfo.processInfo.arguments.contains("-HoloFirstRun") {
-                            firstRunUser = nil
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { firstRun = true }
-                        }
                         store.loadDemo(Demo.value("-HoloDemoKind").flatMap(DemoKind.init(rawValue:)) ?? .mixed)
                         if let id = Demo.value("-HoloProduct") { Router.shared.product = id }
                         if ProcessInfo.processInfo.arguments.contains("-HoloDealDemo") { deals.loadDemo(from: store) }
@@ -111,15 +102,6 @@ struct RootView: View {
                                 await store.load(userId: userId)
                                 await portfolios.value
                                 await deals.load(userId: userId)
-                                await Collects.refresh()
-                                // Nothing in the account yet, and the first-run steps not done
-                                // here: what you collect, then add your first card.
-                                if store.status == .ready, store.isFresh, store.demo == nil,
-                                   store.transactions.isEmpty, store.allHoldings.isEmpty,
-                                   !Onboarding.isDone(userId: userId) {
-                                    firstRunUser = userId
-                                    firstRun = true
-                                }
                             }
                             await grading.load(userId: store.demo == nil ? userId : nil)
                             // Slabs marked CGC Pristine 10 are priced apart; the marks arrive after the first pricing.
@@ -128,7 +110,6 @@ struct RootView: View {
                 }
             }
         }
-        .fullScreenCover(isPresented: $firstRun) { FirstRunView(userId: firstRunUser) }
         .onAppear { if AppConfig.isConfigured, !Demo.isOn { session.start() } }
         .onChange(of: session.state) { _, state in
             if state == .signedOut {

@@ -55,18 +55,8 @@ final class ScreenshotTests: XCTestCase {
     func testGrading() { capture("grading", args: ["-HoloDemoKind", "graded", "-HoloPage", "grading"], pages: 4) }
 
     func testScanner() { capture("scanner", args: ["-HoloScan"], pages: 1) }
-    // Onboarding: the welcome pages (swiped sideways) and the two first-run steps.
+    // Onboarding: the welcome pages (swiped sideways).
     func testOnboarding() { capture("onboarding", args: ["-HoloOnboarding"], pages: 3, swipe: .left) }
-    func testFirstRun() {
-        let app = XCUIApplication()
-        app.launchArguments = ["-HoloDemo", "-HoloFirstRun"]
-        app.launch()
-        sleep(4)
-        save(app.screenshot(), "first-run-0")
-        app.buttons["first-run-continue"].firstMatch.tap()
-        sleep(2)
-        save(app.screenshot(), "first-run-1")
-    }
     func testDeal() { capture("deal", args: ["-HoloTab", "deal"], pages: 1) }
     func testDealFilled() { capture("deal-filled", args: ["-HoloTab", "deal", "-HoloDealDemo"], pages: 3) }
     func testDealCustomer() {

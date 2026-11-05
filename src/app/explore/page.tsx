@@ -14,14 +14,10 @@ import { applyFilters, groupByKind, NO_FILTERS, type SearchFilters } from "@/lib
 import { useCatalogSearch } from "@/lib/explore/use-catalog-search";
 import { relativeTime } from "@/lib/format";
 import { useStore } from "@/lib/store/collection-store";
-import { useSyncedState } from "@/lib/store/synced-state";
-import { orderByCollects } from "@/components/flows/first-run";
 
 export default function ExplorePage() {
   const index = useExploreIndex();
-  // The brands you said you collect come first.
-  const [collects] = useSyncedState<string[]>("collects", []);
-  const games = useMemo(() => (index.status === "ready" ? orderByCollects(index.games, collects) : []), [index, collects]);
+  const games = index.status === "ready" ? index.games : [];
   const [query, setQuery] = useState("");
   const results = useCatalogSearch(query);
   const owned = useOwnedIds();

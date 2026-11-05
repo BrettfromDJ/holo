@@ -93,7 +93,7 @@ and say exactly what to run or click.
 - Shared data with the website: `holdings`, `transactions` (edits are corrections: `corrects_id`,
   quantity 0 deletes), `watchlist_items`, `device_tokens`, `user_preferences.monthly_budget`, and
   `user_state` keys `wishlist`, `deal`, `deal-rates`, `deals`, `release-reminders`,
-  `milestones-seen`, `grading-submissions`, `grading-costs`, `portfolio-main`, `collects` (the brands they collect), and the
+  `milestones-seen`, `grading-submissions`, `grading-costs`, `portfolio-main`, and the
   `shelves` / `portfolios` tables.
 - Portfolios: a holding can be in several (`portfolios.holding_keys`); Main is holdings in no
   named portfolio plus the keys in `user_state` `portfolio-main`. Move = only there; Copy = also
@@ -143,6 +143,6 @@ and say exactly what to run or click.
   unfiltered for deals), show deleted & edit records (card page). Grading state is in
   `user_state` `grading-submissions` / `grading-costs`; shelves and portfolios use the
   `shelves` / `portfolios` tables. Screenshot pages: `-HoloPage analytics|gains|grading|master-sets|activity` (plus `-HoloMasterSet`,
-  `-HoloBumper`, `-HoloPull`, `-HoloWhatIf`, `-HoloScan`, `-HoloDealCustomer`, `-HoloOnboarding`, `-HoloFirstRun`). Slab certs and bumpers: `user_state` `slab-certs`,
+  `-HoloBumper`, `-HoloPull`, `-HoloWhatIf`, `-HoloScan`, `-HoloDealCustomer`, `-HoloOnboarding`). Slab certs and bumpers: `user_state` `slab-certs`,
   `slab-bumpers`, `slab-pristine` (CGC Pristine 10 marks, a list of holding keys; in `GradingStore`).
 - Not in the app on purpose: the separate trade checker (the Deal tab covers trades).

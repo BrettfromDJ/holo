@@ -181,12 +181,7 @@ struct SearchScreen: View {
     @State private var liveSearching = false
     @State private var searching = false
     @State private var error: String?
-    // The brand you said you collect (first run) is picked by default when it's just one.
-    @State private var filters: SearchFilters = {
-        var f = SearchFilters()
-        f.brand = Collects.singleBrand
-        return f
-    }()
+    @State private var filters = SearchFilters()
     @State private var adding: SearchHit?
     @State private var path = NavigationPath()
     @State private var history = SearchHistory.shared

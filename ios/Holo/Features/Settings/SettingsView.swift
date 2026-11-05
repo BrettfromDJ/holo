@@ -5,7 +5,6 @@ struct SettingsView: View {
     @Environment(CollectionStore.self) private var store
     @State private var confirming = false
     @State private var showingWelcome = false
-    @State private var showingFirstRun = false
     @State private var testing = false
     @State private var testResult: String?
     @State private var demo: DemoKind? = DemoKind.selected
@@ -54,11 +53,10 @@ struct SettingsView: View {
                 }
                 Section {
                     Button("Welcome pages") { showingWelcome = true }
-                    Button("First-run steps") { showingFirstRun = true }
                 } header: {
                     Text("Onboarding")
                 } footer: {
-                    Text("What a new person sees: the welcome pages before sign-in, then the first-run steps on an empty collection. A look only; nothing is saved.")
+                    Text("What a new person sees before sign-in. A look only; nothing is saved.")
                 }
                 Section {
                     Picker("Show", selection: $demo) {
@@ -125,10 +123,6 @@ struct SettingsView: View {
             .fullScreenCover(isPresented: $showingWelcome) {
                 // A look at the welcome pages; its buttons just close it here.
                 WelcomeView(preview: true, onEmail: { showingWelcome = false }, onDemo: { showingWelcome = false })
-            }
-            .fullScreenCover(isPresented: $showingFirstRun) {
-                // A look at the first-run steps; nothing is remembered from a preview.
-                FirstRunView(userId: nil)
             }
         }
     }

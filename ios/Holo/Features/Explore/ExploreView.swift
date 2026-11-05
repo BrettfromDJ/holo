@@ -116,8 +116,7 @@ struct ExploreView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     PageHeader(title: "Brands", subtitle: "Every game in the catalog", size: 22)
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                        // The brands you collect first.
-                        ForEach(Array(Collects.ordered(index.games).enumerated()), id: \.element.id) { i, g in
+                        ForEach(Array(index.games.enumerated()), id: \.element.id) { i, g in
                             NavigationLink(value: g) { BrandCard(game: g, tint: BrandCard.tints[i % BrandCard.tints.count]) }
                                 .buttonStyle(.plain)
                         }
