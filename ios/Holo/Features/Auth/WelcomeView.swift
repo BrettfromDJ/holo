@@ -24,7 +24,7 @@ struct WelcomeView: View {
             WelcomeBackdrop().ignoresSafeArea()
             GeometryReader { geo in
                 // Each page's picture takes about the top half of the screen, running right up
-                // under the status bar (the header floats over it).
+                // under the status bar.
                 let graphic = min(geo.size.height * 0.52, 480)
                 VStack(spacing: 0) {
                     pages(graphicHeight: graphic)
@@ -37,7 +37,6 @@ struct WelcomeView: View {
             }
             .ignoresSafeArea(edges: .top)
         }
-        .overlay(alignment: .top) { header }
         .foregroundStyle(.white)
         // The grid's card pictures start downloading the moment the welcome appears (small, 10
         // pictures shared by 30 tiles), so the first page fills in as fast as the network allows.
@@ -47,23 +46,6 @@ struct WelcomeView: View {
                 for url in urls { group.addTask { _ = await ImageCache.shared.load(url) } }
             }
         }
-    }
-
-    private var header: some View {
-        HStack {
-            Text("Lucent").font(.geist(17, .semibold)).tracking(-0.3)
-            Spacer()
-            if page < last {
-                Button("Skip") { go(to: last) }
-                    .font(.geist(15, .medium)).foregroundStyle(.white)
-                    .accessibilityIdentifier("welcome-skip")
-            }
-        }
-        // Readable over the card art the pictures now run under (a still shadow, not a scrim).
-        .shadow(color: .black.opacity(0.8), radius: 6, y: 1)
-        .padding(.horizontal, 24)
-        .padding(.top, 12)
-        .padding(.bottom, 8)
     }
 
     private func pages(graphicHeight: CGFloat) -> some View {
@@ -114,9 +96,17 @@ struct WelcomeView: View {
     @ViewBuilder private var footer: some View {
         if page < last {
             // Sits at the bottom of the screen, like the last page's buttons.
-            Button("Continue") { go(to: page + 1) }
-                .buttonStyle(Button3D(kind: .lime))
-                .accessibilityIdentifier("welcome-continue")
+            VStack(spacing: 14) {
+                Button("Continue") { go(to: page + 1) }
+                    .buttonStyle(Button3D(kind: .lime))
+                    .accessibilityIdentifier("welcome-continue")
+                // Plain text under Continue, centred, like "Try the demo" on the last page.
+                Button("Skip") { go(to: last) }
+                    .font(.geist(15, .medium)).foregroundStyle(Theme.muted)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 22)
+                    .accessibilityIdentifier("welcome-skip")
+            }
         } else {
             VStack(spacing: 14) {
                 if preview {
@@ -257,7 +247,7 @@ private struct WelcomeGrid: View {
             .clipped()
         }
         .mask(fade)
-        // A soft dark shade at the top, so "Lucent", Skip and the clock read over the cards.
+        // A soft dark shade at the top, so the clock reads over the cards.
         .overlay(alignment: .top) {
             LinearGradient(colors: [.black.opacity(0.7), .black.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom)
                 .frame(height: 150)
