@@ -179,7 +179,7 @@ function ValueProps() {
   const items = [
     { icon: <TrendingUp />, title: "See what your collection is worth", line: "Every card and box, priced daily, with how it has moved." },
     { icon: <ScanLine />, title: "Scan a card, know its price", line: "Point the camera at a card and its name and price appear on it." },
-    { icon: <ArrowLeftRight />, title: "Deals, worked out on the spot", line: "Add what's coming in and going out; the cash and your profit are worked out for you." },
+    { icon: <ArrowLeftRight />, title: "Deals, made easier", line: "Add what's coming in and going out; the cash and your profit are worked out for you." },
   ];
   return (
     <section aria-label="What Lucent does" className="w-full max-w-sm animate-rise lg:max-w-md">

@@ -73,7 +73,7 @@ struct WelcomeView: View {
             }
             .tag(1)
             WelcomePage(
-                title: "Deals, worked out on the spot",
+                title: "Deals, made easier",
                 line: "Add what's coming in and going out. The cash and your profit are\u{00A0}worked\u{00A0}out.",
                 graphicHeight: graphicHeight
             ) {
