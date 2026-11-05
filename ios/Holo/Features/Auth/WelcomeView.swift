@@ -71,7 +71,9 @@ struct WelcomeView: View {
                 line: "Every card you own, priced daily, with how it\u{00A0}has\u{00A0}moved.",
                 graphicHeight: graphicHeight
             ) {
-                WelcomeGrid()
+                // The page slider gives each page the status bar's inset again; the grid runs up
+                // through it to the top edge of the screen, cards cut off by the edge as they drift.
+                WelcomeGrid().ignoresSafeArea(edges: .top)
             }
             .tag(0)
             WelcomePage(
@@ -205,7 +207,18 @@ private struct WelcomeGrid: View {
     /// The middle column drifts down; the others up.
     private static let down: [Bool] = [false, true, false]
     @State private var drift = false
+    /// The card pictures, held by the grid itself and handed to the tiles. The tiles used to
+    /// load their own (fading in), and inside the endlessly drifting columns those never showed.
+    @State private var images: [String: UIImage] = Self.cachedImages()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private static func url(_ item: DemoData.Item) -> URL? { WelcomeTile.product(item).imageURL }
+
+    private static func cachedImages() -> [String: UIImage] {
+        var out: [String: UIImage] = [:]
+        for item in columns.joined() { if let u = url(item), let img = ImageCache.shared.cached(u) { out[item.slug] = img } }
+        return out
+    }
 
     /// Singles with card art, dealt round-robin into three columns.
     private static let columns: [[DemoData.Item]] = {
@@ -230,6 +243,21 @@ private struct WelcomeGrid: View {
         .mask(fade)
         .overlay(alignment: .bottom) { WelcomeWorthPill().padding(.bottom, 10) }
         .onAppear { if !reduceMotion { drift = true } }
+        .task {
+            await withTaskGroup(of: (String, UIImage?).self) { group in
+                for item in Self.columns.joined() where images[item.slug] == nil {
+                    guard let u = Self.url(item) else { continue }
+                    group.addTask { (item.slug, await ImageCache.shared.load(u)) }
+                }
+                for await (slug, img) in group {
+                    guard let img else { continue }
+                    // Plain update, no animation: the columns' drift is the only motion here.
+                    var t = Transaction()
+                    t.disablesAnimations = true
+                    withTransaction(t) { images[slug] = img }
+                }
+            }
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Columns of cards from a collection, worth \(Format.money(WelcomeWorthPill.worth)) today")
     }
@@ -243,7 +271,7 @@ private struct WelcomeGrid: View {
         return VStack(spacing: Self.gap) {
             ForEach(0 ..< 3, id: \.self) { _ in
                 ForEach(items, id: \.slug) { item in
-                    WelcomeTile(item: item).frame(width: tileW, height: tileH)
+                    WelcomeTile(image: images[item.slug]).frame(width: tileW, height: tileH)
                 }
             }
         }
@@ -266,13 +294,13 @@ private struct WelcomeGrid: View {
     }
 }
 
-/// One card of the grid.
+/// One card of the grid: a dark card-shaped well with the card's picture on it once it's here.
 private struct WelcomeTile: View {
-    var item: DemoData.Item
+    var image: UIImage?
 
     /// The demo product with its small picture: the tiles are a third of the screen wide, and
     /// the full-size scan is close to a megabyte each (ten of them, on the first screen a new
-    /// person sees), which is what left the tiles blank.
+    /// person sees).
     static func product(_ item: DemoData.Item) -> Product {
         var p = DemoData.product(item)
         p.imageUrl = p.imageUrl?.replacingOccurrences(of: "_hires.png", with: ".png")
@@ -280,11 +308,11 @@ private struct WelcomeTile: View {
     }
 
     var body: some View {
-        // A dark card-shaped well sits under the art, so a tile is never blank while its picture
-        // is still arriving.
         ZStack {
             RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Theme.well)
-            ProductImage(product: Self.product(item), cornerRadius: 6, caption: false)
+            if let image {
+                Image(uiImage: image).resizable().aspectRatio(contentMode: .fill)
+            }
         }
         .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
     }
