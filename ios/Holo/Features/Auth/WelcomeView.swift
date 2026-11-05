@@ -714,10 +714,10 @@ private struct ScanOverlays: View {
                 .opacity(phase.tick)
                 .position(x: card.maxX - 10, y: card.minY + 10)
             SkewTag(text: "\(Format.signedPercent(read.gain)) all time", icon: "arrow.up.right")
-                .scaleEffect(CGFloat(0.6 + 0.4 * phase.tag), anchor: .leading)
+                .scaleEffect(CGFloat(0.6 + 0.4 * phase.tag))
                 .opacity(min(max(phase.tag, 0), 1))
-                .frame(width: card.width + 24, alignment: .leading)
-                .position(x: card.midX - 12, y: card.maxY - 20)
+                // Centred under the card.
+                .position(x: card.midX, y: card.maxY + 20)
         }
         .frame(width: size.width, height: size.height)
     }
