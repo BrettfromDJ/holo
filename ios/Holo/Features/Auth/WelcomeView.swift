@@ -1,6 +1,17 @@
 import SwiftUI
 import UserNotifications
 
+/// Whether this welcome page is the one on screen. The page slider keeps its neighbours alive,
+/// so each page's moving picture pauses unless it's showing.
+private struct WelcomeActiveKey: EnvironmentKey { static let defaultValue = true }
+
+private extension EnvironmentValues {
+    var welcomeActive: Bool {
+        get { self[WelcomeActiveKey.self] }
+        set { self[WelcomeActiveKey.self] = newValue }
+    }
+}
+
 /// The welcome, before sign-in: six swipeable pages (what the app does, in big moving
 /// pictures made from the demo collection), then the ways in: Sign in with Apple, email, or the
 /// demo without an account. Seen once; a signed-out app later opens on the sign-in form.
@@ -69,6 +80,7 @@ struct WelcomeView: View {
                 WelcomeGrid().ignoresSafeArea(edges: .top)
             }
             .tag(0)
+            .environment(\.welcomeActive, page == 0)
             WelcomePage(
                 title: "Scan a card, know its price",
                 line: "Point the camera at a card. Its name\nand price appear\u{00A0}on\u{00A0}it.",
@@ -77,6 +89,7 @@ struct WelcomeView: View {
                 WelcomeScanLoop()
             }
             .tag(1)
+            .environment(\.welcomeActive, page == 1)
             WelcomePage(
                 title: "Graded cards, in their slabs",
                 line: "Add a PSA, CGC or BGS grade. It's shown\nin its slab and priced\u{00A0}as\u{00A0}graded.",
@@ -85,6 +98,7 @@ struct WelcomeView: View {
                 WelcomeGrading()
             }
             .tag(2)
+            .environment(\.welcomeActive, page == 2)
             WelcomePage(
                 title: "Finish every set",
                 line: "See how much of each set you own, and the cards\u{00A0}still\u{00A0}missing.",
@@ -93,6 +107,7 @@ struct WelcomeView: View {
                 WelcomeMasterSet()
             }
             .tag(3)
+            .environment(\.welcomeActive, page == 3)
             WelcomePage(
                 title: "Know when prices move",
                 line: "Set a target on any card. You'll get a notification\u{00A0}when\u{00A0}it's\u{00A0}hit.",
@@ -101,6 +116,7 @@ struct WelcomeView: View {
                 WelcomeAlerts()
             }
             .tag(alertsPage)
+            .environment(\.welcomeActive, page == alertsPage)
             WelcomePage(
                 title: "Deals, made easier",
                 line: "Add what's coming in and going out. The cash and your profit are\u{00A0}worked\u{00A0}out.",
@@ -109,6 +125,7 @@ struct WelcomeView: View {
                 WelcomeDeal()
             }
             .tag(last)
+            .environment(\.welcomeActive, page == last)
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
     }
@@ -264,6 +281,7 @@ private struct WelcomeGrid: View {
     /// The card pictures, held by the grid itself and handed to the tiles.
     @State private var images: [String: UIImage] = Self.cachedImages()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.welcomeActive) private var active
 
     static func url(_ item: DemoData.Item) -> URL? { WelcomeTile.product(item).imageURL }
 
@@ -289,7 +307,7 @@ private struct WelcomeGrid: View {
                 if reduceMotion {
                     columns(at: 0, tileW: tileW, tileH: tileH)
                 } else {
-                    TimelineView(.animation) { context in
+                    TimelineView(.animation(minimumInterval: nil, paused: !active)) { context in
                         columns(at: context.date.timeIntervalSince(Self.start), tileW: tileW, tileH: tileH)
                     }
                 }
@@ -541,6 +559,7 @@ private struct ScanCard {
 /// offsets, turns and opacities; the table, its blur and the glow sit still outside it.
 private struct WelcomeScanLoop: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.welcomeActive) private var active
 
     var body: some View {
         VStack(spacing: 14) {
@@ -559,7 +578,7 @@ private struct WelcomeScanLoop: View {
                         if reduceMotion {
                             ScanStage(now: ScanPhase.still.u, card: card, size: geo.size)
                         } else {
-                            TimelineView(.animation) { context in
+                            TimelineView(.animation(minimumInterval: nil, paused: !active)) { context in
                                 ScanStage(now: context.date.timeIntervalSinceReferenceDate, card: card, size: geo.size)
                             }
                         }
@@ -881,12 +900,13 @@ private struct ScanPill: View {
 /// left once its tick has landed. Checked a few times a second, not every frame.
 private struct RecentScans: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.welcomeActive) private var active
 
     var body: some View {
         if reduceMotion {
             row(latest: 2)
         } else {
-            TimelineView(.periodic(from: .now, by: 0.25)) { context in
+            TimelineView(.animation(minimumInterval: 0.25, paused: !active)) { context in
                 let now = context.date.timeIntervalSinceReferenceDate
                 let turn = Int(floor(now / ScanPhase.cycle))
                 let u = now - Double(turn) * ScanPhase.cycle
@@ -1004,6 +1024,7 @@ private struct WelcomeDeal: View {
     private static let height: CGFloat = 500
     private static let start = Date()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.welcomeActive) private var active
 
     var body: some View {
         GeometryReader { geo in
@@ -1018,7 +1039,7 @@ private struct WelcomeDeal: View {
                     if reduceMotion {
                         DealScene(spec: DealSpec.all[0], t: 6, clock: 0)
                     } else {
-                        TimelineView(.animation) { context in
+                        TimelineView(.animation(minimumInterval: nil, paused: !active)) { context in
                             let s = context.date.timeIntervalSince(Self.start)
                             let n = Int(s / Self.cycle)
                             DealScene(spec: DealSpec.all[n % DealSpec.all.count], t: s - Double(n) * Self.cycle, clock: s)
@@ -1294,6 +1315,7 @@ private struct WelcomeGrading: View {
     static let cycle: Double = 8.5
     private static let start = Date()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.welcomeActive) private var active
 
     var body: some View {
         WelcomeFit(height: 540, grow: 1.15) {
@@ -1306,7 +1328,7 @@ private struct WelcomeGrading: View {
                 if reduceMotion {
                     GradingScene(show: GradeShow.all[0], t: 6.5, clock: 0)
                 } else {
-                    TimelineView(.animation) { context in
+                    TimelineView(.animation(minimumInterval: nil, paused: !active)) { context in
                         let s = context.date.timeIntervalSince(Self.start)
                         let n = Int(s / Self.cycle)
                         GradingScene(show: GradeShow.all[n % GradeShow.all.count], t: s - Double(n) * Self.cycle, clock: s)
@@ -1527,18 +1549,55 @@ private struct BumperPickerDemo: View {
 
 // MARK: - Page 4: a master set filling in
 
-/// A card of Evolving Skies in the page's row: owned, missing, or bought during the loop.
+/// A card in the page's row: owned, missing, or bought during the loop.
 private struct SetStripCard {
     var number: Int
     var missing: Bool = false
     var bought: Bool = false
+    /// The chase cards use the large picture (already on the phone from the demo).
+    var big: Bool = false
+}
 
-    /// The catalog's picture: large for the chase cards (already on the phone from the demo),
-    /// small for the rest.
-    var url: URL? {
-        let big = [215, 218].contains(number)
-        return URL(string: "https://images.pokemontcg.io/swsh7/\(number)\(big ? "_hires" : "").png")
+/// One set the page shows: its catalog code, name, size, the counts and money before and
+/// after the loop, and its row of cards. The page takes the sets in turn.
+private struct SetShow {
+    var code: String
+    var name: String
+    var total: Int
+    var startCount: Int
+    var endCount: Int
+    var worth: Double
+    var toFinish: Double
+    var boughtPrice: Double
+    var cards: [SetStripCard]
+
+    func url(_ card: SetStripCard) -> URL? {
+        URL(string: "https://images.pokemontcg.io/\(code)/\(card.number)\(card.big ? "_hires" : "").png")
     }
+
+    static let all: [SetShow] = [
+        SetShow(code: "swsh7", name: "Evolving Skies", total: 203, startCount: 140, endCount: 153,
+                worth: 580, toFinish: 1400, boughtPrice: 4, cards: [
+                    SetStripCard(number: 218, big: true), SetStripCard(number: 7), SetStripCard(number: 215, missing: true, big: true),
+                    SetStripCard(number: 8), SetStripCard(number: 3), SetStripCard(number: 9, missing: true, bought: true),
+                    SetStripCard(number: 14), SetStripCard(number: 1), SetStripCard(number: 12, missing: true),
+                    SetStripCard(number: 10),
+                ]),
+        SetShow(code: "sv3pt5", name: "Scarlet & Violet—151", total: 207, startCount: 118, endCount: 131,
+                worth: 412, toFinish: 865, boughtPrice: 6, cards: [
+                    SetStripCard(number: 199, big: true), SetStripCard(number: 1), SetStripCard(number: 4, missing: true),
+                    SetStripCard(number: 7), SetStripCard(number: 25), SetStripCard(number: 6, missing: true, bought: true),
+                    SetStripCard(number: 133), SetStripCard(number: 205, missing: true, big: true), SetStripCard(number: 151),
+                    SetStripCard(number: 150),
+                ]),
+        SetShow(code: "sv8", name: "Surging Sparks", total: 252, startCount: 86, endCount: 99,
+                worth: 498, toFinish: 1120, boughtPrice: 3, cards: [
+                    SetStripCard(number: 238, big: true), SetStripCard(number: 1), SetStripCard(number: 5, missing: true),
+                    SetStripCard(number: 8), SetStripCard(number: 12), SetStripCard(number: 15, missing: true, bought: true),
+                    SetStripCard(number: 20), SetStripCard(number: 22, missing: true), SetStripCard(number: 30),
+                    SetStripCard(number: 36),
+                ]),
+    ]
 }
 
 /// The master set page, in the real Master Sets look: the set's name, the big lime dial with
@@ -1548,6 +1607,7 @@ private struct WelcomeMasterSet: View {
     static let cycle: Double = 7
     private static let start = Date()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.welcomeActive) private var active
 
     var body: some View {
         WelcomeFit(height: 470, grow: 1.1, alignment: .bottom) {
@@ -1558,38 +1618,27 @@ private struct WelcomeMasterSet: View {
                     .blur(radius: 60)
                     .offset(y: -40)
                 if reduceMotion {
-                    MasterSetScene(t: 5, clock: 0)
+                    MasterSetScene(set: SetShow.all[0], t: 5, clock: 0)
                 } else {
-                    TimelineView(.animation) { context in
+                    TimelineView(.animation(minimumInterval: nil, paused: !active)) { context in
                         let s = context.date.timeIntervalSince(Self.start)
                         let n = Int(s / Self.cycle)
-                        MasterSetScene(t: s - Double(n) * Self.cycle, clock: s)
+                        MasterSetScene(set: SetShow.all[n % SetShow.all.count], t: s - Double(n) * Self.cycle, clock: s)
                     }
                 }
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Evolving Skies master set, \(MasterSetScene.endCount) of 203 cards, the missing ones dimmed")
+        .accessibilityLabel("Master sets in turn, starting with Evolving Skies: \(SetShow.all[0].endCount) of \(SetShow.all[0].total) cards, the missing ones dimmed")
     }
 }
 
 /// The set at local time `t` (and `clock`, for the row's drift).
 private struct MasterSetScene: View {
+    var set: SetShow
     var t: Double
     var clock: Double
 
-    static let cards: [SetStripCard] = [
-        SetStripCard(number: 218), SetStripCard(number: 7), SetStripCard(number: 215, missing: true),
-        SetStripCard(number: 8), SetStripCard(number: 3), SetStripCard(number: 9, missing: true, bought: true),
-        SetStripCard(number: 14), SetStripCard(number: 1), SetStripCard(number: 12, missing: true),
-        SetStripCard(number: 10),
-    ]
-    static let total = 203
-    static let startCount = 140
-    static let endCount = 153
-    static let worth: Double = 580
-    static let toFinish: Double = 1400
-    static let boughtPrice: Double = 4
     static let boughtAt: Double = 3.4
 
     var body: some View {
@@ -1597,16 +1646,16 @@ private struct MasterSetScene: View {
         let leave: Double = 1 - Ease.out(t, WelcomeMasterSet.cycle - 0.5, 0.45)
         let climb: Double = Ease.out(t, 0.3, 2.2)
         let bought: Double = Ease.out(t, Self.boughtAt, 0.5)
-        let climbed: Double = Double(Self.endCount - 1 - Self.startCount) * climb
+        let climbed: Double = Double(set.endCount - 1 - set.startCount) * climb
         let extra: Int = bought >= 0.5 ? 1 : 0
-        let count: Int = Self.startCount + Int(climbed.rounded()) + extra
-        let share: Double = Double(count) / Double(Self.total)
-        let left: Double = Self.toFinish - Self.boughtPrice * bought
-        let owned: Double = Self.worth * climb + Self.boughtPrice * bought
+        let count: Int = set.startCount + Int(climbed.rounded()) + extra
+        let share: Double = Double(count) / Double(set.total)
+        let left: Double = set.toFinish - set.boughtPrice * bought
+        let owned: Double = set.worth * climb + set.boughtPrice * bought
         VStack(spacing: 22) {
             VStack(spacing: 4) {
                 MonoLabel(text: "Master set")
-                Text("Evolving Skies").font(.display(26)).tracking(-0.8)
+                Text(set.name).font(.display(26)).tracking(-0.8)
             }
             ZStack {
                 MasterSetDial(share: share)
@@ -1617,11 +1666,11 @@ private struct MasterSetScene: View {
                         Text("%").font(.geist(17, .semibold)).padding(.top, 4)
                     }
                     .foregroundStyle(Theme.lime)
-                    Text("\(count) of \(Self.total) cards").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted)
+                    Text("\(count) of \(set.total) cards").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted)
                 }
             }
             .frame(width: 210, height: 210)
-            SetStrip(clock: clock, bought: bought)
+            SetStrip(set: set, clock: clock, bought: bought)
                 .frame(height: 96)
             HStack(spacing: 28) {
                 MasterSetFigure(label: "Yours", value: Format.moneyWhole(owned), lime: true)
@@ -1665,6 +1714,7 @@ private struct MasterSetDial: View {
 /// One row of the set's cards drifting slowly left, faded at both edges. Missing cards sit dim
 /// and grey with a hairline lime edge; the bought one comes up to full colour.
 private struct SetStrip: View {
+    var set: SetShow
     var clock: Double
     /// 0 to 1: the bought card filling in.
     var bought: Double
@@ -1673,12 +1723,13 @@ private struct SetStrip: View {
     private static let gap: CGFloat = 10
 
     var body: some View {
-        let cards = MasterSetScene.cards
+        let cards = set.cards
         let listW = CGFloat(cards.count) * (Self.w + Self.gap)
         let x = -CGFloat((clock * 16).truncatingRemainder(dividingBy: Double(listW)))
         HStack(spacing: Self.gap) {
             ForEach(0 ..< cards.count * 2, id: \.self) { i in
-                SetStripTile(card: cards[i % cards.count], bought: bought)
+                let card = cards[i % cards.count]
+                SetStripTile(card: card, url: set.url(card), bought: bought)
                     .frame(width: Self.w, height: Self.w * 88 / 63)
             }
         }
@@ -1699,13 +1750,14 @@ private struct SetStrip: View {
 /// One card in the row.
 private struct SetStripTile: View {
     var card: SetStripCard
+    var url: URL?
     var bought: Double
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 5, style: .continuous)
         let filled: Double = card.missing ? (card.bought ? bought : 0) : 1
         ZStack {
-            SetCardArt(url: card.url)
+            SetCardArt(url: url)
                 .equatable()
                 .clipShape(shape)
                 .saturation(filled)
@@ -1779,6 +1831,7 @@ private struct WelcomeAlerts: View {
     static let cycle: Double = 5
     private static let start = Date()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.welcomeActive) private var active
 
     var body: some View {
         WelcomeFit(height: 420) {
@@ -1792,7 +1845,7 @@ private struct WelcomeAlerts: View {
                     if reduceMotion {
                         AlertScene(show: AlertShow.all[0], t: 3.5)
                     } else {
-                        TimelineView(.animation) { context in
+                        TimelineView(.animation(minimumInterval: nil, paused: !active)) { context in
                             let s = context.date.timeIntervalSince(Self.start)
                             let n = Int(s / Self.cycle)
                             AlertScene(show: AlertShow.all[n % AlertShow.all.count], t: s - Double(n) * Self.cycle)
