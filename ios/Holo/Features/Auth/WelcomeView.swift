@@ -941,9 +941,8 @@ private struct DealSpec {
 }
 
 /// The deal page on loop, all off one clock: the deal's cards fan out above a lime deal card;
-/// what's coming in flies in from the right, what's going out lifts off and flies away left;
-/// the In/Out bar tips; the cash counts up; the dark "You come out ahead" panel punches in as
-/// the card's edge flashes; a "Deal done" stamp lands. Then the next deal (trade, buy, sale).
+/// what's coming in and going out arrive from the right; the In/Out bar tips; the cash counts
+/// up; the dark "You come out ahead" panel punches in as the card's edge flashes. Then the next deal (trade, buy, sale).
 private struct WelcomeDeal: View {
     static let cycle: Double = 7
     /// The composition's natural height; a shorter page shrinks it to fit.
@@ -1075,9 +1074,8 @@ private struct DealPanel: View {
         VStack(alignment: .leading, spacing: 12) {
             SkewTag(text: spec.tag, color: Theme.ink, textColor: Theme.lime, icon: spec.icon)
                 .opacity(Ease.out(t, 0.2, 0.3))
-            DealRowView(label: "Coming in", side: spec.coming, enter: Ease.back(t, 0.5, 0.5), fly: 0)
-            DealRowView(label: "Going out", side: spec.going, enter: Ease.out(t, 0.9, 0.4),
-                        fly: spec.going.slug == nil ? 0 : Ease.out(t, 1.45, 0.55))
+            DealRowView(label: "Coming in", side: spec.coming, enter: Ease.back(t, 0.5, 0.5))
+            DealRowView(label: "Going out", side: spec.going, enter: Ease.out(t, 0.9, 0.4))
             DealBalance(coming: spec.coming.value, going: spec.going.value, progress: Ease.out(t, 1.6, 0.8))
             VStack(alignment: .leading, spacing: 2) {
                 MonoLabel(text: spec.cashLabel, color: Theme.ink.opacity(0.6))
@@ -1094,29 +1092,21 @@ private struct DealPanel: View {
         .background(shape.fill(Theme.lime))
         .overlay(shape.strokeBorder(Color.white.opacity(0.35), lineWidth: 1))
         .overlay(shape.strokeBorder(Color.white, lineWidth: 3).opacity(0.9 * flash))
-        .overlay(alignment: .topTrailing) {
-            DealStamp(p: Ease.back(t, 4.1, 0.35)).padding(.top, 18).padding(.trailing, 18)
-        }
         .foregroundStyle(Theme.ink)
     }
 }
 
-/// One side of the deal: its label, then the card (or cash) flying in from the right; a card
-/// going out lifts off and flies away to the left, leaving its outline.
+/// One side of the deal: its label, then the card (or cash) arriving from the right.
 private struct DealRowView: View {
     var label: String
     var side: WelcomeDealSide
     /// 0 to 1 (with overshoot): the row arriving.
     var enter: Double
-    /// 0 to 1: the going-out card flying off.
-    var fly: Double
 
     var body: some View {
         let early: Double = 1 - min(enter, 1)
-        let thumbAngle: Double = (1 - enter) * 25 - fly * 30
-        let thumbScale = CGFloat(1 + early * 0.8 + fly * 0.6)
-        let flyX = CGFloat(-fly * 340)
-        let flyY = CGFloat(-fly * 60)
+        let thumbAngle: Double = (1 - enter) * 25
+        let thumbScale = CGFloat(1 + early * 0.8)
         let rowX = CGFloat((1 - enter) * 300)
         let rowFade: Double = Ease.clamp(enter * 2)
         VStack(alignment: .leading, spacing: 6) {
@@ -1124,14 +1114,9 @@ private struct DealRowView: View {
             HStack(spacing: 10) {
                 ZStack {
                     if let item = side.item {
-                        RoundedRectangle(cornerRadius: 3, style: .continuous)
-                            .strokeBorder(Theme.ink.opacity(0.35), style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
-                            .opacity(fly)
                         HoldingArt(product: DemoData.product(item), identity: nil, cornerRadius: 3, caption: false)
                             .rotationEffect(.degrees(thumbAngle))
                             .scaleEffect(thumbScale)
-                            .offset(x: flyX, y: flyY)
-                            .opacity(1 - fly)
                     } else {
                         RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Theme.ink)
                         Image(systemName: "banknote").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.lime)
@@ -1196,23 +1181,5 @@ private struct DealProfit: View {
         .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.ink))
         .scaleEffect(CGFloat(0.6 + 0.4 * pop))
         .opacity(Ease.clamp(pop * 2))
-    }
-}
-
-/// "Deal done", stamped at an angle on the card's corner.
-private struct DealStamp: View {
-    /// 0 to 1 (with overshoot).
-    var p: Double
-
-    var body: some View {
-        Text("DEAL DONE")
-            .font(.geist(12, .bold)).tracking(1.2)
-            .foregroundStyle(Theme.ink)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Theme.ink, lineWidth: 2))
-            .rotationEffect(.degrees(-12))
-            .scaleEffect(CGFloat(2.2 - 1.2 * p))
-            .opacity(Ease.clamp(p * 3))
     }
 }
