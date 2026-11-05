@@ -218,6 +218,8 @@ private struct WelcomeGrid: View {
             .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
             .clipped()
         }
+        // Small tiles: thumbnails, decoded off the main thread (30 tiles share 10 pictures).
+        .imageMaxPixel(360)
         .mask(fade)
         .overlay(alignment: .bottom) { WelcomeWorthPill().padding(.bottom, 10) }
         .onAppear { if !reduceMotion { drift = true } }
@@ -262,7 +264,12 @@ private struct WelcomeTile: View {
     var item: DemoData.Item
 
     var body: some View {
-        HoldingArt(product: DemoData.product(item), identity: nil, cornerRadius: 6, caption: false)
+        // A dark card-shaped well sits under the art, so a tile is never blank while its picture
+        // is still arriving (the grid is the first thing a new person sees).
+        RoundedRectangle(cornerRadius: 6, style: .continuous)
+            .fill(Theme.well)
+            .overlay(HoldingArt(product: DemoData.product(item), identity: nil, cornerRadius: 6, caption: false))
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
     }
 }
 
