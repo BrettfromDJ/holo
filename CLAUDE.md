@@ -64,6 +64,8 @@ and say exactly what to run or click.
   `src/components/product/product-image.tsx`).
 - Liquid Glass (iOS 26) wherever it fits: tab bar, pills, chip tracks, search field. Use
   `.liquidGlass(in:)`, which falls back to frosted material on older iOS and older Xcode.
+  Glass cards always blur what's behind them: use `.liquidGlass(in:)` (never a flat translucent
+  fill) for any card, panel or pill that reads as glass.
 - Inactive tabs and chips have no background; only the selected one is filled. Chip tracks never
   bleed off the screen: the track stays inside the margins and the chips scroll inside it
   (`ChipPicker(..., scrolls: true)`).

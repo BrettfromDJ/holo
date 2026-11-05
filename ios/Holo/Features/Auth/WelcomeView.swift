@@ -925,8 +925,7 @@ private struct RecentScanChip: View {
         .padding(6)
         .padding(.trailing, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.06)))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 
@@ -1251,9 +1250,11 @@ private struct WelcomeFit<Content: View>: View {
 
     var body: some View {
         GeometryReader { geo in
+            let scale = min(grow, geo.size.height / height)
+            // Laid out at the width it will fill once scaled, so its margins stay on screen.
             content
-                .frame(width: geo.size.width, height: height)
-                .scaleEffect(min(grow, geo.size.height / height))
+                .frame(width: geo.size.width / scale, height: height)
+                .scaleEffect(scale)
                 .frame(width: geo.size.width, height: geo.size.height)
         }
     }
@@ -1419,8 +1420,7 @@ private struct GradingValues: View {
         .foregroundStyle(.white)
         .padding(.horizontal, 18)
         .frame(height: 58)
-        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.black.opacity(0.55)))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }
 
@@ -1537,7 +1537,7 @@ private struct BinderPocket {
     /// The catalog's picture: the large one for the chase cards (already on the phone from the
     /// demo), the small one for the rest.
     var url: URL? {
-        let big = [215, 218, 270].contains(number)
+        let big = [215, 218].contains(number)
         return URL(string: "https://images.pokemontcg.io/swsh7/\(number)\(big ? "_hires" : "").png")
     }
 }
@@ -1552,7 +1552,7 @@ private struct WelcomeMasterSet: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        WelcomeFit(height: 500, grow: 1.12) {
+        WelcomeFit(height: 560, grow: 1.12) {
             ZStack {
                 Ellipse()
                     .fill(Theme.lime.opacity(0.2))
@@ -1584,13 +1584,13 @@ private struct MasterSetScene: View {
     var clock: Double
 
     static let pockets: [BinderPocket] = [
-        BinderPocket(number: 215, missing: false, price: 1392),
+        BinderPocket(number: 218, missing: false, price: 548),
         BinderPocket(number: 7, missing: false, price: 6),
-        BinderPocket(number: 270, missing: true, price: 512),
+        BinderPocket(number: 215, missing: true, price: 1392),
         BinderPocket(number: 8, missing: false, price: 14),
         BinderPocket(number: 3, missing: false, price: 2),
-        BinderPocket(number: 218, missing: false, price: 548),
         BinderPocket(number: 14, missing: false, price: 9),
+        BinderPocket(number: 1, missing: false, price: 1),
         BinderPocket(number: 9, missing: true, price: 4, bought: true),
     ]
     static let total = 203
@@ -1620,25 +1620,35 @@ private struct MasterSetScene: View {
         let glow: Double = Ease.out(t, 2.2, 0.4) * (0.6 + 0.4 * sin(clock * 3))
         let boughtFlash: Double = state.flash
         let tick: Double = Ease.back(t, Self.boughtAt + 0.35, 0.35)
-        VStack(spacing: 16) {
-            HStack(alignment: .center, spacing: 12) {
-                VStack(alignment: .leading, spacing: 8) {
+        let ownedOnPage: Int = flips.filter { $0 >= 0.5 }.count
+        VStack(spacing: 12) {
+            // The set: logo, count and a thin bar, the dial; on glass.
+            HStack(alignment: .center, spacing: 14) {
+                VStack(alignment: .leading, spacing: 10) {
                     MasterSetLogo()
                         .equatable()
-                        .frame(width: 150, height: 54, alignment: .leading)
+                        .frame(width: 140, height: 50, alignment: .leading)
                     HStack(spacing: 6) {
-                        Text("\(count) of \(Self.total) cards").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted)
+                        Text("\(count) of \(Self.total) cards").font(.geist(13, .medium)).monospacedDigit().foregroundStyle(Theme.muted)
                         SkewTag(text: "+1", icon: "plus")
                             .scaleEffect(CGFloat(0.6 + 0.4 * tick))
                             .opacity(Ease.clamp(tick * 2) * (1 - Ease.out(t, Self.boughtAt + 2.2, 0.4)))
                     }
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.white.opacity(0.1))
+                        Capsule().fill(Theme.lime)
+                            .scaleEffect(x: CGFloat(max(share, 0.001)), anchor: .leading)
+                    }
+                    .frame(width: 150, height: 4)
                 }
                 Spacer(minLength: 0)
                 MasterSetDial(share: share, flash: boughtFlash)
-                    .frame(width: 96, height: 96)
+                    .frame(width: 92, height: 92)
             }
-            BinderPage(flips: flips, glow: glow, flash: boughtFlash, t: t)
-            HStack(spacing: 10) {
+            .padding(16)
+            .liquidGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            BinderPage(flips: flips, glow: glow, flash: boughtFlash, t: t, owned: ownedOnPage)
+            HStack(spacing: 12) {
                 MasterSetTile(label: "Yours worth", value: Format.moneyWhole(worth), lime: true)
                 MasterSetTile(label: "To finish", value: Format.moneyWhole(toFinish), lime: false)
             }
@@ -1719,10 +1729,19 @@ private struct BinderPage: View {
     var glow: Double
     var flash: Double
     var t: Double
+    /// Cards in this page's pockets so far.
+    var owned: Int
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: 24, style: .continuous)
         VStack(spacing: 10) {
+            HStack {
+                MonoLabel(text: "Binder · page 1")
+                Spacer()
+                MonoLabel(text: "\(owned) of \(MasterSetScene.pockets.count)", color: Theme.lime)
+            }
+            .padding(.horizontal, 4)
+            .padding(.bottom, 2)
             ForEach(0 ..< 2, id: \.self) { row in
                 HStack(spacing: 8) {
                     ForEach(0 ..< 4, id: \.self) { col in
@@ -1733,7 +1752,7 @@ private struct BinderPage: View {
                 }
             }
         }
-        .padding(12)
+        .padding(14)
         .background(SetGlow(id: "swsh7").clipShape(shape))
         .overlay(shape.strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
     }
@@ -1829,11 +1848,10 @@ private struct MasterSetTile: View {
                 .foregroundStyle(lime ? Theme.lime : .white)
                 .lineLimit(1).minimumScaleFactor(0.7)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white.opacity(0.06)))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.white.opacity(0.10), lineWidth: 1))
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 }
 
@@ -1938,8 +1956,7 @@ private struct AlertScene: View {
                     .frame(height: 150)
             }
             .padding(18)
-            .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color.white.opacity(0.06)))
-            .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(Color.white.opacity(0.10), lineWidth: 1))
+            .liquidGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         }
         .foregroundStyle(.white)
         .opacity(min(appear, leave))
