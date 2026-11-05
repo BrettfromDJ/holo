@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Email sign-in with a 6-digit code, the same account as the website.
+/// Email sign-in with a code (6 to 8 digits, whatever the account sends), the same account as the website.
 struct SignInView: View {
     @Environment(SessionModel.self) private var session
     @State private var email = ""
@@ -14,7 +14,7 @@ struct SignInView: View {
         VStack(alignment: .leading, spacing: 20) {
             Spacer()
             Text("Lucent").font(.geist(40, .semibold)).tracking(-1)
-            Text(sent ? "Enter the 6-digit code we sent to \(email)." : "Track what your cards are worth. Sign in with the same email you use on the website.")
+            Text(sent ? "Enter the code we sent to \(email)." : "Track what your cards are worth. Sign in with the same email you use on the website.")
                 .foregroundStyle(Theme.muted)
 
             if !sent {
@@ -35,7 +35,7 @@ struct SignInView: View {
                 }
                 AppleSignInButton { message in error = message }
             } else {
-                TextField("123456", text: $code)
+                TextField("Code", text: $code)
                     .textContentType(.oneTimeCode)
                     .keyboardType(.numberPad)
                     .font(.system(size: 28, weight: .semibold, design: .monospaced))
@@ -43,9 +43,11 @@ struct SignInView: View {
                     .focused($focused)
                     // Digits only; the sixth one signs in by itself.
                     .onChange(of: code) { _, value in
-                        let digits = String(value.filter(\.isNumber).prefix(6))
+                        // Codes are 6 to 8 digits depending on the account's settings: the field
+                        // takes up to 8 and signs in by itself once 8 are in (or tap Sign in at 6).
+                        let digits = String(value.filter(\.isNumber).prefix(8))
                         if digits != value { code = digits; return }
-                        if digits.count == 6, !busy { Task { await verify() } }
+                        if digits.count == 8, !busy { Task { await verify() } }
                     }
                 Button(busy ? "Checking…" : "Sign in") { Task { await verify() } }
                     .buttonStyle(LimeButtonStyle())
