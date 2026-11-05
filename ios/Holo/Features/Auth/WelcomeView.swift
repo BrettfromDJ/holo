@@ -23,10 +23,10 @@ struct WelcomeView: View {
             // to the page's black where the heading and buttons sit.
             WelcomeBackdrop().ignoresSafeArea()
             GeometryReader { geo in
-                // Each page's picture takes about the top half of the screen.
-                let graphic = min(geo.size.height * 0.5, 430)
+                // Each page's picture takes about the top half of the screen, running right up
+                // under the status bar (the header floats over it).
+                let graphic = min(geo.size.height * 0.52, 480)
                 VStack(spacing: 0) {
-                    header
                     pages(graphicHeight: graphic)
                     dots
                     footer
@@ -35,12 +35,14 @@ struct WelcomeView: View {
                 }
                 .frame(width: geo.size.width, height: geo.size.height)
             }
+            .ignoresSafeArea(edges: .top)
         }
+        .overlay(alignment: .top) { header }
         .foregroundStyle(.white)
         // The grid's card pictures start downloading the moment the welcome appears (small, 10
         // pictures shared by 30 tiles), so the first page fills in as fast as the network allows.
         .task {
-            let urls = DemoData.items.filter { !$0.sealed && $0.image != nil }.compactMap { DemoData.product($0).imageUrl.flatMap(URL.init(string:)) }
+            let urls = DemoData.items.filter { !$0.sealed && $0.image != nil }.compactMap { WelcomeTile.product($0).imageURL }
             await withTaskGroup(of: Void.self) { group in
                 for url in urls { group.addTask { _ = await ImageCache.shared.load(url) } }
             }
@@ -173,8 +175,8 @@ private struct WelcomePage<Picture: View>: View {
     }
 }
 
-/// The app's lit grid (like Explore's) behind a page's picture: lime, blue and pink glows over
-/// the faint grid, fading out top and bottom.
+/// The app's lit grid (like Explore's) behind every page: lime, blue and pink glows over the
+/// faint grid, full bleed and unfaded (a fade behind the heading read as a dark band).
 private struct WelcomeBackdrop: View {
     var body: some View {
         ZStack {
@@ -183,11 +185,6 @@ private struct WelcomeBackdrop: View {
             RadialGradient(colors: [Theme.planBlue.opacity(0.2), .clear], center: UnitPoint(x: 0.9, y: 0.6), startRadius: 0, endRadius: 230)
             RadialGradient(colors: [Theme.planPink.opacity(0.16), .clear], center: UnitPoint(x: 0.65, y: 0.1), startRadius: 0, endRadius: 200)
         }
-        .mask(LinearGradient(stops: [
-            Gradient.Stop(color: .black, location: 0),
-            Gradient.Stop(color: .black, location: 0.42),
-            Gradient.Stop(color: .clear, location: 0.72),
-        ], startPoint: .top, endPoint: .bottom))
         .allowsHitTesting(false)
     }
 }
@@ -256,12 +253,11 @@ private struct WelcomeGrid: View {
         .animation(reduceMotion ? nil : .linear(duration: Self.durations[i]).repeatForever(autoreverses: false), value: drift)
     }
 
-    /// A soft edge at the top, solid through the middle, fading to the page over the bottom 40%.
+    /// Solid right to the top edge of the screen; fading to the page over the bottom 40%.
     private var fade: some View {
         LinearGradient(
             stops: [
-                Gradient.Stop(color: .clear, location: 0),
-                Gradient.Stop(color: .black, location: 0.08),
+                Gradient.Stop(color: .black, location: 0),
                 Gradient.Stop(color: .black, location: 0.6),
                 Gradient.Stop(color: .clear, location: 1),
             ],
@@ -274,13 +270,21 @@ private struct WelcomeGrid: View {
 private struct WelcomeTile: View {
     var item: DemoData.Item
 
+    /// The demo product with its small picture: the tiles are a third of the screen wide, and
+    /// the full-size scan is close to a megabyte each (ten of them, on the first screen a new
+    /// person sees), which is what left the tiles blank.
+    static func product(_ item: DemoData.Item) -> Product {
+        var p = DemoData.product(item)
+        p.imageUrl = p.imageUrl?.replacingOccurrences(of: "_hires.png", with: ".png")
+        return p
+    }
+
     var body: some View {
         // A dark card-shaped well sits under the art, so a tile is never blank while its picture
-        // is still arriving (the grid is the first thing a new person sees).
+        // is still arriving.
         ZStack {
             RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Theme.well)
-            // The same picture view the welcome fan used (full-size decode; ten small pictures).
-            ProductImage(product: DemoData.product(item), cornerRadius: 6, caption: false)
+            ProductImage(product: Self.product(item), cornerRadius: 6, caption: false)
         }
         .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
     }
@@ -397,21 +401,26 @@ private struct WelcomeScanLoop: View {
         GeometryReader { geo in
             let card = Self.cardRect(in: geo.size)
             ZStack(alignment: .topLeading) {
+                // The glow is never clipped: it runs on into the page under the heading.
                 Ellipse()
                     .fill(Theme.lime.opacity(0.28))
                     .frame(width: card.width * 1.5, height: card.height * 0.5)
                     .blur(radius: 40)
                     .position(x: card.midX, y: card.maxY + 4)
-                if reduceMotion {
-                    ScanStage(now: ScanPhase.still.u, card: card, size: geo.size)
-                } else {
-                    TimelineView(.animation) { context in
-                        ScanStage(now: context.date.timeIntervalSinceReferenceDate, card: card, size: geo.size)
+                Group {
+                    if reduceMotion {
+                        ScanStage(now: ScanPhase.still.u, card: card, size: geo.size)
+                    } else {
+                        TimelineView(.animation) { context in
+                            ScanStage(now: context.date.timeIntervalSinceReferenceDate, card: card, size: geo.size)
+                        }
                     }
                 }
+                // Only the cards sliding in and out are kept to the page.
+                .frame(width: geo.size.width, height: geo.size.height)
+                .clipped()
             }
             .frame(width: geo.size.width, height: geo.size.height)
-            .clipped()
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Cards being scanned one after another, each with its name and price")
@@ -441,14 +450,14 @@ private struct ScanStage: View {
         let count = max(cards.count, 1)
         let cycle = ScanPhase.cycle
         let turn = Int(floor(now / cycle))
-        let local = now - Double(turn) * cycle
-        let current = ((turn % count) + count) % count
-        let next = (current + 1) % count
+        // The turn whose card is on the page, and the next one sliding in. Each is keyed by its
+        // turn number, so the next card's view carries straight on as the current one instead
+        // of being rebuilt (which blinked).
+        let turns = cards.count > 1 ? [turn, turn + 1] : [turn]
         ZStack(alignment: .topLeading) {
             if !cards.isEmpty {
-                ScanTurn(read: cards[current], phase: ScanPhase(u: local), card: card, size: size)
-                if cards.count > 1 {
-                    ScanTurn(read: cards[next], phase: ScanPhase(u: local - cycle), card: card, size: size)
+                ForEach(turns, id: \.self) { t in
+                    ScanTurn(read: cards[((t % count) + count) % count], phase: ScanPhase(u: now - Double(t) * cycle), card: card, size: size)
                 }
             }
         }
