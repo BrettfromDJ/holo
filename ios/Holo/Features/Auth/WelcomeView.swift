@@ -1,6 +1,7 @@
 import SwiftUI
+import UserNotifications
 
-/// The welcome, before sign-in: three swipeable pages (what the app does, in big moving
+/// The welcome, before sign-in: six swipeable pages (what the app does, in big moving
 /// pictures made from the demo collection), then the ways in: Sign in with Apple, email, or the
 /// demo without an account. Seen once; a signed-out app later opens on the sign-in form.
 struct WelcomeView: View {
@@ -14,7 +15,11 @@ struct WelcomeView: View {
     @State private var error: String?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private let last = 2
+    private let last = 5
+    /// The price alerts page: it offers to turn notifications on.
+    private let alertsPage = 4
+    /// iPhone hasn't asked about notifications yet (so the alerts page offers to).
+    @State private var canAskNotifications = false
 
     var body: some View {
         ZStack {
@@ -38,6 +43,10 @@ struct WelcomeView: View {
             .ignoresSafeArea(edges: .top)
         }
         .foregroundStyle(.white)
+        .task {
+            let settings = await UNUserNotificationCenter.current().notificationSettings()
+            canAskNotifications = preview || settings.authorizationStatus == .notDetermined
+        }
         // The grid's card pictures start downloading the moment the welcome appears (small, 10
         // pictures shared by 30 tiles), so the first page fills in as fast as the network allows.
         .task {
@@ -69,13 +78,37 @@ struct WelcomeView: View {
             }
             .tag(1)
             WelcomePage(
+                title: "Graded cards, in their slabs",
+                line: "Add a PSA, CGC or BGS grade. It's shown in its slab and priced\u{00A0}as\u{00A0}graded.",
+                graphicHeight: graphicHeight
+            ) {
+                WelcomeGrading()
+            }
+            .tag(2)
+            WelcomePage(
+                title: "Finish every set",
+                line: "See how much of each set you own, and the cards\u{00A0}still\u{00A0}missing.",
+                graphicHeight: graphicHeight
+            ) {
+                WelcomeMasterSet()
+            }
+            .tag(3)
+            WelcomePage(
+                title: "Know when prices move",
+                line: "Set a target on any card. You'll get a notification\u{00A0}when\u{00A0}it's\u{00A0}hit.",
+                graphicHeight: graphicHeight
+            ) {
+                WelcomeAlerts()
+            }
+            .tag(alertsPage)
+            WelcomePage(
                 title: "Deals, made easier",
                 line: "Add what's coming in and going out. The cash and your profit are\u{00A0}worked\u{00A0}out.",
                 graphicHeight: graphicHeight
             ) {
                 WelcomeDeal()
             }
-            .tag(2)
+            .tag(last)
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
     }
@@ -94,7 +127,19 @@ struct WelcomeView: View {
 
     /// Continue on the first pages; the ways in on the last.
     @ViewBuilder private var footer: some View {
-        if page < last {
+        if page == alertsPage, canAskNotifications {
+            // The moment to ask: iPhone's own prompt follows "Turn on alerts".
+            VStack(spacing: 14) {
+                Button { Task { await turnOnAlerts() } } label: { Label("Turn on alerts", systemImage: "bell.fill") }
+                    .buttonStyle(Button3D(kind: .lime))
+                    .accessibilityIdentifier("welcome-alerts-on")
+                Button("Not now") { go(to: page + 1) }
+                    .font(.geist(15, .medium)).foregroundStyle(Theme.muted)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 22)
+                    .accessibilityIdentifier("welcome-alerts-later")
+            }
+        } else if page < last {
             // Sits at the bottom of the screen, like the last page's buttons.
             VStack(spacing: 14) {
                 Button("Continue") { go(to: page + 1) }
@@ -134,6 +179,17 @@ struct WelcomeView: View {
                 }
             }
         }
+    }
+
+    /// Apple's notification prompt (the page itself is the explanation, so no extra note), then
+    /// on to the next page whatever the answer. The device is registered once signed in.
+    private func turnOnAlerts() async {
+        if !preview {
+            Onboarding.notificationsExplained = true
+            _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])
+            canAskNotifications = false
+        }
+        go(to: page + 1)
     }
 
     private func go(to next: Int) {
@@ -1181,5 +1237,495 @@ private struct DealProfit: View {
         .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.ink))
         .scaleEffect(CGFloat(0.6 + 0.4 * pop))
         .opacity(Ease.clamp(pop * 2))
+    }
+}
+
+// MARK: - Shared: a fixed-size picture, shrunk to fit a shorter page
+
+/// Lays the picture out at its natural height and shrinks it (never grows it) to the page.
+private struct WelcomeFit<Content: View>: View {
+    var height: CGFloat
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        GeometryReader { geo in
+            content
+                .frame(width: geo.size.width, height: height)
+                .scaleEffect(min(1, geo.size.height / height))
+                .frame(width: geo.size.width, height: geo.size.height)
+        }
+    }
+}
+
+// MARK: - Page 3: a card graded, into its slab
+
+/// One card the grading page shows: raw, then graded, and both values.
+private struct GradeShow {
+    var slug: String
+    var company: String
+    var grade: String
+    var raw: Double
+    var graded: Double
+
+    var gain: Double { raw > 0 ? graded / raw - 1 : 0 }
+
+    static let all: [GradeShow] = [
+        GradeShow(slug: "pikachu-ex-ss", company: "PSA", grade: "10", raw: 371.5, graded: 1250),
+        GradeShow(slug: "umbreon-vmax-alt", company: "CGC", grade: "10", raw: 1392, graded: 2850),
+        GradeShow(slug: "charizard-base", company: "PSA", grade: "9", raw: 455, graded: 1100),
+    ]
+}
+
+/// The grading page on loop, off one clock: a raw card sits under a lime glow, a slab drops
+/// over it, its edge flashes, the value climbs from raw to graded and a gain tag springs in.
+/// Then the next card. The slab itself is drawn once per card (it only moves).
+private struct WelcomeGrading: View {
+    static let cycle: Double = 5.5
+    private static let start = Date()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        WelcomeFit(height: 440) {
+            ZStack {
+                Ellipse()
+                    .fill(Theme.lime.opacity(0.26))
+                    .frame(width: 300, height: 150)
+                    .blur(radius: 50)
+                    .offset(y: 60)
+                if reduceMotion {
+                    GradingScene(show: GradeShow.all[0], t: 4)
+                } else {
+                    TimelineView(.animation) { context in
+                        let s = context.date.timeIntervalSince(Self.start)
+                        let n = Int(s / Self.cycle)
+                        GradingScene(show: GradeShow.all[n % GradeShow.all.count], t: s - Double(n) * Self.cycle)
+                    }
+                }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("A Pikachu ex graded PSA 10, in its slab: \(Format.money(371.5)) raw, \(Format.money(1250)) graded")
+    }
+}
+
+/// The grading page at local time `t`.
+private struct GradingScene: View {
+    var show: GradeShow
+    var t: Double
+
+    var body: some View {
+        let appear: Double = Ease.out(t, 0, 0.4)
+        let leave: Double = 1 - Ease.out(t, WelcomeGrading.cycle - 0.5, 0.45)
+        let drop: Double = Ease.back(t, 0.8, 0.6)
+        let slabY = CGFloat((1 - drop) * -520)
+        let slabFade: Double = Ease.clamp((t - 0.8) / 0.12)
+        let rawFade: Double = 1 - Ease.out(t, 1.3, 0.2)
+        let rawAngle: Double = -5 * (1 - Ease.out(t, 0.8, 0.6))
+        let flash: Double = (t >= 1.4 && t <= 2.0) ? sin(Double.pi * (t - 1.4) / 0.6) : 0
+        let bump = CGFloat(1 + 0.04 * flash)
+        let graded = t >= 1.6
+        let value: Double = show.raw + (show.graded - show.raw) * Ease.out(t, 1.6, 1.0)
+        let tag: Double = Ease.back(t, 2.6, 0.35)
+        let item = DemoData.items.first { $0.slug == show.slug }
+        VStack(spacing: 18) {
+            ZStack {
+                if let item, rawFade > 0 {
+                    HoldingArt(product: DemoData.product(item), identity: nil, cornerRadius: 10, caption: false)
+                        .frame(width: 190, height: 265)
+                        .rotationEffect(.degrees(rawAngle))
+                        .opacity(rawFade)
+                }
+                WelcomeSlab(slug: show.slug, company: show.company, grade: show.grade)
+                    .equatable()
+                    .frame(width: 190, height: 304)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(Theme.lime, lineWidth: 3)
+                            .opacity(0.9 * flash)
+                    )
+                    .scaleEffect(bump)
+                    .offset(y: slabY)
+                    .opacity(slabFade)
+            }
+            .frame(height: 304)
+            HStack(spacing: 8) {
+                MonoLabel(text: graded ? show.company + " " + show.grade : "Raw")
+                Text(Format.money(value)).font(.display(22)).tracking(-0.6).monospacedDigit()
+                    .foregroundStyle(graded ? Theme.lime : .white)
+            }
+            .padding(.horizontal, 16)
+            .frame(height: 42)
+            .background(Capsule().fill(Color.black.opacity(0.6)))
+            .overlay(Capsule().strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
+            SkewTag(text: "\(Format.signedPercent(show.gain)) graded", icon: "arrow.up.right")
+                .scaleEffect(CGFloat(0.6 + 0.4 * tag))
+                .opacity(Ease.clamp(tag * 2))
+        }
+        .opacity(min(appear, leave))
+    }
+}
+
+/// The slab, redrawn only when the card or grade changes (not on every frame of its fall).
+private struct WelcomeSlab: View, Equatable {
+    var slug: String
+    var company: String
+    var grade: String
+
+    var body: some View {
+        let item = DemoData.items.first { $0.slug == slug }
+        Slab(product: item.map { DemoData.product($0) }, company: company, grade: grade)
+    }
+}
+
+// MARK: - Page 4: a master set filling in
+
+/// The master set page on loop, off one clock: a binder page of a set in its glowing panel
+/// fills card by card while the ring and the dot-matrix share climb; the cards still missing
+/// glow lime.
+private struct WelcomeMasterSet: View {
+    static let cycle: Double = 6
+    private static let start = Date()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        WelcomeFit(height: 400) {
+            Group {
+                if reduceMotion {
+                    MasterSetScene(t: 4.5, clock: 0)
+                } else {
+                    TimelineView(.animation) { context in
+                        let s = context.date.timeIntervalSince(Self.start)
+                        let n = Int(s / Self.cycle)
+                        MasterSetScene(t: s - Double(n) * Self.cycle, clock: s)
+                    }
+                }
+            }
+            .padding(.horizontal, 24)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Evolving Skies master set, \(MasterSetScene.finalCount) of 203 cards, the missing ones lit up")
+    }
+}
+
+/// The set's page at local time `t`: 15 slots, 11 owned (filling in order), 4 missing.
+private struct MasterSetScene: View {
+    var t: Double
+    var clock: Double
+
+    static let numbers = Array(1 ... 15)
+    static let missing: Set<Int> = [4, 9, 13, 15]
+    static let owned: [Int] = numbers.filter { !missing.contains($0) }
+    static let total = 203
+    static var finalShare: Double { Double(owned.count) / Double(numbers.count) }
+    static var finalCount: Int { Int((Double(total) * finalShare).rounded()) }
+
+    /// How far slot `n` has filled in, 0 to 1 (owned cards only).
+    private func fill(_ n: Int) -> Double {
+        guard let k = Self.owned.firstIndex(of: n) else { return 0 }
+        return Ease.out(t, 0.4 + Double(k) * 0.16, 0.3)
+    }
+
+    var body: some View {
+        let appear: Double = Ease.out(t, 0, 0.4)
+        let leave: Double = 1 - Ease.out(t, WelcomeMasterSet.cycle - 0.5, 0.45)
+        let filled: Double = Self.owned.reduce(0.0) { $0 + fill($1) }
+        let share: Double = filled / Double(Self.numbers.count)
+        let count = Int((Double(Self.total) * share).rounded())
+        let glow: Double = Ease.out(t, 2.5, 0.4) * (0.6 + 0.4 * sin(clock * 3))
+        let shape = RoundedRectangle(cornerRadius: 24, style: .continuous)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 4) {
+                    MonoLabel(text: "Master set")
+                    Text("Evolving Skies").font(.display(24)).tracking(-0.7)
+                    Text("\(count) of \(Self.total) cards").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted)
+                }
+                Spacer()
+                MasterSetRing(share: share)
+                    .frame(width: 84, height: 84)
+            }
+            VStack(spacing: 6) {
+                ForEach(0 ..< 3, id: \.self) { row in
+                    HStack(spacing: 6) {
+                        ForEach(0 ..< 5, id: \.self) { col in
+                            let n = Self.numbers[row * 5 + col]
+                            MasterSetSlot(number: n, missing: Self.missing.contains(n), fill: fill(n), glow: glow)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(18)
+        .background(SetGlow(id: "swsh7").clipShape(shape))
+        .overlay(shape.strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
+        .foregroundStyle(.white)
+        .opacity(min(appear, leave))
+    }
+}
+
+/// The set's share as a lime ring with the percentage in dot-matrix digits.
+private struct MasterSetRing: View {
+    var share: Double
+
+    var body: some View {
+        let pct = Int((share * 100).rounded())
+        let end = CGFloat(max(share, 0.001))
+        ZStack {
+            Circle().stroke(Theme.lime.opacity(0.18), lineWidth: 8)
+            Circle().trim(from: 0, to: end)
+                .stroke(Theme.lime, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            DotMatrixText(text: "\(pct)%", dot: 2.1, color: Theme.lime)
+        }
+        .padding(4)
+    }
+}
+
+/// One slot of the binder page: an owned card dropping in, or a missing one glowing lime with
+/// its number.
+private struct MasterSetSlot: View {
+    var number: Int
+    var missing: Bool
+    var fill: Double
+    var glow: Double
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 5, style: .continuous)
+        let scale = CGFloat(1.15 - 0.15 * fill)
+        ZStack {
+            shape.fill(Color.white.opacity(0.05))
+            if missing {
+                shape.fill(Theme.lime.opacity(0.08 * glow))
+                shape.strokeBorder(Theme.lime.opacity(0.25 + 0.6 * glow), lineWidth: 1.5)
+                Text("#\(number)").font(.mono(10)).foregroundStyle(Theme.lime.opacity(0.4 + 0.6 * glow))
+            } else {
+                shape.strokeBorder(Color.white.opacity(0.10), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                MasterSetCardArt(number: number)
+                    .equatable()
+                    .clipShape(shape)
+                    .scaleEffect(scale)
+                    .opacity(fill)
+            }
+        }
+        .aspectRatio(63.0 / 88.0, contentMode: .fit)
+    }
+}
+
+/// A card of Evolving Skies by its number (the catalog's small picture), drawn once.
+private struct MasterSetCardArt: View, Equatable {
+    var number: Int
+
+    var body: some View {
+        CachedImage(url: URL(string: "https://images.pokemontcg.io/swsh7/\(number).png")) { image in
+            image.resizable().aspectRatio(contentMode: .fill)
+        } placeholder: {
+            Theme.well
+        }
+    }
+}
+
+// MARK: - Page 5: price alerts
+
+/// One alert the page shows: a watched card, its price line crossing the target, the banner.
+private struct AlertShow {
+    var slug: String
+    var name: String
+    var message: String
+    var targetLabel: String
+    /// The line's points, as a share of the chart's height from the top (higher = cheaper).
+    var points: [Double]
+    var target: Double
+    /// Where along the line it crosses the target (0 to 1).
+    var cross: Double
+
+    static let all: [AlertShow] = [
+        AlertShow(slug: "charizard-ex-of", name: "Charizard ex",
+                  message: "Charizard ex dropped to \(Format.money(58.3)), under your $60 target.",
+                  targetLabel: "$60 target",
+                  points: [0.18, 0.26, 0.22, 0.34, 0.42, 0.37, 0.5, 0.58, 0.54, 0.68, 0.79, 0.86],
+                  target: 0.72, cross: 0.86),
+        AlertShow(slug: "umbreon-vmax-alt", name: "Umbreon VMAX",
+                  message: "Umbreon VMAX passed your $1,350 alert. Now \(Format.money(1392)).",
+                  targetLabel: "$1,350 alert",
+                  points: [0.82, 0.74, 0.77, 0.64, 0.6, 0.62, 0.5, 0.44, 0.47, 0.34, 0.25, 0.16],
+                  target: 0.3, cross: 0.88),
+    ]
+}
+
+/// The alerts page on loop, off one clock: a watched card's price line draws toward its lime
+/// target; where it crosses, a dot pings and a notification drops in from the top.
+private struct WelcomeAlerts: View {
+    static let cycle: Double = 5
+    private static let start = Date()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        WelcomeFit(height: 420) {
+            ZStack {
+                Ellipse()
+                    .fill(Theme.lime.opacity(0.22))
+                    .frame(width: 300, height: 140)
+                    .blur(radius: 50)
+                    .offset(y: 80)
+                Group {
+                    if reduceMotion {
+                        AlertScene(show: AlertShow.all[0], t: 3.5)
+                    } else {
+                        TimelineView(.animation) { context in
+                            let s = context.date.timeIntervalSince(Self.start)
+                            let n = Int(s / Self.cycle)
+                            AlertScene(show: AlertShow.all[n % AlertShow.all.count], t: s - Double(n) * Self.cycle)
+                        }
+                    }
+                }
+                .padding(.horizontal, 24)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("A price alert: \(AlertShow.all[0].message)")
+    }
+}
+
+/// The alerts page at local time `t`.
+private struct AlertScene: View {
+    var show: AlertShow
+    var t: Double
+
+    var body: some View {
+        let appear: Double = Ease.out(t, 0, 0.4)
+        let leave: Double = 1 - Ease.out(t, WelcomeAlerts.cycle - 0.45, 0.4)
+        let drawn: Double = Ease.clamp((t - 0.3) / 1.7)
+        let hitAt: Double = 0.3 + 1.7 * show.cross
+        let hit: Double = Ease.out(t, hitAt, 0.3)
+        let bannerIn: Double = Ease.back(t, hitAt + 0.1, 0.45)
+        let bannerOut: Double = Ease.out(t, 4.1, 0.35)
+        let bannerY = CGFloat((1 - bannerIn) * -140 - bannerOut * 140)
+        let bannerFade: Double = Ease.clamp(bannerIn * 2) * (1 - bannerOut)
+        let item = DemoData.items.first { $0.slug == show.slug }
+        VStack(spacing: 22) {
+            AlertBanner(message: show.message)
+                .offset(y: bannerY)
+                .opacity(bannerFade)
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 10) {
+                    if let item {
+                        HoldingArt(product: DemoData.product(item), identity: nil, cornerRadius: 3, caption: false)
+                            .frame(width: 30, height: 42)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(show.name).font(.geist(16, .semibold))
+                        MonoLabel(text: "Watching")
+                    }
+                    Spacer()
+                    Image(systemName: "bell.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(hit > 0.5 ? Theme.lime : Theme.muted)
+                }
+                AlertChart(show: show, drawn: drawn, hit: hit)
+                    .frame(height: 150)
+            }
+            .padding(18)
+            .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color.white.opacity(0.06)))
+            .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(Color.white.opacity(0.10), lineWidth: 1))
+        }
+        .foregroundStyle(.white)
+        .opacity(min(appear, leave))
+    }
+}
+
+/// The notification, as iPhone shows it: the app's mark, "Lucent", "now" and the message.
+private struct AlertBanner: View {
+    var message: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "bell.badge.fill")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(Theme.ink)
+                .frame(width: 38, height: 38)
+                .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Theme.lime))
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text("Lucent").font(.geist(14, .semibold))
+                    Spacer()
+                    Text("now").font(.geist(12)).foregroundStyle(Theme.muted)
+                }
+                Text(message).font(.geist(13)).foregroundStyle(.white.opacity(0.9))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(14)
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+}
+
+/// The price line drawing toward the dashed lime target, with a dot at its tip that pings when
+/// it crosses.
+private struct AlertChart: View {
+    var show: AlertShow
+    var drawn: Double
+    var hit: Double
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
+            let tip = AlertLine.point(show.points, at: drawn, in: geo.size)
+            let targetY = CGFloat(show.target) * h
+            let ring = CGFloat(8 + 16 * hit)
+            ZStack(alignment: .topLeading) {
+                Path { p in
+                    p.move(to: CGPoint(x: 0, y: targetY))
+                    p.addLine(to: CGPoint(x: w, y: targetY))
+                }
+                .stroke(Theme.lime.opacity(0.8), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+                MonoLabel(text: show.targetLabel, color: Theme.lime)
+                    .fixedSize()
+                    .offset(x: 0, y: targetY - 18)
+                AlertLine(points: show.points, upTo: drawn)
+                    .stroke(Color.white, style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+                Circle()
+                    .stroke(Theme.lime, lineWidth: 2)
+                    .frame(width: ring, height: ring)
+                    .opacity(hit > 0 ? 1 - hit : 0)
+                    .position(tip)
+                Circle()
+                    .fill(hit > 0 ? Theme.lime : Color.white)
+                    .frame(width: 9, height: 9)
+                    .position(tip)
+                    .opacity(drawn > 0 ? 1 : 0)
+            }
+        }
+    }
+}
+
+/// The price line through evenly spaced points, drawn as far as `upTo` (0 to 1).
+private struct AlertLine: Shape {
+    var points: [Double]
+    var upTo: Double
+
+    func path(in r: CGRect) -> Path {
+        var p = Path()
+        guard points.count > 1, upTo > 0 else { return p }
+        let step = r.width / CGFloat(points.count - 1)
+        let pos = Ease.clamp(upTo) * Double(points.count - 1)
+        p.move(to: CGPoint(x: r.minX, y: r.minY + CGFloat(points[0]) * r.height))
+        for i in 1 ..< points.count where Double(i) <= pos {
+            p.addLine(to: CGPoint(x: r.minX + step * CGFloat(i), y: r.minY + CGFloat(points[i]) * r.height))
+        }
+        let tip = Self.point(points, at: upTo, in: r.size)
+        p.addLine(to: CGPoint(x: r.minX + tip.x, y: r.minY + tip.y))
+        return p
+    }
+
+    /// Where the line is `share` of the way along (by step, close enough for a still tip).
+    static func point(_ points: [Double], at share: Double, in size: CGSize) -> CGPoint {
+        guard points.count > 1 else { return .zero }
+        let pos = Ease.clamp(share) * Double(points.count - 1)
+        let i = min(Int(pos), points.count - 2)
+        let f = pos - Double(i)
+        let v = points[i] + (points[i + 1] - points[i]) * f
+        let step = size.width / CGFloat(points.count - 1)
+        return CGPoint(x: CGFloat(pos) * step, y: CGFloat(v) * size.height)
     }
 }
