@@ -62,7 +62,7 @@ struct WelcomeView: View {
             .tag(0)
             WelcomePage(
                 title: "Scan a card, know its price",
-                line: "Point the camera at a card. Its name and price appear\u{00A0}on\u{00A0}it.",
+                line: "Point the camera at a card. Its name\nand price appear\u{00A0}on\u{00A0}it.",
                 graphicHeight: graphicHeight
             ) {
                 WelcomeScanLoop()
