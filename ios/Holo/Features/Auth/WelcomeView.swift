@@ -892,13 +892,13 @@ private enum Ease {
 }
 
 /// One side of a deal: a card (thumbnail, name, price) or cash.
-private struct DealSide {
+private struct WelcomeDealSide {
     var slug: String?
     var name: String
     var value: Double
 
-    static func card(_ slug: String, _ name: String, _ value: Double) -> DealSide { DealSide(slug: slug, name: name, value: value) }
-    static func cash(_ value: Double) -> DealSide { DealSide(slug: nil, name: "Cash", value: value) }
+    static func card(_ slug: String, _ name: String, _ value: Double) -> WelcomeDealSide { WelcomeDealSide(slug: slug, name: name, value: value) }
+    static func cash(_ value: Double) -> WelcomeDealSide { WelcomeDealSide(slug: nil, name: "Cash", value: value) }
 
     var item: DemoData.Item? { slug.flatMap { s in DemoData.items.first { $0.slug == s } } }
 }
@@ -907,8 +907,8 @@ private struct DealSide {
 private struct DealSpec {
     var tag: String
     var icon: String
-    var coming: DealSide
-    var going: DealSide
+    var coming: WelcomeDealSide
+    var going: WelcomeDealSide
     var cashLabel: String
     var cash: Double
     var ahead: Double
@@ -926,7 +926,7 @@ private struct DealSpec {
     ]
 
     /// The cards fanned above the deal: both sides of a trade, or the one card bought or sold.
-    var fan: [DealSide] { [going, coming].filter { $0.slug != nil } }
+    var fan: [WelcomeDealSide] { [going, coming].filter { $0.slug != nil } }
 }
 
 /// The deal page on loop, all off one clock: the deal's cards fan out above a lime deal card;
@@ -1071,7 +1071,7 @@ private struct DealPanel: View {
 /// going out lifts off and flies away to the left, leaving its outline.
 private struct DealRowView: View {
     var label: String
-    var side: DealSide
+    var side: WelcomeDealSide
     /// 0 to 1 (with overshoot): the row arriving.
     var enter: Double
     /// 0 to 1: the going-out card flying off.
