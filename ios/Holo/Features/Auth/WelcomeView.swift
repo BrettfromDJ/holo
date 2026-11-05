@@ -31,6 +31,8 @@ struct WelcomeView: View {
     private let alertsPage = 4
     /// iPhone hasn't asked about notifications yet (so the alerts page offers to).
     @State private var canAskNotifications = false
+    /// Notifications were just turned on: the button says so for a moment before moving on.
+    @State private var alertsOn = false
 
     var body: some View {
         ZStack {
@@ -138,17 +140,32 @@ struct WelcomeView: View {
             }
         }
         .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: page)
-        .padding(.bottom, 18)
+        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .contentShape(Rectangle())
+        // Hold the dots to jump straight to a page.
+        .contextMenu {
+            ForEach(0 ... last, id: \.self) { i in
+                Button(Self.pageNames[i]) { go(to: i) }
+            }
+        }
+        .padding(.bottom, 10)
         .accessibilityHidden(true)
     }
+
+    private static let pageNames = ["What it's worth", "Scan a card", "Grading", "Master sets", "Price alerts", "Deals"]
 
     /// Continue on the first pages; the ways in on the last.
     @ViewBuilder private var footer: some View {
         if page == alertsPage, canAskNotifications {
             // The moment to ask: iPhone's own prompt follows "Turn on alerts".
             VStack(spacing: 14) {
-                Button { Task { await turnOnAlerts() } } label: { Label("Turn on alerts", systemImage: "bell.fill") }
+                Button { Task { await turnOnAlerts() } } label: {
+                    Label(alertsOn ? "Alerts on" : "Turn on alerts", systemImage: alertsOn ? "checkmark" : "bell.fill")
+                        .contentTransition(.symbolEffect(.replace))
+                }
                     .buttonStyle(Button3D(kind: .lime))
+                    .disabled(alertsOn)
                     .accessibilityIdentifier("welcome-alerts-on")
                 Button("Not now") { go(to: page + 1) }
                     .font(.geist(15, .medium)).foregroundStyle(Theme.muted)
@@ -201,12 +218,19 @@ struct WelcomeView: View {
     /// Apple's notification prompt (the page itself is the explanation, so no extra note), then
     /// on to the next page whatever the answer. The device is registered once signed in.
     private func turnOnAlerts() async {
+        var granted = preview
         if !preview {
             Onboarding.notificationsExplained = true
-            _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])
-            canAskNotifications = false
+            granted = (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])) ?? false
+        }
+        if granted {
+            // A moment of "Alerts on" before moving on, so the tap is answered.
+            withAnimation(.snappy(duration: 0.25)) { alertsOn = true }
+            try? await Task.sleep(for: .milliseconds(900))
         }
         go(to: page + 1)
+        if !preview { canAskNotifications = false }
+        alertsOn = false
     }
 
     private func go(to next: Int) {
@@ -423,12 +447,29 @@ private struct WelcomeTile: View {
 /// tag with today's move. Still, apart from the one count-up.
 private struct WelcomeWorthPill: View {
     static let worth: Double = 3834.6
+    private static let start = Date()
+    @Environment(\.welcomeActive) private var active
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
+        if reduceMotion {
+            pill(Self.worth)
+        } else {
+            // A small rise every few seconds, so the figure feels live.
+            TimelineView(.animation(minimumInterval: 3.2, paused: !active)) { context in
+                let ticks = Int(context.date.timeIntervalSince(Self.start) / 3.2)
+                let steps: [Double] = [0, 1.35, 2.1, 3.85, 4.4, 6.05]
+                let rise: Double = steps[ticks % steps.count] + Double(ticks / steps.count) * 6.05
+                pill(Self.worth + rise)
+            }
+        }
+    }
+
+    private func pill(_ value: Double) -> some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 MonoLabel(text: "Worth today")
-                CountingText(value: Self.worth, format: { Format.money($0) }, duration: 1.4, delay: 0.3)
+                CountingText(value: value, format: { Format.money($0) }, duration: 1.4, delay: 0.3)
                     .font(.display(30)).tracking(-1).monospacedDigit()
                     .foregroundStyle(Theme.lime)
                     .lineLimit(1).minimumScaleFactor(0.7)
@@ -534,7 +575,8 @@ private struct ScanCard {
         let picks: [(String, String, Double, Double)] = [
             ("pikachu-ex-ss", "Pikachu ex", 24, -9), ("umbreon-vmax-alt", "Umbreon VMAX", 18, 8),
             ("rayquaza-vmax-alt", "Rayquaza VMAX", 26, -5), ("giratina-v-alt", "Giratina V", 20, 11),
-            ("lugia-v-alt", "Lugia V", 22, -12),
+            ("lugia-v-alt", "Lugia V", 22, -12), ("gengar-vmax-alt", "Gengar VMAX", 19, 9),
+            ("espeon-vmax-alt", "Espeon VMAX", 25, -7),
         ]
         var out: [ScanCard] = []
         for pick in picks {
@@ -684,6 +726,8 @@ private struct ScanStage: View {
         // turn number, so the next card's view carries straight on as the current one instead
         // of being rebuilt (which blinked).
         let turns = ScanCard.all.count > 1 ? [turn, turn + 1] : [turn]
+        // A light tap as each card's read locks on (the tick).
+        let locked: Bool = now - Double(turn) * cycle >= 2.05
         ZStack(alignment: .topLeading) {
             ForEach(turns, id: \.self) { t in
                 if let read = ScanCard.at(t) {
@@ -692,11 +736,12 @@ private struct ScanStage: View {
             }
         }
         .frame(width: size.width, height: size.height)
+        .sensoryFeedback(.impact(weight: .light), trigger: locked) { _, new in new }
     }
 }
 
 /// One card's turn in the scanner: its shadow on the table, the card (lying at its angle until
-/// the brackets lock, then turning to the light), then its read, all moved together as it
+/// the brackets lock), then its read, all moved together as it
 /// slides in and out.
 private struct ScanTurn: View {
     var read: ScanCard
@@ -707,7 +752,6 @@ private struct ScanTurn: View {
     var body: some View {
         if phase.onPage {
             let loose = 1 - phase.snap
-            let wobble: Double = phase.wobble
             let cardScale = CGFloat(0.9 + 0.1 * phase.snap)
             let turnAngle: Double = read.turn * loose
             let leanAngle: Double = read.lean * loose
@@ -720,34 +764,18 @@ private struct ScanTurn: View {
                     .offset(x: card.minX - card.width * 0.1, y: card.maxY - card.height * 0.12)
                 ZStack {
                     HoldingArt(product: DemoData.product(read.item), identity: nil, cornerRadius: 10, caption: false)
-                    if let t = phase.turn { ScanSheen(progress: t, card: card.size) }
                 }
                 .frame(width: card.width, height: card.height)
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .scaleEffect(cardScale)
                 .rotationEffect(.degrees(turnAngle))
                 .rotation3DEffect(.degrees(leanAngle), axis: (x: 1, y: 0, z: 0), perspective: 0.5)
-                .rotation3DEffect(.degrees(wobble), axis: (x: 0, y: 1, z: 0), perspective: 0.5)
                 .offset(x: card.minX, y: card.minY)
                 ScanOverlays(read: read, phase: phase, card: card, size: size)
             }
             .frame(width: size.width, height: size.height)
             .offset(x: slideX)
         }
-    }
-}
-
-/// The light crossing the card as it turns: a soft white band, diagonal, left to right.
-private struct ScanSheen: View {
-    var progress: Double
-    var card: CGSize
-
-    var body: some View {
-        LinearGradient(colors: [.clear, .white.opacity(0.45), .clear], startPoint: .leading, endPoint: .trailing)
-            .frame(width: card.width * 0.45, height: card.height * 1.6)
-            .rotationEffect(.degrees(20))
-            .offset(x: CGFloat(-0.9 + 1.8 * progress) * card.width)
-            .allowsHitTesting(false)
     }
 }
 
@@ -1065,7 +1093,8 @@ private struct DealScene: View {
     var body: some View {
         let appear = Ease.out(t, 0, 0.4)
         let leave = 1 - Ease.out(t, WelcomeDeal.cycle - 0.55, 0.45)
-        let sceneX = CGFloat((1 - appear) * 40 - (1 - leave) * 40)
+        // Each deal slides in from the right and out to the left, so the change reads.
+        let sceneX = CGFloat((1 - appear) * 140 - (1 - leave) * 140)
         VStack(spacing: -46) {
             DealFan(spec: spec, t: t, clock: clock)
                 .frame(height: 170)
@@ -1152,7 +1181,6 @@ private struct DealPanel: View {
                 .opacity(Ease.out(t, 0.2, 0.3))
             DealRowView(label: "Coming in", side: spec.coming, enter: Ease.back(t, 0.5, 0.5))
             DealRowView(label: "Going out", side: spec.going, enter: Ease.out(t, 0.9, 0.4))
-            DealBalance(coming: spec.coming.value, going: spec.going.value, progress: Ease.out(t, 1.6, 0.8))
             VStack(alignment: .leading, spacing: 2) {
                 MonoLabel(text: spec.cashLabel, color: Theme.ink.opacity(0.6))
                 Text(Format.money(spec.cash * counted))
@@ -1161,6 +1189,7 @@ private struct DealPanel: View {
             }
             .opacity(Ease.out(t, 2.2, 0.3))
             DealProfit(ahead: spec.ahead, pop: Ease.back(t, 3.5, 0.4))
+                .sensoryFeedback(.impact(weight: .light), trigger: t >= 3.5) { _, new in new }
         }
         .padding(.horizontal, 22)
         .padding(.vertical, 20)
@@ -1206,31 +1235,6 @@ private struct DealRowView: View {
             .offset(x: rowX)
             .opacity(rowFade)
         }
-    }
-}
-
-/// The In/Out bar: how the two sides weigh against each other, filling as the deal is read.
-private struct DealBalance: View {
-    var coming: Double
-    var going: Double
-    var progress: Double
-
-    var body: some View {
-        let ratio = coming + going > 0 ? coming / (coming + going) : 0.5
-        VStack(spacing: 6) {
-            HStack {
-                MonoLabel(text: "In \(Format.moneyWhole(coming))", color: Theme.ink.opacity(0.6))
-                Spacer()
-                MonoLabel(text: "Out \(Format.moneyWhole(going))", color: Theme.ink.opacity(0.6))
-            }
-            ZStack(alignment: .leading) {
-                Capsule().fill(Theme.ink.opacity(0.14))
-                Capsule().fill(Theme.ink)
-                    .scaleEffect(x: CGFloat(max(ratio * progress, 0.001)), anchor: .leading)
-            }
-            .frame(height: 6)
-        }
-        .opacity(Ease.clamp(progress * 3))
     }
 }
 
@@ -1303,7 +1307,7 @@ private struct GradeShow {
     static let all: [GradeShow] = [
         GradeShow(slug: "pikachu-ex-ss", company: "PSA", grade: "10", raw: 371.5, graded: 1250, picks: [3, 1, 2]),
         GradeShow(slug: "umbreon-vmax-alt", company: "CGC", grade: "10", raw: 1392, graded: 2850, picks: [2, 0, 1]),
-        GradeShow(slug: "charizard-base", company: "PSA", grade: "9", raw: 455, graded: 1100, picks: [4, 3, 0]),
+        GradeShow(slug: "charizard-base", company: "BGS", grade: "9.5", raw: 455, graded: 1480, picks: [4, 3, 0]),
     ]
 }
 
@@ -1337,7 +1341,7 @@ private struct WelcomeGrading: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("A Pikachu ex graded PSA 10, in its slab: \(Format.money(371.5)) raw, \(Format.money(1250)) graded, then a bumper chosen for it")
+        .accessibilityLabel("Cards graded by PSA, CGC and BGS. A Pikachu ex graded PSA 10, in its slab: \(Format.money(371.5)) raw, \(Format.money(1250)) graded, then a bumper chosen for it")
     }
 }
 
@@ -1363,6 +1367,10 @@ private struct GradingScene: View {
         let rawAngle: Double = -5 * (1 - Ease.out(t, 0.8, 0.6))
         let flash: Double = (t >= 1.4 && t <= 2.0) ? sin(Double.pi * (t - 1.4) / 0.6) : 0
         let bump = CGFloat(1 + 0.04 * flash)
+        // The case closing over the card: a quick squash as it lands, and a tap.
+        let landing: Double = (t >= 1.35 && t <= 1.6) ? sin(Double.pi * (t - 1.35) / 0.25) : 0
+        let squash = CGFloat(1 - 0.035 * landing)
+        let landed: Bool = t >= 1.38
         let gradedShown: Double = Ease.out(t, 1.5, 0.3)
         let value: Double = show.raw + (show.graded - show.raw) * Ease.out(t, 1.6, 1.0)
         let tag: Double = Ease.back(t, 2.6, 0.35)
@@ -1393,7 +1401,7 @@ private struct GradingScene: View {
                             .strokeBorder(Theme.lime, lineWidth: 3)
                             .opacity(0.9 * flash)
                     )
-                    .scaleEffect(bump * pop)
+                    .scaleEffect(x: bump * pop, y: bump * pop * squash, anchor: .bottom)
                     .offset(y: slabY)
                     .opacity(slabFade)
             }
@@ -1405,6 +1413,7 @@ private struct GradingScene: View {
                 .opacity(picker)
         }
         .opacity(min(appear, leave))
+        .sensoryFeedback(.impact(weight: .medium), trigger: landed) { _, new in new }
     }
 }
 
@@ -1565,6 +1574,8 @@ private struct SetStripCard {
 private struct SetShow {
     var code: String
     var name: String
+    /// The series and year, under the name.
+    var era: String
     var total: Int
     var startCount: Int
     var endCount: Int
@@ -1578,21 +1589,21 @@ private struct SetShow {
     }
 
     static let all: [SetShow] = [
-        SetShow(code: "swsh7", name: "Evolving Skies", total: 203, startCount: 140, endCount: 153,
+        SetShow(code: "swsh7", name: "Evolving Skies", era: "Sword & Shield · 2021", total: 203, startCount: 140, endCount: 153,
                 worth: 580, toFinish: 1400, boughtPrice: 4, cards: [
                     SetStripCard(number: 218, big: true), SetStripCard(number: 7), SetStripCard(number: 215, missing: true, big: true),
                     SetStripCard(number: 8), SetStripCard(number: 3), SetStripCard(number: 9, missing: true, bought: true),
                     SetStripCard(number: 14), SetStripCard(number: 1), SetStripCard(number: 12, missing: true),
                     SetStripCard(number: 10),
                 ]),
-        SetShow(code: "sv3pt5", name: "Scarlet & Violet—151", total: 207, startCount: 118, endCount: 131,
+        SetShow(code: "sv3pt5", name: "Scarlet & Violet—151", era: "Scarlet & Violet · 2023", total: 207, startCount: 118, endCount: 131,
                 worth: 412, toFinish: 865, boughtPrice: 6, cards: [
                     SetStripCard(number: 199, big: true), SetStripCard(number: 1), SetStripCard(number: 4, missing: true),
                     SetStripCard(number: 7), SetStripCard(number: 25), SetStripCard(number: 6, missing: true, bought: true),
                     SetStripCard(number: 133), SetStripCard(number: 205, missing: true, big: true), SetStripCard(number: 151),
                     SetStripCard(number: 150),
                 ]),
-        SetShow(code: "sv8", name: "Surging Sparks", total: 252, startCount: 86, endCount: 99,
+        SetShow(code: "sv8", name: "Surging Sparks", era: "Scarlet & Violet · 2024", total: 252, startCount: 86, endCount: 99,
                 worth: 498, toFinish: 1120, boughtPrice: 3, cards: [
                     SetStripCard(number: 238, big: true), SetStripCard(number: 1), SetStripCard(number: 5, missing: true),
                     SetStripCard(number: 8), SetStripCard(number: 12), SetStripCard(number: 15, missing: true, bought: true),
@@ -1657,13 +1668,16 @@ private struct MasterSetScene: View {
         let pct: Int = Int((Double(count) / Double(set.total) * 100).rounded())
         let left: Double = set.toFinish - set.boughtPrice * bought
         let owned: Double = set.worth * climb + set.boughtPrice * bought
+        let flashFrom: Double = Self.boughtAt + 0.3
+        let dialFlash: Double = (t >= flashFrom && t <= flashFrom + 0.6) ? sin(Double.pi * (t - flashFrom) / 0.6) : 0
         VStack(spacing: 22) {
             VStack(spacing: 4) {
                 MonoLabel(text: "Master set")
                 Text(set.name).font(.display(26)).tracking(-0.8)
+                Text(set.era).font(.geist(13)).foregroundStyle(Theme.muted)
             }
             ZStack {
-                MasterSetDial(share: share)
+                MasterSetDial(share: share, flash: dialFlash)
                 VStack(spacing: 2) {
                     HStack(alignment: .top, spacing: 2) {
                         Text("\(pct)").font(.display(56)).tracking(-2).monospacedDigit()
@@ -1692,6 +1706,8 @@ private struct MasterSetScene: View {
 /// riding at its start. Its share comes from the page's clock, so it never animates on its own.
 private struct MasterSetDial: View {
     var share: Double
+    /// 0 to 1: the lime glow as a bought card lands.
+    var flash: Double = 0
 
     var body: some View {
         GeometryReader { geo in
@@ -1708,6 +1724,10 @@ private struct MasterSetDial: View {
                     .font(.system(size: line * 0.5, weight: .bold))
                     .foregroundStyle(Theme.ink)
                     .offset(y: -(side / 2 - line / 2))
+                Circle()
+                    .stroke(Color.white, lineWidth: 2)
+                    .padding(-6)
+                    .opacity(0.85 * flash)
             }
             .frame(width: side, height: side)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1824,6 +1844,8 @@ private struct AlertShow {
     var name: String
     var message: String
     var targetLabel: String
+    /// The price at the top, middle and bottom of the chart.
+    var axis: [String]
     /// The line's points, as a share of the chart's height from the top (higher = cheaper).
     var points: [Double]
     var target: Double
@@ -1833,12 +1855,12 @@ private struct AlertShow {
     static let all: [AlertShow] = [
         AlertShow(slug: "charizard-ex-of", name: "Charizard ex",
                   message: "Charizard ex dropped to \(Format.money(58.3)), under your $60 target.",
-                  targetLabel: "$60 target",
+                  targetLabel: "$60 target", axis: ["$80", "$66", "$52"],
                   points: [0.18, 0.26, 0.22, 0.34, 0.42, 0.37, 0.5, 0.58, 0.54, 0.68, 0.79, 0.86],
                   target: 0.72, cross: 0.86),
         AlertShow(slug: "umbreon-vmax-alt", name: "Umbreon VMAX",
                   message: "Umbreon VMAX passed your $1,350 alert. Now \(Format.money(1392)).",
-                  targetLabel: "$1,350 alert",
+                  targetLabel: "$1,350 alert", axis: ["$1,420", "$1,305", "$1,190"],
                   points: [0.82, 0.74, 0.77, 0.64, 0.6, 0.62, 0.5, 0.44, 0.47, 0.34, 0.25, 0.16],
                   target: 0.3, cross: 0.88),
     ]
@@ -1966,6 +1988,19 @@ private struct AlertChart: View {
             let targetY = CGFloat(show.target) * h
             let ring = CGFloat(8 + 16 * hit)
             ZStack(alignment: .topLeading) {
+                // A faint grid with the price at its lines, on the right.
+                ForEach(0 ..< 3, id: \.self) { k in
+                    let y = h * CGFloat(k) / 2
+                    Path { p in
+                        p.move(to: CGPoint(x: 0, y: y))
+                        p.addLine(to: CGPoint(x: w, y: y))
+                    }
+                    .stroke(Color.white.opacity(0.07), lineWidth: 1)
+                    Text(show.axis[k]).font(.mono(10)).foregroundStyle(Theme.muted)
+                        .fixedSize()
+                        .frame(width: w, alignment: .trailing)
+                        .offset(y: y - (k == 0 ? -4 : 16))
+                }
                 Path { p in
                     p.move(to: CGPoint(x: 0, y: targetY))
                     p.addLine(to: CGPoint(x: w, y: targetY))
