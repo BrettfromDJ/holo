@@ -1245,13 +1245,15 @@ private struct DealProfit: View {
 /// Lays the picture out at its natural height and shrinks it (never grows it) to the page.
 private struct WelcomeFit<Content: View>: View {
     var height: CGFloat
+    /// How much it may grow on a taller page (1: never).
+    var grow: CGFloat = 1
     @ViewBuilder var content: Content
 
     var body: some View {
         GeometryReader { geo in
             content
                 .frame(width: geo.size.width, height: height)
-                .scaleEffect(min(1, geo.size.height / height))
+                .scaleEffect(min(grow, geo.size.height / height))
                 .frame(width: geo.size.width, height: geo.size.height)
         }
     }
@@ -1291,20 +1293,20 @@ private struct WelcomeGrading: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        WelcomeFit(height: 440) {
+        WelcomeFit(height: 540, grow: 1.15) {
             ZStack {
                 Ellipse()
                     .fill(Theme.lime.opacity(0.26))
-                    .frame(width: 300, height: 150)
+                    .frame(width: 320, height: 160)
                     .blur(radius: 50)
-                    .offset(y: 60)
+                    .offset(y: 40)
                 if reduceMotion {
-                    GradingScene(show: GradeShow.all[0], t: 6.5)
+                    GradingScene(show: GradeShow.all[0], t: 6.5, clock: 0)
                 } else {
                     TimelineView(.animation) { context in
                         let s = context.date.timeIntervalSince(Self.start)
                         let n = Int(s / Self.cycle)
-                        GradingScene(show: GradeShow.all[n % GradeShow.all.count], t: s - Double(n) * Self.cycle)
+                        GradingScene(show: GradeShow.all[n % GradeShow.all.count], t: s - Double(n) * Self.cycle, clock: s)
                     }
                 }
             }
@@ -1314,76 +1316,125 @@ private struct WelcomeGrading: View {
     }
 }
 
-/// The grading page at local time `t`.
+/// The grading page at local time `t`: the values on top (raw, then graded counting up), the
+/// card and its slab over slowly turning lime rays, the gain tag on the slab's edge, and the
+/// bumper picker underneath.
 private struct GradingScene: View {
     var show: GradeShow
     var t: Double
+    /// Seconds, for the rays' slow turn.
+    var clock: Double
+
+    private static let slabW: CGFloat = 230
+    private static let slabH: CGFloat = 368
 
     var body: some View {
         let appear: Double = Ease.out(t, 0, 0.4)
         let leave: Double = 1 - Ease.out(t, WelcomeGrading.cycle - 0.5, 0.45)
         let drop: Double = Ease.back(t, 0.8, 0.6)
-        let slabY = CGFloat((1 - drop) * -520)
+        let slabY = CGFloat((1 - drop) * -560)
         let slabFade: Double = Ease.clamp((t - 0.8) / 0.12)
         let rawFade: Double = 1 - Ease.out(t, 1.3, 0.2)
         let rawAngle: Double = -5 * (1 - Ease.out(t, 0.8, 0.6))
         let flash: Double = (t >= 1.4 && t <= 2.0) ? sin(Double.pi * (t - 1.4) / 0.6) : 0
         let bump = CGFloat(1 + 0.04 * flash)
-        let graded = t >= 1.6
+        let gradedShown: Double = Ease.out(t, 1.5, 0.3)
         let value: Double = show.raw + (show.graded - show.raw) * Ease.out(t, 1.6, 1.0)
         let tag: Double = Ease.back(t, 2.6, 0.35)
-        // The bumper part: the value gives way to the picker, which tries bumpers on.
-        let swap: Double = Ease.out(t, 3.5, 0.35)
+        let rays: Double = 0.55 * Ease.out(t, 1.4, 0.8)
+        let rayTurn: Double = clock * 8
+        let picker: Double = Ease.out(t, 3.0, 0.35)
         let bumping = BumperTiming(show: show, t: t)
         let bumper: Bumper? = bumping.bumper
         let pop = CGFloat(bumping.pop)
-        let ringAt: Double = bumping.ringAt
-        let ringShown: Double = bumping.ringShown
         let item = DemoData.items.first { $0.slug == show.slug }
         VStack(spacing: 18) {
+            GradingValues(show: show, value: value, gradedShown: gradedShown)
             ZStack {
+                GradingRays()
+                    .frame(width: 440, height: 440)
+                    .rotationEffect(.degrees(rayTurn))
+                    .opacity(rays)
                 if let item, rawFade > 0 {
-                    HoldingArt(product: DemoData.product(item), identity: nil, cornerRadius: 10, caption: false)
-                        .frame(width: 190, height: 265)
+                    HoldingArt(product: DemoData.product(item), identity: nil, cornerRadius: 12, caption: false)
+                        .frame(width: Self.slabW, height: Self.slabW * 88 / 63)
                         .rotationEffect(.degrees(rawAngle))
                         .opacity(rawFade)
                 }
                 WelcomeSlab(slug: show.slug, company: show.company, grade: show.grade, bumper: bumper?.id)
                     .equatable()
-                    .frame(width: 190, height: 304)
+                    .frame(width: Self.slabW, height: Self.slabH)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .strokeBorder(Theme.lime, lineWidth: 3)
                             .opacity(0.9 * flash)
                     )
                     .scaleEffect(bump * pop)
                     .offset(y: slabY)
                     .opacity(slabFade)
+                SkewTag(text: "\(Format.signedPercent(show.gain)) graded", icon: "arrow.up.right")
+                    .scaleEffect(CGFloat(0.6 + 0.4 * tag))
+                    .opacity(Ease.clamp(tag * 2))
+                    .offset(y: Self.slabH / 2 + 2)
             }
-            .frame(height: 304)
-            ZStack {
-                VStack(spacing: 18) {
-                    HStack(spacing: 8) {
-                        MonoLabel(text: graded ? show.company + " " + show.grade : "Raw")
-                        Text(Format.money(value)).font(.display(22)).tracking(-0.6).monospacedDigit()
-                            .foregroundStyle(graded ? Theme.lime : .white)
-                    }
-                    .padding(.horizontal, 16)
-                    .frame(height: 42)
-                    .background(Capsule().fill(Color.black.opacity(0.6)))
-                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
-                    SkewTag(text: "\(Format.signedPercent(show.gain)) graded", icon: "arrow.up.right")
-                        .scaleEffect(CGFloat(0.6 + 0.4 * tag))
-                        .opacity(Ease.clamp(tag * 2))
-                }
-                .opacity(1 - swap)
-                BumperPickerDemo(ringAt: ringAt, ringShown: ringShown, name: bumper?.name)
-                    .offset(y: CGFloat((1 - swap) * 24))
-                    .opacity(swap)
-            }
-            .frame(height: 82)
+            .frame(height: Self.slabH)
+            BumperPickerDemo(ringAt: bumping.ringAt, ringShown: bumping.ringShown, name: bumper?.name)
+                .offset(y: CGFloat((1 - picker) * 24))
+                .opacity(picker)
+                .padding(.top, 14)
         }
         .opacity(min(appear, leave))
+    }
+}
+
+/// The values over the slab: raw, then an arrow and the graded value counting up in lime.
+/// The final figure sets the width, so nothing shifts while the digits run.
+private struct GradingValues: View {
+    var show: GradeShow
+    var value: Double
+    var gradedShown: Double
+
+    var body: some View {
+        HStack(spacing: 14) {
+            VStack(alignment: .leading, spacing: 2) {
+                MonoLabel(text: "Raw")
+                Text(Format.money(show.raw)).font(.display(20)).tracking(-0.5).monospacedDigit()
+            }
+            Image(systemName: "arrow.right")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(Theme.muted)
+                .opacity(gradedShown)
+            VStack(alignment: .leading, spacing: 2) {
+                MonoLabel(text: show.company + " " + show.grade, color: Theme.lime)
+                Text(Format.money(show.graded)).font(.display(20)).tracking(-0.5).monospacedDigit()
+                    .hidden()
+                    .overlay(alignment: .leading) {
+                        Text(Format.money(value)).font(.display(20)).tracking(-0.5).monospacedDigit()
+                            .foregroundStyle(Theme.lime)
+                            .fixedSize()
+                    }
+            }
+            .opacity(gradedShown)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 18)
+        .frame(height: 58)
+        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.black.opacity(0.55)))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
+    }
+}
+
+/// Soft lime light rays fanning out from the middle, fading toward the edge (one still picture;
+/// the page turns it slowly).
+private struct GradingRays: View {
+    var body: some View {
+        let stops: [Gradient.Stop] = (0 ..< 24).map { i in
+            Gradient.Stop(color: i % 2 == 0 ? Theme.lime.opacity(0.35) : .clear, location: Double(i) / 24)
+        } + [Gradient.Stop(color: Theme.lime.opacity(0.35), location: 1)]
+        Circle()
+            .fill(AngularGradient(stops: stops, center: .center))
+            .mask(RadialGradient(colors: [.white, .white.opacity(0.4), .clear], center: .center, startRadius: 40, endRadius: 220))
+            .allowsHitTesting(false)
     }
 }
 
