@@ -808,9 +808,14 @@ struct DisplayText: View {
     var text: String
     var size: CGFloat
     var color: Color = .white
+    /// Air between lines as a share of `size`; a little negative sits lines tight, like Deal's
+    /// "Trade / recorded" heading.
+    var lineGap: CGFloat = 0.08
+    /// Lines flow from the left by default; `.center` centres each line (the welcome titles).
+    var alignment: HorizontalAlignment = .leading
 
     var body: some View {
-        WordFlow(spacing: size * 0.2, lineGap: size * 0.08) {
+        WordFlow(spacing: size * 0.2, lineGap: size * lineGap, alignment: alignment) {
             ForEach(Array(text.split(separator: " ").enumerated()), id: \.offset) { _, word in
                 Text(word).font(.display(size)).tracking(size * -0.03).foregroundStyle(color).displayTrim(size)
             }
@@ -823,6 +828,7 @@ struct DisplayText: View {
 private struct WordFlow: Layout {
     var spacing: CGFloat
     var lineGap: CGFloat
+    var alignment: HorizontalAlignment = .leading
 
     /// Each word's natural size, measured once instead of on every step of the balancing search.
     func makeCache(subviews: Subviews) -> [CGSize] {
@@ -840,6 +846,8 @@ private struct WordFlow: Layout {
         var y = bounds.minY
         for row in balanced(width: bounds.width, sizes: cache) {
             var x = bounds.minX
+            if alignment == .center { x += max(bounds.width - row.width, 0) / 2 }
+            if alignment == .trailing { x += max(bounds.width - row.width, 0) }
             for i in row.items {
                 let size = cache[i]
                 subviews[i].place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
