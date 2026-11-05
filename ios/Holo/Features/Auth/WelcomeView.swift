@@ -37,6 +37,14 @@ struct WelcomeView: View {
             }
         }
         .foregroundStyle(.white)
+        // The grid's card pictures start downloading the moment the welcome appears (small, 10
+        // pictures shared by 30 tiles), so the first page fills in as fast as the network allows.
+        .task {
+            let urls = DemoData.items.filter { !$0.sealed && $0.image != nil }.compactMap { DemoData.product($0).imageUrl.flatMap(URL.init(string:)) }
+            await withTaskGroup(of: Void.self) { group in
+                for url in urls { group.addTask { _ = await ImageCache.shared.load(url, maxPixel: 360) } }
+            }
+        }
     }
 
     private var header: some View {
