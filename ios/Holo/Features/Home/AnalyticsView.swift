@@ -24,6 +24,11 @@ struct AnalyticsView: View {
         let risk = Analytics.risk(timeline)
         let total = s.gain + s.realized
         ScrollView {
+            if holdings.isEmpty {
+                EmptyPage(title: "No numbers yet", line: "Your numbers appear after your first card.", action: "Scan a card",
+                          onAction: { Router.shared.scanRequest += 1 })
+                    .padding(.top, 40)
+            } else {
             // Lazy, like Home: the charts further down are only built as they scroll near, so the
             // page pushes in quickly.
             LazyVStack(alignment: .leading, spacing: 40) {
@@ -61,6 +66,7 @@ struct AnalyticsView: View {
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 120)
+            }
         }
         .background(Theme.background)
         .replaysAnimations()

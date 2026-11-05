@@ -55,6 +55,18 @@ final class ScreenshotTests: XCTestCase {
     func testGrading() { capture("grading", args: ["-HoloDemoKind", "graded", "-HoloPage", "grading"], pages: 4) }
 
     func testScanner() { capture("scanner", args: ["-HoloScan"], pages: 1) }
+    // Onboarding: the welcome pages (swiped sideways) and the two first-run steps.
+    func testOnboarding() { capture("onboarding", args: ["-HoloOnboarding"], pages: 3, swipe: .left) }
+    func testFirstRun() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-HoloDemo", "-HoloFirstRun"]
+        app.launch()
+        sleep(4)
+        save(app.screenshot(), "first-run-0")
+        app.buttons["first-run-continue"].firstMatch.tap()
+        sleep(2)
+        save(app.screenshot(), "first-run-1")
+    }
     func testDeal() { capture("deal", args: ["-HoloTab", "deal"], pages: 1) }
     func testDealFilled() { capture("deal-filled", args: ["-HoloTab", "deal", "-HoloDealDemo"], pages: 3) }
     func testDealCustomer() {
@@ -71,7 +83,9 @@ final class ScreenshotTests: XCTestCase {
     }
     func testGradedCardPage() { capture("graded-card", args: ["-HoloDemoKind", "graded", "-HoloProduct", "sample:pikachu-ex-ss"], pages: 4) }
 
-    private func capture(_ name: String, args: [String], pages: Int) {
+    enum Swipe { case up, left }
+
+    private func capture(_ name: String, args: [String], pages: Int, swipe: Swipe = .up) {
         let app = XCUIApplication()
         app.launchArguments = ["-HoloDemo"] + args
         app.launch()
@@ -79,7 +93,10 @@ final class ScreenshotTests: XCTestCase {
         sleep(4)
         for page in 0 ..< pages {
             save(app.screenshot(), "\(name)-\(page)")
-            app.swipeUp(velocity: .slow)
+            switch swipe {
+            case .up: app.swipeUp(velocity: .slow)
+            case .left: app.swipeLeft(velocity: .slow)
+            }
             sleep(2)
         }
     }

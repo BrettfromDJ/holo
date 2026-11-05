@@ -1745,8 +1745,8 @@ private struct DealHint: View {
                 .frame(width: 34, height: 34)
                 .background(Theme.lime.opacity(0.12), in: Circle())
             VStack(alignment: .leading, spacing: 3) {
-                Text("How a deal works").font(.geist(14, .semibold))
-                Text("Add what's coming in and what's going out (search or scan). We'll work out the cash, your profit and whether it's fair.")
+                Text("Start a deal").font(.geist(14, .semibold))
+                Text("Add what's coming in and what's going out (scan or search). The cash, your profit and whether it's fair are worked out for you.")
                     .font(.geist(13)).foregroundStyle(Theme.muted).fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 4)

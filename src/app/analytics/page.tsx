@@ -90,7 +90,7 @@ export default function AnalyticsPage() {
     return (
       <>
         <PageHeader title="Analytics" />
-        <EmptyCollection title="No data to analyze yet" />
+        <EmptyCollection title="No numbers yet" body="Your numbers appear after your first card." />
       </>
     );
   }

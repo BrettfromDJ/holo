@@ -36,6 +36,13 @@ final class SessionModel {
         try await Backend.shared.supabase.auth.verifyOTP(email: email, token: code, type: .email)
     }
 
+    /// Sign in with Apple: the identity token Apple returned, and the raw nonce whose hash
+    /// was in the request (Supabase checks the token carries that hash). Needs the Apple
+    /// provider switched on in the Supabase project.
+    func signInWithApple(idToken: String, nonce: String) async throws {
+        _ = try await Backend.shared.supabase.auth.signInWithIdToken(credentials: OpenIDConnectCredentials(provider: .apple, idToken: idToken, nonce: nonce))
+    }
+
     func signOut() async {
         try? await Backend.shared.supabase.auth.signOut()
     }

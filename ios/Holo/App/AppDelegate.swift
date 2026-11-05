@@ -48,6 +48,8 @@ final class Router {
     var tabBarHidden = false
     /// A search box's scan icon asking for the scanner; the root opens it, like the + button does.
     var scanRequest = 0
+    /// Another screen (the first-run steps) asked for the add search; the root opens it.
+    var searchRequest = 0
     /// The Deal page's deal bar sits in the tab bar's place (a deal with items, until "Show tabs").
     /// Only hides the tab bar while the Deal tab is the one showing.
     var dealDocked = false

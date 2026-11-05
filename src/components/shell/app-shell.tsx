@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 import { MilestoneWatcher } from "@/components/celebrate/milestone-watcher";
 import { PullReveal } from "@/components/celebrate/pull-reveal";
 import { AddProductDialog } from "@/components/flows/add-product-dialog";
+import { FirstRun } from "@/components/flows/first-run";
 import { FadeRows } from "@/components/ui/fade-rows";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CollectionProvider } from "@/lib/store/collection-store";
@@ -39,6 +40,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </div>
                 <BottomNav />
                 <AddProductDialog />
+                <FirstRun />
                 <PullReveal />
                 <MilestoneWatcher />
               </div>

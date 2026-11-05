@@ -161,7 +161,7 @@ function Collection() {
     return (
       <>
         <PageHeader title="Collection" />
-        <EmptyCollection title="Your collection is empty" />
+        <EmptyCollection title="Nothing here yet" body="Add a card by name, or scan it, to see what it's worth." />
       </>
     );
   }

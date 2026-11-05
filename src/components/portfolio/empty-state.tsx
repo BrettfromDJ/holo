@@ -4,8 +4,8 @@ import { FlaskConical, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store/collection-store";
 
-/** First-run state for an empty personal collection. */
-export function EmptyCollection({ title = "Start your collection", body }: { title?: string; body?: string }) {
+/** An empty collection, on each page: a short title, one line and one action (like the app). */
+export function EmptyCollection({ title = "Nothing here yet", body, action = "Add a card" }: { title?: string; body?: string; action?: string }) {
   const { openAdd, setMode } = useStore();
   return (
     <div className="flex flex-col items-center px-6 py-20 text-center animate-rise">
@@ -17,12 +17,10 @@ export function EmptyCollection({ title = "Start your collection", body }: { tit
         </div>
       </div>
       <h2 className="text-[22px] font-semibold tracking-tight">{title}</h2>
-      <p className="mt-2 max-w-sm text-[15px] text-muted">
-        {body ?? "Add your first card or sealed product — Pokémon, Magic, Yu-Gi-Oh!, One Piece or Lorcana. Holo tracks its market value and your true investment performance."}
-      </p>
+      <p className="mt-2 max-w-sm text-[15px] text-muted">{body ?? "Add a card or sealed product to see what it's worth."}</p>
       <div className="mt-8 flex flex-wrap justify-center gap-3">
-        <Button variant="primary" size="lg" onClick={() => openAdd()}>
-          <Plus /> Add first product
+        <Button variant="lime" size="lg" onClick={() => openAdd()}>
+          <Plus /> {action}
         </Button>
         <Button variant="secondary" size="lg" onClick={() => setMode("demo")}>
           <FlaskConical /> Explore the demo

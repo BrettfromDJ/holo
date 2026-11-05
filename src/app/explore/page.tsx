@@ -14,9 +14,14 @@ import { applyFilters, groupByKind, NO_FILTERS, type SearchFilters } from "@/lib
 import { useCatalogSearch } from "@/lib/explore/use-catalog-search";
 import { relativeTime } from "@/lib/format";
 import { useStore } from "@/lib/store/collection-store";
+import { useSyncedState } from "@/lib/store/synced-state";
+import { orderByCollects } from "@/components/flows/first-run";
 
 export default function ExplorePage() {
   const index = useExploreIndex();
+  // The brands you said you collect come first.
+  const [collects] = useSyncedState<string[]>("collects", []);
+  const games = useMemo(() => (index.status === "ready" ? orderByCollects(index.games, collects) : []), [index, collects]);
   const [query, setQuery] = useState("");
   const results = useCatalogSearch(query);
   const owned = useOwnedIds();
@@ -163,7 +168,7 @@ export default function ExplorePage() {
             </span>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {index.games.map((g, i) => (
+            {games.map((g, i) => (
               <div key={g.slug} className="animate-rise" style={{ animationDelay: `${i * 60}ms` }}>
                 <GameTile game={g} />
               </div>

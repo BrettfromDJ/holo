@@ -74,13 +74,8 @@ struct MasterSetsView: View {
             VStack(alignment: .leading, spacing: 24) {
                 header(owned, rows: rows)
                 if owned.isEmpty, scope == .mine {
-                    VStack(spacing: 10) {
-                        Image(systemName: "square.grid.3x3").font(.system(size: 36)).foregroundStyle(Theme.subtle)
-                        Text("No singles yet").font(.geist(15, .medium))
-                        Text("Add a single card and its set appears here, with every card in it and how close you are to the full set.")
-                            .font(.geist(13)).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
-                    }
-                    .frame(maxWidth: .infinity).padding(.vertical, 50)
+                    EmptyPage(title: "No sets yet", line: "Add a few cards and your sets appear here.", action: "Scan a card",
+                              onAction: { Router.shared.scanRequest += 1 }, link: "Browse all sets", onLink: { scope = .all })
                 } else {
                     controls
                     // A deck of set cards, each overlapping the one above so you see its name and

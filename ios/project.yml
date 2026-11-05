@@ -34,6 +34,9 @@ targets:
       properties:
         # Xcode switches this to production when exporting for TestFlight.
         aps-environment: development
+        # Sign in with Apple (needs the capability on the App ID in Apple Developer).
+        com.apple.developer.applesignin:
+          - Default
     info:
       path: Holo/Info.plist
       properties:

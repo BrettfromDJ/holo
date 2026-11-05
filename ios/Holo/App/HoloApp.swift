@@ -34,13 +34,31 @@ struct RootView: View {
     @Environment(DealStore.self) private var deals
     @Environment(GradingStore.self) private var grading
     @Environment(GroupsStore.self) private var groups
+    @State private var onboarding = Onboarding.shared
+    /// The first-run steps (what you collect, add your first card) over the tabs.
+    @State private var firstRun = false
+    /// The account the first-run steps are for (nil in a screenshot demo).
+    @State private var firstRunUser: String?
+
+    private var signedIn: Bool {
+        if case .signedIn = session.state { return true }
+        return false
+    }
 
     var body: some View {
         Group {
-            if Demo.isOn {
+            if Demo.isOn, ProcessInfo.processInfo.arguments.contains("-HoloOnboarding") {
+                // Screenshots: the welcome pages.
+                WelcomeView(onEmail: {}, onDemo: {})
+            } else if Demo.isOn {
                 // Screenshots and tryouts: the made-up collection, no account needed.
                 MainTabView()
                     .onAppear {
+                        // Screenshots: the first-run steps over the demo.
+                        if ProcessInfo.processInfo.arguments.contains("-HoloFirstRun") {
+                            firstRunUser = nil
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { firstRun = true }
+                        }
                         store.loadDemo(Demo.value("-HoloDemoKind").flatMap(DemoKind.init(rawValue:)) ?? .mixed)
                         if let id = Demo.value("-HoloProduct") { Router.shared.product = id }
                         if ProcessInfo.processInfo.arguments.contains("-HoloDealDemo") { deals.loadDemo(from: store) }
@@ -57,13 +75,27 @@ struct RootView: View {
                     }
             } else if !AppConfig.isConfigured {
                 NotConfiguredView()
+            } else if onboarding.tryingDemo, !signedIn {
+                // "Try the demo" from the welcome pages: the made-up collection without an
+                // account, until Account → My collection or Sign in.
+                MainTabView()
+                    .task {
+                        store.loadDemo(DemoKind.selected ?? .mixed)
+                        await groups.load(userId: nil, store: store)
+                        await grading.load(userId: nil)
+                    }
             } else {
                 switch session.state {
                 case .loading:
                     // Restoring the session takes a moment: blank, no spinner.
                     Theme.background.ignoresSafeArea()
                 case .signedOut:
-                    SignInView()
+                    if onboarding.welcomeSeen {
+                        SignInView()
+                    } else {
+                        // The first time only: what the app does, then the ways in.
+                        WelcomeView(onEmail: {}, onDemo: { onboarding.tryingDemo = true })
+                    }
                 case let .signedIn(userId, _):
                     MainTabView()
                         .task(id: userId) {
@@ -79,6 +111,15 @@ struct RootView: View {
                                 await store.load(userId: userId)
                                 await portfolios.value
                                 await deals.load(userId: userId)
+                                await Collects.refresh()
+                                // Nothing in the account yet, and the first-run steps not done
+                                // here: what you collect, then add your first card.
+                                if store.status == .ready, store.isFresh, store.demo == nil,
+                                   store.transactions.isEmpty, store.allHoldings.isEmpty,
+                                   !Onboarding.isDone(userId: userId) {
+                                    firstRunUser = userId
+                                    firstRun = true
+                                }
                             }
                             await grading.load(userId: store.demo == nil ? userId : nil)
                             // Slabs marked CGC Pristine 10 are priced apart; the marks arrive after the first pricing.
@@ -87,6 +128,7 @@ struct RootView: View {
                 }
             }
         }
+        .fullScreenCover(isPresented: $firstRun) { FirstRunView(userId: firstRunUser) }
         .onAppear { if AppConfig.isConfigured, !Demo.isOn { session.start() } }
         .onChange(of: session.state) { _, state in
             if state == .signedOut {
@@ -94,6 +136,14 @@ struct RootView: View {
                 deals.reset()
                 grading.reset()
                 groups.reset()
+                // The no-account demo keeps showing after the session settles as signed out.
+                if onboarding.tryingDemo {
+                    store.loadDemo(DemoKind.selected ?? .mixed)
+                    Task { await groups.load(userId: nil, store: store) }
+                }
+            } else if case .signedIn = state {
+                onboarding.tryingDemo = false
+                onboarding.welcomeSeen = true
             }
         }
     }
@@ -152,6 +202,7 @@ struct MainTabView: View {
     @State private var adding = false
     @State private var searching = false
     @State private var router = Router.shared
+    @State private var notifications = NotificationExplainer.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     enum HomeTab { case home, collection, explore, deal }
@@ -243,6 +294,11 @@ struct MainTabView: View {
         }
         .animation(.easeOut(duration: 0.25), value: router.pull)
         .onChange(of: router.scanRequest) { _, _ in startScan() }
+        .onChange(of: router.searchRequest) { _, _ in searching = true }
+        // One line on why before the notifications prompt, the first time something asks for it.
+        .sheet(isPresented: Binding(get: { notifications.pending }, set: { if !$0 { notifications.answer(false) } })) {
+            NotificationNoteSheet { notifications.answer($0) }
+        }
         .onChange(of: router.tabRequest) { _, request in
             switch request {
             case "home": tab = .home

@@ -140,8 +140,8 @@ export default function MasterSetsPage() {
       {!owned.length && scope === "mine" ? (
         <div className="flex flex-col items-center py-20 text-center">
           <Grid3x3 className="size-10 text-subtle" strokeWidth={1.5} />
-          <p className="mt-4 font-medium">No singles yet</p>
-          <p className="mt-1 max-w-sm text-sm text-muted">Add a single card and its set appears here, with every card in it and how close you are to the full set.</p>
+          <p className="mt-4 font-medium">No sets yet</p>
+          <p className="mt-1 max-w-sm text-sm text-muted">Add a few cards and your sets appear here.</p>
           <div className="mt-6 flex gap-2">
             <Button variant="primary" onClick={() => store.openAdd()}>
               <Plus /> Add a card

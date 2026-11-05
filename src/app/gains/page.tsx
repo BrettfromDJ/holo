@@ -46,7 +46,7 @@ export default function GainsPage() {
     return (
       <>
         <PageHeader title="Gains" />
-        <EmptyCollection title="No gains to show yet" />
+        <EmptyCollection title="No gains yet" body="Your gains appear after your first card." />
       </>
     );
   }

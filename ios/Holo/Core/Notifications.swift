@@ -1,9 +1,13 @@
 import Foundation
+import Observation
+import SwiftUI
 import UserNotifications
 
 /// Local notifications for release reminders: scheduled on the phone, no server needed.
 enum Notifications {
-    /// Ask once; later calls return the answer already given.
+    /// Ask once; later calls return the answer already given. Never asked at launch: only when
+    /// a price watch, a release reminder or a test notification first needs it, and then one
+    /// line on why comes first (once), before Apple's own prompt.
     @discardableResult
     static func requestPermission() async -> Bool {
         let center = UNUserNotificationCenter.current()
@@ -11,7 +15,13 @@ enum Notifications {
         switch settings.authorizationStatus {
         case .authorized, .provisional, .ephemeral: return true
         case .denied: return false
-        default: return (try? await center.requestAuthorization(options: [.alert, .sound, .badge])) ?? false
+        default:
+            if !Onboarding.notificationsExplained {
+                let go = await NotificationExplainer.shared.ask()
+                Onboarding.notificationsExplained = true
+                guard go else { return false }
+            }
+            return (try? await center.requestAuthorization(options: [.alert, .sound, .badge])) ?? false
         }
     }
 
@@ -32,5 +42,61 @@ enum Notifications {
 
     static func cancelRelease(_ slug: String) {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["release-\(slug)"])
+    }
+}
+
+
+/// The one-line note shown before the notifications prompt. `ask()` waits for the answer; the
+/// root shows `NotificationNoteSheet` while `pending` is true.
+@Observable
+final class NotificationExplainer {
+    static let shared = NotificationExplainer()
+    private(set) var pending = false
+    @ObservationIgnored private var continuation: CheckedContinuation<Bool, Never>?
+
+    /// True when the note's "Turn on" was tapped (then Apple's prompt follows).
+    func ask() async -> Bool {
+        await MainActor.run {
+            // A second ask while one is up answers the first "not now".
+            continuation?.resume(returning: false)
+            continuation = nil
+            pending = true
+        }
+        return await withCheckedContinuation { c in continuation = c }
+    }
+
+    /// Called from the note (on the main thread).
+    func answer(_ go: Bool) {
+        pending = false
+        continuation?.resume(returning: go)
+        continuation = nil
+    }
+}
+
+/// "Lucent sends a notification when a watched price is hit or a set comes out." Turn on, or not now.
+struct NotificationNoteSheet: View {
+    var onAnswer: (Bool) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Notifications").font(.display(24)).tracking(-0.6)
+                    Text("Only when something you asked for happens").font(.geist(13)).foregroundStyle(Theme.muted)
+                }
+                Spacer()
+                Button("Not now") { onAnswer(false) }.font(.geist(15, .medium)).foregroundStyle(Theme.muted)
+            }
+            Text("Lucent sends one when a watched card reaches your price, or a set you set a reminder for comes out. Nothing else.")
+                .font(.geist(15)).foregroundStyle(.white.opacity(0.85)).fixedSize(horizontal: false, vertical: true)
+            Button("Turn on") { onAnswer(true) }.buttonStyle(Button3D(kind: .lime))
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 20)
+        .padding(.top, 24)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .presentationDetents([.height(250)])
+        .interactiveDismissDisabled()
+        .glassSheet()
     }
 }

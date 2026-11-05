@@ -263,15 +263,9 @@ struct HomeView: View {
     private var showPinned: Bool { pinned && canPin }
 
     private var empty: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "rectangle.stack.badge.plus").font(.system(size: 44)).foregroundStyle(Theme.lime)
-            Text("Start your collection").font(.display(30)).tracking(-0.8)
-            Text("Scan your cards to see what they're worth.").font(.geist(15)).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
-            Button { onScan() } label: { Label("Scan cards", systemImage: "viewfinder") }
-                .buttonStyle(Button3D(kind: .lime))
-        }
-        .padding(32)
-        .padding(.top, 60)
+        EmptyPage(title: "Nothing here yet", line: "Scan a card to see what it's worth.", action: "Scan a card",
+                  onAction: onScan, link: "Search instead", onLink: { addSearch = true })
+            .padding(.top, 60)
     }
 
     private func reload() async {

@@ -13,12 +13,23 @@ struct SettingsView: View {
         return nil
     }
 
+    private var signedIn: Bool {
+        if case .signedIn = session.state { return true }
+        return false
+    }
+
     var body: some View {
         NavigationStack {
             List {
                 Section("Account") {
-                    LabeledContent("Signed in as", value: email ?? "—")
-                    Button("Sign out", role: .destructive) { confirming = true }
+                    if signedIn {
+                        LabeledContent("Signed in as", value: email ?? "—")
+                        Button("Sign out", role: .destructive) { confirming = true }
+                    } else {
+                        // Trying the demo without an account.
+                        Text("You're looking at a demo. Sign in to track your own collection.").foregroundStyle(Theme.muted)
+                        Button("Sign in") { Onboarding.shared.tryingDemo = false }
+                    }
                 }
                 Section {
                     Button {
@@ -49,6 +60,8 @@ struct SettingsView: View {
                         Task {
                             if let kind { store.loadDemo(kind) }
                             else if case let .signedIn(userId, _) = session.state { await store.load(userId: userId) }
+                            // No account: "My collection" means signing in first.
+                            else { Onboarding.shared.tryingDemo = false }
                         }
                     }
                 } header: {

@@ -28,6 +28,12 @@ struct SignInView: View {
                 Button(busy ? "Sending…" : "Email me a code") { Task { await send() } }
                     .buttonStyle(LimeButtonStyle())
                     .disabled(busy || !email.contains("@"))
+                HStack(spacing: 12) {
+                    Rectangle().fill(Color.white.opacity(0.1)).frame(height: 1)
+                    Text("or").font(.geist(13)).foregroundStyle(Theme.subtle)
+                    Rectangle().fill(Color.white.opacity(0.1)).frame(height: 1)
+                }
+                AppleSignInButton { message in error = message }
             } else {
                 TextField("123456", text: $code)
                     .textContentType(.oneTimeCode)
@@ -35,6 +41,12 @@ struct SignInView: View {
                     .font(.system(size: 28, weight: .semibold, design: .monospaced))
                     .field()
                     .focused($focused)
+                    // Digits only; the sixth one signs in by itself.
+                    .onChange(of: code) { _, value in
+                        let digits = String(value.filter(\.isNumber).prefix(6))
+                        if digits != value { code = digits; return }
+                        if digits.count == 6, !busy { Task { await verify() } }
+                    }
                 Button(busy ? "Checking…" : "Sign in") { Task { await verify() } }
                     .buttonStyle(LimeButtonStyle())
                     .disabled(busy || code.count < 6)

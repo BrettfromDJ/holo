@@ -36,6 +36,8 @@ struct ScanView: View {
     /// "Tap the card to scan it", until the first tap ever.
     @State private var showTip = !UserDefaults.standard.bool(forKey: "scan-tip-seen")
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The first time, before Apple's camera prompt: one line on why, then the prompt.
+    @State private var cameraNote = !Onboarding.cameraNoteSeen && AVCaptureDevice.authorizationStatus(for: .video) == .notDetermined
 
     var body: some View {
         ZStack {
@@ -51,6 +53,13 @@ struct ScanView: View {
                 guide
                 bottom
             }
+            if cameraNote {
+                CameraNote {
+                    Onboarding.cameraNoteSeen = true
+                    cameraNote = false
+                    camera.start()
+                }
+            }
         }
         .statusBarHidden()
         // Swipe down anywhere to close, as well as the X.
@@ -59,7 +68,8 @@ struct ScanView: View {
         })
         .onAppear {
             wire()
-            camera.start()
+            // The note's button starts the camera the first time (its prompt follows the note).
+            if !cameraNote { camera.start() }
             syncTracking()
         }
         .onDisappear {
@@ -645,5 +655,26 @@ struct ScanChip: View {
                 Text(entry.result?.status == "ambiguous" ? "Tap to pick" : "Tap for details").foregroundStyle(Theme.warn)
             }
         }
+    }
+}
+
+
+/// The one-line glass note shown once before the camera prompt.
+private struct CameraNote: View {
+    var onContinue: () -> Void
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "camera.viewfinder").font(.system(size: 28, weight: .medium)).foregroundStyle(Theme.lime)
+            Text("Lucent uses the camera to read your cards").font(.geist(16, .semibold)).multilineTextAlignment(.center)
+            Text("Nothing is kept unless you add it.").font(.geist(13)).foregroundStyle(Theme.muted)
+            Button("Continue", action: onContinue).buttonStyle(Button3D(kind: .lime, height: 46)).padding(.top, 4)
+        }
+        .foregroundStyle(.white)
+        .padding(22)
+        .frame(maxWidth: 320)
+        .blurredGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .padding(24)
+        .accessibilityIdentifier("camera-note")
     }
 }
