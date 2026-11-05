@@ -42,7 +42,7 @@ struct WelcomeView: View {
         .task {
             let urls = DemoData.items.filter { !$0.sealed && $0.image != nil }.compactMap { DemoData.product($0).imageUrl.flatMap(URL.init(string:)) }
             await withTaskGroup(of: Void.self) { group in
-                for url in urls { group.addTask { _ = await ImageCache.shared.load(url, maxPixel: 360) } }
+                for url in urls { group.addTask { _ = await ImageCache.shared.load(url) } }
             }
         }
     }
@@ -155,10 +155,10 @@ private struct WelcomePage<Picture: View>: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Not clipped: glows under the pictures run softly into the page.
             picture
                 .frame(maxWidth: .infinity)
                 .frame(height: graphicHeight)
-                .clipped()
             VStack(spacing: 10) {
                 // Balanced lines (no lone word at the end), centred, sitting tight on each other.
                 DisplayText(text: title, size: 32, lineGap: -0.07, alignment: .center)
@@ -230,8 +230,6 @@ private struct WelcomeGrid: View {
             .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
             .clipped()
         }
-        // Small tiles: thumbnails, decoded off the main thread (30 tiles share 10 pictures).
-        .imageMaxPixel(360)
         .mask(fade)
         .overlay(alignment: .bottom) { WelcomeWorthPill().padding(.bottom, 10) }
         .onAppear { if !reduceMotion { drift = true } }
@@ -258,11 +256,12 @@ private struct WelcomeGrid: View {
         .animation(reduceMotion ? nil : .linear(duration: Self.durations[i]).repeatForever(autoreverses: false), value: drift)
     }
 
-    /// Solid over the top, fading to the page background over the bottom 40%.
+    /// A soft edge at the top, solid through the middle, fading to the page over the bottom 40%.
     private var fade: some View {
         LinearGradient(
             stops: [
-                Gradient.Stop(color: .black, location: 0),
+                Gradient.Stop(color: .clear, location: 0),
+                Gradient.Stop(color: .black, location: 0.08),
                 Gradient.Stop(color: .black, location: 0.6),
                 Gradient.Stop(color: .clear, location: 1),
             ],
@@ -278,10 +277,12 @@ private struct WelcomeTile: View {
     var body: some View {
         // A dark card-shaped well sits under the art, so a tile is never blank while its picture
         // is still arriving (the grid is the first thing a new person sees).
-        RoundedRectangle(cornerRadius: 6, style: .continuous)
-            .fill(Theme.well)
-            .overlay(HoldingArt(product: DemoData.product(item), identity: nil, cornerRadius: 6, caption: false))
-            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        ZStack {
+            RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Theme.well)
+            // The same picture view the welcome fan used (full-size decode; ten small pictures).
+            ProductImage(product: DemoData.product(item), cornerRadius: 6, caption: false)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
     }
 }
 
