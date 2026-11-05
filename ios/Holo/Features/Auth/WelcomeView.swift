@@ -876,157 +876,302 @@ private struct ScanTick: View {
 
 // MARK: - Page 3: a deal, worked out
 
-/// The lit backdrop, a lime glow, and a lime deal card that explains a trade, on loop: the
-/// card appears with its Trade tag, what's coming in and going out slide in, the cash counts
-/// up and the dark "You come out ahead" pill springs in. Loops every 6s: one periodic tick
-/// gives a new phase, which rebuilds the card so its entrances play again.
+/// Easing for the clock-driven pages (no state: each frame works out where everything is).
+private enum Ease {
+    static func clamp(_ x: Double) -> Double { min(max(x, 0), 1) }
+    /// Ease out (cubic), from `start` over `length` seconds of local time `t`.
+    static func out(_ t: Double, _ start: Double, _ length: Double) -> Double {
+        let c = clamp((t - start) / length)
+        return 1 - pow(1 - c, 3)
+    }
+    /// Ease out with a touch of overshoot, like a spring settling.
+    static func back(_ t: Double, _ start: Double, _ length: Double) -> Double {
+        let c = clamp((t - start) / length) - 1
+        return 1 + 2.4 * c * c * c + 1.4 * c * c
+    }
+}
+
+/// One side of a deal: a card (thumbnail, name, price) or cash.
+private struct DealSide {
+    var slug: String?
+    var name: String
+    var value: Double
+
+    static func card(_ slug: String, _ name: String, _ value: Double) -> DealSide { DealSide(slug: slug, name: name, value: value) }
+    static func cash(_ value: Double) -> DealSide { DealSide(slug: nil, name: "Cash", value: value) }
+
+    var item: DemoData.Item? { slug.flatMap { s in DemoData.items.first { $0.slug == s } } }
+}
+
+/// One deal the page shows: a trade, a buy or a sale, taking turns.
+private struct DealSpec {
+    var tag: String
+    var icon: String
+    var coming: DealSide
+    var going: DealSide
+    var cashLabel: String
+    var cash: Double
+    var ahead: Double
+
+    static let all: [DealSpec] = [
+        DealSpec(tag: "Trade", icon: "arrow.left.arrow.right",
+                 coming: .card("umbreon-vmax-alt", "Umbreon VMAX", 1537), going: .card("charizard-ex-151", "Charizard ex", 371),
+                 cashLabel: "Customer pays you", cash: 1166, ahead: 212),
+        DealSpec(tag: "Buy", icon: "arrow.down.left",
+                 coming: .card("rayquaza-vmax-alt", "Rayquaza VMAX", 548), going: .cash(430),
+                 cashLabel: "You pay", cash: 430, ahead: 118),
+        DealSpec(tag: "Sale", icon: "arrow.up.right",
+                 coming: .cash(372), going: .card("pikachu-ex-ss", "Pikachu ex", 371.5),
+                 cashLabel: "Customer pays you", cash: 372, ahead: 87),
+    ]
+
+    /// The cards fanned above the deal: both sides of a trade, or the one card bought or sold.
+    var fan: [DealSide] { [going, coming].filter { $0.slug != nil } }
+}
+
+/// The deal page on loop, all off one clock: the deal's cards fan out above a lime deal card;
+/// what's coming in flies in from the right, what's going out lifts off and flies away left;
+/// the In/Out bar tips; the cash counts up; the dark "You come out ahead" panel punches in as
+/// the card's edge flashes; a "Deal done" stamp lands. Then the next deal (trade, buy, sale).
 private struct WelcomeDeal: View {
+    static let cycle: Double = 7
+    /// The composition's natural height; a shorter page shrinks it to fit.
+    private static let height: CGFloat = 500
     private static let start = Date()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        ZStack {
-            Ellipse()
-                .fill(Theme.lime.opacity(0.26))
-                .frame(width: 300, height: 150)
-                .blur(radius: 50)
-                .offset(y: 70)
-            if reduceMotion {
-                DealCard(animated: false)
-            } else {
-                TimelineView(.periodic(from: Self.start, by: 6)) { context in
-                    let phase = Int(context.date.timeIntervalSince(Self.start) / 6 + 0.5)
-                    DealCard(animated: true).id(phase)
+        GeometryReader { geo in
+            let scale = min(1, geo.size.height / Self.height)
+            ZStack {
+                Ellipse()
+                    .fill(Theme.lime.opacity(0.26))
+                    .frame(width: 320, height: 160)
+                    .blur(radius: 50)
+                    .offset(y: 90)
+                Group {
+                    if reduceMotion {
+                        DealScene(spec: DealSpec.all[0], t: 6, clock: 0)
+                    } else {
+                        TimelineView(.animation) { context in
+                            let s = context.date.timeIntervalSince(Self.start)
+                            let n = Int(s / Self.cycle)
+                            DealScene(spec: DealSpec.all[n % DealSpec.all.count], t: s - Double(n) * Self.cycle, clock: s)
+                        }
+                    }
                 }
+                .frame(width: geo.size.width, height: Self.height)
+                .scaleEffect(scale)
             }
+            .frame(width: geo.size.width, height: geo.size.height)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("A trade: Umbreon VMAX coming in, Charizard ex going out, the customer pays you \(Format.money(DealCard.cash)) and you come out ahead by \(Format.moneyWhole(DealCard.ahead))")
+        .accessibilityLabel("Deals worked out: a trade, Umbreon VMAX coming in and Charizard ex going out, the customer pays you \(Format.money(1166)) and you come out ahead by \(Format.moneyWhole(212)); then a buy and a sale")
     }
 }
 
-/// One side of the deal: a card's thumbnail, name and price.
-private struct DealLine {
-    var slug: String
-    var name: String
-    var price: Double
-
-    var item: DemoData.Item? { DemoData.items.first { $0.slug == slug } }
-}
-
-/// The lime deal card. Ink text on lime (never pink on lime); the pill is ink with lime numbers.
-private struct DealCard: View {
-    var animated: Bool
-
-    static let coming = DealLine(slug: "umbreon-vmax-alt", name: "Umbreon VMAX", price: 1537)
-    static let going = DealLine(slug: "charizard-ex-151", name: "Charizard ex", price: 371)
-    static let cash: Double = 1166
-    static let ahead: Double = 212
+/// One deal at local time `t` (0 to the cycle); `clock` keeps the fan's float running across deals.
+private struct DealScene: View {
+    var spec: DealSpec
+    var t: Double
+    var clock: Double
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            DealReveal(delay: 0.1, animated: animated) {
-                SkewTag(text: "Trade", color: Theme.ink, textColor: Theme.lime, icon: "arrow.left.arrow.right")
+        let appear = Ease.out(t, 0, 0.4)
+        let leave = 1 - Ease.out(t, WelcomeDeal.cycle - 0.55, 0.45)
+        VStack(spacing: -46) {
+            DealFan(spec: spec, t: t, clock: clock)
+                .frame(height: 170)
+            DealPanel(spec: spec, t: t)
+        }
+        .padding(.horizontal, 24)
+        .opacity(min(appear, leave))
+        .offset(x: CGFloat(1 - appear) * 40 - CGFloat(1 - leave) * 40)
+    }
+}
+
+/// The deal's cards, big and tilted above the deal card (tucked behind its top edge): a trade
+/// shows both with a lime swap mark between them; a buy or sale shows its one card.
+private struct DealFan: View {
+    var spec: DealSpec
+    var t: Double
+    var clock: Double
+
+    var body: some View {
+        let cards = spec.fan
+        ZStack {
+            ForEach(Array(cards.enumerated()), id: \.offset) { i, side in
+                let pos = cards.count == 1 ? 0.0 : (i == 0 ? -1.0 : 1.0)
+                let enter = Ease.back(t, 0.05 + 0.12 * Double(i), 0.5)
+                let float = sin(clock * 1.3 + Double(i) * 2) * 4
+                if let item = side.item {
+                    HoldingArt(product: DemoData.product(item), identity: nil, cornerRadius: 8, caption: false)
+                        .frame(width: 104, height: 145)
+                        .rotationEffect(.degrees(pos == 0 ? -6 : pos * 12))
+                        .offset(x: CGFloat(pos * 64), y: CGFloat(float) + CGFloat(1 - enter) * 50)
+                        .scaleEffect(CGFloat(0.8 + 0.2 * enter))
+                        .opacity(Ease.clamp(enter * 2))
+                }
             }
-            DealReveal(delay: 0.5, animated: animated) {
-                DealRow(label: "Coming in", line: Self.coming)
+            if cards.count > 1 {
+                Image(systemName: "arrow.left.arrow.right")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(Theme.ink)
+                    .frame(width: 40, height: 40)
+                    .background(Circle().fill(Theme.lime))
+                    .rotationEffect(.degrees(180 * Ease.out(t, 0.3, 0.6)))
+                    .scaleEffect(CGFloat(Ease.back(t, 0.3, 0.4)))
+                    .offset(y: -8)
             }
-            DealReveal(delay: 0.9, animated: animated) {
-                DealRow(label: "Going out", line: Self.going)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+/// The lime deal card. Ink text on lime (never pink on lime); the profit panel is ink with a
+/// lime figure.
+private struct DealPanel: View {
+    var spec: DealSpec
+    var t: Double
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
+        let flash = (t >= 3.5 && t <= 4.1) ? sin(Double.pi * (t - 3.5) / 0.6) : 0
+        let counted = Ease.out(t, 2.2, 1.2)
+        VStack(alignment: .leading, spacing: 12) {
+            SkewTag(text: spec.tag, color: Theme.ink, textColor: Theme.lime, icon: spec.icon)
+                .opacity(Ease.out(t, 0.2, 0.3))
+            DealRowView(label: "Coming in", side: spec.coming, enter: Ease.back(t, 0.5, 0.5), fly: 0)
+            DealRowView(label: "Going out", side: spec.going, enter: Ease.out(t, 0.9, 0.4),
+                        fly: spec.going.slug == nil ? 0 : Ease.out(t, 1.45, 0.55))
+            DealBalance(coming: spec.coming.value, going: spec.going.value, progress: Ease.out(t, 1.6, 0.8))
+            VStack(alignment: .leading, spacing: 2) {
+                MonoLabel(text: spec.cashLabel, color: Theme.ink.opacity(0.6))
+                Text(Format.money(spec.cash * counted))
+                    .font(.display(40)).tracking(-1.5).monospacedDigit()
+                    .lineLimit(1).minimumScaleFactor(0.7)
             }
-            Rectangle().fill(Theme.ink.opacity(0.14)).frame(height: 1).padding(.vertical, 2)
-            DealCash(delay: 1.4, animated: animated)
+            .opacity(Ease.out(t, 2.2, 0.3))
+            DealProfit(ahead: spec.ahead, pop: Ease.back(t, 3.5, 0.4))
         }
         .padding(.horizontal, 22)
         .padding(.vertical, 20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 28, style: .continuous).fill(Theme.lime))
-        .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).strokeBorder(Color.white.opacity(0.35), lineWidth: 1))
+        .background(shape.fill(Theme.lime))
+        .overlay(shape.strokeBorder(Color.white.opacity(0.35), lineWidth: 1))
+        .overlay(shape.strokeBorder(Color.white, lineWidth: 3).opacity(0.9 * flash))
+        .overlay(alignment: .topTrailing) {
+            DealStamp(p: Ease.back(t, 4.1, 0.35)).padding(.top, 18).padding(.trailing, 18)
+        }
         .foregroundStyle(Theme.ink)
-        .padding(.horizontal, 24)
     }
 }
 
-/// Something on the card sliding in from the right after its delay (or already there).
-private struct DealReveal<Content: View>: View {
-    var delay: Double
-    var animated: Bool
-    @ViewBuilder var content: Content
-    @State private var shown = false
-
-    var body: some View {
-        content
-            .opacity(shown || !animated ? 1 : 0)
-            .offset(x: shown || !animated ? 0 : 28)
-            .onAppear {
-                guard animated, !shown else { return }
-                withAnimation(.easeOut(duration: 0.45).delay(delay)) { shown = true }
-            }
-    }
-}
-
-/// One side of the deal: its label, the card's thumbnail, name and price.
-private struct DealRow: View {
+/// One side of the deal: its label, then the card (or cash) flying in from the right; a card
+/// going out lifts off and flies away to the left, leaving its outline.
+private struct DealRowView: View {
     var label: String
-    var line: DealLine
+    var side: DealSide
+    /// 0 to 1 (with overshoot): the row arriving.
+    var enter: Double
+    /// 0 to 1: the going-out card flying off.
+    var fly: Double
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             MonoLabel(text: label, color: Theme.ink.opacity(0.6))
             HStack(spacing: 10) {
-                if let item = line.item {
-                    HoldingArt(product: DemoData.product(item), identity: nil, cornerRadius: 3, caption: false)
-                        .frame(width: 26, height: 36)
+                ZStack {
+                    if let item = side.item {
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .strokeBorder(Theme.ink.opacity(0.35), style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
+                            .opacity(fly)
+                        HoldingArt(product: DemoData.product(item), identity: nil, cornerRadius: 3, caption: false)
+                            .rotationEffect(.degrees((1 - enter) * 25 - fly * 30))
+                            .scaleEffect(CGFloat(1 + (1 - min(enter, 1)) * 0.8 + fly * 0.6))
+                            .offset(x: CGFloat(-fly * 340), y: CGFloat(-fly * 60))
+                            .opacity(1 - fly)
+                    } else {
+                        RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Theme.ink)
+                        Image(systemName: "banknote").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.lime)
+                    }
                 }
-                Text(line.name).font(.geist(16, .semibold))
+                .frame(width: 26, height: 36)
+                Text(side.name).font(.geist(16, .semibold))
                 Spacer()
-                Text(Format.moneyWhole(line.price)).font(.geist(16, .semibold)).monospacedDigit()
+                Text(Format.moneyWhole(side.value)).font(.geist(16, .semibold)).monospacedDigit()
             }
+            .offset(x: CGFloat(1 - enter) * 300)
+            .opacity(Ease.clamp(enter * 2))
         }
     }
 }
 
-/// The cash counting up, then the dark "You come out ahead" pill springing in under it.
-private struct DealCash: View {
-    var delay: Double
-    var animated: Bool
-    @State private var shown = false
-    @State private var landed = false
+/// The In/Out bar: how the two sides weigh against each other, filling as the deal is read.
+private struct DealBalance: View {
+    var coming: Double
+    var going: Double
+    var progress: Double
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                MonoLabel(text: "Customer pays you", color: Theme.ink.opacity(0.6))
-                CountingText(value: DealCard.cash, format: { Format.money($0) }, duration: 1.3, delay: animated ? delay : 0)
-                    .font(.display(48)).tracking(-1.8).monospacedDigit()
-                    .lineLimit(1).minimumScaleFactor(0.7)
-                    .displayTrim(48)
+        let ratio = coming + going > 0 ? coming / (coming + going) : 0.5
+        VStack(spacing: 6) {
+            HStack {
+                MonoLabel(text: "In \(Format.moneyWhole(coming))", color: Theme.ink.opacity(0.6))
+                Spacer()
+                MonoLabel(text: "Out \(Format.moneyWhole(going))", color: Theme.ink.opacity(0.6))
             }
-            .opacity(shown || !animated ? 1 : 0)
-            DealAheadPill()
-                .scaleEffect(landed || !animated ? 1 : 1.4)
-                .opacity(landed || !animated ? 1 : 0)
+            ZStack(alignment: .leading) {
+                Capsule().fill(Theme.ink.opacity(0.14))
+                Capsule().fill(Theme.ink)
+                    .scaleEffect(x: CGFloat(max(ratio * progress, 0.001)), anchor: .leading)
+            }
+            .frame(height: 6)
         }
-        .onAppear {
-            guard animated, !shown else { return }
-            withAnimation(.easeOut(duration: 0.4).delay(delay)) { shown = true }
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.55).delay(delay + 1.5)) { landed = true }
-        }
+        .opacity(Ease.clamp(progress * 3))
     }
 }
 
-/// The dark pill: an arrow, "You come out ahead" and the lime figure.
-private struct DealAheadPill: View {
+/// The dark panel that punches in: "You come out ahead" and the big lime figure.
+private struct DealProfit: View {
+    var ahead: Double
+    /// 0 to 1 (with overshoot).
+    var pop: Double
+
     var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "arrow.up.right").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.lime)
-            Text("You come out ahead").font(.geist(13, .semibold)).foregroundStyle(.white)
-            Text("+" + Format.moneyWhole(DealCard.ahead)).font(.geist(13, .bold)).monospacedDigit().foregroundStyle(Theme.lime)
+        HStack {
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.up.right").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.lime)
+                Text("You come out ahead").font(.geist(13, .semibold)).foregroundStyle(.white)
+            }
+            Spacer()
+            Text("+" + Format.moneyWhole(ahead))
+                .font(.display(26)).tracking(-0.8).monospacedDigit()
+                .foregroundStyle(Theme.lime)
         }
         .lineLimit(1)
-        .fixedSize()
-        .padding(.horizontal, 14)
-        .frame(height: 32)
-        .background(Capsule().fill(Theme.ink))
+        .padding(.horizontal, 16)
+        .frame(height: 50)
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.ink))
+        .scaleEffect(CGFloat(0.6 + 0.4 * pop))
+        .opacity(Ease.clamp(pop * 2))
+    }
+}
+
+/// "Deal done", stamped at an angle on the card's corner.
+private struct DealStamp: View {
+    /// 0 to 1 (with overshoot).
+    var p: Double
+
+    var body: some View {
+        Text("DEAL DONE")
+            .font(.geist(12, .bold)).tracking(1.2)
+            .foregroundStyle(Theme.ink)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Theme.ink, lineWidth: 2))
+            .rotationEffect(.degrees(-12))
+            .scaleEffect(CGFloat(2.2 - 1.2 * p))
+            .opacity(Ease.clamp(p * 3))
     }
 }
