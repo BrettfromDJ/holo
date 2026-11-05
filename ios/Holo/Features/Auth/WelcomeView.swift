@@ -1318,7 +1318,7 @@ private struct WelcomeGrading: View {
     @Environment(\.welcomeActive) private var active
 
     var body: some View {
-        WelcomeFit(height: 540, grow: 1.15) {
+        WelcomeFit(height: 500, grow: 1.05, alignment: .bottom) {
             ZStack {
                 Ellipse()
                     .fill(Theme.lime.opacity(0.26))
@@ -1350,8 +1350,8 @@ private struct GradingScene: View {
     /// Seconds, for the rays' slow turn.
     var clock: Double
 
-    private static let slabW: CGFloat = 230
-    private static let slabH: CGFloat = 368
+    private static let slabW: CGFloat = 214
+    private static let slabH: CGFloat = 342
 
     var body: some View {
         let appear: Double = Ease.out(t, 0, 0.4)
@@ -1374,7 +1374,6 @@ private struct GradingScene: View {
         let pop = CGFloat(bumping.pop)
         let item = DemoData.items.first { $0.slug == show.slug }
         VStack(spacing: 18) {
-            GradingValues(show: show, value: value, gradedShown: gradedShown)
             ZStack {
                 GradingRays()
                     .frame(width: 440, height: 440)
@@ -1397,54 +1396,57 @@ private struct GradingScene: View {
                     .scaleEffect(bump * pop)
                     .offset(y: slabY)
                     .opacity(slabFade)
-                SkewTag(text: "\(Format.signedPercent(show.gain)) graded", icon: "arrow.up.right")
-                    .scaleEffect(CGFloat(0.6 + 0.4 * tag))
-                    .opacity(Ease.clamp(tag * 2))
-                    .offset(y: Self.slabH / 2 + 2)
             }
             .frame(height: Self.slabH)
+            // Raw to graded and the gain, in one pill under the slab.
+            GradingValues(show: show, value: value, gradedShown: gradedShown, tag: tag)
             BumperPickerDemo(ringAt: bumping.ringAt, ringShown: bumping.ringShown, name: bumper?.name)
                 .offset(y: CGFloat((1 - picker) * 24))
                 .opacity(picker)
-                .padding(.top, 14)
         }
         .opacity(min(appear, leave))
     }
 }
 
-/// The values over the slab: raw, then an arrow and the graded value counting up in lime.
-/// The final figure sets the width, so nothing shifts while the digits run.
+/// The values under the slab, in one glass pill: the raw price, an arrow, the grade and the
+/// graded price counting up in lime, then the gain tag. The final figure sets the width, so
+/// nothing shifts while the digits run.
 private struct GradingValues: View {
     var show: GradeShow
     var value: Double
     var gradedShown: Double
+    /// 0 to 1 (with overshoot): the gain tag springing in.
+    var tag: Double
 
     var body: some View {
-        HStack(spacing: 14) {
-            VStack(alignment: .leading, spacing: 2) {
-                MonoLabel(text: "Raw")
-                Text(Format.money(show.raw)).font(.display(20)).tracking(-0.5).monospacedDigit()
-            }
+        HStack(spacing: 10) {
+            Text(Format.moneyWhole(show.raw)).font(.geist(15, .semibold)).monospacedDigit()
+                .foregroundStyle(gradedShown > 0.5 ? Theme.muted : .white)
             Image(systemName: "arrow.right")
-                .font(.system(size: 13, weight: .bold))
+                .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(Theme.muted)
                 .opacity(gradedShown)
-            VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 6) {
                 MonoLabel(text: show.company + " " + show.grade, color: Theme.lime)
-                Text(Format.money(show.graded)).font(.display(20)).tracking(-0.5).monospacedDigit()
+                Text(Format.moneyWhole(show.graded)).font(.geist(15, .semibold)).monospacedDigit()
                     .hidden()
                     .overlay(alignment: .leading) {
-                        Text(Format.money(value)).font(.display(20)).tracking(-0.5).monospacedDigit()
+                        Text(Format.moneyWhole(value)).font(.geist(15, .semibold)).monospacedDigit()
                             .foregroundStyle(Theme.lime)
                             .fixedSize()
                     }
             }
             .opacity(gradedShown)
+            SkewTag(text: Format.signedPercent(show.gain), icon: "arrow.up.right")
+                .scaleEffect(CGFloat(0.6 + 0.4 * tag))
+                .opacity(Ease.clamp(tag * 2))
         }
+        .lineLimit(1)
+        .fixedSize()
         .foregroundStyle(.white)
-        .padding(.horizontal, 18)
-        .frame(height: 58)
-        .liquidGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .padding(.horizontal, 16)
+        .frame(height: 44)
+        .liquidGlass(in: Capsule())
     }
 }
 
