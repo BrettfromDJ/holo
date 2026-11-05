@@ -210,6 +210,9 @@ private struct WelcomeGrid: View {
     /// The middle column drifts down; the others up.
     private static let down: [Bool] = [false, true, false]
     private static let start = Date()
+    /// The grid's lean, in degrees, and how much it's enlarged to still fill the screen.
+    private static let tilt: Double = -8
+    private static let tiltScale: CGFloat = 1.3
     /// The card pictures, held by the grid itself and handed to the tiles.
     @State private var images: [String: UIImage] = Self.cachedImages()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -244,9 +247,20 @@ private struct WelcomeGrid: View {
                 }
             }
             .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
+            // Tilted, like cards spread across a table: a still turn (enlarged so no corner of
+            // the screen goes bare), so the drift inside costs no more than before.
+            .scaleEffect(Self.tiltScale)
+            .rotationEffect(.degrees(Self.tilt))
+            .frame(width: geo.size.width, height: geo.size.height)
             .clipped()
         }
         .mask(fade)
+        // A soft dark shade at the top, so "Lucent", Skip and the clock read over the cards.
+        .overlay(alignment: .top) {
+            LinearGradient(colors: [.black.opacity(0.7), .black.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom)
+                .frame(height: 150)
+                .allowsHitTesting(false)
+        }
         .overlay(alignment: .bottom) { WelcomeWorthPill().padding(.bottom, 10) }
         .task {
             await withTaskGroup(of: (String, UIImage?).self) { group in
