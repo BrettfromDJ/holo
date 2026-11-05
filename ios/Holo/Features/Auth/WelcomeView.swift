@@ -425,6 +425,11 @@ private struct ScanPhase {
         guard u >= 2.5, u <= 3.3 else { return nil }
         return (u - 2.5) / 0.8
     }
+    /// How far the card is turned to the light, in degrees.
+    var wobble: Double {
+        guard let t = turn else { return 0 }
+        return sin(Double.pi * t) * 16
+    }
     var tag: Double { min(Self.back((u - 2.6) / 0.35), leaving) }
     /// The read's overlays fade as the card leaves.
     var leaving: Double { 1 - Self.ease((u - 3.65) / 0.3) }
@@ -627,7 +632,11 @@ private struct ScanTurn: View {
     var body: some View {
         if phase.onPage {
             let loose = 1 - phase.snap
-            let wobble = phase.turn.map { sin(Double.pi * $0) * 16 } ?? 0
+            let wobble: Double = phase.wobble
+            let cardScale = CGFloat(0.9 + 0.1 * phase.snap)
+            let turnAngle: Double = read.turn * loose
+            let leanAngle: Double = read.lean * loose
+            let slideX = CGFloat(phase.slide) * size.width
             ZStack(alignment: .topLeading) {
                 // Its shadow on the table (a gradient, not a blur).
                 Ellipse()
@@ -640,15 +649,15 @@ private struct ScanTurn: View {
                 }
                 .frame(width: card.width, height: card.height)
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .scaleEffect(0.9 + 0.1 * phase.snap)
-                .rotationEffect(.degrees(read.turn * loose))
-                .rotation3DEffect(.degrees(read.lean * loose), axis: (x: 1, y: 0, z: 0), perspective: 0.5)
+                .scaleEffect(cardScale)
+                .rotationEffect(.degrees(turnAngle))
+                .rotation3DEffect(.degrees(leanAngle), axis: (x: 1, y: 0, z: 0), perspective: 0.5)
                 .rotation3DEffect(.degrees(wobble), axis: (x: 0, y: 1, z: 0), perspective: 0.5)
                 .offset(x: card.minX, y: card.minY)
                 ScanOverlays(read: read, phase: phase, card: card, size: size)
             }
             .frame(width: size.width, height: size.height)
-            .offset(x: CGFloat(phase.slide) * size.width)
+            .offset(x: slideX)
         }
     }
 }
@@ -690,13 +699,15 @@ private struct ScanOverlays: View {
                 .opacity(0.1 * phase.glow)
             if let f = phase.flash {
                 // A bright head running once round the edge, over a quick whole-edge flash.
-                let head = f * 1.3
-                let flare = sin(Double.pi * f)
+                let head: Double = f * 1.3
+                let flare: Double = sin(Double.pi * f)
+                let from = CGFloat(max(0, head - 0.3))
+                let to = CGFloat(min(1, head))
                 ZStack {
                     edge.stroke(Theme.lime, lineWidth: 2).opacity(0.9 * flare)
-                    edge.trim(from: max(0, head - 0.3), to: min(1, head))
+                    edge.trim(from: from, to: to)
                         .stroke(Theme.lime.opacity(0.35), style: StrokeStyle(lineWidth: 12, lineCap: .round))
-                    edge.trim(from: max(0, head - 0.3), to: min(1, head))
+                    edge.trim(from: from, to: to)
                         .stroke(Theme.lime, style: StrokeStyle(lineWidth: 3.5, lineCap: .round))
                 }
                 .frame(width: card.width, height: card.height)
@@ -979,6 +990,7 @@ private struct DealScene: View {
     var body: some View {
         let appear = Ease.out(t, 0, 0.4)
         let leave = 1 - Ease.out(t, WelcomeDeal.cycle - 0.55, 0.45)
+        let sceneX = CGFloat((1 - appear) * 40 - (1 - leave) * 40)
         VStack(spacing: -46) {
             DealFan(spec: spec, t: t, clock: clock)
                 .frame(height: 170)
@@ -986,7 +998,7 @@ private struct DealScene: View {
         }
         .padding(.horizontal, 24)
         .opacity(min(appear, leave))
-        .offset(x: CGFloat(1 - appear) * 40 - CGFloat(1 - leave) * 40)
+        .offset(x: sceneX)
     }
 }
 
@@ -997,21 +1009,14 @@ private struct DealFan: View {
     var t: Double
     var clock: Double
 
+    private var swapTurn: Double { 180 * Ease.out(t, 0.3, 0.6) }
+    private var swapScale: CGFloat { CGFloat(Ease.back(t, 0.3, 0.4)) }
+
     var body: some View {
-        let cards = spec.fan
+        let cards: [WelcomeDealSide] = spec.fan
         ZStack {
-            ForEach(Array(cards.enumerated()), id: \.offset) { i, side in
-                let pos = cards.count == 1 ? 0.0 : (i == 0 ? -1.0 : 1.0)
-                let enter = Ease.back(t, 0.05 + 0.12 * Double(i), 0.5)
-                let float = sin(clock * 1.3 + Double(i) * 2) * 4
-                if let item = side.item {
-                    HoldingArt(product: DemoData.product(item), identity: nil, cornerRadius: 8, caption: false)
-                        .frame(width: 104, height: 145)
-                        .rotationEffect(.degrees(pos == 0 ? -6 : pos * 12))
-                        .offset(x: CGFloat(pos * 64), y: CGFloat(float) + CGFloat(1 - enter) * 50)
-                        .scaleEffect(CGFloat(0.8 + 0.2 * enter))
-                        .opacity(Ease.clamp(enter * 2))
-                }
+            ForEach(0 ..< cards.count, id: \.self) { i in
+                DealFanCard(side: cards[i], index: i, count: cards.count, t: t, clock: clock)
             }
             if cards.count > 1 {
                 Image(systemName: "arrow.left.arrow.right")
@@ -1019,12 +1024,41 @@ private struct DealFan: View {
                     .foregroundStyle(Theme.ink)
                     .frame(width: 40, height: 40)
                     .background(Circle().fill(Theme.lime))
-                    .rotationEffect(.degrees(180 * Ease.out(t, 0.3, 0.6)))
-                    .scaleEffect(CGFloat(Ease.back(t, 0.3, 0.4)))
+                    .rotationEffect(.degrees(swapTurn))
+                    .scaleEffect(swapScale)
                     .offset(y: -8)
             }
         }
         .frame(maxWidth: .infinity)
+    }
+}
+
+/// One card of the fan, dropping in and floating gently.
+private struct DealFanCard: View {
+    var side: WelcomeDealSide
+    var index: Int
+    var count: Int
+    var t: Double
+    var clock: Double
+
+    var body: some View {
+        let i = Double(index)
+        let pos: Double = count == 1 ? 0 : (index == 0 ? -1 : 1)
+        let enter: Double = Ease.back(t, 0.05 + 0.12 * i, 0.5)
+        let float: Double = sin(clock * 1.3 + i * 2) * 4
+        let angle: Double = pos == 0 ? -6 : pos * 12
+        let x = CGFloat(pos * 64)
+        let y = CGFloat(float + (1 - enter) * 50)
+        let scale = CGFloat(0.8 + 0.2 * enter)
+        let fade: Double = Ease.clamp(enter * 2)
+        if let item = side.item {
+            HoldingArt(product: DemoData.product(item), identity: nil, cornerRadius: 8, caption: false)
+                .frame(width: 104, height: 145)
+                .rotationEffect(.degrees(angle))
+                .offset(x: x, y: y)
+                .scaleEffect(scale)
+                .opacity(fade)
+        }
     }
 }
 
@@ -1036,8 +1070,8 @@ private struct DealPanel: View {
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
-        let flash = (t >= 3.5 && t <= 4.1) ? sin(Double.pi * (t - 3.5) / 0.6) : 0
-        let counted = Ease.out(t, 2.2, 1.2)
+        let flash: Double = (t >= 3.5 && t <= 4.1) ? sin(Double.pi * (t - 3.5) / 0.6) : 0
+        let counted: Double = Ease.out(t, 2.2, 1.2)
         VStack(alignment: .leading, spacing: 12) {
             SkewTag(text: spec.tag, color: Theme.ink, textColor: Theme.lime, icon: spec.icon)
                 .opacity(Ease.out(t, 0.2, 0.3))
@@ -1078,6 +1112,13 @@ private struct DealRowView: View {
     var fly: Double
 
     var body: some View {
+        let early: Double = 1 - min(enter, 1)
+        let thumbAngle: Double = (1 - enter) * 25 - fly * 30
+        let thumbScale = CGFloat(1 + early * 0.8 + fly * 0.6)
+        let flyX = CGFloat(-fly * 340)
+        let flyY = CGFloat(-fly * 60)
+        let rowX = CGFloat((1 - enter) * 300)
+        let rowFade: Double = Ease.clamp(enter * 2)
         VStack(alignment: .leading, spacing: 6) {
             MonoLabel(text: label, color: Theme.ink.opacity(0.6))
             HStack(spacing: 10) {
@@ -1087,9 +1128,9 @@ private struct DealRowView: View {
                             .strokeBorder(Theme.ink.opacity(0.35), style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
                             .opacity(fly)
                         HoldingArt(product: DemoData.product(item), identity: nil, cornerRadius: 3, caption: false)
-                            .rotationEffect(.degrees((1 - enter) * 25 - fly * 30))
-                            .scaleEffect(CGFloat(1 + (1 - min(enter, 1)) * 0.8 + fly * 0.6))
-                            .offset(x: CGFloat(-fly * 340), y: CGFloat(-fly * 60))
+                            .rotationEffect(.degrees(thumbAngle))
+                            .scaleEffect(thumbScale)
+                            .offset(x: flyX, y: flyY)
                             .opacity(1 - fly)
                     } else {
                         RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Theme.ink)
@@ -1101,8 +1142,8 @@ private struct DealRowView: View {
                 Spacer()
                 Text(Format.moneyWhole(side.value)).font(.geist(16, .semibold)).monospacedDigit()
             }
-            .offset(x: CGFloat(1 - enter) * 300)
-            .opacity(Ease.clamp(enter * 2))
+            .offset(x: rowX)
+            .opacity(rowFade)
         }
     }
 }
