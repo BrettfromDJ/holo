@@ -15,9 +15,12 @@ final class SessionModel {
         guard listener == nil else { return }
         let auth = Backend.shared.supabase.auth
         listener = Task { [weak self] in
-            for await (_, session) in auth.authStateChanges {
+            for await (event, session) in auth.authStateChanges {
                 await MainActor.run {
-                    if let session, !session.isExpired {
+                    // At launch the saved sign-in arrives as it was stored, possibly with an
+                    // expired token: still signed in (the app opens on the saved collection);
+                    // the library refreshes it next, and signs out if it can't.
+                    if let session, !session.isExpired || event == .initialSession {
                         self?.state = .signedIn(userId: session.user.id.uuidString.lowercased(), email: session.user.email)
                     } else {
                         self?.state = .signedOut

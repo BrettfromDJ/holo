@@ -10,7 +10,12 @@ final class Backend {
     let api: HoloAPI
 
     private init() {
-        supabase = SupabaseClient(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseAnonKey)
+        // The saved sign-in is reported at launch straight from the phone, before any refresh
+        // (the library's coming behaviour, opted into now; it also silences its warning).
+        supabase = SupabaseClient(
+            supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseAnonKey,
+            options: SupabaseClientOptions(auth: .init(emitLocalSessionAsInitialSession: true))
+        )
         api = HoloAPI(base: AppConfig.apiBaseURL, supabase: supabase)
     }
 }
