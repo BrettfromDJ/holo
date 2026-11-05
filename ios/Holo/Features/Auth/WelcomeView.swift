@@ -1266,21 +1266,27 @@ private struct GradeShow {
     var grade: String
     var raw: Double
     var graded: Double
+    /// The bumpers tried on in turn (indexes into `GradeShow.bumpers`); the last one stays.
+    var picks: [Int]
 
     var gain: Double { raw > 0 ? graded / raw - 1 : 0 }
 
+    /// The bumpers offered in the picker.
+    static let bumpers: [Bumper] = ["rainbow", "galaxy", "yellow", "blue", "black"].compactMap { Bumper.byId($0) }
+
     static let all: [GradeShow] = [
-        GradeShow(slug: "pikachu-ex-ss", company: "PSA", grade: "10", raw: 371.5, graded: 1250),
-        GradeShow(slug: "umbreon-vmax-alt", company: "CGC", grade: "10", raw: 1392, graded: 2850),
-        GradeShow(slug: "charizard-base", company: "PSA", grade: "9", raw: 455, graded: 1100),
+        GradeShow(slug: "pikachu-ex-ss", company: "PSA", grade: "10", raw: 371.5, graded: 1250, picks: [3, 1, 2]),
+        GradeShow(slug: "umbreon-vmax-alt", company: "CGC", grade: "10", raw: 1392, graded: 2850, picks: [2, 0, 1]),
+        GradeShow(slug: "charizard-base", company: "PSA", grade: "9", raw: 455, graded: 1100, picks: [4, 3, 0]),
     ]
 }
 
 /// The grading page on loop, off one clock: a raw card sits under a lime glow, a slab drops
-/// over it, its edge flashes, the value climbs from raw to graded and a gain tag springs in.
-/// Then the next card. The slab itself is drawn once per card (it only moves).
+/// over it, its edge flashes, the value climbs from raw to graded and a gain tag springs in;
+/// then the bumper picker comes up and bumpers are tried on until one stays. Then the next
+/// card. The slab is redrawn only when its card or bumper changes (otherwise it only moves).
 private struct WelcomeGrading: View {
-    static let cycle: Double = 5.5
+    static let cycle: Double = 8.5
     private static let start = Date()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -1293,7 +1299,7 @@ private struct WelcomeGrading: View {
                     .blur(radius: 50)
                     .offset(y: 60)
                 if reduceMotion {
-                    GradingScene(show: GradeShow.all[0], t: 4)
+                    GradingScene(show: GradeShow.all[0], t: 6.5)
                 } else {
                     TimelineView(.animation) { context in
                         let s = context.date.timeIntervalSince(Self.start)
@@ -1304,7 +1310,7 @@ private struct WelcomeGrading: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("A Pikachu ex graded PSA 10, in its slab: \(Format.money(371.5)) raw, \(Format.money(1250)) graded")
+        .accessibilityLabel("A Pikachu ex graded PSA 10, in its slab: \(Format.money(371.5)) raw, \(Format.money(1250)) graded, then a bumper chosen for it")
     }
 }
 
@@ -1326,6 +1332,13 @@ private struct GradingScene: View {
         let graded = t >= 1.6
         let value: Double = show.raw + (show.graded - show.raw) * Ease.out(t, 1.6, 1.0)
         let tag: Double = Ease.back(t, 2.6, 0.35)
+        // The bumper part: the value gives way to the picker, which tries bumpers on.
+        let swap: Double = Ease.out(t, 3.5, 0.35)
+        let bumping = BumperTiming(show: show, t: t)
+        let bumper: Bumper? = bumping.bumper
+        let pop = CGFloat(bumping.pop)
+        let ringAt: Double = bumping.ringAt
+        let ringShown: Double = bumping.ringShown
         let item = DemoData.items.first { $0.slug == show.slug }
         VStack(spacing: 18) {
             ZStack {
@@ -1335,7 +1348,7 @@ private struct GradingScene: View {
                         .rotationEffect(.degrees(rawAngle))
                         .opacity(rawFade)
                 }
-                WelcomeSlab(slug: show.slug, company: show.company, grade: show.grade)
+                WelcomeSlab(slug: show.slug, company: show.company, grade: show.grade, bumper: bumper?.id)
                     .equatable()
                     .frame(width: 190, height: 304)
                     .overlay(
@@ -1343,25 +1356,66 @@ private struct GradingScene: View {
                             .strokeBorder(Theme.lime, lineWidth: 3)
                             .opacity(0.9 * flash)
                     )
-                    .scaleEffect(bump)
+                    .scaleEffect(bump * pop)
                     .offset(y: slabY)
                     .opacity(slabFade)
             }
             .frame(height: 304)
-            HStack(spacing: 8) {
-                MonoLabel(text: graded ? show.company + " " + show.grade : "Raw")
-                Text(Format.money(value)).font(.display(22)).tracking(-0.6).monospacedDigit()
-                    .foregroundStyle(graded ? Theme.lime : .white)
+            ZStack {
+                VStack(spacing: 18) {
+                    HStack(spacing: 8) {
+                        MonoLabel(text: graded ? show.company + " " + show.grade : "Raw")
+                        Text(Format.money(value)).font(.display(22)).tracking(-0.6).monospacedDigit()
+                            .foregroundStyle(graded ? Theme.lime : .white)
+                    }
+                    .padding(.horizontal, 16)
+                    .frame(height: 42)
+                    .background(Capsule().fill(Color.black.opacity(0.6)))
+                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
+                    SkewTag(text: "\(Format.signedPercent(show.gain)) graded", icon: "arrow.up.right")
+                        .scaleEffect(CGFloat(0.6 + 0.4 * tag))
+                        .opacity(Ease.clamp(tag * 2))
+                }
+                .opacity(1 - swap)
+                BumperPickerDemo(ringAt: ringAt, ringShown: ringShown, name: bumper?.name)
+                    .offset(y: CGFloat((1 - swap) * 24))
+                    .opacity(swap)
             }
-            .padding(.horizontal, 16)
-            .frame(height: 42)
-            .background(Capsule().fill(Color.black.opacity(0.6)))
-            .overlay(Capsule().strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
-            SkewTag(text: "\(Format.signedPercent(show.gain)) graded", icon: "arrow.up.right")
-                .scaleEffect(CGFloat(0.6 + 0.4 * tag))
-                .opacity(Ease.clamp(tag * 2))
+            .frame(height: 82)
         }
         .opacity(min(appear, leave))
+    }
+}
+
+/// Where the grading page's bumper part is at local time `t`: which bumper is on (if any), the
+/// little bounce as one goes on, and where the picker's ring is (gliding between swatches).
+private struct BumperTiming {
+    static let times: [Double] = [4.1, 4.9, 5.7]
+    var bumper: Bumper?
+    var pop: Double = 1
+    var ringAt: Double = 0
+    var ringShown: Double = 0
+
+    init(show: GradeShow, t: Double) {
+        let times = Self.times
+        let tried = times.filter { t >= $0 }.count
+        let picks = show.picks
+        guard !picks.isEmpty else { return }
+        if tried > 0 {
+            let pick = picks[min(tried, picks.count) - 1]
+            bumper = GradeShow.bumpers[pick]
+            let since = t - times[tried - 1]
+            pop = 1 + 0.04 * max(0, 1 - since / 0.3)
+        }
+        // The ring arrives on the first swatch just before it goes on, then glides to each next.
+        ringShown = Ease.out(t, times[0] - 0.3, 0.2)
+        ringAt = Double(picks[0])
+        for k in 1 ..< min(picks.count, times.count) {
+            let from = Double(picks[k - 1])
+            let to = Double(picks[k])
+            let glide = Ease.out(t, times[k] - 0.3, 0.3)
+            if glide > 0 { ringAt = from + (to - from) * glide }
+        }
     }
 }
 
@@ -1370,10 +1424,51 @@ private struct WelcomeSlab: View, Equatable {
     var slug: String
     var company: String
     var grade: String
+    var bumper: String?
 
     var body: some View {
         let item = DemoData.items.first { $0.slug == slug }
-        Slab(product: item.map { DemoData.product($0) }, company: company, grade: grade)
+        Slab(product: item.map { DemoData.product($0) }, company: company, grade: grade, bumper: Bumper.byId(bumper))
+    }
+}
+
+/// The bumper picker as the page shows it: "Bumper" and the chosen one's name, a row of
+/// swatches, and a white ring gliding to the one being tried on.
+private struct BumperPickerDemo: View {
+    /// Which swatch the ring is on (fractional while it glides).
+    var ringAt: Double
+    var ringShown: Double
+    var name: String?
+
+    private static let size: CGFloat = 36
+    private static let gap: CGFloat = 12
+
+    var body: some View {
+        let bumpers = GradeShow.bumpers
+        let rowWidth = CGFloat(bumpers.count) * Self.size + CGFloat(bumpers.count - 1) * Self.gap
+        let ringX = CGFloat(ringAt) * (Self.size + Self.gap)
+        VStack(spacing: 10) {
+            HStack(spacing: 8) {
+                MonoLabel(text: "Bumper")
+                Text(name ?? "Choose one").font(.geist(13, .semibold)).foregroundStyle(.white)
+            }
+            ZStack(alignment: .leading) {
+                HStack(spacing: Self.gap) {
+                    ForEach(bumpers) { b in
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(b.fill)
+                            .frame(width: Self.size, height: Self.size)
+                            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(.white.opacity(0.15)))
+                    }
+                }
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    .strokeBorder(Color.white, lineWidth: 2)
+                    .frame(width: Self.size + 6, height: Self.size + 6)
+                    .offset(x: ringX - 3)
+                    .opacity(ringShown)
+            }
+            .frame(width: rowWidth, alignment: .leading)
+        }
     }
 }
 

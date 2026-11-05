@@ -41,6 +41,9 @@ struct CachedImage<Content: View, Placeholder: View>: View {
     /// Speed tests can turn thumbnails off to measure what they cost.
     private var maxPixel: CGFloat? { Demo.perfNoThumbnails ? nil : envMaxPixel }
     @State private var image: UIImage?
+    /// The address `image` was loaded from. A view handed a new address (the same view showing
+    /// a different card) must not keep showing the old picture.
+    @State private var imageURL: URL?
     @State private var failed = false
 
     init(url: URL?, fallback: URL? = nil, @ViewBuilder content: @escaping (Image) -> Content, @ViewBuilder placeholder: @escaping () -> Placeholder) {
@@ -49,12 +52,13 @@ struct CachedImage<Content: View, Placeholder: View>: View {
         self.content = content
         self.placeholder = placeholder
         _image = State(initialValue: url.flatMap { ImageCache.shared.cached($0) })
+        _imageURL = State(initialValue: url)
     }
 
     var body: some View {
         ZStack {
             // While a large version loads, show any copy of the usual picture already here.
-            if let image = image ?? url.flatMap({ ImageCache.shared.cached($0, maxPixel: maxPixel) ?? ImageCache.shared.cached($0) })
+            if let image = (imageURL == url ? image : nil) ?? url.flatMap({ ImageCache.shared.cached($0, maxPixel: maxPixel) ?? ImageCache.shared.cached($0) })
                 ?? fallback.flatMap({ ImageCache.shared.anyCached($0) }) {
                 content(Image(uiImage: image)).transition(.opacity)
             } else if url == nil || failed {
@@ -64,6 +68,11 @@ struct CachedImage<Content: View, Placeholder: View>: View {
             }
         }
         .task(id: url) {
+            if imageURL != url {
+                image = nil
+                imageURL = url
+                failed = false
+            }
             guard let url, image == nil, ImageCache.shared.cached(url, maxPixel: maxPixel) == nil, ImageCache.shared.cached(url) == nil else { return }
             failed = false
             // A thumbnail that can't be made (some pictures don't shrink cleanly) falls back to the
@@ -71,6 +80,8 @@ struct CachedImage<Content: View, Placeholder: View>: View {
             var loaded = await ImageCache.shared.load(url, maxPixel: maxPixel)
             if loaded == nil, maxPixel != nil { loaded = await ImageCache.shared.load(url) }
             if loaded == nil, let fallback { loaded = await ImageCache.shared.load(fallback, maxPixel: maxPixel) }
+            // Handed another address while this one loaded: leave it to that load.
+            guard imageURL == url, !Task.isCancelled else { return }
             if let loaded {
                 withAnimation(.easeOut(duration: 0.3)) { image = loaded }
             } else {
