@@ -321,13 +321,9 @@ private struct WelcomeColumn: View {
 private struct WelcomeTile: View {
     var image: UIImage?
 
-    /// The demo product with its small picture: the tiles are a third of the screen wide, and
-    /// the full-size scan is close to a megabyte each (ten of them, on the first screen a new
-    /// person sees).
+    /// The demo product, with the same picture the scan page and the rest of the app load.
     static func product(_ item: DemoData.Item) -> Product {
-        var p = DemoData.product(item)
-        p.imageUrl = p.imageUrl?.replacingOccurrences(of: "_hires.png", with: ".png")
-        return p
+        DemoData.product(item)
     }
 
     var body: some View {
