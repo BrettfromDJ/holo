@@ -248,7 +248,9 @@ struct SetDeckCard: View {
                 Spacer(minLength: 8)
                 if let ratio = row.ratio, !row.holdings.isEmpty {
                     HStack(alignment: .top, spacing: 2) {
-                        DotMatrixText(text: "\(Int((ratio * 100).rounded()))", dot: 3.4, color: Theme.lime)
+                        Text("\(Int((ratio * 100).rounded()))").font(.display(28)).tracking(-0.9).monospacedDigit()
+                            .foregroundStyle(Theme.lime)
+                            .displayTrim(28)
                             .shadow(color: Theme.lime.opacity(0.5), radius: 8)
                         Text("%").font(.geist(12)).foregroundStyle(Theme.lime)
                     }

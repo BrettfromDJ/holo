@@ -323,7 +323,7 @@ private struct SetProgressHeader: View, Equatable {
     var body: some View {
         let ratio = total > 0 ? Double(owned) / Double(total) : 0
         let pct = Int((ratio * 100).rounded())
-        // The set's page opens on the lit grid: the % in glowing lime dot-matrix digits, a dial of
+        // The set's page opens on the lit grid: the % in glowing lime digits, a dial of
         // how much you own, two tiles, then every card in the set as one tick.
         VStack(spacing: 18) {
             if known {
@@ -334,7 +334,9 @@ private struct SetProgressHeader: View, Equatable {
                     VStack(spacing: 4) {
                         Text("COMPLETE").font(.mono(10)).tracking(1.4).foregroundStyle(Theme.muted)
                         HStack(alignment: .top, spacing: 3) {
-                            DotMatrixText(text: "\(pct)", dot: 5.2, color: Theme.lime)
+                            Text("\(pct)").font(.display(48)).tracking(-1.6).monospacedDigit()
+                                .foregroundStyle(Theme.lime)
+                                .displayTrim(48)
                                 .shadow(color: Theme.lime.opacity(0.55), radius: 12)
                                 // A completed set lights up once: brighter and a touch bigger, then back.
                                 .brightness(pulse ? 0.35 : 0)
@@ -350,7 +352,9 @@ private struct SetProgressHeader: View, Equatable {
             } else {
                 VStack(spacing: 6) {
                     Text("CARDS OWNED").font(.mono(11)).tracking(1.6).foregroundStyle(Theme.muted)
-                    DotMatrixText(text: "\(owned)", dot: 6.5, color: Theme.lime)
+                    Text("\(owned)").font(.display(56)).tracking(-1.8).monospacedDigit()
+                        .foregroundStyle(Theme.lime)
+                        .displayTrim(56)
                         .shadow(color: Theme.lime.opacity(0.55), radius: 16)
                     Text("full list not in Lucent yet").font(.geist(13)).foregroundStyle(Theme.muted)
                 }

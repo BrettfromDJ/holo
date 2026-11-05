@@ -44,8 +44,8 @@ and say exactly what to run or click.
   Color only numbers (gains green/lime, losses pink); text stays white or muted.
 - **Lucent (app):** named Lucent, original Holo look everywhere (lime, grid and dot backdrops, glows,
   lime charts, the star card's electric border). Master Sets also uses the pieces in
-  `Components/Glow.swift` (the set deck's `SetGlow`, dot-matrix digits, the `GlowPie` dial, ring
-  and ticks). The iridescent and glow-card experiments were removed; don't bring them back.
+  `Components/Glow.swift` (the set deck's `SetGlow`, the `GlowPie` dial, ring and ticks; no
+  dot-matrix digits: numbers use `Font.display`). The iridescent and glow-card experiments were removed; don't bring them back.
 - **Tapping a card:** one you own opens Owned (`HoldingSheet`) everywhere; one you don't opens
   its card page. Use `CardLink(productId:identity:)` in the app; it decides. Gains lives inside
   Analytics; Overview has a shortcut row (Analytics, Grading, Master sets, Activity).

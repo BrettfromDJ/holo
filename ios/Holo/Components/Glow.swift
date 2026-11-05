@@ -1,6 +1,6 @@
 import SwiftUI
 
-// The small graphic pieces Master Sets uses: the set deck's glow, dot-matrix digits, the
+// The small graphic pieces Master Sets uses: the set deck's glow, the
 // ownership dial (`GlowPie`), a thin ring and a tick bar. (Left from the brief "Lucent glow"
 // look; the rest of it was removed.)
 
@@ -66,49 +66,6 @@ struct GlowTicks: View {
             tri.closeSubpath()
             ctx.fill(tri, with: .color(Theme.lime))
         }
-    }
-}
-
-/// Digits drawn as a dot matrix, like an LED display (0-9, %, +, -, .).
-struct DotMatrixText: View {
-    var text: String
-    var dot: CGFloat = 3.6
-    var color: Color = .white
-
-    private static let font: [Character: [String]] = [
-        "0": ["01110", "10001", "10011", "10101", "11001", "10001", "01110"],
-        "1": ["00100", "01100", "00100", "00100", "00100", "00100", "01110"],
-        "2": ["01110", "10001", "00001", "00010", "00100", "01000", "11111"],
-        "3": ["11110", "00001", "00001", "01110", "00001", "00001", "11110"],
-        "4": ["10010", "10010", "10010", "11111", "00010", "00010", "00010"],
-        "5": ["11111", "10000", "11110", "00001", "00001", "10001", "01110"],
-        "6": ["00110", "01000", "10000", "11110", "10001", "10001", "01110"],
-        "7": ["11111", "00001", "00010", "00100", "00100", "00100", "00100"],
-        "8": ["01110", "10001", "10001", "01110", "10001", "10001", "01110"],
-        "9": ["01110", "10001", "10001", "01111", "00001", "00010", "01100"],
-        "%": ["11000", "11001", "00010", "00100", "01000", "10011", "00011"],
-        "+": ["00000", "00100", "00100", "11111", "00100", "00100", "00000"],
-        "-": ["00000", "00000", "00000", "11111", "00000", "00000", "00000"],
-        ".": ["00000", "00000", "00000", "00000", "00000", "01100", "01100"],
-    ]
-
-    var body: some View {
-        let chars = Array(text).filter { Self.font[$0] != nil }
-        let pitch = dot * 1.25
-        let width = CGFloat(chars.count) * pitch * 6 - pitch
-        Canvas { ctx, _ in
-            for (n, ch) in chars.enumerated() {
-                guard let rows = Self.font[ch] else { continue }
-                for (y, row) in rows.enumerated() {
-                    for (x, bit) in row.enumerated() where bit == "1" {
-                        let origin = CGPoint(x: CGFloat(n * 6 + x) * pitch, y: CGFloat(y) * pitch)
-                        ctx.fill(Path(ellipseIn: CGRect(origin: origin, size: CGSize(width: dot, height: dot))), with: .color(color))
-                    }
-                }
-            }
-        }
-        .frame(width: max(width, 0), height: pitch * 7)
-        .accessibilityLabel(text)
     }
 }
 
