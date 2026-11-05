@@ -1649,7 +1649,10 @@ private struct MasterSetScene: View {
         let climbed: Double = Double(set.endCount - 1 - set.startCount) * climb
         let extra: Int = bought >= 0.5 ? 1 : 0
         let count: Int = set.startCount + Int(climbed.rounded()) + extra
-        let share: Double = Double(count) / Double(set.total)
+        // The dial fills smoothly (not card by card); the figures show whole cards.
+        let smooth: Double = Double(set.startCount) + climbed + bought
+        let share: Double = smooth / Double(set.total)
+        let pct: Int = Int((Double(count) / Double(set.total) * 100).rounded())
         let left: Double = set.toFinish - set.boughtPrice * bought
         let owned: Double = set.worth * climb + set.boughtPrice * bought
         VStack(spacing: 22) {
@@ -1661,7 +1664,7 @@ private struct MasterSetScene: View {
                 MasterSetDial(share: share)
                 VStack(spacing: 2) {
                     HStack(alignment: .top, spacing: 2) {
-                        Text("\(Int((share * 100).rounded()))").font(.display(56)).tracking(-2).monospacedDigit()
+                        Text("\(pct)").font(.display(56)).tracking(-2).monospacedDigit()
                             .displayTrim(56)
                         Text("%").font(.geist(17, .semibold)).padding(.top, 4)
                     }
@@ -1693,8 +1696,7 @@ private struct MasterSetDial: View {
             let side = min(geo.size.width, geo.size.height)
             let line = side * 0.13
             ZStack {
-                Color.clear.liquidGlass(in: RingShape(thickness: line), tint: Theme.lime.opacity(0.14))
-                RingShape(thickness: line).stroke(Color.white.opacity(0.22), lineWidth: 1)
+                MasterSetDialTrack(line: line).equatable()
                 Circle()
                     .inset(by: line / 2)
                     .trim(from: 0, to: CGFloat(max(min(share, 1), 0.001)))
@@ -1707,6 +1709,18 @@ private struct MasterSetDial: View {
             }
             .frame(width: side, height: side)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+}
+
+/// The dial's glass ring, drawn once (it never changes, so it isn't redrawn with the arc).
+private struct MasterSetDialTrack: View, Equatable {
+    var line: CGFloat
+
+    var body: some View {
+        ZStack {
+            Color.clear.liquidGlass(in: RingShape(thickness: line), tint: Theme.lime.opacity(0.14))
+            RingShape(thickness: line).stroke(Color.white.opacity(0.22), lineWidth: 1)
         }
     }
 }
@@ -1729,7 +1743,8 @@ private struct SetStrip: View {
         HStack(spacing: Self.gap) {
             ForEach(0 ..< cards.count * 2, id: \.self) { i in
                 let card = cards[i % cards.count]
-                SetStripTile(card: card, url: set.url(card), bought: bought)
+                SetStripTile(card: card, url: set.url(card), bought: card.bought ? bought : 0)
+                    .equatable()
                     .frame(width: Self.w, height: Self.w * 88 / 63)
             }
         }
@@ -1748,10 +1763,12 @@ private struct SetStrip: View {
 }
 
 /// One card in the row.
-private struct SetStripTile: View {
+private struct SetStripTile: View, Equatable {
     var card: SetStripCard
     var url: URL?
     var bought: Double
+
+    static func == (a: Self, b: Self) -> Bool { a.url == b.url && a.bought == b.bought && a.card.missing == b.card.missing }
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 5, style: .continuous)
