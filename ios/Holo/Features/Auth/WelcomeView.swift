@@ -196,19 +196,21 @@ private struct WelcomeBackdrop: View {
 /// Three full-bleed columns of demo cards (singles with real art only), each drifting on its
 /// own: the outer two up, the middle one down, at slightly different speeds and out of step, so
 /// the grid feels alive. Each column is its list of cards stacked three times and loops by one
-/// list's height, so there's never a gap: one repeating offset animation per column, nothing
-/// per frame. The bottom fades into the page, and a glass pill over it counts up the worth.
+/// list's height, so there's never a gap. The drift is read off the frame clock (a
+/// `TimelineView`, like the scanner page), not an endless implicit animation: pictures that
+/// arrived while such an animation ran were drawn against the wrong geometry (slivers, then
+/// nothing). Per frame it is three offsets, nothing else. The bottom fades into the page, and a
+/// glass pill over it counts up the worth.
 private struct WelcomeGrid: View {
     private static let gap: CGFloat = 8
     /// How long one column takes to travel one list's height, per column.
     private static let durations: [Double] = [22, 26, 24]
     /// Where each column starts in its loop (a share of one list's height), so they never line up.
-    private static let phases: [CGFloat] = [0.15, 0.55, 0.35]
+    private static let phases: [Double] = [0.15, 0.55, 0.35]
     /// The middle column drifts down; the others up.
     private static let down: [Bool] = [false, true, false]
-    @State private var drift = false
-    /// The card pictures, held by the grid itself and handed to the tiles. The tiles used to
-    /// load their own (fading in), and inside the endlessly drifting columns those never showed.
+    private static let start = Date()
+    /// The card pictures, held by the grid itself and handed to the tiles.
     @State private var images: [String: UIImage] = Self.cachedImages()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -232,9 +234,13 @@ private struct WelcomeGrid: View {
         GeometryReader { geo in
             let tileW = (geo.size.width - Self.gap * 2) / 3
             let tileH = tileW * 88 / 63
-            HStack(alignment: .top, spacing: Self.gap) {
-                ForEach(0 ..< 3, id: \.self) { i in
-                    column(i, tileW: tileW, tileH: tileH)
+            Group {
+                if reduceMotion {
+                    columns(at: 0, tileW: tileW, tileH: tileH)
+                } else {
+                    TimelineView(.animation) { context in
+                        columns(at: context.date.timeIntervalSince(Self.start), tileW: tileW, tileH: tileH)
+                    }
                 }
             }
             .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
@@ -242,7 +248,6 @@ private struct WelcomeGrid: View {
         }
         .mask(fade)
         .overlay(alignment: .bottom) { WelcomeWorthPill().padding(.bottom, 10) }
-        .onAppear { if !reduceMotion { drift = true } }
         .task {
             await withTaskGroup(of: (String, UIImage?).self) { group in
                 for item in Self.columns.joined() where images[item.slug] == nil {
@@ -262,23 +267,32 @@ private struct WelcomeGrid: View {
         .accessibilityLabel("Columns of cards from a collection, worth \(Format.money(WelcomeWorthPill.worth)) today")
     }
 
-    /// One column: its cards three times over, moving by one list's height and starting over.
-    private func column(_ i: Int, tileW: CGFloat, tileH: CGFloat) -> some View {
+    /// The three columns at one moment (`t` seconds into the drift).
+    private func columns(at t: Double, tileW: CGFloat, tileH: CGFloat) -> some View {
+        HStack(alignment: .top, spacing: Self.gap) {
+            ForEach(0 ..< 3, id: \.self) { i in
+                column(i, at: t, tileW: tileW, tileH: tileH)
+            }
+        }
+    }
+
+    /// One column: its cards three times over, moved by where it is in its loop. Up: from 0 to
+    /// one list's height above; down: from one list's height above to 0 (so there's always card
+    /// above the top edge). Either way the second list lands where the first was: seamless.
+    private func column(_ i: Int, at t: Double, tileW: CGFloat, tileH: CGFloat) -> some View {
         let items = Self.columns[i]
         let listH = CGFloat(items.count) * (tileH + Self.gap)
-        let from = -listH * Self.phases[i]
-        let to = Self.down[i] ? from + listH : from - listH
+        let progress = (t / Self.durations[i] + Self.phases[i]).truncatingRemainder(dividingBy: 1)
+        let y = Self.down[i] ? -listH + listH * CGFloat(progress) : -listH * CGFloat(progress)
         return VStack(spacing: Self.gap) {
             ForEach(0 ..< 3, id: \.self) { _ in
                 ForEach(items, id: \.slug) { item in
-                    WelcomeTile(image: images[item.slug]).frame(width: tileW, height: tileH)
+                    WelcomeTile(image: images[item.slug], width: tileW, height: tileH)
                 }
             }
         }
         .frame(width: tileW, alignment: .top)
-        // Going down starts a list higher so there's always card above the top edge.
-        .offset(y: Self.down[i] ? (drift ? from : from - listH) : (drift ? to : from))
-        .animation(reduceMotion ? nil : .linear(duration: Self.durations[i]).repeatForever(autoreverses: false), value: drift)
+        .offset(y: y)
     }
 
     /// Solid right to the top edge of the screen; fading to the page over the bottom 40%.
@@ -295,8 +309,11 @@ private struct WelcomeGrid: View {
 }
 
 /// One card of the grid: a dark card-shaped well with the card's picture on it once it's here.
+/// Sized explicitly, picture and well alike, so nothing is left to be inferred mid-drift.
 private struct WelcomeTile: View {
     var image: UIImage?
+    var width: CGFloat
+    var height: CGFloat
 
     /// The demo product with its small picture: the tiles are a third of the screen wide, and
     /// the full-size scan is close to a megabyte each (ten of them, on the first screen a new
@@ -311,9 +328,11 @@ private struct WelcomeTile: View {
         ZStack {
             RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Theme.well)
             if let image {
-                Image(uiImage: image).resizable().aspectRatio(contentMode: .fill)
+                Image(uiImage: image).resizable().scaledToFill()
+                    .frame(width: width, height: height)
             }
         }
+        .frame(width: width, height: height)
         .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
     }
 }
