@@ -62,6 +62,44 @@ private extension Color {
     }
 }
 
+/// A strip of bumper swatches to pick from (none first, then glitter, then solid), for forms
+/// like Add to collection where the slab isn't drawn. The full-size picker with the slab in it
+/// is `BumperSheet`.
+struct BumperStrip: View {
+    @Binding var pick: String?
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                Button { pick = nil } label: {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.25), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                        .frame(width: 36, height: 36)
+                        .overlay(Image(systemName: "slash.circle").font(.system(size: 13, weight: .medium)).foregroundStyle(Color.white.opacity(0.6)))
+                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(pick == nil ? Color.white : .clear, lineWidth: 2).padding(-3))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("No bumper")
+                ForEach(Bumper.all) { b in
+                    Button { pick = b.id } label: {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(b.fill)
+                            .frame(width: 36, height: 36)
+                            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(.white.opacity(0.15)))
+                            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(pick == b.id ? Color.white : .clear, lineWidth: 2).padding(-3))
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(b.name)
+                }
+            }
+            .padding(.vertical, 4).padding(.horizontal, 3)
+        }
+        .sensoryFeedback(.selection, trigger: pick)
+    }
+}
+
 /// The bumper drawn around a slab: molded plastic with a lit top and a lip the slab sits in;
 /// glitter bumpers get fine bright specks. `u` is 1% of the width.
 struct BumperFrame: View {

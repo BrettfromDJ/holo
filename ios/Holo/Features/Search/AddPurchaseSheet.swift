@@ -18,6 +18,8 @@ struct AddPurchaseSheet: View {
     @State private var graded = false
     @State private var company = "PSA"
     @State private var grade = "10"
+    /// The bumper guard on the slab, if any (saved with the slab once it's added).
+    @State private var bumper: String?
     @State private var quantity = 1
     @State private var price = ""
     @State private var date = Date()
@@ -118,6 +120,15 @@ struct AddPurchaseSheet: View {
                                 ForEach(grades, id: \.self) { Text(gradeTitle($0)) }
                             }
                             .onChange(of: company) { _, _ in if !grades.contains(grade) { grade = "10" } }
+                            // The bumper guard it sits in, picked here rather than later from Owned.
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack {
+                                    Text("Bumper")
+                                    Spacer()
+                                    Text(Bumper.byId(bumper)?.name ?? "None").foregroundStyle(Theme.muted)
+                                }
+                                BumperStrip(pick: $bumper)
+                            }
                         } else {
                             Picker("Condition", selection: $condition) {
                                 ForEach(CardCondition.allCases) { Text($0.rawValue).tag($0.rawValue) }
@@ -241,6 +252,7 @@ struct AddPurchaseSheet: View {
                     try? await groups.moveMany([key], to: target, store: store)
                 }
             }
+            if graded, !product.isSealed, let bumper { grading.setBumper(key, bumper) }
             if graded, !product.isSealed, company == "CGC", grade == Self.pristine {
                 let id = HoldingIdentity(productId: product.id, printing: printing, condition: CardCondition.nearMint.rawValue, gradeCompany: "CGC", grade: "10")
                 grading.setPristine(id.key, true)
