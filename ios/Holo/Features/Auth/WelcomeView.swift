@@ -19,6 +19,9 @@ struct WelcomeView: View {
     var body: some View {
         ZStack {
             Theme.background.ignoresSafeArea()
+            // The lit grid and glows run full bleed behind every page (never clipped), fading
+            // to the page's black where the heading and buttons sit.
+            WelcomeBackdrop().ignoresSafeArea()
             GeometryReader { geo in
                 // Each page's picture takes about the top half of the screen.
                 let graphic = min(geo.size.height * 0.5, 430)
@@ -70,7 +73,7 @@ struct WelcomeView: View {
             }
             .tag(1)
             WelcomePage(
-                title: "Make deals that add up",
+                title: "Deals, worked out on the spot",
                 line: "Add what's coming in and going out. The cash and your profit are\u{00A0}worked\u{00A0}out.",
                 graphicHeight: graphicHeight
             ) {
@@ -175,7 +178,11 @@ private struct WelcomeBackdrop: View {
             RadialGradient(colors: [Theme.planBlue.opacity(0.2), .clear], center: UnitPoint(x: 0.9, y: 0.6), startRadius: 0, endRadius: 230)
             RadialGradient(colors: [Theme.planPink.opacity(0.16), .clear], center: UnitPoint(x: 0.65, y: 0.1), startRadius: 0, endRadius: 200)
         }
-        .mask(LinearGradient(colors: [.clear, .black, .black, .clear], startPoint: .top, endPoint: .bottom))
+        .mask(LinearGradient(stops: [
+            Gradient.Stop(color: .black, location: 0),
+            Gradient.Stop(color: .black, location: 0.42),
+            Gradient.Stop(color: .clear, location: 0.72),
+        ], startPoint: .top, endPoint: .bottom))
         .allowsHitTesting(false)
     }
 }
@@ -293,7 +300,7 @@ private struct WelcomeWorthPill: View {
         .padding(.leading, 18)
         .padding(.trailing, 14)
         .padding(.vertical, 12)
-        .liquidGlass(in: Capsule())
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }
 
@@ -384,7 +391,6 @@ private struct WelcomeScanLoop: View {
         GeometryReader { geo in
             let card = Self.cardRect(in: geo.size)
             ZStack(alignment: .topLeading) {
-                WelcomeBackdrop()
                 Ellipse()
                     .fill(Theme.lime.opacity(0.28))
                     .frame(width: card.width * 1.5, height: card.height * 0.5)
@@ -609,7 +615,6 @@ private struct WelcomeDeal: View {
 
     var body: some View {
         ZStack {
-            WelcomeBackdrop()
             Ellipse()
                 .fill(Theme.lime.opacity(0.26))
                 .frame(width: 300, height: 150)
