@@ -226,7 +226,6 @@ struct HomeView: View {
             Spotlight(store: store).padding(.horizontal, 16).reveal()
             ShelfSection(holdings: store.holdings).reveal()
             ValueSplit(store: store).padding(.horizontal, 16).reveal()
-            MoversSection(store: store).padding(.horizontal, 16).reveal()
             RecentSection(items: store.recentPurchases()).padding(.horizontal, 16).reveal()
 
         }
