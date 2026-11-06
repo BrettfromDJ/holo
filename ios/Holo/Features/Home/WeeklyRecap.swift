@@ -130,14 +130,7 @@ private struct Slide {
         // Each card's move over the week. A graded copy is priced from eBay sales and carries no
         // weekly change, so fall back to the card's own price feed: its 7-day change, else the
         // change worked out from its price history.
-        func weekMove(_ h: HoldingView) -> Double? {
-            if let c = h.change7dPct { return c }
-            let key = priceKey(h.identity.productId, h.identity.printing)
-            if let c = store.prices[key]?.change7dPct { return c }
-            guard let pts = store.history[key], let last = pts.last?.price,
-                  let then = pts.last(where: { $0.date <= from })?.price, then > 0 else { return nil }
-            return (last - then) / then * 100
-        }
+        func weekMove(_ h: HoldingView) -> Double? { store.move(h, days: 7) }
         let moves: [(holding: HoldingView, pct: Double)] = store.holdings.compactMap { h in
             guard h.product != nil, let m = weekMove(h) else { return nil }
             return (h, m)

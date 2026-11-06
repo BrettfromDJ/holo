@@ -1205,3 +1205,23 @@ final class CollectionStore {
         wishlist = items + addedElsewhere
     }
 }
+
+extension CollectionStore {
+    /// How a copy you hold moved over the last `days` (1, 7 or 30), in percent. A graded copy is
+    /// priced from eBay sales and carries no change of its own, so it falls back to the card's
+    /// own price feed, then to the change worked out from the card's price history.
+    func move(_ h: HoldingView, days: Int) -> Double? {
+        let own: Double? = days <= 1 ? h.change24hPct : (days <= 7 ? h.change7dPct : h.change30dPct)
+        if let own { return own }
+        let key = priceKey(h.identity.productId, h.identity.printing)
+        if let p = prices[key] {
+            let feed: Double? = days <= 1 ? p.change24hPct : (days <= 7 ? p.change7dPct : p.change30dPct)
+            if let feed { return feed }
+        }
+        guard let pts = history[key], let last = pts.last?.price,
+              let since = Calendar.current.date(byAdding: .day, value: -days, to: Date()) else { return nil }
+        let from = Format.day(since)
+        guard let then = pts.last(where: { $0.date <= from })?.price, then > 0 else { return nil }
+        return (last - then) / then * 100
+    }
+}

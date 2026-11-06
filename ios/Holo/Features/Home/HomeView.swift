@@ -226,7 +226,7 @@ struct HomeView: View {
             Spotlight(store: store).padding(.horizontal, 16).reveal()
             ShelfSection(holdings: store.holdings).reveal()
             ValueSplit(store: store).padding(.horizontal, 16).reveal()
-            MoversSection(holdings: store.holdings).padding(.horizontal, 16).reveal()
+            MoversSection(store: store).padding(.horizontal, 16).reveal()
             RecentSection(items: store.recentPurchases()).padding(.horizontal, 16).reveal()
 
         }
@@ -1355,23 +1355,25 @@ private struct CategoryCard: View {
 private struct MoversSection: View {
     @Environment(\.openHolding) private var openHolding
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    var holdings: [HoldingView]
+    var store: CollectionStore
     @State private var period = Period.day
     @State private var allUp = false
     @State private var allDown = false
 
     enum Period: String, CaseIterable { case day = "1D", week = "7D", month = "30D" }
 
+    /// The copy's move over the period, falling back to the card's own price feed for graded
+    /// copies (which have no change of their own).
     private func move(_ h: HoldingView) -> Double? {
         switch period {
-        case .day: return h.change24hPct
-        case .week: return h.change7dPct
-        case .month: return h.change30dPct
+        case .day: return store.move(h, days: 1)
+        case .week: return store.move(h, days: 7)
+        case .month: return store.move(h, days: 30)
         }
     }
 
     var body: some View {
-        let moving = holdings.compactMap { h in move(h).map { (h, $0) } }.filter { $0.1 != 0 }
+        let moving = store.holdings.compactMap { h in move(h).map { (h, $0) } }.filter { abs($0.1) >= 0.05 }
         let up = moving.filter { $0.1 > 0 }.sorted { $0.1 > $1.1 }
         let down = moving.filter { $0.1 < 0 }.sorted { $0.1 < $1.1 }
         VStack(alignment: .leading, spacing: 18) {
@@ -1382,6 +1384,11 @@ private struct MoversSection: View {
             }
             group("Gainers", up, tag: Theme.lime, all: $allUp)
             group("Losers", down, tag: Theme.planPink, all: $allDown)
+            if up.isEmpty && down.isEmpty {
+                // Prices update once a day; say so rather than leave the heading on its own.
+                Text(period == .day ? "Nothing moved since yesterday's prices. Try 7D or 30D." : "Nothing in your collection moved over this period.")
+                    .font(.geist(14)).foregroundStyle(Theme.muted)
+            }
         }
     }
 
