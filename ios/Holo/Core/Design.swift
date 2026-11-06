@@ -967,45 +967,65 @@ struct GridPattern: View {
     }
 }
 
-/// A bolt of lime light that runs around a rounded border, over a steady neon edge.
+/// A comet of lime light travelling round a rounded border at a steady pace, over a steady neon
+/// edge: one slow, unbroken loop (it follows the border itself, so it never rushes the corners).
 struct ElectricBorder: View {
     var radius: CGFloat
     var color: Color = Theme.lime
-    @State private var spin = false
+    /// Seconds for one trip round the border.
+    var period: Double = 7
+    @State private var phase: Double = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
-        GeometryReader { geo in
-            let side = hypot(geo.size.width, geo.size.height)
-            let bolt = Rectangle()
-                .fill(AngularGradient(
-                    stops: [
-                        .init(color: .clear, location: 0),
-                        .init(color: .clear, location: 0.6),
-                        .init(color: color.opacity(0.5), location: 0.8),
-                        .init(color: color, location: 0.9),
-                        .init(color: .white, location: 0.95),
-                        .init(color: .clear, location: 1),
-                    ],
-                    center: .center
-                ))
-                .frame(width: side, height: side)
-                .rotationEffect(.degrees(spin ? 360 : 0))
-                .position(x: geo.size.width / 2, y: geo.size.height / 2)
-            ZStack {
-                shape.strokeBorder(color.opacity(0.5), lineWidth: 1.5)
-                bolt.mask(shape.strokeBorder(lineWidth: 3))
+        ZStack {
+            shape.strokeBorder(color.opacity(0.5), lineWidth: 1.5)
+            if !reduceMotion {
+                // A soft tail, a brighter body and a white-hot head, all riding the same phase.
+                BorderComet(radius: radius, phase: phase, start: 0, length: 0.26)
+                    .stroke(color.opacity(0.25), style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                BorderComet(radius: radius, phase: phase, start: 0.1, length: 0.16)
+                    .stroke(color.opacity(0.8), style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                BorderComet(radius: radius, phase: phase, start: 0.22, length: 0.04)
+                    .stroke(Color.white, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
             }
         }
+        .padding(0.75)
         .allowsHitTesting(false)
-        // Only spins while on screen.
+        // Only moves while on screen.
         .onVisibilityChange { on in
             if on {
-                withAnimation(.linear(duration: 3.2).repeatForever(autoreverses: false)) { spin = true }
+                phase = 0
+                withAnimation(.linear(duration: period).repeatForever(autoreverses: false)) { phase = 1 }
             } else {
-                stopLoop { spin = false }
+                stopLoop { phase = 0 }
             }
         }
+    }
+}
+
+/// A stretch of a rounded rectangle's outline, `length` long (as a share of the whole), starting
+/// `start` behind the comet's tail at `phase`, wrapping past the outline's start without a seam.
+struct BorderComet: Shape {
+    var radius: CGFloat
+    var phase: Double
+    var start: Double
+    var length: Double
+
+    var animatableData: Double {
+        get { phase }
+        set { phase = newValue }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        let outline = RoundedRectangle(cornerRadius: radius, style: .continuous).path(in: rect)
+        let from = (phase + start).truncatingRemainder(dividingBy: 1)
+        let to = from + length
+        if to <= 1 { return outline.trimmedPath(from: from, to: to) }
+        var p = outline.trimmedPath(from: from, to: 1)
+        p.addPath(outline.trimmedPath(from: 0, to: to - 1))
+        return p
     }
 }
 
