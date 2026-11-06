@@ -355,7 +355,8 @@ final class ScanModel {
                 quantity: 1,
                 unitPrice: typed ?? (pulled ? 0 : (e.value ?? 0)),
                 date: date,
-                source: "ios-scan"
+                // Pulled cards are marked as pulls (the Pulled badge, the pull reveal, Pulls).
+                source: pulled ? Txn.pulledSource : "ios-scan"
             )
         }
     }
