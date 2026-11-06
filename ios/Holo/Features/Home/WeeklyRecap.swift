@@ -54,7 +54,6 @@ struct WeeklyRecap: View {
                     .id(slide.key)
                     .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .opacity))
                     .frame(maxHeight: .infinity)
-                Text("LUCENT").font(.geist(11, .semibold)).tracking(2.2).foregroundStyle(.white.opacity(0.35))
             }
             .padding(.horizontal, 28)
             .padding(.top, 12)
@@ -255,6 +254,9 @@ private struct HeroSlide<Numbers: View>: View {
                 }
             }
             .frame(maxWidth: 280, maxHeight: 380)
+            // The biggest picture of the card, decoded at full size (as on the card page).
+            .environment(\.imageMaxPixel, nil)
+            .environment(\.largeProductImages, true)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(.vertical, 20)
             Text(shortName(holding.product?.name ?? "")).font(.geist(20, .semibold)).foregroundStyle(.white).lineLimit(2)
@@ -360,25 +362,37 @@ private struct RecapBuysFan: View {
 
     var body: some View {
         let n = buys.count
-        ZStack {
-            ForEach(0 ..< n, id: \.self) { i in
-                let mid = Double(n - 1) / 2
-                let angle: Double = (Double(i) - mid) * (n > 3 ? 9 : 12)
-                let x = CGFloat(Double(i) - mid) * (n > 3 ? 46 : 70)
-                VStack(spacing: 10) {
+        let small = n > 3
+        VStack(spacing: 22) {
+            ZStack {
+                ForEach(0 ..< n, id: \.self) { i in
+                    let mid = Double(n - 1) / 2
+                    let angle: Double = (Double(i) - mid) * (small ? 9 : 12)
+                    let x = CGFloat(Double(i) - mid) * (small ? 46 : 70)
                     HoldingArt(product: buys[i].product, identity: buys[i].identity, cornerRadius: 10, caption: false)
                         .frame(width: 150, height: 210)
                         .shadow(color: .black.opacity(0.5), radius: 16, y: 10)
-                    Text(Format.money(buys[i].cost)).font(.geist(13, .semibold)).monospacedDigit()
-                        .padding(.horizontal, 10).frame(height: 26)
+                        .rotationEffect(.degrees(angle), anchor: .bottom)
+                        .offset(x: x, y: shown ? 0 : -60)
+                        .opacity(shown ? 1 : 0)
+                        .animation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.75).delay(0.15 + Double(i) * 0.12), value: shown)
+                }
+            }
+            // What each cost, in the same order, straight and side by side under the fan.
+            HStack(spacing: 6) {
+                ForEach(0 ..< n, id: \.self) { i in
+                    Text(Format.money(buys[i].cost)).font(.geist(small ? 11 : 13, .semibold)).monospacedDigit()
+                        .lineLimit(1).fixedSize()
+                        .padding(.horizontal, small ? 8 : 12).frame(height: small ? 26 : 30)
                         .liquidGlass(in: Capsule())
                 }
-                .rotationEffect(.degrees(angle), anchor: .bottom)
-                .offset(x: x, y: shown ? 0 : -60)
-                .opacity(shown ? 1 : 0)
-                .animation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.75).delay(0.15 + Double(i) * 0.12), value: shown)
             }
+            .opacity(shown ? 1 : 0)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.4).delay(0.3 + Double(n) * 0.12), value: shown)
         }
+        // The biggest picture of each, decoded at full size.
+        .environment(\.imageMaxPixel, nil)
+        .environment(\.largeProductImages, true)
         .onAppear { shown = true }
     }
 }
@@ -459,7 +473,8 @@ private struct RecapGrid: View {
             .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.45), .init(color: .clear, location: 0.85)],
                                  startPoint: .top, endPoint: .bottom))
         }
-        .imageMaxPixel(400)
+        // Small tiles: thumbnails big enough to stay sharp at this size, light enough to drift.
+        .imageMaxPixel(600)
         .allowsHitTesting(false)
     }
 }
