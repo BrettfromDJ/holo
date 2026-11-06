@@ -14,6 +14,8 @@ struct CollectionView: View {
     @State private var shelfId: String?
     /// Showing only the cards you pulled from packs.
     @State private var pullsOnly = false
+    /// Asking before deleting the open shelf.
+    @State private var deletingShelf = false
     /// The name being typed for a new shelf or portfolio, and which one it's for.
     @State private var naming: Naming?
     @State private var name = ""
@@ -164,6 +166,31 @@ struct CollectionView: View {
                             empty
                         } else {
                             controls
+                            // An open shelf: its name, with rename and delete on the right.
+                            if let shelf = groups.shelves.first(where: { $0.id == shelfId }), !pullsOnly {
+                                HStack(spacing: 10) {
+                                    Text(shelf.name).font(.display(20)).tracking(-0.5).lineLimit(1)
+                                    Spacer(minLength: 8)
+                                    Button { name = shelf.name; naming = .renameShelf(shelf.id) } label: {
+                                        Label("Rename", systemImage: "pencil").font(.geist(14, .semibold))
+                                    }
+                                    .buttonStyle(Button3D(kind: .dark, fullWidth: false, height: 34))
+                                    Button { deletingShelf = true } label: {
+                                        Image(systemName: "trash").font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.down)
+                                    }
+                                    .buttonStyle(Button3D(kind: .dark, fullWidth: false, height: 34))
+                                    .accessibilityLabel("Delete shelf")
+                                }
+                                .confirmationDialog("Delete \(shelf.name)?", isPresented: $deletingShelf, titleVisibility: .visible) {
+                                    Button("Delete shelf", role: .destructive) {
+                                        let id = shelf.id
+                                        reshuffle { shelfId = nil }
+                                        Task { await groupRun { try await groups.removeShelf(id) } }
+                                    }
+                                } message: {
+                                    Text("The shelf goes; its cards stay in your collection.")
+                                }
+                            }
                             if pullsOnly {
                                 // What your pulls add up to.
                                 let pulls = store.pulledHoldings
