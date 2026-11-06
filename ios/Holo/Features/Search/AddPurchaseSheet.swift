@@ -24,6 +24,8 @@ struct AddPurchaseSheet: View {
     @State private var price = ""
     @State private var date = Date()
     @State private var source = ""
+    /// Pulled from a pack rather than bought: no price or where; it's marked as a pull.
+    @State private var pulled = false
     // Your usual details, remembered on this phone: where you buy, and the condition or grade
     // you last picked; the date too while you're logging buys within a few hours of each other.
     @AppStorage("holo.add.source") private var lastSource = ""
@@ -137,8 +139,20 @@ struct AddPurchaseSheet: View {
                     }
                 }
 
-                Section("Purchase") {
+                // How you got it: bought, or pulled from a pack (a pull has no price to fill in).
+                if !product.isSealed {
+                    Section {
+                        ChipPicker(options: [(false, "Bought"), (true, "Pulled from a pack")], selection: $pulled)
+                    } header: {
+                        Text("How you got it")
+                    } footer: {
+                        if pulled { Text("Marked as a pull, with a Pulled badge. Nothing to fill in for price.") }
+                    }
+                }
+
+                Section(pulled ? "Pull" : "Purchase") {
                     Stepper("Quantity: \(quantity)", value: $quantity, in: 1...999)
+                    if !pulled {
                     HStack {
                         Text("Price paid (each)")
                         Spacer()
@@ -147,7 +161,10 @@ struct AddPurchaseSheet: View {
                             .multilineTextAlignment(.trailing)
                             .monospacedDigit()
                     }
-                    if extras {
+                    }
+                    if pulled {
+                        // Nothing about money for a pull.
+                    } else if extras {
                         MoneyField(title: "Shipping", text: $shipping)
                         MoneyField(title: "Tax", text: $tax)
                         MoneyField(title: "Fees", text: $fees)
@@ -157,13 +174,15 @@ struct AddPurchaseSheet: View {
                         }
                         .foregroundStyle(Theme.lime)
                     }
-                    DatePicker("Date", selection: $date, in: ...Date(), displayedComponents: .date)
-                    HStack {
-                        Text("Where")
-                        Spacer()
-                        TextField("Card show, eBay, store…", text: $source)
-                            .multilineTextAlignment(.trailing)
-                            .textInputAutocapitalization(.words)
+                    DatePicker(pulled ? "Pulled on" : "Date", selection: $date, in: ...Date(), displayedComponents: .date)
+                    if !pulled {
+                        HStack {
+                            Text("Where")
+                            Spacer()
+                            TextField("Card show, eBay, store…", text: $source)
+                                .multilineTextAlignment(.trailing)
+                                .textInputAutocapitalization(.words)
+                        }
                     }
                 }
 
@@ -221,7 +240,8 @@ struct AddPurchaseSheet: View {
         defer { saving = false }
         // A blank price means you paid market (the field shows it as the hint).
         let typed = Double(price.replacingOccurrences(of: "$", with: "").replacingOccurrences(of: ",", with: ""))
-        let unit = typed ?? hit.market ?? 0
+        let unit = pulled ? 0 : (typed ?? hit.market ?? 0)
+        let where_: String = pulled ? Txn.pulledSource : (source.trimmingCharacters(in: .whitespaces).isEmpty ? "ios" : source.trimmingCharacters(in: .whitespaces))
         let purchase = CollectionStore.Purchase(
             product: product,
             printing: printing,
@@ -232,10 +252,10 @@ struct AddPurchaseSheet: View {
             quantity: Double(quantity),
             unitPrice: unit,
             date: Format.day(date),
-            source: source.trimmingCharacters(in: .whitespaces).isEmpty ? "ios" : source.trimmingCharacters(in: .whitespaces),
-            shipping: MoneyField.value(shipping) ?? 0,
-            tax: MoneyField.value(tax) ?? 0,
-            fees: MoneyField.value(fees) ?? 0
+            source: where_,
+            shipping: pulled ? 0 : (MoneyField.value(shipping) ?? 0),
+            tax: pulled ? 0 : (MoneyField.value(tax) ?? 0),
+            fees: pulled ? 0 : (MoneyField.value(fees) ?? 0)
         )
         do {
             let before = store.allHoldings.reduce(0) { $0 + ($1.value ?? 0) }
@@ -259,7 +279,7 @@ struct AddPurchaseSheet: View {
                 // Price it as a Pristine 10 straight away, not at the next load.
                 Task { await store.loadSlabPrices() }
             }
-            lastSource = source.trimmingCharacters(in: .whitespaces)
+            if !pulled { lastSource = source.trimmingCharacters(in: .whitespaces) }
             lastDate = date.timeIntervalSince1970
             lastSavedAt = Date().timeIntervalSince1970
             if !product.isSealed {
@@ -273,7 +293,9 @@ struct AddPurchaseSheet: View {
             let slab: HoldingIdentity? = graded && !product.isSealed
                 ? HoldingIdentity(productId: product.id, printing: printing, condition: CardCondition.nearMint.rawValue, gradeCompany: company, grade: grade == Self.pristine ? "10" : grade)
                 : nil
-            Router.shared.pull = PullEvent(product: product, quantity: Double(quantity), before: before, identity: slab)
+            let added = HoldingIdentity(productId: product.id, printing: printing, condition: graded ? CardCondition.nearMint.rawValue : condition,
+                                        gradeCompany: graded ? company : nil, grade: graded ? (grade == Self.pristine ? "10" : grade) : nil)
+            Router.shared.pull = PullEvent(product: product, quantity: Double(quantity), before: before, identity: pulled ? added : slab, pulled: pulled)
         } catch {
             self.error = error.localizedDescription
         }

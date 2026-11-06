@@ -182,7 +182,10 @@ struct ProductDetailView: View {
         return VStack(spacing: 10) {
             if !line.isEmpty { MonoLabel(text: line) }
             if owns > 0 {
-                SkewTag(text: "Owned" + (owns > 1 ? " ×\(Int(owns))" : ""), icon: "checkmark")
+                HStack(spacing: 6) {
+                    SkewTag(text: "Owned" + (owns > 1 ? " ×\(Int(owns))" : ""), icon: "checkmark")
+                    if let id = product?.id, store.isPulled(productId: id) { PulledBadge() }
+                }
             }
         }
         .frame(maxWidth: .infinity)

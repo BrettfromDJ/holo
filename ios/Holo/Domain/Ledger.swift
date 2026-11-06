@@ -20,6 +20,12 @@ struct Txn: Hashable, Codable {
     var source: String?
     var notes: String?
 
+    /// The `source` a pulled card is recorded with (shared with the website through the
+    /// transactions table, so no new column is needed).
+    static let pulledSource = "Pulled"
+    /// Added as a card pulled from a pack.
+    var isPull: Bool { kind == .purchase && source == Txn.pulledSource }
+
     /// Loaded cost of a purchase (or positive adjustment), extras included.
     var acquisitionCost: Double { abs(quantity) * unitPrice + fees + shipping + tax }
     /// Net proceeds of a sale after its costs.

@@ -1225,3 +1225,24 @@ extension CollectionStore {
         return (last - then) / then * 100
     }
 }
+
+extension CollectionStore {
+    /// The copies you pulled from a pack (recorded with the "Pulled" source), by holding key.
+    var pulledKeys: Set<String> {
+        Set(Ledger.effective(transactions).filter(\.isPull).map(\.identity.key))
+    }
+
+    /// Whether this copy was (at least partly) pulled from a pack.
+    func isPulled(_ identity: HoldingIdentity) -> Bool { pulledKeys.contains(identity.key) }
+
+    /// Whether any copy of this product was pulled.
+    func isPulled(productId: String) -> Bool {
+        Ledger.effective(transactions).contains { $0.isPull && $0.identity.productId == productId }
+    }
+
+    /// Your pulls you still hold, most valuable first.
+    var pulledHoldings: [HoldingView] {
+        let keys = pulledKeys
+        return holdings.filter { keys.contains($0.identity.key) }.sorted { ($0.value ?? 0) > ($1.value ?? 0) }
+    }
+}

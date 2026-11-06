@@ -12,6 +12,8 @@ struct CollectionView: View {
     @State private var opened: HoldingView?
     @State private var path = NavigationPath()
     @State private var shelfId: String?
+    /// Showing only the cards you pulled from packs.
+    @State private var pullsOnly = false
     /// The name being typed for a new shelf or portfolio, and which one it's for.
     @State private var naming: Naming?
     @State private var name = ""
@@ -81,6 +83,8 @@ struct CollectionView: View {
         var perf: Perf
         /// The selected shelf's products; nil when no shelf is picked.
         var shelf: [String]?
+        /// The pulled copies' keys, when showing only pulls.
+        var pulls: Set<String>?
     }
 
     private struct CountsKey: Equatable {
@@ -101,7 +105,8 @@ struct CollectionView: View {
     private var shown: [HoldingView] {
         let key = ShownKey(
             holdings: store.holdings, query: query, category: category, sort: sort, setFilter: setFilter,
-            typeFilter: typeFilter, perf: perf, shelf: groups.shelves.first { $0.id == shelfId }?.product_ids
+            typeFilter: typeFilter, perf: perf, shelf: groups.shelves.first { $0.id == shelfId }?.product_ids,
+            pulls: pullsOnly ? store.pulledKeys : nil
         )
         return shownMemo(key) { Self.filterAndSort(key) }
     }
@@ -110,7 +115,9 @@ struct CollectionView: View {
         let q = k.query.trimmingCharacters(in: .whitespaces).lowercased()
         let shelf = k.shelf.map { Set($0) }
         let category = k.category, setFilter = k.setFilter, typeFilter = k.typeFilter, perf = k.perf
+        let pulls = k.pulls
         let filtered = k.holdings.filter { h in
+            (pulls == nil || pulls!.contains(h.identity.key)) &&
             (shelf == nil || shelf!.contains(h.identity.productId)) &&
             (category == nil || h.category == category) &&
             (setFilter == nil || h.product?.setName == setFilter) &&
@@ -157,6 +164,16 @@ struct CollectionView: View {
                             empty
                         } else {
                             controls
+                            if pullsOnly {
+                                // What your pulls add up to.
+                                let pulls = store.pulledHoldings
+                                HStack(spacing: 8) {
+                                    PulledBadge()
+                                    (Text("Your pulls are worth ").foregroundColor(Theme.muted)
+                                        + Text(Format.money(pulls.reduce(0) { $0 + ($1.value ?? 0) })).foregroundColor(Theme.lime).fontWeight(.semibold))
+                                        .font(.geist(15)).monospacedDigit()
+                                }
+                            }
                             // Filtered and sorted once per redraw.
                             let shown = self.shown
                             if shown.isEmpty {
@@ -287,15 +304,20 @@ struct CollectionView: View {
     private var categoryChips: some View {
         let counts = chipCounts
         return HStack(spacing: 2) {
-            Chip(title: "All", selected: category == nil && shelfId == nil, count: store.holdings.count) { reshuffle { category = nil; shelfId = nil } }
+            Chip(title: "All", selected: category == nil && shelfId == nil && !pullsOnly, count: store.holdings.count) { reshuffle { category = nil; shelfId = nil; pullsOnly = false } }
+            // The cards you pulled from packs.
+            let pulledCount = store.pulledHoldings.count
+            if pulledCount > 0 {
+                Chip(title: "Pulls", selected: pullsOnly, count: pulledCount) { reshuffle { pullsOnly = true; category = nil; shelfId = nil } }
+            }
             ForEach(HoldingCategory.allCases) { c in
                 let n = counts.categories[c] ?? 0
-                if n > 0 { Chip(title: c.rawValue, selected: category == c && shelfId == nil, count: n) { reshuffle { category = c; shelfId = nil } } }
+                if n > 0 { Chip(title: c.rawValue, selected: category == c && shelfId == nil && !pullsOnly, count: n) { reshuffle { category = c; shelfId = nil; pullsOnly = false } } }
             }
             // Your shelves (shared with the website); hold one to rename or delete it.
             ForEach(groups.shelves) { shelf in
                 let n = counts.shelves[shelf.id] ?? 0
-                Chip(title: shelf.name, selected: shelfId == shelf.id, count: n) { reshuffle { shelfId = shelf.id; category = nil } }
+                Chip(title: shelf.name, selected: shelfId == shelf.id && !pullsOnly, count: n) { reshuffle { shelfId = shelf.id; category = nil; pullsOnly = false } }
                     .contextMenu {
                         Button { name = shelf.name; naming = .renameShelf(shelf.id) } label: { Label("Rename shelf", systemImage: "pencil") }
                         Button("Delete shelf", role: .destructive) {

@@ -200,6 +200,20 @@ private struct Slide {
                 }
             }
         )))
+        // The best card you pulled this week, on fire.
+        let weekPulls = Set(buys.filter(\.isPull).map(\.identity.key))
+        if let pull = store.holdings.filter({ weekPulls.contains($0.identity.key) && ($0.price ?? 0) > 0 }).max(by: { ($0.price ?? 0) < ($1.price ?? 0) }) {
+            slides.append(Slide(key: "pull", background: glow(0xFF5A1F, 0x3D1206, at: UnitPoint(x: 0.5, y: 1)), content: AnyView(
+                HeroSlide(kicker: "Best pull this week", holding: pull, drifts: true, glow: Color(hex: 0xFF7A1A), theme: .fire) {
+                    Big(value: pull.price ?? 0, format: { Format.money($0) }, color: Theme.lime)
+                    HStack(spacing: 8) {
+                        PulledBadge()
+                        Text("Straight from the pack").font(.geist(14)).foregroundStyle(.white.opacity(0.7))
+                    }
+                    .padding(.top, 6)
+                }
+            )))
+        }
         if let best, (best.gainRatio ?? 0) > 0 {
             slides.append(Slide(key: "best", background: glow(0xEC4899, 0x3D0D26, at: UnitPoint(x: 0.5, y: 0)), content: AnyView(
                 HeroSlide(kicker: "Best buy you've ever made", holding: best, drifts: true) {

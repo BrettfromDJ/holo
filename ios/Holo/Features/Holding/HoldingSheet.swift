@@ -159,6 +159,7 @@ struct HoldingSheet: View {
                 Text(product?.name ?? "Unknown").font(.geist(17, .semibold)).lineLimit(2)
                 HStack(spacing: 6) {
                     Tag(text: holding?.label ?? (product?.isSealed == true ? "Sealed" : identity.condition), tint: identity.isGraded ? Theme.lime : .white)
+                    if store.isPulled(identity) { PulledBadge() }
                     if let set = product?.setName { Text(set).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1) }
                 }
             }

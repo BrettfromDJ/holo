@@ -80,6 +80,8 @@ struct PullEvent: Identifiable, Equatable {
     var before: Double
     /// The copy added, when it's a slab: the reveal shows it in its slab.
     var identity: HoldingIdentity? = nil
+    /// Pulled from a pack (not bought): the reveal celebrates the pull.
+    var pulled = false
 }
 
 enum PushRegistration {

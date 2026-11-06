@@ -1182,3 +1182,19 @@ private struct UndoToast: ViewModifier {
         .animation(.snappy, value: router.undo?.id)
     }
 }
+
+/// The small "Pulled" badge on a copy you pulled from a pack: a skewed tag in a hot gradient
+/// with a sparkle, so it reads as a pull at a glance.
+struct PulledBadge: View {
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "sparkles").font(.system(size: 9, weight: .bold))
+            Text("PULLED").font(.geist(11, .bold)).italic().tracking(0.2)
+        }
+        .fixedSize()
+        .foregroundStyle(Theme.ink)
+        .padding(.leading, 8).padding(.trailing, 10).padding(.vertical, 3)
+        .background(Parallelogram(inset: 5).fill(LinearGradient(colors: [Color(hex: 0xFFD23F), Color(hex: 0xFF8A3D)], startPoint: .leading, endPoint: .trailing)))
+        .accessibilityLabel("Pulled from a pack")
+    }
+}
