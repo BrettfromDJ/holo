@@ -141,7 +141,7 @@ private struct ListRow: View {
             VStack(alignment: .trailing, spacing: 2) {
                 Text(Format.money(price)).font(.subheadline.weight(.semibold)).monospacedDigit()
                 if let change {
-                    Text(Format.signedPercent(change / 100)).font(.caption.weight(.medium)).monospacedDigit().foregroundStyle(Theme.tone(change))
+                    DeltaPill(ratio: change / 100, size: 11)
                 }
             }
         }

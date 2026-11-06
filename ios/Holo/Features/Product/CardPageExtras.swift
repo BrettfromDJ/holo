@@ -121,10 +121,11 @@ struct YourCopyStrip: View {
         Button {
             if let h = owned.max(by: { ($0.value ?? 0) < ($1.value ?? 0) }) { onOpen(h) }
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 line
                     .font(.geist(14, .medium)).monospacedDigit()
                     .lineLimit(1).minimumScaleFactor(0.75)
+                if let r = gainRatio { DeltaPill(ratio: r, size: 12) }
                 Spacer(minLength: 4)
                 Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.muted)
             }
@@ -150,13 +151,15 @@ struct YourCopyStrip: View {
             + Text(verbatim: " · ").foregroundStyle(Theme.muted)
             + Text(verbatim: Format.signedMoney(gain)).foregroundStyle(Theme.tone(gain))
             + Text(verbatim: " on what you paid").foregroundStyle(Theme.muted)
-        if cost > 0 {
-            let pct = gain / cost
-            text = text
-                + Text(verbatim: " · ").foregroundStyle(Theme.muted)
-                + Text(verbatim: Format.signedPercent(pct)).foregroundStyle(Theme.tone(pct))
-        }
         return text
+    }
+
+    /// What you've made on what you paid, as a share (shown in its pill after the line).
+    private var gainRatio: Double? {
+        let priced = owned.filter { $0.value != nil }
+        let cost = priced.reduce(0) { $0 + $1.costBasis }
+        guard !priced.isEmpty, cost > 0 else { return nil }
+        return (priced.reduce(0) { $0 + ($1.value ?? 0) } - cost) / cost
     }
 }
 

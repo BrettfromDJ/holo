@@ -201,8 +201,7 @@ struct TodaySheet: View {
                     .foregroundStyle(tint)
                 Text("today").font(.geist(15)).foregroundStyle(Theme.muted)
                 if let r = s.dayRatio {
-                    Text("·").font(.geist(15)).foregroundStyle(Theme.muted)
-                    Text(Format.signedPercent(r)).font(.geist(15, .semibold)).foregroundStyle(tint)
+                    DeltaPill(ratio: r, size: 14)
                 }
             }
             .monospacedDigit()
@@ -225,7 +224,7 @@ struct TodaySheet: View {
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 2) {
                 Text(Format.signedMoney(m.change)).font(.geist(15, .semibold)).foregroundStyle(tint)
-                Text(Format.signedPercent(m.ratio)).font(.geist(13)).foregroundStyle(tint.opacity(0.8))
+                DeltaPill(ratio: m.ratio, size: 12)
             }
             .monospacedDigit()
         }

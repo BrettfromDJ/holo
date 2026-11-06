@@ -570,7 +570,10 @@ struct ProductDetailView: View {
                             Text("\(h.lots.count) open lot\(h.lots.count == 1 ? "" : "s") · avg \(Format.money(h.avgCost))").font(.geist(12)).foregroundStyle(Theme.muted).monospacedDigit()
                         }
                         Spacer()
-                        Text(Format.signedMoney(h.gain) + " (\(Format.signedPercent(h.gainRatio)))").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.tone(h.gain))
+                        HStack(spacing: 6) {
+                            Text(Format.signedMoney(h.gain)).font(.geist(13)).monospacedDigit().foregroundStyle(Theme.tone(h.gain))
+                            DeltaPill(ratio: h.gainRatio, size: 11)
+                        }
                         Image(systemName: "ellipsis").font(.system(size: 13)).foregroundStyle(Theme.muted)
                     }
                     .padding(.vertical, 14)
@@ -789,7 +792,8 @@ private struct PriceHistoryCard: View {
                     let diff = last.price - first.price
                     HStack(spacing: 4) {
                         Text(Format.money(last.price)).fontWeight(.medium)
-                        Text("\(Format.signedMoney(diff)) (\(Format.signedPercent(first.price > 0 ? diff / first.price : nil)))").foregroundStyle(Theme.tone(diff))
+                        Text(Format.signedMoney(diff)).foregroundStyle(Theme.tone(diff))
+                        DeltaPill(ratio: first.price > 0 ? diff / first.price : nil, size: 12)
                         Text("since \(first.day.formatted(date: .abbreviated, time: .omitted))").foregroundStyle(Theme.muted)
                     }
                     .lineLimit(1).minimumScaleFactor(0.7)

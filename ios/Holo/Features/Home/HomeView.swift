@@ -673,7 +673,7 @@ private struct PerformanceSection: View {
             }
             HStack(spacing: 6) {
                 Text(Format.signedMoney(change)).foregroundStyle(Theme.tone(change))
-                if first > 0 { Text("(\(Format.signedPercent(change / first)))").foregroundStyle(Theme.tone(change)) }
+                if first > 0 { DeltaPill(ratio: change / first, size: 14) }
                 Text(range.phrase).foregroundStyle(Theme.muted)
             }
             .font(.geist(16, .medium)).monospacedDigit()
@@ -933,18 +933,18 @@ private struct Spotlight: View {
             let change = dollars(h, pct)
             let when = today != nil ? "today" : "this week"
             out.append(AnyView(MiniTile(holding: h, tag: "Biggest move \(when)", icon: "flame.fill", color: change < 0 ? Theme.planPink : Theme.lime, value: change,
-                                        line: Text(Format.signedPercent(pct / 100)).foregroundStyle(Theme.tone(change)) + Text(" \(when)").foregroundStyle(Theme.muted),
+                                        ratio: pct / 100, suffix: when,
                                         series: store.series(h.identity, days: 30))))
         }
         if let (h, pct) = rest.compactMap({ h in store.move(h, days: 30).map { (h, $0) } }).filter({ $0.1 > 0.5 }).max(by: { $0.1 < $1.1 }), h.id != (today ?? week)?.0.id {
             let change = dollars(h, pct)
             out.append(AnyView(MiniTile(holding: h, tag: "Most improved this month", icon: "arrow.up.right", color: Theme.lime, value: change,
-                                        line: Text(Format.signedPercent(pct / 100)).foregroundStyle(Theme.up) + Text(" this month").foregroundStyle(Theme.muted),
+                                        ratio: pct / 100, suffix: "this month",
                                         series: store.series(h.identity, days: 30))))
         }
         if let laggard = rest.filter({ ($0.gainRatio ?? 0) < 0 }).min(by: { ($0.gainRatio ?? 0) < ($1.gainRatio ?? 0) }) {
             out.append(AnyView(MiniTile(holding: laggard, tag: "Below what you paid", icon: "arrow.down.right", color: Theme.planPink, value: laggard.gain,
-                                        line: Text(Format.signedPercent(laggard.gainRatio)).foregroundStyle(Theme.down) + Text(" vs what you paid").foregroundStyle(Theme.muted),
+                                        ratio: laggard.gainRatio, suffix: "vs what you paid",
                                         series: store.series(laggard.identity, days: 30), baseline: laggard.avgCost)))
         }
         return out
@@ -1057,7 +1057,9 @@ private struct MiniTile: View {
     var icon: String
     var color: Color
     var value: Double?
-    var line: Text
+    /// The change, shown in its pill, and what it's measured against ("today", "vs what you paid").
+    var ratio: Double?
+    var suffix: String
     var series: [TimelinePoint]
     var baseline: Double?
 
@@ -1071,7 +1073,10 @@ private struct MiniTile: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(holding.product?.name ?? "").font(.geist(16, .medium)).lineLimit(1).foregroundStyle(.white)
                         Text(Format.signedMoney(value)).font(.display(28)).tracking(-0.7).monospacedDigit().foregroundStyle(Theme.tone(value))
-                        line.font(.geist(13, .medium)).monospacedDigit()
+                        HStack(spacing: 6) {
+                            DeltaPill(ratio: ratio, size: 12)
+                            Text(suffix).font(.geist(13, .medium)).foregroundStyle(Theme.muted)
+                        }
                     }
                     Spacer(minLength: 0)
                 }
@@ -1325,7 +1330,7 @@ private struct CategoryCard: View {
                     HStack(spacing: 6) {
                         Image(systemName: "chart.line.uptrend.xyaxis").font(.caption2)
                         Text("Best: \(best.product?.name ?? "")").lineLimit(1)
-                        Text(Format.signedPercent(best.gainRatio)).foregroundStyle(Theme.tone(best.gainRatio)).fontWeight(.semibold)
+                        DeltaPill(ratio: best.gainRatio, size: 12)
                     }
                     .font(.geist(13)).foregroundStyle(Theme.muted)
                 }
@@ -1492,7 +1497,7 @@ private struct RecentSection: View {
                                 Spacer(minLength: 4)
                                 VStack(alignment: .trailing, spacing: 3) {
                                     Text(Format.money(item.value)).font(.display(19)).tracking(-0.5).monospacedDigit().foregroundStyle(.white)
-                                    Text(Format.signedPercent(item.change)).font(.geist(13, .medium)).monospacedDigit().foregroundStyle(Theme.tone(item.change))
+                                    DeltaPill(ratio: item.change, size: 12)
                                 }
                                 .padding(.top, 12)
                             }
@@ -1776,7 +1781,11 @@ private struct HeroStats: View {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(item.value).font(.geist(15, .semibold)).foregroundStyle(item.tint)
                 if let extra = item.extra {
-                    Text(extra).font(.geist(11, .medium)).foregroundStyle(item.tint.opacity(0.8))
+                    // The change in its pill, like every percentage next to a figure.
+                    Text(extra).font(.geist(11, .semibold)).monospacedDigit().foregroundStyle(item.tint)
+                        .lineLimit(1).fixedSize()
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(RoundedRectangle(cornerRadius: 6).fill(item.tint.opacity(0.12)))
                 }
             }
             .monospacedDigit()

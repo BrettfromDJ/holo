@@ -189,7 +189,7 @@ struct SellCalculatorSheet: View {
                 Text(ready ? Format.signedMoney(e.profit) : "—").font(.display(40)).tracking(-1.6).monospacedDigit()
                     .foregroundStyle(ready ? Theme.tone(e.profit) : Theme.subtle).displayTrim(40)
                 if ready, let pct = e.profitPct {
-                    Text(Format.signedPercent(pct)).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(e.profit))
+                    DeltaPill(ratio: pct, size: 14)
                 }
             }
             .padding(.top, 10)

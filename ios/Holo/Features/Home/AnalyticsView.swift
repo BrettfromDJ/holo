@@ -155,7 +155,10 @@ private struct SetPerformance: View {
                             Spacer(minLength: 8)
                             VStack(alignment: .trailing, spacing: 2) {
                                 Text(Format.money(r.value)).font(.geist(14, .semibold)).monospacedDigit()
-                                Text("\(Format.signedMoney(r.gain)) · \(Format.signedPercent(r.ret))").font(.geist(12)).monospacedDigit().foregroundStyle(Theme.tone(r.gain))
+                                HStack(spacing: 6) {
+                                    Text(Format.signedMoney(r.gain)).font(.geist(12)).monospacedDigit().foregroundStyle(Theme.tone(r.gain))
+                                    DeltaPill(ratio: r.ret, size: 11)
+                                }
                             }
                         }
                         GrowBar(fraction: r.share / maxShare, color: (r.ret ?? 0) < 0 ? Theme.planPink : Theme.planBlue, height: 6, delay: Double(min(i, 8)) * 0.05)
@@ -335,7 +338,7 @@ private struct HistorySection: View {
                 } else {
                     HStack(spacing: 6) {
                         Text(Format.signedMoney(p.gain)).foregroundStyle(Theme.tone(p.gain))
-                        Text("(\(Format.signedPercent(p.twr)))").foregroundStyle(Theme.tone(p.twr))
+                        DeltaPill(ratio: p.twr, size: 13)
                         Text(range.phrase).foregroundStyle(Theme.muted)
                     }
                 }
@@ -601,7 +604,7 @@ private struct TypeBreakdown: View {
                                 (Text(g.name).font(.geist(14, .medium)) + Text("  ×\(g.count)").font(.geist(12)).foregroundColor(Theme.subtle)).lineLimit(1)
                                 Spacer(minLength: 8)
                                 Text(Format.money(g.value)).font(.geist(14, .semibold)).monospacedDigit()
-                                Text(Format.signedPercent(g.ret)).font(.geist(12)).monospacedDigit().foregroundStyle(Theme.tone(g.ret))
+                                DeltaPill(ratio: g.ret, size: 11)
                             }
                             GrowBar(fraction: g.value / top, color: (g.ret ?? 0) < 0 ? Theme.planPink : Theme.planBlue, height: 9, delay: Double(i) * 0.06)
                                 .overlay(alignment: .leading) {
@@ -742,7 +745,7 @@ private struct CollectionMap: View {
                         if showValue {
                             HStack(spacing: 6) {
                                 Text(Format.money(h.value)).font(.geist(12, .semibold)).monospacedDigit()
-                                Text(Format.signedPercent(h.gainRatio)).font(.geist(11)).monospacedDigit().opacity(0.8)
+                                DeltaPill(ratio: h.gainRatio, size: 10)
                             }
                             .lineLimit(1).minimumScaleFactor(0.7)
                         }

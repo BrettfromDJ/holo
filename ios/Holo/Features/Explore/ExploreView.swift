@@ -1267,9 +1267,14 @@ private struct ChangeText: View {
 
     var body: some View {
         let v = pct ?? 0
+        let tint: Color = pct == nil ? Theme.subtle : v > 0 ? Theme.up : v < 0 ? Theme.down : Theme.muted
+        // In its pill, like every percentage next to a figure (a dash for no data stays bare).
         Text(pct == nil ? "—" : Format.signedPercent(v / 100))
             .font(.geist(size, .semibold)).monospacedDigit()
-            .foregroundStyle(pct == nil ? Theme.subtle : v > 0 ? Theme.up : v < 0 ? Theme.down : Theme.muted)
+            .foregroundStyle(tint)
+            .lineLimit(1).fixedSize()
+            .padding(.horizontal, pct == nil ? 0 : 6).padding(.vertical, pct == nil ? 0 : 2)
+            .background(RoundedRectangle(cornerRadius: 6).fill(pct == nil ? Color.clear : tint.opacity(0.12)))
     }
 }
 

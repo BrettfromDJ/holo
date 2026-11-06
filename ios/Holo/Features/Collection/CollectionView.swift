@@ -900,7 +900,7 @@ private struct HoldingListRow: View {
             VStack(alignment: .trailing, spacing: 3) {
                 Text((holding.isConditionEstimate ? "≈" : "") + Format.money(holding.value)).font(.geist(15, .semibold)).monospacedDigit()
                 Delta(value: holding.gain, size: 13)
-                Text(Format.signedPercent(holding.gainRatio)).font(.geist(12)).foregroundStyle(Theme.tone(holding.gainRatio)).monospacedDigit()
+                DeltaPill(ratio: holding.gainRatio, size: 11)
             }
         }
         .padding(.horizontal, 14)
