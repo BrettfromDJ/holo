@@ -18,9 +18,20 @@ struct PullReveal: View {
     @State private var shaking = false
     /// A pull: the card's value counting up from nothing.
     @State private var pullValue: Double = 0
+    /// A card's spin, in degrees: it starts on its back, turns a few times and lands on its
+    /// face at 0.
+    @State private var spin: Double = 900
+    /// The card back has appeared (it scales in before spinning).
+    @State private var shown = false
+    /// The lime flash behind the card as it lands.
+    @State private var landed = false
 
     private var after: Double { store.allHoldings.reduce(0) { $0 + ($1.value ?? 0) } }
     private var isCard: Bool { !event.product.isSealed && event.product.imageURL != nil }
+    /// A raw card spins in from its back (a slab or sealed product flips in as before).
+    private var spins: Bool { isCard && event.identity?.isGraded != true && !reduceMotion }
+    /// Screenshots: hold the spin partway, on the card's back.
+    private static let holdBack = ProcessInfo.processInfo.arguments.contains("-HoloPullBack")
 
     var body: some View {
         let added = after - event.before
@@ -36,12 +47,24 @@ struct PullReveal: View {
             VStack(spacing: 0) {
                 Spacer(minLength: 12)
                 ZStack {
-                    art
-                        .rotation3DEffect(.degrees(flipped || reduceMotion ? 0 : 100), axis: (x: 0, y: 1, z: 0), perspective: 0.6)
-                        .scaleEffect(flipped || reduceMotion ? 1 : 0.7)
-                        .opacity(flipped || reduceMotion ? 1 : 0)
-                        .offset(y: event.pulled && !flipped && !reduceMotion ? 60 : 0)
-                    if event.pulled && !reduceMotion { PackWrapper(product: event.product, shaking: shaking, torn: torn) }
+                    if spins {
+                        // A lime flash behind the card as it lands on its face.
+                        Circle().fill(Theme.lime).frame(width: 260, height: 260).blur(radius: 60)
+                            .scaleEffect(landed ? 1.25 : 0.4)
+                            .opacity(landed ? 0 : (flipped ? 0.55 : 0))
+                            .allowsHitTesting(false)
+                        SpinningCard(angle: spin, front: art, back: CardBack().frame(width: 260, height: 363).shadow(color: .black.opacity(0.6), radius: 30, y: 16))
+                            .scaleEffect(shown ? 1 : 0.55)
+                            .opacity(shown ? 1 : 0)
+                            .offset(y: shown ? 0 : 50)
+                    } else {
+                        art
+                            .rotation3DEffect(.degrees(flipped || reduceMotion ? 0 : 100), axis: (x: 0, y: 1, z: 0), perspective: 0.6)
+                            .scaleEffect(flipped || reduceMotion ? 1 : 0.7)
+                            .opacity(flipped || reduceMotion ? 1 : 0)
+                            .offset(y: event.pulled && !flipped && !reduceMotion ? 60 : 0)
+                        if event.pulled && !reduceMotion { PackWrapper(product: event.product, shaking: shaking, torn: torn) }
+                    }
                 }
 
                 if event.pulled {
@@ -186,6 +209,10 @@ struct PullReveal: View {
     }
 
     private func play() {
+        if spins {
+            playSpin()
+            return
+        }
         if event.pulled {
             playPull()
             return
@@ -203,6 +230,40 @@ struct PullReveal: View {
 }
 
 extension PullReveal {
+    /// A raw card: its back scales in (a pull holds there a moment longer), then it spins
+    /// a few turns, slowing, and lands on its face with a lime flash and a thump; the foil band
+    /// sweeps and the figures rise.
+    fileprivate func playSpin() {
+        let value = max(after - event.before, 0)
+        shownValue = event.pulled ? after : event.before
+        if Self.holdBack {
+            spin = 160; shown = true
+            return
+        }
+        // A pull gets a longer build: more turns after a moment longer on its back.
+        let wait = event.pulled ? 0.9 : 0.35
+        let turn = event.pulled ? 1.9 : 1.5
+        spin = event.pulled ? 1260 : 900
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) { shown = true }
+        withAnimation(.timingCurve(0.3, 0.6, 0.15, 1, duration: turn).delay(wait)) { spin = 0 }
+        // The card faces you about 70% of the way through the turn (the rest is it settling).
+        let land = wait + turn * 0.72
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(land))
+            // The flash and the thump (the haptic follows `flipped`).
+            withAnimation(.easeOut(duration: 0.12)) { flipped = true }
+            try? await Task.sleep(for: .seconds(0.12))
+            withAnimation(.easeOut(duration: 0.8)) { landed = true }
+            withAnimation(.easeInOut(duration: 1.1).delay(0.05)) { sweep = true }
+            withAnimation(.easeOut(duration: 0.5).delay(0.1)) { risen = true }
+            if event.pulled {
+                withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 1.8).delay(0.2)) { pullValue = value }
+            } else {
+                withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 1.6).delay(0.2)) { shownValue = after }
+            }
+        }
+    }
+
     /// The pull: the wrapper tears open, the card rises out and flips in with its foil sweep,
     /// then its value counts up from $0.
     fileprivate func playPull() {
@@ -219,6 +280,78 @@ extension PullReveal {
         withAnimation(.easeInOut(duration: 1.1).delay(1.7)) { sweep = true }
         withAnimation(.easeOut(duration: 0.5).delay(1.75)) { risen = true }
         withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 1.8).delay(1.85)) { pullValue = value }
+    }
+}
+
+/// A card turning about its upright axis: its face when the face is toward you, its back
+/// (mirrored back the right way round) when it's turned away. Only the angle animates; both sides
+/// stay built, so the picture isn't reloaded at each turn.
+private struct SpinningCard<Front: View, Back: View>: View, Animatable {
+    var angle: Double
+    var front: Front
+    var back: Back
+    var animatableData: Double {
+        get { angle }
+        set { angle = newValue }
+    }
+
+    var body: some View {
+        let a = abs(angle.truncatingRemainder(dividingBy: 360))
+        let showsBack = a > 90 && a < 270
+        ZStack {
+            front.opacity(showsBack ? 0 : 1)
+            back.scaleEffect(x: -1, y: 1).opacity(showsBack ? 1 : 0)
+        }
+        .rotation3DEffect(.degrees(angle), axis: (x: 0, y: 1, z: 0), perspective: 0.45)
+    }
+}
+
+/// The back of a card, in Lucent's own look: a deep blue swirl in a dark border, a lime orb in
+/// the middle and the name above and (upside down) below it. Drawn once into a single layer.
+struct CardBack: View {
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 13, style: .continuous)
+        let inner = RoundedRectangle(cornerRadius: 8, style: .continuous)
+        let deep = Color(red: 0.05, green: 0.08, blue: 0.24)
+        let mid = Color(red: 0.12, green: 0.24, blue: 0.62)
+        ZStack {
+            shape.fill(Color(red: 0.04, green: 0.06, blue: 0.16))
+            ZStack {
+                AngularGradient(colors: [deep, mid, deep, Color(red: 0.2, green: 0.36, blue: 0.85), deep, mid, deep], center: .center)
+                // The swirl: soft white bands turning about the middle.
+                ForEach(0..<5, id: \.self) { i in
+                    Ellipse()
+                        .stroke(Color.white.opacity(0.13 - Double(i) * 0.015), lineWidth: 16 - CGFloat(i) * 2)
+                        .frame(width: 300 - CGFloat(i) * 40, height: 130 - CGFloat(i) * 14)
+                        .rotationEffect(.degrees(Double(i) * 34 - 25))
+                }
+                .blur(radius: 5)
+                // The orb: lime above, dark below, a ring round its middle.
+                ZStack {
+                    Circle().fill(RadialGradient(colors: [Color(red: 0.93, green: 1, blue: 0.6), Theme.lime, Color(red: 0.45, green: 0.6, blue: 0.05)],
+                                                 center: UnitPoint(x: 0.38, y: 0.3), startRadius: 4, endRadius: 70))
+                    Rectangle().fill(Color(red: 0.07, green: 0.08, blue: 0.1)).frame(height: 12)
+                    Circle().fill(Color(red: 0.07, green: 0.08, blue: 0.1)).frame(width: 40, height: 40)
+                    Circle().fill(Color.white.opacity(0.9)).frame(width: 22, height: 22)
+                }
+                .frame(width: 104, height: 104)
+                .clipShape(Circle())
+                .shadow(color: Theme.lime.opacity(0.5), radius: 18)
+                VStack {
+                    Text("Lucent").font(.display(44)).tracking(-1.4).foregroundStyle(Theme.lime)
+                    Spacer()
+                    Text("Lucent").font(.display(44)).tracking(-1.4).foregroundStyle(Theme.lime).rotationEffect(.degrees(180))
+                }
+                .shadow(color: .black.opacity(0.5), radius: 0, x: 0, y: 3)
+                .padding(.vertical, 26)
+            }
+            .clipShape(inner)
+            .padding(12)
+        }
+        .clipShape(shape)
+        .overlay(shape.strokeBorder(Color.white.opacity(0.14)))
+        .drawingGroup()
+        .accessibilityHidden(true)
     }
 }
 
