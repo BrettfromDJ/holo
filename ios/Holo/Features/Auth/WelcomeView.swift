@@ -1606,7 +1606,7 @@ private struct SetShow {
     ]
 }
 
-/// The master set page on loop, off one clock: a binder page lying back a little, plastic
+/// The master set page on loop, off one clock: a binder page under the set's name, plastic
 /// sleeves catching the light. The chase card in the middle starts dark and lights up from the
 /// bottom as the share climbs; a missing card slides into its empty sleeve with a glint; the chase
 /// card comes fully alight with a lime edge; then the page turns to the next set.
@@ -1675,7 +1675,6 @@ private struct MasterSetScene: View {
                 }
             }
             BinderPage(set: set, bought: bought, reveal: reveal, lit: lit, glint: glint)
-                .rotation3DEffect(.degrees(7), axis: (x: 1, y: 0, z: 0), anchor: .bottom, perspective: 0.6)
                 .rotation3DEffect(.degrees(pageAngle), axis: (x: 0, y: 1, z: 0), anchor: .leading, perspective: 0.5)
                 .opacity(fade)
         }
