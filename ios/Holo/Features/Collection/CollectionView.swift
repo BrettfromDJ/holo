@@ -303,7 +303,7 @@ struct CollectionView: View {
             }
             Divider()
             Button { naming = .portfolio } label: { Label("New portfolio…", systemImage: "plus") }
-            Button { managing = true } label: { Label("Manage shelves and portfolios…", systemImage: "slider.horizontal.3") }
+            Button { managing = true } label: { Label("Shelves & portfolios…", systemImage: "slider.horizontal.3") }
             if groups.portfolios.contains(where: { $0.id == groups.selected }) {
                 let id = groups.selected
                 Button { name = groups.name(of: id); naming = .renamePortfolio(id) } label: { Label("Rename portfolio…", systemImage: "pencil") }
@@ -319,7 +319,8 @@ struct CollectionView: View {
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 14).frame(height: 36)
-            .liquidGlass(in: Capsule())
+            // Frosted: a real blur of what's behind, not just glass over it.
+            .blurredGlass(in: Capsule())
         }
         .sheet(isPresented: $managing) {
             ManageGroupsSheet(onClearShelf: { id in if shelfId == id { shelfId = nil } })
@@ -469,7 +470,7 @@ struct CollectionView: View {
                 .foregroundStyle(selecting ? Theme.ink : .white)
                 .padding(.horizontal, 16).frame(height: 36)
                 .background { if selecting { Capsule().fill(Theme.lime) } }
-                .liquidGlass(in: Capsule())
+                .blurredGlass(in: Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("collection-select")
@@ -1064,13 +1065,13 @@ struct ManageGroupsSheet: View {
                     ForEach(groups.shelves) { shelf in
                         row(shelf.name, sub: "\(shelf.product_ids.count) item\(shelf.product_ids.count == 1 ? "" : "s")", kind: .shelf, id: shelf.id)
                     }
-                } header: { Text("Shelves") } footer: { Text("Shelves are your own groups, like Grails or For sale. Deleting a shelf keeps its cards in your collection.") }
+                } header: { sectionTitle("Shelves") } footer: { sectionNote("Your own groups, like Grails or For sale. Deleting a shelf keeps its cards in your collection.") }
                 Section {
                     if groups.portfolios.isEmpty { Text("No portfolios yet.").foregroundStyle(Theme.muted) }
                     ForEach(groups.portfolios) { p in
                         row(p.name, sub: nil, kind: .portfolio, id: p.id)
                     }
-                } header: { Text("Portfolios") } footer: { Text("Portfolios are separate collections with their own totals. Deleting one moves its cards back to Main.") }
+                } header: { sectionTitle("Portfolios") } footer: { sectionNote("Separate collections with their own totals. Deleting one moves its cards back to Main.") }
                 if let error { Section { Text(error).foregroundStyle(Theme.down) } }
             }
             .navigationTitle("Shelves and portfolios")
@@ -1090,6 +1091,17 @@ struct ManageGroupsSheet: View {
         }
         .presentationDetents([.medium, .fraction(0.93)])
         .glassSheet()
+    }
+
+    /// A section's heading: white, in the heading font, clearly above the rows and the note.
+    private func sectionTitle(_ text: String) -> some View {
+        Text(text).font(.display(20)).tracking(-0.5).foregroundStyle(.white).textCase(nil)
+            .padding(.bottom, 2)
+    }
+
+    /// The quiet note under a section's rows.
+    private func sectionNote(_ text: String) -> some View {
+        Text(text).font(.geist(12)).foregroundStyle(Theme.subtle).textCase(nil)
     }
 
     private func row(_ title: String, sub: String?, kind: Kind, id: String) -> some View {
