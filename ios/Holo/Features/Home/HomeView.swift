@@ -731,27 +731,28 @@ private struct MetricGrid: View {
     var body: some View {
         let s = store.summary
         VStack(spacing: 12) {
-            HStack(spacing: 12) {
-                MetricCard(label: "Invested", amount: s.totalCost, format: { Format.money($0) }, valueTint: .white, sub: "incl. fees & shipping", tint: Theme.azure)
-                NavigationLink(value: MorePage.gains) {
-                    MetricCard(label: "Unrealized", amount: s.gain, format: { Format.signedMoney($0) }, valueTint: Theme.tone(s.gain), sub: "breakdown →",
-                               tint: s.gain >= 0 ? Theme.lime : Theme.planPink,
-                               tag: s.gainRatio.map { (pct($0, decimals: 0), s.gain >= 0 ? Theme.lime : Theme.planPink, s.gain >= 0 ? Theme.ink : .white) })
+            // Today, all time and invested are in the hero already; the one thing they don't
+            // say is how big the collection is, so that's a single row to it.
+            Button {
+                Router.shared.tabRequest = "collection"
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "square.grid.2x2").font(.system(size: 15)).foregroundStyle(Theme.muted)
+                        .frame(width: 36, height: 36).background(RoundedRectangle(cornerRadius: 12).fill(Theme.surface2))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Your collection").font(.geist(12, .medium)).foregroundStyle(Theme.muted)
+                        Text("\(Int(s.items.rounded())) items in \(store.holdings.count) products").font(.geist(15, .semibold)).monospacedDigit()
+                    }
+                    Spacer(minLength: 8)
+                    Image(systemName: "arrow.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.muted)
                 }
-                .buttonStyle(.plain)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .surface(radius: 22, padding: nil)
+                .contentShape(Rectangle())
             }
-            HStack(spacing: 12) {
-                MetricCard(label: "Today", amount: s.dayChange, format: { Format.signedMoney($0) }, valueTint: Theme.tone(s.dayChange), sub: nil,
-                           tint: s.dayChange >= 0 ? Theme.lime : Theme.planPink,
-                           tag: s.dayRatio.map { (pct($0, decimals: 2), s.dayChange >= 0 ? Theme.lime : Theme.planPink, s.dayChange >= 0 ? Theme.ink : .white) })
-                Button {
-                    Router.shared.tabRequest = "collection"
-                } label: {
-                    MetricCard(label: "Collection", amount: s.items, format: { "\(Int($0.rounded())) items" }, valueTint: .white, sub: "\(store.holdings.count) products",
-                               tint: Theme.planBlue, tag: ("\(store.holdings.count) SKUs", Theme.planBlue, .white))
-                }
-                .buttonStyle(.plain)
-            }
+            .buttonStyle(.plain)
             BudgetCard(store: store)
             PriceFreshness(refreshedAt: store.pricesRefreshedAt, onReload: onReload)
         }
@@ -941,29 +942,44 @@ private struct Spotlight: View {
         .max { abs($0.1) < abs($1.1) }
     }
 
+    /// The second card's choices today: the biggest mover (today, else this week), the most
+    /// improved this month, and the one most below what you paid. One shows, a different one each
+    /// day, so it isn't the same bad news every morning.
+    private func candidates(_ holdings: [HoldingView], except: String?) -> [AnyView] {
+        var out: [AnyView] = []
+        let rest = holdings.filter { $0.id != except && !$0.isManual && ($0.value ?? 0) > 0 }
+        func dollars(_ h: HoldingView, _ pct: Double) -> Double { let v = h.value ?? 0; return v - v / (1 + pct / 100) }
+        let today = rest.compactMap { h in store.move(h, days: 1).map { (h, $0) } }.filter { abs($0.1) >= 0.05 }.max { abs(dollars($0.0, $0.1)) < abs(dollars($1.0, $1.1)) }
+        let week = rest.compactMap { h in store.move(h, days: 7).map { (h, $0) } }.filter { abs($0.1) >= 0.05 }.max { abs(dollars($0.0, $0.1)) < abs(dollars($1.0, $1.1)) }
+        if let (h, pct) = today ?? week {
+            let change = dollars(h, pct)
+            let when = today != nil ? "today" : "this week"
+            out.append(AnyView(MiniTile(holding: h, tag: "Biggest move \(when)", icon: "flame.fill", color: change < 0 ? Theme.planPink : Theme.lime, value: change,
+                                        line: Text(Format.signedPercent(pct / 100)).foregroundStyle(Theme.tone(change)) + Text(" \(when)").foregroundStyle(Theme.muted),
+                                        series: store.series(h.identity, days: 30))))
+        }
+        if let (h, pct) = rest.compactMap({ h in store.move(h, days: 30).map { (h, $0) } }).filter({ $0.1 > 0.5 }).max(by: { $0.1 < $1.1 }), h.id != (today ?? week)?.0.id {
+            let change = dollars(h, pct)
+            out.append(AnyView(MiniTile(holding: h, tag: "Most improved this month", icon: "arrow.up.right", color: Theme.lime, value: change,
+                                        line: Text(Format.signedPercent(pct / 100)).foregroundStyle(Theme.up) + Text(" this month").foregroundStyle(Theme.muted),
+                                        series: store.series(h.identity, days: 30))))
+        }
+        if let laggard = rest.filter({ ($0.gainRatio ?? 0) < 0 }).min(by: { ($0.gainRatio ?? 0) < ($1.gainRatio ?? 0) }) {
+            out.append(AnyView(MiniTile(holding: laggard, tag: "Below what you paid", icon: "arrow.down.right", color: Theme.planPink, value: laggard.gain,
+                                        line: Text(Format.signedPercent(laggard.gainRatio)).foregroundStyle(Theme.down) + Text(" vs what you paid").foregroundStyle(Theme.muted),
+                                        series: store.series(laggard.identity, days: 30), baseline: laggard.avgCost)))
+        }
+        return out
+    }
+
     var body: some View {
         let holdings = store.holdings
         let star = holdings.filter { ($0.gain ?? 0) > 0 }.max { ($0.gain ?? 0) < ($1.gain ?? 0) }
-        let mover = holdings.filter { ($0.dayChange ?? 0) != 0 && $0.id != star?.id }.max { abs($0.dayChange ?? 0) < abs($1.dayChange ?? 0) }
-        let laggard = holdings.filter { ($0.gainRatio ?? 0) < 0 }.min { ($0.gainRatio ?? 0) < ($1.gainRatio ?? 0) }
+        let picks = candidates(holdings, except: star?.id)
+        let day = Calendar.current.ordinality(of: .day, in: .era, for: Date()) ?? 0
         VStack(spacing: 14) {
             if let star { StarCard(holding: star, series: store.series(star.identity)) }
-            if let mover {
-                // The card takes the move's color: lime up, pink down, never red on lime.
-                MiniTile(holding: mover, tag: "Biggest move today", icon: "flame.fill", color: (mover.dayChange ?? 0) < 0 ? Theme.planPink : Theme.lime, value: mover.dayChange,
-                         line: Text(Format.signedPercent((mover.change24hPct ?? 0) / 100)).foregroundStyle(Theme.tone(mover.dayChange)) + Text(" today").foregroundStyle(Theme.muted),
-                         series: store.series(mover.identity, days: 30))
-            } else if let (week, change) = weekMover(holdings, except: star?.id) {
-                // Nothing moved today: the biggest move over the past week instead.
-                MiniTile(holding: week, tag: "Biggest move this week", icon: "flame.fill", color: change < 0 ? Theme.planPink : Theme.lime, value: change,
-                         line: Text(Format.signedPercent((week.change7dPct ?? 0) / 100)).foregroundStyle(Theme.tone(change)) + Text(" this week").foregroundStyle(Theme.muted),
-                         series: store.series(week.identity, days: 30))
-            }
-            if let laggard {
-                MiniTile(holding: laggard, tag: "Below what you paid", icon: "arrow.down.right", color: Theme.planPink, value: laggard.gain,
-                         line: Text(Format.signedPercent(laggard.gainRatio)).foregroundStyle(Theme.down) + Text(" vs what you paid").foregroundStyle(Theme.muted),
-                         series: store.series(laggard.identity, days: 30), baseline: laggard.avgCost)
-            }
+            if !picks.isEmpty { picks[day % picks.count] }
         }
     }
 }
@@ -1137,6 +1153,10 @@ private struct ShelfSection: View {
     }
 
     var body: some View {
+        if !items.isEmpty { shelf }
+    }
+
+    private var shelf: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .lastTextBaseline) {
                 PageHeader(title: "Most valuable", subtitle: "Ranked by what they're worth today", size: 30)
@@ -1274,11 +1294,13 @@ private struct ValueSplit: View {
     var body: some View {
         let total = max(store.summary.value, 0.01)
         let groups = HoldingCategory.allCases.map { c in (c, store.holdings.filter { $0.category == c }) }.filter { !$0.1.isEmpty }
+        if !groups.isEmpty {
         VStack(alignment: .leading, spacing: 16) {
             PageHeader(title: "Where your value sits", subtitle: "Sealed, singles and slabs, side by side", size: 30)
             // The split: the same bar as Collection's, sized by share.
             AllocationBar(holdings: store.holdings, total: store.summary.value)
             ForEach(groups, id: \.0) { c, items in CategoryCard(category: c, items: items, total: total) }
+        }
         }
     }
 }
@@ -1435,11 +1457,23 @@ private struct RecentSection: View {
     @State private var shown = false
     @State private var pulse = false
 
+    /// The newest few; the rest are in Activity.
+    private var latest: [CollectionStore.RecentPurchase] { Array(items.prefix(4)) }
+
     var body: some View {
+        if !items.isEmpty {
         VStack(alignment: .leading, spacing: 18) {
-            PageHeader(title: "Recently added", size: 30)
+            HStack(alignment: .lastTextBaseline) {
+                PageHeader(title: "Recently added", size: 30)
+                Spacer()
+                NavigationLink(value: MorePage.activity) {
+                    HStack(spacing: 4) { Text("See all"); Image(systemName: "arrow.right").font(.system(size: 12, weight: .semibold)) }
+                        .font(.geist(13, .medium)).foregroundStyle(Theme.muted)
+                }
+                .buttonStyle(.plain)
+            }
             VStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
+                ForEach(Array(latest.enumerated()), id: \.element.id) { i, item in
                     let delay = Double(i) * 0.12
                     Button { openHolding(item.entry.identity) } label: {
                         HStack(alignment: .top, spacing: 14) {
@@ -1512,6 +1546,7 @@ private struct RecentSection: View {
                     stopLoop { pulse = false }
                 }
             }
+        }
         }
     }
 }
