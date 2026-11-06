@@ -16,9 +16,6 @@ struct HomeView: View {
     @State private var menuOpen = false
     /// The search field has scrolled up under the top bar, so a search button shows there.
     @State private var searchTucked = false
-    /// The hero's figures have scrolled up under the top: a slim worth bar pins there and the
-    /// top buttons step aside (like Deal's pinned balance).
-    @State private var pinned = false
     /// What moved today, opened from the hero's Today column.
     @State private var todayOpen = false
     @State private var recap = false
@@ -62,24 +59,6 @@ struct HomeView: View {
             .replaysAnimations()
             .tabBarClearance()
             .refreshable { await pullToRefresh() }
-            .toolbar(showPinned ? .hidden : .visible, for: .navigationBar)
-            .overlay(alignment: .top) {
-                if showPinned {
-                    // Tap to go back up to the full hero (the same as tapping the Overview tab).
-                    Button {
-                        Router.shared.tabTap = TabTap(name: "home", count: Router.shared.tabTap.count + 1)
-                    } label: {
-                        PinnedWorth(value: store.summary.value, dayChange: store.summary.dayChange, dayRatio: store.summary.dayRatio)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityHint("Scrolls back to the top")
-                    .padding(.horizontal, 16)
-                    .padding(.top, 4)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                }
-            }
-            // Loading or emptied out: nothing to pin, and the bar mustn't stay stuck on.
-            .onChange(of: canPin) { _, ok in if !ok { pinned = false } }
             .overlay(alignment: .topTrailing) {
                 if menuOpen {
                     ZStack(alignment: .topTrailing) {
@@ -237,10 +216,7 @@ struct HomeView: View {
                 }
                 Hero(store: store, spread: refreshing, onRecap: { recap = true }, onAdd: { Router.shared.addMenu = true },
                      onToday: { todayOpen = true },
-                     onPinned: { gone in
-                         guard gone != pinned else { return }
-                         withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) { pinned = gone }
-                     })
+                     onPinned: { _ in })
             }
             // Sits close under the hero's buttons (it belongs with them) and a little nearer the
             // chart than the usual section gap, with more room between the tiles themselves.
@@ -258,9 +234,6 @@ struct HomeView: View {
         .padding(.bottom, 40)
     }
 
-    /// Only the full Overview pins its worth bar (not while loading, failed or empty).
-    private var canPin: Bool { store.status == .ready && !store.holdings.isEmpty }
-    private var showPinned: Bool { pinned && canPin }
 
     private var empty: some View {
         EmptyPage(title: "Nothing here yet", line: "Scan a card to see what it's worth.", action: "Scan a card",
@@ -928,33 +901,19 @@ private struct BudgetCard: View {
     }
 }
 
-/// "Prices from TCG API · refreshed 1d ago · updates daily · Refresh", like the website.
+/// "Prices from TCG API · updated 1d ago · updates daily". No refresh button: prices update once a
+/// day on the server, so a tap would only re-read the same ones (pull to refresh still re-reads).
 private struct PriceFreshness: View {
     var refreshedAt: Date?
-    var onReload: () async -> Void
-    @State private var refreshing = false
+    /// Kept for the call site; prices refresh once a day on the server, so there's no button.
+    var onReload: () async -> Void = {}
 
     var body: some View {
-        HStack(spacing: 12) {
-            Text("Prices from TCG API · refreshed \(ago) · updates daily").lineLimit(2)
-            Button {
-                refreshing = true
-                Task { await onReload(); refreshing = false }
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "arrow.clockwise").font(.system(size: 11, weight: .semibold))
-                        .rotationEffect(.degrees(refreshing ? 360 : 0))
-                        .animation(refreshing ? .linear(duration: 0.8).repeatForever(autoreverses: false) : .default, value: refreshing)
-                    Text("Refresh").fontWeight(.medium)
-                }
-                .foregroundStyle(Theme.muted)
-            }
-            .buttonStyle(.plain)
-            .disabled(refreshing)
-        }
-        .font(.geist(12))
-        .foregroundStyle(Theme.subtle)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        Text("Prices from TCG API · updated \(ago) · updates daily")
+            .lineLimit(2)
+            .font(.geist(12))
+            .foregroundStyle(Theme.subtle)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var ago: String {
