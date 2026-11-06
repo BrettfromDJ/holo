@@ -88,6 +88,8 @@ struct WeeklyRecap: View {
             let count = slides.count
             if index < count - 1 { go(index + 1, of: count) }
         }
+        // A light tap as each slide opens.
+        .sensoryFeedback(.impact(weight: .light), trigger: index)
         .statusBarHidden()
     }
 
@@ -138,7 +140,7 @@ private struct Slide {
                     .frame(maxHeight: .infinity)
                     .padding(.vertical, 28)
                 Text("Your collection \(gain >= 0 ? "grew" : "slipped")").font(.geist(18, .medium)).foregroundStyle(.white.opacity(0.8))
-                Big(text: Format.signedMoney(gain), color: gain >= 0 ? Theme.lime : Color(hex: 0xFF8AB3))
+                Big(value: gain, format: { Format.signedMoney($0) }, color: gain >= 0 ? Theme.lime : Color(hex: 0xFF8AB3))
                 Text("\(Format.signedPercent(ratio)) from market moves alone · now \(Format.money(s.value))")
                     .font(.geist(15)).monospacedDigit().foregroundStyle(.white.opacity(0.7)).padding(.top, 8)
             }
@@ -146,15 +148,15 @@ private struct Slide {
         if let gainer, (gainer.change7dPct ?? 0) > 0 {
             slides.append(Slide(key: "gainer", background: glow(0x8FAE00, 0x2A3600, at: UnitPoint(x: 0.8, y: 0)), content: AnyView(
                 HeroSlide(kicker: "Hottest this week", holding: gainer, drifts: true) {
-                    Big(text: Format.signedPercent((gainer.change7dPct ?? 0) / 100), color: Theme.lime)
+                    Big(value: (gainer.change7dPct ?? 0) / 100, format: { Format.signedPercent($0) }, color: Theme.lime)
                     Text("Now \(Format.money(gainer.price)) each").font(.geist(14)).monospacedDigit().foregroundStyle(.white.opacity(0.7)).padding(.top, 4)
                 }
             )))
         }
         if let loser, (loser.change7dPct ?? 0) < 0 {
             slides.append(Slide(key: "loser", background: glow(0xE0306F, 0x3D0A1F, at: UnitPoint(x: 0.2, y: 0)), content: AnyView(
-                HeroSlide(kicker: "Cooled off", holding: loser) {
-                    Big(text: Format.signedPercent((loser.change7dPct ?? 0) / 100), color: Color(hex: 0xFF8AB3))
+                HeroSlide(kicker: "Cooled off", holding: loser, drifts: true, glow: Color(hex: 0xFF2E9A)) {
+                    Big(value: (loser.change7dPct ?? 0) / 100, format: { Format.signedPercent($0) }, color: Color(hex: 0xFF8AB3))
                     Text("Now \(Format.money(loser.price)) each. Buying opportunity?").font(.geist(14)).monospacedDigit().foregroundStyle(.white.opacity(0.7)).padding(.top, 4)
                 }
             )))
@@ -170,7 +172,7 @@ private struct Slide {
                 }
                 if spent > 0 {
                     Text("You picked up").font(.geist(18, .medium)).foregroundStyle(.white.opacity(0.8))
-                    Big(text: "\(Int(units)) item\(units == 1 ? "" : "s")", color: .white)
+                    Big(value: units, format: { "\(Int($0.rounded())) item\(units == 1 ? "" : "s")" }, color: .white)
                     Text("\(Format.money(spent)) spent, fees included").font(.geist(15)).monospacedDigit().foregroundStyle(.white.opacity(0.7)).padding(.top, 8)
                 } else {
                     Big(text: "$0 spent", color: .white)
@@ -182,7 +184,7 @@ private struct Slide {
             slides.append(Slide(key: "best", background: glow(0xEC4899, 0x3D0D26, at: UnitPoint(x: 0.5, y: 0)), content: AnyView(
                 HeroSlide(kicker: "Best buy you've ever made", holding: best, drifts: true) {
                     // A gain: lime (pink is only for what's down).
-                    Big(text: Format.signedPercent(best.gainRatio), color: Theme.lime)
+                    Big(value: best.gainRatio ?? 0, format: { Format.signedPercent($0) }, color: Theme.lime)
                     HStack(spacing: 8) {
                         Text("Paid \(Format.money(best.costBasis))").foregroundStyle(.white.opacity(0.75))
                         Image(systemName: "arrow.right").font(.system(size: 11, weight: .bold)).foregroundStyle(.white.opacity(0.6))
@@ -202,7 +204,7 @@ private struct Slide {
                 Spacer()
                 VStack(alignment: .leading, spacing: 0) {
                     Text("Your collection is worth").font(.geist(18, .medium)).foregroundStyle(.white.opacity(0.85))
-                    Big(text: Format.money(s.value), color: .white)
+                    Big(value: s.value, format: { Format.money($0) }, color: .white)
                     Text("\(Int(s.items)) items · \(Format.signedMoney(s.gain)) (\(Format.signedPercent(s.gainRatio))) all time")
                         .font(.geist(15)).monospacedDigit().foregroundStyle(.white.opacity(0.75)).padding(.top, 8)
                 }
@@ -226,11 +228,22 @@ private struct Kicker: View {
 }
 
 private struct Big: View {
-    var text: String
+    var text: String? = nil
+    /// A figure that counts up as the slide opens (instead of `text`).
+    var value: Double? = nil
+    var format: (Double) -> String = { "\($0)" }
     var color: Color
+
     var body: some View {
-        Text(text).font(.geist(46, .semibold)).tracking(-1.8).monospacedDigit().foregroundStyle(color)
-            .lineLimit(1).minimumScaleFactor(0.5).padding(.top, 12)
+        Group {
+            if let value {
+                CountingText(value: value, format: format, duration: 1.2, delay: 0.25)
+            } else {
+                Text(text ?? "")
+            }
+        }
+        .font(.geist(46, .semibold)).tracking(-1.8).monospacedDigit().foregroundStyle(color)
+        .lineLimit(1).minimumScaleFactor(0.5).padding(.top, 12)
     }
 }
 
@@ -240,6 +253,8 @@ private struct HeroSlide<Numbers: View>: View {
     var holding: HoldingView
     /// Tilts slowly with light sweeping across, like the card page.
     var drifts = false
+    /// The glow behind a drifting card: lime for gains, pink for a drop.
+    var glow: Color = Theme.lime
     @ViewBuilder var numbers: Numbers
 
     var body: some View {
@@ -247,7 +262,7 @@ private struct HeroSlide<Numbers: View>: View {
             Kicker(text: kicker)
             Group {
                 if drifts {
-                    RecapDriftCard(holding: holding)
+                    RecapDriftCard(holding: holding, glow: glow)
                 } else {
                     HoldingArt(product: holding.product, identity: holding.identity, cornerRadius: 16)
                         .shadow(color: .black.opacity(0.5), radius: 24, y: 14)
@@ -401,6 +416,7 @@ private struct RecapBuysFan: View {
 /// behind it, like the card page. Still under Reduce Motion.
 private struct RecapDriftCard: View {
     var holding: HoldingView
+    var glow: Color = Theme.lime
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -428,7 +444,7 @@ private struct RecapDriftCard: View {
                 .background {
                     GeometryReader { geo in
                         let w = geo.size.width
-                        RadialGradient(colors: [Theme.lime.opacity(0.22), Theme.lime.opacity(0.08), .clear], center: .center,
+                        RadialGradient(colors: [glow.opacity(0.22), glow.opacity(0.08), .clear], center: .center,
                                        startRadius: w * 0.25, endRadius: w * 0.5 + 28)
                             .frame(width: w + 60, height: geo.size.height + 60)
                             .position(x: w / 2, y: geo.size.height / 2)
