@@ -17,6 +17,9 @@ struct HoldingSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(CollectionStore.self) private var store
     @Environment(GradingStore.self) private var grading
+    @Environment(GroupsStore.self) private var groups
+    @State private var namingShelf = false
+    @State private var newShelf = ""
     @State private var selling = false
     @State private var removing = false
     @State private var editingDetails = false
@@ -92,6 +95,16 @@ struct HoldingSheet: View {
         .sheet(isPresented: $selling) { if let h = holding { SellSheet(holding: h) } }
         .sheet(isPresented: $removing) { if let h = holding { RemoveSheet(holding: h) } }
         .sheet(isPresented: $editingDetails) { if let h = holding { EditDetailsSheet(holding: h) } }
+        .alert("New shelf", isPresented: $namingShelf) {
+            TextField("Grails, For sale…", text: $newShelf)
+            Button("Cancel", role: .cancel) { newShelf = "" }
+            Button("Create") {
+                let value = String(newShelf.trimmingCharacters(in: .whitespaces).prefix(40))
+                newShelf = ""
+                guard !value.isEmpty else { return }
+                Task { await groupRun { _ = try await groups.createShelf(value, productIds: [identity.productId]) } }
+            }
+        }
         .alert("Delete this from your collection?", isPresented: $confirmDelete) {
             Button("Cancel", role: .cancel) {}
             Button("Delete from collection", role: .destructive) {
@@ -176,6 +189,8 @@ struct HoldingSheet: View {
             Button { editingDetails = true } label: {
                 Label { Text("Edit details"); Text("Condition, grade or printing") } icon: { Image(systemName: "pencil") }
             }
+            shelfMenu
+            if !groups.portfolios.isEmpty { portfolioMenu }
             Button { selling = true } label: {
                 Label { Text("Mark as sold"); Text("Record the price you sold it for") } icon: { Image(systemName: "tag") }
             }
@@ -195,6 +210,49 @@ struct HoldingSheet: View {
         .menuStyle(.button)
         .buttonStyle(.plain)
         .accessibilityLabel("More actions")
+    }
+
+    /// Put the card on shelves or take it off (a check on each it's on).
+    private var shelfMenu: some View {
+        let productId = store.current(opened).productId
+        let on = groups.shelves.filter { $0.product_ids.contains(productId) }.map(\.name)
+        return Menu {
+            ForEach(groups.shelves) { shelf in
+                Button {
+                    Task { await groupRun { try await groups.toggle(shelf.id, productId: productId) } }
+                } label: {
+                    if shelf.product_ids.contains(productId) { Label(shelf.name, systemImage: "checkmark") } else { Text(shelf.name) }
+                }
+            }
+            Button { newShelf = ""; namingShelf = true } label: { Label("New shelf…", systemImage: "plus") }
+        } label: {
+            Label { Text("Shelves"); Text(on.isEmpty ? "On no shelf" : on.joined(separator: ", ")) } icon: { Image(systemName: "square.stack") }
+        }
+    }
+
+    /// Which portfolios this copy shows in: tap one to add it there or take it out (it always
+    /// stays in at least one).
+    private var portfolioMenu: some View {
+        let key = store.current(opened).key
+        let current = groups.portfoliosOf(key)
+        return Menu {
+            ForEach([GroupsStore.main] + groups.portfolios.map(\.id), id: \.self) { id in
+                Button {
+                    var next = current
+                    if next.contains(id) { next.removeAll { $0 == id } } else { next.append(id) }
+                    if next.isEmpty { return }
+                    Task { await groupRun { try await groups.place(key, in: next, store: store) } }
+                } label: {
+                    if current.contains(id) { Label(groups.name(of: id), systemImage: "checkmark") } else { Text(groups.name(of: id)) }
+                }
+            }
+        } label: {
+            Label { Text("Portfolios"); Text(current.map { groups.name(of: $0) }.joined(separator: ", ")) } icon: { Image(systemName: "folder") }
+        }
+    }
+
+    private func groupRun(_ work: () async throws -> Void) async {
+        do { error = nil; try await work() } catch { self.error = error.localizedDescription }
     }
 
     /// Since you first bought it (cached in the store, so this is a lookup).
@@ -700,8 +758,16 @@ struct EditDetailsSheet: View {
     var holding: HoldingView
     @Environment(GradingStore.self) private var grading
     @Environment(CollectionStore.self) private var store
+    @Environment(GroupsStore.self) private var groups
     @Environment(\.dismiss) private var dismiss
     @State private var printing: String?
+    /// The shelves and portfolios it's in, saved with the rest.
+    @State private var shelfIds: Set<String> = []
+    @State private var portfolioIds: Set<String> = []
+    @State private var startShelves: Set<String> = []
+    @State private var startPortfolios: Set<String> = []
+    @State private var namingShelf = false
+    @State private var newShelf = ""
     @State private var condition = CardCondition.nearMint.rawValue
     @State private var graded = false
     @State private var company = "PSA"
@@ -761,8 +827,38 @@ struct EditDetailsSheet: View {
                                 ForEach(CardCondition.allCases) { Text($0.rawValue).tag($0.rawValue) }
                             }
                         }
+                    } header: {
+                        SectionTitle("Condition")
                     } footer: {
-                        Text("Your purchases, sales and edits stay as they are; only what this copy is changes. If you already have a copy with these details, the two become one.")
+                        SectionNote("Your purchases, sales and edits stay as they are; only what this copy is changes. If you already have a copy with these details, the two become one.")
+                    }
+                }
+                Section {
+                    ForEach(groups.shelves) { shelf in
+                        checkRow(shelf.name, on: shelfIds.contains(shelf.id)) {
+                            if shelfIds.contains(shelf.id) { shelfIds.remove(shelf.id) } else { shelfIds.insert(shelf.id) }
+                        }
+                    }
+                    Button { newShelf = ""; namingShelf = true } label: { Label("New shelf", systemImage: "plus") }
+                        .foregroundStyle(Theme.lime)
+                } header: {
+                    SectionTitle("Shelves")
+                } footer: {
+                    SectionNote("Shelves hold the card, whatever copy it is.")
+                }
+                if !groups.portfolios.isEmpty {
+                    Section {
+                        ForEach([GroupsStore.main] + groups.portfolios.map(\.id), id: \.self) { id in
+                            checkRow(groups.name(of: id), on: portfolioIds.contains(id)) {
+                                if portfolioIds.contains(id) {
+                                    if portfolioIds.count > 1 { portfolioIds.remove(id) }
+                                } else { portfolioIds.insert(id) }
+                            }
+                        }
+                    } header: {
+                        SectionTitle("Portfolios")
+                    } footer: {
+                        SectionNote("It can be in several; it always stays in at least one.")
                     }
                 }
                 if let error { Section { Text(error).foregroundStyle(Theme.down) } }
@@ -777,13 +873,23 @@ struct EditDetailsSheet: View {
                             saving = true
                             defer { saving = false }
                             do {
-                                try await store.changeDetails(holding.identity, to: edited)
-                                grading.moveSlab(from: holding.identity, to: edited)
+                                let target = edited
+                                if target.key != holding.identity.key {
+                                    try await store.changeDetails(holding.identity, to: target)
+                                    grading.moveSlab(from: holding.identity, to: target)
+                                }
+                                let productId = holding.identity.productId
+                                for id in shelfIds.symmetricDifference(startShelves) {
+                                    try await groups.toggle(id, productId: productId)
+                                }
+                                if portfolioIds != startPortfolios || target.key != holding.identity.key {
+                                    try await groups.place(target.key, in: Array(portfolioIds), store: store)
+                                }
                                 dismiss()
                             } catch { self.error = error.localizedDescription }
                         }
                     }
-                    .disabled(saving || edited.key == holding.identity.key)
+                    .disabled(saving || (edited.key == holding.identity.key && shelfIds == startShelves && portfolioIds == startPortfolios))
                 }
             }
             .onAppear {
@@ -793,9 +899,44 @@ struct EditDetailsSheet: View {
                 if let c = i.gradeCompany { company = c }
                 if let g = i.grade { grade = g }
                 if CardCondition(rawValue: i.condition) != nil { condition = i.condition }
+                startShelves = Set(groups.shelves.filter { $0.product_ids.contains(i.productId) }.map(\.id))
+                shelfIds = startShelves
+                startPortfolios = Set(groups.portfoliosOf(i.key))
+                if startPortfolios.isEmpty { startPortfolios = [GroupsStore.main] }
+                portfolioIds = startPortfolios
+            }
+            .alert("New shelf", isPresented: $namingShelf) {
+                TextField("Grails, For sale…", text: $newShelf)
+                Button("Cancel", role: .cancel) { newShelf = "" }
+                Button("Create") {
+                    let value = String(newShelf.trimmingCharacters(in: .whitespaces).prefix(40))
+                    newShelf = ""
+                    guard !value.isEmpty else { return }
+                    Task {
+                        do {
+                            // Created now (empty) and ticked; the card goes on it when you save.
+                            let shelf = try await groups.createShelf(value)
+                            shelfIds.insert(shelf.id)
+                        } catch { self.error = error.localizedDescription }
+                    }
+                }
             }
         }
         .presentationDetents([.medium, .fraction(0.93)])
+    }
+
+    /// A row with a lime check when it's on; tap to switch.
+    private func checkRow(_ title: String, on: Bool, toggle: @escaping () -> Void) -> some View {
+        Button(action: toggle) {
+            HStack {
+                Text(title).foregroundStyle(.white)
+                Spacer()
+                if on { Image(systemName: "checkmark").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.lime) }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
 }
 
