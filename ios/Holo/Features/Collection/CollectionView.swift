@@ -18,6 +18,8 @@ struct CollectionView: View {
     @State private var groupError: String?
     /// The list of every shelf and portfolio, to rename or delete them.
     @State private var managing = false
+    /// The portfolio menu (our own frosted panel, opened from the portfolio pill).
+    @State private var portfolioMenu = false
     /// Quick actions from a long press on a tile: sell, or work out what selling would leave.
     @State private var selling: HoldingView?
     @State private var whatIf: HoldingView?
@@ -210,6 +212,23 @@ struct CollectionView: View {
             .refreshable { await reload() }
             .navigationBarTitleDisplayMode(.inline)
             .pageTitle("Collection")
+            // The portfolio menu: a frosted panel under the pill, the page dimmed behind; tap
+            // anywhere else to close.
+            .overlayPreferenceValue(PortfolioPillAnchor.self) { anchor in
+                GeometryReader { geo in
+                    if portfolioMenu, let anchor {
+                        let pill = geo[anchor]
+                        ZStack(alignment: .topLeading) {
+                            Color.black.opacity(0.35).ignoresSafeArea()
+                                .contentShape(Rectangle())
+                                .onTapGesture { withAnimation(.snappy(duration: 0.2)) { portfolioMenu = false } }
+                            portfolioMenuPanel
+                                .offset(x: pill.minX, y: pill.maxY + 8)
+                                .transition(.scale(scale: 0.92, anchor: .topLeading).combined(with: .opacity))
+                        }
+                    }
+                }
+            }
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
             .sheet(item: $opened) { h in
                 HoldingSheet(identity: h.identity) {
@@ -278,7 +297,7 @@ struct CollectionView: View {
                 let n = counts.shelves[shelf.id] ?? 0
                 Chip(title: shelf.name, selected: shelfId == shelf.id, count: n) { reshuffle { shelfId = shelf.id; category = nil } }
                     .contextMenu {
-                        Button { name = shelf.name; naming = .renameShelf(shelf.id) } label: { Label("Rename shelf…", systemImage: "pencil") }
+                        Button { name = shelf.name; naming = .renameShelf(shelf.id) } label: { Label("Rename shelf", systemImage: "pencil") }
                         Button("Delete shelf", role: .destructive) {
                             if shelfId == shelf.id { reshuffle { shelfId = nil } }
                             Task { await groupRun { try await groups.removeShelf(shelf.id) } }
@@ -295,33 +314,22 @@ struct CollectionView: View {
 
     /// All portfolios, Main, or one of yours: filters every number, like the website's switcher.
     private var portfolioSwitcher: some View {
-        Menu {
-            Picker("Portfolio", selection: Binding(get: { groups.selected }, set: { groups.select($0, store: store) })) {
-                Text("All portfolios").tag(GroupsStore.all)
-                Text("Main").tag(GroupsStore.main)
-                ForEach(groups.portfolios) { Text($0.name).tag($0.id) }
-            }
-            Divider()
-            Button { naming = .portfolio } label: { Label("New portfolio…", systemImage: "plus") }
-            Button { managing = true } label: { Label("Shelves & portfolios…", systemImage: "slider.horizontal.3") }
-            if groups.portfolios.contains(where: { $0.id == groups.selected }) {
-                let id = groups.selected
-                Button { name = groups.name(of: id); naming = .renamePortfolio(id) } label: { Label("Rename portfolio…", systemImage: "pencil") }
-                Button(role: .destructive) {
-                    Task { await groupRun { try await groups.removePortfolio(id, store: store) } }
-                } label: { Label("Delete portfolio", systemImage: "trash") }
-            }
+        Button {
+            withAnimation(.snappy(duration: 0.2)) { portfolioMenu.toggle() }
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "folder").font(.system(size: 13, weight: .semibold))
-                Text(groups.name(of: groups.selected)).font(.geist(14, .semibold))
+                Text(groups.name(of: groups.selected)).font(.geist(14, .semibold)).lineLimit(1)
                 Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold))
+                    .rotationEffect(.degrees(portfolioMenu ? 180 : 0))
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 14).frame(height: 36)
-            // Frosted: a real blur of what's behind, not just glass over it.
-            .blurredGlass(in: Capsule())
+            .frostedPill()
         }
+        .buttonStyle(.plain)
+        .anchorPreference(key: PortfolioPillAnchor.self, value: .bounds) { $0 }
+        .accessibilityLabel("Portfolio: \(groups.name(of: groups.selected))")
         .sheet(isPresented: $managing) {
             ManageGroupsSheet(onClearShelf: { id in if shelfId == id { shelfId = nil } })
         }
@@ -330,6 +338,64 @@ struct CollectionView: View {
             Button("Cancel", role: .cancel) { name = ""; shelfProduct = nil }
             Button("Save") { saveName() }
         }
+    }
+
+    /// The portfolio menu's rows: which portfolio to show, then new, manage, and (for one of
+    /// yours) rename and delete. Full labels, never cut short; frosted behind.
+    private var portfolioMenuPanel: some View {
+        let options: [(String, String)] = [(GroupsStore.all, "All portfolios"), (GroupsStore.main, "Main")] + groups.portfolios.map { ($0.id, $0.name) }
+        let own = groups.portfolios.contains(where: { $0.id == groups.selected })
+        return VStack(alignment: .leading, spacing: 0) {
+            ForEach(options, id: \.0) { id, title in
+                menuRow(title, icon: groups.selected == id ? "checkmark" : nil, tint: .white) {
+                    groups.select(id, store: store)
+                }
+            }
+            Rectangle().fill(Color.white.opacity(0.1)).frame(height: 1).padding(.vertical, 6).padding(.horizontal, 16)
+            menuRow("New portfolio", icon: "plus", tint: .white) { naming = .portfolio }
+            menuRow("Shelves and portfolios", icon: "slider.horizontal.3", tint: .white) { managing = true }
+            if own {
+                let id = groups.selected
+                menuRow("Rename portfolio", icon: "pencil", tint: .white) { name = groups.name(of: id); naming = .renamePortfolio(id) }
+                menuRow("Delete portfolio", icon: "trash", tint: Theme.down) {
+                    Task { await groupRun { try await groups.removePortfolio(id, store: store) } }
+                }
+            }
+        }
+        .padding(.vertical, 8)
+        .fixedSize()
+        .background {
+            let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
+            ZStack {
+                shape.fill(.regularMaterial)
+                shape.fill(Color.black.opacity(0.35))
+                shape.strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(0.5), radius: 24, y: 12)
+        }
+        .environment(\.colorScheme, .dark)
+    }
+
+    private func menuRow(_ title: String, icon: String?, tint: Color, action: @escaping () -> Void) -> some View {
+        Button {
+            withAnimation(.snappy(duration: 0.2)) { portfolioMenu = false }
+            action()
+        } label: {
+            HStack(spacing: 12) {
+                Group {
+                    if let icon { Image(systemName: icon).font(.system(size: 14, weight: .semibold)) } else { Color.clear }
+                }
+                .frame(width: 18)
+                .foregroundStyle(tint == .white ? Theme.lime : tint)
+                Text(title).font(.geist(16, .medium)).foregroundStyle(tint)
+                    .lineLimit(1).fixedSize()
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 18)
+            .frame(minWidth: 240, minHeight: 46, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private var namingTitle: String {
@@ -470,7 +536,7 @@ struct CollectionView: View {
                 .foregroundStyle(selecting ? Theme.ink : .white)
                 .padding(.horizontal, 16).frame(height: 36)
                 .background { if selecting { Capsule().fill(Theme.lime) } }
-                .blurredGlass(in: Capsule())
+                .frostedPill(on: !selecting)
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("collection-select")
@@ -1146,5 +1212,29 @@ struct ManageGroupsSheet: View {
 
     @MainActor private func run(_ work: () async throws -> Void) async {
         do { error = nil; try await work() } catch { self.error = error.localizedDescription }
+    }
+}
+
+/// Where the portfolio pill sits, so its menu can open right under it.
+private struct PortfolioPillAnchor: PreferenceKey {
+    static let defaultValue: Anchor<CGRect>? = nil
+    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) { value = value ?? nextValue() }
+}
+
+private extension View {
+    /// A pill frosted for real: a material blur of what's behind, a dark wash and a fine edge.
+    @ViewBuilder func frostedPill(on: Bool = true) -> some View {
+        if on {
+            background {
+                ZStack {
+                    Capsule().fill(.regularMaterial)
+                    Capsule().fill(Color.black.opacity(0.3))
+                    Capsule().strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
+                }
+                .environment(\.colorScheme, .dark)
+            }
+        } else {
+            self
+        }
     }
 }
