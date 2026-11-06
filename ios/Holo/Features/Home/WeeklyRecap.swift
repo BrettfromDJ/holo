@@ -153,16 +153,16 @@ private struct Slide {
             }
         )))
         if let gainer, (gainer.change7dPct ?? 0) > 0 {
-            slides.append(Slide(key: "gainer", background: glow(0x8FAE00, 0x2A3600, at: UnitPoint(x: 0.8, y: 0)), content: AnyView(
-                HeroSlide(kicker: "Hottest this week", holding: gainer, drifts: true) {
+            slides.append(Slide(key: "gainer", background: glow(0xFF5A1F, 0x3D1206, at: UnitPoint(x: 0.5, y: 1)), content: AnyView(
+                HeroSlide(kicker: "Hottest this week", holding: gainer, drifts: true, glow: Color(hex: 0xFF7A1A), theme: .fire) {
                     Big(value: (gainer.change7dPct ?? 0) / 100, format: { Format.signedPercent($0) }, color: Theme.lime)
                     Text("Now \(Format.money(gainer.price)) each").font(.geist(14)).monospacedDigit().foregroundStyle(.white.opacity(0.7)).padding(.top, 4)
                 }
             )))
         }
         if let loser, (loser.change7dPct ?? 0) < 0 {
-            slides.append(Slide(key: "loser", background: glow(0xE0306F, 0x3D0A1F, at: UnitPoint(x: 0.2, y: 0)), content: AnyView(
-                HeroSlide(kicker: "Cooled off", holding: loser, drifts: true, glow: Color(hex: 0xFF2E9A)) {
+            slides.append(Slide(key: "loser", background: glow(0x38BDF8, 0x0B2A3D, at: UnitPoint(x: 0.5, y: 0)), content: AnyView(
+                HeroSlide(kicker: "Coldest this week", holding: loser, drifts: true, glow: Color(hex: 0x7DD3FC), theme: .ice) {
                     Big(value: (loser.change7dPct ?? 0) / 100, format: { Format.signedPercent($0) }, color: Color(hex: 0xFF8AB3))
                     Text("Now \(Format.money(loser.price)) each. Buying opportunity?").font(.geist(14)).monospacedDigit().foregroundStyle(.white.opacity(0.7)).padding(.top, 4)
                 }
@@ -262,14 +262,23 @@ private struct HeroSlide<Numbers: View>: View {
     var drifts = false
     /// The glow behind a drifting card: lime for gains, pink for a drop.
     var glow: Color = Theme.lime
+    /// Fire (embers) or ice (snow and frost) around the card.
+    var theme: RecapTheme = .plain
     @ViewBuilder var numbers: Numbers
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Kicker(text: kicker)
+            HStack(spacing: 6) {
+                if theme != .plain {
+                    Image(systemName: theme == .fire ? "flame.fill" : "snowflake")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(theme == .fire ? Color(hex: 0xFFB020) : Color(hex: 0xBAE6FD))
+                }
+                Kicker(text: kicker)
+            }
             Group {
                 if drifts {
-                    RecapDriftCard(holding: holding, glow: glow)
+                    RecapDriftCard(holding: holding, glow: glow, theme: theme)
                 } else {
                     HoldingArt(product: holding.product, identity: holding.identity, cornerRadius: 16)
                         .shadow(color: .black.opacity(0.5), radius: 24, y: 14)
@@ -421,9 +430,13 @@ private struct RecapBuysFan: View {
 
 /// A card that tilts slowly with a band of light sweeping across it and a soft lime glow
 /// behind it, like the card page. Still under Reduce Motion.
+/// What surrounds a drifting card: nothing, fire or ice.
+enum RecapTheme { case plain, fire, ice }
+
 private struct RecapDriftCard: View {
     var holding: HoldingView
     var glow: Color = Theme.lime
+    var theme: RecapTheme = .plain
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -432,7 +445,10 @@ private struct RecapDriftCard: View {
             let tiltX: Double = sin(c * 0.6) * 8
             let tiltY: Double = cos(c * 0.45) * 11
             let sweep = CGFloat(sin(c * 0.6))
+            // Fire flickers its glow; ice holds steady.
+            let flicker: Double = theme == .fire ? 0.85 + 0.12 * sin(c * 9) + 0.08 * sin(c * 13.7) : 1
             HoldingArt(product: holding.product, identity: holding.identity, cornerRadius: 16, caption: false)
+                .overlay { themeSkin(c) }
                 .overlay {
                     GeometryReader { geo in
                         LinearGradient(colors: [.clear, .white.opacity(0.32), .clear], startPoint: .leading, endPoint: .trailing)
@@ -451,13 +467,97 @@ private struct RecapDriftCard: View {
                 .background {
                     GeometryReader { geo in
                         let w = geo.size.width
-                        RadialGradient(colors: [glow.opacity(0.22), glow.opacity(0.08), .clear], center: .center,
+                        RadialGradient(colors: [glow.opacity((theme == .plain ? 0.22 : 0.4) * flicker), glow.opacity(0.1 * flicker), .clear], center: .center,
                                        startRadius: w * 0.25, endRadius: w * 0.5 + 28)
                             .frame(width: w + 60, height: geo.size.height + 60)
                             .position(x: w / 2, y: geo.size.height / 2)
                     }
                     .allowsHitTesting(false)
                 }
+                // Embers rising or snow falling around the card (drawn in one canvas, past its edges).
+                .overlay {
+                    if theme != .plain, !reduceMotion {
+                        RecapParticles(theme: theme, time: c)
+                            .padding(-70)
+                            .allowsHitTesting(false)
+                    }
+                }
+        }
+    }
+
+    /// What the theme does to the card itself: heat glowing up from the bottom edge, or frost
+    /// creeping in from the corners with a cold rim.
+    @ViewBuilder private func themeSkin(_ c: Double) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
+        switch theme {
+        case .fire:
+            LinearGradient(colors: [.clear, Color(hex: 0xFF6A1A).opacity(0.18 + 0.08 * sin(c * 8)), Color(hex: 0xFFB020).opacity(0.38)],
+                           startPoint: UnitPoint(x: 0.5, y: 0.55), endPoint: .bottom)
+                .blendMode(.plusLighter)
+                .clipShape(shape)
+                .allowsHitTesting(false)
+        case .ice:
+            ZStack {
+                RadialGradient(colors: [Color.white.opacity(0.45), .clear], center: .topLeading, startRadius: 0, endRadius: 130)
+                RadialGradient(colors: [Color(hex: 0xBAE6FD).opacity(0.4), .clear], center: .bottomTrailing, startRadius: 0, endRadius: 150)
+                shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.85), Color(hex: 0x7DD3FC).opacity(0.5), .white.opacity(0.7)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 2.5)
+            }
+            .clipShape(shape)
+            .allowsHitTesting(false)
+        case .plain:
+            EmptyView()
+        }
+    }
+}
+
+/// Fire: embers rising and swaying, glowing yellow to red as they climb and fade. Ice: snow
+/// drifting down, and a few glints twinkling around the card. All worked out from the clock.
+private struct RecapParticles: View {
+    var theme: RecapTheme
+    var time: Double
+
+    var body: some View {
+        Canvas { ctx, size in
+            func r(_ i: Int, _ k: Double) -> Double {
+                let v = sin(Double(i) * 12.9898 + k * 78.233) * 43758.5453
+                return v - floor(v)
+            }
+            func frac(_ v: Double) -> Double { v - floor(v) }
+            if theme == .fire {
+                for i in 0 ..< 30 {
+                    let p = frac(time * (0.14 + 0.18 * r(i, 2)) + r(i, 3))
+                    let x = size.width * (0.12 + 0.76 * r(i, 1)) + CGFloat(sin(time * 2.2 + Double(i)) * 12 * p)
+                    let y = size.height * CGFloat(1 - p)
+                    let rad = CGFloat(1.4 + 2.6 * r(i, 4)) * CGFloat(1 - p * 0.5)
+                    let a = sin(Double.pi * p)
+                    let color = Color(hue: 0.02 + 0.11 * (1 - p), saturation: 1, brightness: 1)
+                    ctx.fill(Path(ellipseIn: CGRect(x: x - rad * 3, y: y - rad * 3, width: rad * 6, height: rad * 6)), with: .color(color.opacity(0.18 * a)))
+                    ctx.fill(Path(ellipseIn: CGRect(x: x - rad, y: y - rad, width: rad * 2, height: rad * 2)), with: .color(color.opacity(a)))
+                }
+            } else {
+                for i in 0 ..< 36 {
+                    let p = frac(time * (0.05 + 0.07 * r(i, 2)) + r(i, 3))
+                    let x = size.width * CGFloat(r(i, 1)) + CGFloat(sin(time * 0.8 + Double(i)) * 14)
+                    let y = size.height * CGFloat(p)
+                    let rad = CGFloat(1 + 2 * r(i, 4))
+                    let a = 0.85 * sin(Double.pi * p)
+                    ctx.fill(Path(ellipseIn: CGRect(x: x - rad, y: y - rad, width: rad * 2, height: rad * 2)), with: .color(.white.opacity(a)))
+                }
+                // Glints: four-pointed sparkles near the card's edges, each flashing in turn.
+                let spots: [CGPoint] = [CGPoint(x: 0.28, y: 0.22), CGPoint(x: 0.76, y: 0.3), CGPoint(x: 0.3, y: 0.74), CGPoint(x: 0.72, y: 0.8), CGPoint(x: 0.5, y: 0.17), CGPoint(x: 0.5, y: 0.86)]
+                for (i, spot) in spots.enumerated() {
+                    let s = max(0, sin(time * 1.3 + Double(i) * 1.7))
+                    let k = CGFloat(pow(s, 6)) * 9
+                    guard k > 0.3 else { continue }
+                    let cx = size.width * spot.x, cy = size.height * spot.y
+                    var star = Path()
+                    star.move(to: CGPoint(x: cx, y: cy - k)); star.addLine(to: CGPoint(x: cx + k * 0.18, y: cy))
+                    star.addLine(to: CGPoint(x: cx, y: cy + k)); star.addLine(to: CGPoint(x: cx - k * 0.18, y: cy)); star.closeSubpath()
+                    star.move(to: CGPoint(x: cx - k, y: cy)); star.addLine(to: CGPoint(x: cx, y: cy + k * 0.18))
+                    star.addLine(to: CGPoint(x: cx + k, y: cy)); star.addLine(to: CGPoint(x: cx, y: cy - k * 0.18)); star.closeSubpath()
+                    ctx.fill(star, with: .color(.white.opacity(0.95)))
+                }
+            }
         }
     }
 }
