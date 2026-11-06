@@ -82,7 +82,7 @@ struct AddPurchaseSheet: View {
             GlassForm {
                 Section {
                     HStack(spacing: 12) {
-                        ProductImage(product: product, cornerRadius: 5).frame(width: 48, height: 66)
+                        ProductImage(product: product, cornerRadius: 3).frame(width: 48, height: 66)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(product.name).font(.headline)
                             Text(product.subtitle).font(.caption).foregroundStyle(Theme.muted)
