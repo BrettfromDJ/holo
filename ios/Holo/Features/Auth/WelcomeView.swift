@@ -1560,251 +1560,212 @@ private struct BumperPickerDemo: View {
 
 // MARK: - Page 4: a master set filling in
 
-/// A card in the page's row: owned, missing, or bought during the loop.
+/// A pocket of the binder page: a card by its number, owned, missing (an empty sleeve), bought
+/// during the loop, or the set's chase card (in the middle, lighting up as the set fills).
 private struct SetStripCard {
     var number: Int
     var missing: Bool = false
     var bought: Bool = false
+    var chase: Bool = false
     /// The chase cards use the large picture (already on the phone from the demo).
     var big: Bool = false
 }
 
-/// One set the page shows: its catalog code, name, size, the counts and money before and
-/// after the loop, and its row of cards. The page takes the sets in turn.
+/// One set the page shows. The page takes the sets in turn, turning the binder page between them.
 private struct SetShow {
     var code: String
     var name: String
-    /// The series and year, under the name.
+    /// The series and year, over the name.
     var era: String
     var total: Int
     var startCount: Int
     var endCount: Int
-    var worth: Double
-    var toFinish: Double
-    var boughtPrice: Double
-    var cards: [SetStripCard]
+    /// Nine pockets, three by three; the middle one is the chase card.
+    var pockets: [SetStripCard]
 
     func url(_ card: SetStripCard) -> URL? {
         URL(string: "https://images.pokemontcg.io/\(code)/\(card.number)\(card.big ? "_hires" : "").png")
     }
 
     static let all: [SetShow] = [
-        SetShow(code: "swsh7", name: "Evolving Skies", era: "Sword & Shield · 2021", total: 203, startCount: 140, endCount: 153,
-                worth: 580, toFinish: 1400, boughtPrice: 4, cards: [
-                    SetStripCard(number: 218, big: true), SetStripCard(number: 7), SetStripCard(number: 215, missing: true, big: true),
-                    SetStripCard(number: 8), SetStripCard(number: 3), SetStripCard(number: 9, missing: true, bought: true),
-                    SetStripCard(number: 14), SetStripCard(number: 1), SetStripCard(number: 12, missing: true),
-                    SetStripCard(number: 10),
-                ]),
-        SetShow(code: "sv3pt5", name: "Scarlet & Violet—151", era: "Scarlet & Violet · 2023", total: 207, startCount: 118, endCount: 131,
-                worth: 412, toFinish: 865, boughtPrice: 6, cards: [
-                    SetStripCard(number: 199, big: true), SetStripCard(number: 1), SetStripCard(number: 4, missing: true),
-                    SetStripCard(number: 7), SetStripCard(number: 25), SetStripCard(number: 6, missing: true, bought: true),
-                    SetStripCard(number: 133), SetStripCard(number: 205, missing: true, big: true), SetStripCard(number: 151),
-                    SetStripCard(number: 150),
-                ]),
-        SetShow(code: "sv8", name: "Surging Sparks", era: "Scarlet & Violet · 2024", total: 252, startCount: 86, endCount: 99,
-                worth: 498, toFinish: 1120, boughtPrice: 3, cards: [
-                    SetStripCard(number: 238, big: true), SetStripCard(number: 1), SetStripCard(number: 5, missing: true),
-                    SetStripCard(number: 8), SetStripCard(number: 12), SetStripCard(number: 15, missing: true, bought: true),
-                    SetStripCard(number: 20), SetStripCard(number: 22, missing: true), SetStripCard(number: 30),
-                    SetStripCard(number: 36),
-                ]),
+        SetShow(code: "swsh7", name: "Evolving Skies", era: "Sword & Shield · 2021", total: 203, startCount: 140, endCount: 153, pockets: [
+            SetStripCard(number: 7), SetStripCard(number: 3), SetStripCard(number: 8),
+            SetStripCard(number: 9, missing: true, bought: true), SetStripCard(number: 215, chase: true, big: true), SetStripCard(number: 14, missing: true),
+            SetStripCard(number: 1), SetStripCard(number: 10), SetStripCard(number: 218, big: true),
+        ]),
+        SetShow(code: "sv3pt5", name: "Scarlet & Violet—151", era: "Scarlet & Violet · 2023", total: 207, startCount: 118, endCount: 131, pockets: [
+            SetStripCard(number: 1), SetStripCard(number: 4), SetStripCard(number: 7),
+            SetStripCard(number: 6, missing: true, bought: true), SetStripCard(number: 199, chase: true, big: true), SetStripCard(number: 133, missing: true),
+            SetStripCard(number: 25), SetStripCard(number: 151), SetStripCard(number: 150),
+        ]),
+        SetShow(code: "sv8", name: "Surging Sparks", era: "Scarlet & Violet · 2024", total: 252, startCount: 86, endCount: 99, pockets: [
+            SetStripCard(number: 1), SetStripCard(number: 5), SetStripCard(number: 8),
+            SetStripCard(number: 15, missing: true, bought: true), SetStripCard(number: 238, chase: true, big: true), SetStripCard(number: 22, missing: true),
+            SetStripCard(number: 12), SetStripCard(number: 20), SetStripCard(number: 30),
+        ]),
     ]
 }
 
-/// The master set page, in the real Master Sets look: the set's name, the big lime dial with
-/// the share counting up, and one row of the set's cards drifting slowly by (missing ones dim,
-/// one filling in as it's bought), with what you own and what's left to buy underneath.
+/// The master set page on loop, off one clock: a binder page lying back a little, plastic
+/// sleeves catching the light. The chase card in the middle starts dark and lights up from the
+/// bottom as the share climbs; a missing card slides into its empty sleeve with a glint; the chase
+/// card comes fully alight with a lime edge; then the page turns to the next set.
 private struct WelcomeMasterSet: View {
-    static let cycle: Double = 7
+    static let cycle: Double = 7.5
     private static let start = Date()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.welcomeActive) private var active
 
     var body: some View {
-        WelcomeFit(height: 470, grow: 1.1, alignment: .bottom) {
+        WelcomeFit(height: 560, grow: 1.08, alignment: .bottom) {
             ZStack {
                 Ellipse()
-                    .fill(Theme.lime.opacity(0.16))
-                    .frame(width: 320, height: 200)
+                    .fill(Theme.lime.opacity(0.18))
+                    .frame(width: 340, height: 220)
                     .blur(radius: 60)
-                    .offset(y: -40)
+                    .offset(y: 60)
                 if reduceMotion {
-                    MasterSetScene(set: SetShow.all[0], t: 5, clock: 0)
+                    MasterSetScene(set: SetShow.all[0], t: 5.5)
                 } else {
                     TimelineView(.animation(minimumInterval: nil, paused: !active)) { context in
                         let s = context.date.timeIntervalSince(Self.start)
                         let n = Int(s / Self.cycle)
-                        MasterSetScene(set: SetShow.all[n % SetShow.all.count], t: s - Double(n) * Self.cycle, clock: s)
+                        MasterSetScene(set: SetShow.all[n % SetShow.all.count], t: s - Double(n) * Self.cycle)
                     }
                 }
             }
+            .padding(.horizontal, 24)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Master sets in turn, starting with Evolving Skies: \(SetShow.all[0].endCount) of \(SetShow.all[0].total) cards, the missing ones dimmed")
+        .accessibilityLabel("A binder page of a master set: the chase card lighting up as the set fills, a missing card going into its sleeve")
     }
 }
 
-/// The set at local time `t` (and `clock`, for the row's drift).
+/// The set's page at local time `t`.
 private struct MasterSetScene: View {
     var set: SetShow
     var t: Double
-    var clock: Double
 
-    static let boughtAt: Double = 3.4
+    static let boughtAt: Double = 2.6
+    static let chaseAt: Double = 3.9
 
     var body: some View {
-        let appear: Double = Ease.out(t, 0, 0.5)
-        let leave: Double = 1 - Ease.out(t, WelcomeMasterSet.cycle - 0.5, 0.45)
-        let climb: Double = Ease.out(t, 0.3, 2.2)
+        let turnIn: Double = Ease.out(t, 0, 0.6)
+        let turnOut: Double = Ease.out(t, WelcomeMasterSet.cycle - 0.6, 0.55)
+        let pageAngle: Double = 75 * (1 - turnIn) - 75 * turnOut
+        let fade: Double = min(turnIn, 1 - turnOut)
+        let climb: Double = Ease.out(t, 0.4, 2.2)
         let bought: Double = Ease.out(t, Self.boughtAt, 0.5)
-        let climbed: Double = Double(set.endCount - 1 - set.startCount) * climb
+        let span: Double = Double(set.endCount - 1 - set.startCount)
+        let climbed: Int = Int((span * climb).rounded())
         let extra: Int = bought >= 0.5 ? 1 : 0
-        let count: Int = set.startCount + Int(climbed.rounded()) + extra
-        // The dial fills smoothly (not card by card); the figures show whole cards.
-        let smooth: Double = Double(set.startCount) + climbed + bought
-        let share: Double = smooth / Double(set.total)
+        let count: Int = set.startCount + climbed + extra
         let pct: Int = Int((Double(count) / Double(set.total) * 100).rounded())
-        let left: Double = set.toFinish - set.boughtPrice * bought
-        let owned: Double = set.worth * climb + set.boughtPrice * bought
-        let flashFrom: Double = Self.boughtAt + 0.3
-        let dialFlash: Double = (t >= flashFrom && t <= flashFrom + 0.6) ? sin(Double.pi * (t - flashFrom) / 0.6) : 0
-        VStack(spacing: 22) {
-            VStack(spacing: 4) {
-                MonoLabel(text: "Master set")
+        let reveal: Double = min(1, 0.2 + 0.6 * climb + 0.2 * Ease.out(t, Self.chaseAt, 0.5))
+        let lit: Double = Ease.out(t, Self.chaseAt + 0.3, 0.3) * (1 - Ease.out(t, Self.chaseAt + 1.6, 0.6))
+        let glint: Double = Ease.clamp((t - Self.boughtAt - 0.45) / 0.5)
+        VStack(spacing: 20) {
+            VStack(spacing: 6) {
+                MonoLabel(text: set.era)
                 Text(set.name).font(.display(26)).tracking(-0.8)
-                Text(set.era).font(.geist(13)).foregroundStyle(Theme.muted)
-            }
-            ZStack {
-                MasterSetDial(share: share, flash: dialFlash)
-                VStack(spacing: 2) {
-                    HStack(alignment: .top, spacing: 2) {
-                        Text("\(pct)").font(.display(56)).tracking(-2).monospacedDigit()
-                            .displayTrim(56)
-                        Text("%").font(.geist(17, .semibold)).padding(.top, 4)
-                    }
-                    .foregroundStyle(Theme.lime)
-                    Text("\(count) of \(set.total) cards").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted)
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text("\(pct)%").font(.display(34)).tracking(-1.2).monospacedDigit().foregroundStyle(Theme.lime)
+                    Text("\(count) of \(set.total) cards").font(.geist(14)).monospacedDigit().foregroundStyle(Theme.muted)
                 }
             }
-            .frame(width: 210, height: 210)
-            SetStrip(set: set, clock: clock, bought: bought)
-                .frame(height: 96)
-            HStack(spacing: 28) {
-                MasterSetFigure(label: "Yours", value: Format.moneyWhole(owned), lime: true)
-                Rectangle().fill(Color.white.opacity(0.12)).frame(width: 1, height: 34)
-                MasterSetFigure(label: "To finish", value: Format.moneyWhole(left), lime: false)
-            }
+            BinderPage(set: set, bought: bought, reveal: reveal, lit: lit, glint: glint)
+                .rotation3DEffect(.degrees(14), axis: (x: 1, y: 0, z: 0), anchor: .bottom, perspective: 0.6)
         }
         .foregroundStyle(.white)
-        .opacity(min(appear, leave))
+        .rotation3DEffect(.degrees(pageAngle), axis: (x: 0, y: 1, z: 0), anchor: .leading, perspective: 0.5)
+        .opacity(fade)
     }
 }
 
-/// The dial, as on the real Master Sets page: a Liquid Glass ring with a lime arc and the arrow
-/// riding at its start. Its share comes from the page's clock, so it never animates on its own.
-private struct MasterSetDial: View {
-    var share: Double
-    /// 0 to 1: the lime glow as a bought card lands.
-    var flash: Double = 0
-
-    var body: some View {
-        GeometryReader { geo in
-            let side = min(geo.size.width, geo.size.height)
-            let line = side * 0.13
-            ZStack {
-                MasterSetDialTrack(line: line).equatable()
-                Circle()
-                    .inset(by: line / 2)
-                    .trim(from: 0, to: CGFloat(max(min(share, 1), 0.001)))
-                    .stroke(Theme.lime, style: StrokeStyle(lineWidth: line, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                Image(systemName: "arrow.right")
-                    .font(.system(size: line * 0.5, weight: .bold))
-                    .foregroundStyle(Theme.ink)
-                    .offset(y: -(side / 2 - line / 2))
-                Circle()
-                    .stroke(Color.white, lineWidth: 2)
-                    .padding(-6)
-                    .opacity(0.85 * flash)
-            }
-            .frame(width: side, height: side)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-    }
-}
-
-/// The dial's glass ring, drawn once (it never changes, so it isn't redrawn with the arc).
-private struct MasterSetDialTrack: View, Equatable {
-    var line: CGFloat
-
-    var body: some View {
-        ZStack {
-            Color.clear.liquidGlass(in: RingShape(thickness: line), tint: Theme.lime.opacity(0.14))
-            RingShape(thickness: line).stroke(Color.white.opacity(0.22), lineWidth: 1)
-        }
-    }
-}
-
-/// One row of the set's cards drifting slowly left, faded at both edges. Missing cards sit dim
-/// and grey with a hairline lime edge; the bought one comes up to full colour.
-private struct SetStrip: View {
+/// The binder page: three rows of three plastic sleeves on a dark page.
+private struct BinderPage: View {
     var set: SetShow
-    var clock: Double
-    /// 0 to 1: the bought card filling in.
     var bought: Double
-
-    private static let w: CGFloat = 66
-    private static let gap: CGFloat = 10
+    var reveal: Double
+    var lit: Double
+    var glint: Double
 
     var body: some View {
-        let cards = set.cards
-        let listW = CGFloat(cards.count) * (Self.w + Self.gap)
-        let x = -CGFloat((clock * 16).truncatingRemainder(dividingBy: Double(listW)))
-        HStack(spacing: Self.gap) {
-            ForEach(0 ..< cards.count * 2, id: \.self) { i in
-                let card = cards[i % cards.count]
-                SetStripTile(card: card, url: set.url(card), bought: card.bought ? bought : 0)
-                    .equatable()
-                    .frame(width: Self.w, height: Self.w * 88 / 63)
+        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
+        VStack(spacing: 10) {
+            ForEach(0 ..< 3, id: \.self) { row in
+                HStack(spacing: 10) {
+                    ForEach(0 ..< 3, id: \.self) { col in
+                        let card = set.pockets[row * 3 + col]
+                        BinderSleeve(card: card, url: set.url(card),
+                                     bought: card.bought ? bought : 0,
+                                     reveal: card.chase ? reveal : 1,
+                                     lit: card.chase ? lit : 0,
+                                     glint: card.bought ? glint : 0)
+                    }
+                }
             }
         }
-        .offset(x: x)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .clipped()
-        .mask(
-            LinearGradient(stops: [
-                Gradient.Stop(color: .clear, location: 0),
-                Gradient.Stop(color: .black, location: 0.12),
-                Gradient.Stop(color: .black, location: 0.88),
-                Gradient.Stop(color: .clear, location: 1),
-            ], startPoint: .leading, endPoint: .trailing)
+        .padding(14)
+        .background(
+            ZStack {
+                shape.fill(LinearGradient(colors: [Color(hex: 0x1A1A1D), Color(hex: 0x0F0F11)], startPoint: .top, endPoint: .bottom))
+                shape.strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+            }
         )
     }
 }
 
-/// One card in the row.
-private struct SetStripTile: View, Equatable {
+/// One sleeve: the clear pocket (an empty one shows the page through it), the card in it, a
+/// sheen across the plastic. The chase card shows dark with its lit part rising from the bottom;
+/// a bought card slides up into its sleeve and a glint runs across it.
+private struct BinderSleeve: View {
     var card: SetStripCard
     var url: URL?
     var bought: Double
-
-    static func == (a: Self, b: Self) -> Bool { a.url == b.url && a.bought == b.bought && a.card.missing == b.card.missing }
+    var reveal: Double
+    var lit: Double
+    var glint: Double
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 5, style: .continuous)
-        let filled: Double = card.missing ? (card.bought ? bought : 0) : 1
+        let shape = RoundedRectangle(cornerRadius: 6, style: .continuous)
+        let present: Bool = !card.missing || bought > 0
+        let slide = CGFloat(card.bought ? (1 - bought) * 60 : 0)
         ZStack {
-            SetCardArt(url: url)
-                .equatable()
+            shape.fill(Color.white.opacity(0.03))
+            if present {
+                ZStack {
+                    if card.chase {
+                        SetCardArt(url: url).equatable()
+                            .saturation(0).brightness(-0.25).opacity(0.45)
+                        SetCardArt(url: url).equatable()
+                            .mask { Rectangle().scaleEffect(x: 1, y: CGFloat(max(reveal, 0.001)), anchor: .bottom) }
+                    } else {
+                        SetCardArt(url: url).equatable()
+                    }
+                }
                 .clipShape(shape)
-                .saturation(filled)
-                .opacity(0.28 + 0.72 * filled)
-            if card.missing {
-                shape.strokeBorder(Theme.lime.opacity(0.55 * (1 - filled)), lineWidth: 1)
+                .offset(y: slide)
+                .opacity(card.bought ? bought : 1)
+            }
+            // The plastic: a soft sheen and an edge.
+            shape.fill(LinearGradient(colors: [.white.opacity(0.12), .clear, .white.opacity(0.04)], startPoint: .topLeading, endPoint: .bottomTrailing))
+            shape.strokeBorder(Color.white.opacity(present ? 0.14 : 0.1), lineWidth: 1)
+            if glint > 0, glint < 1 {
+                GeometryReader { g in
+                    LinearGradient(colors: [.clear, .white.opacity(0.55), .clear], startPoint: .leading, endPoint: .trailing)
+                        .frame(width: g.size.width * 0.5, height: g.size.height * 1.6)
+                        .rotationEffect(.degrees(20))
+                        .offset(x: CGFloat(-0.8 + 1.8 * glint) * g.size.width, y: -g.size.height * 0.3)
+                }
+                .clipShape(shape)
+            }
+            if card.chase {
+                shape.strokeBorder(Theme.lime, lineWidth: 2.5).opacity(lit)
             }
         }
+        .aspectRatio(63.0 / 88.0, contentMode: .fit)
+        .clipShape(shape)
     }
 }
 
@@ -1821,24 +1782,17 @@ private struct SetCardArt: View, Equatable {
     }
 }
 
-/// A quiet figure under the row: a mono label and the amount.
-private struct MasterSetFigure: View {
-    var label: String
-    var value: String
-    var lime: Bool
-
-    var body: some View {
-        VStack(spacing: 4) {
-            MonoLabel(text: label)
-            Text(value).font(.display(22)).tracking(-0.6).monospacedDigit()
-                .foregroundStyle(lime ? Theme.lime : .white)
-        }
-    }
-}
-
 // MARK: - Page 5: price alerts
 
-/// One alert the page shows: a watched card, its price line crossing the target, the banner.
+/// A notification in the stack: what it says and when it arrives (local time).
+private struct AlertNote {
+    var icon: String
+    var message: String
+    var at: Double
+}
+
+/// One alert the page shows: a watched card, its price line crossing the target, and the
+/// notifications that stack up over the loop (the last is the one this card's crossing sends).
 private struct AlertShow {
     var slug: String
     var name: String
@@ -1851,40 +1805,55 @@ private struct AlertShow {
     var target: Double
     /// Where along the line it crosses the target (0 to 1).
     var cross: Double
+    /// Notifications that came in earlier in the loop.
+    var earlier: [AlertNote]
+
+    static let drawFrom: Double = 0.3
+    static let drawFor: Double = 2.4
+    /// When the line crosses (the main notification follows).
+    var hitAt: Double { Self.drawFrom + Self.drawFor * cross }
+
+    /// Every notification, oldest first.
+    var notes: [AlertNote] { earlier + [AlertNote(icon: "bell.badge.fill", message: message, at: hitAt + 0.1)] }
 
     static let all: [AlertShow] = [
         AlertShow(slug: "charizard-ex-of", name: "Charizard ex",
                   message: "Charizard ex dropped to \(Format.money(58.3)), under your $60 target.",
                   targetLabel: "$60 target", axis: ["$80", "$66", "$52"],
                   points: [0.18, 0.26, 0.22, 0.34, 0.42, 0.37, 0.5, 0.58, 0.54, 0.68, 0.79, 0.86],
-                  target: 0.72, cross: 0.86),
+                  target: 0.72, cross: 0.86,
+                  earlier: [AlertNote(icon: "calendar", message: "Prismatic Evolutions is out today.", at: 0.5),
+                            AlertNote(icon: "arrow.up.right", message: "Gengar VMAX is up 9% this week.", at: 1.3)]),
         AlertShow(slug: "umbreon-vmax-alt", name: "Umbreon VMAX",
                   message: "Umbreon VMAX passed your $1,350 alert. Now \(Format.money(1392)).",
                   targetLabel: "$1,350 alert", axis: ["$1,420", "$1,305", "$1,190"],
                   points: [0.82, 0.74, 0.77, 0.64, 0.6, 0.62, 0.5, 0.44, 0.47, 0.34, 0.25, 0.16],
-                  target: 0.3, cross: 0.88),
+                  target: 0.3, cross: 0.88,
+                  earlier: [AlertNote(icon: "arrow.down.right", message: "Mew ex dropped under $30.", at: 0.5),
+                            AlertNote(icon: "calendar", message: "Journey Together is out in 3 days.", at: 1.3)]),
     ]
 }
 
-/// The alerts page on loop, off one clock: a watched card's price line draws toward its lime
-/// target; where it crosses, a dot pings and a notification drops in from the top.
+/// The alerts page on loop, off one clock: notifications stack up at the top like a lock
+/// screen, while below, a watched card's price line draws full width toward its lime target;
+/// where it crosses, the dot pings and that card's notification lands on top of the stack.
 private struct WelcomeAlerts: View {
-    static let cycle: Double = 5
+    static let cycle: Double = 6.5
     private static let start = Date()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.welcomeActive) private var active
 
     var body: some View {
-        WelcomeFit(height: 420) {
+        WelcomeFit(height: 540, alignment: .bottom) {
             ZStack {
                 Ellipse()
-                    .fill(Theme.lime.opacity(0.22))
-                    .frame(width: 300, height: 140)
-                    .blur(radius: 50)
-                    .offset(y: 80)
+                    .fill(Theme.lime.opacity(0.2))
+                    .frame(width: 320, height: 160)
+                    .blur(radius: 55)
+                    .offset(y: 140)
                 Group {
                     if reduceMotion {
-                        AlertScene(show: AlertShow.all[0], t: 3.5)
+                        AlertScene(show: AlertShow.all[0], t: 5)
                     } else {
                         TimelineView(.animation(minimumInterval: nil, paused: !active)) { context in
                             let s = context.date.timeIntervalSince(Self.start)
@@ -1897,7 +1866,7 @@ private struct WelcomeAlerts: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("A price alert: \(AlertShow.all[0].message)")
+        .accessibilityLabel("Price alerts arriving: \(AlertShow.all[0].message)")
     }
 }
 
@@ -1906,55 +1875,81 @@ private struct AlertScene: View {
     var show: AlertShow
     var t: Double
 
+    private static let noteH: CGFloat = 66
+    private static let noteGap: CGFloat = 8
+
     var body: some View {
         let appear: Double = Ease.out(t, 0, 0.4)
         let leave: Double = 1 - Ease.out(t, WelcomeAlerts.cycle - 0.45, 0.4)
-        let drawn: Double = Ease.clamp((t - 0.3) / 1.7)
-        let hitAt: Double = 0.3 + 1.7 * show.cross
-        let hit: Double = Ease.out(t, hitAt, 0.3)
-        let bannerIn: Double = Ease.back(t, hitAt + 0.1, 0.45)
-        let bannerOut: Double = Ease.out(t, 4.1, 0.35)
-        let bannerY = CGFloat((1 - bannerIn) * -140 - bannerOut * 140)
-        let bannerFade: Double = Ease.clamp(bannerIn * 2) * (1 - bannerOut)
+        let drawn: Double = Ease.clamp((t - AlertShow.drawFrom) / AlertShow.drawFor)
+        let hit: Double = Ease.out(t, show.hitAt, 0.3)
         let item = DemoData.items.first { $0.slug == show.slug }
         VStack(spacing: 22) {
-            AlertBanner(message: show.message)
-                .offset(y: bannerY)
-                .opacity(bannerFade)
+            AlertStack(notes: show.notes, t: t)
+                .frame(height: Self.noteH * 3 + Self.noteGap * 2, alignment: .top)
             VStack(alignment: .leading, spacing: 14) {
-                HStack(spacing: 10) {
+                HStack(spacing: 12) {
                     if let item {
-                        HoldingArt(product: DemoData.product(item), identity: nil, cornerRadius: 3, caption: false)
-                            .frame(width: 30, height: 42)
+                        HoldingArt(product: DemoData.product(item), identity: nil, cornerRadius: 4, caption: false)
+                            .frame(width: 40, height: 56)
                     }
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(show.name).font(.geist(16, .semibold))
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(show.name).font(.display(20)).tracking(-0.5)
                         MonoLabel(text: "Watching")
                     }
                     Spacer()
                     Image(systemName: "bell.fill")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(hit > 0.5 ? Theme.lime : Theme.muted)
                 }
                 AlertChart(show: show, drawn: drawn, hit: hit)
-                    .frame(height: 150)
+                    .frame(height: 200)
             }
-            .padding(18)
-            .liquidGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         }
         .foregroundStyle(.white)
         .opacity(min(appear, leave))
     }
 }
 
-/// The notification, as iPhone shows it: the app's mark, "Lucent", "now" and the message.
+/// The notifications so far, newest on top: each drops in from above and the older ones slide
+/// down to make room, a little smaller and dimmer the further down they are.
+private struct AlertStack: View {
+    var notes: [AlertNote]
+    var t: Double
+
+    var body: some View {
+        let step: CGFloat = 66 + 8
+        ZStack(alignment: .top) {
+            ForEach(0 ..< notes.count, id: \.self) { i in
+                let note = notes[i]
+                let come: Double = Ease.back(t, note.at, 0.45)
+                // How many newer ones have arrived above it (fractional while they arrive).
+                let above: Double = (i + 1 ..< notes.count).reduce(0.0) { $0 + Ease.out(t, notes[$1].at, 0.35) }
+                let drop: Double = 1 - min(come, 1)
+                let y = CGFloat(above) * step - CGFloat(drop) * 40
+                let scale = CGFloat(1 - 0.03 * above)
+                let fade: Double = Ease.clamp(come * 2) * (1 - 0.18 * above)
+                if t >= note.at {
+                    AlertBanner(icon: note.icon, message: note.message)
+                        .frame(height: 66)
+                        .scaleEffect(scale, anchor: .top)
+                        .offset(y: y)
+                        .opacity(fade)
+                }
+            }
+        }
+    }
+}
+
+/// A notification, as iPhone shows it: the app's mark, "Lucent", "now" and the message.
 private struct AlertBanner: View {
+    var icon: String = "bell.badge.fill"
     var message: String
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "bell.badge.fill")
-                .font(.system(size: 17, weight: .semibold))
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(Theme.ink)
                 .frame(width: 38, height: 38)
                 .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Theme.lime))
@@ -1965,10 +1960,11 @@ private struct AlertBanner: View {
                     Text("now").font(.geist(12)).foregroundStyle(Theme.muted)
                 }
                 Text(message).font(.geist(13)).foregroundStyle(.white.opacity(0.9))
-                    .fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(2)
             }
         }
-        .padding(14)
+        .padding(.horizontal, 14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 }
