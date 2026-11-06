@@ -571,6 +571,8 @@ struct Chip: View {
     var title: String
     var selected: Bool
     var count: Int?
+    /// Takes an equal share of the track's width (a full-width picker).
+    var fills = false
     var action: () -> Void
 
     var body: some View {
@@ -580,6 +582,7 @@ struct Chip: View {
                 if let count { Text("\(count)").font(.geist(14, .medium)).opacity(0.6).monospacedDigit() }
             }
             .padding(.horizontal, 14)
+            .frame(maxWidth: fills ? .infinity : nil)
             .frame(height: 36)
             .foregroundStyle(selected ? Theme.ink : Theme.muted)
             .background(
@@ -634,6 +637,8 @@ struct ChipPicker<T: Hashable>: View {
     @Binding var selection: T
     /// When the chips may not fit: the track stays inside its space and the chips scroll in it.
     var scrolls = false
+    /// The track spans the full width, the chips sharing it equally.
+    var fills = false
 
     var body: some View {
         if scrolls {
@@ -653,7 +658,7 @@ struct ChipPicker<T: Hashable>: View {
     private var chips: some View {
         HStack(spacing: 2) {
             ForEach(options, id: \.0) { value, label in
-                Chip(title: label, selected: selection == value) { selection = value }
+                Chip(title: label, selected: selection == value, fills: fills) { selection = value }
             }
         }
     }

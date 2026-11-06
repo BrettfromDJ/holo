@@ -142,7 +142,8 @@ struct AddPurchaseSheet: View {
                 // How you got it: bought, or pulled from a pack (a pull has no price to fill in).
                 if !product.isSealed {
                     Section {
-                        ChipPicker(options: [(false, "Bought"), (true, "Pulled from a pack")], selection: $pulled)
+                        ChipPicker(options: [(false, "Bought"), (true, "Pulled from a pack")], selection: $pulled, fills: true)
+                            .frame(maxWidth: .infinity)
                     } header: {
                         Text("How you got it")
                     } footer: {
