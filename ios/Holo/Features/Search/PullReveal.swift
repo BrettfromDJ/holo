@@ -306,52 +306,16 @@ private struct SpinningCard<Front: View, Back: View>: View, Animatable {
     }
 }
 
-/// The back of a card, in Lucent's own look: a deep blue swirl in a dark border, a lime orb in
-/// the middle and the name above and (upside down) below it. Drawn once into a single layer.
+/// The back of a card: the card-back artwork in the asset catalog (`CardBack`), cut to the card's
+/// rounded corners.
 struct CardBack: View {
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 13, style: .continuous)
-        let inner = RoundedRectangle(cornerRadius: 8, style: .continuous)
-        let deep = Color(red: 0.05, green: 0.08, blue: 0.24)
-        let mid = Color(red: 0.12, green: 0.24, blue: 0.62)
-        ZStack {
-            shape.fill(Color(red: 0.04, green: 0.06, blue: 0.16))
-            ZStack {
-                AngularGradient(colors: [deep, mid, deep, Color(red: 0.2, green: 0.36, blue: 0.85), deep, mid, deep], center: .center)
-                // The swirl: soft white bands turning about the middle.
-                ForEach(0..<5, id: \.self) { i in
-                    Ellipse()
-                        .stroke(Color.white.opacity(0.13 - Double(i) * 0.015), lineWidth: 16 - CGFloat(i) * 2)
-                        .frame(width: 300 - CGFloat(i) * 40, height: 130 - CGFloat(i) * 14)
-                        .rotationEffect(.degrees(Double(i) * 34 - 25))
-                }
-                .blur(radius: 5)
-                // The orb: lime above, dark below, a ring round its middle.
-                ZStack {
-                    Circle().fill(RadialGradient(colors: [Color(red: 0.93, green: 1, blue: 0.6), Theme.lime, Color(red: 0.45, green: 0.6, blue: 0.05)],
-                                                 center: UnitPoint(x: 0.38, y: 0.3), startRadius: 4, endRadius: 70))
-                    Rectangle().fill(Color(red: 0.07, green: 0.08, blue: 0.1)).frame(height: 12)
-                    Circle().fill(Color(red: 0.07, green: 0.08, blue: 0.1)).frame(width: 40, height: 40)
-                    Circle().fill(Color.white.opacity(0.9)).frame(width: 22, height: 22)
-                }
-                .frame(width: 104, height: 104)
-                .clipShape(Circle())
-                .shadow(color: Theme.lime.opacity(0.5), radius: 18)
-                VStack {
-                    Text("Lucent").font(.display(44)).tracking(-1.4).foregroundStyle(Theme.lime)
-                    Spacer()
-                    Text("Lucent").font(.display(44)).tracking(-1.4).foregroundStyle(Theme.lime).rotationEffect(.degrees(180))
-                }
-                .shadow(color: .black.opacity(0.5), radius: 0, x: 0, y: 3)
-                .padding(.vertical, 26)
-            }
-            .clipShape(inner)
-            .padding(12)
-        }
-        .clipShape(shape)
-        .overlay(shape.strokeBorder(Color.white.opacity(0.14)))
-        .drawingGroup()
-        .accessibilityHidden(true)
+        Image("CardBack")
+            .resizable()
+            .scaledToFill()
+            .clipShape(shape)
+            .accessibilityHidden(true)
     }
 }
 
