@@ -1588,23 +1588,25 @@ private struct SetShow {
     }
 
     static let all: [SetShow] = [
-        SetShow(code: "swsh7", name: "Evolving Skies", era: "Sword & Shield · 2021", total: 203, startCount: 140, endCount: 153, pockets: [
-            SetStripCard(number: 7), SetStripCard(number: 3), SetStripCard(number: 8),
-            SetStripCard(number: 9, missing: true, bought: true), SetStripCard(number: 215, chase: true, big: true), SetStripCard(number: 14, missing: true),
-            SetStripCard(number: 1), SetStripCard(number: 10), SetStripCard(number: 218, big: true),
+        // Each set's best art: alternate arts and illustration rares around its chase card.
+        SetShow(code: "swsh7", name: "Evolving Skies", era: "Sword & Shield · 2021", total: 203, startCount: 160, endCount: 173, pockets: [
+            SetStripCard(number: 167), SetStripCard(number: 175), SetStripCard(number: 184),
+            SetStripCard(number: 189, missing: true, bought: true), SetStripCard(number: 215, chase: true, big: true), SetStripCard(number: 212, missing: true),
+            SetStripCard(number: 205), SetStripCard(number: 209), SetStripCard(number: 218, big: true),
         ]),
-        SetShow(code: "sv3pt5", name: "Scarlet & Violet—151", era: "Scarlet & Violet · 2023", total: 207, startCount: 118, endCount: 131, pockets: [
-            SetStripCard(number: 1), SetStripCard(number: 4), SetStripCard(number: 7),
-            SetStripCard(number: 6, missing: true, bought: true), SetStripCard(number: 199, chase: true, big: true), SetStripCard(number: 133, missing: true),
-            SetStripCard(number: 25), SetStripCard(number: 151), SetStripCard(number: 150),
+        SetShow(code: "sv3pt5", name: "Scarlet & Violet—151", era: "Scarlet & Violet · 2023", total: 207, startCount: 150, endCount: 163, pockets: [
+            SetStripCard(number: 166), SetStripCard(number: 168), SetStripCard(number: 170),
+            SetStripCard(number: 173, missing: true, bought: true), SetStripCard(number: 199, chase: true, big: true), SetStripCard(number: 205, missing: true, big: true),
+            SetStripCard(number: 198), SetStripCard(number: 200), SetStripCard(number: 201),
         ]),
-        SetShow(code: "sv8", name: "Surging Sparks", era: "Scarlet & Violet · 2024", total: 252, startCount: 86, endCount: 99, pockets: [
-            SetStripCard(number: 1), SetStripCard(number: 5), SetStripCard(number: 8),
-            SetStripCard(number: 15, missing: true, bought: true), SetStripCard(number: 238, chase: true, big: true), SetStripCard(number: 22, missing: true),
-            SetStripCard(number: 12), SetStripCard(number: 20), SetStripCard(number: 30),
+        SetShow(code: "sv8", name: "Surging Sparks", era: "Scarlet & Violet · 2024", total: 252, startCount: 180, endCount: 193, pockets: [
+            SetStripCard(number: 192), SetStripCard(number: 193), SetStripCard(number: 194),
+            SetStripCard(number: 195, missing: true, bought: true), SetStripCard(number: 238, chase: true, big: true), SetStripCard(number: 196, missing: true),
+            SetStripCard(number: 197), SetStripCard(number: 198), SetStripCard(number: 199),
         ]),
     ]
 }
+
 
 /// The master set page on loop, off one clock: a binder page under the set's name, plastic
 /// sleeves catching the light. The chase card in the middle starts dark and lights up from the
@@ -1617,7 +1619,7 @@ private struct WelcomeMasterSet: View {
     @Environment(\.welcomeActive) private var active
 
     var body: some View {
-        WelcomeFit(height: 540, alignment: .bottom) {
+        WelcomeFit(height: 610, alignment: .bottom) {
             ZStack {
                 Ellipse()
                     .fill(Theme.lime.opacity(0.18))
@@ -1664,6 +1666,7 @@ private struct MasterSetScene: View {
         let reveal: Double = min(1, 0.2 + 0.6 * climb + 0.2 * Ease.out(t, Self.chaseAt, 0.5))
         let lit: Double = Ease.out(t, Self.chaseAt + 0.3, 0.3) * (1 - Ease.out(t, Self.chaseAt + 1.6, 0.6))
         let glint: Double = Ease.clamp((t - Self.boughtAt - 0.45) / 0.5)
+        let chaseGlow: Double = Ease.out(t, Self.chaseAt + 0.3, 0.6)
         VStack(spacing: 14) {
             // The heading stays still; only the binder page turns.
             VStack(spacing: 6) {
@@ -1674,18 +1677,18 @@ private struct MasterSetScene: View {
                     Text("\(count) of \(set.total) cards").font(.geist(14)).monospacedDigit().foregroundStyle(Theme.muted)
                 }
             }
-            // Narrower than the page, so the whole page (heading and all) fits below the status bar.
+            // Sized (with the page's height) so the heading always sits clear of the status bar.
             // The binder's other pages lie underneath, peeking out below; only the top page turns.
-            BinderPage(set: set, bought: bought, reveal: reveal, lit: lit, glint: glint)
+            BinderPage(set: set, bought: bought, reveal: reveal, lit: lit, glow: chaseGlow, glint: glint)
                 .hidden()
                 .overlay { BinderLayers() }
                 .overlay {
-                    BinderPage(set: set, bought: bought, reveal: reveal, lit: lit, glint: glint)
+                    BinderPage(set: set, bought: bought, reveal: reveal, lit: lit, glow: chaseGlow, glint: glint)
                         .rotation3DEffect(.degrees(pageAngle), axis: (x: 0, y: 1, z: 0), anchor: .leading, perspective: 0.5)
                         .opacity(fade)
                 }
-                .frame(maxWidth: 292)
-                .padding(.bottom, 20)
+                .frame(maxWidth: 320)
+                .padding(.bottom, 30)
         }
         .foregroundStyle(.white)
     }
@@ -1702,9 +1705,10 @@ private struct BinderLayers: View {
                 shape
                     .fill(LinearGradient(colors: [Color(hex: 0x1A1A1D), Color(hex: 0x0F0F11)], startPoint: .top, endPoint: .bottom))
                     .overlay(shape.strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
-                    .scaleEffect(1 - 0.05 * d, anchor: .bottom)
-                    .offset(y: 10 * d)
-                    .opacity(1 - 0.3 * Double(depth))
+                    .overlay(shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.22), .clear], startPoint: .bottom, endPoint: .top), lineWidth: 1))
+                    .scaleEffect(1 - 0.045 * d, anchor: .bottom)
+                    .offset(x: 5 * d, y: 15 * d)
+                    .opacity(1 - 0.25 * Double(depth))
             }
         }
     }
@@ -1716,6 +1720,8 @@ private struct BinderPage: View {
     var bought: Double
     var reveal: Double
     var lit: Double
+    /// The chase card's glow once it's alight (stays on).
+    var glow: Double
     var glint: Double
 
     var body: some View {
@@ -1729,7 +1735,9 @@ private struct BinderPage: View {
                                      bought: card.bought ? bought : 0,
                                      reveal: card.chase ? reveal : 1,
                                      lit: card.chase ? lit : 0,
+                                     glow: card.chase ? glow : 0,
                                      glint: card.bought ? glint : 0)
+                            .zIndex(card.chase ? 1 : 0)
                     }
                 }
             }
@@ -1753,6 +1761,7 @@ private struct BinderSleeve: View {
     var bought: Double
     var reveal: Double
     var lit: Double
+    var glow: Double = 0
     var glint: Double
 
     var body: some View {
@@ -1761,6 +1770,14 @@ private struct BinderSleeve: View {
         let slide = CGFloat(card.bought ? (1 - bought) * 60 : 0)
         ZStack {
             shape.fill(Color.white.opacity(0.03))
+            if !present {
+                // An empty sleeve: a ghost of the card that goes here, and its number.
+                SetCardArt(url: url).equatable()
+                    .saturation(0)
+                    .opacity(0.14)
+                    .clipShape(shape)
+                Text("#\(card.number)").font(.mono(11)).foregroundStyle(Color.white.opacity(0.55))
+            }
             if present {
                 ZStack {
                     if card.chase {
@@ -1789,11 +1806,21 @@ private struct BinderSleeve: View {
                 .clipShape(shape)
             }
             if card.chase {
-                shape.strokeBorder(Theme.lime, lineWidth: 2.5).opacity(lit)
+                shape.strokeBorder(Theme.lime, lineWidth: 2.5).opacity(max(lit, 0.6 * glow))
             }
         }
         .aspectRatio(63.0 / 88.0, contentMode: .fit)
         .clipShape(shape)
+        // The chase card: a touch bigger than the rest, glowing lime once it's alight (a still
+        // gradient behind it, not a blur).
+        .background {
+            if card.chase {
+                RadialGradient(colors: [Theme.lime.opacity(0.55), .clear], center: .center, startRadius: 10, endRadius: 110)
+                    .padding(-40)
+                    .opacity(glow)
+            }
+        }
+        .scaleEffect(card.chase ? 1.08 : 1)
     }
 }
 
