@@ -1244,14 +1244,17 @@ private struct PortfolioPillAnchor: PreferenceKey {
 }
 
 private extension View {
-    /// A pill frosted for real: a material blur of what's behind, a dark wash and a fine edge.
+    /// A frosted pill that hides what's behind it: the system blur didn't reach the page's grid
+    /// here (its lines showed through crisp), so the pill carries its own frost: a near-solid
+    /// dark fill over the blur, a soft light from the top and a fine edge.
     @ViewBuilder func frostedPill(on: Bool = true) -> some View {
         if on {
             background {
                 ZStack {
-                    Capsule().fill(.regularMaterial)
-                    Capsule().fill(Color.black.opacity(0.3))
-                    Capsule().strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
+                    Capsule().fill(.ultraThinMaterial)
+                    Capsule().fill(Color(hex: 0x18181B).opacity(0.88))
+                    Capsule().fill(LinearGradient(colors: [.white.opacity(0.10), .white.opacity(0.02)], startPoint: .top, endPoint: .bottom))
+                    Capsule().strokeBorder(LinearGradient(colors: [.white.opacity(0.22), .white.opacity(0.06)], startPoint: .top, endPoint: .bottom), lineWidth: 1)
                 }
                 .environment(\.colorScheme, .dark)
             }
