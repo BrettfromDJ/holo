@@ -84,33 +84,11 @@ struct ExploreView: View {
                     }
                     .reveal()
                 }
-                if let trending = index.trending, !trending.isEmpty {
-                    VStack(alignment: .leading, spacing: 14) {
-                        PageHeader(title: "Hot singles", subtitle: "Biggest 7-day rises", size: 22).padding(.horizontal, 16)
-                        MoverCarousel(hits: trending)
-                    }
-                    .reveal()
-                }
-                if let hot = index.hotSealed, !hot.isEmpty {
-                    VStack(alignment: .leading, spacing: 14) {
-                        PageHeader(title: "Hot sealed", subtitle: "Sealed products rising fastest this week", size: 22).padding(.horizontal, 16)
-                        MoverCarousel(hits: hot, square: true)
-                    }
-                    .reveal()
-                }
                 if let drops = index.drops, !drops.isEmpty {
                     VStack(alignment: .leading, spacing: 14) {
                         PageHeader(title: "Biggest drops", subtitle: "Biggest 7-day falls", size: 22).padding(.horizontal, 16)
                         MoverCarousel(hits: drops)
                     }
-                    .reveal()
-                }
-                if let boxes = index.boosterBoxes, !boxes.isEmpty {
-                    VStack(alignment: .leading, spacing: 14) {
-                        PageHeader(title: "Booster boxes", subtitle: "How sealed boxes are moving", size: 22)
-                        BoosterBoxList(hits: boxes)
-                    }
-                    .padding(.horizontal, 16)
                     .reveal()
                 }
                 VStack(alignment: .leading, spacing: 14) {
