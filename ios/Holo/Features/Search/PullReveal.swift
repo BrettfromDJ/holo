@@ -34,6 +34,7 @@ struct PullReveal: View {
                 .allowsHitTesting(false)
 
             VStack(spacing: 0) {
+                Spacer(minLength: 12)
                 ZStack {
                     art
                         .rotation3DEffect(.degrees(flipped || reduceMotion ? 0 : 100), axis: (x: 0, y: 1, z: 0), perspective: 0.6)
@@ -51,7 +52,7 @@ struct PullReveal: View {
                     (Text(event.quantity > 1 ? "\(Int(event.quantity)) × " : "").foregroundColor(Theme.muted) + Text(event.product.name))
                         .font(.geist(22, .semibold)).multilineTextAlignment(.center).lineLimit(3)
                 }
-                .padding(.top, 32)
+                .padding(.top, 20)
                 .opacity(risen ? 1 : 0).offset(y: risen ? 0 : 12)
 
                 VStack(spacing: 6) {
@@ -70,12 +71,13 @@ struct PullReveal: View {
                             .padding(.top, 6)
                     }
                 }
-                .padding(.top, 24)
+                .padding(.top, 14)
                 .opacity(risen ? 1 : 0).offset(y: risen ? 0 : 12)
                 }
 
-                // The main action full width; Share (for a pull) and Done side by side under it,
-                // so every label fits on one line.
+                Spacer(minLength: 20)
+                // At the bottom of the screen: the main action full width; Share (for a pull) and
+                // Done side by side under it, so every label fits on one line.
                 VStack(spacing: 12) {
                     Button(action: onOpen) { Label("View product", systemImage: "arrow.right").labelStyle(.titleAndIcon).lineLimit(1) }
                         .buttonStyle(Button3D(kind: .lime, height: 50))
@@ -89,10 +91,10 @@ struct PullReveal: View {
                         Button("Done", action: onDone).buttonStyle(Button3D(kind: .dark, height: 48))
                     }
                 }
-                .padding(.top, 32)
                 .opacity(risen ? 1 : 0)
             }
-            .padding(.horizontal, 28)
+            .padding(.horizontal, 24)
+            .padding(.bottom, 12)
         }
         .contentShape(Rectangle())
         .onTapGesture(perform: onDone)
@@ -105,29 +107,22 @@ struct PullReveal: View {
     /// The item with a foil band sweeping across it once.
     private var art: some View {
         let slab = event.identity?.isGraded == true
-        let shape = RoundedRectangle(cornerRadius: slab ? 14 : (isCard ? (event.pulled ? 13 : 10) : 24), style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: slab ? 18 : (isCard ? 13 : 24), style: .continuous)
         return Group {
             if slab, let id = event.identity {
-                // A graded add shows in its slab (with its Pristine mark and bumper, if any).
-                if event.pulled {
-                    // A pull: bigger, drifting like the card page.
-                    HoloCard(foil: false, textured: false, cornerRadius: 14) {
-                        HoldingArt(product: event.product, identity: id, caption: false).frame(width: 236, height: 378)
-                    }
-                    .drifting()
-                } else {
-                    HoldingArt(product: event.product, identity: id, caption: false).frame(width: 210, height: 336)
+                // A graded add shows in its slab (with its Pristine mark and bumper, if any), at the
+                // card page's size and drifting like it.
+                HoloCard(foil: false, textured: false, cornerRadius: 18) {
+                    HoldingArt(product: event.product, identity: id, caption: false).frame(width: 250, height: 400)
                 }
+                .drifting()
             } else if isCard {
-                if event.pulled {
-                    HoloCard(foil: false, textured: false, cornerRadius: 12) {
-                        ProductImage(product: event.product, cornerRadius: 13, large: true).frame(width: 240, height: 335)
-                    }
-                    .drifting()
-                    .environment(\.imageMaxPixel, nil)
-                } else {
-                    ProductImage(product: event.product, cornerRadius: 10).frame(width: 190, height: 266)
+                // The card at the card page's size, its biggest picture, drifting like the card page.
+                HoloCard(foil: false, textured: false, cornerRadius: 12) {
+                    ProductImage(product: event.product, cornerRadius: 13, large: true).frame(width: 260, height: 363)
                 }
+                .drifting()
+                .environment(\.imageMaxPixel, nil)
             } else {
                 SealedWell(product: event.product, cornerRadius: 24, caption: false).frame(width: 230, height: 230)
             }
@@ -170,7 +165,7 @@ struct PullReveal: View {
             (Text("Collection now ").foregroundColor(Theme.muted) + Text(Format.money(after)).foregroundColor(.white))
                 .font(.geist(13)).monospacedDigit().padding(.top, 6)
         }
-        .padding(.top, 28)
+        .padding(.top, 18)
         .opacity(risen ? 1 : 0).offset(y: risen ? 0 : 12)
     }
 
