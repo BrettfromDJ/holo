@@ -1204,10 +1204,11 @@ private struct ShelfItem: View {
         Button { openHolding(holding.identity) } label: {
             VStack(alignment: .leading, spacing: 0) {
                 ZStack(alignment: .bottom) {
-                    // Spotlight from above.
-                    RadialGradient(colors: [.white.opacity(0.08), .clear], center: UnitPoint(x: 0.5, y: 0.35), startRadius: 0, endRadius: 110)
-                        .frame(width: 220, height: 240)
-                        .offset(y: -24)
+                    // Spotlight from above: drawn in a square wider than its light (radius 110 in
+                    // 240), so it fades to nothing on every side and no edge ever cuts it.
+                    RadialGradient(colors: [.white.opacity(0.08), .clear], center: .center, startRadius: 0, endRadius: 110)
+                        .frame(width: 240, height: 240)
+                        .offset(y: -60)
                         .frame(width: ShelfSection.itemWidth, height: ShelfSection.stageHeight, alignment: .top)
                         .allowsHitTesting(false)
                     // Contact shadow where it meets the ledge.
