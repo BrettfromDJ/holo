@@ -71,7 +71,14 @@ struct WeeklyRecap: View {
                         return
                     }
                     let width = UIScreen.main.bounds.width
-                    if value.location.x < width * 0.33 { go(index - 1, of: all.count) } else { go(index + 1, of: all.count) }
+                    if value.location.x < width * 0.33 {
+                        go(index - 1, of: all.count)
+                    } else if index >= all.count - 1 {
+                        // Tapping on from the last slide closes the recap.
+                        dismiss()
+                    } else {
+                        go(index + 1, of: all.count)
+                    }
                 }
         )
         .onAppear { if built == nil { built = all } }
