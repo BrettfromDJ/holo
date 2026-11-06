@@ -1131,14 +1131,14 @@ private struct ShelfSection: View {
     static let stageHeight: CGFloat = 200
     /// Room above the pieces so each one's spotlight fades out before the shelf's top edge
     /// (the scroll view clips there, which cut the light off in a straight line).
-    static let topPad: CGFloat = 54
+    static let topPad: CGFloat = 12
 
     private var items: [HoldingView] {
         Array(holdings.filter { $0.value != nil }.sorted { ($0.value ?? 0) > ($1.value ?? 0) }.prefix(14))
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .lastTextBaseline) {
                 PageHeader(title: "Most valuable", subtitle: "Ranked by what they're worth today", size: 30)
                 Spacer()
@@ -1206,9 +1206,11 @@ private struct ShelfItem: View {
                 ZStack(alignment: .bottom) {
                     // Spotlight from above: drawn in a square wider than its light (radius 110 in
                     // 240), so it fades to nothing on every side and no edge ever cuts it.
-                    RadialGradient(colors: [.white.opacity(0.08), .clear], center: .center, startRadius: 0, endRadius: 110)
+                    // Centred lower and a little tighter, so it fades out just inside the shelf's
+                    // top edge and the pieces can sit close under the heading.
+                    RadialGradient(colors: [.white.opacity(0.08), .clear], center: .center, startRadius: 0, endRadius: 96)
                         .frame(width: 240, height: 240)
-                        .offset(y: -60)
+                        .offset(y: -18)
                         .frame(width: ShelfSection.itemWidth, height: ShelfSection.stageHeight, alignment: .top)
                         .allowsHitTesting(false)
                     // Contact shadow where it meets the ledge.
