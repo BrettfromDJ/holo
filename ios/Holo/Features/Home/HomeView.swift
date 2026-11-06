@@ -731,28 +731,6 @@ private struct MetricGrid: View {
     var body: some View {
         let s = store.summary
         VStack(spacing: 12) {
-            // Today, all time and invested are in the hero already; the one thing they don't
-            // say is how big the collection is, so that's a single row to it.
-            Button {
-                Router.shared.tabRequest = "collection"
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "square.grid.2x2").font(.system(size: 15)).foregroundStyle(Theme.muted)
-                        .frame(width: 36, height: 36).background(RoundedRectangle(cornerRadius: 12).fill(Theme.surface2))
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Your collection").font(.geist(12, .medium)).foregroundStyle(Theme.muted)
-                        Text("\(Int(s.items.rounded())) items in \(store.holdings.count) products").font(.geist(15, .semibold)).monospacedDigit()
-                    }
-                    Spacer(minLength: 8)
-                    Image(systemName: "arrow.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.muted)
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .surface(radius: 22, padding: nil)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
             BudgetCard(store: store)
             PriceFreshness(refreshedAt: store.pricesRefreshedAt, onReload: onReload)
         }
