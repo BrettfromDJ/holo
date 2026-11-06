@@ -1172,6 +1172,8 @@ struct ManageGroupsSheet: View {
     @State private var renaming: (kind: Kind, id: String)?
     @State private var name = ""
     @State private var deleting: (kind: Kind, id: String, name: String)?
+    @State private var creating: Kind?
+    @State private var newName = ""
     @State private var error: String?
 
     enum Kind { case shelf, portfolio }
@@ -1184,12 +1186,14 @@ struct ManageGroupsSheet: View {
                     ForEach(groups.shelves) { shelf in
                         row(shelf.name, sub: "\(shelf.product_ids.count) item\(shelf.product_ids.count == 1 ? "" : "s")", kind: .shelf, id: shelf.id)
                     }
+                    newRow("New shelf", kind: .shelf)
                 } header: { sectionTitle("Shelves") } footer: { sectionNote("Your own groups, like Grails or For sale. Deleting a shelf keeps its cards in your collection.") }
                 Section {
                     if groups.portfolios.isEmpty { Text("No portfolios yet.").foregroundStyle(Theme.muted) }
                     ForEach(groups.portfolios) { p in
                         row(p.name, sub: nil, kind: .portfolio, id: p.id)
                     }
+                    newRow("New portfolio", kind: .portfolio)
                 } header: { sectionTitle("Portfolios") } footer: { sectionNote("Separate collections with their own totals. Deleting one moves its cards back to Main.") }
                 if let error { Section { Text(error).foregroundStyle(Theme.down) } }
             }
@@ -1200,6 +1204,11 @@ struct ManageGroupsSheet: View {
                 TextField("Name", text: $name)
                 Button("Cancel", role: .cancel) { renaming = nil }
                 Button("Save") { saveRename() }
+            }
+            .alert(creating == .shelf ? "New shelf" : "New portfolio", isPresented: Binding(get: { creating != nil }, set: { if !$0 { creating = nil } })) {
+                TextField(creating == .shelf ? "Grails, For sale…" : "Resale, PC, Graded…", text: $newName)
+                Button("Cancel", role: .cancel) { creating = nil; newName = "" }
+                Button("Create") { saveNew() }
             }
             .alert("Delete \(deleting?.name ?? "")?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
                 Button("Cancel", role: .cancel) { deleting = nil }
@@ -1231,6 +1240,25 @@ struct ManageGroupsSheet: View {
                 .buttonStyle(.borderless).foregroundStyle(Theme.down).accessibilityLabel("Delete \(title)")
                 .padding(.leading, 12)
         }
+    }
+
+    /// A lime row at the end of a section that starts a new shelf or portfolio.
+    private func newRow(_ title: String, kind: Kind) -> some View {
+        Button { newName = ""; creating = kind } label: { Label(title, systemImage: "plus") }
+            .foregroundStyle(Theme.lime)
+    }
+
+    private func saveNew() {
+        let value = String(newName.trimmingCharacters(in: .whitespaces).prefix(40))
+        guard let kind = creating, !value.isEmpty else { creating = nil; return }
+        creating = nil
+        newName = ""
+        Task { await run {
+            switch kind {
+            case .shelf: _ = try await groups.createShelf(value)
+            case .portfolio: try await groups.createPortfolio(value, store: store)
+            }
+        } }
     }
 
     private func saveRename() {
