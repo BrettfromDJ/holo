@@ -24,6 +24,10 @@ struct WeeklyRecap: View {
         let slide = all[min(index, all.count - 1)]
         ZStack(alignment: .top) {
             slide.background.ignoresSafeArea()
+            // A full-bleed moving picture behind the text, on slides that have one.
+            if let backdrop = slide.backdrop {
+                backdrop.id(slide.key + "-backdrop").ignoresSafeArea().transition(.opacity)
+            }
             VStack(alignment: .leading, spacing: 0) {
                 // Progress bars, one per slide.
                 HStack(spacing: 6) {
@@ -99,6 +103,7 @@ private struct Slide {
     var key: String
     var background: RadialGradient
     var content: AnyView
+    var backdrop: AnyView? = nil
 
     private static func glow(_ hex: UInt32, _ mid: UInt32, at: UnitPoint) -> RadialGradient {
         RadialGradient(colors: [Color(hex: hex), Color(hex: mid), Color(hex: 0x0B0B0C)], center: at, startRadius: 0, endRadius: 620)
@@ -129,7 +134,10 @@ private struct Slide {
             VStack(alignment: .leading, spacing: 0) {
                 Kicker(text: "Your week in Lucent")
                 Text(range).font(.geist(14)).foregroundStyle(.white.opacity(0.7)).padding(.top, 8)
-                Spacer()
+                // The week's value, drawing across the page; today pings at the end.
+                RecapWeekChart(values: week.map(\.value), days: week.map(\.date), up: gain >= 0)
+                    .frame(maxHeight: .infinity)
+                    .padding(.vertical, 28)
                 Text("Your collection \(gain >= 0 ? "grew" : "slipped")").font(.geist(18, .medium)).foregroundStyle(.white.opacity(0.8))
                 Big(text: Format.signedMoney(gain), color: gain >= 0 ? Color(hex: 0xE4FF7A) : Color(hex: 0xFF8AB3))
                 Text("\(Format.signedPercent(ratio)) from market moves alone · now \(Format.money(s.value))")
@@ -138,7 +146,7 @@ private struct Slide {
         )))
         if let gainer, (gainer.change7dPct ?? 0) > 0 {
             slides.append(Slide(key: "gainer", background: glow(0x8FAE00, 0x2A3600, at: UnitPoint(x: 0.8, y: 0)), content: AnyView(
-                HeroSlide(kicker: "Hottest this week", holding: gainer) {
+                HeroSlide(kicker: "Hottest this week", holding: gainer, drifts: true) {
                     Big(text: Format.signedPercent((gainer.change7dPct ?? 0) / 100), color: Color(hex: 0xE4FF7A))
                     Text("Now \(Format.money(gainer.price)) each").font(.geist(14)).monospacedDigit().foregroundStyle(.white.opacity(0.7)).padding(.top, 4)
                 }
@@ -155,20 +163,16 @@ private struct Slide {
         slides.append(Slide(key: "spent", background: glow(0xF59E0B, 0x3D2606, at: UnitPoint(x: 0.5, y: 0)), content: AnyView(
             VStack(alignment: .leading, spacing: 0) {
                 Kicker(text: "Shopping")
-                Spacer()
+                if spent > 0 {
+                    RecapBuysFan(buys: Array(buys.prefix(5)).map { RecapBuy(product: store.products[$0.identity.productId], identity: $0.identity, cost: $0.acquisitionCost) })
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    Spacer()
+                }
                 if spent > 0 {
                     Text("You picked up").font(.geist(18, .medium)).foregroundStyle(.white.opacity(0.8))
                     Big(text: "\(Int(units)) item\(units == 1 ? "" : "s")", color: .white)
                     Text("\(Format.money(spent)) spent, fees included").font(.geist(15)).monospacedDigit().foregroundStyle(.white.opacity(0.7)).padding(.top, 8)
-                    HStack(spacing: -12) {
-                        ForEach(Array(buys.prefix(5)), id: \.id) { t in
-                            ProductImage(product: store.products[t.identity.productId], cornerRadius: 14)
-                                .frame(width: 56, height: 56)
-                                .background(RoundedRectangle(cornerRadius: 14).fill(Color(hex: 0x18181A)))
-                                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color(hex: 0x3D2606), lineWidth: 2))
-                        }
-                    }
-                    .padding(.top, 24)
                 } else {
                     Big(text: "$0 spent", color: .white)
                     Text("No new buys this week.").font(.geist(18)).foregroundStyle(.white.opacity(0.8)).padding(.top, 12)
@@ -177,24 +181,38 @@ private struct Slide {
         )))
         if let best, (best.gainRatio ?? 0) > 0 {
             slides.append(Slide(key: "best", background: glow(0xEC4899, 0x3D0D26, at: UnitPoint(x: 0.5, y: 0)), content: AnyView(
-                HeroSlide(kicker: "Best buy you've ever made", holding: best) {
-                    Big(text: Format.signedPercent(best.gainRatio), color: Color(hex: 0xFFB3D9))
-                    Text("Paid \(Format.money(best.costBasis)) · worth \(Format.money(best.value))").font(.geist(14)).monospacedDigit().foregroundStyle(.white.opacity(0.7)).padding(.top, 4)
+                HeroSlide(kicker: "Best buy you've ever made", holding: best, drifts: true) {
+                    // A gain: lime (pink is only for what's down).
+                    Big(text: Format.signedPercent(best.gainRatio), color: Color(hex: 0xE4FF7A))
+                    HStack(spacing: 8) {
+                        Text("Paid \(Format.money(best.costBasis))").foregroundStyle(.white.opacity(0.75))
+                        Image(systemName: "arrow.right").font(.system(size: 11, weight: .bold)).foregroundStyle(.white.opacity(0.6))
+                        Text("worth \(Format.money(best.value))").foregroundStyle(.white)
+                    }
+                    .font(.geist(14, .semibold)).monospacedDigit()
+                    .padding(.horizontal, 14).frame(height: 36)
+                    .liquidGlass(in: Capsule())
+                    .padding(.top, 10)
                 }
             )))
         }
+        let pieces = store.holdings.filter { $0.product?.imageURL != nil }.map { RecapBuy(product: $0.product, identity: $0.identity, cost: 0) }
         slides.append(Slide(key: "outro", background: glow(0x3B82F6, 0x0C1D3D, at: UnitPoint(x: 0.5, y: 1)), content: AnyView(
             VStack(alignment: .leading, spacing: 0) {
                 Kicker(text: "That's a wrap")
                 Spacer()
-                Text("Your collection is worth").font(.geist(18, .medium)).foregroundStyle(.white.opacity(0.8))
-                Big(text: Format.money(s.value), color: .white)
-                Text("\(Int(s.items)) items · \(Format.signedMoney(s.gain)) (\(Format.signedPercent(s.gainRatio))) all time")
-                    .font(.geist(15)).monospacedDigit().foregroundStyle(.white.opacity(0.7)).padding(.top, 8)
-                Spacer()
-                Text("See you next week.").font(.geist(13)).foregroundStyle(.white.opacity(0.5))
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Your collection is worth").font(.geist(18, .medium)).foregroundStyle(.white.opacity(0.85))
+                    Big(text: Format.money(s.value), color: .white)
+                    Text("\(Int(s.items)) items · \(Format.signedMoney(s.gain)) (\(Format.signedPercent(s.gainRatio))) all time")
+                        .font(.geist(15)).monospacedDigit().foregroundStyle(.white.opacity(0.75)).padding(.top, 8)
+                }
+                .padding(20)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .liquidGlass(in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+                Text("See you next week.").font(.geist(13)).foregroundStyle(.white.opacity(0.6)).padding(.top, 16)
             }
-        )))
+        ), backdrop: pieces.isEmpty ? nil : AnyView(RecapGrid(pieces: pieces))))
         return slides
     }
 
@@ -221,16 +239,24 @@ private struct Big: View {
 private struct HeroSlide<Numbers: View>: View {
     var kicker: String
     var holding: HoldingView
+    /// Tilts slowly with light sweeping across, like the card page.
+    var drifts = false
     @ViewBuilder var numbers: Numbers
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Kicker(text: kicker)
-            HoldingArt(product: holding.product, identity: holding.identity, cornerRadius: 16)
-                .frame(maxWidth: 240, maxHeight: 300)
-                .shadow(color: .black.opacity(0.5), radius: 24, y: 14)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(.vertical, 24)
+            Group {
+                if drifts {
+                    RecapDriftCard(holding: holding)
+                } else {
+                    HoldingArt(product: holding.product, identity: holding.identity, cornerRadius: 16)
+                        .shadow(color: .black.opacity(0.5), radius: 24, y: 14)
+                }
+            }
+            .frame(maxWidth: 280, maxHeight: 380)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.vertical, 20)
             Text(shortName(holding.product?.name ?? "")).font(.geist(20, .semibold)).foregroundStyle(.white).lineLimit(2)
             numbers
         }
@@ -240,5 +266,200 @@ private struct HeroSlide<Numbers: View>: View {
         name.replacingOccurrences(of: #"\s*\(.*?\)\s*"#, with: " ", options: .regularExpression)
             .replacingOccurrences(of: #"\s+-\s+\d+/\d+$"#, with: "", options: .regularExpression)
             .trimmingCharacters(in: .whitespaces)
+    }
+}
+
+// MARK: - Pictures for the slides
+
+/// The week's value as a big line drawing across the slide (lime up, pink down), the days
+/// under it and a dot pinging on today. Draws once when the slide opens.
+private struct RecapWeekChart: View {
+    var values: [Double]
+    var days: [String]
+    var up: Bool
+    @State private var drawn: CGFloat = 0
+    @State private var ping = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        let color = up ? Color(hex: 0xE4FF7A) : Color(hex: 0xFF8AB3)
+        VStack(spacing: 10) {
+            GeometryReader { geo in
+                let pts = points(in: geo.size)
+                ZStack(alignment: .topLeading) {
+                    ForEach(0 ..< 4, id: \.self) { k in
+                        Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1)
+                            .offset(y: geo.size.height * CGFloat(k) / 3)
+                    }
+                    if pts.count > 1 {
+                        Path { p in
+                            p.move(to: CGPoint(x: pts[0].x, y: geo.size.height))
+                            for pt in pts { p.addLine(to: pt) }
+                            p.addLine(to: CGPoint(x: pts[pts.count - 1].x, y: geo.size.height))
+                            p.closeSubpath()
+                        }
+                        .fill(LinearGradient(colors: [color.opacity(0.28), color.opacity(0)], startPoint: .top, endPoint: .bottom))
+                        .mask(alignment: .leading) { Rectangle().frame(width: geo.size.width * drawn) }
+                        Path { p in
+                            p.move(to: pts[0])
+                            for pt in pts.dropFirst() { p.addLine(to: pt) }
+                        }
+                        .trim(from: 0, to: drawn)
+                        .stroke(color, style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round))
+                        if let last = pts.last {
+                            Circle().stroke(color, lineWidth: 2).frame(width: ping ? 34 : 10, height: ping ? 34 : 10)
+                                .opacity(ping ? 0 : 1).position(last)
+                            Circle().fill(color).frame(width: 11, height: 11).position(last).opacity(drawn >= 1 ? 1 : 0)
+                        }
+                    }
+                }
+            }
+            HStack {
+                ForEach(Array(days.enumerated()), id: \.offset) { _, d in
+                    Text(weekday(d)).font(.mono(10)).foregroundStyle(.white.opacity(0.55)).frame(maxWidth: .infinity)
+                }
+            }
+        }
+        .onAppear {
+            if reduceMotion { drawn = 1; return }
+            withAnimation(.easeOut(duration: 1.3).delay(0.2)) { drawn = 1 }
+            withAnimation(.easeOut(duration: 1.0).delay(1.5)) { ping = true }
+        }
+        .accessibilityHidden(true)
+    }
+
+    private func points(in size: CGSize) -> [CGPoint] {
+        guard values.count > 1, let lo = values.min(), let hi = values.max() else { return [] }
+        let span = max(hi - lo, 1)
+        let step = size.width / CGFloat(values.count - 1)
+        return values.enumerated().map { i, v in
+            CGPoint(x: CGFloat(i) * step, y: size.height * 0.9 - CGFloat((v - lo) / span) * size.height * 0.8)
+        }
+    }
+
+    private func weekday(_ day: String) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        guard let d = f.date(from: day) else { return "" }
+        return d.formatted(.dateTime.weekday(.abbreviated))
+    }
+}
+
+/// Something bought (or held): its product, which copy, and what it cost.
+private struct RecapBuy {
+    var product: Product?
+    var identity: HoldingIdentity
+    var cost: Double
+}
+
+/// What you bought this week as a fan, dropping in one by one, each with its price on glass.
+private struct RecapBuysFan: View {
+    var buys: [RecapBuy]
+    @State private var shown = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        let n = buys.count
+        ZStack {
+            ForEach(0 ..< n, id: \.self) { i in
+                let mid = Double(n - 1) / 2
+                let angle: Double = (Double(i) - mid) * (n > 3 ? 9 : 12)
+                let x = CGFloat(Double(i) - mid) * (n > 3 ? 46 : 70)
+                VStack(spacing: 10) {
+                    HoldingArt(product: buys[i].product, identity: buys[i].identity, cornerRadius: 10, caption: false)
+                        .frame(width: 150, height: 210)
+                        .shadow(color: .black.opacity(0.5), radius: 16, y: 10)
+                    Text(Format.money(buys[i].cost)).font(.geist(13, .semibold)).monospacedDigit()
+                        .padding(.horizontal, 10).frame(height: 26)
+                        .liquidGlass(in: Capsule())
+                }
+                .rotationEffect(.degrees(angle), anchor: .bottom)
+                .offset(x: x, y: shown ? 0 : -60)
+                .opacity(shown ? 1 : 0)
+                .animation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.75).delay(0.15 + Double(i) * 0.12), value: shown)
+            }
+        }
+        .onAppear { shown = true }
+    }
+}
+
+/// A card that tilts slowly with a band of light sweeping across it and a soft lime glow
+/// behind it, like the card page. Still under Reduce Motion.
+private struct RecapDriftCard: View {
+    var holding: HoldingView
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: nil, paused: reduceMotion)) { context in
+            let c = reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate
+            let tiltX: Double = sin(c * 0.6) * 8
+            let tiltY: Double = cos(c * 0.45) * 11
+            let sweep = CGFloat(sin(c * 0.6))
+            HoldingArt(product: holding.product, identity: holding.identity, cornerRadius: 16, caption: false)
+                .overlay {
+                    GeometryReader { geo in
+                        LinearGradient(colors: [.clear, .white.opacity(0.32), .clear], startPoint: .leading, endPoint: .trailing)
+                            .frame(width: geo.size.width * 0.5, height: geo.size.height * 1.4)
+                            .rotationEffect(.degrees(25))
+                            .position(x: geo.size.width / 2 + sweep * geo.size.width * 0.7, y: geo.size.height / 2)
+                    }
+                    .blendMode(.plusLighter)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .allowsHitTesting(false)
+                }
+                .rotation3DEffect(.degrees(tiltX), axis: (x: 1, y: 0, z: 0), perspective: 0.5)
+                .rotation3DEffect(.degrees(tiltY), axis: (x: 0, y: 1, z: 0), perspective: 0.5)
+                .background {
+                    RadialGradient(colors: [Color(hex: 0xE4FF7A).opacity(0.22), .clear], center: .center, startRadius: 40, endRadius: 200)
+                        .padding(-40)
+                }
+        }
+    }
+}
+
+/// Your collection as tilted columns of cards drifting behind the last slide (like the
+/// walkthrough's Master Sets page), fading out toward the bottom where the total sits.
+private struct RecapGrid: View {
+    var pieces: [RecapBuy]
+    private static let start = Date()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        GeometryReader { geo in
+            let cols = 4
+            let gap: CGFloat = 8
+            let span = geo.size.width * 1.4
+            let w = (span - gap * CGFloat(cols - 1)) / CGFloat(cols)
+            let h = w * 88 / 63
+            let perCol = max(4, Int(ceil(Double(pieces.count) / Double(cols))))
+            let listH = CGFloat(perCol) * (h + gap)
+            TimelineView(.animation(minimumInterval: nil, paused: reduceMotion)) { context in
+                let clock = reduceMotion ? 0 : context.date.timeIntervalSince(Self.start)
+                HStack(alignment: .top, spacing: gap) {
+                    ForEach(0 ..< cols, id: \.self) { c in
+                        let speed: Double = [28, 23, 31, 26][c]
+                        let progress = CGFloat((Double(c) * 0.27 + clock / speed).truncatingRemainder(dividingBy: 1))
+                        let y: CGFloat = c % 2 == 1 ? -listH + listH * progress : -listH * progress
+                        VStack(spacing: gap) {
+                            ForEach(0 ..< perCol * 3, id: \.self) { k in
+                                let piece = pieces[(c * perCol + k % perCol) % pieces.count]
+                                HoldingArt(product: piece.product, identity: piece.identity, cornerRadius: 6, caption: false)
+                                    .frame(width: w, height: h)
+                            }
+                        }
+                        .offset(y: y)
+                    }
+                }
+                .frame(width: span, height: geo.size.height * 1.5, alignment: .top)
+            }
+            .rotationEffect(.degrees(10))
+            .frame(width: geo.size.width, height: geo.size.height)
+            .clipped()
+            .opacity(0.85)
+            .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.45), .init(color: .clear, location: 0.85)],
+                                 startPoint: .top, endPoint: .bottom))
+        }
+        .imageMaxPixel(400)
+        .allowsHitTesting(false)
     }
 }
