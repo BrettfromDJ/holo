@@ -26,9 +26,9 @@ struct WelcomeView: View {
     @State private var error: String?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private let last = 24
+    private let last = 25
     /// The price alerts page: it offers to turn notifications on.
-    private let alertsPage = 23
+    private let alertsPage = 24
     /// iPhone hasn't asked about notifications yet (so the alerts page offers to).
     @State private var canAskNotifications = false
     /// Notifications were just turned on: the button says so for a moment before moving on.
@@ -101,8 +101,8 @@ struct WelcomeView: View {
             }
             .tag(2)
             .environment(\.welcomeActive, page == 2)
-            // Twenty Master Sets designs side by side for now, to compare (pages 3 to 22).
-            ForEach(1 ... 20, id: \.self) { option in
+            // Twenty-one Master Sets designs side by side for now, to compare (pages 3 to 23).
+            ForEach(1 ... 21, id: \.self) { option in
                 WelcomePage(
                     title: "Finish every set",
                     line: "See how much of each set you own, and the cards\u{00A0}still\u{00A0}missing.",
@@ -1845,7 +1845,7 @@ private struct SetCardArt: View, Equatable {
 /// The twenty Master Sets designs being compared, each its own page for now. Option 1 is the binder.
 private enum MasterOption {
     static let names = ["Binder", "Dial", "Chase hero", "Fan", "Mosaic", "Your sets", "Pile", "Checklist", "Puzzle", "Orbit",
-                        "Rings", "Wallet", "Big type", "Cover Flow", "Memories", "Widgets", "Live Activity", "To go", "Watch", "Apple Card"]
+                        "Rings", "Wallet", "Big type", "Cover Flow", "Memories", "Widgets", "Live Activity", "To go", "Watch", "Apple Card", "Tilted grid"]
 }
 
 /// Where a set's loop is: the share climbing, the bought card landing, the chase card lighting.
@@ -1939,7 +1939,8 @@ private struct WelcomeMasterOption: View {
             case 17: MSVLiveActivity(set: set, p: p)
             case 18: MSVToGo(set: set, p: p)
             case 19: MSVWatch(set: set, p: p)
-            default: MSVCardShine(set: set, p: p, clock: clock)
+            case 20: MSVCardShine(set: set, p: p, clock: clock)
+            default: MSVTiltGrid(set: set, p: p, clock: clock)
             }
         }
         .foregroundStyle(.white)
@@ -2488,6 +2489,86 @@ private struct MSVBigNumber: View {
         Text(text).font(.display(170)).tracking(-9).monospacedDigit()
             .minimumScaleFactor(0.5).lineLimit(1)
             .frame(width: 340, height: 220)
+    }
+}
+
+/// 21. Tilted grid: the set as drifting columns of cards, like the first page but leaning the
+/// other way and smaller, so more of the set shows. Cards you own are in colour; the ones you
+/// don't are black tiles with their number in grey. The set's name and share sit on a glass pill.
+private struct MSVTiltGrid: View {
+    var set: SetShow
+    var p: SetProgress
+    var clock: Double
+
+    private static let cols = 5
+    private static let perCol = 7
+    private static let w: CGFloat = 78
+    private static let gap: CGFloat = 8
+    private static let durations: [Double] = [30, 24, 34, 27, 31]
+    private static let phases: [Double] = [0.1, 0.6, 0.35, 0.8, 0.25]
+
+    var body: some View {
+        let h = Self.w * 88 / 63
+        let listH = CGFloat(Self.perCol) * (h + Self.gap)
+        ZStack(alignment: .bottom) {
+            HStack(alignment: .top, spacing: Self.gap) {
+                ForEach(0 ..< Self.cols, id: \.self) { c in
+                    let progress = CGFloat((Self.phases[c] + clock / Self.durations[c]).truncatingRemainder(dividingBy: 1))
+                    let down = c % 2 == 1
+                    let y: CGFloat = down ? -listH + listH * progress : -listH * progress
+                    VStack(spacing: Self.gap) {
+                        ForEach(0 ..< Self.perCol * 3, id: \.self) { k in
+                            let n = 1 + c * Self.perCol + (k % Self.perCol)
+                            TiltGridTile(set: set, number: n * 3 - 2, owned: (n * 7) % 9 >= 2)
+                                .frame(width: Self.w, height: h)
+                        }
+                    }
+                    .offset(y: y)
+                }
+            }
+            .frame(width: 560, height: 760, alignment: .top)
+            .rotationEffect(.degrees(10))
+            .frame(width: 340, height: 520)
+            .clipped()
+            .mask(LinearGradient(stops: [
+                .init(color: .clear, location: 0), .init(color: .black, location: 0.12),
+                .init(color: .black, location: 0.7), .init(color: .clear, location: 1),
+            ], startPoint: .top, endPoint: .bottom))
+            VStack(spacing: 4) {
+                MonoLabel(text: set.era)
+                Text(set.name).font(.display(22)).tracking(-0.6)
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text("\(p.pct)%").font(.display(34)).tracking(-1.2).monospacedDigit().foregroundStyle(Theme.lime)
+                    Text("\(p.count) of \(set.total)").font(.geist(14)).monospacedDigit().foregroundStyle(Theme.muted)
+                }
+            }
+            .padding(.horizontal, 24).padding(.vertical, 14)
+            .liquidGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .padding(.bottom, 6)
+        }
+    }
+}
+
+/// One tile of the tilted grid: the card in colour, or a black tile with its number in grey.
+private struct TiltGridTile: View, Equatable {
+    var set: SetShow
+    var number: Int
+    var owned: Bool
+
+    static func == (a: Self, b: Self) -> Bool { a.set.code == b.set.code && a.number == b.number && a.owned == b.owned }
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 6, style: .continuous)
+        if owned {
+            SetCardArt(url: set.url(SetStripCard(number: number))).equatable()
+                .clipShape(shape)
+        } else {
+            ZStack {
+                shape.fill(Color(hex: 0x0B0B0C))
+                shape.strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+                Text("#\(number)").font(.mono(12)).foregroundStyle(Theme.muted)
+            }
+        }
     }
 }
 
