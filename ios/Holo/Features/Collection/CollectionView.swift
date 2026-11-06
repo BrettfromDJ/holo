@@ -160,6 +160,10 @@ struct CollectionView: View {
                             Spacer(minLength: 0)
                             if !store.holdings.isEmpty { selectPill }
                         }
+                        // Drawn above the header's backdrop: that backdrop reaches up behind this
+                        // row, and coming later it was painted over the pills, grid and all, so
+                        // nothing on them could blur it.
+                        .zIndex(1)
                         if let groupError { Text(groupError).font(.geist(13)).foregroundStyle(Theme.muted) }
                         header
                         if store.holdings.isEmpty {
@@ -1271,15 +1275,14 @@ private struct PortfolioPillAnchor: PreferenceKey {
 }
 
 private extension View {
-    /// A frosted pill that hides what's behind it: the system blur didn't reach the page's grid
-    /// here (its lines showed through crisp), so the pill carries its own frost: a near-solid
-    /// dark fill over the blur, a soft light from the top and a fine edge.
+    /// A frosted pill: a material blur of what's behind, a dark wash, a soft light from the top
+    /// and a fine edge.
     @ViewBuilder func frostedPill(on: Bool = true) -> some View {
         if on {
             background {
                 ZStack {
                     Capsule().fill(.ultraThinMaterial)
-                    Capsule().fill(Color(hex: 0x18181B).opacity(0.88))
+                    Capsule().fill(Color(hex: 0x18181B).opacity(0.45))
                     Capsule().fill(LinearGradient(colors: [.white.opacity(0.10), .white.opacity(0.02)], startPoint: .top, endPoint: .bottom))
                     Capsule().strokeBorder(LinearGradient(colors: [.white.opacity(0.22), .white.opacity(0.06)], startPoint: .top, endPoint: .bottom), lineWidth: 1)
                 }
