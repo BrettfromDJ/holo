@@ -1,6 +1,10 @@
 import SwiftUI
 import UserNotifications
 
+/// The walkthrough's quiet text: white, partly see-through (not grey), so it sits well on every
+/// backdrop colour behind it.
+private let welcomeSoft = Color.white.opacity(0.62)
+
 /// Whether this welcome page is the one on screen. The page slider keeps its neighbours alive,
 /// so each page's moving picture pauses unless it's showing.
 private struct WelcomeActiveKey: EnvironmentKey { static let defaultValue = true }
@@ -175,7 +179,7 @@ struct WelcomeView: View {
                     .disabled(alertsOn)
                     .accessibilityIdentifier("welcome-alerts-on")
                 Button("Not now") { go(to: page + 1) }
-                    .font(.geist(15, .medium)).foregroundStyle(Theme.muted)
+                    .font(.geist(15, .medium)).foregroundStyle(welcomeSoft)
                     .frame(maxWidth: .infinity)
                     .frame(height: 22)
                     .accessibilityIdentifier("welcome-alerts-later")
@@ -188,7 +192,7 @@ struct WelcomeView: View {
                     .accessibilityIdentifier("welcome-continue")
                 // Plain text under Continue, centred, like "Try the demo" on the last page.
                 Button("Skip") { go(to: last) }
-                    .font(.geist(15, .medium)).foregroundStyle(Theme.muted)
+                    .font(.geist(15, .medium)).foregroundStyle(welcomeSoft)
                     .frame(maxWidth: .infinity)
                     .frame(height: 22)
                     .accessibilityIdentifier("welcome-skip")
@@ -212,7 +216,7 @@ struct WelcomeView: View {
                     if !preview { Onboarding.shared.welcomeSeen = true }
                     onDemo()
                 }
-                .font(.geist(15, .medium)).foregroundStyle(Theme.muted)
+                .font(.geist(15, .medium)).foregroundStyle(welcomeSoft)
                 .frame(height: 22)
                 .accessibilityIdentifier("welcome-demo")
                 if let error {
@@ -265,7 +269,7 @@ private struct WelcomePage<Picture: View>: View {
                 // Balanced lines (no lone word at the end), centred, sitting tight on each other.
                 DisplayText(text: title, size: 32, lineGap: -0.07, alignment: .center)
                     .frame(maxWidth: .infinity)
-                Text(line).font(.geist(16)).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
+                Text(line).font(.geist(16)).foregroundStyle(welcomeSoft).multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.horizontal, 32)
@@ -475,7 +479,7 @@ private struct WelcomeWorthPill: View {
     private func pill(_ value: Double) -> some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                MonoLabel(text: "Worth today")
+                MonoLabel(text: "Worth today", color: welcomeSoft)
                 CountingText(value: value, format: { Format.money($0) }, duration: 1.4, delay: 0.3)
                     .font(.display(30)).tracking(-1).monospacedDigit()
                     .foregroundStyle(Theme.lime)
@@ -691,7 +695,7 @@ private struct ScanTable: View {
                 HStack {
                     MonoLabel(text: "Scanning", color: Theme.lime)
                     Spacer()
-                    MonoLabel(text: "1×")
+                    MonoLabel(text: "1×", color: welcomeSoft)
                 }
                 Spacer()
             }
@@ -914,7 +918,7 @@ private struct ScanPill: View {
     var body: some View {
         HStack(spacing: 6) {
             Text(read.name).font(.geist(13, .semibold)).foregroundStyle(.white)
-            Text(read.number).font(.mono(11)).foregroundStyle(Theme.muted)
+            Text(read.number).font(.mono(11)).foregroundStyle(welcomeSoft)
             Text(Format.money(read.item.now)).font(.geist(13, .bold)).monospacedDigit()
                 .hidden()
                 .overlay(alignment: .trailing) {
@@ -1437,10 +1441,10 @@ private struct GradingValues: View {
     var body: some View {
         HStack(spacing: 10) {
             Text(Format.moneyWhole(show.raw)).font(.geist(15, .semibold)).monospacedDigit()
-                .foregroundStyle(gradedShown > 0.5 ? Theme.muted : .white)
+                .foregroundStyle(gradedShown > 0.5 ? welcomeSoft : .white)
             Image(systemName: "arrow.right")
                 .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(Theme.muted)
+                .foregroundStyle(welcomeSoft)
                 .opacity(gradedShown)
             HStack(spacing: 6) {
                 MonoLabel(text: show.company + " " + show.grade, color: Theme.lime)
@@ -1542,7 +1546,7 @@ private struct BumperPickerDemo: View {
         let ringX = CGFloat(ringAt) * (Self.size + Self.gap)
         VStack(spacing: 10) {
             HStack(spacing: 8) {
-                MonoLabel(text: "Bumper")
+                MonoLabel(text: "Bumper", color: welcomeSoft)
                 Text(name ?? "Choose one").font(.geist(13, .semibold)).foregroundStyle(.white)
             }
             ZStack(alignment: .leading) {
@@ -1677,11 +1681,11 @@ private struct MasterSetScene: View {
         VStack(spacing: 14) {
             // The heading stays still; only the binder page turns.
             VStack(spacing: 6) {
-                MonoLabel(text: set.era)
+                MonoLabel(text: set.era, color: welcomeSoft)
                 Text(set.name).font(.display(26)).tracking(-0.8)
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text("\(pct)%").font(.display(34)).tracking(-1.2).monospacedDigit().foregroundStyle(Theme.lime)
-                    Text("\(count) of \(set.total) cards").font(.geist(14)).monospacedDigit().foregroundStyle(Theme.muted)
+                    Text("\(count) of \(set.total) cards").font(.geist(14)).monospacedDigit().foregroundStyle(welcomeSoft)
                 }
             }
             // Sized (with the page's height) so the heading always sits clear of the status bar.
@@ -1970,11 +1974,11 @@ private struct MSVHeading: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            MonoLabel(text: set.era)
+            MonoLabel(text: set.era, color: welcomeSoft)
             Text(set.name).font(.display(26)).tracking(-0.8)
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text("\(p.pct)%").font(.display(big ? 48 : 34)).tracking(-1.4).monospacedDigit().foregroundStyle(Theme.lime)
-                Text("\(p.count) of \(set.total) cards").font(.geist(14)).monospacedDigit().foregroundStyle(Theme.muted)
+                Text("\(p.count) of \(set.total) cards").font(.geist(14)).monospacedDigit().foregroundStyle(welcomeSoft)
             }
         }
     }
@@ -2033,7 +2037,7 @@ private struct MSVDial: View {
         let x = -CGFloat((clock * 16).truncatingRemainder(dividingBy: Double(listW)))
         VStack(spacing: 22) {
             VStack(spacing: 4) {
-                MonoLabel(text: set.era)
+                MonoLabel(text: set.era, color: welcomeSoft)
                 Text(set.name).font(.display(26)).tracking(-0.8)
             }
             ZStack {
@@ -2043,7 +2047,7 @@ private struct MSVDial: View {
                     .rotationEffect(.degrees(-90))
                 VStack(spacing: 2) {
                     Text("\(p.pct)%").font(.display(52)).tracking(-2).monospacedDigit().foregroundStyle(Theme.lime)
-                    Text("\(p.count) of \(set.total)").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted)
+                    Text("\(p.count) of \(set.total)").font(.geist(13)).monospacedDigit().foregroundStyle(welcomeSoft)
                 }
             }
             .frame(width: 200, height: 200)
@@ -2142,7 +2146,7 @@ private struct MSVMosaic: View {
             VStack(spacing: 4) {
                 Text(set.name).font(.display(22)).tracking(-0.6)
                 Text("\(p.pct)%").font(.display(44)).tracking(-1.6).monospacedDigit().foregroundStyle(Theme.lime)
-                Text("\(p.count) of \(set.total) cards").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted)
+                Text("\(p.count) of \(set.total) cards").font(.geist(13)).monospacedDigit().foregroundStyle(welcomeSoft)
             }
             .padding(.horizontal, 24).padding(.vertical, 16)
             .liquidGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous))
@@ -2157,7 +2161,7 @@ private struct MSVSets: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                MonoLabel(text: "Your master sets")
+                MonoLabel(text: "Your master sets", color: welcomeSoft)
                 Text("3 sets started").font(.display(28)).tracking(-0.8)
             }
             .padding(.bottom, 6)
@@ -2175,7 +2179,7 @@ private struct MSVSets: View {
                         HStack(alignment: .firstTextBaseline) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(set.name).font(.geist(16, .semibold)).lineLimit(1)
-                                MonoLabel(text: set.era)
+                                MonoLabel(text: set.era, color: welcomeSoft)
                             }
                             Spacer()
                             Text("\(Int((share * 100).rounded()))%").font(.display(24)).tracking(-0.8).monospacedDigit().foregroundStyle(Theme.lime)
@@ -2254,7 +2258,7 @@ private struct MSVChecklist: View {
                             .frame(width: 28, height: 39)
                         Text("#\(card.number)").font(.mono(13)).foregroundStyle(.white)
                         Text(card.chase ? "Chase card" : (card.missing && ticked <= 0 ? "Missing" : "Owned"))
-                            .font(.geist(14)).foregroundStyle(Theme.muted)
+                            .font(.geist(14)).foregroundStyle(welcomeSoft)
                         Spacer()
                         ZStack {
                             Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1.5)
@@ -2338,7 +2342,7 @@ private struct MSVOrbit: View {
         let radius: CGFloat = 138
         VStack(spacing: 18) {
             VStack(spacing: 4) {
-                MonoLabel(text: set.era)
+                MonoLabel(text: set.era, color: welcomeSoft)
                 Text(set.name).font(.display(26)).tracking(-0.8)
             }
             ZStack {
@@ -2356,7 +2360,7 @@ private struct MSVOrbit: View {
                 }
                 VStack(spacing: 2) {
                     Text("\(p.pct)%").font(.display(56)).tracking(-2).monospacedDigit().foregroundStyle(Theme.lime)
-                    Text("\(p.count) of \(set.total) cards").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted)
+                    Text("\(p.count) of \(set.total) cards").font(.geist(13)).monospacedDigit().foregroundStyle(welcomeSoft)
                 }
             }
             .frame(width: radius * 2 + 70, height: radius * 2 + 90)
@@ -2478,7 +2482,7 @@ private struct MSVBigType: View {
         let chase = set.pockets.first { $0.chase } ?? set.pockets[4]
         let drift = CGFloat(sin(clock * 0.4)) * 30
         VStack(spacing: 6) {
-            MonoLabel(text: set.era)
+            MonoLabel(text: set.era, color: welcomeSoft)
             Text(set.name).font(.display(26)).tracking(-0.8)
             ZStack {
                 // A faint lime base, then the art showing through the numerals.
@@ -2490,7 +2494,7 @@ private struct MSVBigType: View {
                     .mask { MSVBigNumber(text: "\(p.pct)%") }
             }
             .frame(width: 340, height: 220)
-            Text("\(p.count) of \(set.total) cards").font(.geist(17)).monospacedDigit().foregroundStyle(Theme.muted)
+            Text("\(p.count) of \(set.total) cards").font(.geist(17)).monospacedDigit().foregroundStyle(welcomeSoft)
         }
     }
 }
@@ -2550,11 +2554,11 @@ private struct MSVTiltGrid: View {
                 .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.6), .init(color: .clear, location: 1)],
                                      startPoint: .top, endPoint: .bottom))
                 VStack(spacing: 4) {
-                    MonoLabel(text: set.era)
+                    MonoLabel(text: set.era, color: welcomeSoft)
                     Text(set.name).font(.display(22)).tracking(-0.6)
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text("\(p.pct)%").font(.display(34)).tracking(-1.2).monospacedDigit().foregroundStyle(Theme.lime)
-                        Text("\(p.count) of \(set.total)").font(.geist(14)).monospacedDigit().foregroundStyle(Theme.muted)
+                        Text("\(p.count) of \(set.total)").font(.geist(14)).monospacedDigit().foregroundStyle(welcomeSoft)
                     }
                 }
                 .foregroundStyle(.white)
@@ -2583,7 +2587,7 @@ private struct TiltGridTile: View, Equatable {
             ZStack {
                 shape.fill(Color(hex: 0x0B0B0C))
                 shape.strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
-                Text("#\(number)").font(.mono(12)).foregroundStyle(Theme.muted)
+                Text("#\(number)").font(.mono(12)).foregroundStyle(welcomeSoft)
             }
         }
     }
@@ -2685,9 +2689,9 @@ private struct MSVWidgets: View {
             }
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    MonoLabel(text: "Master set")
+                    MonoLabel(text: "Master set", color: welcomeSoft)
                     Spacer()
-                    Text("\(p.count)/\(set.total)").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted)
+                    Text("\(p.count)/\(set.total)").font(.geist(13)).monospacedDigit().foregroundStyle(welcomeSoft)
                 }
                 Text(set.name).font(.display(22)).tracking(-0.6)
                 ZStack(alignment: .leading) {
@@ -2787,7 +2791,7 @@ private struct MSVWatch: View {
             .frame(width: 290, height: 290)
             VStack(spacing: 4) {
                 Text(set.name).font(.display(24)).tracking(-0.7)
-                Text("\(p.count) of \(set.total) cards").font(.geist(14)).monospacedDigit().foregroundStyle(Theme.muted)
+                Text("\(p.count) of \(set.total) cards").font(.geist(14)).monospacedDigit().foregroundStyle(welcomeSoft)
             }
         }
     }
@@ -2949,12 +2953,12 @@ private struct AlertScene: View {
                     }
                     VStack(alignment: .leading, spacing: 3) {
                         Text(show.name).font(.display(20)).tracking(-0.5)
-                        MonoLabel(text: "Watching")
+                        MonoLabel(text: "Watching", color: welcomeSoft)
                     }
                     Spacer()
                     Image(systemName: "bell.fill")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(hit > 0.5 ? Theme.lime : Theme.muted)
+                        .foregroundStyle(hit > 0.5 ? Theme.lime : welcomeSoft)
                 }
                 AlertChart(show: show, drawn: drawn, hit: hit)
                     .frame(height: 250)
@@ -3015,7 +3019,7 @@ private struct AlertBanner: View {
                 HStack {
                     Text("Lucent").font(.geist(14, .semibold))
                     Spacer()
-                    Text("now").font(.geist(12)).foregroundStyle(Theme.muted)
+                    Text("now").font(.geist(12)).foregroundStyle(welcomeSoft)
                 }
                 Text(message).font(.geist(13)).foregroundStyle(.white.opacity(0.9))
                     .lineLimit(2)
@@ -3051,7 +3055,7 @@ private struct AlertChart: View {
                         p.addLine(to: CGPoint(x: w, y: y))
                     }
                     .stroke(Color.white.opacity(0.07), lineWidth: 1)
-                    Text(show.axis[k]).font(.mono(10)).foregroundStyle(Theme.muted)
+                    Text(show.axis[k]).font(.mono(10)).foregroundStyle(welcomeSoft)
                         .fixedSize()
                         .frame(width: w, alignment: .trailing)
                         .offset(y: y - (k == 0 ? -4 : 16))
