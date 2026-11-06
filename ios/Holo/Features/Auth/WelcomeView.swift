@@ -30,9 +30,9 @@ struct WelcomeView: View {
     @State private var error: String?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private let last = 25
+    private let last = 10
     /// The price alerts page: it offers to turn notifications on.
-    private let alertsPage = 24
+    private let alertsPage = 4
     /// iPhone hasn't asked about notifications yet (so the alerts page offers to).
     @State private var canAskNotifications = false
     /// Notifications were just turned on: the button says so for a moment before moving on.
@@ -105,22 +105,16 @@ struct WelcomeView: View {
             }
             .tag(2)
             .environment(\.welcomeActive, page == 2)
-            // Twenty-one Master Sets designs side by side for now, to compare (pages 3 to 23).
-            ForEach(1 ... 21, id: \.self) { option in
-                WelcomePage(
-                    title: "Finish every set",
-                    line: "See how much of each set you own, and the cards\u{00A0}still\u{00A0}missing.",
-                    graphicHeight: graphicHeight
-                ) {
-                    if option == 21 {
-                        WelcomeMasterOption(option: option).ignoresSafeArea(edges: .top)
-                    } else {
-                        WelcomeMasterOption(option: option)
-                    }
-                }
-                .tag(2 + option)
-                .environment(\.welcomeActive, page == 2 + option)
+            WelcomePage(
+                title: "Finish every set",
+                line: "See how much of each set you own, and the cards\u{00A0}still\u{00A0}missing.",
+                graphicHeight: graphicHeight
+            ) {
+                // Full bleed, under the status bar, like the first page.
+                WelcomeMasterSet().ignoresSafeArea(edges: .top)
             }
+            .tag(3)
+            .environment(\.welcomeActive, page == 3)
             WelcomePage(
                 title: "Know when prices move",
                 line: "Set a target on any card. You'll get a notification\u{00A0}when\u{00A0}it's\u{00A0}hit.",
@@ -130,15 +124,18 @@ struct WelcomeView: View {
             }
             .tag(alertsPage)
             .environment(\.welcomeActive, page == alertsPage)
-            WelcomePage(
-                title: "Deals, made easier",
-                line: "Add what's coming in and going out. The cash and your profit are\u{00A0}worked\u{00A0}out.",
-                graphicHeight: graphicHeight
-            ) {
-                WelcomeDeal()
+            // Six deal designs side by side for now, to compare (pages 5 to 10); the last has the ways in.
+            ForEach(1 ... 6, id: \.self) { option in
+                WelcomePage(
+                    title: "Deals, made easier",
+                    line: "Add what's coming in and going out. The cash and your profit are\u{00A0}worked\u{00A0}out.",
+                    graphicHeight: graphicHeight
+                ) {
+                    WelcomeDealOption(option: option)
+                }
+                .tag(4 + option)
+                .environment(\.welcomeActive, page == 4 + option)
             }
-            .tag(last)
-            .environment(\.welcomeActive, page == last)
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
     }
@@ -164,7 +161,7 @@ struct WelcomeView: View {
         .accessibilityHidden(true)
     }
 
-    private static let pageNames = ["What it's worth", "Scan a card", "Grading"] + MasterOption.names.enumerated().map { "Master sets \($0.offset + 1): \($0.element)" } + ["Price alerts", "Deals"]
+    private static let pageNames = ["What it's worth", "Scan a card", "Grading", "Master sets", "Price alerts"] + DealOption.names.enumerated().map { "Deals \($0.offset + 1): \($0.element)" }
 
     /// Continue on the first pages; the ways in on the last.
     @ViewBuilder private var footer: some View {
@@ -1275,6 +1272,393 @@ private struct DealProfit: View {
     }
 }
 
+// MARK: - Deals: six options to compare (temporary)
+
+private enum DealOption {
+    static let names = ["Lime card", "Glass receipt", "Face-off", "Printed receipt", "Balance", "Swap"]
+}
+
+/// One deal option's page: its label at the top and the design, off one clock (paused off
+/// screen), taking the trade, the buy and the sale in turn. Option 1 is the lime card.
+private struct WelcomeDealOption: View {
+    var option: Int
+    static let cycle: Double = 7
+    private static let start = Date()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.welcomeActive) private var active
+
+    var body: some View {
+        Group {
+            if option == 1 {
+                WelcomeDeal()
+            } else {
+                WelcomeFit(height: 500, alignment: .bottom) {
+                    ZStack {
+                        Ellipse()
+                            .fill(Theme.lime.opacity(0.12))
+                            .frame(width: 320, height: 160)
+                            .blur(radius: 60)
+                            .offset(y: 90)
+                        if reduceMotion {
+                            scene(DealSpec.all[0], t: 5.5, clock: 0)
+                        } else {
+                            TimelineView(.animation(minimumInterval: nil, paused: !active)) { context in
+                                let s = context.date.timeIntervalSince(Self.start)
+                                let n = Int(s / Self.cycle)
+                                scene(DealSpec.all[n % DealSpec.all.count], t: s - Double(n) * Self.cycle, clock: s)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                }
+            }
+        }
+        .overlay(alignment: .top) {
+            Text("Option \(option) · \(DealOption.names[option - 1])")
+                .font(.mono(11)).tracking(1.2).textCase(.uppercase)
+                .foregroundStyle(Theme.ink)
+                .padding(.horizontal, 10).padding(.vertical, 4)
+                .background(Capsule().fill(Theme.lime))
+                .padding(.top, 6)
+        }
+    }
+
+    @ViewBuilder private func scene(_ spec: DealSpec, t: Double, clock: Double) -> some View {
+        let appear: Double = Ease.out(t, 0, 0.4)
+        let leave: Double = 1 - Ease.out(t, Self.cycle - 0.55, 0.45)
+        Group {
+            switch option {
+            case 2: DealGlass(spec: spec, t: t, clock: clock)
+            case 3: DealFaceOff(spec: spec, t: t, clock: clock)
+            case 4: DealPrinted(spec: spec, t: t)
+            case 5: DealBalanceScene(spec: spec, t: t)
+            default: DealSwap(spec: spec, t: t)
+            }
+        }
+        .foregroundStyle(.white)
+        .opacity(min(appear, leave))
+    }
+}
+
+/// A side of the deal as a picture: the card's art, or a cash tile.
+private struct DealSideArt: View {
+    var side: WelcomeDealSide
+    var radius: CGFloat = 8
+
+    var body: some View {
+        if let item = side.item {
+            HoldingArt(product: DemoData.product(item), identity: nil, cornerRadius: radius, caption: false)
+        } else {
+            ZStack {
+                RoundedRectangle(cornerRadius: radius, style: .continuous).fill(Color.white.opacity(0.06))
+                VStack(spacing: 6) {
+                    Image(systemName: "banknote").font(.system(size: 22, weight: .semibold)).foregroundStyle(Theme.lime)
+                    Text(Format.moneyWhole(side.value)).font(.display(18)).monospacedDigit()
+                }
+            }
+            .liquidGlass(in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+        }
+    }
+}
+
+/// The cash and what you come out ahead, plain: label, big white figure, lime gain.
+private struct DealOutcome: View {
+    var spec: DealSpec
+    var t: Double
+    var from: Double = 2.2
+
+    var body: some View {
+        let counted: Double = Ease.out(t, from, 1.2)
+        let ahead: Double = Ease.back(t, from + 1.2, 0.4)
+        VStack(spacing: 6) {
+            MonoLabel(text: spec.cashLabel, color: welcomeSoft)
+            Text(Format.money(spec.cash * counted)).font(.display(46)).tracking(-1.8).monospacedDigit()
+                .displayTrim(46)
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.up.right").font(.system(size: 12, weight: .bold))
+                Text("You come out ahead").font(.geist(14, .medium)).foregroundStyle(welcomeSoft)
+                Text("+" + Format.moneyWhole(spec.ahead)).font(.display(20)).monospacedDigit()
+            }
+            .foregroundStyle(Theme.lime)
+            .scaleEffect(CGFloat(0.7 + 0.3 * ahead))
+            .opacity(Ease.clamp(ahead * 2))
+        }
+        .opacity(Ease.out(t, from, 0.3))
+    }
+}
+
+/// 2. Glass receipt: the same deal as the lime card, on Liquid Glass; white text, lime only for
+/// what you come out ahead.
+private struct DealGlass: View {
+    var spec: DealSpec
+    var t: Double
+    var clock: Double
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
+        let counted: Double = Ease.out(t, 2.2, 1.2)
+        let pop: Double = Ease.back(t, 3.5, 0.4)
+        VStack(spacing: -40) {
+            DealFan(spec: spec, t: t, clock: clock).frame(height: 160)
+            VStack(alignment: .leading, spacing: 14) {
+                SkewTag(text: spec.tag, color: Color.white.opacity(0.14), textColor: .white, icon: spec.icon)
+                    .opacity(Ease.out(t, 0.2, 0.3))
+                DealGlassRow(label: "Coming in", side: spec.coming, enter: Ease.back(t, 0.5, 0.5))
+                DealGlassRow(label: "Going out", side: spec.going, enter: Ease.out(t, 0.9, 0.4))
+                Rectangle().fill(Color.white.opacity(0.1)).frame(height: 1)
+                VStack(alignment: .leading, spacing: 2) {
+                    MonoLabel(text: spec.cashLabel, color: welcomeSoft)
+                    Text(Format.money(spec.cash * counted)).font(.display(40)).tracking(-1.5).monospacedDigit()
+                        .lineLimit(1).minimumScaleFactor(0.7)
+                }
+                .opacity(Ease.out(t, 2.2, 0.3))
+                HStack {
+                    Text("You come out ahead").font(.geist(14, .semibold))
+                    Spacer()
+                    Text("+" + Format.moneyWhole(spec.ahead)).font(.display(24)).monospacedDigit().foregroundStyle(Theme.lime)
+                }
+                .padding(.horizontal, 16).frame(height: 48)
+                .background(Capsule().fill(Theme.lime.opacity(0.12)))
+                .overlay(Capsule().strokeBorder(Theme.lime.opacity(0.4), lineWidth: 1))
+                .scaleEffect(CGFloat(0.7 + 0.3 * pop))
+                .opacity(Ease.clamp(pop * 2))
+            }
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .liquidGlass(in: shape)
+        }
+    }
+}
+
+/// A row of the glass receipt: label, small art, name and price, sliding in from the right.
+private struct DealGlassRow: View {
+    var label: String
+    var side: WelcomeDealSide
+    var enter: Double
+
+    var body: some View {
+        let x = CGFloat((1 - enter) * 300)
+        VStack(alignment: .leading, spacing: 6) {
+            MonoLabel(text: label, color: welcomeSoft)
+            HStack(spacing: 10) {
+                DealSideArt(side: side, radius: 3).frame(width: 26, height: 36)
+                Text(side.name).font(.geist(16, .semibold))
+                Spacer()
+                Text(Format.moneyWhole(side.value)).font(.geist(16, .semibold)).monospacedDigit()
+            }
+            .offset(x: x)
+            .opacity(Ease.clamp(enter * 2))
+        }
+    }
+}
+
+/// 3. Face-off: the two sides big and facing each other, prices under them, the swap mark
+/// between; the cash and the gain below.
+private struct DealFaceOff: View {
+    var spec: DealSpec
+    var t: Double
+    var clock: Double
+
+    var body: some View {
+        let inL: Double = Ease.back(t, 0.3, 0.6)
+        let inR: Double = Ease.back(t, 0.5, 0.6)
+        let swap: Double = Ease.back(t, 1.1, 0.4)
+        let float: Double = sin(clock * 1.2) * 4
+        VStack(spacing: 30) {
+            HStack(alignment: .top, spacing: 18) {
+                faceSide("Going out", spec.going, angle: -8 * inL, x: CGFloat(1 - min(inL, 1)) * -120, y: CGFloat(float), fade: inL)
+                faceSide("Coming in", spec.coming, angle: 8 * inR, x: CGFloat(1 - min(inR, 1)) * 120, y: CGFloat(-float), fade: inR)
+            }
+            .overlay(alignment: .center) {
+                Image(systemName: "arrow.left.arrow.right")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 46, height: 46)
+                    .liquidGlass(in: Circle())
+                    .scaleEffect(CGFloat(swap))
+                    .offset(y: -30)
+            }
+            DealOutcome(spec: spec, t: t, from: 1.8)
+        }
+    }
+
+    private func faceSide(_ label: String, _ side: WelcomeDealSide, angle: Double, x: CGFloat, y: CGFloat, fade: Double) -> some View {
+        VStack(spacing: 10) {
+            DealSideArt(side: side, radius: 10)
+                .frame(width: 130, height: 181)
+                .rotationEffect(.degrees(angle))
+                .shadow(color: .black.opacity(0.5), radius: 12, y: 6)
+            MonoLabel(text: label, color: welcomeSoft)
+            Text(Format.moneyWhole(side.value)).font(.display(22)).monospacedDigit()
+        }
+        .offset(x: x, y: y)
+        .opacity(Ease.clamp(fade * 2))
+    }
+}
+
+/// 4. Printed receipt: a dark slip feeding out of a glass slot, its lines printing one by one in
+/// mono, the total at the bottom and what you come out ahead in lime.
+private struct DealPrinted: View {
+    var spec: DealSpec
+    var t: Double
+
+    var body: some View {
+        let lines: [(String, String)] = [
+            ("IN  " + spec.coming.name.uppercased(), Format.moneyWhole(spec.coming.value)),
+            ("OUT " + spec.going.name.uppercased(), Format.moneyWhole(spec.going.value)),
+        ]
+        let feed: Double = Ease.out(t, 0.2, 2.2)
+        let shown: Int = Int(feed * 6)
+        VStack(spacing: 0) {
+            Capsule().fill(Color.white.opacity(0.08)).frame(height: 14)
+                .liquidGlass(in: Capsule())
+                .zIndex(1)
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("LUCENT").font(.mono(13)).tracking(2).foregroundStyle(Theme.lime)
+                    Spacer()
+                    Text(spec.tag.uppercased()).font(.mono(12)).tracking(1.4).foregroundStyle(welcomeSoft)
+                }
+                DashedLine()
+                ForEach(0 ..< lines.count, id: \.self) { i in
+                    HStack {
+                        Text(lines[i].0).lineLimit(1)
+                        Spacer()
+                        Text(lines[i].1).monospacedDigit()
+                    }
+                    .font(.mono(13))
+                    .opacity(shown > i + 1 ? 1 : 0)
+                }
+                DashedLine().opacity(shown > 3 ? 1 : 0)
+                HStack(alignment: .firstTextBaseline) {
+                    Text(spec.cashLabel.uppercased()).font(.mono(12)).foregroundStyle(welcomeSoft)
+                    Spacer()
+                    Text(Format.money(spec.cash)).font(.display(30)).tracking(-1).monospacedDigit()
+                }
+                .opacity(shown > 4 ? 1 : 0)
+                HStack {
+                    Text("AHEAD").font(.mono(13)).tracking(1.4)
+                    Spacer()
+                    Text("+" + Format.moneyWhole(spec.ahead)).font(.display(26)).monospacedDigit()
+                }
+                .foregroundStyle(Theme.lime)
+                .scaleEffect(CGFloat(0.8 + 0.2 * Ease.back(t, 2.6, 0.4)), anchor: .leading)
+                .opacity(Ease.out(t, 2.6, 0.3))
+            }
+            .padding(20)
+            .frame(width: 300)
+            .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color(hex: 0x141416)))
+            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.white.opacity(0.08)))
+            .offset(y: CGFloat(1 - feed) * -260)
+            .mask(Rectangle().padding(.top, 7).padding(.bottom, -400))
+        }
+        .frame(height: 420, alignment: .top)
+    }
+}
+
+/// A dashed rule across a receipt.
+private struct DashedLine: View {
+    var body: some View {
+        Rectangle().fill(.clear).frame(height: 1)
+            .overlay(Line().stroke(Color.white.opacity(0.25), style: StrokeStyle(lineWidth: 1, dash: [4, 4])))
+    }
+
+    private struct Line: Shape {
+        func path(in r: CGRect) -> Path {
+            var p = Path()
+            p.move(to: CGPoint(x: r.minX, y: r.midY))
+            p.addLine(to: CGPoint(x: r.maxX, y: r.midY))
+            return p
+        }
+    }
+}
+
+/// 5. Balance: a beam with each side's card in a pan, tipping toward the heavier side; the cash
+/// drops into the lighter pan and it comes level; then what you come out ahead.
+private struct DealBalanceScene: View {
+    var spec: DealSpec
+    var t: Double
+
+    var body: some View {
+        let total: Double = max(spec.coming.value + spec.going.value, 1)
+        let lean: Double = (spec.coming.value - spec.going.value) / total
+        let settle: Double = Ease.back(t, 2.0, 0.8)
+        let angle: Double = 14 * lean * Ease.out(t, 0.6, 0.8) * (1 - min(settle, 1))
+        let cashDrop: Double = Ease.back(t, 1.7, 0.5)
+        let span: CGFloat = 250
+        let rise = CGFloat(sin(angle * .pi / 180)) * span / 2
+        VStack(spacing: 34) {
+            ZStack(alignment: .top) {
+                // The post.
+                Rectangle().fill(Color.white.opacity(0.2)).frame(width: 3, height: 210).offset(y: 20)
+                Capsule().fill(Color.white.opacity(0.2)).frame(width: 90, height: 6).offset(y: 228)
+                // The beam.
+                Capsule().fill(Color.white.opacity(0.55)).frame(width: span, height: 4)
+                    .rotationEffect(.degrees(-angle))
+                    .offset(y: 20)
+                Circle().fill(Theme.lime).frame(width: 12, height: 12).offset(y: 16)
+                // Pans: going out on the left, coming in on the right.
+                pan("Going out", spec.going, extra: spec.cash < 0 ? 0 : cashDrop).offset(x: -span / 2, y: 26 - rise)
+                pan("Coming in", spec.coming, extra: 0).offset(x: span / 2, y: 26 + rise)
+            }
+            .frame(height: 250)
+            DealOutcome(spec: spec, t: t, from: 2.4)
+        }
+    }
+
+    private func pan(_ label: String, _ side: WelcomeDealSide, extra: Double) -> some View {
+        VStack(spacing: 6) {
+            Rectangle().fill(Color.white.opacity(0.25)).frame(width: 1, height: 26)
+            DealSideArt(side: side, radius: 6).frame(width: 84, height: 117)
+                .overlay(alignment: .topTrailing) {
+                    if extra > 0 {
+                        Text("+cash").font(.mono(10)).foregroundStyle(Theme.ink)
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .background(Capsule().fill(Theme.lime))
+                            .offset(x: 10, y: CGFloat(1 - min(extra, 1)) * -60 - 8)
+                            .opacity(Ease.clamp(extra * 2))
+                    }
+                }
+            MonoLabel(text: label, color: welcomeSoft)
+        }
+    }
+}
+
+/// 6. Swap: the two sides trade places along an arc while the cash slides across underneath;
+/// then the cash and the gain, plain.
+private struct DealSwap: View {
+    var spec: DealSpec
+    var t: Double
+
+    var body: some View {
+        let s: Double = Ease.out(t, 0.8, 1.0)
+        let arc = CGFloat(sin(Double.pi * s)) * -50
+        let dx = CGFloat(s) * 170
+        let cash: Double = Ease.out(t, 1.4, 0.8)
+        VStack(spacing: 30) {
+            ZStack {
+                DealSideArt(side: spec.going, radius: 10)
+                    .frame(width: 120, height: 167)
+                    .rotationEffect(.degrees(-6 + 12 * s))
+                    .offset(x: -85 + dx, y: arc)
+                    .zIndex(1)
+                DealSideArt(side: spec.coming, radius: 10)
+                    .frame(width: 120, height: 167)
+                    .rotationEffect(.degrees(6 - 12 * s))
+                    .offset(x: 85 - dx, y: -arc)
+                Text(Format.moneyWhole(abs(spec.cash)))
+                    .font(.geist(15, .semibold)).monospacedDigit()
+                    .padding(.horizontal, 14).frame(height: 34)
+                    .liquidGlass(in: Capsule())
+                    .offset(x: CGFloat(cash * 2 - 1) * 90, y: 120)
+                    .opacity(sin(Double.pi * cash) > 0.01 ? 1 : 0)
+            }
+            .frame(height: 280)
+            DealOutcome(spec: spec, t: t, from: 2.3)
+        }
+    }
+}
+
 // MARK: - Shared: a fixed-size picture, shrunk to fit a shorter page
 
 /// Lays the picture out at its natural height and shrinks it (never grows it) to the page.
@@ -1569,7 +1953,7 @@ private struct BumperPickerDemo: View {
     }
 }
 
-// MARK: - Page 4: a master set filling in
+// MARK: - Page 4: a master set, as a tilted grid
 
 /// A pocket of the binder page: a card by its number, owned, missing (an empty sleeve), bought
 /// during the loop, or the set's chase card (in the middle, lighting up as the set fills).
@@ -1605,255 +1989,7 @@ private struct SetShow {
             SetStripCard(number: 189, missing: true, bought: true), SetStripCard(number: 215, chase: true, big: true), SetStripCard(number: 212, missing: true),
             SetStripCard(number: 205), SetStripCard(number: 209), SetStripCard(number: 218, big: true),
         ]),
-        SetShow(code: "sv3pt5", name: "Scarlet & Violet—151", era: "Scarlet & Violet · 2023", total: 207, startCount: 150, endCount: 163, pockets: [
-            SetStripCard(number: 166), SetStripCard(number: 168), SetStripCard(number: 170),
-            SetStripCard(number: 173, missing: true, bought: true), SetStripCard(number: 199, chase: true, big: true), SetStripCard(number: 205, missing: true, big: true),
-            SetStripCard(number: 198), SetStripCard(number: 200), SetStripCard(number: 201),
-        ]),
-        SetShow(code: "sv8", name: "Surging Sparks", era: "Scarlet & Violet · 2024", total: 252, startCount: 180, endCount: 193, pockets: [
-            SetStripCard(number: 192), SetStripCard(number: 193), SetStripCard(number: 194),
-            SetStripCard(number: 195, missing: true, bought: true), SetStripCard(number: 238, chase: true, big: true), SetStripCard(number: 196, missing: true),
-            SetStripCard(number: 197), SetStripCard(number: 198), SetStripCard(number: 199),
-        ]),
     ]
-}
-
-
-/// The master set page on loop, off one clock: a binder page under the set's name, plastic
-/// sleeves catching the light. The chase card in the middle starts dark and lights up from the
-/// bottom as the share climbs; a missing card slides into its empty sleeve with a glint; the chase
-/// card comes fully alight with a lime edge; then the page turns to the next set.
-private struct WelcomeMasterSet: View {
-    static let cycle: Double = 7.5
-    private static let start = Date()
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.welcomeActive) private var active
-
-    var body: some View {
-        WelcomeFit(height: 610, alignment: .bottom) {
-            ZStack {
-                Ellipse()
-                    .fill(Theme.lime.opacity(0.18))
-                    .frame(width: 340, height: 220)
-                    .blur(radius: 60)
-                    .offset(y: 60)
-                if reduceMotion {
-                    MasterSetScene(set: SetShow.all[0], t: 5.5)
-                } else {
-                    TimelineView(.animation(minimumInterval: nil, paused: !active)) { context in
-                        let s = context.date.timeIntervalSince(Self.start)
-                        let n = Int(s / Self.cycle)
-                        MasterSetScene(set: SetShow.all[n % SetShow.all.count], t: s - Double(n) * Self.cycle)
-                    }
-                }
-            }
-            .padding(.horizontal, 24)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("A binder page of a master set: the chase card lighting up as the set fills, a missing card going into its sleeve")
-    }
-}
-
-/// The set's page at local time `t`.
-private struct MasterSetScene: View {
-    var set: SetShow
-    var t: Double
-
-    static let boughtAt: Double = 2.6
-    static let chaseAt: Double = 3.9
-
-    var body: some View {
-        let turnIn: Double = Ease.out(t, 0, 0.6)
-        let turnOut: Double = Ease.out(t, WelcomeMasterSet.cycle - 0.6, 0.55)
-        let pageAngle: Double = 75 * (1 - turnIn) - 75 * turnOut
-        let fade: Double = min(turnIn, 1 - turnOut)
-        let climb: Double = Ease.out(t, 0.4, 2.2)
-        let bought: Double = Ease.out(t, Self.boughtAt, 0.5)
-        let span: Double = Double(set.endCount - 1 - set.startCount)
-        let climbed: Int = Int((span * climb).rounded())
-        let extra: Int = bought >= 0.5 ? 1 : 0
-        let count: Int = set.startCount + climbed + extra
-        let pct: Int = Int((Double(count) / Double(set.total) * 100).rounded())
-        let reveal: Double = min(1, 0.2 + 0.6 * climb + 0.2 * Ease.out(t, Self.chaseAt, 0.5))
-        let lit: Double = Ease.out(t, Self.chaseAt + 0.3, 0.3) * (1 - Ease.out(t, Self.chaseAt + 1.6, 0.6))
-        let glint: Double = Ease.clamp((t - Self.boughtAt - 0.45) / 0.5)
-        let chaseGlow: Double = Ease.out(t, Self.chaseAt + 0.3, 0.6)
-        VStack(spacing: 14) {
-            // The heading stays still; only the binder page turns.
-            VStack(spacing: 6) {
-                MonoLabel(text: set.era, color: welcomeSoft)
-                Text(set.name).font(.display(26)).tracking(-0.8)
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text("\(pct)%").font(.display(34)).tracking(-1.2).monospacedDigit().foregroundStyle(Theme.lime)
-                    Text("\(count) of \(set.total) cards").font(.geist(14)).monospacedDigit().foregroundStyle(welcomeSoft)
-                }
-            }
-            // Sized (with the page's height) so the heading always sits clear of the status bar.
-            // The binder's other pages lie underneath, peeking out below; only the top page turns.
-            BinderPage(set: set, bought: bought, reveal: reveal, lit: lit, glow: chaseGlow, glint: glint)
-                .hidden()
-                .overlay { BinderLayers() }
-                .overlay {
-                    BinderPage(set: set, bought: bought, reveal: reveal, lit: lit, glow: chaseGlow, glint: glint)
-                        .rotation3DEffect(.degrees(pageAngle), axis: (x: 0, y: 1, z: 0), anchor: .leading, perspective: 0.5)
-                        .opacity(fade)
-                }
-                .frame(maxWidth: 320)
-                .padding(.bottom, 30)
-        }
-        .foregroundStyle(.white)
-    }
-}
-
-/// The binder's pages under the top one: two dark pages, each a little smaller and lower, so their
-/// edges peek out below like a stack. Still.
-private struct BinderLayers: View {
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
-        ZStack {
-            ForEach([2, 1], id: \.self) { depth in
-                let d = CGFloat(depth)
-                shape
-                    .fill(LinearGradient(colors: [Color(hex: 0x1A1A1D), Color(hex: 0x0F0F11)], startPoint: .top, endPoint: .bottom))
-                    .overlay(shape.strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
-                    .overlay(shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.22), .clear], startPoint: .bottom, endPoint: .top), lineWidth: 1))
-                    .scaleEffect(1 - 0.045 * d, anchor: .bottom)
-                    .offset(x: 5 * d, y: 15 * d)
-                    .opacity(1 - 0.25 * Double(depth))
-            }
-        }
-    }
-}
-
-/// The binder page: three rows of three plastic sleeves on a dark page.
-private struct BinderPage: View {
-    var set: SetShow
-    var bought: Double
-    var reveal: Double
-    var lit: Double
-    /// The chase card's glow once it's alight (stays on).
-    var glow: Double
-    var glint: Double
-
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
-        VStack(spacing: 10) {
-            ForEach(0 ..< 3, id: \.self) { row in
-                HStack(spacing: 10) {
-                    ForEach(0 ..< 3, id: \.self) { col in
-                        let card = set.pockets[row * 3 + col]
-                        BinderSleeve(card: card, url: set.url(card),
-                                     bought: card.bought ? bought : 0,
-                                     reveal: card.chase ? reveal : 1,
-                                     lit: card.chase ? lit : 0,
-                                     glow: card.chase ? glow : 0,
-                                     glint: card.bought ? glint : 0)
-                            .zIndex(card.chase ? 1 : 0)
-                    }
-                }
-            }
-        }
-        .padding(14)
-        .background(
-            ZStack {
-                shape.fill(LinearGradient(colors: [Color(hex: 0x1A1A1D), Color(hex: 0x0F0F11)], startPoint: .top, endPoint: .bottom))
-                shape.strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
-            }
-        )
-    }
-}
-
-/// One sleeve: the clear pocket (an empty one shows the page through it), the card in it, a
-/// sheen across the plastic. The chase card shows dark with its lit part rising from the bottom;
-/// a bought card slides up into its sleeve and a glint runs across it.
-private struct BinderSleeve: View {
-    var card: SetStripCard
-    var url: URL?
-    var bought: Double
-    var reveal: Double
-    var lit: Double
-    var glow: Double = 0
-    var glint: Double
-
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 6, style: .continuous)
-        let present: Bool = !card.missing || bought > 0
-        let slide = CGFloat(card.bought ? (1 - bought) * 60 : 0)
-        ZStack {
-            shape.fill(Color.white.opacity(0.03))
-            if !present {
-                // An empty sleeve: a ghost of the card that goes here, and its number.
-                SetCardArt(url: url).equatable()
-                    .saturation(0)
-                    .opacity(0.14)
-                    .clipShape(shape)
-                Text("#\(card.number)").font(.mono(11)).foregroundStyle(Color.white.opacity(0.55))
-            }
-            if present {
-                ZStack {
-                    if card.chase {
-                        SetCardArt(url: url).equatable()
-                            .saturation(0).brightness(-0.25).opacity(0.45)
-                        SetCardArt(url: url).equatable()
-                            .mask { Rectangle().scaleEffect(x: 1, y: CGFloat(max(reveal, 0.001)), anchor: .bottom) }
-                    } else {
-                        SetCardArt(url: url).equatable()
-                    }
-                }
-                .clipShape(shape)
-                .offset(y: slide)
-                .opacity(card.bought ? bought : 1)
-            }
-            // The plastic: a soft sheen and an edge.
-            shape.fill(LinearGradient(colors: [.white.opacity(0.12), .clear, .white.opacity(0.04)], startPoint: .topLeading, endPoint: .bottomTrailing))
-            shape.strokeBorder(Color.white.opacity(present ? 0.14 : 0.1), lineWidth: 1)
-            if glint > 0, glint < 1 {
-                GeometryReader { g in
-                    LinearGradient(colors: [.clear, .white.opacity(0.55), .clear], startPoint: .leading, endPoint: .trailing)
-                        .frame(width: g.size.width * 0.5, height: g.size.height * 1.6)
-                        .rotationEffect(.degrees(20))
-                        .offset(x: CGFloat(-0.8 + 1.8 * glint) * g.size.width, y: -g.size.height * 0.3)
-                }
-                .clipShape(shape)
-            }
-            if card.chase {
-                shape.strokeBorder(Theme.lime, lineWidth: 2.5).opacity(max(lit, 0.6 * glow))
-            }
-        }
-        .aspectRatio(63.0 / 88.0, contentMode: .fit)
-        .clipShape(shape)
-        // The chase card: a touch bigger than the rest, glowing lime once it's alight (a still
-        // gradient behind it, not a blur).
-        .background {
-            if card.chase {
-                RadialGradient(colors: [Theme.lime.opacity(0.55), .clear], center: .center, startRadius: 10, endRadius: 110)
-                    .padding(-40)
-                    .opacity(glow)
-            }
-        }
-        .scaleEffect(card.chase ? 1.08 : 1)
-    }
-}
-
-/// A card of the set, drawn once.
-private struct SetCardArt: View, Equatable {
-    var url: URL?
-
-    var body: some View {
-        CachedImage(url: url) { image in
-            image.resizable().aspectRatio(contentMode: .fill)
-        } placeholder: {
-            Theme.well
-        }
-    }
-}
-
-// MARK: - Master Sets: ten options to compare (temporary)
-
-/// The twenty Master Sets designs being compared, each its own page for now. Option 1 is the binder.
-private enum MasterOption {
-    static let names = ["Binder", "Dial", "Chase hero", "Fan", "Mosaic", "Your sets", "Pile", "Checklist", "Puzzle", "Orbit",
-                        "Rings", "Wallet", "Big type", "Cover Flow", "Memories", "Widgets", "Live Activity", "To go", "Watch", "Apple Card", "Tilted grid"]
 }
 
 /// Where a set's loop is: the share climbing, the bought card landing, the chase card lighting.
@@ -1885,635 +2021,35 @@ private struct SetProgress {
     }
 }
 
-/// One option's page: its label at the top, then the design, off one clock (paused off screen).
-private struct WelcomeMasterOption: View {
-    var option: Int
-    static let cycle: Double = 7.5
+/// The master set page: the set as columns of cards drifting under the status bar, full bleed
+/// like the first page but leaning the other way; cards you own in colour, the rest black tiles
+/// with their number. One set, still figures; only the columns move (paused off screen).
+private struct WelcomeMasterSet: View {
     private static let start = Date()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.welcomeActive) private var active
 
     var body: some View {
+        let set = SetShow.all[0]
+        let p = SetProgress(set: set, t: 6)
         Group {
-            if option == 1 {
-                WelcomeMasterSet()
-            } else if option == 21 {
-                // Full bleed like the first page, one set, the grid drifting on its own.
-                if reduceMotion {
-                    MSVTiltGrid(set: SetShow.all[0], p: SetProgress(set: SetShow.all[0], t: 6), clock: 0)
-                } else {
-                    TimelineView(.animation(minimumInterval: nil, paused: !active)) { context in
-                        MSVTiltGrid(set: SetShow.all[0], p: SetProgress(set: SetShow.all[0], t: 6),
-                                    clock: context.date.timeIntervalSince(Self.start))
-                    }
-                }
+            if reduceMotion {
+                TiltGrid(set: set, p: p, clock: 0)
             } else {
-                WelcomeFit(height: 540, alignment: .bottom) {
-                    Group {
-                        if reduceMotion {
-                            scene(set: SetShow.all[0], t: 5.5, clock: 0)
-                        } else {
-                            TimelineView(.animation(minimumInterval: nil, paused: !active)) { context in
-                                let s = context.date.timeIntervalSince(Self.start)
-                                let n = Int(s / Self.cycle)
-                                scene(set: SetShow.all[n % SetShow.all.count], t: s - Double(n) * Self.cycle, clock: s)
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 24)
+                TimelineView(.animation(minimumInterval: nil, paused: !active)) { context in
+                    TiltGrid(set: set, p: p, clock: context.date.timeIntervalSince(Self.start))
                 }
             }
         }
-        .overlay(alignment: .top) {
-            Text("Option \(option) · \(MasterOption.names[option - 1])")
-                .font(.mono(11)).tracking(1.2).textCase(.uppercase)
-                .foregroundStyle(Theme.ink)
-                .padding(.horizontal, 10).padding(.vertical, 4)
-                .background(Capsule().fill(Theme.lime))
-                .padding(.top, 6)
-        }
-    }
-
-    @ViewBuilder private func scene(set: SetShow, t: Double, clock: Double) -> some View {
-        let p = SetProgress(set: set, t: t)
-        let fade: Double = min(Ease.out(t, 0, 0.45), 1 - Ease.out(t, Self.cycle - 0.5, 0.45))
-        Group {
-            switch option {
-            case 2: MSVDial(set: set, p: p, clock: clock)
-            case 3: MSVChase(set: set, p: p)
-            case 4: MSVFan(set: set, p: p, clock: clock)
-            case 5: MSVMosaic(set: set, p: p, t: t)
-            case 6: MSVSets(t: t)
-            case 7: MSVPile(set: set, p: p, t: t)
-            case 8: MSVChecklist(set: set, p: p, t: t)
-            case 9: MSVPuzzle(set: set, p: p)
-            case 10: MSVOrbit(set: set, p: p, clock: clock)
-            case 11: MSVRings(t: t)
-            case 12: MSVWallet(set: set, p: p, t: t)
-            case 13: MSVBigType(set: set, p: p, clock: clock)
-            case 14: MSVCoverFlow(set: set, p: p, clock: clock)
-            case 15: MSVMemories(set: set, p: p, clock: clock)
-            case 16: MSVWidgets(set: set, p: p)
-            case 17: MSVLiveActivity(set: set, p: p)
-            case 18: MSVToGo(set: set, p: p)
-            case 19: MSVWatch(set: set, p: p)
-            case 20: MSVCardShine(set: set, p: p, clock: clock)
-            default: MSVTiltGrid(set: set, p: p, clock: clock)
-            }
-        }
-        .foregroundStyle(.white)
-        .opacity(fade)
-    }
-}
-
-/// The set's era, name, and share with its count, centred.
-private struct MSVHeading: View {
-    var set: SetShow
-    var p: SetProgress
-    var big: Bool = false
-
-    var body: some View {
-        VStack(spacing: 6) {
-            MonoLabel(text: set.era, color: welcomeSoft)
-            Text(set.name).font(.display(26)).tracking(-0.8)
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("\(p.pct)%").font(.display(big ? 48 : 34)).tracking(-1.4).monospacedDigit().foregroundStyle(Theme.lime)
-                Text("\(p.count) of \(set.total) cards").font(.geist(14)).monospacedDigit().foregroundStyle(welcomeSoft)
-            }
-        }
-    }
-}
-
-/// A card of the set as a tile: owned in full colour, missing dim and grey (the bought one fills).
-private struct MSVCard: View {
-    var set: SetShow
-    var card: SetStripCard
-    var p: SetProgress
-    var radius: CGFloat = 6
-
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
-        let on: Double = card.missing ? (card.bought ? p.bought : 0) : 1
-        SetCardArt(url: set.url(card)).equatable()
-            .saturation(on)
-            .opacity(0.25 + 0.75 * on)
-            .clipShape(shape)
-            .overlay(shape.strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
-            .aspectRatio(63.0 / 88.0, contentMode: .fit)
-    }
-}
-
-/// The chase card, dark, lighting up from the bottom as the set fills; a lime edge once alight.
-private struct MSVChaseArt: View {
-    var set: SetShow
-    var p: SetProgress
-    var radius: CGFloat = 12
-
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
-        let chase = set.pockets.first { $0.chase } ?? set.pockets[4]
-        ZStack {
-            SetCardArt(url: set.url(chase)).equatable()
-                .saturation(0).brightness(-0.25).opacity(0.45)
-            SetCardArt(url: set.url(chase)).equatable()
-                .mask { Rectangle().scaleEffect(x: 1, y: CGFloat(max(p.reveal, 0.001)), anchor: .bottom) }
-            shape.strokeBorder(Theme.lime, lineWidth: 3).opacity(p.lit)
-        }
-        .clipShape(shape)
-        .aspectRatio(63.0 / 88.0, contentMode: .fit)
-    }
-}
-
-/// 2. Dial: the big lime ring with the share inside, a row of the set's cards drifting under it.
-private struct MSVDial: View {
-    var set: SetShow
-    var p: SetProgress
-    var clock: Double
-
-    var body: some View {
-        let cards = set.pockets
-        let w: CGFloat = 70
-        let listW = CGFloat(cards.count) * (w + 10)
-        let x = -CGFloat((clock * 16).truncatingRemainder(dividingBy: Double(listW)))
-        VStack(spacing: 22) {
-            VStack(spacing: 4) {
-                MonoLabel(text: set.era, color: welcomeSoft)
-                Text(set.name).font(.display(26)).tracking(-0.8)
-            }
-            ZStack {
-                Circle().stroke(Theme.lime.opacity(0.15), lineWidth: 18)
-                Circle().trim(from: 0, to: CGFloat(max(p.share, 0.001)))
-                    .stroke(Theme.lime, style: StrokeStyle(lineWidth: 18, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                VStack(spacing: 2) {
-                    Text("\(p.pct)%").font(.display(52)).tracking(-2).monospacedDigit().foregroundStyle(Theme.lime)
-                    Text("\(p.count) of \(set.total)").font(.geist(13)).monospacedDigit().foregroundStyle(welcomeSoft)
-                }
-            }
-            .frame(width: 200, height: 200)
-            HStack(spacing: 10) {
-                ForEach(0 ..< cards.count * 2, id: \.self) { i in
-                    MSVCard(set: set, card: cards[i % cards.count], p: p).frame(width: w)
-                }
-            }
-            .offset(x: x)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .clipped()
-            .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.12), .init(color: .black, location: 0.88), .init(color: .clear, location: 1)], startPoint: .leading, endPoint: .trailing))
-        }
-    }
-}
-
-/// 3. Chase hero: the set's chase card huge in the middle, lighting up as the set fills, the
-/// rest of the set in a small overlapping row beneath.
-private struct MSVChase: View {
-    var set: SetShow
-    var p: SetProgress
-
-    var body: some View {
-        let others = set.pockets.filter { !$0.chase }
-        VStack(spacing: 18) {
-            MSVHeading(set: set, p: p)
-            ZStack {
-                RadialGradient(colors: [Theme.lime.opacity(0.45), .clear], center: .center, startRadius: 20, endRadius: 170)
-                    .opacity(p.lit)
-                MSVChaseArt(set: set, p: p, radius: 14).frame(width: 190)
-            }
-            .frame(height: 270)
-            HStack(spacing: -12) {
-                ForEach(0 ..< others.count, id: \.self) { i in
-                    MSVCard(set: set, card: others[i], p: p, radius: 4)
-                        .frame(width: 46)
-                        .rotationEffect(.degrees(Double(i - others.count / 2) * 4))
-                }
-            }
-        }
-    }
-}
-
-/// 4. Fan: the set's cards spread in an arc that sways gently, the share below.
-private struct MSVFan: View {
-    var set: SetShow
-    var p: SetProgress
-    var clock: Double
-
-    var body: some View {
-        let cards = set.pockets
-        let sway: Double = sin(clock * 0.7) * 2
-        VStack(spacing: 10) {
-            ZStack {
-                ForEach(0 ..< cards.count, id: \.self) { i in
-                    let angle: Double = (Double(i) - Double(cards.count - 1) / 2) * 11 + sway
-                    MSVCard(set: set, card: cards[i], p: p, radius: 7)
-                        .frame(width: 104)
-                        .shadow(color: .black.opacity(0.4), radius: 8, y: 4)
-                        .rotationEffect(.degrees(angle), anchor: UnitPoint(x: 0.5, y: 2.4))
-                        .zIndex(cards[i].chase ? 10 : Double(i))
-                        .scaleEffect(cards[i].chase ? 1.08 : 1, anchor: .bottom)
-                }
-            }
-            .frame(height: 330)
-            .offset(y: 30)
-            MSVHeading(set: set, p: p, big: true)
-        }
-    }
-}
-
-/// 5. Mosaic: the whole set at a glance, thirty small cards filling in left to right, the share
-/// on a glass pill over them.
-private struct MSVMosaic: View {
-    var set: SetShow
-    var p: SetProgress
-    var t: Double
-
-    var body: some View {
-        let missingAt: Set<Int> = [4, 11, 17, 23, 26]
-        VStack(spacing: 6) {
-            ForEach(0 ..< 5, id: \.self) { row in
-                HStack(spacing: 6) {
-                    ForEach(0 ..< 6, id: \.self) { col in
-                        let k = row * 6 + col
-                        let card = SetStripCard(number: 1 + k * 6, missing: missingAt.contains(k))
-                        let shown: Double = Ease.out(t, 0.3 + Double(k) * 0.06, 0.3)
-                        MSVCard(set: set, card: card, p: p, radius: 4)
-                            .opacity(shown)
-                            .scaleEffect(CGFloat(0.9 + 0.1 * shown))
-                    }
-                }
-            }
-        }
-        .overlay {
-            VStack(spacing: 4) {
-                Text(set.name).font(.display(22)).tracking(-0.6)
-                Text("\(p.pct)%").font(.display(44)).tracking(-1.6).monospacedDigit().foregroundStyle(Theme.lime)
-                Text("\(p.count) of \(set.total) cards").font(.geist(13)).monospacedDigit().foregroundStyle(welcomeSoft)
-            }
-            .padding(.horizontal, 24).padding(.vertical, 16)
-            .liquidGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-        }
-    }
-}
-
-/// 6. Your sets: three sets as rows, like the Master Sets list, their bars filling in turn.
-private struct MSVSets: View {
-    var t: Double
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                MonoLabel(text: "Your master sets", color: welcomeSoft)
-                Text("3 sets started").font(.display(28)).tracking(-0.8)
-            }
-            .padding(.bottom, 6)
-            ForEach(0 ..< SetShow.all.count, id: \.self) { i in
-                let set = SetShow.all[i]
-                let start: Double = 0.4 + Double(i) * 0.5
-                let fill: Double = Ease.out(t, start, 1.6)
-                let share: Double = Double(set.endCount) / Double(set.total) * fill
-                let chase = set.pockets.first { $0.chase } ?? set.pockets[4]
-                HStack(spacing: 14) {
-                    SetCardArt(url: set.url(chase)).equatable()
-                        .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
-                        .frame(width: 52, height: 73)
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(alignment: .firstTextBaseline) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(set.name).font(.geist(16, .semibold)).lineLimit(1)
-                                MonoLabel(text: set.era, color: welcomeSoft)
-                            }
-                            Spacer()
-                            Text("\(Int((share * 100).rounded()))%").font(.display(24)).tracking(-0.8).monospacedDigit().foregroundStyle(Theme.lime)
-                        }
-                        ZStack(alignment: .leading) {
-                            Capsule().fill(Color.white.opacity(0.1))
-                            Capsule().fill(Theme.lime).scaleEffect(x: CGFloat(max(share, 0.001)), anchor: .leading)
-                        }
-                        .frame(height: 5)
-                    }
-                }
-                .padding(14)
-                .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-                .opacity(Ease.out(t, start - 0.2, 0.4))
-                .offset(y: CGFloat(1 - Ease.out(t, start - 0.2, 0.4)) * 20)
-            }
-        }
-    }
-}
-
-/// 7. Pile: the set's cards dropping one by one onto a loose pile as the count climbs; the chase
-/// card still missing hangs above as a faint outline.
-private struct MSVPile: View {
-    var set: SetShow
-    var p: SetProgress
-    var t: Double
-
-    var body: some View {
-        let owned = set.pockets.filter { !$0.missing && !$0.chase }
-        let chase = set.pockets.first { $0.chase } ?? set.pockets[4]
-        let tilts: [Double] = [-8, 6, -3, 10, -11, 4, -5, 8]
-        VStack(spacing: 22) {
-            MSVHeading(set: set, p: p, big: true)
-            ZStack {
-                ForEach(0 ..< owned.count, id: \.self) { i in
-                    let land: Double = Ease.back(t, 0.4 + Double(i) * 0.32, 0.45)
-                    MSVCard(set: set, card: owned[i], p: p, radius: 8)
-                        .frame(width: 150)
-                        .shadow(color: .black.opacity(0.5), radius: 10, y: 6)
-                        .rotationEffect(.degrees(tilts[i % tilts.count]))
-                        .offset(x: CGFloat(tilts[(i + 3) % tilts.count]) * 2, y: CGFloat(1 - min(land, 1)) * -320)
-                        .opacity(Ease.clamp(land * 3))
-                }
-                MSVChaseArt(set: set, p: p, radius: 10)
-                    .frame(width: 150)
-                    .rotationEffect(.degrees(-2))
-                    .opacity(Ease.out(t, SetProgress.chaseAt - 0.4, 0.4))
-                    .scaleEffect(CGFloat(1.1 - 0.1 * Ease.out(t, SetProgress.chaseAt - 0.4, 0.4)))
-            }
-            .frame(height: 270)
-        }
-    }
-}
-
-/// 8. Checklist: the set as a list, rows ticking off one by one; the missing ones wait unticked
-/// and one ticks as it's bought.
-private struct MSVChecklist: View {
-    var set: SetShow
-    var p: SetProgress
-    var t: Double
-
-    var body: some View {
-        let rows = Array(set.pockets.prefix(7))
-        VStack(spacing: 16) {
-            MSVHeading(set: set, p: p)
-            VStack(spacing: 0) {
-                ForEach(0 ..< rows.count, id: \.self) { i in
-                    let card = rows[i]
-                    let tickAt: Double = card.bought ? SetProgress.boughtAt : (card.missing ? 99 : 0.4 + Double(i) * 0.28)
-                    let ticked: Double = Ease.back(t, tickAt, 0.35)
-                    HStack(spacing: 12) {
-                        SetCardArt(url: set.url(card)).equatable()
-                            .saturation(ticked > 0 ? 1 : 0)
-                            .opacity(ticked > 0 ? 1 : 0.4)
-                            .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
-                            .frame(width: 28, height: 39)
-                        Text("#\(card.number)").font(.mono(13)).foregroundStyle(.white)
-                        Text(card.chase ? "Chase card" : (card.missing && ticked <= 0 ? "Missing" : "Owned"))
-                            .font(.geist(14)).foregroundStyle(welcomeSoft)
-                        Spacer()
-                        ZStack {
-                            Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1.5)
-                            Circle().fill(Theme.lime).scaleEffect(CGFloat(min(max(ticked, 0), 1.2)))
-                            Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.ink)
-                                .opacity(Ease.clamp(ticked))
-                        }
-                        .frame(width: 24, height: 24)
-                    }
-                    .padding(.vertical, 8)
-                    if i < rows.count - 1 { Rectangle().fill(Color.white.opacity(0.07)).frame(height: 1) }
-                }
-            }
-            .padding(.horizontal, 16).padding(.vertical, 6)
-            .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        }
-    }
-}
-
-/// 9. Puzzle: the chase card's art in twelve tiles, each lighting as the set fills; complete,
-/// it gets a lime edge.
-private struct MSVPuzzle: View {
-    var set: SetShow
-    var p: SetProgress
-
-    var body: some View {
-        let chase = set.pockets.first { $0.chase } ?? set.pockets[4]
-        let order: [Int] = [5, 0, 9, 3, 7, 1, 10, 4, 11, 2, 8, 6]
-        let litCount: Int = p.lit > 0.5 ? 12 : Int((Double(9) * p.climb + 2 * p.bought).rounded())
-        let lit: Set<Int> = Set(order.prefix(litCount))
-        let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
-        VStack(spacing: 18) {
-            MSVHeading(set: set, p: p)
-            ZStack {
-                SetCardArt(url: set.url(chase)).equatable()
-                    .saturation(0).brightness(-0.3).opacity(0.35)
-                SetCardArt(url: set.url(chase)).equatable()
-                    .mask { PuzzleTiles(lit: lit) }
-                PuzzleGrid().stroke(Color.black.opacity(0.55), lineWidth: 2)
-                shape.strokeBorder(Theme.lime, lineWidth: 3).opacity(p.lit)
-            }
-            .clipShape(shape)
-            .aspectRatio(63.0 / 88.0, contentMode: .fit)
-            .frame(width: 236)
-        }
-    }
-}
-
-/// The lit tiles of the puzzle (3 across, 4 down), as one shape.
-private struct PuzzleTiles: Shape {
-    var lit: Set<Int>
-
-    func path(in r: CGRect) -> Path {
-        var p = Path()
-        let w = r.width / 3, h = r.height / 4
-        for k in lit {
-            p.addRect(CGRect(x: r.minX + CGFloat(k % 3) * w, y: r.minY + CGFloat(k / 3) * h, width: w, height: h))
-        }
-        return p
-    }
-}
-
-/// The puzzle's seams.
-private struct PuzzleGrid: Shape {
-    func path(in r: CGRect) -> Path {
-        var p = Path()
-        for i in 1 ..< 3 { let x = r.minX + r.width * CGFloat(i) / 3; p.move(to: CGPoint(x: x, y: r.minY)); p.addLine(to: CGPoint(x: x, y: r.maxY)) }
-        for j in 1 ..< 4 { let y = r.minY + r.height * CGFloat(j) / 4; p.move(to: CGPoint(x: r.minX, y: y)); p.addLine(to: CGPoint(x: r.maxX, y: y)) }
-        return p
-    }
-}
-
-/// 10. Orbit: the set's cards circling slowly around the share.
-private struct MSVOrbit: View {
-    var set: SetShow
-    var p: SetProgress
-    var clock: Double
-
-    var body: some View {
-        let cards = set.pockets
-        let radius: CGFloat = 138
-        VStack(spacing: 18) {
-            VStack(spacing: 4) {
-                MonoLabel(text: set.era, color: welcomeSoft)
-                Text(set.name).font(.display(26)).tracking(-0.8)
-            }
-            ZStack {
-                Circle().stroke(Color.white.opacity(0.08), lineWidth: 1).frame(width: radius * 2, height: radius * 2)
-                ForEach(0 ..< cards.count, id: \.self) { i in
-                    let a: Double = (Double(i) / Double(cards.count)) * 2 * .pi + clock * 0.18
-                    MSVCard(set: set, card: cards[i], p: p, radius: 5)
-                        .frame(width: cards[i].chase ? 66 : 54)
-                        .overlay {
-                            if cards[i].chase {
-                                RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(Theme.lime, lineWidth: 2)
-                            }
-                        }
-                        .offset(x: CGFloat(cos(a)) * radius, y: CGFloat(sin(a)) * radius)
-                }
-                VStack(spacing: 2) {
-                    Text("\(p.pct)%").font(.display(56)).tracking(-2).monospacedDigit().foregroundStyle(Theme.lime)
-                    Text("\(p.count) of \(set.total) cards").font(.geist(13)).monospacedDigit().foregroundStyle(welcomeSoft)
-                }
-            }
-            .frame(width: radius * 2 + 70, height: radius * 2 + 90)
-        }
-    }
-}
-
-// MARK: Options 11-20
-
-/// 11. Rings: one ring per set, closing in turn, like Activity; the legend beside each colour.
-private struct MSVRings: View {
-    var t: Double
-
-    var body: some View {
-        let colors: [Color] = [Theme.lime, Theme.planBlue, Theme.planPink]
-        VStack(spacing: 26) {
-            ZStack {
-                ForEach(0 ..< 3, id: \.self) { i in
-                    let set = SetShow.all[i]
-                    let size = CGFloat(250 - i * 64)
-                    let fill: Double = Ease.out(t, 0.4 + Double(i) * 0.35, 1.8)
-                    let share: Double = Double(set.endCount) / Double(set.total) * fill
-                    Circle().stroke(colors[i].opacity(0.18), lineWidth: 24).frame(width: size, height: size)
-                    Circle().trim(from: 0, to: CGFloat(max(share, 0.001)))
-                        .stroke(colors[i], style: StrokeStyle(lineWidth: 24, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                        .frame(width: size, height: size)
-                }
-            }
-            .frame(height: 280)
-            VStack(spacing: 10) {
-                ForEach(0 ..< 3, id: \.self) { i in
-                    let set = SetShow.all[i]
-                    let fill: Double = Ease.out(t, 0.4 + Double(i) * 0.35, 1.8)
-                    let pct = Int((Double(set.endCount) / Double(set.total) * fill * 100).rounded())
-                    HStack {
-                        Capsule().fill(colors[i]).frame(width: 14, height: 4)
-                        Text(set.name).font(.geist(15, .medium))
-                        Spacer()
-                        Text("\(pct)%").font(.display(20)).tracking(-0.6).monospacedDigit().foregroundStyle(colors[i])
-                    }
-                }
-            }
-            .padding(.horizontal, 12)
-        }
-    }
-}
-
-/// 12. Wallet: the sets as passes in a stack; the front one is open with its progress.
-private struct MSVWallet: View {
-    var set: SetShow
-    var p: SetProgress
-    var t: Double
-
-    var body: some View {
-        let others = SetShow.all.filter { $0.code != set.code }
-        let open: Double = Ease.back(t, 0.3, 0.6)
-        VStack(spacing: -150) {
-            ForEach(0 ..< others.count, id: \.self) { i in
-                WalletPass(set: others[i], share: Double(others[i].endCount) / Double(others[i].total), open: false)
-                    .scaleEffect(CGFloat(0.92 + 0.04 * Double(i)))
-            }
-            WalletPass(set: set, share: p.share, open: true, count: p.count)
-                .offset(y: CGFloat(1 - min(open, 1)) * 60)
-        }
-    }
-}
-
-/// One pass: the chase card's art across the top under a dark fade, the set's name and share.
-private struct WalletPass: View {
-    var set: SetShow
-    var share: Double
-    var open: Bool
-    var count: Int = 0
-
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
-        let chase = set.pockets.first { $0.chase } ?? set.pockets[4]
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 2) {
-                    MonoLabel(text: set.era, color: .white.opacity(0.7))
-                    Text(set.name).font(.display(22)).tracking(-0.6)
-                }
-                Spacer()
-                Text("\(Int((share * 100).rounded()))%").font(.display(28)).tracking(-1).monospacedDigit().foregroundStyle(Theme.lime)
-            }
-            Spacer(minLength: 0)
-            if open {
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Color.white.opacity(0.15))
-                    Capsule().fill(Theme.lime).scaleEffect(x: CGFloat(max(share, 0.001)), anchor: .leading)
-                }
-                .frame(height: 6)
-                Text("\(count) of \(set.total) cards").font(.geist(13)).monospacedDigit().foregroundStyle(.white.opacity(0.75))
-            }
-        }
-        .padding(18)
-        .frame(height: open ? 230 : 190)
-        .background {
-            ZStack {
-                SetCardArt(url: set.url(chase)).equatable().scaleEffect(1.4).offset(y: 40)
-                LinearGradient(colors: [.black.opacity(0.75), .black.opacity(0.35), .black.opacity(0.8)], startPoint: .top, endPoint: .bottom)
-            }
-            .clipShape(shape)
-        }
-        .overlay(shape.strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
-        .shadow(color: .black.opacity(0.5), radius: 16, y: 8)
-    }
-}
-
-/// 13. Big type: the share as giant numerals filled with the chase card's art.
-private struct MSVBigType: View {
-    var set: SetShow
-    var p: SetProgress
-    var clock: Double
-
-    var body: some View {
-        let chase = set.pockets.first { $0.chase } ?? set.pockets[4]
-        let drift = CGFloat(sin(clock * 0.4)) * 30
-        VStack(spacing: 6) {
-            MonoLabel(text: set.era, color: welcomeSoft)
-            Text(set.name).font(.display(26)).tracking(-0.8)
-            ZStack {
-                // A faint lime base, then the art showing through the numerals.
-                MSVBigNumber(text: "\(p.pct)%").foregroundStyle(Theme.lime.opacity(0.15))
-                SetCardArt(url: set.url(chase)).equatable()
-                    .frame(width: 420, height: 420)
-                    .offset(y: drift)
-                    .frame(width: 340, height: 220)
-                    .mask { MSVBigNumber(text: "\(p.pct)%") }
-            }
-            .frame(width: 340, height: 220)
-            Text("\(p.count) of \(set.total) cards").font(.geist(17)).monospacedDigit().foregroundStyle(welcomeSoft)
-        }
-    }
-}
-
-/// The giant numerals of the big-type option.
-private struct MSVBigNumber: View {
-    var text: String
-
-    var body: some View {
-        Text(text).font(.display(170)).tracking(-9).monospacedDigit()
-            .minimumScaleFactor(0.5).lineLimit(1)
-            .frame(width: 340, height: 220)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(set.name): \(p.count) of \(set.total) cards, the missing ones shown by number")
     }
 }
 
 /// 21. Tilted grid: the set as drifting columns of cards, like the first page but leaning the
 /// other way and smaller, so more of the set shows. Cards you own are in colour; the ones you
 /// don't are black tiles with their number in grey. The set's name and share sit on a glass pill.
-private struct MSVTiltGrid: View {
+private struct TiltGrid: View {
     var set: SetShow
     var p: SetProgress
     var clock: Double
@@ -2593,249 +2129,15 @@ private struct TiltGridTile: View, Equatable {
     }
 }
 
-/// 14. Cover Flow: the set's cards in a carousel, the middle one facing you, the rest turned away.
-private struct MSVCoverFlow: View {
-    var set: SetShow
-    var p: SetProgress
-    var clock: Double
+/// A card of the set, drawn once.
+private struct SetCardArt: View, Equatable {
+    var url: URL?
 
     var body: some View {
-        let cards = set.pockets
-        let n = Double(cards.count)
-        let pos: Double = (clock * 0.45).truncatingRemainder(dividingBy: n)
-        VStack(spacing: 30) {
-            ZStack {
-                ForEach(0 ..< cards.count, id: \.self) { i in
-                    let raw: Double = Double(i) - pos
-                    let d: Double = raw > n / 2 ? raw - n : (raw < -n / 2 ? raw + n : raw)
-                    let side: Double = max(-1, min(1, d))
-                    let x = CGFloat(d * 62 + side * 40)
-                    MSVCard(set: set, card: cards[i], p: p, radius: 8)
-                        .frame(width: 170)
-                        .rotation3DEffect(.degrees(-side * 58), axis: (x: 0, y: 1, z: 0), perspective: 0.5)
-                        .scaleEffect(CGFloat(1 - 0.12 * abs(side)))
-                        .offset(x: x)
-                        .zIndex(-abs(d))
-                        .opacity(abs(d) < 3.2 ? 1 : 0)
-                }
-            }
-            .frame(height: 260)
-            MSVHeading(set: set, p: p)
-        }
-    }
-}
-
-/// 15. Memories: the chase card's art filling a tall rounded frame, panning slowly, with the
-/// set's name and share over a dark fade at the bottom, like a Photos memory.
-private struct MSVMemories: View {
-    var set: SetShow
-    var p: SetProgress
-    var clock: Double
-
-    var body: some View {
-        let chase = set.pockets.first { $0.chase } ?? set.pockets[4]
-        let shape = RoundedRectangle(cornerRadius: 30, style: .continuous)
-        let pan = CGFloat(sin(clock * 0.25)) * 60
-        ZStack(alignment: .bottomLeading) {
-            SetCardArt(url: set.url(chase)).equatable()
-                .frame(width: 520, height: 720)
-                .offset(x: pan, y: -pan * 0.6)
-                .frame(width: 320, height: 460)
-                .clipped()
-            LinearGradient(colors: [.clear, .black.opacity(0.85)], startPoint: .center, endPoint: .bottom)
-            VStack(alignment: .leading, spacing: 6) {
-                MonoLabel(text: set.era, color: .white.opacity(0.75))
-                Text(set.name).font(.display(30)).tracking(-1)
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text("\(p.pct)%").font(.display(30)).tracking(-1).monospacedDigit().foregroundStyle(Theme.lime)
-                    Text("complete").font(.geist(15)).foregroundStyle(.white.opacity(0.75))
-                }
-            }
-            .padding(22)
-        }
-        .frame(width: 320, height: 460)
-        .clipShape(shape)
-        .overlay(shape.strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
-    }
-}
-
-/// 16. Widgets: the set's progress as home screen widgets: a ring, the chase card, and a wide one.
-private struct MSVWidgets: View {
-    var set: SetShow
-    var p: SetProgress
-
-    var body: some View {
-        let chase = set.pockets.first { $0.chase } ?? set.pockets[4]
-        let shape = RoundedRectangle(cornerRadius: 24, style: .continuous)
-        VStack(spacing: 14) {
-            HStack(spacing: 14) {
-                ZStack {
-                    Circle().stroke(Theme.lime.opacity(0.18), lineWidth: 12)
-                    Circle().trim(from: 0, to: CGFloat(max(p.share, 0.001)))
-                        .stroke(Theme.lime, style: StrokeStyle(lineWidth: 12, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                    Text("\(p.pct)%").font(.display(28)).tracking(-1).monospacedDigit().foregroundStyle(Theme.lime)
-                }
-                .padding(22)
-                .frame(width: 150, height: 150)
-                .background(shape.fill(Color(hex: 0x1C1C1E)))
-                ZStack(alignment: .bottomLeading) {
-                    SetCardArt(url: set.url(chase)).equatable().scaleEffect(1.3)
-                    LinearGradient(colors: [.clear, .black.opacity(0.8)], startPoint: .center, endPoint: .bottom)
-                    Text("Chase").font(.geist(13, .semibold)).padding(12)
-                }
-                .frame(width: 150, height: 150)
-                .clipShape(shape)
-            }
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    MonoLabel(text: "Master set", color: welcomeSoft)
-                    Spacer()
-                    Text("\(p.count)/\(set.total)").font(.geist(13)).monospacedDigit().foregroundStyle(welcomeSoft)
-                }
-                Text(set.name).font(.display(22)).tracking(-0.6)
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Color.white.opacity(0.12))
-                    Capsule().fill(Theme.lime).scaleEffect(x: CGFloat(max(p.share, 0.001)), anchor: .leading)
-                }
-                .frame(height: 8)
-            }
-            .padding(18)
-            .frame(width: 314, height: 150, alignment: .topLeading)
-            .background(shape.fill(Color(hex: 0x1C1C1E)))
-        }
-    }
-}
-
-/// 17. Live Activity: a lock screen, the time big, and the set's progress as a live card.
-private struct MSVLiveActivity: View {
-    var set: SetShow
-    var p: SetProgress
-
-    var body: some View {
-        let chase = set.pockets.first { $0.chase } ?? set.pockets[4]
-        let next = set.pockets.first { $0.missing && !$0.bought } ?? chase
-        VStack(spacing: 30) {
-            VStack(spacing: 0) {
-                Text("Thursday, November 6").font(.geist(18, .semibold)).foregroundStyle(.white.opacity(0.8))
-                Text("9:41").font(.display(96)).tracking(-3).monospacedDigit()
-            }
-            HStack(spacing: 14) {
-                SetCardArt(url: set.url(chase)).equatable()
-                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                    .frame(width: 52, height: 73)
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text(set.name).font(.geist(16, .semibold)).lineLimit(1)
-                        Spacer()
-                        Text("\(p.pct)%").font(.display(20)).monospacedDigit().foregroundStyle(Theme.lime)
-                    }
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(Color.white.opacity(0.15))
-                        Capsule().fill(Theme.lime).scaleEffect(x: CGFloat(max(p.share, 0.001)), anchor: .leading)
-                    }
-                    .frame(height: 6)
-                    Text("\(p.count) of \(set.total) · next: #\(next.number)").font(.geist(13)).monospacedDigit().foregroundStyle(.white.opacity(0.7))
-                }
-            }
-            .padding(16)
-            .liquidGlass(in: RoundedRectangle(cornerRadius: 26, style: .continuous))
-        }
-    }
-}
-
-/// 18. To go: how many cards are left, huge, with the set's ring and its missing cards beneath.
-private struct MSVToGo: View {
-    var set: SetShow
-    var p: SetProgress
-
-    var body: some View {
-        let left = set.total - p.count
-        let missing = set.pockets.filter { $0.missing }
-        VStack(spacing: 14) {
-            Text(set.name).font(.display(24)).tracking(-0.7)
-            Text("\(left)").font(.display(150)).tracking(-7).monospacedDigit().foregroundStyle(Theme.lime)
-                .displayTrim(150)
-            Text("cards to go").font(.display(26)).tracking(-0.8).foregroundStyle(.white.opacity(0.8))
-            HStack(spacing: 10) {
-                ForEach(0 ..< missing.count, id: \.self) { i in
-                    MSVCard(set: set, card: missing[i], p: p, radius: 5).frame(width: 64)
-                }
-            }
-            .padding(.top, 10)
-        }
-    }
-}
-
-/// 19. Watch: sixty ticks round a dial lighting up to the share, the chase card in the middle.
-private struct MSVWatch: View {
-    var set: SetShow
-    var p: SetProgress
-
-    var body: some View {
-        let lit = Int((p.share * 60).rounded())
-        VStack(spacing: 18) {
-            ZStack {
-                ForEach(0 ..< 60, id: \.self) { i in
-                    Capsule()
-                        .fill(i < lit ? Theme.lime : Color.white.opacity(0.14))
-                        .frame(width: 4, height: i % 5 == 0 ? 22 : 14)
-                        .offset(y: -128)
-                        .rotationEffect(.degrees(Double(i) * 6))
-                }
-                VStack(spacing: 8) {
-                    MSVChaseArt(set: set, p: p, radius: 8).frame(width: 96)
-                    Text("\(p.pct)%").font(.display(30)).tracking(-1).monospacedDigit().foregroundStyle(Theme.lime)
-                }
-            }
-            .frame(width: 290, height: 290)
-            VStack(spacing: 4) {
-                Text(set.name).font(.display(24)).tracking(-0.7)
-                Text("\(p.count) of \(set.total) cards").font(.geist(14)).monospacedDigit().foregroundStyle(welcomeSoft)
-            }
-        }
-    }
-}
-
-/// 20. Apple Card: the chase card big, tilting slowly with a light sliding across it, its
-/// share in small type underneath.
-private struct MSVCardShine: View {
-    var set: SetShow
-    var p: SetProgress
-    var clock: Double
-
-    var body: some View {
-        let chase = set.pockets.first { $0.chase } ?? set.pockets[4]
-        let tiltX: Double = sin(clock * 0.6) * 9
-        let tiltY: Double = cos(clock * 0.45) * 12
-        let sweep = CGFloat(sin(clock * 0.6)) * 160
-        let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
-        VStack(spacing: 26) {
-            ZStack {
-                SetCardArt(url: set.url(chase)).equatable()
-                LinearGradient(colors: [.clear, .white.opacity(0.35), .clear], startPoint: .leading, endPoint: .trailing)
-                    .frame(width: 120)
-                    .rotationEffect(.degrees(25))
-                    .offset(x: sweep)
-                    .blendMode(.plusLighter)
-            }
-            .frame(width: 230, height: 321)
-            .clipShape(shape)
-            .overlay(shape.strokeBorder(Color.white.opacity(0.18), lineWidth: 1))
-            .rotation3DEffect(.degrees(tiltX), axis: (x: 1, y: 0, z: 0), perspective: 0.5)
-            .rotation3DEffect(.degrees(tiltY), axis: (x: 0, y: 1, z: 0), perspective: 0.5)
-            .shadow(color: Theme.lime.opacity(0.25), radius: 30, y: 10)
-            VStack(spacing: 6) {
-                Text(set.name).font(.display(24)).tracking(-0.7)
-                HStack(spacing: 10) {
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(Color.white.opacity(0.12))
-                        Capsule().fill(Theme.lime).scaleEffect(x: CGFloat(max(p.share, 0.001)), anchor: .leading)
-                    }
-                    .frame(width: 160, height: 4)
-                    Text("\(p.pct)%").font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(Theme.lime)
-                }
-            }
+        CachedImage(url: url) { image in
+            image.resizable().aspectRatio(contentMode: .fill)
+        } placeholder: {
+            Theme.well
         }
     }
 }
