@@ -47,28 +47,36 @@ struct Product: Codable, Identifiable, Hashable {
     }
     var imageURL: URL? { imageUrl.flatMap(URL.init(string:)) }
 
-    /// The catalog's large version of the picture, when its address follows a known pattern
-    /// (TCGplayer's CDN and pokemontcg.io serve small previews by default). Nil otherwise.
-    var largeImageURL: URL? {
-        guard let s = imageUrl else { return nil }
+    /// The catalog's biggest versions of the picture, best first, when its address follows a
+    /// known pattern (TCGplayer's CDN, pokemontcg.io, TCGdex and Scryfall serve small previews
+    /// by default). Empty otherwise. The card page tries them in turn, then the usual picture.
+    var largeImageURLs: [URL] {
+        guard let s = imageUrl else { return [] }
+        var out: [String] = []
+        // TCGplayer: the 2000px version where it exists, else 1000px.
         if s.contains("tcgplayer-cdn.tcgplayer.com/product/"),
            let r = s.range(of: #"_(\d+w|in_\d+x\d+)\.jpg$"#, options: .regularExpression) {
-            let big = s.replacingCharacters(in: r, with: "_in_1000x1000.jpg")
-            return big == s ? nil : URL(string: big)
+            out = [s.replacingCharacters(in: r, with: "_in_2000x2000.jpg"), s.replacingCharacters(in: r, with: "_in_1000x1000.jpg")]
         }
+        // pokemontcg.io: the hi-res scan.
         if s.contains("images.pokemontcg.io/"), s.hasSuffix(".png"), !s.hasSuffix("_hires.png") {
-            return URL(string: String(s.dropLast(4)) + "_hires.png")
+            out = [String(s.dropLast(4)) + "_hires.png"]
         }
         // TCGdex: /low.webp|png|jpg → /high.png (600×825, the largest it serves).
         if s.contains("assets.tcgdex.net/"), let r = s.range(of: #"/low\.(webp|png|jpg)$"#, options: .regularExpression) {
-            return URL(string: s.replacingCharacters(in: r, with: "/high.png"))
+            out = [s.replacingCharacters(in: r, with: "/high.png")]
         }
-        // Scryfall: small/normal → large.
-        if s.contains("cards.scryfall.io/"), s.contains("/small/") || s.contains("/normal/") {
-            return URL(string: s.replacingOccurrences(of: "/small/", with: "/large/").replacingOccurrences(of: "/normal/", with: "/large/"))
+        // Scryfall: the full-size PNG (745×1040), then large.
+        if s.contains("cards.scryfall.io/"), let r = s.range(of: #"/(small|normal|large)/"#, options: .regularExpression) {
+            let png = s.replacingCharacters(in: r, with: "/png/").replacingOccurrences(of: ".jpg", with: ".png")
+            let large = s.replacingCharacters(in: r, with: "/large/")
+            out = [png, large]
         }
-        return nil
+        return out.filter { $0 != s }.compactMap(URL.init(string:))
     }
+
+    /// The biggest version of the picture (see `largeImageURLs`).
+    var largeImageURL: URL? { largeImageURLs.first }
 
     /// "Evolving Skies · #215/203"
     var subtitle: String {

@@ -294,6 +294,8 @@ struct ProductDetailView: View {
         // The big art is decoded at full size: the page it was opened from may ask for small
         // thumbnails (Overview, Collection and Explore do, for smooth scrolling).
         .environment(\.imageMaxPixel, nil)
+        // The biggest picture the catalog has, for the bare card and for the card inside a slab.
+        .environment(\.largeProductImages, true)
         .frame(maxWidth: .infinity)
     }
 

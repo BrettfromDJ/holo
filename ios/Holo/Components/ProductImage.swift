@@ -11,10 +11,15 @@ struct ProductImage: View {
     /// Big on screen (the card page): ask for the catalog's large picture, falling back to the
     /// usual one, and trim the faint edge some scans have.
     var large = false
+    /// Set on the card page so everything there, slabs included, asks for the biggest picture.
+    @Environment(\.largeProductImages) private var pageLarge
 
     var body: some View {
-        let big = large ? product?.largeImageURL : nil
-        CachedImage(url: big ?? product?.imageURL, fallback: big == nil ? nil : product?.imageURL) { image in
+        // The biggest version first, then each smaller one, then the usual picture.
+        let bigs = (large || pageLarge) ? (product?.largeImageURLs ?? []) : []
+        let usual = product?.imageURL
+        let steps: [URL] = Array(bigs.dropFirst()) + (bigs.isEmpty ? [] : [usual].compactMap { $0 })
+        CachedImage(url: bigs.first ?? usual, fallback: steps.first, fallbacks: Array(steps.dropFirst())) { image in
             image.resizable().aspectRatio(contentMode: .fit)
                 .scaleEffect(large ? 1.015 : 1)
         } placeholder: {
@@ -33,6 +38,8 @@ struct CachedImage<Content: View, Placeholder: View>: View {
     var url: URL?
     /// Tried when `url` can't be loaded (e.g. a large version that doesn't exist).
     var fallback: URL? = nil
+    /// Tried after `fallback`, in turn.
+    var fallbacks: [URL] = []
     @ViewBuilder var content: (Image) -> Content
     @ViewBuilder var placeholder: () -> Placeholder
     /// Long lists set this (`.imageMaxPixel(…)`) so pictures are shrunk to thumbnail size off the
@@ -46,9 +53,10 @@ struct CachedImage<Content: View, Placeholder: View>: View {
     @State private var imageURL: URL?
     @State private var failed = false
 
-    init(url: URL?, fallback: URL? = nil, @ViewBuilder content: @escaping (Image) -> Content, @ViewBuilder placeholder: @escaping () -> Placeholder) {
+    init(url: URL?, fallback: URL? = nil, fallbacks: [URL] = [], @ViewBuilder content: @escaping (Image) -> Content, @ViewBuilder placeholder: @escaping () -> Placeholder) {
         self.url = url
         self.fallback = fallback
+        self.fallbacks = fallbacks
         self.content = content
         self.placeholder = placeholder
         _image = State(initialValue: url.flatMap { ImageCache.shared.cached($0) })
@@ -59,7 +67,7 @@ struct CachedImage<Content: View, Placeholder: View>: View {
         ZStack {
             // While a large version loads, show any copy of the usual picture already here.
             if let image = (imageURL == url ? image : nil) ?? url.flatMap({ ImageCache.shared.cached($0, maxPixel: maxPixel) ?? ImageCache.shared.cached($0) })
-                ?? fallback.flatMap({ ImageCache.shared.anyCached($0) }) {
+                ?? ([fallback].compactMap { $0 } + fallbacks).lazy.compactMap({ ImageCache.shared.anyCached($0) }).first {
                 content(Image(uiImage: image)).transition(.opacity)
             } else if url == nil || failed {
                 placeholder()
@@ -79,7 +87,9 @@ struct CachedImage<Content: View, Placeholder: View>: View {
             // full-size picture, as Collection shows it, instead of leaving the space empty.
             var loaded = await ImageCache.shared.load(url, maxPixel: maxPixel)
             if loaded == nil, maxPixel != nil { loaded = await ImageCache.shared.load(url) }
-            if loaded == nil, let fallback { loaded = await ImageCache.shared.load(fallback, maxPixel: maxPixel) }
+            for next in [fallback].compactMap({ $0 }) + fallbacks where loaded == nil {
+                loaded = await ImageCache.shared.load(next, maxPixel: maxPixel)
+            }
             // Handed another address while this one loaded: leave it to that load.
             guard imageURL == url, !Task.isCancelled else { return }
             if let loaded {
@@ -172,11 +182,21 @@ final class ImageCache: @unchecked Sendable {
     }
 }
 
+private struct LargeProductImagesKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
 private struct ImageMaxPixelKey: EnvironmentKey {
     static let defaultValue: CGFloat? = nil
 }
 
 extension EnvironmentValues {
+    /// Product pictures below ask for the catalog's biggest version (the card page).
+    var largeProductImages: Bool {
+        get { self[LargeProductImagesKey.self] }
+        set { self[LargeProductImagesKey.self] = newValue }
+    }
+
     /// Pictures below are decoded at most this many pixels on their long side (nil: full size).
     var imageMaxPixel: CGFloat? {
         get { self[ImageMaxPixelKey.self] }
