@@ -1213,15 +1213,10 @@ struct ManageGroupsSheet: View {
     }
 
     /// A section's heading: white, in the heading font, clearly above the rows and the note.
-    private func sectionTitle(_ text: String) -> some View {
-        Text(text).font(.display(20)).tracking(-0.5).foregroundStyle(.white).textCase(nil)
-            .padding(.bottom, 2)
-    }
+    private func sectionTitle(_ text: String) -> some View { SectionTitle(text) }
 
     /// The quiet note under a section's rows.
-    private func sectionNote(_ text: String) -> some View {
-        Text(text).font(.geist(12)).foregroundStyle(Theme.subtle).textCase(nil)
-    }
+    private func sectionNote(_ text: String) -> some View { SectionNote(text) }
 
     private func row(_ title: String, sub: String?, kind: Kind, id: String) -> some View {
         HStack {

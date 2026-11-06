@@ -101,8 +101,10 @@ struct AddPurchaseSheet: View {
                     }
                     Button { namingPortfolio = true } label: { Label("New portfolio…", systemImage: "plus") }
                         .foregroundStyle(Theme.lime)
+                } header: {
+                    SectionTitle("Portfolio")
                 } footer: {
-                    Text("The portfolio this goes into. Main is everything not in another portfolio.")
+                    SectionNote("The portfolio this goes into. Main is everything not in another portfolio.")
                 }
 
                 if let printings = product.printings, printings.count > 1 {
@@ -136,6 +138,8 @@ struct AddPurchaseSheet: View {
                                 ForEach(CardCondition.allCases) { Text($0.rawValue).tag($0.rawValue) }
                             }
                         }
+                    } header: {
+                        SectionTitle("Condition")
                     }
                 }
 
@@ -145,13 +149,13 @@ struct AddPurchaseSheet: View {
                         ChipPicker(options: [(false, "Bought"), (true, "Pulled from a pack")], selection: $pulled, fills: true)
                             .frame(maxWidth: .infinity)
                     } header: {
-                        Text("How you got it")
+                        SectionTitle("How you got it")
                     } footer: {
-                        if pulled { Text("Marked as a pull, with a Pulled badge. Nothing to fill in for price.") }
+                        if pulled { SectionNote("Marked as a pull, with a Pulled badge. Nothing to fill in for price.") }
                     }
                 }
 
-                Section(pulled ? "Pull" : "Purchase") {
+                Section {
                     Stepper("Quantity: \(quantity)", value: $quantity, in: 1...999)
                     if !pulled {
                     HStack {
@@ -185,6 +189,8 @@ struct AddPurchaseSheet: View {
                                 .textInputAutocapitalization(.words)
                         }
                     }
+                } header: {
+                    SectionTitle(pulled ? "Pull" : "Purchase")
                 }
 
                 if let error {

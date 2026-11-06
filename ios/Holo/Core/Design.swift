@@ -1203,3 +1203,20 @@ struct PulledBadge: View {
         .accessibilityLabel("Pulled from a pack")
     }
 }
+
+/// A form section's heading: white, in the heading font, clearly above its rows and note.
+struct SectionTitle: View {
+    var text: String
+    init(_ text: String) { self.text = text }
+    var body: some View {
+        Text(text).font(.display(20)).tracking(-0.5).foregroundStyle(.white).textCase(nil)
+            .padding(.bottom, 2)
+    }
+}
+
+/// The quiet note under a form section's rows.
+struct SectionNote: View {
+    var text: String
+    init(_ text: String) { self.text = text }
+    var body: some View { Text(text).font(.geist(12)).foregroundStyle(Theme.subtle).textCase(nil) }
+}
