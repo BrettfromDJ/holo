@@ -1664,7 +1664,8 @@ private struct MasterSetScene: View {
         let reveal: Double = min(1, 0.2 + 0.6 * climb + 0.2 * Ease.out(t, Self.chaseAt, 0.5))
         let lit: Double = Ease.out(t, Self.chaseAt + 0.3, 0.3) * (1 - Ease.out(t, Self.chaseAt + 1.6, 0.6))
         let glint: Double = Ease.clamp((t - Self.boughtAt - 0.45) / 0.5)
-        VStack(spacing: 20) {
+        VStack(spacing: 14) {
+            // The heading stays still; only the binder page turns.
             VStack(spacing: 6) {
                 MonoLabel(text: set.era)
                 Text(set.name).font(.display(26)).tracking(-0.8)
@@ -1674,11 +1675,11 @@ private struct MasterSetScene: View {
                 }
             }
             BinderPage(set: set, bought: bought, reveal: reveal, lit: lit, glint: glint)
-                .rotation3DEffect(.degrees(14), axis: (x: 1, y: 0, z: 0), anchor: .bottom, perspective: 0.6)
+                .rotation3DEffect(.degrees(7), axis: (x: 1, y: 0, z: 0), anchor: .bottom, perspective: 0.6)
+                .rotation3DEffect(.degrees(pageAngle), axis: (x: 0, y: 1, z: 0), anchor: .leading, perspective: 0.5)
+                .opacity(fade)
         }
         .foregroundStyle(.white)
-        .rotation3DEffect(.degrees(pageAngle), axis: (x: 0, y: 1, z: 0), anchor: .leading, perspective: 0.5)
-        .opacity(fade)
     }
 }
 
@@ -1886,7 +1887,7 @@ private struct AlertScene: View {
         let item = DemoData.items.first { $0.slug == show.slug }
         VStack(spacing: 22) {
             AlertStack(notes: show.notes, t: t)
-                .frame(height: Self.noteH * 3 + Self.noteGap * 2, alignment: .top)
+                .frame(height: Self.noteH + 22, alignment: .top)
             VStack(alignment: .leading, spacing: 14) {
                 HStack(spacing: 12) {
                     if let item {
@@ -1903,7 +1904,7 @@ private struct AlertScene: View {
                         .foregroundStyle(hit > 0.5 ? Theme.lime : Theme.muted)
                 }
                 AlertChart(show: show, drawn: drawn, hit: hit)
-                    .frame(height: 200)
+                    .frame(height: 250)
             }
         }
         .foregroundStyle(.white)
@@ -1911,14 +1912,15 @@ private struct AlertScene: View {
     }
 }
 
-/// The notifications so far, newest on top: each drops in from above and the older ones slide
-/// down to make room, a little smaller and dimmer the further down they are.
+/// The notifications so far, stacked like iPhone's: the newest on top at full size, each older one
+/// tucked behind it, peeking out a little lower, smaller and dimmer. A new one drops in from above
+/// and the others sink back a step.
 private struct AlertStack: View {
     var notes: [AlertNote]
     var t: Double
 
     var body: some View {
-        let step: CGFloat = 66 + 8
+        let step: CGFloat = 10
         ZStack(alignment: .top) {
             ForEach(0 ..< notes.count, id: \.self) { i in
                 let note = notes[i]
@@ -1927,12 +1929,13 @@ private struct AlertStack: View {
                 let above: Double = (i + 1 ..< notes.count).reduce(0.0) { $0 + Ease.out(t, notes[$1].at, 0.35) }
                 let drop: Double = 1 - min(come, 1)
                 let y = CGFloat(above) * step - CGFloat(drop) * 40
-                let scale = CGFloat(1 - 0.03 * above)
-                let fade: Double = Ease.clamp(come * 2) * (1 - 0.18 * above)
+                let scale = CGFloat(1 - 0.06 * above)
+                let fade: Double = Ease.clamp(come * 2) * (1 - 0.3 * above)
                 if t >= note.at {
-                    AlertBanner(icon: note.icon, message: note.message)
+                    // Behind the top one only the edge shows, so its words fade out (the glass is see-through).
+                    AlertBanner(icon: note.icon, message: note.message, content: 1 - min(above, 1))
                         .frame(height: 66)
-                        .scaleEffect(scale, anchor: .top)
+                        .scaleEffect(scale, anchor: .bottom)
                         .offset(y: y)
                         .opacity(fade)
                 }
@@ -1945,6 +1948,8 @@ private struct AlertStack: View {
 private struct AlertBanner: View {
     var icon: String = "bell.badge.fill"
     var message: String
+    /// How much of the icon and words show (0 when it's tucked behind another).
+    var content: Double = 1
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
@@ -1963,6 +1968,7 @@ private struct AlertBanner: View {
                     .lineLimit(2)
             }
         }
+        .opacity(content)
         .padding(.horizontal, 14)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
