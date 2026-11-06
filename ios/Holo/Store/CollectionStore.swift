@@ -764,8 +764,22 @@ final class CollectionStore {
                 try c.encode(monthly_budget, forKey: .monthly_budget)
             }
         }
-        try await db.from("user_preferences").upsert(Row(user_id: userId, monthly_budget: value)).execute()
+        // Shown at once; put back if the save fails.
+        let before = monthlyBudget
         monthlyBudget = value
+        do {
+            if value == nil {
+                // Removing: clear the column on your row outright (an upsert carrying a null
+                // could leave the old budget in place).
+                try await db.from("user_preferences").update(["monthly_budget": AnyJSON.null]).eq("user_id", value: userId).execute()
+            } else {
+                try await db.from("user_preferences").upsert(Row(user_id: userId, monthly_budget: value)).execute()
+            }
+        } catch {
+            monthlyBudget = before
+            throw error
+        }
+        await MainActor.run { saveSnapshot() }
     }
 
     /// What you spent on purchases this calendar month.
