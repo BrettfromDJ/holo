@@ -1061,27 +1061,29 @@ struct SetArt: View {
     var body: some View {
         ZStack {
             Theme.well
+            // Underneath: a sample product (or the mark). It shows while the banner loads, and
+            // stays when the banner fails or is see-through where the tile crops it.
+            if let sample = set.imageUrl.flatMap(URL.init(string:)) {
+                CachedImage(url: sample) { img in img.resizable().scaledToFit() } placeholder: { icon }
+                    .padding(12)
+            } else {
+                icon
+            }
             if let banner = set.iconUrl.flatMap(URL.init(string:)) {
                 Color.clear
                     .overlay {
                         if parallax {
                             // A little taller than the frame, so drifting never shows an edge.
-                            CachedImage(url: banner) { img in img.resizable().scaledToFill() } placeholder: { icon }
+                            CachedImage(url: banner) { img in img.resizable().scaledToFill() } placeholder: { Color.clear }
                                 .padding(.vertical, -14)
                                 .scrollTransition(.interactive, axis: .vertical) { view, phase in
                                     view.offset(y: phase.value * -12)
                                 }
                         } else {
-                            CachedImage(url: banner) { img in img.resizable().scaledToFill() } placeholder: { icon }
+                            CachedImage(url: banner) { img in img.resizable().scaledToFill() } placeholder: { Color.clear }
                         }
                     }
                     .clipped()
-            } else if let sample = set.imageUrl.flatMap(URL.init(string:)) {
-                CachedImage(url: sample) { img in img.resizable().scaledToFit() } placeholder: { icon }
-                    .padding(12)
-            } else {
-                // No art yet (usually an upcoming set): just the mark, since the name is right below.
-                icon
             }
         }
     }
