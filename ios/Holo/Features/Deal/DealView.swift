@@ -1158,8 +1158,9 @@ private struct DealItemCard: View {
 }
 
 /// What the customer sees, full screen and calm: their cards (what they hand you, what they
-/// get), each at the price you're paying or charging, and the cash, big. Never market prices,
-/// rates, your costs, profit or value gained. Tap a card for a closer look; Flip turns the
+/// get), each at the price you're paying or charging, and the cash, big. A card they hand you
+/// that you're paying under market for shows the market price struck through and the share
+/// off; otherwise never market prices, rates, your costs, profit or value gained. Tap a card for a closer look; Flip turns the
 /// page upside down so it reads the right way for someone across the table, while the buttons
 /// stay the right way up for you at your end.
 private struct CustomerViewSheet: View {
@@ -1285,7 +1286,14 @@ private struct CustomerViewSheet: View {
     /// How the tiles are laid out: columns, each tile's width, and the text height under the art.
     struct Fit: Equatable { var cols: Int; var width: CGFloat; var text: CGFloat }
 
-    private static func textHeight(_ cols: Int) -> CGFloat { cols >= 4 ? 28 : (cols == 3 ? 56 : 80) }
+    /// The text under a tile; a line taller when a card shows its struck-through market price.
+    private func textHeight(_ cols: Int) -> CGFloat {
+        let base: CGFloat = cols >= 4 ? 28 : (cols == 3 ? 56 : 80)
+        return base + (showsMarket && cols < 4 ? 20 : 0)
+    }
+
+    /// Some card they hand us is priced under market (so its tile shows the market struck through).
+    private var showsMarket: Bool { deal.incoming.contains { $0.underMarket(side: rates.in) != nil } }
 
     private var sectionCounts: [Int] { [deal.incoming.count, deal.outgoing.count].filter { $0 > 0 } }
 
@@ -1293,18 +1301,18 @@ private struct CustomerViewSheet: View {
     /// height allows, whichever is smaller; the widest wins (fewer columns on a tie).
     private func layout(width: CGFloat, room: CGFloat) -> Fit {
         let counts = sectionCounts
-        var best = Fit(cols: 6, width: max(30, (width - 40 - 60) / 6), text: Self.textHeight(6))
+        var best = Fit(cols: 6, width: max(30, (width - 40 - 60) / 6), text: textHeight(6))
         var bestWidth: CGFloat = 0
         for c in 2...6 {
             let colW = (width - 40 - CGFloat(c - 1) * 12) / CGFloat(c)
             let rows = counts.reduce(0) { $0 + Int((Double($1) / Double(c)).rounded(.up)) }
-            guard rows > 0 else { return Fit(cols: 2, width: colW, text: Self.textHeight(2)) }
-            let perRow = (room - CGFloat(max(0, rows - counts.count)) * 14) / CGFloat(rows) - Self.textHeight(c)
+            guard rows > 0 else { return Fit(cols: 2, width: colW, text: textHeight(2)) }
+            let perRow = (room - CGFloat(max(0, rows - counts.count)) * 14) / CGFloat(rows) - textHeight(c)
             let w = min(colW, perRow * 63 / 88)
-            if w > bestWidth + 0.5 { bestWidth = w; best = Fit(cols: c, width: w, text: Self.textHeight(c)) }
+            if w > bestWidth + 0.5 { bestWidth = w; best = Fit(cols: c, width: w, text: textHeight(c)) }
         }
         // Too many to fit even at six across: six across, full column width, and it scrolls.
-        if bestWidth < 40 { best = Fit(cols: 6, width: (width - 40 - 60) / 6, text: Self.textHeight(6)) }
+        if bestWidth < 40 { best = Fit(cols: 6, width: (width - 40 - 60) / 6, text: textHeight(6)) }
         return best
     }
 
@@ -1358,8 +1366,12 @@ private struct CustomerViewSheet: View {
                     }
                     Text(Format.money(i.total(side: rate))).font(.display(priceSize)).tracking(-priceSize * 0.025).monospacedDigit().foregroundStyle(.white)
                         .lineLimit(1).minimumScaleFactor(0.6)
+                    // What we pay under market: the market price struck through and the share off.
+                    if incoming, cols < 4, let under = i.underMarket(side: rate) {
+                        MarketStrike(market: under.market, off: under.off, size: cols == 3 ? 11 : 13)
+                    }
                 }
-                .frame(height: Self.textHeight(cols) - gap, alignment: .top)
+                .frame(height: textHeight(cols) - gap, alignment: .top)
             }
             .contentShape(Rectangle())
         }
@@ -1402,8 +1414,44 @@ private struct CustomerViewSheet: View {
     }
 }
 
+/// The market price struck through, then how much under it the deal price is ("30% off").
+private struct MarketStrike: View {
+    var market: Double
+    var off: Double
+    var size: CGFloat
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(Format.money(market))
+                .strikethrough(true, color: Theme.muted)
+                .foregroundStyle(Theme.muted)
+            Text("\(Int((off * 100).rounded()))% off")
+                .fontWeight(.semibold)
+                .foregroundStyle(.white)
+        }
+        .font(.geist(size))
+        .monospacedDigit()
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Market price \(Format.money(market)), \(Int((off * 100).rounded())) percent off")
+    }
+}
+
+extension DealItem {
+    /// Market for the whole line and the share the deal price is under it, when it's under by
+    /// at least 1% (catalog lines with a market price only).
+    func underMarket(side: Double) -> (market: Double, off: Double)? {
+        guard !isCustom, let m = market, m > 0 else { return nil }
+        let marketTotal = m * Double(qty)
+        let off = 1 - total(side: side) / marketTotal
+        return off >= 0.01 ? (marketTotal, off) : nil
+    }
+}
+
 /// One card from the customer view, up close: the art (lean it with a finger), what it is, and
-/// the deal price. Like the customer view, never market prices, rates, costs or profit.
+/// the deal price (with the market struck through when we pay under it). Otherwise, like the
+/// customer view, never market prices, rates, costs or profit.
 /// Follows the customer view's flip so it reads the right way for the customer too.
 private struct CustomerCardSheet: View {
     var item: DealItem
@@ -1446,6 +1494,9 @@ private struct CustomerCardSheet: View {
                         Text(incoming ? "We pay" : "Price").font(.mono(11)).tracking(1.4).textCase(.uppercase).foregroundStyle(Theme.muted)
                         Text(Format.money(item.total(side: rate))).font(.display(52)).tracking(-2).padding(.trailing, 2).monospacedDigit().foregroundStyle(.white)
                             .lineLimit(1).minimumScaleFactor(0.5)
+                        if incoming, let under = item.underMarket(side: rate) {
+                            MarketStrike(market: under.market, off: under.off, size: 16)
+                        }
                         if item.qty > 1 {
                             Text("\(item.qty) × \(Format.money(item.unitPrice(side: rate)))").font(.geist(15)).monospacedDigit().foregroundStyle(Theme.muted)
                         }

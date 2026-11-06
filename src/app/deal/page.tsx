@@ -1116,20 +1116,41 @@ function RecordedDialog({ recorded, onDone }: { recorded: { record: DealRecord; 
 
 /* ----------------------------- Customer view ------------------------------ */
 
-/** Tile measures for a number of columns: width, and height with the name and price under it. */
-function customerTile(cols: number, width: number) {
+/** Tile measures for a number of columns: width, and height with the name and price under it
+ * (a line taller when a card shows its struck-through market price). */
+function customerTile(cols: number, width: number, strike = false) {
   const w = (width - (cols - 1) * 12) / cols;
-  return { w, h: (w * 88) / 63 + (cols >= 4 ? 28 : cols === 3 ? 52 : 70) };
+  return { w, h: (w * 88) / 63 + (cols >= 4 ? 28 : cols === 3 ? 52 : 70) + (strike && cols < 4 ? 20 : 0) };
 }
 
 /** The fewest columns (2 to 6) that fit every card in the space above the pinned cash panel. */
-function customerColumns(counts: number[], width: number, room: number) {
+function customerColumns(counts: number[], width: number, room: number, strike = false) {
   for (let c = 2; c <= 6; c++) {
-    const t = customerTile(c, width);
+    const t = customerTile(c, width, strike);
     const rows = counts.reduce((s, n) => s + Math.ceil(n / c), 0);
     if (rows * t.h + Math.max(0, rows - counts.length) * 14 <= room) return c;
   }
   return 6;
+}
+
+/** Market for the whole line and the share the deal price is under it, when under by at least
+ * 1% (catalog lines with a market price only). Same rule as the app's `underMarket`. */
+function underMarket(i: DealItem, r: number): { market: number; off: number } | null {
+  if (i.custom || !i.market || i.market <= 0) return null;
+  const market = i.market * i.qty;
+  const off = 1 - ((unitPrice(i, r) ?? 0) * i.qty) / market;
+  return off >= 0.01 ? { market, off } : null;
+}
+
+/** The market price struck through, then how much under it the deal price is ("30% off"). */
+function MarketStrike({ market, off, size }: { market: number; off: number; size: number }) {
+  const p = Math.round(off * 100);
+  return (
+    <span className="tabular mt-0.5 flex items-baseline gap-1.5 truncate" style={{ fontSize: size }} aria-label={`Market price ${money(market)}, ${p} percent off`}>
+      <span className="text-muted line-through">{money(market)}</span>
+      <span className="font-semibold text-white">{p}% off</span>
+    </span>
+  );
 }
 
 const CUSTOMER_TITLE: Record<DealKind, string> = { buy: "We're buying", sell: "You're buying", trade: "Your trade", empty: "Your trade" };
@@ -1139,7 +1160,9 @@ const CUSTOMER_TITLE: Record<DealKind, string> = { buy: "We're buying", sell: "Y
  * hand you, what they get) as tiles at the price you're paying or charging, and the cash pinned
  * at the bottom (lime when we pay them). Tiles shrink as cards are added so the cash always shows.
  * Click a card for a closer look. Flip turns the page around for someone across the table; the
- * buttons stay the right way up for you. Never market prices, rates, your costs, profit or value gained.
+ * buttons stay the right way up for you. A card they hand you that you're paying under market for
+ * shows the market price struck through and the share off; otherwise never market prices, rates,
+ * your costs, profit or value gained.
  */
 function CustomerView({ open, onOpenChange, deal, rate, totals }: { open: boolean; onOpenChange: (o: boolean) => void; deal: DealState; rate: { in: number; out: number }; totals: DealTotals }) {
   const [flipped, setFlipped] = useState(false);
@@ -1155,7 +1178,8 @@ function CustomerView({ open, onOpenChange, deal, rate, totals }: { open: boolea
   const kind = dealKind(deal.in.length, deal.out.length);
   const counts = [deal.in.length, deal.out.length].filter((n) => n > 0);
   // Room for the tiles: the scroll area less the header (about 100) and each section's heading.
-  const cols = area.w ? customerColumns(counts, area.w, area.h - 100 - counts.length * (32 + 44)) : 2;
+  const strike = deal.in.some((i) => underMarket(i, rate.in) !== null);
+  const cols = area.w ? customerColumns(counts, area.w, area.h - 100 - counts.length * (32 + 44), strike) : 2;
   const b = totals.balance;
   const even = Math.abs(b) < 0.005;
   const wePay = !even && b < 0;
@@ -1187,6 +1211,10 @@ function CustomerView({ open, onOpenChange, deal, rate, totals }: { open: boolea
                 <span className="tabular mt-0.5 block truncate font-display leading-tight" style={{ fontSize: priceSize, letterSpacing: `${-priceSize * 0.025}px` }}>
                   {money(each * i.qty)}
                 </span>
+                {incoming && cols < 4 && (() => {
+                  const u = underMarket(i, r);
+                  return u && <MarketStrike market={u.market} off={u.off} size={cols === 3 ? 11 : 13} />;
+                })()}
               </button>
             );
           })}
@@ -1248,7 +1276,8 @@ function CustomerView({ open, onOpenChange, deal, rate, totals }: { open: boolea
   );
 }
 
-/** One card from the customer view, up close: the art, what it is, and the deal price only. */
+/** One card from the customer view, up close: the art, what it is, and the deal price (with the
+ * market struck through when we pay under it). */
 function CustomerCard({ look, rate, flipped, onClose }: { look: { item: DealItem; incoming: boolean } | null; rate: { in: number; out: number }; flipped: boolean; onClose: () => void }) {
   const i = look?.item;
   const r = look?.incoming ? rate.in : rate.out;
@@ -1269,6 +1298,10 @@ function CustomerCard({ look, rate, flipped, onClose }: { look: { item: DealItem
             <div className="mt-5 rounded-[22px] bg-white/[0.06] py-5 ring-1 ring-inset ring-white/10">
               <p className="font-mono text-[11px] uppercase tracking-[0.1em] text-subtle">{look?.incoming ? "We pay" : "Price"}</p>
               <p className="tabular mt-1 font-display text-[48px] leading-none tracking-[-0.035em]">{money(each * i.qty)}</p>
+              {look?.incoming && (() => {
+                const u = underMarket(i, r);
+                return u && <span className="mt-1.5 flex justify-center"><MarketStrike market={u.market} off={u.off} size={16} /></span>;
+              })()}
               {i.qty > 1 && <p className="tabular mt-1.5 text-[14px] text-muted">{i.qty} × {money(each)}</p>}
             </div>
           </div>
