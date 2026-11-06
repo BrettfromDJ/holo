@@ -20,7 +20,7 @@ struct OtherVersionsRow: View {
             } else {
                 VStack(alignment: .leading, spacing: 0) {
                     Text("Similar cards").font(.display(22)).tracking(22 * -0.03).displayTrim(22)
-                    Text("Same card, other sets and languages").font(.geist(13)).foregroundStyle(Theme.muted)
+                    Text("Cards with the same name, from other sets and printings").font(.geist(13)).foregroundStyle(Theme.muted)
                         .padding(.top, 6)
                     ScrollView(.horizontal, showsIndicators: false) {
                         LazyHStack(alignment: .top, spacing: 12) {
