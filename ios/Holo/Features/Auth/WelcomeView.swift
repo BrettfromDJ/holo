@@ -1617,7 +1617,7 @@ private struct WelcomeMasterSet: View {
     @Environment(\.welcomeActive) private var active
 
     var body: some View {
-        WelcomeFit(height: 560, grow: 1.08, alignment: .bottom) {
+        WelcomeFit(height: 540, alignment: .bottom) {
             ZStack {
                 Ellipse()
                     .fill(Theme.lime.opacity(0.18))
@@ -1674,7 +1674,9 @@ private struct MasterSetScene: View {
                     Text("\(count) of \(set.total) cards").font(.geist(14)).monospacedDigit().foregroundStyle(Theme.muted)
                 }
             }
+            // Narrower than the page, so the whole page (heading and all) fits below the status bar.
             BinderPage(set: set, bought: bought, reveal: reveal, lit: lit, glint: glint)
+                .frame(maxWidth: 292)
                 .rotation3DEffect(.degrees(pageAngle), axis: (x: 0, y: 1, z: 0), anchor: .leading, perspective: 0.5)
                 .opacity(fade)
         }
