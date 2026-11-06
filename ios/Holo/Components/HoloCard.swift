@@ -74,8 +74,10 @@ struct HoloCard<Content: View>: View {
             // A soft lime glow behind a drifting card (a still gradient, not a shadow).
             .background {
                 if drifts {
-                    RadialGradient(colors: [Theme.lime.opacity(0.25), .clear], center: .center, startRadius: 0, endRadius: max(size.width, 1) * 0.9)
-                        .padding(-60)
+                    // Fades to nothing within its own frame (just past the card), so nothing clips it.
+                    RadialGradient(colors: [Theme.lime.opacity(0.22), Theme.lime.opacity(0.08), .clear], center: .center,
+                                   startRadius: max(size.width, 1) * 0.25, endRadius: max(size.width, 1) * 0.5 + 28)
+                        .padding(-30)
                         .allowsHitTesting(false)
                 }
             }
