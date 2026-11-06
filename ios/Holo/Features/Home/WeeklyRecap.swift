@@ -423,9 +423,17 @@ private struct RecapDriftCard: View {
                 }
                 .rotation3DEffect(.degrees(tiltX), axis: (x: 1, y: 0, z: 0), perspective: 0.5)
                 .rotation3DEffect(.degrees(tiltY), axis: (x: 0, y: 1, z: 0), perspective: 0.5)
+                // A soft lime glow sized from the card, fading to nothing within its own frame (just
+                // past the card's edge), so nothing cuts it off.
                 .background {
-                    RadialGradient(colors: [Theme.lime.opacity(0.22), .clear], center: .center, startRadius: 40, endRadius: 200)
-                        .padding(-40)
+                    GeometryReader { geo in
+                        let w = geo.size.width
+                        RadialGradient(colors: [Theme.lime.opacity(0.22), Theme.lime.opacity(0.08), .clear], center: .center,
+                                       startRadius: w * 0.25, endRadius: w * 0.5 + 28)
+                            .frame(width: w + 60, height: geo.size.height + 60)
+                            .position(x: w / 2, y: geo.size.height / 2)
+                    }
+                    .allowsHitTesting(false)
                 }
         }
     }
