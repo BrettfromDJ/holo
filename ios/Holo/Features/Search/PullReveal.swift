@@ -14,6 +14,8 @@ struct PullReveal: View {
     @State private var risen = false
     /// A pull: the pack's foil wrapper tearing open (0 to 1) before the card rises out.
     @State private var torn = false
+    /// A pull: the pack's little shake just before it tears.
+    @State private var shaking = false
     /// A pull: the card's value counting up from nothing.
     @State private var pullValue: Double = 0
 
@@ -38,7 +40,7 @@ struct PullReveal: View {
                         .scaleEffect(flipped || reduceMotion ? 1 : 0.7)
                         .opacity(flipped || reduceMotion ? 1 : 0)
                         .offset(y: event.pulled && !flipped && !reduceMotion ? 60 : 0)
-                    if event.pulled && !reduceMotion { PackWrapper(torn: torn) }
+                    if event.pulled && !reduceMotion { PackWrapper(product: event.product, shaking: shaking, torn: torn) }
                 }
 
                 if event.pulled {
@@ -72,16 +74,20 @@ struct PullReveal: View {
                 .opacity(risen ? 1 : 0).offset(y: risen ? 0 : 12)
                 }
 
-                HStack(spacing: 10) {
-                    if event.pulled {
-                        ShareLink(item: shareImage, preview: SharePreview("My pull", image: shareImage)) {
-                            Label("Share", systemImage: "square.and.arrow.up")
+                // The main action full width; Share (for a pull) and Done side by side under it,
+                // so every label fits on one line.
+                VStack(spacing: 12) {
+                    Button(action: onOpen) { Label("View product", systemImage: "arrow.right").labelStyle(.titleAndIcon).lineLimit(1) }
+                        .buttonStyle(Button3D(kind: .lime, height: 50))
+                    HStack(spacing: 10) {
+                        if event.pulled {
+                            ShareLink(item: shareImage, preview: SharePreview("My pull", image: shareImage)) {
+                                Label("Share", systemImage: "square.and.arrow.up").lineLimit(1)
+                            }
+                            .buttonStyle(Button3D(kind: .dark, height: 48))
                         }
-                        .buttonStyle(Button3D(kind: .dark, height: 48))
+                        Button("Done", action: onDone).buttonStyle(Button3D(kind: .dark, height: 48))
                     }
-                    Button("Done", action: onDone).buttonStyle(Button3D(kind: .dark, height: 48))
-                    Button(action: onOpen) { Label("View product", systemImage: "arrow.right").labelStyle(.titleAndIcon) }
-                        .buttonStyle(Button3D(kind: .lime, height: 48))
                 }
                 .padding(.top, 32)
                 .opacity(risen ? 1 : 0)
@@ -195,47 +201,138 @@ extension PullReveal {
             torn = true; flipped = true; risen = true; pullValue = value
             return
         }
-        withAnimation(.easeIn(duration: 0.45).delay(0.15)) { torn = true }
-        withAnimation(.spring(response: 0.7, dampingFraction: 0.7).delay(0.45)) { flipped = true }
-        withAnimation(.easeInOut(duration: 1.1).delay(0.85)) { sweep = true }
-        withAnimation(.easeOut(duration: 0.5).delay(0.9)) { risen = true }
-        withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 1.8).delay(1.0)) { pullValue = value }
+        // The pack sits a moment, shakes, tears; then the card rises out.
+        withAnimation(.easeInOut(duration: 0.07).repeatCount(6, autoreverses: true).delay(0.55)) { shaking = true }
+        withAnimation(.easeIn(duration: 0.45).delay(1.0)) { torn = true }
+        withAnimation(.spring(response: 0.7, dampingFraction: 0.7).delay(1.3)) { flipped = true }
+        withAnimation(.easeInOut(duration: 1.1).delay(1.7)) { sweep = true }
+        withAnimation(.easeOut(duration: 0.5).delay(1.75)) { risen = true }
+        withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 1.8).delay(1.85)) { pullValue = value }
     }
 }
 
-/// A foil pack wrapper over the card that tears open: the top strip flies up and away, the body
-/// drops and fades, so the card can rise out.
+/// A booster pack over the card, as real as we can draw it: a crimped seal top and bottom, a
+/// metallic foil body with a light stripe across it, the pulled card's own art (softly blurred)
+/// as the pack's artwork, and its printing. It shakes, the top seal tears off and flies away, and
+/// the body drops so the card can rise out.
 private struct PackWrapper: View {
+    var product: Product
+    var shaking: Bool
     var torn: Bool
 
-    private static let foil = LinearGradient(colors: [Color(hex: 0x6B5CFF), Color(hex: 0xFF5FAE), Color(hex: 0xFFC94D), Color(hex: 0x4FD1FF)],
-                                             startPoint: .topLeading, endPoint: .bottomTrailing)
+    private static let width: CGFloat = 214
+    private static let foil = LinearGradient(
+        stops: [
+            .init(color: Color(hex: 0x2B2F45), location: 0),
+            .init(color: Color(hex: 0x8C93B8), location: 0.18),
+            .init(color: Color(hex: 0x3A3F5C), location: 0.4),
+            .init(color: Color(hex: 0xB9BEDB), location: 0.62),
+            .init(color: Color(hex: 0x2E3350), location: 1),
+        ],
+        startPoint: .topLeading, endPoint: .bottomTrailing
+    )
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
         VStack(spacing: 0) {
-            // The torn-off top strip.
-            shape.fill(Self.foil)
-                .overlay(shape.fill(Color.black.opacity(0.15)))
-                .frame(width: 210, height: 46)
-                .rotationEffect(.degrees(torn ? -18 : 0))
-                .offset(x: torn ? 40 : 0, y: torn ? -160 : 0)
+            // The top seal: torn off along the dotted line.
+            CrimpBand(teeth: 16, edge: .top)
+                .fill(Self.foil)
+                .overlay(CrimpLines().stroke(Color.black.opacity(0.25), lineWidth: 0.6).padding(.horizontal, 6).padding(.vertical, 6))
+                .frame(width: Self.width, height: 26)
+                .rotationEffect(.degrees(torn ? -16 : 0), anchor: .trailing)
+                .offset(x: torn ? 50 : 0, y: torn ? -170 : 0)
                 .opacity(torn ? 0 : 1)
-            // The pack's body.
-            shape.fill(Self.foil)
-                .overlay {
-                    VStack(spacing: 6) {
-                        Image(systemName: "sparkles").font(.system(size: 28, weight: .bold))
-                        Text("LUCENT").font(.geist(13, .bold)).tracking(3)
-                    }
-                    .foregroundStyle(.white.opacity(0.9))
+            // The body: art window, printing and foil.
+            ZStack {
+                Rectangle().fill(Self.foil)
+                // The card's own art, soft, as the pack's artwork.
+                ProductImage(product: product, cornerRadius: 0)
+                    .scaledToFill()
+                    .frame(width: Self.width - 22, height: 196)
+                    .blur(radius: 5)
+                    .saturation(1.3)
+                    .opacity(0.8)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.white.opacity(0.35), lineWidth: 1))
+                    .offset(y: -18)
+                VStack(spacing: 2) {
+                    Spacer()
+                    Text("BOOSTER PACK").font(.geist(13, .bold)).tracking(2.4)
+                    Text("10 ADDITIONAL CARDS").font(.mono(8)).tracking(1.2).opacity(0.8)
                 }
-                .frame(width: 210, height: 250)
-                .offset(y: torn ? 220 : 0)
-                .opacity(torn ? 0 : 1)
+                .foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.5), radius: 2, y: 1)
+                .padding(.bottom, 14)
+                // A light stripe across the foil.
+                LinearGradient(colors: [.clear, .white.opacity(0.45), .clear], startPoint: .leading, endPoint: .trailing)
+                    .frame(width: 46)
+                    .rotationEffect(.degrees(18))
+                    .offset(x: shaking ? 70 : -70)
+                    .blendMode(.plusLighter)
+            }
+            .frame(width: Self.width, height: 270)
+            .clipped()
+            // The bottom seal.
+            CrimpBand(teeth: 16, edge: .bottom)
+                .fill(Self.foil)
+                .overlay(CrimpLines().stroke(Color.black.opacity(0.25), lineWidth: 0.6).padding(.horizontal, 6).padding(.vertical, 6))
+                .frame(width: Self.width, height: 22)
         }
+        .compositingGroup()
+        .shadow(color: .black.opacity(0.55), radius: 24, y: 14)
+        .rotationEffect(.degrees(shaking && !torn ? 2.5 : 0))
+        .offset(y: torn ? 240 : 0)
+        .opacity(torn ? 0 : 1)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+    }
+}
+
+/// A seal strip with a zigzag (crimped) outer edge.
+private struct CrimpBand: Shape {
+    var teeth: Int
+    var edge: VerticalEdge
+
+    func path(in r: CGRect) -> Path {
+        var p = Path()
+        let step = r.width / CGFloat(teeth)
+        let depth: CGFloat = 5
+        if edge == .top {
+            p.move(to: CGPoint(x: r.minX, y: r.maxY))
+            p.addLine(to: CGPoint(x: r.minX, y: r.minY + depth))
+            for i in 0 ..< teeth {
+                let x = r.minX + CGFloat(i) * step
+                p.addLine(to: CGPoint(x: x + step / 2, y: r.minY))
+                p.addLine(to: CGPoint(x: x + step, y: r.minY + depth))
+            }
+            p.addLine(to: CGPoint(x: r.maxX, y: r.maxY))
+        } else {
+            p.move(to: CGPoint(x: r.minX, y: r.minY))
+            p.addLine(to: CGPoint(x: r.maxX, y: r.minY))
+            p.addLine(to: CGPoint(x: r.maxX, y: r.maxY - depth))
+            for i in 0 ..< teeth {
+                let x = r.maxX - CGFloat(i) * step
+                p.addLine(to: CGPoint(x: x - step / 2, y: r.maxY))
+                p.addLine(to: CGPoint(x: x - step, y: r.maxY - depth))
+            }
+            p.addLine(to: CGPoint(x: r.minX, y: r.minY))
+        }
+        p.closeSubpath()
+        return p
+    }
+}
+
+/// The fine pressed lines of a crimped seal.
+private struct CrimpLines: Shape {
+    func path(in r: CGRect) -> Path {
+        var p = Path()
+        var x = r.minX
+        while x <= r.maxX {
+            p.move(to: CGPoint(x: x, y: r.minY))
+            p.addLine(to: CGPoint(x: x, y: r.maxY))
+            x += 4
+        }
+        return p
     }
 }
 
