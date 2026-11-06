@@ -178,11 +178,13 @@ private struct Slide {
                 }
             )))
         }
-        if let loser, loserPct < 0 {
+        // The coldest: the card that fell most, or, when nothing fell, the one that rose least
+        // (as long as it isn't also the hottest).
+        if let loser, loserPct < 0 || (moves.count > 1 && loser.identity != gainer?.identity && loserPct < gainerPct) {
             slides.append(Slide(key: "loser", background: glow(0x38BDF8, 0x0B2A3D, at: UnitPoint(x: 0.5, y: 0)), content: AnyView(
                 HeroSlide(kicker: "Coldest this week", holding: loser, drifts: true, glow: Color(hex: 0x7DD3FC), theme: .ice) {
-                    Big(value: loserPct / 100, format: { Format.signedPercent($0) }, color: Color(hex: 0xFF8AB3))
-                    Text("Now \(Format.money(loser.price)) each. Buying opportunity?").font(.geist(14)).monospacedDigit().foregroundStyle(.white.opacity(0.7)).padding(.top, 4)
+                    Big(value: loserPct / 100, format: { Format.signedPercent($0) }, color: loserPct < 0 ? Color(hex: 0xFF8AB3) : Theme.lime)
+                    Text("Now \(Format.money(loser.price)) each.\(loserPct < 0 ? " Buying opportunity?" : " The slowest mover this week.")").font(.geist(14)).monospacedDigit().foregroundStyle(.white.opacity(0.7)).padding(.top, 4)
                 }
             )))
         }
@@ -268,7 +270,10 @@ private struct Big: View {
             }
         }
         .font(.geist(46, .semibold)).tracking(-1.8).monospacedDigit().foregroundStyle(color)
-        .lineLimit(1).minimumScaleFactor(0.5).padding(.top, 12)
+        .lineLimit(1).minimumScaleFactor(0.5)
+        // Sits close under the line above it (the figure's own line height trimmed).
+        .padding(.top, -2)
+        .padding(.bottom, -4)
     }
 }
 
