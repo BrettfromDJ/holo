@@ -1129,7 +1129,9 @@ private struct ShelfSection: View {
     /// Item and stage sizes, as on the website's phone layout.
     static let itemWidth: CGFloat = 150
     static let stageHeight: CGFloat = 200
-    static let topPad: CGFloat = 24
+    /// Room above the pieces so each one's spotlight fades out before the shelf's top edge
+    /// (the scroll view clips there, which cut the light off in a straight line).
+    static let topPad: CGFloat = 54
 
     private var items: [HoldingView] {
         Array(holdings.filter { $0.value != nil }.sorted { ($0.value ?? 0) > ($1.value ?? 0) }.prefix(14))
@@ -1138,7 +1140,7 @@ private struct ShelfSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .lastTextBaseline) {
-                PageHeader(title: "Your shelf", subtitle: "Your most valuable pieces", size: 30)
+                PageHeader(title: "Most valuable", subtitle: "Ranked by what they're worth today", size: 30)
                 Spacer()
                 Button {
                     Router.shared.tabRequest = "collection"
