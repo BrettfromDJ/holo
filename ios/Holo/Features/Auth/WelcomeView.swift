@@ -1675,12 +1675,38 @@ private struct MasterSetScene: View {
                 }
             }
             // Narrower than the page, so the whole page (heading and all) fits below the status bar.
+            // The binder's other pages lie underneath, peeking out below; only the top page turns.
             BinderPage(set: set, bought: bought, reveal: reveal, lit: lit, glint: glint)
+                .hidden()
+                .overlay { BinderLayers() }
+                .overlay {
+                    BinderPage(set: set, bought: bought, reveal: reveal, lit: lit, glint: glint)
+                        .rotation3DEffect(.degrees(pageAngle), axis: (x: 0, y: 1, z: 0), anchor: .leading, perspective: 0.5)
+                        .opacity(fade)
+                }
                 .frame(maxWidth: 292)
-                .rotation3DEffect(.degrees(pageAngle), axis: (x: 0, y: 1, z: 0), anchor: .leading, perspective: 0.5)
-                .opacity(fade)
+                .padding(.bottom, 20)
         }
         .foregroundStyle(.white)
+    }
+}
+
+/// The binder's pages under the top one: two dark pages, each a little smaller and lower, so their
+/// edges peek out below like a stack. Still.
+private struct BinderLayers: View {
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
+        ZStack {
+            ForEach([2, 1], id: \.self) { depth in
+                let d = CGFloat(depth)
+                shape
+                    .fill(LinearGradient(colors: [Color(hex: 0x1A1A1D), Color(hex: 0x0F0F11)], startPoint: .top, endPoint: .bottom))
+                    .overlay(shape.strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
+                    .scaleEffect(1 - 0.05 * d, anchor: .bottom)
+                    .offset(y: 10 * d)
+                    .opacity(1 - 0.3 * Double(depth))
+            }
+        }
     }
 }
 
