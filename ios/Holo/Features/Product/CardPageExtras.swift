@@ -19,7 +19,7 @@ struct OtherVersionsRow: View {
                 Color.clear.frame(height: 0)
             } else {
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("Other versions").font(.display(22)).tracking(22 * -0.03).displayTrim(22)
+                    Text("Similar cards").font(.display(22)).tracking(22 * -0.03).displayTrim(22)
                     Text("Same card, other sets and languages").font(.geist(13)).foregroundStyle(Theme.muted)
                         .padding(.top, 6)
                     ScrollView(.horizontal, showsIndicators: false) {
