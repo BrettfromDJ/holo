@@ -15,6 +15,9 @@ struct HoloCard<Content: View>: View {
     @ViewBuilder var content: Content
     /// A quick tap (not a tilt): set with `.onCardTap { }`.
     var tapAction: (() -> Void)? = nil
+    /// Tilts slowly on its own with a band of light sweeping across (the card page): set with
+    /// `.drifting()`. Holds while you touch it; Reduce Motion keeps it still.
+    var drifts = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var touch: CGPoint?
@@ -23,19 +26,40 @@ struct HoloCard<Content: View>: View {
     @State private var size: CGSize = .zero
 
     var body: some View {
-        // Still unless you're touching it: nothing redraws on its own.
-        card(lean: reduceMotion ? .zero : (touch ?? .zero))
-            .sensoryFeedback(.impact(weight: .light), trigger: touch != nil) { _, touching in touching }
+        Group {
+            if drifts && !reduceMotion {
+                // One clock: the slow tilt and the light's sweep. Paused while you hold it (the
+                // same view throughout, so a drag is never interrupted).
+                TimelineView(.animation(minimumInterval: nil, paused: touch != nil)) { context in
+                    let c = context.date.timeIntervalSinceReferenceDate
+                    let idle = CGPoint(x: cos(c * 0.45) * 0.545, y: -sin(c * 0.6) * 0.5)
+                    card(lean: touch ?? idle, sweep: touch == nil ? sin(c * 0.6) : nil)
+                }
+            } else {
+                // Still unless you're touching it: nothing redraws on its own.
+                card(lean: reduceMotion ? .zero : (touch ?? .zero), sweep: nil)
+            }
+        }
+        .sensoryFeedback(.impact(weight: .light), trigger: touch != nil) { _, touching in touching }
     }
 
-    private func card(lean: CGPoint) -> some View {
+    /// Makes the card drift (tilt slowly, light sweeping across) until it's touched.
+    func drifting() -> HoloCard {
+        var copy = self
+        copy.drifts = true
+        return copy
+    }
+
+    private func card(lean: CGPoint, sweep: Double?) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         let light = UnitPoint(x: 0.5 + lean.x * 0.45, y: 0.5 + lean.y * 0.45)
         let touching = touch != nil
         return content
             .overlay { if textured { texture(light: light) } }
             .overlay { if foil { foilLayer(light: light, strength: touching ? 0.6 : 0.32) } }
-            .overlay { if showsGlare { glare(light: light).opacity(touching ? 1 : 0.5) } }
+            // While drifting, the sweeping band is the light (no glare washing over the art).
+            .overlay { if showsGlare && (sweep == nil || touching) { glare(light: light).opacity(touching ? 1 : 0.5) } }
+            .overlay { if let sweep { sweepBand(sweep) } }
             .clipShape(shape)
             .overlay {
                 if textured {
@@ -47,6 +71,14 @@ struct HoloCard<Content: View>: View {
             .rotation3DEffect(.degrees(Double(-lean.y) * 18), axis: (x: 1, y: 0, z: 0), perspective: 0.45)
             .scaleEffect(touching ? 1.035 : 1)
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: touching)
+            // A soft lime glow behind a drifting card (a still gradient, not a shadow).
+            .background {
+                if drifts {
+                    RadialGradient(colors: [Theme.lime.opacity(0.25), .clear], center: .center, startRadius: 0, endRadius: max(size.width, 1) * 0.9)
+                        .padding(-60)
+                        .allowsHitTesting(false)
+                }
+            }
             // The shadow falls away from the light.
             .background {
                 // A soft contact shadow under the card's bottom edge: a radial gradient, not a
@@ -122,6 +154,18 @@ struct HoloCard<Content: View>: View {
         .mask(RadialGradient(colors: [.black, .clear], center: light, startRadius: 0, endRadius: max(size.width, 1) * 0.75))
         .blendMode(.colorDodge)
         .opacity(strength)
+        .allowsHitTesting(false)
+    }
+
+    /// The band of light sliding across a drifting card (`sweep` from -1 to 1).
+    private func sweepBand(_ sweep: Double) -> some View {
+        GeometryReader { geo in
+            LinearGradient(colors: [.clear, .white.opacity(0.35), .clear], startPoint: .leading, endPoint: .trailing)
+                .frame(width: geo.size.width * 0.52, height: geo.size.height * 1.4)
+                .rotationEffect(.degrees(25))
+                .position(x: geo.size.width / 2 + CGFloat(sweep) * geo.size.width * 0.7, y: geo.size.height / 2)
+        }
+        .blendMode(.plusLighter)
         .allowsHitTesting(false)
     }
 

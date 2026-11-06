@@ -274,6 +274,7 @@ struct ProductDetailView: View {
                     HoldingArt(product: product, identity: slab.identity)
                 }
                 .onCardTap { viewingArt = true }
+                .drifting()
                 .frame(width: 250, height: 400)
             } else if product?.isSealed == false, product?.imageURL != nil {
                 HoloCard(foil: product?.isFoil == true, textured: false, cornerRadius: 12) {
@@ -281,6 +282,7 @@ struct ProductDetailView: View {
                     ProductImage(product: product, cornerRadius: 13, large: true).frame(width: 260, height: 363)
                 }
                 .onCardTap { viewingArt = true }
+                .drifting()
             } else {
                 HoloCard(foil: false, textured: false, cornerRadius: 28, showsGlare: false) {
                     SealedWell(product: product, cornerRadius: 28, caption: true).frame(width: 280, height: 280)
