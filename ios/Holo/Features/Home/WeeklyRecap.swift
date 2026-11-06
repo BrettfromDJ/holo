@@ -127,9 +127,27 @@ private struct Slide {
             return (b.value - a.value) - (b.cost - a.cost)
         }()
         let ratio: Double? = week.first.map { $0.value > 0 ? gain / $0.value : nil } ?? nil
-        let moved = store.holdings.filter { $0.change7dPct != nil && $0.product != nil }
-        let gainer = moved.max { ($0.change7dPct ?? 0) < ($1.change7dPct ?? 0) }
-        let loser = moved.min { ($0.change7dPct ?? 0) < ($1.change7dPct ?? 0) }
+        // Each card's move over the week. A graded copy is priced from eBay sales and carries no
+        // weekly change, so fall back to the card's own price feed: its 7-day change, else the
+        // change worked out from its price history.
+        func weekMove(_ h: HoldingView) -> Double? {
+            if let c = h.change7dPct { return c }
+            let key = priceKey(h.identity.productId, h.identity.printing)
+            if let c = store.prices[key]?.change7dPct { return c }
+            guard let pts = store.history[key], let last = pts.last?.price,
+                  let then = pts.last(where: { $0.date <= from })?.price, then > 0 else { return nil }
+            return (last - then) / then * 100
+        }
+        let moves: [(holding: HoldingView, pct: Double)] = store.holdings.compactMap { h in
+            guard h.product != nil, let m = weekMove(h) else { return nil }
+            return (h, m)
+        }
+        let top = moves.max { $0.pct < $1.pct }
+        let bottom = moves.min { $0.pct < $1.pct }
+        let gainer = top?.holding
+        let loser = bottom?.holding
+        let gainerPct: Double = top?.pct ?? 0
+        let loserPct: Double = bottom?.pct ?? 0
         let buys = Ledger.effective(store.transactions).filter { $0.kind == .purchase && $0.date > from && $0.date <= Format.day(today) }
         let spent = buys.reduce(0) { $0 + $1.acquisitionCost }
         let units = buys.reduce(0) { $0 + $1.quantity }
@@ -152,18 +170,18 @@ private struct Slide {
                     .font(.geist(15)).monospacedDigit().foregroundStyle(.white.opacity(0.7)).padding(.top, 8)
             }
         )))
-        if let gainer, (gainer.change7dPct ?? 0) > 0 {
+        if let gainer, gainerPct > 0 {
             slides.append(Slide(key: "gainer", background: glow(0xFF5A1F, 0x3D1206, at: UnitPoint(x: 0.5, y: 1)), content: AnyView(
                 HeroSlide(kicker: "Hottest this week", holding: gainer, drifts: true, glow: Color(hex: 0xFF7A1A), theme: .fire) {
-                    Big(value: (gainer.change7dPct ?? 0) / 100, format: { Format.signedPercent($0) }, color: Theme.lime)
+                    Big(value: gainerPct / 100, format: { Format.signedPercent($0) }, color: Theme.lime)
                     Text("Now \(Format.money(gainer.price)) each").font(.geist(14)).monospacedDigit().foregroundStyle(.white.opacity(0.7)).padding(.top, 4)
                 }
             )))
         }
-        if let loser, (loser.change7dPct ?? 0) < 0 {
+        if let loser, loserPct < 0 {
             slides.append(Slide(key: "loser", background: glow(0x38BDF8, 0x0B2A3D, at: UnitPoint(x: 0.5, y: 0)), content: AnyView(
                 HeroSlide(kicker: "Coldest this week", holding: loser, drifts: true, glow: Color(hex: 0x7DD3FC), theme: .ice) {
-                    Big(value: (loser.change7dPct ?? 0) / 100, format: { Format.signedPercent($0) }, color: Color(hex: 0xFF8AB3))
+                    Big(value: loserPct / 100, format: { Format.signedPercent($0) }, color: Color(hex: 0xFF8AB3))
                     Text("Now \(Format.money(loser.price)) each. Buying opportunity?").font(.geist(14)).monospacedDigit().foregroundStyle(.white.opacity(0.7)).padding(.top, 4)
                 }
             )))
@@ -394,14 +412,18 @@ private struct RecapBuysFan: View {
     var body: some View {
         let n = buys.count
         let small = n > 3
+        // Bigger when there are fewer: one purchase is as big as the other slides' cards.
+        let w: CGFloat = n <= 1 ? 250 : (n == 2 ? 190 : (n == 3 ? 165 : 140))
+        let spread: CGFloat = n == 2 ? 92 : (n == 3 ? 74 : 46)
+        let tilt: Double = n == 2 ? 10 : (small ? 9 : 12)
         VStack(spacing: 22) {
             ZStack {
                 ForEach(0 ..< n, id: \.self) { i in
                     let mid = Double(n - 1) / 2
-                    let angle: Double = (Double(i) - mid) * (small ? 9 : 12)
-                    let x = CGFloat(Double(i) - mid) * (small ? 46 : 70)
+                    let angle: Double = (Double(i) - mid) * tilt
+                    let x = CGFloat(Double(i) - mid) * spread
                     HoldingArt(product: buys[i].product, identity: buys[i].identity, cornerRadius: 10, caption: false)
-                        .frame(width: 150, height: 210)
+                        .frame(width: w, height: w * 1.4)
                         .shadow(color: .black.opacity(0.5), radius: 16, y: 10)
                         .rotationEffect(.degrees(angle), anchor: .bottom)
                         .offset(x: x, y: shown ? 0 : -60)
