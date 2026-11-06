@@ -30,7 +30,7 @@ struct WelcomeView: View {
     @State private var error: String?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private let last = 10
+    private let last = 5
     /// The price alerts page: it offers to turn notifications on.
     private let alertsPage = 4
     /// iPhone hasn't asked about notifications yet (so the alerts page offers to).
@@ -124,18 +124,15 @@ struct WelcomeView: View {
             }
             .tag(alertsPage)
             .environment(\.welcomeActive, page == alertsPage)
-            // Six deal designs side by side for now, to compare (pages 5 to 10); the last has the ways in.
-            ForEach(1 ... 6, id: \.self) { option in
-                WelcomePage(
-                    title: "Deals, made easier",
-                    line: "Add what's coming in and going out. The cash and your profit are\u{00A0}worked\u{00A0}out.",
-                    graphicHeight: graphicHeight
-                ) {
-                    WelcomeDealOption(option: option)
-                }
-                .tag(4 + option)
-                .environment(\.welcomeActive, page == 4 + option)
+            WelcomePage(
+                title: "Deals, made easier",
+                line: "Add what's coming in and going out. The cash and your profit are\u{00A0}worked\u{00A0}out.",
+                graphicHeight: graphicHeight
+            ) {
+                WelcomeDeal()
             }
+            .tag(last)
+            .environment(\.welcomeActive, page == last)
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
     }
@@ -161,7 +158,7 @@ struct WelcomeView: View {
         .accessibilityHidden(true)
     }
 
-    private static let pageNames = ["What it's worth", "Scan a card", "Grading", "Master sets", "Price alerts"] + DealOption.names.enumerated().map { "Deals \($0.offset + 1): \($0.element)" }
+    private static let pageNames = ["What it's worth", "Scan a card", "Grading", "Master sets", "Price alerts", "Deals"]
 
     /// Continue on the first pages; the ways in on the last.
     @ViewBuilder private var footer: some View {
@@ -1067,9 +1064,9 @@ private struct WelcomeDeal: View {
             let scale = min(1, geo.size.height / Self.height)
             ZStack {
                 Ellipse()
-                    .fill(Theme.lime.opacity(0.26))
+                    .fill(Theme.lime.opacity(0.12))
                     .frame(width: 320, height: 160)
-                    .blur(radius: 50)
+                    .blur(radius: 60)
                     .offset(y: 90)
                 Group {
                     if reduceMotion {
@@ -1103,12 +1100,9 @@ private struct DealScene: View {
         let leave = 1 - Ease.out(t, WelcomeDeal.cycle - 0.55, 0.45)
         // Each deal slides in from the right and out to the left, so the change reads.
         let sceneX = CGFloat((1 - appear) * 140 - (1 - leave) * 140)
-        VStack(spacing: -46) {
-            DealFan(spec: spec, t: t, clock: clock)
-                .frame(height: 170)
-            DealPanel(spec: spec, t: t)
-        }
-        .padding(.horizontal, 24)
+        DealGlass(spec: spec, t: t, clock: clock)
+            .foregroundStyle(.white)
+            .padding(.horizontal, 24)
         .opacity(min(appear, leave))
         .offset(x: sceneX)
     }
@@ -1174,171 +1168,7 @@ private struct DealFanCard: View {
     }
 }
 
-/// The lime deal card. Ink text on lime (never pink on lime); the profit panel is ink with a
-/// lime figure.
-private struct DealPanel: View {
-    var spec: DealSpec
-    var t: Double
-
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
-        let flash: Double = (t >= 3.5 && t <= 4.1) ? sin(Double.pi * (t - 3.5) / 0.6) : 0
-        let counted: Double = Ease.out(t, 2.2, 1.2)
-        VStack(alignment: .leading, spacing: 12) {
-            SkewTag(text: spec.tag, color: Theme.ink, textColor: Theme.lime, icon: spec.icon)
-                .opacity(Ease.out(t, 0.2, 0.3))
-            DealRowView(label: "Coming in", side: spec.coming, enter: Ease.back(t, 0.5, 0.5))
-            DealRowView(label: "Going out", side: spec.going, enter: Ease.out(t, 0.9, 0.4))
-            VStack(alignment: .leading, spacing: 2) {
-                MonoLabel(text: spec.cashLabel, color: Theme.ink.opacity(0.6))
-                Text(Format.money(spec.cash * counted))
-                    .font(.display(40)).tracking(-1.5).monospacedDigit()
-                    .lineLimit(1).minimumScaleFactor(0.7)
-            }
-            .opacity(Ease.out(t, 2.2, 0.3))
-            DealProfit(ahead: spec.ahead, pop: Ease.back(t, 3.5, 0.4))
-                .sensoryFeedback(.impact(weight: .light), trigger: t >= 3.5) { _, new in new }
-        }
-        .padding(.horizontal, 22)
-        .padding(.vertical, 20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(shape.fill(Theme.lime))
-        .overlay(shape.strokeBorder(Color.white.opacity(0.35), lineWidth: 1))
-        .overlay(shape.strokeBorder(Color.white, lineWidth: 3).opacity(0.9 * flash))
-        .foregroundStyle(Theme.ink)
-    }
-}
-
-/// One side of the deal: its label, then the card (or cash) arriving from the right.
-private struct DealRowView: View {
-    var label: String
-    var side: WelcomeDealSide
-    /// 0 to 1 (with overshoot): the row arriving.
-    var enter: Double
-
-    var body: some View {
-        let early: Double = 1 - min(enter, 1)
-        let thumbAngle: Double = (1 - enter) * 25
-        let thumbScale = CGFloat(1 + early * 0.8)
-        let rowX = CGFloat((1 - enter) * 300)
-        let rowFade: Double = Ease.clamp(enter * 2)
-        VStack(alignment: .leading, spacing: 6) {
-            MonoLabel(text: label, color: Theme.ink.opacity(0.6))
-            HStack(spacing: 10) {
-                ZStack {
-                    if let item = side.item {
-                        HoldingArt(product: DemoData.product(item), identity: nil, cornerRadius: 3, caption: false)
-                            .rotationEffect(.degrees(thumbAngle))
-                            .scaleEffect(thumbScale)
-                    } else {
-                        RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Theme.ink)
-                        Image(systemName: "banknote").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.lime)
-                    }
-                }
-                .frame(width: 26, height: 36)
-                Text(side.name).font(.geist(16, .semibold))
-                Spacer()
-                Text(Format.moneyWhole(side.value)).font(.geist(16, .semibold)).monospacedDigit()
-            }
-            .offset(x: rowX)
-            .opacity(rowFade)
-        }
-    }
-}
-
-/// The dark panel that punches in: "You come out ahead" and the big lime figure.
-private struct DealProfit: View {
-    var ahead: Double
-    /// 0 to 1 (with overshoot).
-    var pop: Double
-
-    var body: some View {
-        HStack {
-            HStack(spacing: 6) {
-                Image(systemName: "arrow.up.right").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.lime)
-                Text("You come out ahead").font(.geist(13, .semibold)).foregroundStyle(.white)
-            }
-            Spacer()
-            Text("+" + Format.moneyWhole(ahead))
-                .font(.display(26)).tracking(-0.8).monospacedDigit()
-                .foregroundStyle(Theme.lime)
-        }
-        .lineLimit(1)
-        .padding(.horizontal, 16)
-        .frame(height: 50)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.ink))
-        .scaleEffect(CGFloat(0.6 + 0.4 * pop))
-        .opacity(Ease.clamp(pop * 2))
-    }
-}
-
-// MARK: - Deals: six options to compare (temporary)
-
-private enum DealOption {
-    static let names = ["Lime card", "Glass receipt", "Face-off", "Printed receipt", "Balance", "Swap"]
-}
-
-/// One deal option's page: its label at the top and the design, off one clock (paused off
-/// screen), taking the trade, the buy and the sale in turn. Option 1 is the lime card.
-private struct WelcomeDealOption: View {
-    var option: Int
-    static let cycle: Double = 7
-    private static let start = Date()
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.welcomeActive) private var active
-
-    var body: some View {
-        Group {
-            if option == 1 {
-                WelcomeDeal()
-            } else {
-                WelcomeFit(height: 500, alignment: .bottom) {
-                    ZStack {
-                        Ellipse()
-                            .fill(Theme.lime.opacity(0.12))
-                            .frame(width: 320, height: 160)
-                            .blur(radius: 60)
-                            .offset(y: 90)
-                        if reduceMotion {
-                            scene(DealSpec.all[0], t: 5.5, clock: 0)
-                        } else {
-                            TimelineView(.animation(minimumInterval: nil, paused: !active)) { context in
-                                let s = context.date.timeIntervalSince(Self.start)
-                                let n = Int(s / Self.cycle)
-                                scene(DealSpec.all[n % DealSpec.all.count], t: s - Double(n) * Self.cycle, clock: s)
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 24)
-                }
-            }
-        }
-        .overlay(alignment: .top) {
-            Text("Option \(option) · \(DealOption.names[option - 1])")
-                .font(.mono(11)).tracking(1.2).textCase(.uppercase)
-                .foregroundStyle(Theme.ink)
-                .padding(.horizontal, 10).padding(.vertical, 4)
-                .background(Capsule().fill(Theme.lime))
-                .padding(.top, 6)
-        }
-    }
-
-    @ViewBuilder private func scene(_ spec: DealSpec, t: Double, clock: Double) -> some View {
-        let appear: Double = Ease.out(t, 0, 0.4)
-        let leave: Double = 1 - Ease.out(t, Self.cycle - 0.55, 0.45)
-        Group {
-            switch option {
-            case 2: DealGlass(spec: spec, t: t, clock: clock)
-            case 3: DealFaceOff(spec: spec, t: t, clock: clock)
-            case 4: DealPrinted(spec: spec, t: t)
-            case 5: DealBalanceScene(spec: spec, t: t)
-            default: DealSwap(spec: spec, t: t)
-            }
-        }
-        .foregroundStyle(.white)
-        .opacity(min(appear, leave))
-    }
-}
+// MARK: Deal page pieces
 
 /// A side of the deal as a picture: the card's art, or a cash tile.
 private struct DealSideArt: View {
@@ -1349,41 +1179,17 @@ private struct DealSideArt: View {
         if let item = side.item {
             HoldingArt(product: DemoData.product(item), identity: nil, cornerRadius: radius, caption: false)
         } else {
-            ZStack {
-                RoundedRectangle(cornerRadius: radius, style: .continuous).fill(Color.white.opacity(0.06))
-                VStack(spacing: 6) {
-                    Image(systemName: "banknote").font(.system(size: 22, weight: .semibold)).foregroundStyle(Theme.lime)
-                    Text(Format.moneyWhole(side.value)).font(.display(18)).monospacedDigit()
+            // Cash: a quiet money mark in a card-shaped tile (the row says how much).
+            GeometryReader { geo in
+                ZStack {
+                    RoundedRectangle(cornerRadius: radius, style: .continuous).fill(Theme.lime.opacity(0.14))
+                    RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(Theme.lime.opacity(0.45), lineWidth: 1)
+                    Image(systemName: "banknote")
+                        .font(.system(size: max(10, geo.size.width * 0.42), weight: .semibold))
+                        .foregroundStyle(Theme.lime)
                 }
             }
-            .liquidGlass(in: RoundedRectangle(cornerRadius: radius, style: .continuous))
         }
-    }
-}
-
-/// The cash and what you come out ahead, plain: label, big white figure, lime gain.
-private struct DealOutcome: View {
-    var spec: DealSpec
-    var t: Double
-    var from: Double = 2.2
-
-    var body: some View {
-        let counted: Double = Ease.out(t, from, 1.2)
-        let ahead: Double = Ease.back(t, from + 1.2, 0.4)
-        VStack(spacing: 6) {
-            MonoLabel(text: spec.cashLabel, color: welcomeSoft)
-            Text(Format.money(spec.cash * counted)).font(.display(46)).tracking(-1.8).monospacedDigit()
-                .displayTrim(46)
-            HStack(spacing: 6) {
-                Image(systemName: "arrow.up.right").font(.system(size: 12, weight: .bold))
-                Text("You come out ahead").font(.geist(14, .medium)).foregroundStyle(welcomeSoft)
-                Text("+" + Format.moneyWhole(spec.ahead)).font(.display(20)).monospacedDigit()
-            }
-            .foregroundStyle(Theme.lime)
-            .scaleEffect(CGFloat(0.7 + 0.3 * ahead))
-            .opacity(Ease.clamp(ahead * 2))
-        }
-        .opacity(Ease.out(t, from, 0.3))
     }
 }
 
@@ -1448,213 +1254,6 @@ private struct DealGlassRow: View {
             }
             .offset(x: x)
             .opacity(Ease.clamp(enter * 2))
-        }
-    }
-}
-
-/// 3. Face-off: the two sides big and facing each other, prices under them, the swap mark
-/// between; the cash and the gain below.
-private struct DealFaceOff: View {
-    var spec: DealSpec
-    var t: Double
-    var clock: Double
-
-    var body: some View {
-        let inL: Double = Ease.back(t, 0.3, 0.6)
-        let inR: Double = Ease.back(t, 0.5, 0.6)
-        let swap: Double = Ease.back(t, 1.1, 0.4)
-        let float: Double = sin(clock * 1.2) * 4
-        VStack(spacing: 30) {
-            HStack(alignment: .top, spacing: 18) {
-                faceSide("Going out", spec.going, angle: -8 * inL, x: CGFloat(1 - min(inL, 1)) * -120, y: CGFloat(float), fade: inL)
-                faceSide("Coming in", spec.coming, angle: 8 * inR, x: CGFloat(1 - min(inR, 1)) * 120, y: CGFloat(-float), fade: inR)
-            }
-            .overlay(alignment: .center) {
-                Image(systemName: "arrow.left.arrow.right")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 46, height: 46)
-                    .liquidGlass(in: Circle())
-                    .scaleEffect(CGFloat(swap))
-                    .offset(y: -30)
-            }
-            DealOutcome(spec: spec, t: t, from: 1.8)
-        }
-    }
-
-    private func faceSide(_ label: String, _ side: WelcomeDealSide, angle: Double, x: CGFloat, y: CGFloat, fade: Double) -> some View {
-        VStack(spacing: 10) {
-            DealSideArt(side: side, radius: 10)
-                .frame(width: 130, height: 181)
-                .rotationEffect(.degrees(angle))
-                .shadow(color: .black.opacity(0.5), radius: 12, y: 6)
-            MonoLabel(text: label, color: welcomeSoft)
-            Text(Format.moneyWhole(side.value)).font(.display(22)).monospacedDigit()
-        }
-        .offset(x: x, y: y)
-        .opacity(Ease.clamp(fade * 2))
-    }
-}
-
-/// 4. Printed receipt: a dark slip feeding out of a glass slot, its lines printing one by one in
-/// mono, the total at the bottom and what you come out ahead in lime.
-private struct DealPrinted: View {
-    var spec: DealSpec
-    var t: Double
-
-    var body: some View {
-        let lines: [(String, String)] = [
-            ("IN  " + spec.coming.name.uppercased(), Format.moneyWhole(spec.coming.value)),
-            ("OUT " + spec.going.name.uppercased(), Format.moneyWhole(spec.going.value)),
-        ]
-        let feed: Double = Ease.out(t, 0.2, 2.2)
-        let shown: Int = Int(feed * 6)
-        VStack(spacing: 0) {
-            Capsule().fill(Color.white.opacity(0.08)).frame(height: 14)
-                .liquidGlass(in: Capsule())
-                .zIndex(1)
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text("LUCENT").font(.mono(13)).tracking(2).foregroundStyle(Theme.lime)
-                    Spacer()
-                    Text(spec.tag.uppercased()).font(.mono(12)).tracking(1.4).foregroundStyle(welcomeSoft)
-                }
-                DashedLine()
-                ForEach(0 ..< lines.count, id: \.self) { i in
-                    HStack {
-                        Text(lines[i].0).lineLimit(1)
-                        Spacer()
-                        Text(lines[i].1).monospacedDigit()
-                    }
-                    .font(.mono(13))
-                    .opacity(shown > i + 1 ? 1 : 0)
-                }
-                DashedLine().opacity(shown > 3 ? 1 : 0)
-                HStack(alignment: .firstTextBaseline) {
-                    Text(spec.cashLabel.uppercased()).font(.mono(12)).foregroundStyle(welcomeSoft)
-                    Spacer()
-                    Text(Format.money(spec.cash)).font(.display(30)).tracking(-1).monospacedDigit()
-                }
-                .opacity(shown > 4 ? 1 : 0)
-                HStack {
-                    Text("AHEAD").font(.mono(13)).tracking(1.4)
-                    Spacer()
-                    Text("+" + Format.moneyWhole(spec.ahead)).font(.display(26)).monospacedDigit()
-                }
-                .foregroundStyle(Theme.lime)
-                .scaleEffect(CGFloat(0.8 + 0.2 * Ease.back(t, 2.6, 0.4)), anchor: .leading)
-                .opacity(Ease.out(t, 2.6, 0.3))
-            }
-            .padding(20)
-            .frame(width: 300)
-            .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color(hex: 0x141416)))
-            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.white.opacity(0.08)))
-            .offset(y: CGFloat(1 - feed) * -260)
-            .mask(Rectangle().padding(.top, 7).padding(.bottom, -400))
-        }
-        .frame(height: 420, alignment: .top)
-    }
-}
-
-/// A dashed rule across a receipt.
-private struct DashedLine: View {
-    var body: some View {
-        Rectangle().fill(.clear).frame(height: 1)
-            .overlay(Line().stroke(Color.white.opacity(0.25), style: StrokeStyle(lineWidth: 1, dash: [4, 4])))
-    }
-
-    private struct Line: Shape {
-        func path(in r: CGRect) -> Path {
-            var p = Path()
-            p.move(to: CGPoint(x: r.minX, y: r.midY))
-            p.addLine(to: CGPoint(x: r.maxX, y: r.midY))
-            return p
-        }
-    }
-}
-
-/// 5. Balance: a beam with each side's card in a pan, tipping toward the heavier side; the cash
-/// drops into the lighter pan and it comes level; then what you come out ahead.
-private struct DealBalanceScene: View {
-    var spec: DealSpec
-    var t: Double
-
-    var body: some View {
-        let total: Double = max(spec.coming.value + spec.going.value, 1)
-        let lean: Double = (spec.coming.value - spec.going.value) / total
-        let settle: Double = Ease.back(t, 2.0, 0.8)
-        let angle: Double = 14 * lean * Ease.out(t, 0.6, 0.8) * (1 - min(settle, 1))
-        let cashDrop: Double = Ease.back(t, 1.7, 0.5)
-        let span: CGFloat = 250
-        let rise = CGFloat(sin(angle * .pi / 180)) * span / 2
-        VStack(spacing: 34) {
-            ZStack(alignment: .top) {
-                // The post.
-                Rectangle().fill(Color.white.opacity(0.2)).frame(width: 3, height: 210).offset(y: 20)
-                Capsule().fill(Color.white.opacity(0.2)).frame(width: 90, height: 6).offset(y: 228)
-                // The beam.
-                Capsule().fill(Color.white.opacity(0.55)).frame(width: span, height: 4)
-                    .rotationEffect(.degrees(-angle))
-                    .offset(y: 20)
-                Circle().fill(Theme.lime).frame(width: 12, height: 12).offset(y: 16)
-                // Pans: going out on the left, coming in on the right.
-                pan("Going out", spec.going, extra: spec.cash < 0 ? 0 : cashDrop).offset(x: -span / 2, y: 26 - rise)
-                pan("Coming in", spec.coming, extra: 0).offset(x: span / 2, y: 26 + rise)
-            }
-            .frame(height: 250)
-            DealOutcome(spec: spec, t: t, from: 2.4)
-        }
-    }
-
-    private func pan(_ label: String, _ side: WelcomeDealSide, extra: Double) -> some View {
-        VStack(spacing: 6) {
-            Rectangle().fill(Color.white.opacity(0.25)).frame(width: 1, height: 26)
-            DealSideArt(side: side, radius: 6).frame(width: 84, height: 117)
-                .overlay(alignment: .topTrailing) {
-                    if extra > 0 {
-                        Text("+cash").font(.mono(10)).foregroundStyle(Theme.ink)
-                            .padding(.horizontal, 6).padding(.vertical, 2)
-                            .background(Capsule().fill(Theme.lime))
-                            .offset(x: 10, y: CGFloat(1 - min(extra, 1)) * -60 - 8)
-                            .opacity(Ease.clamp(extra * 2))
-                    }
-                }
-            MonoLabel(text: label, color: welcomeSoft)
-        }
-    }
-}
-
-/// 6. Swap: the two sides trade places along an arc while the cash slides across underneath;
-/// then the cash and the gain, plain.
-private struct DealSwap: View {
-    var spec: DealSpec
-    var t: Double
-
-    var body: some View {
-        let s: Double = Ease.out(t, 0.8, 1.0)
-        let arc = CGFloat(sin(Double.pi * s)) * -50
-        let dx = CGFloat(s) * 170
-        let cash: Double = Ease.out(t, 1.4, 0.8)
-        VStack(spacing: 30) {
-            ZStack {
-                DealSideArt(side: spec.going, radius: 10)
-                    .frame(width: 120, height: 167)
-                    .rotationEffect(.degrees(-6 + 12 * s))
-                    .offset(x: -85 + dx, y: arc)
-                    .zIndex(1)
-                DealSideArt(side: spec.coming, radius: 10)
-                    .frame(width: 120, height: 167)
-                    .rotationEffect(.degrees(6 - 12 * s))
-                    .offset(x: 85 - dx, y: -arc)
-                Text(Format.moneyWhole(abs(spec.cash)))
-                    .font(.geist(15, .semibold)).monospacedDigit()
-                    .padding(.horizontal, 14).frame(height: 34)
-                    .liquidGlass(in: Capsule())
-                    .offset(x: CGFloat(cash * 2 - 1) * 90, y: 120)
-                    .opacity(sin(Double.pi * cash) > 0.01 ? 1 : 0)
-            }
-            .frame(height: 280)
-            DealOutcome(spec: spec, t: t, from: 2.3)
         }
     }
 }
