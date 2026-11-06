@@ -105,13 +105,29 @@ struct PullReveal: View {
     /// The item with a foil band sweeping across it once.
     private var art: some View {
         let slab = event.identity?.isGraded == true
-        let shape = RoundedRectangle(cornerRadius: slab ? 14 : (isCard ? 10 : 24), style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: slab ? 14 : (isCard ? (event.pulled ? 13 : 10) : 24), style: .continuous)
         return Group {
             if slab, let id = event.identity {
                 // A graded add shows in its slab (with its Pristine mark and bumper, if any).
-                HoldingArt(product: event.product, identity: id, caption: false).frame(width: 210, height: 336)
+                if event.pulled {
+                    // A pull: bigger, drifting like the card page.
+                    HoloCard(foil: false, textured: false, cornerRadius: 14) {
+                        HoldingArt(product: event.product, identity: id, caption: false).frame(width: 236, height: 378)
+                    }
+                    .drifting()
+                } else {
+                    HoldingArt(product: event.product, identity: id, caption: false).frame(width: 210, height: 336)
+                }
             } else if isCard {
-                ProductImage(product: event.product, cornerRadius: 10).frame(width: 190, height: 266)
+                if event.pulled {
+                    HoloCard(foil: false, textured: false, cornerRadius: 12) {
+                        ProductImage(product: event.product, cornerRadius: 13, large: true).frame(width: 240, height: 335)
+                    }
+                    .drifting()
+                    .environment(\.imageMaxPixel, nil)
+                } else {
+                    ProductImage(product: event.product, cornerRadius: 10).frame(width: 190, height: 266)
+                }
             } else {
                 SealedWell(product: event.product, cornerRadius: 24, caption: false).frame(width: 230, height: 230)
             }
