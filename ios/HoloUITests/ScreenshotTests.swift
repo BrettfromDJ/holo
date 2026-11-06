@@ -49,6 +49,7 @@ final class ScreenshotTests: XCTestCase {
     func testHoldingSheet() { capture("holding-sheet", args: ["-HoloTab", "collection", "-HoloOpenHolding", "-HoloDemoKind", "singles"], pages: 2) }
     func testSlabSheet() { capture("slab-sheet", args: ["-HoloTab", "collection", "-HoloOpenHolding", "-HoloDemoKind", "graded", "-HoloBumper"], pages: 2) }
     func testPullReveal() { capture("pull-reveal", args: ["-HoloPull"], pages: 1) }
+    func testPulledReveal() { capture("pulled-reveal", args: ["-HoloPull", "-HoloPulled"], pages: 1) }
     func testActivity() { capture("activity", args: ["-HoloPage", "activity"], pages: 3) }
     func testMasterSets() { capture("master-sets", args: ["-HoloDemoKind", "singles", "-HoloPage", "master-sets"], pages: 2) }
     func testMasterSet() { capture("master-set", args: ["-HoloDemoKind", "singles", "-HoloPage", "master-sets", "-HoloMasterSet"], pages: 2) }

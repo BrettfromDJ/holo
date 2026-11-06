@@ -61,7 +61,8 @@ struct RootView: View {
                             grading.certs[slab.identity.key] = "84512369"
                         }
                         if ProcessInfo.processInfo.arguments.contains("-HoloPull"), let h = store.allHoldings.first, let p = h.product {
-                            Router.shared.pull = PullEvent(product: p, quantity: 1, before: store.summary.value - (h.value ?? 0))
+                            Router.shared.pull = PullEvent(product: p, quantity: 1, before: store.summary.value - (h.value ?? 0), identity: h.identity,
+                                                           pulled: ProcessInfo.processInfo.arguments.contains("-HoloPulled"))
                         }
                     }
             } else if !AppConfig.isConfigured {
