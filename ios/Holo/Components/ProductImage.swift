@@ -90,6 +90,13 @@ struct CachedImage<Content: View, Placeholder: View>: View {
             for next in [fallback].compactMap({ $0 }) + fallbacks where loaded == nil {
                 loaded = await ImageCache.shared.load(next, maxPixel: maxPixel)
             }
+            #if DEBUG
+            // The card page's picture (the only one with fallbacks): which file and how big, in
+            // Xcode's console, so a soft card can be traced to its source.
+            if fallback != nil, let loaded {
+                print("[Card picture] \(Int(loaded.size.width * loaded.scale))×\(Int(loaded.size.height * loaded.scale)) px")
+            }
+            #endif
             // Handed another address while this one loaded: leave it to that load.
             guard imageURL == url, !Task.isCancelled else { return }
             if let loaded {

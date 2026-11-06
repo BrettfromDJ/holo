@@ -108,7 +108,11 @@ struct WelcomeView: View {
                     line: "See how much of each set you own, and the cards\u{00A0}still\u{00A0}missing.",
                     graphicHeight: graphicHeight
                 ) {
-                    WelcomeMasterOption(option: option)
+                    if option == 21 {
+                        WelcomeMasterOption(option: option).ignoresSafeArea(edges: .top)
+                    } else {
+                        WelcomeMasterOption(option: option)
+                    }
                 }
                 .tag(2 + option)
                 .environment(\.welcomeActive, page == 2 + option)
@@ -1889,6 +1893,16 @@ private struct WelcomeMasterOption: View {
         Group {
             if option == 1 {
                 WelcomeMasterSet()
+            } else if option == 21 {
+                // Full bleed like the first page, one set, the grid drifting on its own.
+                if reduceMotion {
+                    MSVTiltGrid(set: SetShow.all[0], p: SetProgress(set: SetShow.all[0], t: 6), clock: 0)
+                } else {
+                    TimelineView(.animation(minimumInterval: nil, paused: !active)) { context in
+                        MSVTiltGrid(set: SetShow.all[0], p: SetProgress(set: SetShow.all[0], t: 6),
+                                    clock: context.date.timeIntervalSince(Self.start))
+                    }
+                }
             } else {
                 WelcomeFit(height: 540, alignment: .bottom) {
                     Group {
@@ -2502,49 +2516,52 @@ private struct MSVTiltGrid: View {
 
     private static let cols = 5
     private static let perCol = 7
-    private static let w: CGFloat = 78
     private static let gap: CGFloat = 8
     private static let durations: [Double] = [30, 24, 34, 27, 31]
     private static let phases: [Double] = [0.1, 0.6, 0.35, 0.8, 0.25]
 
     var body: some View {
-        let h = Self.w * 88 / 63
-        let listH = CGFloat(Self.perCol) * (h + Self.gap)
-        ZStack(alignment: .bottom) {
-            HStack(alignment: .top, spacing: Self.gap) {
-                ForEach(0 ..< Self.cols, id: \.self) { c in
-                    let progress = CGFloat((Self.phases[c] + clock / Self.durations[c]).truncatingRemainder(dividingBy: 1))
-                    let down = c % 2 == 1
-                    let y: CGFloat = down ? -listH + listH * progress : -listH * progress
-                    VStack(spacing: Self.gap) {
-                        ForEach(0 ..< Self.perCol * 3, id: \.self) { k in
-                            let n = 1 + c * Self.perCol + (k % Self.perCol)
-                            TiltGridTile(set: set, number: n * 3 - 2, owned: (n * 7) % 9 >= 2)
-                                .frame(width: Self.w, height: h)
+        GeometryReader { geo in
+            // Wider than the screen and tilted, so the edges stay covered (like the first page).
+            let span = geo.size.width * 1.45
+            let w = (span - Self.gap * CGFloat(Self.cols - 1)) / CGFloat(Self.cols)
+            let h = w * 88 / 63
+            let listH = CGFloat(Self.perCol) * (h + Self.gap)
+            ZStack(alignment: .bottom) {
+                HStack(alignment: .top, spacing: Self.gap) {
+                    ForEach(0 ..< Self.cols, id: \.self) { c in
+                        let progress = CGFloat((Self.phases[c] + clock / Self.durations[c]).truncatingRemainder(dividingBy: 1))
+                        let y: CGFloat = c % 2 == 1 ? -listH + listH * progress : -listH * progress
+                        VStack(spacing: Self.gap) {
+                            ForEach(0 ..< Self.perCol * 3, id: \.self) { k in
+                                let n = 1 + c * Self.perCol + (k % Self.perCol)
+                                TiltGridTile(set: set, number: n * 3 - 2, owned: (n * 7) % 9 >= 2)
+                                    .frame(width: w, height: h)
+                            }
                         }
+                        .offset(y: y)
                     }
-                    .offset(y: y)
                 }
-            }
-            .frame(width: 560, height: 760, alignment: .top)
-            .rotationEffect(.degrees(10))
-            .frame(width: 340, height: 520)
-            .clipped()
-            .mask(LinearGradient(stops: [
-                .init(color: .clear, location: 0), .init(color: .black, location: 0.12),
-                .init(color: .black, location: 0.7), .init(color: .clear, location: 1),
-            ], startPoint: .top, endPoint: .bottom))
-            VStack(spacing: 4) {
-                MonoLabel(text: set.era)
-                Text(set.name).font(.display(22)).tracking(-0.6)
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text("\(p.pct)%").font(.display(34)).tracking(-1.2).monospacedDigit().foregroundStyle(Theme.lime)
-                    Text("\(p.count) of \(set.total)").font(.geist(14)).monospacedDigit().foregroundStyle(Theme.muted)
+                .frame(width: span, height: geo.size.height * 1.5, alignment: .top)
+                .rotationEffect(.degrees(10))
+                .frame(width: geo.size.width, height: geo.size.height)
+                .clipped()
+                // Solid to the top of the screen, fading into the page at the bottom.
+                .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.6), .init(color: .clear, location: 1)],
+                                     startPoint: .top, endPoint: .bottom))
+                VStack(spacing: 4) {
+                    MonoLabel(text: set.era)
+                    Text(set.name).font(.display(22)).tracking(-0.6)
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text("\(p.pct)%").font(.display(34)).tracking(-1.2).monospacedDigit().foregroundStyle(Theme.lime)
+                        Text("\(p.count) of \(set.total)").font(.geist(14)).monospacedDigit().foregroundStyle(Theme.muted)
+                    }
                 }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 24).padding(.vertical, 14)
+                .liquidGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .padding(.bottom, 10)
             }
-            .padding(.horizontal, 24).padding(.vertical, 14)
-            .liquidGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .padding(.bottom, 6)
         }
     }
 }

@@ -51,12 +51,17 @@ struct Product: Codable, Identifiable, Hashable {
     /// known pattern (TCGplayer's CDN, pokemontcg.io, TCGdex and Scryfall serve small previews
     /// by default). Empty otherwise. The card page tries them in turn, then the usual picture.
     var largeImageURLs: [URL] {
-        guard let s = imageUrl else { return [] }
+        let s = imageUrl ?? ""
         var out: [String] = []
-        // TCGplayer: the 2000px version where it exists, else 1000px.
+        // Any card with a TCGplayer ID: TCGplayer's 1000px picture, whatever address the
+        // catalog gave (the catalog's own picture is a small preview).
+        let ownHiRes = s.contains("images.pokemontcg.io/") || s.contains("assets.tcgdex.net/") || s.contains("cards.scryfall.io/")
+        if let id = tcgplayerId, id > 0, !ownHiRes {
+            out = ["https://tcgplayer-cdn.tcgplayer.com/product/\(id)_in_1000x1000.jpg"]
+        }
         if s.contains("tcgplayer-cdn.tcgplayer.com/product/"),
            let r = s.range(of: #"_(\d+w|in_\d+x\d+)\.jpg$"#, options: .regularExpression) {
-            out = [s.replacingCharacters(in: r, with: "_in_2000x2000.jpg"), s.replacingCharacters(in: r, with: "_in_1000x1000.jpg")]
+            out.append(s.replacingCharacters(in: r, with: "_in_1000x1000.jpg"))
         }
         // pokemontcg.io: the hi-res scan.
         if s.contains("images.pokemontcg.io/"), s.hasSuffix(".png"), !s.hasSuffix("_hires.png") {
@@ -72,7 +77,8 @@ struct Product: Codable, Identifiable, Hashable {
             let large = s.replacingCharacters(in: r, with: "/large/")
             out = [png, large]
         }
-        return out.filter { $0 != s }.compactMap(URL.init(string:))
+        var seen = Set<String>()
+        return out.filter { $0 != s && seen.insert($0).inserted }.compactMap(URL.init(string:))
     }
 
     /// The biggest version of the picture (see `largeImageURLs`).
