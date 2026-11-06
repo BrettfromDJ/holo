@@ -752,7 +752,12 @@ final class CollectionStore {
 
     /// Sets (or with nil, removes) the monthly budget, like the website.
     func setMonthlyBudget(_ value: Double?) async throws {
-        guard let userId else { return }
+        // In a demo (or signed out) nothing is saved, but the change still shows, like the
+        // rest of the demo.
+        guard demo == nil, !Demo.isOn, let userId else {
+            monthlyBudget = value
+            return
+        }
         struct Row: Encodable {
             var user_id: String
             var monthly_budget: Double?
