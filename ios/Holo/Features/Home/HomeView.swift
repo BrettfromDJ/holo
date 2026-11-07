@@ -1299,8 +1299,14 @@ private struct CategoryCard: View, Equatable {
     /// Redrawn (and its pictures re-sorted) only when its kind, the total or its count changes,
     /// not every time Overview redraws. A price change moves the total, so it still updates.
     static func == (a: Self, b: Self) -> Bool {
-        a.category == b.category && a.total == b.total && a.items.count == b.items.count
-            && a.items.reduce(0) { $0 + ($1.value ?? 0) } == b.items.reduce(0) { $0 + ($1.value ?? 0) }
+        guard a.category == b.category, a.total == b.total, a.items.count == b.items.count else { return false }
+        return worth(a.items) == worth(b.items)
+    }
+
+    private static func worth(_ items: [HoldingView]) -> Double {
+        var sum: Double = 0
+        for h in items { sum += h.value ?? 0 }
+        return sum
     }
 
     /// The three most valuable different products (copies of one card count once), those with
