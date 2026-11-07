@@ -224,7 +224,7 @@ private struct BrandView: View {
         VStack(alignment: .leading, spacing: 22) {
             HStack(spacing: 16) {
                 CachedImage(url: game.logoUrl.flatMap(URL.init(string:))) { img in
-                    img.resizable().scaledToFit().shadow(color: .black.opacity(0.5), radius: 9, y: 8)
+                    img.resizable().scaledToFit().whiteLogo(game.drawnInBlack).shadow(color: .black.opacity(0.5), radius: 9, y: 8)
                 } placeholder: {
                     Text(game.name.prefix(1).uppercased()).font(.display(40)).tracking(-1.6).foregroundStyle(Theme.lime)
                 }
@@ -1437,7 +1437,7 @@ private struct BrandCard: View {
     var body: some View {
         VStack(alignment: .center, spacing: 12) {
             CachedImage(url: game.logoUrl.flatMap(URL.init(string:))) { img in
-                img.resizable().scaledToFit().shadow(color: .black.opacity(0.5), radius: 9, y: 8)
+                img.resizable().scaledToFit().whiteLogo(game.drawnInBlack).shadow(color: .black.opacity(0.5), radius: 9, y: 8)
             } placeholder: {
                 Text(game.name.prefix(1).uppercased()).font(.display(26)).tracking(-0.7).foregroundStyle(tint)
             }
@@ -1452,5 +1452,20 @@ private struct BrandCard: View {
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 124, alignment: .center)
         .tinted(tint)
+    }
+}
+
+extension ExploreGame {
+    /// Logos drawn in black (One Piece), which vanish on the dark theme: shown white instead,
+    /// as on the website (`logoTone`).
+    var drawnInBlack: Bool {
+        "\(slug) \(name)".range(of: #"one[\s-]?piece"#, options: [.regularExpression, .caseInsensitive]) != nil
+    }
+}
+
+private extension View {
+    /// The logo as a white silhouette (black first, then inverted).
+    @ViewBuilder func whiteLogo(_ on: Bool) -> some View {
+        if on { brightness(-1).colorInvert() } else { self }
     }
 }
