@@ -20,6 +20,8 @@ struct MasterSetsView: View {
     /// The search, handed over by the field a moment after typing stops (so typing doesn't
     /// rebuild the deck on every key).
     @State private var query = ""
+    /// The brand shown (a game's slug from the catalog); Pokémon to start, remembered after.
+    @AppStorage("master-sets-brand") private var brand = "pokemon"
 
     enum Scope: String, CaseIterable { case mine = "Your sets", all = "All sets" }
     enum Sort: String, CaseIterable { case progress = "Most complete", value = "Most valuable", newest = "Newest", name = "Name" }
@@ -36,7 +38,26 @@ struct MasterSetsView: View {
         var ratio: Double? { total.map { $0 > 0 ? Double(owned) / Double($0) : 0 } }
     }
 
-    private var owned: [MasterSetDetailView.OwnedSet] { MasterSetDetailView.ownedSets(store.holdings) }
+    /// Your sets in the chosen brand. A set the catalog doesn't know (a demo set, or before the
+    /// list arrives) counts as Pokémon.
+    private var owned: [MasterSetDetailView.OwnedSet] {
+        let bySlug = Dictionary(index.map { ($0.slug, $0.gameSlug) }, uniquingKeysWith: { a, _ in a })
+        let byName = Dictionary(index.map { ($0.name.lowercased(), $0.gameSlug) }, uniquingKeysWith: { a, _ in a })
+        return MasterSetDetailView.ownedSets(store.holdings).filter { s in
+            (bySlug[s.id] ?? byName[s.name.lowercased()] ?? "pokemon") == brand
+        }
+    }
+
+    /// Every brand in the catalog, Pokémon first, then by how many sets each has.
+    private var brands: [(slug: String, name: String)] {
+        var counts: [String: (name: String, n: Int)] = ["pokemon": ("Pokémon", 0)]
+        for s in index { counts[s.gameSlug, default: (s.gameName, 0)].n += 1 }
+        return counts.sorted { a, b in
+            if a.key == "pokemon" { return true }
+            if b.key == "pokemon" { return false }
+            return a.value.n > b.value.n
+        }.map { ($0.key, $0.value.name) }
+    }
 
     private func rows(_ owned: [MasterSetDetailView.OwnedSet]) -> [Row] {
         let bySlug = Dictionary(index.map { ($0.slug, $0) }, uniquingKeysWith: { a, _ in a })
@@ -52,7 +73,7 @@ struct MasterSetsView: View {
         if scope == .all {
             let mine = Set(rows.map(\.id))
             let mineNames = Set(rows.map { $0.name.lowercased() })
-            rows += index.filter { $0.loaded && !mine.contains($0.slug) && !mineNames.contains($0.name.lowercased()) }
+            rows += index.filter { $0.loaded && $0.gameSlug == brand && !mine.contains($0.slug) && !mineNames.contains($0.name.lowercased()) }
                 .map { Row(id: $0.slug, name: $0.name, art: $0, holdings: [], owned: 0, total: nil, value: 0) }
         }
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
@@ -172,8 +193,36 @@ struct MasterSetsView: View {
                     .menuStyle(.button)
                     .buttonStyle(IconButton3D(size: 46))
             }
-            ChipPicker(options: Scope.allCases.map { ($0, $0.rawValue) }, selection: $scope)
+            HStack(spacing: 10) {
+                ChipPicker(options: Scope.allCases.map { ($0, $0.rawValue) }, selection: $scope)
+                Spacer(minLength: 0)
+                brandMenu
+            }
         }
+    }
+
+    /// Which brand's sets to show: a glass pill with the brand's name.
+    private var brandMenu: some View {
+        let list = brands
+        let name = list.first { $0.slug == brand }?.name ?? "Pokémon"
+        return Menu {
+            Picker("Brand", selection: $brand) {
+                ForEach(list, id: \.slug) { Text($0.name).tag($0.slug) }
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Text(name).font(.geist(14, .semibold)).lineLimit(1)
+                Image(systemName: "chevron.down").font(.system(size: 11, weight: .semibold))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 16)
+            .frame(height: 44)
+            .contentShape(Capsule())
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .background { Color.clear.liquidGlass(in: Capsule()).allowsHitTesting(false) }
+        .accessibilityLabel("Brand: \(name)")
     }
 }
 
