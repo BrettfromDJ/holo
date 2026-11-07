@@ -15,12 +15,16 @@ final class MasterSetsCache {
         FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?.appendingPathComponent("master-set-checklists.json")
     }
 
-    /// The card lists saved last time, so percentages show at once on the next visit.
-    func restore() {
+    /// The card lists saved last time, so percentages show at once on the next visit. Read and
+    /// decoded off the main thread (it can be a few megabytes), then merged in.
+    @MainActor func restore() async {
         guard !restored else { return }
         restored = true
-        guard let file = Self.file, let data = try? Data(contentsOf: file),
-              let saved = try? JSONDecoder().decode([String: [SearchHit]].self, from: data) else { return }
+        guard let file = Self.file else { return }
+        let saved = await Task.detached(priority: .userInitiated) { () -> [String: [SearchHit]] in
+            guard let data = try? Data(contentsOf: file) else { return [:] }
+            return (try? JSONDecoder().decode([String: [SearchHit]].self, from: data)) ?? [:]
+        }.value
         for (id, cards) in saved where checklists[id] == nil { checklists[id] = cards }
     }
 
@@ -151,7 +155,7 @@ struct MasterSetDetailView: View {
         let cache = MasterSetsCache.shared
         let demo = store.demo != nil || Demo.isOn
         // Real sets: show the saved lists straight away, then fetch each fresh once a session.
-        if !demo { cache.restore() }
+        if !demo { await cache.restore() }
         let todo = sets.filter { demo ? cache.checklists[$0.id] == nil && !cache.failed.contains($0.id) : !cache.refreshed.contains($0.id) && !cache.failed.contains($0.id) }
         guard !todo.isEmpty else { return }
         if demo {

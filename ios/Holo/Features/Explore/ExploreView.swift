@@ -1051,14 +1051,29 @@ struct SetArt: View {
         Image(systemName: "square.stack.3d.up").font(.system(size: 22)).foregroundStyle(Theme.lime.opacity(0.6))
     }
 
+    /// Only when the banner couldn't be loaded: a sample product from the set instead.
+    @ViewBuilder private var failedBanner: some View {
+        if let sample = set.imageUrl.flatMap(URL.init(string:)) {
+            ZStack {
+                Theme.well
+                CachedImage(url: sample) { img in img.resizable().scaledToFit() } placeholder: { icon }.padding(12)
+            }
+        } else {
+            Color.clear
+        }
+    }
+
     var body: some View {
         ZStack {
             Theme.well
-            // Underneath: a sample product (or the mark). It shows while the banner loads, and
-            // stays when the banner fails or is see-through where the tile crops it.
-            if let sample = set.imageUrl.flatMap(URL.init(string:)) {
-                CachedImage(url: sample) { img in img.resizable().scaledToFit() } placeholder: { icon }
-                    .padding(12)
+            // Underneath: the mark, for a moment while the banner loads (drawn, not downloaded).
+            if set.iconUrl == nil {
+                if let sample = set.imageUrl.flatMap(URL.init(string:)) {
+                    CachedImage(url: sample) { img in img.resizable().scaledToFit() } placeholder: { icon }
+                        .padding(12)
+                } else {
+                    icon
+                }
             } else {
                 icon
             }
@@ -1067,13 +1082,13 @@ struct SetArt: View {
                     .overlay {
                         if parallax {
                             // A little taller than the frame, so drifting never shows an edge.
-                            CachedImage(url: banner) { img in img.resizable().scaledToFill() } placeholder: { Color.clear }
+                            CachedImage(url: banner) { img in img.resizable().scaledToFill() } placeholder: { failedBanner }
                                 .padding(.vertical, -14)
                                 .scrollTransition(.interactive, axis: .vertical) { view, phase in
                                     view.offset(y: phase.value * -12)
                                 }
                         } else {
-                            CachedImage(url: banner) { img in img.resizable().scaledToFill() } placeholder: { Color.clear }
+                            CachedImage(url: banner) { img in img.resizable().scaledToFill() } placeholder: { failedBanner }
                         }
                     }
                     .clipped()

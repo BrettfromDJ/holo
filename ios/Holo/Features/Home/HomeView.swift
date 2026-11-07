@@ -1285,16 +1285,23 @@ private struct ValueSplit: View {
             PageHeader(title: "Where your value sits", subtitle: "Sealed, singles and slabs, side by side", size: 30)
             // The split: the same bar as Collection's, sized by share.
             AllocationBar(holdings: store.holdings, total: store.summary.value)
-            ForEach(groups, id: \.0) { c, items in CategoryCard(category: c, items: items, total: total) }
+            ForEach(groups, id: \.0) { c, items in CategoryCard(category: c, items: items, total: total).equatable() }
         }
         }
     }
 }
 
-private struct CategoryCard: View {
+private struct CategoryCard: View, Equatable {
     var category: HoldingCategory
     var items: [HoldingView]
     var total: Double
+
+    /// Redrawn (and its pictures re-sorted) only when its kind, the total or its count changes,
+    /// not every time Overview redraws. A price change moves the total, so it still updates.
+    static func == (a: Self, b: Self) -> Bool {
+        a.category == b.category && a.total == b.total && a.items.count == b.items.count
+            && a.items.reduce(0) { $0 + ($1.value ?? 0) } == b.items.reduce(0) { $0 + ($1.value ?? 0) }
+    }
 
     /// The three most valuable different products (copies of one card count once), those with
     /// a picture first.

@@ -25,6 +25,8 @@ struct PullReveal: View {
     @State private var shown = false
     /// The lime flash behind the card as it lands.
     @State private var landed = false
+    /// The pull's picture to share, drawn once after the reveal has played (not on every redraw).
+    @State private var shareImage: Image?
 
     private var after: Double { store.allHoldings.reduce(0) { $0 + ($1.value ?? 0) } }
     private var isCard: Bool { !event.product.isSealed && event.product.imageURL != nil }
@@ -106,10 +108,16 @@ struct PullReveal: View {
                         .buttonStyle(Button3D(kind: .lime, height: 50))
                     HStack(spacing: 10) {
                         if event.pulled {
-                            ShareLink(item: shareImage, preview: SharePreview("My pull", image: shareImage)) {
+                            if let shareImage {
+                                ShareLink(item: shareImage, preview: SharePreview("My pull", image: shareImage)) {
+                                    Label("Share", systemImage: "square.and.arrow.up").lineLimit(1)
+                                }
+                                .buttonStyle(Button3D(kind: .dark, height: 48))
+                            } else {
+                                // Holds its place for the moment until the picture is ready.
                                 Label("Share", systemImage: "square.and.arrow.up").lineLimit(1)
+                                    .frame(maxWidth: .infinity).frame(height: 48).opacity(0.4)
                             }
-                            .buttonStyle(Button3D(kind: .dark, height: 48))
                         }
                         Button("Done", action: onDone).buttonStyle(Button3D(kind: .dark, height: 48))
                     }
@@ -123,6 +131,12 @@ struct PullReveal: View {
         .onTapGesture(perform: onDone)
         .sensoryFeedback(event.pulled ? .impact(weight: .heavy, intensity: 1) : .success, trigger: flipped)
         .onAppear(perform: play)
+        // Drawn once, after the card has landed, so it never competes with the animation.
+        .task {
+            guard event.pulled, shareImage == nil else { return }
+            try? await Task.sleep(for: .seconds(reduceMotion ? 0.3 : 3))
+            shareImage = makeShareImage()
+        }
         .accessibilityElement(children: .contain)
         .accessibilityAddTraits(.isModal)
     }
@@ -201,7 +215,7 @@ struct PullReveal: View {
     }
 
     /// The pull as a picture to share: the card, "Pulled", its name and value.
-    private var shareImage: Image {
+    @MainActor private func makeShareImage() -> Image {
         let card = PullShareCard(product: event.product, identity: event.identity, value: max(after - event.before, 0))
         let renderer = ImageRenderer(content: card)
         renderer.scale = 3

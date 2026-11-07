@@ -81,6 +81,12 @@ struct Product: Codable, Identifiable, Hashable {
         return out.filter { $0 != s && seen.insert($0).inserted }.compactMap(URL.init(string:))
     }
 
+    /// TCGplayer's small (400px wide) picture, for a product with no picture of its own.
+    var smallTCGplayerURL: URL? {
+        guard let id = tcgplayerId, id > 0 else { return nil }
+        return URL(string: "https://tcgplayer-cdn.tcgplayer.com/product/\(id)_400w.jpg")
+    }
+
     /// The biggest version of the picture (see `largeImageURLs`).
     var largeImageURL: URL? { largeImageURLs.first }
 

@@ -207,7 +207,7 @@ struct CollectionView: View {
                                 }
                             }
                             if let category, shelfId == nil, !pullsOnly {
-                                CategoryBanner(category: category, holdings: store.holdings, total: store.summary.value)
+                                CategoryBanner(category: category, holdings: store.holdings, total: store.summary.value).equatable()
                             }
                             // Filtered and sorted once per redraw.
                             let shown = self.shown
@@ -1086,10 +1086,16 @@ struct AllocationBar: View {
 
 /// The chosen kind (Sealed, Singles, Graded) as a card in its color, like Overview's: its name and
 /// share of your value on a slanted tag, what it's worth, and its gain on what you paid.
-private struct CategoryBanner: View {
+private struct CategoryBanner: View, Equatable {
     var category: HoldingCategory
     var holdings: [HoldingView]
     var total: Double
+
+    /// Worked out again only when the kind, the collection's total or its size changes (not on
+    /// every keystroke in search or tap of a chip).
+    static func == (a: Self, b: Self) -> Bool {
+        a.category == b.category && a.total == b.total && a.holdings.count == b.holdings.count
+    }
 
     var body: some View {
         let items = holdings.filter { $0.category == category }

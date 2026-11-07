@@ -134,7 +134,7 @@ struct MasterSetsView: View {
         .task {
             // The set list saved last time first (art starts loading at once), then the fresh one.
             if index.isEmpty {
-                let saved = SavedSets.load()
+                let saved = await Task.detached(priority: .userInitiated) { SavedSets.load() }.value
                 if !saved.isEmpty { index = saved; indexTried = true; prefetchBanners() }
             }
             if let i = try? await Backend.shared.api.exploreIndex() { index = i.sets; prefetchBanners() }
@@ -309,10 +309,14 @@ struct SetBannerRow: View {
         // (lime when finished); the glow is the edge's still shadow.
         .overlay {
             let accent = isComplete ? Theme.lime : SetGlow.accent(for: row.id)
-            shape.strokeBorder(LinearGradient(colors: [accent.opacity(0.95), accent.opacity(0.35), .white.opacity(0.08), accent.opacity(0.3)],
-                                              startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1.5)
-                .shadow(color: accent.opacity(0.55), radius: 10)
-                .allowsHitTesting(false)
+            ZStack {
+                // The glow as a wide faint band inside the edge (no shadow, cheap while scrolling).
+                shape.strokeBorder(LinearGradient(colors: [accent.opacity(0.28), accent.opacity(0.08), .clear, accent.opacity(0.08)],
+                                                  startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 8)
+                shape.strokeBorder(LinearGradient(colors: [accent.opacity(0.95), accent.opacity(0.35), .white.opacity(0.08), accent.opacity(0.3)],
+                                                  startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1.5)
+            }
+            .allowsHitTesting(false)
         }
         .contentShape(shape)
     }

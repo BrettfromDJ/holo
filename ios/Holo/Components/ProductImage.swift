@@ -17,9 +17,12 @@ struct ProductImage: View {
     var body: some View {
         // The biggest version first, then each smaller one, then the usual picture.
         let bigs = (large || pageLarge) ? (product?.largeImageURLs ?? []) : []
-        // A product with no picture of its own but a TCGplayer ID uses TCGplayer's picture.
-        let usual = product?.imageURL ?? product?.largeImageURL
+        // A product with no picture of its own but a TCGplayer ID uses TCGplayer's picture: a
+        // small one for thumbnails, the full one only if that small size isn't there.
+        let usual = product?.imageURL ?? product?.smallTCGplayerURL
+        let missingOwn = product?.imageURL == nil
         let steps: [URL] = Array(bigs.dropFirst()) + (bigs.isEmpty ? [] : [usual].compactMap { $0 })
+            + (bigs.isEmpty && missingOwn ? [product?.largeImageURL].compactMap { $0 } : [])
         CachedImage(url: bigs.first ?? usual, fallback: steps.first, fallbacks: Array(steps.dropFirst())) { image in
             image.resizable().aspectRatio(contentMode: .fit)
                 .scaleEffect(large ? 1.015 : 1)

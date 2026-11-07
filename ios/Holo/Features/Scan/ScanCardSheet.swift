@@ -247,6 +247,8 @@ private struct CandidateCard: View {
         Button(action: onPick) {
             VStack(alignment: .leading, spacing: 6) {
                 ProductImage(product: p, cornerRadius: 8, large: true)
+                    // Shrunk to the size it shows at (the full picture is for the hold preview).
+                    .imageMaxPixel(520)
                     .aspectRatio(0.716, contentMode: .fit)
                     .frame(maxWidth: .infinity)
                     .overlay(alignment: .topLeading) {
