@@ -27,6 +27,15 @@ struct HoloTabBar<Tab: Hashable>: View {
         .frame(height: 64)
         .liquidGlass(in: Capsule(), tint: Theme.background.opacity(0.4))
         .shadow(color: .black.opacity(0.45), radius: 18, y: 8)
+        // A glowing lime edge, brightest at the left and right ends; the glow is the edge's own
+        // still shadow, drawn once.
+        .overlay {
+            Capsule()
+                .strokeBorder(LinearGradient(colors: [Theme.lime.opacity(0.7), .white.opacity(0.10), .white.opacity(0.06), Theme.lime.opacity(0.45)],
+                                             startPoint: .leading, endPoint: .trailing), lineWidth: 1.2)
+                .shadow(color: Theme.lime.opacity(0.35), radius: 8)
+                .allowsHitTesting(false)
+        }
         // Drawn over the bar, not inside the glass, so the bar's edge never shows through it.
         .overlay {
             Button(action: onPlus) {
@@ -46,7 +55,11 @@ struct HoloTabBar<Tab: Hashable>: View {
                                 Circle().fill(LinearGradient(colors: [.white.opacity(0.25), .clear], startPoint: .top, endPoint: .center))
                             }
                             .compositingGroup()
-                            .shadow(color: Theme.lime.opacity(0.4), radius: 12, y: 2)
+                            .shadow(color: Theme.lime.opacity(0.65), radius: 16, y: 2)
+                            // A wider, softer halo around it (still, drawn once).
+                            .background {
+                                Circle().fill(Theme.lime.opacity(0.3)).blur(radius: 18).scaleEffect(1.35).allowsHitTesting(false)
+                            }
                             Sheen(strength: 0.6).clipShape(Circle())
                         }
                     )
@@ -71,6 +84,8 @@ struct HoloTabBar<Tab: Hashable>: View {
             VStack(spacing: 4) {
                 Image(systemName: item.icon).font(.system(size: 21, weight: on ? .semibold : .regular))
                     .foregroundStyle(on ? Theme.lime : Theme.muted)
+                    // The chosen tab's icon glows.
+                    .shadow(color: on ? Theme.lime.opacity(0.6) : .clear, radius: 7)
                     .frame(height: 26)
                 Text(item.title).font(.geist(11, .medium)).foregroundStyle(on ? .white : Theme.muted)
             }

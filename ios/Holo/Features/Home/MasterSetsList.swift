@@ -198,6 +198,7 @@ struct SetBannerRow: View {
                 if let ratio = row.ratio, started {
                     HStack(spacing: 10) {
                         GrowBar(fraction: ratio, color: Theme.lime, height: 5, gradient: false)
+                            .shadow(color: Theme.lime.opacity(0.6), radius: 5)
                         Text("\(Int((ratio * 100).rounded()))%").font(.geist(14, .semibold)).monospacedDigit()
                             .foregroundStyle(Theme.lime)
                     }
@@ -225,7 +226,15 @@ struct SetBannerRow: View {
             }
         }
         .clipShape(shape)
-        .overlay(shape.strokeBorder(isComplete ? Theme.lime.opacity(0.6) : Color.white.opacity(0.12), lineWidth: isComplete ? 1.5 : 1))
+        // A glowing edge in the set's own color, bright at the top left and fading round the card
+        // (lime when finished); the glow is the edge's still shadow.
+        .overlay {
+            let accent = isComplete ? Theme.lime : SetGlow.accent(for: row.id)
+            shape.strokeBorder(LinearGradient(colors: [accent.opacity(0.95), accent.opacity(0.35), .white.opacity(0.08), accent.opacity(0.3)],
+                                              startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1.5)
+                .shadow(color: accent.opacity(0.55), radius: 10)
+                .allowsHitTesting(false)
+        }
         .contentShape(shape)
     }
 

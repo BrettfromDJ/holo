@@ -10,6 +10,14 @@ import SwiftUI
 struct SetGlow: View {
     var id: String
 
+    /// The set's main light (lime, blue or pink), the same one its card glows with.
+    static func accent(for id: String) -> Color {
+        let accents = [Theme.lime, Theme.planBlue, Theme.planPink]
+        var h: UInt64 = 1469598103934665603
+        for b in id.utf8 { h = (h ^ UInt64(b)) &* 1099511628211 }
+        return accents[Int(h % 3)]
+    }
+
     var body: some View {
         let accents = [Theme.lime, Theme.planBlue, Theme.planPink]
         var h: UInt64 = 1469598103934665603
