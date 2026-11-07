@@ -8,7 +8,8 @@ enum Theme {
     static let surface3 = Color(hex: 0x232327)
     static let lime = Color(hex: 0xD4FF3A)
     static let ink = Color(hex: 0x0B0B0C)
-    static let muted = Color(hex: 0x8E8E93)
+    /// Quiet text: white, partly see-through (never grey).
+    static let muted = Color.white.opacity(0.6)
     static let up = Color(hex: 0xD4FF3A)
     static let down = Color(hex: 0xFF3D7F)
     static let warn = Color(hex: 0xF5B84A)

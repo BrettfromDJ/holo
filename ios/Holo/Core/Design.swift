@@ -72,7 +72,8 @@ extension Theme {
     static let planBlue = Color(hex: 0x2F5BFF)
     static let planPink = Color(hex: 0xFF2E9A)
     static let azure = Color(hex: 0x4A72FF)
-    static let subtle = Color(hex: 0x636366)
+    /// Quieter text still: white, more see-through (never grey).
+    static let subtle = Color.white.opacity(0.42)
     static let border = Color.white.opacity(0.07)
     static let borderStrong = Color.white.opacity(0.12)
     static let well = Color(hex: 0x18181A)
@@ -256,6 +257,9 @@ struct GlassList<Content: View>: View {
                 .listRowBackground(Color.white.opacity(0.07))
         }
         .scrollContentBackground(.hidden)
+        // White text, so the system's quieter text (section notes and headings) is white made
+        // partly see-through, not grey.
+        .foregroundStyle(.white)
     }
 }
 
@@ -269,6 +273,9 @@ struct GlassForm<Content: View>: View {
                 .listRowBackground(Color.white.opacity(0.07))
         }
         .scrollContentBackground(.hidden)
+        // White text, so the system's quieter text (section notes and headings) is white made
+        // partly see-through, not grey.
+        .foregroundStyle(.white)
     }
 }
 
