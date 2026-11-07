@@ -77,7 +77,7 @@ struct MasterSetsView: View {
                     // Every set as a full-width card in its own light. Tap one to open the set.
                     LazyVStack(spacing: 14) {
                         ForEach(rows) { r in
-                            NavigationLink(value: MasterSetRoute(id: r.id, name: r.name)) { SetBannerRow(row: r) }
+                            NavigationLink(value: MasterSetRoute(id: r.id, name: r.name)) { SetBannerRow(row: r, catalogReady: !index.isEmpty) }
                                 .buttonStyle(.plain)
                         }
                     }
@@ -179,6 +179,9 @@ struct MasterSetsView: View {
 /// set is lit lime with a Complete tag.
 struct SetBannerRow: View {
     var row: MasterSetsView.Row
+    /// The catalog's set list has arrived. Until then the art stays empty rather than showing
+    /// your card in its place and swapping it for the banner a moment later.
+    var catalogReady = true
     static let height: CGFloat = 132
 
     private var isComplete: Bool {
@@ -247,8 +250,8 @@ struct SetBannerRow: View {
     @ViewBuilder private var art: some View {
         if let banner = row.art?.iconUrl.flatMap(URL.init(string:)) {
             CachedImage(url: banner) { img in img.resizable().scaledToFill() } placeholder: { Color.clear }
-        } else if let cover = row.holdings.max(by: { ($0.value ?? 0) < ($1.value ?? 0) }) {
-            // No banner (a demo set): your best card from it, tilted.
+        } else if catalogReady, let cover = row.holdings.max(by: { ($0.value ?? 0) < ($1.value ?? 0) }) {
+            // No banner (a demo set, or one the catalog lacks): your best card from it, tilted.
             HoldingArt(product: cover.product, identity: cover.identity, cornerRadius: 5, caption: false)
                 .frame(width: 78, height: 108)
                 .rotationEffect(.degrees(8))
