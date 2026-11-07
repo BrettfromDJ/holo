@@ -23,8 +23,13 @@ export interface PushResult {
   reason?: string;
 }
 
+/** An env value without the spaces, line breaks or quote marks a paste often brings along. */
+function env(name: string) {
+  return (process.env[name] ?? "").trim().replace(/^["']|["']$/g, "").trim();
+}
+
 export function isApnsConfigured() {
-  return Boolean(process.env.APNS_KEY_ID && process.env.APNS_TEAM_ID && process.env.APNS_BUNDLE_ID && process.env.APNS_PRIVATE_KEY);
+  return Boolean(env("APNS_KEY_ID") && env("APNS_TEAM_ID") && env("APNS_BUNDLE_ID") && env("APNS_PRIVATE_KEY"));
 }
 
 const b64url = (b: Buffer | string) => Buffer.from(b).toString("base64").replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
@@ -35,10 +40,10 @@ let cached: { token: string; at: number } | null = null;
 function providerToken(): string {
   const now = Math.floor(Date.now() / 1000);
   if (cached && now - cached.at < 50 * 60) return cached.token;
-  const header = b64url(JSON.stringify({ alg: "ES256", kid: process.env.APNS_KEY_ID }));
-  const claims = b64url(JSON.stringify({ iss: process.env.APNS_TEAM_ID, iat: now }));
+  const header = b64url(JSON.stringify({ alg: "ES256", kid: env("APNS_KEY_ID") }));
+  const claims = b64url(JSON.stringify({ iss: env("APNS_TEAM_ID"), iat: now }));
   // Env vars often store the key with literal "\n"s.
-  const pem = (process.env.APNS_PRIVATE_KEY ?? "").replace(/\\n/g, "\n");
+  const pem = env("APNS_PRIVATE_KEY").replace(/\\n/g, "\n");
   const signer = createSign("SHA256");
   signer.update(`${header}.${claims}`);
   const sig = signer.sign({ key: createPrivateKey(pem), dsaEncoding: "ieee-p1363" });
@@ -63,7 +68,7 @@ export async function sendPush(tokens: string[], message: PushMessage, environme
               ":method": "POST",
               ":path": `/3/device/${token}`,
               authorization: `bearer ${auth}`,
-              "apns-topic": process.env.APNS_BUNDLE_ID!,
+              "apns-topic": env("APNS_BUNDLE_ID"),
               "apns-push-type": "alert",
               "content-type": "application/json",
             });

@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: { code: "no_devices", message: "No phone is registered yet. Allow notifications in the app first." } }, { status: 404 });
   }
 
-  const message = { title: "Holo notifications work", body: "You'll get an alert like this when a watched card hits your target price." };
+  const message = { title: "Lucent notifications work", body: "You'll get an alert like this when a watched card hits your target price." };
   const results = [];
   for (const env of ["production", "sandbox"] as const) {
     results.push(...(await sendPush(devices.filter((d) => d.environment === env).map((d) => d.token), message, env)));
