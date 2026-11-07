@@ -44,7 +44,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: { code: "send_failed", message: `Couldn't reach Apple's push service: ${detail}` } }, { status: 502 });
   }
   const sent = results.filter((r) => r.ok).length;
-  const ids = `Key ID ${(process.env.APNS_KEY_ID ?? "").trim()}, Team ID ${(process.env.APNS_TEAM_ID ?? "").trim()}`;
+  // Only ever echo values shaped like Apple's 10-character IDs: anything else (say, the key itself
+  // pasted into the wrong box) is described, never shown.
+  const id = (name: string) => {
+    const v = (process.env[name] ?? "").trim().replace(/^["']|["']$/g, "");
+    return /^[A-Z0-9]{10}$/.test(v) ? v : `not a 10-character ID (${v.length} characters${/PRIVATE KEY|^MI/.test(v) ? ", looks like the private key" : ""})`;
+  };
+  const ids = `Key ID ${id("APNS_KEY_ID")}, Team ID ${id("APNS_TEAM_ID")}`;
   // A token Apple turns down names the IDs in use, to check against the key's page (they aren't secret).
   const reasons = [...new Set(results.filter((r) => !r.ok).map((r) => r.reason ?? `HTTP ${r.status}`))].map((r) =>
     /ProviderToken|TopicDisallowed|BadEnvironmentKeyInToken/.test(r) ? `${r} (${ids}, app ${(process.env.APNS_BUNDLE_ID ?? "").trim()})` : r,
