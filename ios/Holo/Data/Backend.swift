@@ -132,7 +132,9 @@ final class HoloAPI {
     // MARK: Explore and market data (stored catalog; eBay and conditions are cached 12h at the CDN)
 
     func exploreIndex() async throws -> ExploreIndex {
-        try await send(try await request("api/explore"), as: ExploreIndex.self)
+        let index = try await send(try await request("api/explore"), as: ExploreIndex.self)
+        SavedSets.save(index.sets)
+        return index
     }
 
     func exploreSet(_ slug: String) async throws -> ExploreSetDetail {
@@ -209,5 +211,23 @@ final class HoloAPI {
         struct Balance: Decodable { var scansRemaining: Int?; var provider: String? }
         guard let req = try? await request("api/scan"), let b = try? await send(req, as: Balance.self) else { return (nil, nil) }
         return (b.scansRemaining, b.provider)
+    }
+}
+
+/// The catalog's set list as last loaded, kept on the phone so pages that show set art (Master
+/// Sets) have it at once on the next launch, then refresh it. Not account data.
+enum SavedSets {
+    private static var file: URL? {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?.appendingPathComponent("explore-sets.json")
+    }
+
+    static func load() -> [ExploreSet] {
+        guard let file, let data = try? Data(contentsOf: file) else { return [] }
+        return (try? JSONDecoder().decode([ExploreSet].self, from: data)) ?? []
+    }
+
+    static func save(_ sets: [ExploreSet]) {
+        guard let file, !sets.isEmpty, let data = try? JSONEncoder().encode(sets) else { return }
+        try? data.write(to: file, options: .atomic)
     }
 }

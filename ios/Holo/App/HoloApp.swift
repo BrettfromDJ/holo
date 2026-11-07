@@ -11,6 +11,9 @@ struct HoloApp: App {
 
     init() {
         Fonts.applyAppearance()
+        // A bigger download cache, so pictures (set banners, cards) come back from the phone's
+        // storage on the next launch instead of over the network.
+        URLCache.shared = URLCache(memoryCapacity: 32 * 1024 * 1024, diskCapacity: 300 * 1024 * 1024)
     }
 
     var body: some Scene {

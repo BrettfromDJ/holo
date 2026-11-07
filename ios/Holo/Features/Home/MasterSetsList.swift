@@ -48,6 +48,17 @@ struct MasterSetsView: View {
         }
     }
 
+    /// Starts downloading the banners of your sets right away (the ones on screen first), at the
+    /// size the page shows them, so they're there by the time each card is drawn.
+    private func prefetchBanners() {
+        let bySlug = Dictionary(index.map { ($0.slug, $0) }, uniquingKeysWith: { a, _ in a })
+        let byName = Dictionary(index.map { ($0.name.lowercased(), $0) }, uniquingKeysWith: { a, _ in a })
+        let urls = owned.compactMap { s in (bySlug[s.id] ?? byName[s.name.lowercased()])?.iconUrl.flatMap(URL.init(string:)) }
+        for url in urls.prefix(12) where ImageCache.shared.cached(url, maxPixel: 600) == nil {
+            Task.detached(priority: .userInitiated) { _ = await ImageCache.shared.load(url, maxPixel: 600) }
+        }
+    }
+
     /// Every brand in the catalog, Pokémon first, then by how many sets each has.
     private var brands: [(slug: String, name: String)] {
         var counts: [String: (name: String, n: Int)] = ["pokemon": ("Pokémon", 0)]
@@ -121,7 +132,12 @@ struct MasterSetsView: View {
         .toolbarBackground(.hidden, for: .navigationBar)
         .clearTopEdge()
         .task {
-            if index.isEmpty, let i = try? await Backend.shared.api.exploreIndex() { index = i.sets }
+            // The set list saved last time first (art starts loading at once), then the fresh one.
+            if index.isEmpty {
+                let saved = SavedSets.load()
+                if !saved.isEmpty { index = saved; indexTried = true; prefetchBanners() }
+            }
+            if let i = try? await Backend.shared.api.exploreIndex() { index = i.sets; prefetchBanners() }
             indexTried = true
         }
         .task(id: owned.map(\.id).joined(separator: ",")) { await MasterSetDetailView.load(owned, store: store) }
