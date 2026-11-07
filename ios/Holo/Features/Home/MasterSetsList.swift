@@ -200,15 +200,19 @@ struct SetBannerRow: View {
                 if isComplete { SkewTag(text: "Complete", icon: "checkmark") }
                 Text(row.name).font(.display(21)).tracking(-0.5).lineLimit(2).minimumScaleFactor(0.8)
                     .fixedSize(horizontal: false, vertical: true)
-                Text(subtitle).font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted).lineLimit(1)
-                if let ratio = row.ratio, started {
-                    HStack(spacing: 10) {
-                        GrowBar(fraction: ratio, color: Theme.lime, height: 5, gradient: false)
-                            .shadow(color: Theme.lime.opacity(0.6), radius: 5)
-                        Text("\(Int((ratio * 100).rounded()))%").font(.geist(14, .semibold)).monospacedDigit()
+                // "2 of 208 cards · 1%": the % beside the count, clear of the artwork.
+                HStack(spacing: 6) {
+                    Text(subtitle).font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted).lineLimit(1)
+                    if let ratio = row.ratio, started {
+                        Text("·").font(.geist(13)).foregroundStyle(Theme.muted)
+                        Text("\(Int((ratio * 100).rounded()))%").font(.geist(13, .semibold)).monospacedDigit()
                             .foregroundStyle(Theme.lime)
                     }
-                    .padding(.top, 4)
+                }
+                if let ratio = row.ratio, started {
+                    GrowBar(fraction: ratio, color: Theme.lime, height: 5, gradient: false)
+                        .shadow(color: Theme.lime.opacity(0.6), radius: 5)
+                        .padding(.top, 4)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
