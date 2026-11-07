@@ -44,7 +44,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: { code: "send_failed", message: `Couldn't reach Apple's push service: ${detail}` } }, { status: 502 });
   }
   const sent = results.filter((r) => r.ok).length;
-  // Only ever echo values shaped like Apple's 10-character IDs: anything else (say, the key itself
+  // Only echo values shaped like Apple's 10-character IDs: anything else (say, the key itself
   // pasted into the wrong box) is described, never shown.
   const id = (name: string) => {
     const v = (process.env[name] ?? "").trim().replace(/^["']|["']$/g, "");
