@@ -34,6 +34,19 @@ export function isApnsConfigured() {
 
 const b64url = (b: Buffer | string) => Buffer.from(b).toString("base64").replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
 
+/**
+ * The .p8 key as PEM, however it was pasted: with real or literal "\n" line breaks, with the
+ * lines run together by spaces, or as just the base64 body without the BEGIN/END lines.
+ */
+export function readPem(raw: string) {
+  const body = raw
+    .replace(/\\n/g, "\n")
+    .replace(/-----(BEGIN|END) [A-Z ]*PRIVATE KEY-----/g, "")
+    .replace(/\s+/g, "");
+  const lines = body.match(/.{1,64}/g) ?? [];
+  return `-----BEGIN PRIVATE KEY-----\n${lines.join("\n")}\n-----END PRIVATE KEY-----\n`;
+}
+
 let cached: { token: string; at: number } | null = null;
 
 /** Provider token (ES256 JWT), reused for up to 50 minutes as Apple asks. */
@@ -43,7 +56,7 @@ function providerToken(): string {
   const header = b64url(JSON.stringify({ alg: "ES256", kid: env("APNS_KEY_ID") }));
   const claims = b64url(JSON.stringify({ iss: env("APNS_TEAM_ID"), iat: now }));
   // Env vars often store the key with literal "\n"s.
-  const pem = env("APNS_PRIVATE_KEY").replace(/\\n/g, "\n");
+  const pem = readPem(env("APNS_PRIVATE_KEY"));
   const signer = createSign("SHA256");
   signer.update(`${header}.${claims}`);
   const sig = signer.sign({ key: createPrivateKey(pem), dsaEncoding: "ieee-p1363" });
