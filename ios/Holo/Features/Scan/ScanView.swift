@@ -469,7 +469,8 @@ private struct ScanTray: View {
 
     /// One scan's tile, in the strip (fixed width) or the opened-out list (full width).
     private func chip(_ e: ScanModel.Entry, fills: Bool) -> some View {
-        ScanChip(entry: e, owned: owned(e), fills: fills) { onOpen(e) }
+        ScanChip(entry: e, owned: owned(e), fills: fills, onTap: { onOpen(e) },
+                 onRemove: { withAnimation(.snappy) { model.remove(e.id) } })
     }
 
     /// How many of this card you already have.
@@ -566,6 +567,8 @@ struct ScanChip: View {
     /// Full width (in the opened-out list) rather than a fixed strip tile.
     var fills = false
     var onTap: () -> Void
+    /// Takes this scan out: a trash button inside the tile's right edge.
+    var onRemove: (() -> Void)? = nil
 
     var body: some View {
         Button(action: onTap) {
@@ -582,6 +585,8 @@ struct ScanChip: View {
                     }
                 }
                 Spacer(minLength: 0)
+                // Room for the trash button laid over this edge.
+                if onRemove != nil { Color.clear.frame(width: 30) }
             }
             .padding(10)
             .frame(width: fills ? nil : 256, height: 112)
@@ -591,6 +596,20 @@ struct ScanChip: View {
             .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
         .buttonStyle(.plain)
+        .overlay(alignment: .trailing) {
+            if let onRemove {
+                Button(action: onRemove) {
+                    Image(systemName: "trash").font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Theme.planPink)
+                        .frame(width: 34, height: 34)
+                        .background(Circle().fill(Color.white.opacity(0.1)))
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .padding(.trailing, 10)
+                .accessibilityLabel("Remove \(entry.picked?.product.name ?? "this scan")")
+            }
+        }
     }
 
     @ViewBuilder private var thumb: some View {
