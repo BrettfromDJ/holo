@@ -159,41 +159,33 @@ private struct Unmatched: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 18) {
+                let list = Array((entry.result?.candidates ?? []).prefix(6))
+                // Your photo beside the question, big enough to compare against.
                 HStack(alignment: .top, spacing: 14) {
                     Group {
                         if let img = entry.thumbnail { Image(uiImage: img).resizable().scaledToFill() } else { Color.white.opacity(0.08) }
                     }
-                    .frame(width: 92, height: 128)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(title).font(.display(22)).tracking(-0.6).lineLimit(3)
-                        if let message = entry.error ?? entry.result?.message, entry.result?.candidates.isEmpty ?? true {
+                    .frame(width: 104, height: 145)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.white.opacity(0.18)))
+                    VStack(alignment: .leading, spacing: 8) {
+                        MonoLabel(text: "Your scan")
+                        Text(title).font(.display(24)).tracking(-0.6).lineLimit(3)
+                        if !list.isEmpty {
+                            Text("Tap the card that matches. Check the set symbol and the number in the bottom corner. Hold a card to see it bigger.")
+                                .font(.geist(13)).foregroundStyle(Theme.muted).fixedSize(horizontal: false, vertical: true)
+                        } else if let message = entry.error ?? entry.result?.message {
                             Text(message).font(.geist(14)).lineLimit(4)
                         }
                     }
                     Spacer(minLength: 0)
                 }
-                let list = entry.result?.candidates ?? []
                 if !list.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Which one is it?").font(.geist(13, .semibold))
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                ForEach(Array(list.prefix(6).enumerated()), id: \.offset) { _, c in
-                                    Button { model.pick(c, for: entry.id) } label: {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            ProductImage(product: c.product, cornerRadius: 6).frame(width: 84, height: 116)
-                                            Text(c.product.name).font(.geist(12, .semibold)).lineLimit(1)
-                                            Text(c.product.subtitle).font(.geist(11)).lineLimit(1)
-                                            Text(Format.money(c.market)).font(.geist(12, .bold)).monospacedDigit()
-                                        }
-                                        .frame(width: 96, alignment: .leading)
-                                        .padding(8)
-                                        .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
+                    // Two big cards a row, the best match first and marked, each with everything
+                    // that tells look-alikes apart: set, number, rarity, printings and price.
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                        ForEach(Array(list.enumerated()), id: \.offset) { i, c in
+                            CandidateCard(candidate: c, best: i == 0 && list.count > 1) { model.pick(c, for: entry.id) }
                         }
                     }
                 }
@@ -239,5 +231,56 @@ private struct Unmatched: View {
             default: return "No match found"
             }
         }
+    }
+}
+
+/// One possible match, big: the card's picture, its name, set, number and rarity, the printings
+/// it comes in, and its price. Tap to pick it; hold to see the picture large.
+private struct CandidateCard: View {
+    var candidate: ScanCandidate
+    var best: Bool
+    var onPick: () -> Void
+
+    var body: some View {
+        let p = candidate.product
+        let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
+        Button(action: onPick) {
+            VStack(alignment: .leading, spacing: 6) {
+                ProductImage(product: p, cornerRadius: 8, large: true)
+                    .aspectRatio(0.716, contentMode: .fit)
+                    .frame(maxWidth: .infinity)
+                    .overlay(alignment: .topLeading) {
+                        if best { SkewTag(text: "Best match", icon: "sparkles").padding(6) }
+                    }
+                    .padding(.bottom, 4)
+                Text(p.name).font(.geist(14, .semibold)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                if let set = p.setName {
+                    Text(set).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                }
+                // The details that tell look-alikes apart.
+                let details = [p.number.map { "#\($0)" }, p.rarity].compactMap { $0 }
+                if !details.isEmpty {
+                    Text(details.joined(separator: " · ")).font(.geist(12, .medium)).monospacedDigit().lineLimit(2)
+                }
+                if candidate.printings.count > 1 {
+                    Text(candidate.printings.joined(separator: " · ")).font(.geist(11)).foregroundStyle(Theme.muted).lineLimit(2)
+                }
+                Spacer(minLength: 0)
+                Text(Format.money(candidate.market)).font(.display(20)).tracking(-0.5).monospacedDigit()
+                    .padding(.top, 2)
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(Color.white.opacity(best ? 0.1 : 0.07), in: shape)
+            .overlay(shape.strokeBorder(best ? Theme.lime.opacity(0.7) : Color.white.opacity(0.1), lineWidth: best ? 1.5 : 1))
+            .contentShape(shape)
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            Button(action: onPick) { Label("This is the one", systemImage: "checkmark") }
+        } preview: {
+            ProductImage(product: p, cornerRadius: 14, large: true).frame(width: 300, height: 419)
+        }
+        .accessibilityLabel("\(p.name), \(p.subtitle), \(Format.money(candidate.market))")
     }
 }
