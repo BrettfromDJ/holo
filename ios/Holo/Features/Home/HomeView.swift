@@ -1296,10 +1296,14 @@ private struct CategoryCard: View {
     var items: [HoldingView]
     var total: Double
 
+    /// The three most valuable different products (copies of one card count once), those with
+    /// a picture first.
     private var thumbnails: [HoldingView] {
-        let byValue = items.sorted { ($0.value ?? 0) > ($1.value ?? 0) }
-        let pictured = byValue.filter { $0.product?.imageURL != nil }
-        return Array((pictured.isEmpty ? byValue : pictured).prefix(3))
+        var seen = Set<String>()
+        let byValue = items.sorted { ($0.value ?? 0) > ($1.value ?? 0) }.filter { seen.insert($0.identity.productId).inserted }
+        let pictured = byValue.filter { $0.product?.imageURL != nil || $0.product?.largeImageURL != nil }
+        let rest = byValue.filter { h in !pictured.contains { $0.id == h.id } }
+        return Array((pictured + rest).prefix(3))
     }
 
     var body: some View {
