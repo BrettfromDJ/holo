@@ -47,6 +47,19 @@ export function readPem(raw: string) {
   return `-----BEGIN PRIVATE KEY-----\n${lines.join("\n")}\n-----END PRIVATE KEY-----\n`;
 }
 
+/** Why the Apple key can't be used (nil when it can): checked before sending. */
+export function apnsKeyProblem(): string | null {
+  const raw = env("APNS_PRIVATE_KEY");
+  try {
+    const key = createPrivateKey(readPem(raw));
+    if (key.asymmetricKeyType !== "ec") return `APNS_PRIVATE_KEY is a ${key.asymmetricKeyType} key, not an Apple push (.p8) key.`;
+    return null;
+  } catch (e) {
+    const chars = raw.replace(/-----(BEGIN|END) [A-Z ]*PRIVATE KEY-----/g, "").replace(/\s+/g, "").length;
+    return `APNS_PRIVATE_KEY couldn't be read (${chars} key characters after BEGIN/END; an Apple .p8 has about 200). ${e instanceof Error ? e.message : ""}`.trim();
+  }
+}
+
 let cached: { token: string; at: number } | null = null;
 
 /** Provider token (ES256 JWT), reused for up to 50 minutes as Apple asks. */

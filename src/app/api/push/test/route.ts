@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isApnsConfigured, sendPush } from "@/lib/server/apns";
+import { apnsKeyProblem, isApnsConfigured, sendPush } from "@/lib/server/apns";
 import { allowRequest, clientKey } from "@/lib/server/rate-limit";
 import { getAdminSupabase, getRequestUser } from "@/lib/supabase/server";
 
@@ -30,17 +30,18 @@ export async function POST(req: Request) {
 
   const message = { title: "Lucent notifications work", body: "You'll get an alert like this when a watched card hits your target price." };
   const results = [];
+  const keyProblem = apnsKeyProblem();
+  if (keyProblem) {
+    return NextResponse.json({ error: { code: "bad_key", message: keyProblem } }, { status: 500 });
+  }
   try {
     for (const env of ["production", "sandbox"] as const) {
       results.push(...(await sendPush(devices.filter((d) => d.environment === env).map((d) => d.token), message, env)));
     }
   } catch (e) {
-    // Almost always the key: APNS_PRIVATE_KEY isn't the whole .p8 file.
+    // The key reads fine, so this is the connection to Apple.
     const detail = e instanceof Error ? e.message : String(e);
-    return NextResponse.json(
-      { error: { code: "bad_key", message: `The server couldn't use the Apple key. Paste the whole .p8 file into APNS_PRIVATE_KEY and redeploy. (${detail})` } },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: { code: "send_failed", message: `Couldn't reach Apple's push service: ${detail}` } }, { status: 502 });
   }
   const sent = results.filter((r) => r.ok).length;
   const reasons = [...new Set(results.filter((r) => !r.ok).map((r) => r.reason ?? `HTTP ${r.status}`))];
