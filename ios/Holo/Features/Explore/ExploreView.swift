@@ -84,13 +84,6 @@ struct ExploreView: View {
                     }
                     .reveal()
                 }
-                if let drops = index.drops, !drops.isEmpty {
-                    VStack(alignment: .leading, spacing: 14) {
-                        PageHeader(title: "Biggest drops", subtitle: "Biggest 7-day falls", size: 22).padding(.horizontal, 16)
-                        MoverCarousel(hits: drops)
-                    }
-                    .reveal()
-                }
                 VStack(alignment: .leading, spacing: 14) {
                     PageHeader(title: "Brands", subtitle: "Every game in the catalog", size: 22)
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
@@ -1271,7 +1264,7 @@ private struct MarketLink<Label: View>: View {
     }
 }
 
-/// A sideways row of singles with their price and 7-day change (Trending this week, Biggest drops).
+/// A sideways row of singles with their price and 7-day change (Trending this week).
 private struct MoverCarousel: View {
     var hits: [SearchHit]
     /// Sealed: square wells instead of card-shaped art.
