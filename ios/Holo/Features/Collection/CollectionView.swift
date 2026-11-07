@@ -205,6 +205,9 @@ struct CollectionView: View {
                                         .font(.geist(15)).monospacedDigit()
                                 }
                             }
+                            if let category, shelfId == nil, !pullsOnly {
+                                CategoryBanner(category: category, holdings: store.holdings, total: store.summary.value)
+                            }
                             // Filtered and sorted once per redraw.
                             let shown = self.shown
                             if shown.isEmpty {
@@ -1077,6 +1080,36 @@ struct AllocationBar: View {
                 withAnimation(.spring(response: 0.9, dampingFraction: 0.85).delay(0.15)) { grown = true }
             }
         }
+    }
+}
+
+/// The chosen kind (Sealed, Singles, Graded) as a card in its color, like Overview's: its name and
+/// share of your value on a slanted tag, what it's worth, and its gain on what you paid.
+private struct CategoryBanner: View {
+    var category: HoldingCategory
+    var holdings: [HoldingView]
+    var total: Double
+
+    var body: some View {
+        let items = holdings.filter { $0.category == category }
+        let value = items.reduce(0) { $0 + ($1.value ?? 0) }
+        let cost = items.filter { $0.value != nil }.reduce(0) { $0 + $1.costBasis }
+        let share = total > 0 ? Int((value / total * 100).rounded()) : 0
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                Text(category.rawValue).font(.display(26)).tracking(-0.7).displayTrim(26)
+                category.tag("\(share)% of value")
+            }
+            Text(Format.money(value)).font(.display(36)).tracking(-1.4).monospacedDigit().displayTrim(36)
+            HStack(spacing: 4) {
+                Text(Format.signedMoney(value - cost)).foregroundStyle(Theme.tone(value - cost)).fontWeight(.semibold)
+                Text("on what you paid").foregroundStyle(Theme.muted)
+            }
+            .font(.geist(14)).monospacedDigit()
+        }
+        .foregroundStyle(.white)
+        .tinted(category.color)
+        .transition(.opacity)
     }
 }
 

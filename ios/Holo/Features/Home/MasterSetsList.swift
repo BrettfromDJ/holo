@@ -180,7 +180,10 @@ struct MasterSetsView: View {
             }
             .aspectRatio(3.0 / 2.0, contentMode: .fit)
             .clipShape(shape)
-            .overlay(shape.strokeBorder(Theme.border))
+            .overlay(shape.strokeBorder((r.ratio ?? 0) >= 1 && !r.holdings.isEmpty ? Theme.lime.opacity(0.7) : Theme.border, lineWidth: (r.ratio ?? 0) >= 1 ? 1.5 : 1))
+            .overlay(alignment: .topLeading) {
+                if (r.ratio ?? 0) >= 1, !r.holdings.isEmpty { SkewTag(text: "Complete", icon: "checkmark").padding(8) }
+            }
             .overlay(alignment: .bottomLeading) {
                 if let ratio = r.ratio, !r.holdings.isEmpty {
                     HStack(spacing: 6) {
@@ -236,13 +239,7 @@ struct SetDeckCard: View {
                     HStack(spacing: 8) {
                         Text(row.total.map { "\(row.owned) of \($0) cards" } ?? (row.holdings.isEmpty ? "Not started" : "\(row.owned) card\(row.owned == 1 ? "" : "s")"))
                             .font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted)
-                        if isComplete {
-                            Text("Complete")
-                                .font(.geist(11, .semibold))
-                                .foregroundStyle(Theme.ink)
-                                .padding(.horizontal, 7).padding(.vertical, 2)
-                                .background(Theme.lime, in: Capsule())
-                        }
+                        if isComplete { SkewTag(text: "Complete", icon: "checkmark") }
                     }
                 }
                 Spacer(minLength: 8)
@@ -276,8 +273,15 @@ struct SetDeckCard: View {
                     .offset(x: 16, y: 10)
             }
         }
+        // A finished set is lit lime: a lime wash from the top and a lime edge.
+        .overlay {
+            if isComplete {
+                RadialGradient(colors: [Theme.lime.opacity(0.30), .clear], center: .top, startRadius: 0, endRadius: 260)
+                    .allowsHitTesting(false)
+            }
+        }
         .clipShape(shape)
-        .overlay(shape.strokeBorder(Theme.border))
+        .overlay(shape.strokeBorder(isComplete ? Theme.lime.opacity(0.55) : Theme.border, lineWidth: isComplete ? 1.5 : 1))
         .shadow(color: .black.opacity(0.6), radius: 10, y: -4)
     }
 

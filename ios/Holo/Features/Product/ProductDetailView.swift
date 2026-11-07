@@ -553,8 +553,13 @@ struct ProductDetailView: View {
         let pricedCost = owned.filter { $0.value != nil }.reduce(0) { $0 + $1.costBasis }
         let gain = value - pricedCost
         let realized = owned.reduce(0) { $0 + $1.realizedGain }
+        let kind = HoldingCategory.of(product, copies: owned)
         return VStack(alignment: .leading, spacing: 0) {
-            PageHeader(title: "Your position", size: 22).padding(.bottom, 16)
+            HStack(alignment: .center, spacing: 10) {
+                PageHeader(title: "Your position", size: 22)
+                kind.tag()
+            }
+            .padding(.bottom, 16)
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 24, alignment: .leading), GridItem(.flexible(), alignment: .leading)], spacing: 20) {
                 stat("Quantity", qty.formatted(), .white)
                 stat("Holding value", Format.money(value), .white)
@@ -585,7 +590,8 @@ struct ProductDetailView: View {
                 .buttonStyle(.plain)
             }
         }
-        .surface(padding: 20)
+        .padding(4)
+        .tinted(kind.color)
     }
 
     private func stat(_ label: String, _ value: String, _ tint: Color) -> some View {

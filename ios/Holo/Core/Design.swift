@@ -186,6 +186,8 @@ struct Tinted: ViewModifier {
     var tint: Color
     var radius: CGFloat = 20
     var border = true
+    /// On a glass sheet the card is a faint white fill (so the glass shows), lit by the tint.
+    @Environment(\.onGlassSheet) private var onGlass
 
     func body(content: Content) -> some View {
         content
@@ -193,7 +195,7 @@ struct Tinted: ViewModifier {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .fill(Theme.surface)
+                    .fill(onGlass ? AnyShapeStyle(Color.white.opacity(0.06)) : AnyShapeStyle(Theme.surface))
                     .overlay(
                         RoundedRectangle(cornerRadius: radius, style: .continuous)
                             .fill(RadialGradient(colors: [tint.opacity(0.30), .clear], center: .top, startRadius: 0, endRadius: 260))
@@ -786,6 +788,19 @@ enum HoldingCategory: String, CaseIterable, Identifiable {
         case .singles: return "Raw cards, straight from the pack"
         case .graded: return "Slabbed and certified"
         }
+    }
+}
+
+extension HoldingCategory {
+    /// The slanted tag in this kind's color (ink on lime, white on blue and pink).
+    func tag(_ text: String? = nil) -> SkewTag {
+        SkewTag(text: text ?? rawValue, color: color, textColor: self == .graded ? Theme.ink : .white)
+    }
+
+    /// What a set of copies of one product is: graded if every one is, else sealed or singles.
+    static func of(_ product: Product?, copies: [HoldingView]) -> HoldingCategory {
+        if !copies.isEmpty, copies.allSatisfy(\.identity.isGraded) { return .graded }
+        return product?.isSealed == true ? .sealed : .singles
     }
 }
 

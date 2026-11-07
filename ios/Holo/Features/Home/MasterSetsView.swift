@@ -326,6 +326,9 @@ private struct SetProgressHeader: View, Equatable {
         // The set's page opens on the lit grid: the % in glowing lime digits, a dial of
         // how much you own, two tiles, then every card in the set as one tick.
         VStack(spacing: 18) {
+            if known, total > 0, owned >= total {
+                SkewTag(text: "Set complete", icon: "checkmark")
+            }
             if known {
                 // The % sits inside the dial, so the top stays compact.
                 ZStack {

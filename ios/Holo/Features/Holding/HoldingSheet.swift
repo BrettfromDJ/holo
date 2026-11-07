@@ -373,7 +373,11 @@ private struct HoldingWorth: View {
         let h = holding
         let points = Self.thin(self.points)
         VStack(alignment: .leading, spacing: 8) {
-            MonoLabel(text: h.quantity > 1 ? "Your \(Int(h.quantity)) are worth" : "Yours is worth")
+            HStack {
+                MonoLabel(text: h.quantity > 1 ? "Your \(Int(h.quantity)) are worth" : "Yours is worth")
+                Spacer()
+                h.category.tag()
+            }
             // Everything sits in place; only the figures count and the chart draws.
             CountingText(value: h.value ?? 0, format: { (h.isConditionEstimate ? "≈ " : "") + Format.money($0) }, duration: 0.9, delay: 0.15)
                 .font(.display(44)).tracking(-1.8).monospacedDigit().displayTrim(44)
@@ -398,6 +402,7 @@ private struct HoldingWorth: View {
                 }
             }
         }
+        .tinted(h.category.color)
     }
 
     /// A copy held for years has a point for every day (up to 3,650), and Swift Charts lays out
