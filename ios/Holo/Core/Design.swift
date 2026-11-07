@@ -1270,3 +1270,9 @@ struct LimeToggleStyle: ToggleStyle {
         .accessibilityAction { configuration.isOn.toggle() }
     }
 }
+
+/// Small taps you feel: a light one for an ordinary tap, a firmer one when something is removed.
+enum Haptics {
+    @MainActor static func tap() { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+    @MainActor static func remove() { UIImpactFeedbackGenerator(style: .medium).impactOccurred() }
+}

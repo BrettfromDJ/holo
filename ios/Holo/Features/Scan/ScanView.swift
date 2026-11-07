@@ -119,9 +119,9 @@ struct ScanView: View {
 
     private var topBar: some View {
         HStack(spacing: 8) {
-            glassCircle("xmark", label: "Close") { dismiss() }
+            glassCircle("xmark", label: "Close") { Haptics.tap(); dismiss() }
             // Can't scan it (a bad angle, a foreign card)? Look it up by name instead.
-            Button { searchingManually = true } label: {
+            Button { Haptics.tap(); searchingManually = true } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass").font(.system(size: 15, weight: .medium))
                     Text(dealSide == nil ? "Search manually" : (dealSide == .incoming ? "Search · coming in" : "Search · going out"))
@@ -140,6 +140,7 @@ struct ScanView: View {
             // The light, for dim card shows: lime while on.
             if camera.hasTorch || camera.state != .running {
                 Button {
+                    Haptics.tap()
                     torch.toggle()
                     camera.setTorch(torch)
                 } label: {
@@ -357,6 +358,7 @@ private struct ScanTray: View {
                 Spacer()
                 // The count opens the strip out into a list (and closes it again).
                 Button {
+                    Haptics.tap()
                     withAnimation(reduceMotion ? nil : .snappy(duration: 0.3)) { expanded.toggle() }
                 } label: {
                     HStack(spacing: 6) {
@@ -431,7 +433,7 @@ private struct ScanTray: View {
                     Text(model.picks.isEmpty ? "Total value" : "\(model.picks.count) matched").font(.geist(12)).foregroundStyle(.white)
                 }
                 Spacer()
-                Button { clearing = true } label: {
+                Button { Haptics.tap(); clearing = true } label: {
                     Image(systemName: "trash").font(.system(size: 16, weight: .medium))
                         .frame(width: 48, height: 48)
                         .contentShape(Circle())
@@ -443,6 +445,7 @@ private struct ScanTray: View {
                 .accessibilityLabel("Clear all scans")
                 Button {
                     // In a deal, scans are already in it: Done just closes the camera.
+                    Haptics.tap()
                     if dealSide != nil { onDone() } else { onNext() }
                 } label: {
                     HStack(spacing: 6) {
@@ -461,7 +464,7 @@ private struct ScanTray: View {
         .background { Color.clear.liquidGlass(in: shape).ignoresSafeArea(edges: .bottom) }
         .alert("Clear these scans?", isPresented: $clearing) {
             Button("Cancel", role: .cancel) {}
-            Button("Clear", role: .destructive) { withAnimation(.snappy) { for e in model.entries { model.remove(e.id) } } }
+            Button("Clear", role: .destructive) { Haptics.remove(); withAnimation(.snappy) { for e in model.entries { model.remove(e.id) } } }
         } message: {
             Text("Nothing has been added to your collection yet.")
         }
@@ -469,8 +472,8 @@ private struct ScanTray: View {
 
     /// One scan's tile, in the strip (fixed width) or the opened-out list (full width).
     private func chip(_ e: ScanModel.Entry, fills: Bool) -> some View {
-        ScanChip(entry: e, owned: owned(e), fills: fills, onTap: { onOpen(e) },
-                 onRemove: { withAnimation(.snappy) { model.remove(e.id) } })
+        ScanChip(entry: e, owned: owned(e), fills: fills, onTap: { Haptics.tap(); onOpen(e) },
+                 onRemove: { Haptics.remove(); withAnimation(.snappy) { model.remove(e.id) } })
     }
 
     /// How many of this card you already have.
