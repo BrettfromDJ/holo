@@ -44,6 +44,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: { code: "send_failed", message: `Couldn't reach Apple's push service: ${detail}` } }, { status: 502 });
   }
   const sent = results.filter((r) => r.ok).length;
-  const reasons = [...new Set(results.filter((r) => !r.ok).map((r) => r.reason ?? `HTTP ${r.status}`))];
+  const ids = `Key ID ${(process.env.APNS_KEY_ID ?? "").trim()}, Team ID ${(process.env.APNS_TEAM_ID ?? "").trim()}`;
+  // A token Apple turns down names the IDs in use, to check against the key's page (they aren't secret).
+  const reasons = [...new Set(results.filter((r) => !r.ok).map((r) => r.reason ?? `HTTP ${r.status}`))].map((r) =>
+    /ProviderToken|TopicDisallowed|BadEnvironmentKeyInToken/.test(r) ? `${r} (${ids}, app ${(process.env.APNS_BUNDLE_ID ?? "").trim()})` : r,
+  );
   return NextResponse.json({ sent, failed: results.length - sent, reasons });
 }
