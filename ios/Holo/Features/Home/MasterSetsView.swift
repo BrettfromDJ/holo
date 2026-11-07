@@ -7,6 +7,36 @@ final class MasterSetsCache {
     static let shared = MasterSetsCache()
     var checklists: [String: [SearchHit]] = [:]
     var failed: Set<String> = []
+    /// Sets fetched fresh this session (the saved copy shows first, then this replaces it).
+    var refreshed: Set<String> = []
+    private var restored = false
+
+    private static var file: URL? {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?.appendingPathComponent("master-set-checklists.json")
+    }
+
+    /// The card lists saved last time, so percentages show at once on the next visit.
+    func restore() {
+        guard !restored else { return }
+        restored = true
+        guard let file = Self.file, let data = try? Data(contentsOf: file),
+              let saved = try? JSONDecoder().decode([String: [SearchHit]].self, from: data) else { return }
+        for (id, cards) in saved where checklists[id] == nil { checklists[id] = cards }
+    }
+
+    /// Keep the real sets' lists on the phone (never a demo's).
+    func persist() {
+        guard let file = Self.file else { return }
+        let real = checklists.filter { refreshed.contains($0.key) }
+        guard !real.isEmpty else { return }
+        // Off the main thread; merged with what's saved, so sets not opened this session keep
+        // their copy.
+        Task.detached(priority: .utility) {
+            var all = (try? Data(contentsOf: file)).flatMap { try? JSONDecoder().decode([String: [SearchHit]].self, from: $0) } ?? [:]
+            all.merge(real) { _, new in new }
+            if let data = try? JSONEncoder().encode(all) { try? data.write(to: file, options: .atomic) }
+        }
+    }
 }
 
 /// One master set: every card in it, laid out like Collection. The cards you own are in full
@@ -119,9 +149,12 @@ struct MasterSetDetailView: View {
     @MainActor
     static func load(_ sets: [OwnedSet], store: CollectionStore) async {
         let cache = MasterSetsCache.shared
-        let todo = sets.filter { cache.checklists[$0.id] == nil && !cache.failed.contains($0.id) }
+        let demo = store.demo != nil || Demo.isOn
+        // Real sets: show the saved lists straight away, then fetch each fresh once a session.
+        if !demo { cache.restore() }
+        let todo = sets.filter { demo ? cache.checklists[$0.id] == nil && !cache.failed.contains($0.id) : !cache.refreshed.contains($0.id) && !cache.failed.contains($0.id) }
         guard !todo.isEmpty else { return }
-        if store.demo != nil || Demo.isOn {
+        if demo {
             // Demo sets: the real set from the catalog when it's there (free, Holo's own catalog),
             // with the demo copies in their numbered places; numbered empty slots otherwise.
             let index = try? await Backend.shared.api.exploreIndex()
@@ -151,9 +184,17 @@ struct MasterSetDetailView: View {
                 }
             }
             for await (id, cards) in group {
-                if let cards, !cards.isEmpty { cache.checklists[id] = cards } else { cache.failed.insert(id) }
+                if let cards, !cards.isEmpty {
+                    cache.checklists[id] = cards
+                    cache.refreshed.insert(id)
+                } else if cache.checklists[id] == nil {
+                    cache.failed.insert(id)
+                } else {
+                    cache.refreshed.insert(id) // Offline: keep the saved list for this session.
+                }
             }
         }
+        cache.persist()
     }
 
     /// "SV: Scarlet & Violet 151" and "Scarlet & Violet—151" are the same set: compared without a

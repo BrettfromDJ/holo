@@ -156,20 +156,35 @@ struct MasterSetsView: View {
             Text("Master Sets").font(.display(40)).tracking(-1.4).displayTrim(40)
                 .padding(.top, 4)
             // How many sets you've started, and the one you're closest to finishing.
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .lastTextBaseline, spacing: 12) {
+            // Two halves on one line: the count on the left, your closest set (a lime ring with
+            // its % inside, and its name) on the right, split by a thin rule.
+            HStack(alignment: .center, spacing: 16) {
+                VStack(alignment: .leading, spacing: 2) {
                     CountingText(value: Double(owned.count), format: { "\(Int($0.rounded()))" })
-                        .font(.display(56)).tracking(-2.2).monospacedDigit().displayTrim(56)
-                    Text(owned.count == 1 ? "Set started" : "Sets started").font(.display(24)).tracking(-0.6).displayTrim(24)
+                        .font(.display(48)).tracking(-1.8).monospacedDigit().displayTrim(48)
+                    Text(owned.count == 1 ? "Set started" : "Sets started").font(.geist(13)).foregroundStyle(Theme.muted)
                 }
+                .fixedSize()
+                Rectangle().fill(Color.white.opacity(0.12)).frame(width: 1, height: 60)
                 if let best, let ratio = best.ratio {
-                    HStack(spacing: 8) {
-                        Text("\(Int((ratio * 100).rounded()))%").font(.geist(13, .semibold)).monospacedDigit()
-                            .foregroundStyle(Theme.ink)
-                            .padding(.horizontal, 8).padding(.vertical, 3)
-                            .background(Theme.lime, in: RoundedRectangle(cornerRadius: 6))
-                        Text("of \(best.name), your closest").font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
+                    HStack(spacing: 12) {
+                        ZStack {
+                            Circle().stroke(Color.white.opacity(0.14), lineWidth: 5)
+                            Circle().trim(from: 0, to: max(0.02, min(ratio, 1)))
+                                .stroke(Theme.lime, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                                .rotationEffect(.degrees(-90))
+                            Text("\(Int((ratio * 100).rounded()))%").font(.geist(13, .semibold)).monospacedDigit()
+                        }
+                        .frame(width: 56, height: 56)
+                        VStack(alignment: .leading, spacing: 3) {
+                            MonoLabel(text: "Closest")
+                            Text(best.name).font(.geist(14, .semibold)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                        }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    Text("Add cards from a set to see how close you are.").font(.geist(13)).foregroundStyle(Theme.muted)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
             .padding(18)
