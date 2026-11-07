@@ -1242,3 +1242,31 @@ struct SectionNote: View {
     init(_ text: String) { self.text = text }
     var body: some View { Text(text).font(.geist(12)).foregroundStyle(Theme.subtle).textCase(nil) }
 }
+
+/// The app's switch: lime with a dark knob when on (a white knob would vanish into the lime),
+/// a dim track with a white knob when off.
+struct LimeToggleStyle: ToggleStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 12) {
+            configuration.label
+            Spacer(minLength: 8)
+            ZStack(alignment: configuration.isOn ? .trailing : .leading) {
+                Capsule()
+                    .fill(configuration.isOn ? Theme.lime : Color.white.opacity(0.16))
+                    .frame(width: 51, height: 31)
+                Circle()
+                    .fill(configuration.isOn ? Theme.ink : .white)
+                    .frame(width: 27, height: 27)
+                    .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
+                    .padding(2)
+            }
+            .animation(.snappy(duration: 0.2), value: configuration.isOn)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { configuration.isOn.toggle() }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityValue(configuration.isOn ? "On" : "Off")
+        .accessibilityAction { configuration.isOn.toggle() }
+    }
+}

@@ -23,6 +23,7 @@ struct HoloApp: App {
                 .environment(groups)
                 .preferredColorScheme(.dark)
                 .tint(Theme.lime)
+                .toggleStyle(LimeToggleStyle())
                 .font(.geist(15))
         }
     }
