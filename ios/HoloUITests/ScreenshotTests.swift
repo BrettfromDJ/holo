@@ -10,6 +10,7 @@ final class ScreenshotTests: XCTestCase {
 
     func testHome() { capture("home", args: [], pages: 7) }
     func testCollection() { capture("collection", args: ["-HoloTab", "collection"], pages: 3) }
+    func testCollectionSingles() { capture("collection-singles", args: ["-HoloTab", "collection", "-HoloCategory", "singles"], pages: 2) }
     func testCardPage() { capture("card-single", args: ["-HoloProduct", "sample:umbreon-vmax-alt"], pages: 4) }
     func testSealedPage() { capture("card-sealed", args: ["-HoloProduct", "sample:es-bb"], pages: 3) }
     /// Leave Home for another tab and come back: pictures and animations should all be there.

@@ -52,7 +52,8 @@ struct CollectionView: View {
     }
     @FocusState private var searchFocused: Bool
     @State private var query = ""
-    @State private var category: HoldingCategory?
+    /// The chosen kind (screenshots can start on one with `-HoloCategory singles`).
+    @State private var category: HoldingCategory? = Demo.value("-HoloCategory").flatMap { HoldingCategory(rawValue: $0.capitalized) }
     @State private var sort = Sort.value
     /// The website's extra filters: one set, one product type, and in profit or at a loss.
     @State private var setFilter: String?
