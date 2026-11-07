@@ -150,7 +150,10 @@ struct EbaySalesPanel: View {
                 .font(.geist(15, .semibold)).foregroundStyle(Theme.lime)
                 .frame(maxWidth: .infinity).frame(height: 46)
                 .background(Capsule().fill(Theme.lime.opacity(0.12)))
-                .overlay(Capsule().strokeBorder(Theme.lime.opacity(0.45), lineWidth: 1))
+                // Alive: a light sweeps across now and then, and a lime spark runs round the edge
+                // (both one cheap looping animation each, paused off screen, still with Reduce Motion).
+                .overlay(Sheen(strength: 0.22).clipShape(Capsule()))
+                .overlay(ElectricBorder(radius: 23, period: 4))
                 .contentShape(Capsule())
             }
             .buttonStyle(.plain)
