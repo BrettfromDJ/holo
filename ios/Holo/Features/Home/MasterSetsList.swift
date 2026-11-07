@@ -266,7 +266,6 @@ struct SetBannerRow: View {
                 }
                 if let ratio = row.ratio, started {
                     GrowBar(fraction: ratio, color: Theme.lime, height: 5, gradient: false)
-                        .shadow(color: Theme.lime.opacity(0.6), radius: 5)
                         .padding(.top, 4)
                 }
             }
