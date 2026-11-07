@@ -6,7 +6,7 @@ struct MasterSetRoute: Hashable {
     var name: String
 }
 
-/// Master Sets: a title with a fan of your best cards, how many sets you've started and your
+/// Master Sets: a title, how many sets you've started and your
 /// closest, three glass tiles, then every set as a full-width card with its art and progress. Your sets by default; switch to every set in the catalog. Tap one to see
 /// every card in it.
 struct MasterSetsView: View {
@@ -151,20 +151,10 @@ struct MasterSetsView: View {
         let best = rows.filter { $0.ratio != nil }.max { ($0.ratio ?? 0) < ($1.ratio ?? 0) }
         let cards = owned.reduce(0) { $0 + Set($1.holdings.map(\.identity.productId)).count }
         let worth = owned.reduce(0) { $0 + $1.holdings.reduce(0) { $0 + ($1.value ?? 0) } }
-        // Your three most valuable cards across your sets, for the fan.
-        var seen = Set<String>()
-        let fanCards = owned.flatMap(\.holdings).sorted { ($0.value ?? 0) > ($1.value ?? 0) }.filter { seen.insert($0.identity.productId).inserted }
         return VStack(alignment: .leading, spacing: 16) {
-            // The title in the page, with a fan of your best cards beside it.
-            HStack(alignment: .center, spacing: 8) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Master Sets").font(.display(40)).tracking(-1.4).displayTrim(40)
-                    Text("TRACK · COMPLETE · VALUE").font(.mono(11)).tracking(1.6).foregroundStyle(Theme.muted)
-                }
-                Spacer(minLength: 0)
-                if !fanCards.isEmpty { HeroFan(holdings: Array(fanCards.prefix(3))) }
-            }
-            .padding(.top, 4)
+            // The title in the page.
+            Text("Master Sets").font(.display(40)).tracking(-1.4).displayTrim(40)
+                .padding(.top, 4)
             // How many sets you've started, and the one you're closest to finishing.
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .lastTextBaseline, spacing: 12) {
@@ -335,32 +325,6 @@ struct SetBannerRow: View {
         } else {
             Color.clear
         }
-    }
-}
-
-/// Three of your cards fanned out, leaning apart, for the top of Master Sets.
-private struct HeroFan: View {
-    var holdings: [HoldingView]
-
-    var body: some View {
-        let shown = Array(holdings.prefix(3))
-        let mid = Double(shown.count - 1) / 2
-        ZStack {
-            ForEach(Array(shown.enumerated()), id: \.element.id) { i, h in
-                HoldingArt(product: h.product, identity: h.identity, cornerRadius: 6, caption: false)
-                    .frame(width: 74, height: 103)
-                    .shadow(color: .black.opacity(0.55), radius: 10, y: 6)
-                    .rotationEffect(.degrees((Double(i) - mid) * 12), anchor: .bottom)
-                    .offset(x: CGFloat(Double(i) - mid) * 30)
-                    .zIndex(Double(i))
-            }
-        }
-        .frame(width: 160, height: 120)
-        .background {
-            RadialGradient(colors: [Theme.lime.opacity(0.22), .clear], center: .center, startRadius: 0, endRadius: 110)
-                .allowsHitTesting(false)
-        }
-        .accessibilityHidden(true)
     }
 }
 
