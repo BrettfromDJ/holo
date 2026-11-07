@@ -6,8 +6,8 @@ struct MasterSetRoute: Hashable {
     var name: String
 }
 
-/// Master Sets: the sets you collect as tiles with their artwork and your progress, like
-/// Explore's set grid. Your sets by default; switch to every set in the catalog. Tap one to see
+/// Master Sets: a title with a fan of your best cards, how many sets you've started and your
+/// closest, three glass tiles, then every set as a full-width card with its art and progress. Your sets by default; switch to every set in the catalog. Tap one to see
 /// every card in it.
 struct MasterSetsView: View {
     @Environment(CollectionStore.self) private var store
@@ -18,8 +18,6 @@ struct MasterSetsView: View {
     /// The search, handed over by the field a moment after typing stops (so typing doesn't
     /// rebuild the deck on every key).
     @State private var query = ""
-    /// How far the page is pulled down past the top; only the deck reads it.
-    @State private var fan = DeckFan()
 
     enum Scope: String, CaseIterable { case mine = "Your sets", all = "All sets" }
     enum Sort: String, CaseIterable { case progress = "Most complete", value = "Most valuable", newest = "Newest", name = "Name" }
@@ -65,8 +63,6 @@ struct MasterSetsView: View {
         }
     }
 
-    private let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
-
     var body: some View {
         let owned = self.owned
         let rows = self.rows(owned)
@@ -78,10 +74,13 @@ struct MasterSetsView: View {
                               onAction: { Router.shared.scanRequest += 1 }, link: "Browse all sets", onLink: { scope = .all })
                 } else {
                     controls
-                    // A deck of set cards, each overlapping the one above so you see its name and
-                    // progress; the last one shows in full. Tap one to open the set.
-                    // Pulling down at the top fans the deck open a little.
-                    SetDeck(rows: rows, fan: fan)
+                    // Every set as a full-width card in its own light. Tap one to open the set.
+                    LazyVStack(spacing: 14) {
+                        ForEach(rows) { r in
+                            NavigationLink(value: MasterSetRoute(id: r.id, name: r.name)) { SetBannerRow(row: r) }
+                                .buttonStyle(.plain)
+                        }
+                    }
                     if rows.isEmpty {
                         Text("Nothing matches.").font(.geist(15)).foregroundStyle(Theme.muted).frame(maxWidth: .infinity).padding(.vertical, 30)
                     }
@@ -89,16 +88,15 @@ struct MasterSetsView: View {
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 120)
-            .background(alignment: .top) { DeckPullReader(fan: fan) }
         }
-        .coordinateSpace(.named(DeckPullReader.space))
-        .modifier(DeckPullTracker(fan: fan))
         .background(Theme.background)
         .imageMaxPixel(600)
         .replaysAnimations()
         .scrollDismissesKeyboard(.immediately)
         .navigationBarTitleDisplayMode(.inline)
-        .pageTitle("Master Sets")
+        // The title is in the page (big, with the card fan), so the bar stays clear.
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .clearTopEdge()
         .task {
             if index.isEmpty, let i = try? await Backend.shared.api.exploreIndex() { index = i.sets }
         }
@@ -112,13 +110,27 @@ struct MasterSetsView: View {
         let complete = rows.filter { ($0.ratio ?? 0) >= 1 }.count
         let best = rows.filter { $0.ratio != nil }.max { ($0.ratio ?? 0) < ($1.ratio ?? 0) }
         let cards = owned.reduce(0) { $0 + Set($1.holdings.map(\.identity.productId)).count }
-        return VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 8) {
-                MonoLabel(text: "Master sets")
-                HStack(alignment: .lastTextBaseline, spacing: 10) {
+        let worth = owned.reduce(0) { $0 + $1.holdings.reduce(0) { $0 + ($1.value ?? 0) } }
+        // Your three most valuable cards across your sets, for the fan.
+        var seen = Set<String>()
+        let fanCards = owned.flatMap(\.holdings).sorted { ($0.value ?? 0) > ($1.value ?? 0) }.filter { seen.insert($0.identity.productId).inserted }
+        return VStack(alignment: .leading, spacing: 16) {
+            // The title in the page, with a fan of your best cards beside it.
+            HStack(alignment: .center, spacing: 8) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Master Sets").font(.display(40)).tracking(-1.4).displayTrim(40)
+                    Text("TRACK · COMPLETE · VALUE").font(.mono(11)).tracking(1.6).foregroundStyle(Theme.muted)
+                }
+                Spacer(minLength: 0)
+                if !fanCards.isEmpty { HeroFan(holdings: Array(fanCards.prefix(3))) }
+            }
+            .padding(.top, 4)
+            // How many sets you've started, and the one you're closest to finishing.
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .lastTextBaseline, spacing: 12) {
                     CountingText(value: Double(owned.count), format: { "\(Int($0.rounded()))" })
                         .font(.display(56)).tracking(-2.2).monospacedDigit().displayTrim(56)
-                    Text(owned.count == 1 ? "Set started" : "Sets started").font(.display(24)).tracking(-0.6).foregroundStyle(Theme.muted).displayTrim(24)
+                    Text(owned.count == 1 ? "Set started" : "Sets started").font(.display(24)).tracking(-0.6).displayTrim(24)
                 }
                 if let best, let ratio = best.ratio {
                     HStack(spacing: 8) {
@@ -130,11 +142,14 @@ struct MasterSetsView: View {
                     }
                 }
             }
-            .padding(.top, 8)
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .liquidGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(Theme.lime.opacity(0.25)))
             HStack(spacing: 8) {
-                GlassStat(label: "Cards", value: "\(cards)")
-                GlassStat(label: "Complete", value: "\(complete)")
-                GlassStat(label: "Worth", value: Format.money(owned.reduce(0) { $0 + $1.holdings.reduce(0) { $0 + ($1.value ?? 0) } }))
+                IconStat(icon: "rectangle.portrait.on.rectangle.portrait", label: "Cards", value: "\(cards)")
+                IconStat(icon: "checkmark.circle", label: "Complete", value: "\(complete)")
+                IconStat(icon: "chart.line.uptrend.xyaxis", label: "Worth", value: Format.money(worth))
             }
         }
         .background(alignment: .top) {
@@ -157,219 +172,131 @@ struct MasterSetsView: View {
             ChipPicker(options: Scope.allCases.map { ($0, $0.rawValue) }, selection: $scope)
         }
     }
-
-    // MARK: A set
-
-    /// The set's banner art like Explore's, with your progress: a lime ring and %, then the
-    /// name, how many of how many, and a thin progress bar.
-    private func tile(_ r: Row) -> some View {
-        let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
-        return VStack(alignment: .leading, spacing: 9) {
-            Group {
-                if let art = r.art {
-                    SetArt(set: art)
-                } else if let cover = r.holdings.max(by: { ($0.value ?? 0) < ($1.value ?? 0) }) {
-                    // Not in the catalog index (a demo set): your best card from it.
-                    ZStack {
-                        Theme.well
-                        HoldingArt(product: cover.product, identity: cover.identity, cornerRadius: 4, caption: false).padding(10)
-                    }
-                } else {
-                    Theme.well
-                }
-            }
-            .aspectRatio(3.0 / 2.0, contentMode: .fit)
-            .clipShape(shape)
-            .overlay(shape.strokeBorder((r.ratio ?? 0) >= 1 && !r.holdings.isEmpty ? Theme.lime.opacity(0.7) : Theme.border, lineWidth: (r.ratio ?? 0) >= 1 ? 1.5 : 1))
-            .overlay(alignment: .topLeading) {
-                if (r.ratio ?? 0) >= 1, !r.holdings.isEmpty { SkewTag(text: "Complete", icon: "checkmark").padding(8) }
-            }
-            .overlay(alignment: .bottomLeading) {
-                if let ratio = r.ratio, !r.holdings.isEmpty {
-                    HStack(spacing: 6) {
-                        ZStack {
-                            Circle().stroke(Color.white.opacity(0.2), lineWidth: 3)
-                            Circle().trim(from: 0, to: ratio).stroke(Theme.lime, style: StrokeStyle(lineWidth: 3, lineCap: .round)).rotationEffect(.degrees(-90))
-                        }
-                        .frame(width: 16, height: 16)
-                        Text("\(Int((ratio * 100).rounded()))%").font(.geist(12, .bold)).monospacedDigit()
-                    }
-                    .padding(.horizontal, 8).padding(.vertical, 5)
-                    .background(.black.opacity(0.6), in: Capsule())
-                    .padding(8)
-                } else if r.holdings.isEmpty {
-                    Text("Not started").font(.geist(11, .semibold)).foregroundStyle(Theme.muted)
-                        .padding(.horizontal, 8).padding(.vertical, 4)
-                        .background(.black.opacity(0.6), in: Capsule())
-                        .padding(8)
-                }
-            }
-            VStack(alignment: .leading, spacing: 3) {
-                Text(r.name).font(.geist(14, .medium)).lineLimit(1)
-                Text(r.total.map { "\(r.owned) of \($0) cards" } ?? (r.holdings.isEmpty ? (r.art?.release?.formatted(.dateTime.month(.abbreviated).year()) ?? " ") : "\(r.owned) card\(r.owned == 1 ? "" : "s")"))
-                    .font(.geist(12)).monospacedDigit().foregroundStyle(Theme.muted).lineLimit(1)
-            }
-            if let ratio = r.ratio, !r.holdings.isEmpty {
-                GrowBar(fraction: ratio, color: Theme.lime, height: 4, gradient: false)
-            }
-        }
-    }
 }
 
-/// One set in the Master Sets deck: a tall card on the lit grid with a lime, blue or pink glow of
-/// its own. The top shows the name, how many of how many and the % in dot-matrix digits (what
-/// you see while it's overlapped); the last card also shows its art and a lime tick bar.
-struct SetDeckCard: View {
+/// One set as a full-width card in its own light: the set's banner art on the right, fading into
+/// the card; the name, how many of how many, a lime progress bar and the % on the left. A finished
+/// set is lit lime with a Complete tag.
+struct SetBannerRow: View {
     var row: MasterSetsView.Row
-    static let height: CGFloat = 196
-    static let overlap: CGFloat = 70
+    static let height: CGFloat = 132
 
-    /// Every card of the set owned (and the full list known).
     private var isComplete: Bool {
         guard let total = row.total, total > 0, !row.holdings.isEmpty else { return false }
         return row.owned >= total
     }
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top, spacing: 10) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(row.name).font(.geist(22, .semibold)).lineLimit(1).minimumScaleFactor(0.7)
-                    HStack(spacing: 8) {
-                        Text(row.total.map { "\(row.owned) of \($0) cards" } ?? (row.holdings.isEmpty ? "Not started" : "\(row.owned) card\(row.owned == 1 ? "" : "s")"))
-                            .font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted)
-                        if isComplete { SkewTag(text: "Complete", icon: "checkmark") }
-                    }
-                }
-                Spacer(minLength: 8)
-                if let ratio = row.ratio, !row.holdings.isEmpty {
-                    HStack(alignment: .top, spacing: 2) {
-                        Text("\(Int((ratio * 100).rounded()))").font(.display(28)).tracking(-0.9).monospacedDigit()
+        let shape = RoundedRectangle(cornerRadius: 26, style: .continuous)
+        let started = !row.holdings.isEmpty
+        HStack(alignment: .center, spacing: 0) {
+            VStack(alignment: .leading, spacing: 6) {
+                if isComplete { SkewTag(text: "Complete", icon: "checkmark") }
+                Text(row.name).font(.display(21)).tracking(-0.5).lineLimit(2).minimumScaleFactor(0.8)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(subtitle).font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted).lineLimit(1)
+                if let ratio = row.ratio, started {
+                    HStack(spacing: 10) {
+                        GrowBar(fraction: ratio, color: Theme.lime, height: 5, gradient: false)
+                        Text("\(Int((ratio * 100).rounded()))%").font(.geist(14, .semibold)).monospacedDigit()
                             .foregroundStyle(Theme.lime)
-                            .displayTrim(28)
-                            .shadow(color: Theme.lime.opacity(0.5), radius: 8)
-                        Text("%").font(.geist(12)).foregroundStyle(Theme.lime)
                     }
+                    .padding(.top, 4)
                 }
             }
-            Spacer(minLength: 0)
-            if let ratio = row.ratio, !row.holdings.isEmpty {
-                GrowBar(fraction: ratio, color: Theme.lime, height: 4).frame(maxWidth: 200)
-            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Spacer(minLength: 120)
         }
-        .padding(20)
+        .padding(.horizontal, 20)
         .frame(height: Self.height)
-        .frame(maxWidth: .infinity, alignment: .leading)
         .foregroundStyle(.white)
         .background {
-            ZStack(alignment: .bottomTrailing) {
+            ZStack(alignment: .trailing) {
                 SetGlow(id: row.id)
+                // The set's art on the right, fading into the card toward the text.
                 art
-                    .frame(width: 150, height: 100)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .opacity(0.6)
-                    .rotationEffect(.degrees(-6))
-                    .offset(x: 16, y: 10)
-            }
-        }
-        // A finished set is lit lime: a lime wash from the top and a lime edge.
-        .overlay {
-            if isComplete {
-                RadialGradient(colors: [Theme.lime.opacity(0.30), .clear], center: .top, startRadius: 0, endRadius: 260)
-                    .allowsHitTesting(false)
+                    .frame(width: 230)
+                    .clipped()
+                    .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black.opacity(0.9), location: 0.45), .init(color: .black, location: 1)],
+                                         startPoint: .leading, endPoint: .trailing))
+                if isComplete {
+                    RadialGradient(colors: [Theme.lime.opacity(0.28), .clear], center: .topLeading, startRadius: 0, endRadius: 260)
+                }
             }
         }
         .clipShape(shape)
-        .overlay(shape.strokeBorder(isComplete ? Theme.lime.opacity(0.55) : Theme.border, lineWidth: isComplete ? 1.5 : 1))
-        .shadow(color: .black.opacity(0.6), radius: 10, y: -4)
+        .overlay(shape.strokeBorder(isComplete ? Theme.lime.opacity(0.6) : Color.white.opacity(0.12), lineWidth: isComplete ? 1.5 : 1))
+        .contentShape(shape)
+    }
+
+    private var subtitle: String {
+        if let total = row.total { return "\(row.owned) of \(total) cards" }
+        if row.holdings.isEmpty { return row.art?.release?.formatted(.dateTime.month(.abbreviated).year()) ?? "Not started" }
+        return "\(row.owned) card\(row.owned == 1 ? "" : "s")"
     }
 
     @ViewBuilder private var art: some View {
-        if let art = row.art {
-            SetArt(set: art)
+        if let banner = row.art?.iconUrl.flatMap(URL.init(string:)) {
+            CachedImage(url: banner) { img in img.resizable().scaledToFill() } placeholder: { Color.clear }
         } else if let cover = row.holdings.max(by: { ($0.value ?? 0) < ($1.value ?? 0) }) {
-            HoldingArt(product: cover.product, identity: cover.identity, cornerRadius: 4, caption: false)
+            // No banner (a demo set): your best card from it, tilted.
+            HoldingArt(product: cover.product, identity: cover.identity, cornerRadius: 5, caption: false)
+                .frame(width: 78, height: 108)
+                .rotationEffect(.degrees(8))
+                .offset(x: -24, y: 6)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+        } else if let sample = row.art?.imageUrl.flatMap(URL.init(string:)) {
+            CachedImage(url: sample) { img in img.resizable().scaledToFit() } placeholder: { Color.clear }
+                .padding(18)
         } else {
             Color.clear
         }
     }
 }
 
-// MARK: - Pulling the deck open
-
-/// How far the Master Sets page is pulled down past its top. A reference, so only the deck
-/// (which reads it) redraws while you pull, not the whole page.
-@Observable
-final class DeckFan {
-    /// Points pulled past the top (0 when not pulling).
-    var pull: CGFloat = 0
-    /// Where the top of the content sits at rest (the fallback reader's baseline).
-    @ObservationIgnored var rest: CGFloat?
-
-    func set(_ value: CGFloat) {
-        let v = max(0, value.rounded())
-        if v != pull { pull = v }
-    }
-}
-
-/// The deck of set cards. Pulling down at the top shrinks the overlap a little, in step with the
-/// pull, so the deck fans open; it closes again as the page springs back. Only the spacing changes.
-private struct SetDeck: View {
-    var rows: [MasterSetsView.Row]
-    var fan: DeckFan
+/// Three of your cards fanned out, leaning apart, for the top of Master Sets.
+private struct HeroFan: View {
+    var holdings: [HoldingView]
 
     var body: some View {
-        // Up to 40 points more of each card shows at a full pull.
-        let opening = min(fan.pull, 140) * 0.28
-        LazyVStack(spacing: -SetDeckCard.overlap + opening) {
-            ForEach(Array(rows.enumerated()), id: \.element.id) { i, r in
-                NavigationLink(value: MasterSetRoute(id: r.id, name: r.name)) {
-                    SetDeckCard(row: r)
-                }
-                .buttonStyle(.plain)
-                .zIndex(Double(i))
+        let shown = Array(holdings.prefix(3))
+        let mid = Double(shown.count - 1) / 2
+        ZStack {
+            ForEach(Array(shown.enumerated()), id: \.element.id) { i, h in
+                HoldingArt(product: h.product, identity: h.identity, cornerRadius: 6, caption: false)
+                    .frame(width: 74, height: 103)
+                    .shadow(color: .black.opacity(0.55), radius: 10, y: 6)
+                    .rotationEffect(.degrees((Double(i) - mid) * 12), anchor: .bottom)
+                    .offset(x: CGFloat(Double(i) - mid) * 30)
+                    .zIndex(Double(i))
             }
         }
+        .frame(width: 160, height: 120)
+        .background {
+            RadialGradient(colors: [Theme.lime.opacity(0.22), .clear], center: .center, startRadius: 0, endRadius: 110)
+                .allowsHitTesting(false)
+        }
+        .accessibilityHidden(true)
     }
 }
 
-/// Reads the pull on iOS 18 straight from the scroll view (fires only when the value changes).
-private struct DeckPullTracker: ViewModifier {
-    var fan: DeckFan
-
-    @ViewBuilder func body(content: Content) -> some View {
-        if #available(iOS 18, *) {
-            content.onScrollGeometryChange(for: CGFloat.self) { geo in
-                max(0, -(geo.contentOffset.y + geo.contentInsets.top)).rounded()
-            } action: { _, pull in
-                fan.set(pull)
-            }
-        } else {
-            content
-        }
-    }
-}
-
-/// Reads the pull on iOS 17: where the top of the content sits in the scroll view, against
-/// where it sat when the page appeared.
-private struct DeckPullReader: View {
-    static let space = "masterSetsScroll"
-    var fan: DeckFan
+/// A glass tile with a small icon beside its label, and the figure under them.
+private struct IconStat: View {
+    var icon: String
+    var label: String
+    var value: String
 
     var body: some View {
-        if #available(iOS 18, *) {
-            Color.clear
-        } else {
-            GeometryReader { geo in
-                let y = geo.frame(in: .named(Self.space)).minY
-                Color.clear
-                    .onAppear { if fan.rest == nil { fan.rest = y } }
-                    .onChange(of: y) { _, new in
-                        guard let rest = fan.rest else { return }
-                        fan.set(new - rest)
-                    }
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: icon).font(.system(size: 13, weight: .medium)).foregroundStyle(.white)
+                MonoLabel(text: label).lineLimit(1).minimumScaleFactor(0.6)
             }
+            Text(value).font(.display(22)).tracking(-0.6).monospacedDigit().lineLimit(1).minimumScaleFactor(0.5)
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }
