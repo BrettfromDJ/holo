@@ -603,7 +603,7 @@ struct ScanChip: View {
             if let onRemove {
                 Button(action: onRemove) {
                     Image(systemName: "trash").font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Theme.planPink)
+                        .foregroundStyle(.white)
                         .frame(width: 34, height: 34)
                         .background(Circle().fill(Color.white.opacity(0.1)))
                         .contentShape(Circle())
