@@ -13,6 +13,8 @@ struct MasterSetsView: View {
     @Environment(CollectionStore.self) private var store
     @State private var cache = MasterSetsCache.shared
     @State private var index: [ExploreSet] = []
+    /// The catalog's set list has been asked for (loaded, or failed: then sets show your card).
+    @State private var indexTried = false
     @State private var scope = Scope.mine
     @State private var sort = Sort.progress
     /// The search, handed over by the field a moment after typing stops (so typing doesn't
@@ -77,7 +79,7 @@ struct MasterSetsView: View {
                     // Every set as a full-width card in its own light. Tap one to open the set.
                     LazyVStack(spacing: 14) {
                         ForEach(rows) { r in
-                            NavigationLink(value: MasterSetRoute(id: r.id, name: r.name)) { SetBannerRow(row: r, catalogReady: !index.isEmpty) }
+                            NavigationLink(value: MasterSetRoute(id: r.id, name: r.name)) { SetBannerRow(row: r, catalogReady: indexTried) }
                                 .buttonStyle(.plain)
                         }
                     }
@@ -99,6 +101,7 @@ struct MasterSetsView: View {
         .clearTopEdge()
         .task {
             if index.isEmpty, let i = try? await Backend.shared.api.exploreIndex() { index = i.sets }
+            indexTried = true
         }
         .task(id: owned.map(\.id).joined(separator: ",")) { await MasterSetDetailView.load(owned, store: store) }
     }
