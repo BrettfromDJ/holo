@@ -8,9 +8,8 @@ import SwiftUI
 /// secondary lines differ by size and weight only.
 ///
 /// Live tracking: while the scanner is on screen and uncovered, the camera finds the card
-/// in view and `CardTracker` follows it; `CardTrackingOverlay` (its own small view, the only
-/// one redrawn per frame) draws the lime border, and the static guide fades out. Tapping the
-/// card adds it: straight from the live read when it matched (no paid scan), else as a photo
+/// in view and `CardTracker` follows it (no outline is drawn; the still lime guide stays).
+/// Tapping adds it: straight from the live read when it matched (no paid scan), else as a photo
 /// cropped to the card. With no card tracked a tap scans the whole picture.
 struct ScanView: View {
     /// When scanning into a deal: which side, and where each match goes.
@@ -45,7 +44,8 @@ struct ScanView: View {
             CameraPreview(session: camera.session, running: camera.state == .running).ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture { shoot() }
-            CardTrackingOverlay(tracker: tracker, onTap: { shoot() })
+            // The card is still found and followed (for a clean crop), but no live outline is
+            // drawn round it: the still guide below is the only frame on screen.
             if flash { Color.white.opacity(0.7).ignoresSafeArea().transition(.opacity).allowsHitTesting(false) }
 
             VStack(spacing: 0) {
@@ -167,17 +167,15 @@ struct ScanView: View {
             let h = min(geo.size.height * 0.86, geo.size.width * 0.62 * 88 / 63)
             let w = h * 63 / 88
             ZStack {
-                // Gives way to the live border while a card is tracked.
-                TrackingFade(tracker: tracker) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .strokeBorder(Theme.lime, lineWidth: 2)
-                            .shadow(color: Theme.lime.opacity(0.6), radius: 6)
-                            .frame(width: w, height: h)
-                        ScanSweep(height: h)
-                            .frame(width: w - 16, height: h)
-                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    }
+                // The still guide, always shown.
+                ZStack {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .strokeBorder(Theme.lime, lineWidth: 2)
+                        .shadow(color: Theme.lime.opacity(0.6), radius: 6)
+                        .frame(width: w, height: h)
+                    ScanSweep(height: h)
+                        .frame(width: w - 16, height: h)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
                 // Its own view: it's the only part of the guide that watches the scans.
                 ReadingPill(model: model)
@@ -496,25 +494,6 @@ private struct ReadingPill: View {
             .background(Capsule().fill(Color.black.opacity(0.72)))
             .overlay(Capsule().strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
         }
-    }
-}
-
-/// Shows its content only while no card is tracked. Reads just `isTracking`, so the corner
-/// updates never redraw it.
-private struct TrackingFade<Content: View>: View {
-    let tracker: CardTracker
-    let content: Content
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    init(tracker: CardTracker, @ViewBuilder content: () -> Content) {
-        self.tracker = tracker
-        self.content = content()
-    }
-
-    var body: some View {
-        content
-            .opacity(tracker.isTracking ? 0 : 1)
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: tracker.isTracking)
     }
 }
 
