@@ -42,6 +42,8 @@ and say exactly what to run or click.
   never uppercase headings), Geist Mono (small caps labels). The app also bundles Roboto Mono.
 - **Colors:** lime `#D4FF3A` (accent, up), plan blue `#2F5BFF`, plan pink `#FF2E9A` (down).
   Color only numbers (gains green/lime, losses pink); text stays white or muted.
+- **No grey text.** Quiet text is white made partly see-through (`Theme.muted` = white 60%,
+  `Theme.subtle` = white 42%), never a grey color.
 - **Lucent (app):** named Lucent, original Holo look everywhere (lime, grid and dot backdrops, glows,
   lime charts, the star card's electric border). Master Sets also uses the pieces in
   `Components/Glow.swift` (the set deck's `SetGlow`, the `GlowPie` dial, ring and ticks; no
