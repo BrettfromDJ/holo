@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../supabase/database.types";
 import { priceKey, type NormalizedPrice } from "../types";
 import { isApnsConfigured, sendPush } from "./apns";
+import { readNotificationPrefs } from "../notification-prefs";
 
 /**
  * Price alerts: after the daily price sync, tell each user (on their phones)
@@ -43,16 +44,21 @@ export async function sendPriceAlerts(admin: SupabaseClient<Database>, prices: N
   }
   if (!due.length) return summary;
 
-  const [{ data: products }, { data: devices }] = await Promise.all([
+  const users = [...new Set(due.map((d) => d.user_id))];
+  const [{ data: products }, { data: devices }, { data: prefRows }] = await Promise.all([
     admin.from("products").select("id, name, set_name").in("id", [...new Set(due.map((d) => d.product_id))]),
-    admin.from("device_tokens").select("token, user_id, environment").in("user_id", [...new Set(due.map((d) => d.user_id))]),
+    admin.from("device_tokens").select("token, user_id, environment").in("user_id", users),
+    admin.from("user_state").select("user_id, value").eq("key", "notification-prefs").in("user_id", users),
   ]);
+  // People who turned price target alerts off in the app.
+  const muted = new Set((prefRows ?? []).filter((r) => !readNotificationPrefs(r.value).priceTargets).map((r) => r.user_id));
   const names = new Map((products ?? []).map((p) => [p.id, p.set_name ? `${p.name} (${p.set_name})` : p.name]));
   const money = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
 
   const fired: string[] = [];
   const dead: string[] = [];
   for (const d of due) {
+    if (muted.has(d.user_id)) continue; // Stays due: alerts if they turn it back on while it's still low.
     const mine = (devices ?? []).filter((x) => x.user_id === d.user_id);
     if (!mine.length) continue; // No phone yet: alert once they have one.
     summary.alerts++;

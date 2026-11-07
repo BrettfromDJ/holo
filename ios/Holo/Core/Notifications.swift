@@ -43,6 +43,10 @@ enum Notifications {
     /// Every Sunday at 6pm: your week's recap is ready. Set on the phone (no server), once
     /// notifications are allowed; replacing it each launch keeps a single one.
     static func scheduleWeeklyRecap() async {
+        guard NotificationPrefs.recapOn else {
+            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["weekly-recap"])
+            return
+        }
         let content = UNMutableNotificationContent()
         content.title = "Your week in Lucent"
         content.body = "What moved, what you added and your best card this week."
@@ -60,6 +64,37 @@ enum Notifications {
     }
 }
 
+
+/// Which notifications you want (user_state "notification-prefs", read by the website's daily
+/// price check; anything missing counts as on). The weekly recap is set on the phone, so its
+/// switch is also kept here.
+struct NotificationPrefs: Codable, Equatable {
+    var priceTargets = true
+    var bigMoves = true
+    var milestones = true
+    var nearlyDone = true
+    var weeklyRecap = true
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        priceTargets = try c.decodeIfPresent(Bool.self, forKey: .priceTargets) ?? true
+        bigMoves = try c.decodeIfPresent(Bool.self, forKey: .bigMoves) ?? true
+        milestones = try c.decodeIfPresent(Bool.self, forKey: .milestones) ?? true
+        nearlyDone = try c.decodeIfPresent(Bool.self, forKey: .nearlyDone) ?? true
+        weeklyRecap = try c.decodeIfPresent(Bool.self, forKey: .weeklyRecap) ?? true
+    }
+
+    static let key = "notification-prefs"
+    private static let recapKey = "notifications-weekly-recap"
+
+    /// The weekly recap's switch, on this phone.
+    static var recapOn: Bool {
+        get { UserDefaults.standard.object(forKey: recapKey) as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: recapKey) }
+    }
+}
 
 /// The one-line note shown before the notifications prompt. `ask()` waits for the answer; the
 /// root shows `NotificationNoteSheet` while `pending` is true.

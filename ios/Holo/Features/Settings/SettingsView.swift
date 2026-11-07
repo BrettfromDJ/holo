@@ -8,6 +8,9 @@ struct SettingsView: View {
     @State private var testing = false
     @State private var testResult: String?
     @State private var demo: DemoKind? = DemoKind.selected
+    @State private var prefs = NotificationPrefs()
+    /// The saved switches have loaded (until then, changes aren't saved over them).
+    @State private var prefsLoaded = false
 
     private var email: String? {
         if case let .signedIn(_, email) = session.state { return email }
@@ -35,6 +38,11 @@ struct SettingsView: View {
                     SectionTitle("Account")
                 }
                 Section {
+                    notifyToggle("Price targets", "A card you watch hits your target price", \.priceTargets)
+                    notifyToggle("Big moves", "One of your cards moves 15% in a day", \.bigMoves)
+                    notifyToggle("Milestones", "Your collection passes a new high, or a card doubles", \.milestones)
+                    notifyToggle("Sets nearly done", "Sundays, when a set is 1 to 5 cards from finished", \.nearlyDone)
+                    notifyToggle("Weekly recap", "Sundays at 6pm, your week in Lucent", \.weeklyRecap)
                     Button {
                         Task { await sendTest() }
                     } label: {
@@ -51,7 +59,7 @@ struct SettingsView: View {
                 } header: {
                     SectionTitle("Notifications")
                 } footer: {
-                    SectionNote("Price alerts arrive after the daily price check when a watched card is at or below your target.")
+                    SectionNote("Price targets, big moves, milestones and sets arrive after the daily price check.")
                 }
                 Section {
                     Button("Welcome pages") { showingWelcome = true }
@@ -126,11 +134,46 @@ struct SettingsView: View {
                     Task { await session.signOut() }
                 }
             }
+            .task { await loadPrefs() }
             .fullScreenCover(isPresented: $showingWelcome) {
                 // A look at the welcome pages; its buttons just close it here.
                 WelcomeView(preview: true, onEmail: { showingWelcome = false }, onDemo: { showingWelcome = false })
             }
         }
+    }
+
+    /// A notification kind's switch: its name, and a line on when it comes.
+    private func notifyToggle(_ title: String, _ note: String, _ key: WritableKeyPath<NotificationPrefs, Bool>) -> some View {
+        Toggle(isOn: Binding(get: { prefs[keyPath: key] }, set: { on in
+            prefs[keyPath: key] = on
+            Task { await savePrefs() }
+        })) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                Text(note).font(.geist(12)).foregroundStyle(Theme.muted)
+            }
+        }
+        .tint(Theme.lime)
+        .disabled(!prefsLoaded)
+    }
+
+    private func loadPrefs() async {
+        guard signedIn, !Demo.isOn, DemoKind.selected == nil else {
+            prefs.weeklyRecap = NotificationPrefs.recapOn
+            prefsLoaded = true
+            return
+        }
+        if let saved = try? await UserState.load(NotificationPrefs.key, as: NotificationPrefs.self) { prefs = saved }
+        prefs.weeklyRecap = NotificationPrefs.recapOn
+        prefsLoaded = true
+    }
+
+    private func savePrefs() async {
+        // The recap is set on the phone: schedule or cancel it now.
+        NotificationPrefs.recapOn = prefs.weeklyRecap
+        await Notifications.scheduleWeeklyRecap()
+        guard let userId = store.userId, !Demo.isOn, DemoKind.selected == nil else { return }
+        try? await UserState.save(NotificationPrefs.key, prefs, userId: userId)
     }
 
     private func sendTest() async {

@@ -5,6 +5,7 @@ import type { CollectionData, ISODate } from "../types";
 import { computeHoldings, summarize, totalRealized, type HoldingView } from "../finance/portfolio";
 import { pickNew, reachedMilestones } from "../milestones";
 import { isApnsConfigured, sendPush, type PushMessage } from "./apns";
+import { readNotificationPrefs } from "../notification-prefs";
 
 type Admin = SupabaseClient<Database>;
 type Device = { token: string; environment: "sandbox" | "production" };
@@ -73,13 +74,17 @@ export async function sendCollectionPushes(admin: Admin, userId: string, data: C
   const { data: devices } = await admin.from("device_tokens").select("token, environment").eq("user_id", userId);
   if (!devices?.length) return sent;
 
+  const { data: prefRow } = await admin.from("user_state").select("value").eq("user_id", userId).eq("key", "notification-prefs").maybeSingle();
+  const prefs = readNotificationPrefs(prefRow?.value);
+  if (!prefs.milestones && !prefs.bigMoves && !prefs.nearlyDone) return sent;
+
   const holdings = computeHoldings(data, today);
   const messages: { kind: string; message: PushMessage }[] = [];
 
   // Milestones: only once the app or website has started the seen list (so an old collection
   // isn't greeted by a flood), and only the best new one.
   const { data: seenRow } = await admin.from("user_state").select("value").eq("user_id", userId).eq("key", "milestones-seen").maybeSingle();
-  if (seenRow && Array.isArray(seenRow.value)) {
+  if (prefs.milestones && seenRow && Array.isArray(seenRow.value)) {
     const seen = new Set((seenRow.value as unknown[]).filter((v): v is string => typeof v === "string"));
     const summary = summarize(holdings, totalRealized(data, today).total);
     const { show, record } = pickNew(reachedMilestones(summary, holdings), seen, false, 1);
@@ -90,10 +95,10 @@ export async function sendCollectionPushes(admin: Admin, userId: string, data: C
     }
   }
 
-  const move = bigMove(holdings);
+  const move = prefs.bigMoves ? bigMove(holdings) : null;
   if (move) messages.push({ kind: "move", message: move });
 
-  if (new Date(`${today}T12:00:00Z`).getUTCDay() === 0) {
+  if (prefs.nearlyDone && new Date(`${today}T12:00:00Z`).getUTCDay() === 0) {
     const set = await nearlyFinishedSet(admin, holdings);
     if (set) messages.push({ kind: "set", message: set });
   }
