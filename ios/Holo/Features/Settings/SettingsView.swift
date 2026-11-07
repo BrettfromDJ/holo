@@ -22,7 +22,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Account") {
+                Section {
                     if signedIn {
                         LabeledContent("Signed in as", value: email ?? "—")
                         Button("Sign out", role: .destructive) { confirming = true }
@@ -31,6 +31,8 @@ struct SettingsView: View {
                         Text("You're looking at a demo. Sign in to track your own collection.").foregroundStyle(Theme.muted)
                         Button("Sign in") { Onboarding.shared.tryingDemo = false }
                     }
+                } header: {
+                    SectionTitle("Account")
                 }
                 Section {
                     Button {
@@ -47,16 +49,16 @@ struct SettingsView: View {
                         Text(testResult).font(.footnote).foregroundStyle(Theme.muted)
                     }
                 } header: {
-                    Text("Notifications")
+                    SectionTitle("Notifications")
                 } footer: {
-                    Text("Price alerts arrive after the daily price check when a watched card is at or below your target.")
+                    SectionNote("Price alerts arrive after the daily price check when a watched card is at or below your target.")
                 }
                 Section {
                     Button("Welcome pages") { showingWelcome = true }
                 } header: {
-                    Text("Onboarding")
+                    SectionTitle("Onboarding")
                 } footer: {
-                    Text("What a new person sees before sign-in. A look only; nothing is saved.")
+                    SectionNote("What a new person sees before sign-in. A look only; nothing is saved.")
                 }
                 Section {
                     Picker("Show", selection: $demo) {
@@ -73,9 +75,9 @@ struct SettingsView: View {
                         }
                     }
                 } header: {
-                    Text("Demo collection")
+                    SectionTitle("Demo collection")
                 } footer: {
-                    Text("See how the app looks with a made-up collection: sealed only, singles only, singles with graded slabs, or a mix. Prices are made up and nothing you do in a demo is saved. Pick My collection to go back.")
+                    SectionNote("See how the app looks with a made-up collection: sealed only, singles only, singles with graded slabs, or a mix. Prices are made up and nothing you do in a demo is saved. Pick My collection to go back.")
                 }
                 Section {
                     LabeledContent("Items", value: "\(Int(store.summary.items))")
@@ -87,23 +89,27 @@ struct SettingsView: View {
                         Label("Export your data", systemImage: "square.and.arrow.up")
                     }
                 } header: {
-                    Text("Collection")
+                    SectionTitle("Collection")
                 } footer: {
-                    Text("Export saves your purchases, sales, edits, watchlist and the products they refer to as a JSON file, the same as the website's export.")
+                    SectionNote("Export saves your purchases, sales, edits, watchlist and the products they refer to as a JSON file, the same as the website's export.")
                 }
-                Section("How performance is calculated") {
+                Section {
                     explainer("Cost basis", "is what you actually paid for items you still hold: unit price plus allocated shipping, fees and tax. Sales use first-in, first-out lots.")
                     explainer("Unrealized gain", "is market value minus cost basis. Items without a market price are left out rather than counted as $0.")
                     explainer("Daily change", "only measures price movement on items you held at the previous close. Buying a $1,000 box worth $1,000 adds $1,000 of value and $0 of gain.")
                     explainer("Performance %", "is a time-weighted return: daily market returns are chained together, so adding or selling inventory never distorts it.")
+                } header: {
+                    SectionTitle("How performance is calculated")
                 }
                 Section {
                     Link("Open Lucent on the web", destination: AppConfig.apiBaseURL)
                 } footer: {
-                    Text("Your collection syncs with the website.")
+                    SectionNote("Your collection syncs with the website.")
                 }
-                Section("About") {
+                Section {
                     LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—")
+                } header: {
+                    SectionTitle("About")
                 }
             }
             .scrollContentBackground(.hidden)
