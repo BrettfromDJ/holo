@@ -9,6 +9,7 @@ import { loadCollection } from "@/lib/supabase/load";
 import { priceToRow } from "@/lib/supabase/mappers";
 import { getAdminSupabase } from "@/lib/supabase/server";
 import { sendPriceAlerts } from "@/lib/server/price-alerts";
+import { sendCollectionPushes } from "@/lib/server/collection-pushes";
 import type { NormalizedPrice } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -111,6 +112,7 @@ export async function GET(req: Request) {
 
   // --- 4. Portfolio snapshots ----------------------------------------------
   let usersUpdated = 0;
+  const pushes: Record<string, number> = {};
   for (const userId of userIds) {
     try {
       const data = await loadCollection(admin, userId);
@@ -133,6 +135,12 @@ export async function GET(req: Request) {
         if (error) throw error;
       }
       usersUpdated++;
+      // --- 4b. Collection notifications (milestones, big moves, nearly finished sets) ---
+      try {
+        for (const kind of await sendCollectionPushes(admin, userId, data, today)) pushes[kind] = (pushes[kind] ?? 0) + 1;
+      } catch (err) {
+        failures.push({ id: `push:${userId}`, reason: err instanceof Error ? err.message : "push failed" });
+      }
     } catch (err) {
       failures.push({ id: `user:${userId}`, reason: err instanceof Error ? err.message : "snapshot failed" });
     }
@@ -146,7 +154,7 @@ export async function GET(req: Request) {
     alerts = { error: err instanceof Error ? err.message : "alerts failed" };
   }
 
-  return NextResponse.json({ date: today, mode, products: productIds.length, reused: reused.length, fetched: toFetch.length, pricesStored: prices.length, usersUpdated, alerts, failures });
+  return NextResponse.json({ date: today, mode, products: productIds.length, reused: reused.length, fetched: toFetch.length, pricesStored: prices.length, usersUpdated, alerts, pushes, failures });
 }
 
 function round(n: number) {

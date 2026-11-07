@@ -161,6 +161,9 @@ struct HomeView: View {
             .fullScreenCover(isPresented: $search) { SearchScreen() }
             .fullScreenCover(isPresented: $addSearch) { SearchScreen(mode: .add) }
             .fullScreenCover(isPresented: $recap) { WeeklyRecap(store: store) }
+            // From a tapped notification: the weekly recap, or Master Sets.
+            .onChange(of: Router.shared.recapRequest) { _, _ in recap = true }
+            .onChange(of: Router.shared.masterSetsRequest) { _, _ in path.append(MorePage.masterSets) }
             .confirmationDialog("Add to your collection", isPresented: $adding) {
                 Button("Scan cards") { onScan() }
                 Button("Search and add") { addSearch = true }

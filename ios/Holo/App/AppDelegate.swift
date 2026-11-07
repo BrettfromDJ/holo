@@ -25,10 +25,22 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         [.banner, .sound]
     }
 
-    /// Tapping a price alert opens that card.
+    /// Tapping a notification: a card's (price alert, big move) opens that card; the weekly
+    /// recap opens the recap; a nearly finished set opens Master Sets; a milestone opens Overview.
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
-        if let id = response.notification.request.content.userInfo["productId"] as? String {
-            await MainActor.run { Router.shared.product = id }
+        let info = response.notification.request.content.userInfo
+        await MainActor.run {
+            if let id = info["productId"] as? String {
+                Router.shared.product = id
+            } else if info["recap"] != nil {
+                Router.shared.tabRequest = "home"
+                Router.shared.recapRequest += 1
+            } else if info["masterSet"] != nil {
+                Router.shared.tabRequest = "home"
+                Router.shared.masterSetsRequest += 1
+            } else {
+                Router.shared.tabRequest = "home"
+            }
         }
     }
 }
@@ -63,6 +75,10 @@ final class Router {
     var holding: HoldingIdentity?
     /// The last change that can be undone for a few seconds (a delete, a sale).
     var undo: UndoItem?
+    /// A tapped notification asking for the weekly recap (Overview opens it).
+    var recapRequest = 0
+    /// A tapped notification asking for Master Sets (Overview opens it).
+    var masterSetsRequest = 0
 }
 
 /// Something that can be undone: what happened, and how to put it back.
@@ -90,13 +106,17 @@ enum PushRegistration {
     static func enable() async {
         guard await Notifications.requestPermission() else { return }
         UIApplication.shared.registerForRemoteNotifications()
+        await Notifications.scheduleWeeklyRecap()
     }
 
     /// Re-register on launch when permission was already given, so a changed token is saved.
     @MainActor
     static func refreshIfAllowed() async {
         let settings = await UNUserNotificationCenter.current().notificationSettings()
-        if settings.authorizationStatus == .authorized { UIApplication.shared.registerForRemoteNotifications() }
+        if settings.authorizationStatus == .authorized {
+            UIApplication.shared.registerForRemoteNotifications()
+            await Notifications.scheduleWeeklyRecap()
+        }
     }
 
     struct Row: Codable {

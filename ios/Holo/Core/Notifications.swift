@@ -40,6 +40,21 @@ enum Notifications {
         try? await UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "release-\(set.slug)", content: content, trigger: trigger))
     }
 
+    /// Every Sunday at 6pm: your week's recap is ready. Set on the phone (no server), once
+    /// notifications are allowed; replacing it each launch keeps a single one.
+    static func scheduleWeeklyRecap() async {
+        let content = UNMutableNotificationContent()
+        content.title = "Your week in Lucent"
+        content.body = "What moved, what you added and your best card this week."
+        content.sound = .default
+        content.userInfo = ["recap": true]
+        var when = DateComponents()
+        when.weekday = 1
+        when.hour = 18
+        let trigger = UNCalendarNotificationTrigger(dateMatching: when, repeats: true)
+        try? await UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "weekly-recap", content: content, trigger: trigger))
+    }
+
     static func cancelRelease(_ slug: String) {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["release-\(slug)"])
     }
