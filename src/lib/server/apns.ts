@@ -47,7 +47,7 @@ export function readPem(raw: string) {
   return `-----BEGIN PRIVATE KEY-----\n${lines.join("\n")}\n-----END PRIVATE KEY-----\n`;
 }
 
-/** Why the Apple key can't be used (nil when it can): checked before sending. */
+/** Why the Apple key can't be used (null when it can): checked before each send. */
 export function apnsKeyProblem(): string | null {
   const raw = env("APNS_PRIVATE_KEY");
   try {
