@@ -70,27 +70,11 @@ private struct ScanPanel: View {
                     }
                 }
                 HStack(alignment: .center, spacing: 14) {
-                    // The photo you took, beside what it matched: check it's the same card.
-                    if let img = entry.thumbnail {
-                        Image(uiImage: img).resizable().scaledToFill()
-                            .frame(width: 58, height: 81)
-                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.white.opacity(0.18)))
-                            .contextMenu {
-                                Text("Your photo")
-                            } preview: {
-                                Image(uiImage: img).resizable().scaledToFit().frame(maxWidth: 320, maxHeight: 460)
-                            }
-                            .accessibilityLabel("Your photo. Hold to see it bigger.")
-                    }
                     VStack(alignment: .leading, spacing: 2) {
                         Text(Format.money(entry.value)).font(.display(30)).tracking(-0.9).padding(.trailing, 0.9).monospacedDigit().foregroundStyle(.white)
                             .contentTransition(.numericText())
                             .animation(.snappy(duration: 0.25), value: entry.value)
                         Text(entry.priceNote ?? "No price yet").font(.geist(12)).foregroundStyle(.white).lineLimit(2)
-                        if entry.thumbnail != nil {
-                            Text("Your photo on the left. Hold it to see it bigger.").font(.geist(11)).foregroundStyle(Theme.subtle).lineLimit(1)
-                        }
                     }
                     Spacer(minLength: 0)
                 }
@@ -166,9 +150,9 @@ private struct ScanPanel: View {
     }
 }
 
-/// A scan with no card yet. Two layouts: close matches to pick from (a header with your photo,
-/// then the matches two a row), or nothing found (your photo large and centred, why, and Try
-/// again). Either way the ways out sit in a bar pinned to the bottom: Search and Remove.
+/// A scan with no card yet. Two layouts: close matches to pick from (a heading and a tip, then
+/// the matches two a row), or nothing found (why, tips for the next photo, and Try again).
+/// Your photo isn't shown: the matches are what to look at. Either way the ways out sit in a bar pinned to the bottom: Search and Remove.
 private struct Unmatched: View {
     let model: ScanModel
     let entry: ScanModel.Entry
@@ -209,14 +193,6 @@ private struct Unmatched: View {
         .padding(.top, 22)
     }
 
-    private var photo: some View {
-        Group {
-            if let img = entry.thumbnail { Image(uiImage: img).resizable().scaledToFill() } else { Color.white.opacity(0.08) }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.white.opacity(0.18)))
-    }
-
     // MARK: Close matches
 
     private func matches(_ list: [ScanCandidate]) -> some View {
@@ -226,18 +202,9 @@ private struct Unmatched: View {
                 DisplayText(text: title, size: 30)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            // Your photo beside the tip, to compare against.
-            HStack(alignment: .center, spacing: 14) {
-                photo.frame(width: 64, height: 90)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Your scan").font(.geist(13, .semibold)).foregroundStyle(.white)
-                    Text("Match the set symbol and the number in the bottom corner. Hold a card to see it bigger.")
-                        .font(.geist(13)).foregroundStyle(Theme.muted).fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(12)
-            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.white.opacity(0.06)))
+            Text("Match the set symbol and the number in the bottom corner. Hold a card to see it bigger.")
+                .font(.geist(14)).foregroundStyle(Theme.muted).fixedSize(horizontal: false, vertical: true)
+                .padding(.top, -12)
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                 ForEach(Array(list.enumerated()), id: \.offset) { i, c in
                     CandidateCard(candidate: c, best: i == 0 && list.count > 1) { model.pick(c, for: entry.id) }
@@ -251,12 +218,13 @@ private struct Unmatched: View {
 
     private var nothingFound: some View {
         VStack(spacing: 0) {
-            photo.frame(width: 150, height: 210)
-                .shadow(color: .black.opacity(0.5), radius: 18, y: 8)
-                .padding(.top, 8)
+            Image(systemName: "viewfinder").font(.system(size: 30, weight: .semibold)).foregroundStyle(Theme.lime)
+                .frame(width: 72, height: 72)
+                .background(Circle().fill(Theme.lime.opacity(0.12)))
+                .padding(.top, 24)
             DisplayText(text: title, size: 28, alignment: .center)
                 .frame(maxWidth: .infinity)
-                .padding(.top, 26)
+                .padding(.top, 20)
             if let message {
                 BalancedText(text: message, font: .geist(15), color: Theme.muted)
                     .frame(maxWidth: 300)
@@ -303,7 +271,7 @@ private struct Unmatched: View {
                     }
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity).frame(height: 52)
-                    .background(Capsule().fill(Color.white.opacity(0.12)))
+                    .background(Capsule().fill(Color(red: 0.16, green: 0.16, blue: 0.17)))
                     .overlay(Capsule().strokeBorder(Color.white.opacity(0.14)))
                     .contentShape(Capsule())
                 }
@@ -327,9 +295,13 @@ private struct Unmatched: View {
         .padding(.bottom, 8)
         .background {
             // Fades the matches out under the bar instead of a hard edge.
-            LinearGradient(colors: [Color.black.opacity(0), Color.black.opacity(0.85), Color.black.opacity(0.95)],
-                           startPoint: .top, endPoint: .bottom)
-                .ignoresSafeArea(edges: .bottom)
+            // Solid under the buttons, with a short fade above so the cards slide out of view.
+            VStack(spacing: 0) {
+                LinearGradient(colors: [Color.black.opacity(0), Color.black], startPoint: .top, endPoint: .bottom).frame(height: 24)
+                Color.black
+            }
+            .padding(.top, -24)
+            .ignoresSafeArea(edges: .bottom)
         }
     }
 
