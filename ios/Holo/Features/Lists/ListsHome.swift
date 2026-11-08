@@ -26,7 +26,8 @@ struct ListItemInfo {
     /// with many cards doesn't search the whole collection once per card.
     init(_ productId: String, store: CollectionStore, groups: GroupsStore, owned: [String: [HoldingView]]? = nil) {
         product = store.products[productId] ?? groups.extraProducts[productId]
-        let mine = owned.map { $0[productId] ?? [] } ?? store.allHoldings.filter { $0.identity.productId == productId }
+        // The store keeps your holdings indexed by card, so this is a lookup, not a search.
+        let mine = owned.map { $0[productId] ?? [] } ?? store.holdings(for: productId)
         copies = mine.filter { $0.quantity > 0 }.sorted { ($0.price ?? -1) > ($1.price ?? -1) }
         market = copies.first?.price
             ?? store.marketPrice(productId, printing: product?.printings?.first)?.market
@@ -55,31 +56,43 @@ struct ListNameSheet: View {
     private var trimmed: String { String(text.trimmingCharacters(in: .whitespaces).prefix(40)) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Button("Cancel") { dismiss() }.font(.geist(16)).foregroundStyle(.white)
-                Spacer()
+        // Sized to what's in it: the title, the box and the button, nothing empty below.
+        VStack(spacing: 14) {
+            ZStack {
                 Text(title).font(.geist(17, .semibold)).foregroundStyle(.white)
-                Spacer()
-                Button(action) { save() }.font(.geist(16, .semibold))
-                    .foregroundStyle(trimmed.isEmpty ? Theme.subtle : Theme.lime)
-                    .disabled(trimmed.isEmpty || saving)
+                HStack {
+                    Button("Cancel") { dismiss() }.font(.geist(16)).foregroundStyle(Theme.muted)
+                    Spacer()
+                }
             }
+            .frame(height: 28)
             TextField("Favorite SIRs, For sale at the show…", text: $text)
                 .font(.geist(17))
                 .focused($focused)
                 .submitLabel(.done)
                 .onSubmit { save() }
-                .padding(.horizontal, 14).frame(height: 50)
-                .background(RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.08)))
+                .padding(.horizontal, 16).frame(height: 52)
+                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white.opacity(0.08)))
+            Button { save() } label: {
+                Text(action).font(.geist(16, .semibold))
+                    .foregroundStyle(Theme.ink)
+                    .frame(maxWidth: .infinity).frame(height: 52)
+                    .background(Capsule().fill(Theme.lime))
+                    .opacity(trimmed.isEmpty ? 0.4 : 1)
+            }
+            .buttonStyle(.plain)
+            .disabled(trimmed.isEmpty || saving)
             if let error { Text(error).font(.geist(13)).foregroundStyle(.white) }
-            Spacer(minLength: 0)
         }
-        .padding(20)
-        .presentationDetents([.height(200)])
+        .padding(.horizontal, 20)
+        .padding(.top, 20)
+        .padding(.bottom, 12)
+        .presentationDetents([.height(error == nil ? 214 : 244)])
         .glassSheet()
-        .onAppear {
-            text = initial
+        .onAppear { text = initial }
+        // The keyboard comes up once the sheet has settled, not while it's still rising.
+        .task {
+            try? await Task.sleep(nanoseconds: 350_000_000)
             focused = true
         }
     }
@@ -100,6 +113,31 @@ struct ListNameSheet: View {
     }
 }
 
+/// The Lists page's New button and its naming sheet.
+private struct NewListButton: View {
+    @Binding var opened: String?
+    @Environment(GroupsStore.self) private var groups
+    @State private var naming = false
+
+    var body: some View {
+        Button {
+            Haptics.tap()
+            naming = true
+        } label: {
+            Label("New", systemImage: "plus").font(.geist(14, .semibold)).foregroundStyle(Theme.ink)
+                .padding(.horizontal, 14).frame(height: 36)
+                .background(Capsule().fill(Theme.lime))
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: $naming) {
+            ListNameSheet(title: "New list", action: "Create list") { name in
+                let list = try await groups.createShelf(name)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { opened = list.id }
+            }
+        }
+    }
+}
+
 // MARK: - Lists home
 
 /// Every list: your own (favorites, want lists, cards to sell at a show) and the built-in
@@ -107,7 +145,6 @@ struct ListNameSheet: View {
 struct ListsHomeView: View {
     @Environment(CollectionStore.self) private var store
     @Environment(GroupsStore.self) private var groups
-    @State private var naming = false
     /// A list just made: opened right away so you can add cards.
     @State private var opened: String?
     @State private var error: String?
@@ -123,15 +160,8 @@ struct ListsHomeView: View {
                         Text("Favorites, want lists and cards to sell").font(.geist(14)).foregroundStyle(Theme.muted)
                     }
                     Spacer()
-                    Button {
-                        Haptics.tap()
-                        naming = true
-                    } label: {
-                        Label("New", systemImage: "plus").font(.geist(14, .semibold)).foregroundStyle(Theme.ink)
-                            .padding(.horizontal, 14).frame(height: 36)
-                            .background(Capsule().fill(Theme.lime))
-                    }
-                    .buttonStyle(.plain)
+                    // Its own view with its own state, so opening the sheet doesn't redraw the page.
+                    NewListButton(opened: $opened)
                 }
                 if let error { Text(error).font(.geist(13)).foregroundStyle(Theme.down) }
 
@@ -145,9 +175,8 @@ struct ListsHomeView: View {
                     .surface(radius: 18, padding: 16)
                 } else {
                     LazyVGrid(columns: columns, spacing: 12) {
-                        let owned = ListItemInfo.ownedIndex(store)
                         ForEach(groups.shelves) { list in
-                            NavigationLink(value: ListRoute.list(list.id)) { ListTile(list: list, owned: owned) }
+                            NavigationLink(value: ListRoute.list(list.id)) { ListTile(list: list) }
                                 .buttonStyle(.plain)
                         }
                     }
@@ -174,12 +203,6 @@ struct ListsHomeView: View {
         .navigationBarTitleDisplayMode(.inline)
         .pageTitle("Lists")
         .task { await groups.loadExtras(groups.shelves.flatMap(\.product_ids), known: store.products) }
-        .sheet(isPresented: $naming) {
-            ListNameSheet(title: "New list", action: "Create") { name in
-                let list = try await groups.createShelf(name)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { opened = list.id }
-            }
-        }
         .navigationDestination(item: $opened) { ListDetailView(listId: $0) }
     }
 
@@ -207,7 +230,6 @@ struct ListsHomeView: View {
 /// An empty list shows three dashed card outlines with a plus, inviting you in.
 private struct ListTile: View {
     var list: GroupsStore.Shelf
-    var owned: [String: [HoldingView]]
     @Environment(CollectionStore.self) private var store
     @Environment(GroupsStore.self) private var groups
 
@@ -222,7 +244,7 @@ private struct ListTile: View {
 
     var body: some View {
         let meta = groups.meta(list.id)
-        let infos = list.product_ids.map { ListItemInfo($0, store: store, groups: groups, owned: owned) }
+        let infos = list.product_ids.map { ListItemInfo($0, store: store, groups: groups) }
         let total = Self.worth(infos)
         let shown = Array(infos.filter { $0.product != nil }.sorted { ($0.market ?? 0) > ($1.market ?? 0) }.prefix(3))
         let count = list.product_ids.count
@@ -326,8 +348,7 @@ struct ListDetailView: View {
 
     private func page(_ list: GroupsStore.Shelf) -> some View {
         let meta = groups.meta(listId)
-        let owned = ListItemInfo.ownedIndex(store)
-        let items = list.product_ids.map { ($0, ListItemInfo($0, store: store, groups: groups, owned: owned)) }
+        let items = list.product_ids.map { ($0, ListItemInfo($0, store: store, groups: groups)) }
         let totals = Self.totals(items, meta: meta)
         let marketTotal = totals.market
         let askTotal = totals.asking
