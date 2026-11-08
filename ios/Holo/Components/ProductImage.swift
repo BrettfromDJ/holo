@@ -13,6 +13,7 @@ struct ProductImage: View {
     var large = false
     /// Set on the card page so everything there, slabs included, asks for the biggest picture.
     @Environment(\.largeProductImages) private var pageLarge
+    @Environment(\.quietPlaceholder) private var quietPlaceholder
 
     var body: some View {
         // The biggest version first, then each smaller one, then the usual picture.
@@ -27,9 +28,27 @@ struct ProductImage: View {
             image.resizable().aspectRatio(contentMode: .fit)
                 .scaleEffect(large ? 1.015 : 1)
         } placeholder: {
-            Silhouette(product: product, showCaption: caption)
+            if quietPlaceholder {
+                // A small, faint picture mark on a dark tile, where the lime outline is too loud.
+                ZStack {
+                    Color.white.opacity(0.04)
+                    Image(systemName: "photo").font(.system(size: 20, weight: .regular)).foregroundStyle(Color.white.opacity(0.22))
+                }
+            } else {
+                Silhouette(product: product, showCaption: caption)
+            }
         }
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+    }
+}
+
+private struct QuietPlaceholderKey: EnvironmentKey { static let defaultValue = false }
+
+extension EnvironmentValues {
+    /// Missing pictures show a small faint mark instead of the lime line-art outline.
+    var quietPlaceholder: Bool {
+        get { self[QuietPlaceholderKey.self] }
+        set { self[QuietPlaceholderKey.self] = newValue }
     }
 }
 
