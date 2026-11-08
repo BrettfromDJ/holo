@@ -271,8 +271,8 @@ private struct Unmatched: View {
                     }
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity).frame(height: 52)
-                    .background(Capsule().fill(Color(red: 0.16, green: 0.16, blue: 0.17)))
-                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.14)))
+                    // Its own glass: whatever's behind the button blurs; nothing spans the bar.
+                    .liquidGlass(in: Capsule())
                     .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -293,14 +293,6 @@ private struct Unmatched: View {
         .padding(.horizontal, 20)
         .padding(.top, 14)
         .padding(.bottom, 8)
-        .background {
-            // Fades the matches out under the bar instead of a hard edge.
-            // Frosted: the cards blur as they slide under the buttons (a dark wash keeps them readable).
-            Rectangle().fill(.ultraThinMaterial)
-                .overlay(Color.black.opacity(0.35))
-                .overlay(alignment: .top) { Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1) }
-                .ignoresSafeArea(edges: .bottom)
-        }
     }
 
     private var title: String {
