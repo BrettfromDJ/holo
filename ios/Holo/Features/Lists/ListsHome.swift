@@ -85,12 +85,15 @@ struct ListsHomeView: View {
 
                 VStack(alignment: .leading, spacing: 12) {
                     MoreHeading(title: "Tracking", subtitle: nil)
+                    // Even rows: the card's edge sits as far from each row as the rows sit from
+                    // each other, and the line between them starts under the text.
                     VStack(spacing: 0) {
                         trackRow(.watchlist, "Watchlist", "Prices you're watching", icon: "eye", count: store.watchlist.count)
-                        Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1)
+                        Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1).padding(.leading, 48)
                         trackRow(.wishlist, "Wishlist", "Cards you want next", icon: "heart", count: store.wishlist.count)
                     }
-                    .surface(radius: 18, padding: 14)
+                    .padding(.horizontal, 14)
+                    .surface(radius: 18, padding: nil)
                 }
             }
             .padding(.horizontal, 16)
@@ -117,17 +120,17 @@ struct ListsHomeView: View {
     private func trackRow(_ route: ListRoute, _ title: String, _ sub: String, icon: String, count: Int) -> some View {
         NavigationLink(value: route) {
             HStack(spacing: 12) {
-                Image(systemName: icon).font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.lime)
+                Image(systemName: icon).font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.lime)
                     .frame(width: 36, height: 36).background(Circle().fill(Theme.lime.opacity(0.12)))
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 1) {
                     Text(title).font(.geist(15, .semibold)).foregroundStyle(.white)
                     Text(sub).font(.geist(12)).foregroundStyle(Theme.muted)
                 }
                 Spacer()
-                Text("\(count)").font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(.white)
+                Text("\(count)").font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(count == 0 ? Theme.muted : .white)
                 Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.subtle)
             }
-            .padding(.vertical, 8)
+            .padding(.vertical, 12)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
