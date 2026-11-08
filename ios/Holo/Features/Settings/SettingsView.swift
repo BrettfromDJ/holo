@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(SessionModel.self) private var session
     @Environment(CollectionStore.self) private var store
+    @Environment(GroupsStore.self) private var groups
     @State private var confirming = false
     @State private var showingWelcome = false
     @State private var testing = false
@@ -76,8 +77,16 @@ struct SettingsView: View {
                     .onChange(of: demo) { _, kind in
                         DemoKind.selected = kind
                         Task {
-                            if let kind { store.loadDemo(kind) }
-                            else if case let .signedIn(userId, _) = session.state { await store.load(userId: userId) }
+                            // Lists and portfolios follow too: a demo's never show in your account.
+                            groups.reset()
+                            if let kind {
+                                store.loadDemo(kind)
+                                await groups.load(userId: nil, store: store)
+                            } else if case let .signedIn(userId, _) = session.state {
+                                async let lists: Void = groups.load(userId: userId, store: store)
+                                await store.load(userId: userId)
+                                await lists
+                            }
                             // No account: "My collection" means signing in first.
                             else { Onboarding.shared.tryingDemo = false }
                         }
