@@ -439,7 +439,7 @@ private struct ScanTray: View {
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .background { Color.clear.liquidGlass(in: Circle()).allowsHitTesting(false) }
+                .background { Circle().fill(Color.white.opacity(0.1)).allowsHitTesting(false) }
                 .opacity(model.entries.isEmpty ? 0.4 : 1)
                 .disabled(model.entries.isEmpty)
                 .accessibilityLabel("Clear all scans")
@@ -461,7 +461,12 @@ private struct ScanTray: View {
             .padding(.horizontal, 20).padding(.top, 14).padding(.bottom, 10)
         }
         .foregroundStyle(.white)
-        .background { Color.clear.liquidGlass(in: shape).ignoresSafeArea(edges: .bottom) }
+        // Solid black, not glass: the camera behind made the tray's text and tiles hard to read.
+        .background {
+            shape.fill(Color.black)
+                .overlay(shape.stroke(Color.white.opacity(0.1), lineWidth: 1))
+                .ignoresSafeArea(edges: .bottom)
+        }
         .alert("Clear these scans?", isPresented: $clearing) {
             Button("Cancel", role: .cancel) {}
             Button("Clear", role: .destructive) { Haptics.remove(); withAnimation(.snappy) { for e in model.entries { model.remove(e.id) } } }
