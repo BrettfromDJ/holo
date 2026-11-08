@@ -10,8 +10,12 @@ struct ActivityView: View {
     @State private var editing: Txn?
     @State private var deleting: Txn?
     @State private var error: String?
+    /// Find every entry for a card.
+    @State private var query = ""
+    /// The three totals: this year or all time.
+    @State private var thisYear = false
 
-    enum Filter: String, CaseIterable { case all = "All", purchase = "Purchases", sale = "Sales", adjustment = "Adjustments" }
+    enum Filter: String, CaseIterable { case all = "All", purchase = "Bought", sale = "Sold", pulls = "Pulls", adjustment = "Other" }
 
     /// The ledger work (corrections applied, FIFO realized gains, totals), done once per change to
     /// the log, not on every redraw (opening a row's menu, a sheet or the delete prompt redraws
@@ -26,6 +30,10 @@ struct ActivityView: View {
         var bought = 0.0
         var sold = 0.0
         var realizedTotal = 0.0
+        /// The same three, this calendar year only.
+        var yearBought = 0.0
+        var yearSold = 0.0
+        var yearRealized = 0.0
 
         init() {}
 
@@ -40,9 +48,18 @@ struct ActivityView: View {
             for pos in Ledger(all).positions.values { for r in pos.realized { gains[r.transactionId] = r } }
             realized = gains
             realizedTotal = gains.values.reduce(0) { $0 + $1.gain }
+            let year = String(Calendar.current.component(.year, from: Date()))
+            yearRealized = gains.values.filter { $0.date.hasPrefix(year) }.reduce(0) { $0 + $1.gain }
             for t in live {
-                if t.kind == .purchase || (t.kind == .adjustment && t.quantity > 0) { bought += t.acquisitionCost }
-                if t.kind == .sale { sold += t.saleProceeds }
+                let inYear = t.date.hasPrefix(year)
+                if t.kind == .purchase || (t.kind == .adjustment && t.quantity > 0) {
+                    bought += t.acquisitionCost
+                    if inYear { yearBought += t.acquisitionCost }
+                }
+                if t.kind == .sale {
+                    sold += t.saleProceeds
+                    if inYear { yearSold += t.saleProceeds }
+                }
             }
         }
     }
@@ -66,33 +83,40 @@ struct ActivityView: View {
     private final class Memo {
         var log: [Txn]?
         var base = Base()
-        var listKey: (Filter, Bool)?
+        var listKey: (Filter, Bool, String)?
         var months: [(key: String, rows: [Txn])] = []
 
-        func model(log: [Txn], filter: Filter, showHidden: Bool) -> Model {
+        func model(log: [Txn], filter: Filter, showHidden: Bool, query: String, names: [String: Product]) -> Model {
             var fresh = false
             if self.log != log {
                 self.log = log
                 base = Base(log)
                 fresh = true
             }
-            if fresh || listKey?.0 != filter || listKey?.1 != showHidden {
-                listKey = (filter, showHidden)
-                months = Self.group(base, filter: filter, showHidden: showHidden)
+            let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+            if fresh || listKey?.0 != filter || listKey?.1 != showHidden || listKey?.2 != q {
+                listKey = (filter, showHidden, q)
+                months = Self.group(base, filter: filter, showHidden: showHidden, query: q, names: names)
             }
             return Model(base: base, months: months)
         }
 
         /// The filtered, sorted list, grouped by month.
-        private static func group(_ base: Base, filter: Filter, showHidden: Bool) -> [(key: String, rows: [Txn])] {
+        private static func group(_ base: Base, filter: Filter, showHidden: Bool, query: String, names: [String: Product]) -> [(key: String, rows: [Txn])] {
             let list = (showHidden ? base.all : base.all.filter { $0.kind != .correction && base.effective[$0.id] != nil })
                 .filter { t in
                     switch filter {
                     case .all: return true
-                    case .purchase: return t.kind == .purchase || (showHidden && t.kind == .correction)
+                    case .purchase: return (t.kind == .purchase && !t.isPull) || (showHidden && t.kind == .correction)
+                    case .pulls: return t.isPull
                     case .sale: return t.kind == .sale || (showHidden && t.kind == .correction)
                     case .adjustment: return t.kind == .adjustment || (showHidden && t.kind == .correction)
                     }
+                }
+                .filter { t in
+                    guard !query.isEmpty else { return true }
+                    let p = names[t.identity.productId]
+                    return (p?.name ?? t.identity.productId).lowercased().contains(query) || (p?.setName ?? "").lowercased().contains(query)
                 }
                 .sorted { $0.date != $1.date ? $0.date > $1.date : $0.createdAt > $1.createdAt }
             var order: [String] = []
@@ -110,7 +134,7 @@ struct ActivityView: View {
 
     var body: some View {
         let log = store.portfolioTransactions
-        let m = memo.model(log: log, filter: filter, showHidden: showHidden)
+        let m = memo.model(log: log, filter: filter, showHidden: showHidden, query: query, names: store.products)
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
                 header(m)
@@ -124,7 +148,11 @@ struct ActivityView: View {
                 LazyVStack(alignment: .leading, spacing: 26) {
                     ForEach(m.months, id: \.key) { month in
                         VStack(alignment: .leading, spacing: 10) {
-                            Text(monthTitle(month.key)).font(.display(20)).tracking(-0.5).displayTrim(20)
+                            HStack(alignment: .lastTextBaseline) {
+                                Text(monthTitle(month.key)).font(.display(20)).tracking(-0.5).displayTrim(20)
+                                Spacer(minLength: 8)
+                                Text(monthTotals(month.rows, m)).font(.geist(12)).monospacedDigit().foregroundStyle(Theme.muted).lineLimit(1)
+                            }
                             VStack(spacing: 0) {
                                 ForEach(month.rows) { t in
                                     row(t, m)
@@ -161,20 +189,26 @@ struct ActivityView: View {
     private func header(_ m: Model) -> some View {
         let count = m.effective.count
         return VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 8) {
-                MonoLabel(text: "Activity")
-                HStack(alignment: .lastTextBaseline, spacing: 10) {
-                    CountingText(value: Double(count), format: { "\(Int($0.rounded()))" })
-                        .font(.display(56)).tracking(-2.2).monospacedDigit().lineLimit(1).displayTrim(56)
-                    Text(count == 1 ? "Entry" : "Entries").font(.display(24)).tracking(-0.6).foregroundStyle(Theme.muted).displayTrim(24)
-                }
-                Text("Every purchase, sale and adjustment").font(.geist(13)).foregroundStyle(Theme.muted)
+            HStack(alignment: .lastTextBaseline, spacing: 10) {
+                CountingText(value: Double(count), format: { "\(Int($0.rounded()))" })
+                    .font(.display(56)).tracking(-2.2).monospacedDigit().lineLimit(1).displayTrim(56)
+                Text(count == 1 ? "purchase or sale" : "purchases and sales").font(.display(24)).tracking(-0.6).foregroundStyle(Theme.muted).displayTrim(24)
+                    .lineLimit(1).minimumScaleFactor(0.7)
             }
             .padding(.top, 8)
-            HStack(spacing: 8) {
-                GlassStat(label: "Bought", value: Format.money(m.bought))
-                GlassStat(label: "Sold", value: Format.money(m.sold))
-                GlassStat(label: "Realized", value: Format.signedMoney(m.realizedTotal), tint: Theme.tone(m.realizedTotal))
+            VStack(alignment: .leading, spacing: 10) {
+                ChipPicker(options: [(false, "All time"), (true, "This year")], selection: $thisYear)
+                    .fixedSize()
+                HStack(spacing: 8) {
+                    GlassStat(label: "Bought", value: Format.money(thisYear ? m.base.yearBought : m.bought))
+                    GlassStat(label: "Sold", value: Format.money(thisYear ? m.base.yearSold : m.sold))
+                    // The profit from selling: opens Sales & taxes.
+                    let realized = thisYear ? m.base.yearRealized : m.realizedTotal
+                    NavigationLink(value: MorePage.sales) {
+                        GlassStat(label: "Realized ›", value: Format.signedMoney(realized), tint: Theme.tone(realized))
+                    }
+                    .buttonStyle(.plain)
+                }
             }
         }
         .background(alignment: .top) {
@@ -184,6 +218,18 @@ struct ActivityView: View {
 
     private func controls(_ m: Model) -> some View {
         VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass").font(.system(size: 14, weight: .medium)).foregroundStyle(Theme.muted)
+                TextField("", text: $query, prompt: Text("Find a card").foregroundColor(Theme.subtle))
+                    .font(.geist(15)).foregroundStyle(.white)
+                    .submitLabel(.search)
+                if !query.isEmpty {
+                    Button { query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(Theme.subtle) }
+                        .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 14).frame(height: 44)
+            .liquidGlass(in: Capsule())
             ChipPicker(options: Filter.allCases.map { ($0, $0.rawValue) }, selection: $filter, scrolls: true)
             if m.hiddenCount > 0 {
                 Button("\(showHidden ? "Hide" : "Show") deleted & edit records (\(m.hiddenCount))") { showHidden.toggle() }
@@ -200,84 +246,87 @@ struct ActivityView: View {
         let voided = t.kind != .correction && eff == nil
         let shown = eff ?? t
         let edited = eff.map { $0.unitPrice != t.unitPrice || $0.quantity != t.quantity || $0.date != t.date || $0.fees != t.fees } ?? false
-        let (icon, label) = kindLabel(t)
+        let (tag, tint) = kindTag(t)
         let amount: Double? = t.kind == .sale ? shown.saleProceeds : (t.kind == .purchase || (t.kind == .adjustment && t.quantity > 0)) ? shown.acquisitionCost : nil
         let gain = m.realized[t.id]?.gain
         let original = t.correctsId.flatMap { m.byId[$0] }
-        let detail: String = t.kind == .correction
-            ? "\(t.quantity == 0 ? "deleted" : "edited") \(original.map { "\($0.kind.rawValue) from \(day($0.date))" } ?? "entry")"
+        // Short: what, where and the day (the year is in the month heading).
+        let what: String = t.kind == .correction
+            ? "\(t.quantity == 0 ? "deleted" : "edited") \(original.map { "\($0.kind.rawValue) from \(shortDay($0.date))" } ?? "entry")"
             : "\(Int(abs(shown.quantity))) × \(Format.money(shown.unitPrice))"
-        let meta = [label, detail, day(shown.date), t.source, t.identity.gradeLabel].compactMap { $0 }.joined(separator: " · ")
+        let source = t.isPull ? nil : t.source
+        let meta = [what, source, t.identity.gradeLabel, t.kind == .correction ? nil : shortDay(shown.date)].compactMap { $0 }.joined(separator: " · ")
+        let editable = t.kind != .correction && !voided
 
-        return HStack(spacing: 12) {
-            CardLink(productId: t.identity.productId, identity: t.identity) {
-                HStack(spacing: 12) {
-                    ZStack(alignment: .bottomTrailing) {
-                        HoldingArt(product: product, identity: t.identity, cornerRadius: 4, caption: false)
-                            .frame(width: 38, height: 52)
-                        Image(systemName: icon).font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(t.kind == .sale ? Theme.up : Theme.muted)
-                            .frame(width: 18, height: 18)
-                            .background(Theme.surface3, in: Circle())
-                            .overlay(Circle().strokeBorder(Theme.surface, lineWidth: 2))
-                            .offset(x: 5, y: 5)
+        return CardLink(productId: t.identity.productId, identity: t.identity) {
+            HStack(spacing: 12) {
+                HoldingArt(product: product, identity: t.identity, cornerRadius: 4, caption: false)
+                    .frame(width: 38, height: 52)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(product?.name ?? t.identity.productId).font(.geist(14, .medium)).foregroundStyle(.white)
+                        .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                    HStack(spacing: 6) {
+                        Tag(text: tag, tint: tint)
+                        if voided { Tag(text: "Deleted", tint: Theme.muted) }
+                        if edited { Tag(text: "Edited", tint: Theme.muted) }
                     }
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(product?.name ?? t.identity.productId).font(.geist(14, .medium)).lineLimit(1)
-                        Text(meta).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(2)
-                        HStack(spacing: 6) {
-                            if voided { Tag(text: "Deleted", tint: Theme.muted) }
-                            if edited { Tag(text: "Edited", tint: Theme.muted) }
-                            if let notes = t.notes, !notes.isEmpty, !["Deleted", "Edited", "Voided", "Corrected"].contains(notes) {
-                                Text(notes).font(.geist(12)).foregroundStyle(Theme.subtle).lineLimit(1)
-                            }
-                        }
-                    }
-                    Spacer(minLength: 6)
-                    VStack(alignment: .trailing, spacing: 3) {
-                        if let amount {
-                            Text((t.kind == .sale ? "+" : "−") + Format.money(amount))
-                                .font(.geist(14, .semibold)).monospacedDigit()
-                                .foregroundStyle(voided ? Theme.subtle : .white)
-                                .strikethrough(voided)
-                        }
-                        if let gain {
-                            Text(Format.signedMoney(gain)).font(.geist(12)).monospacedDigit().foregroundStyle(Theme.tone(gain))
-                        }
-                        if t.kind == .adjustment, t.quantity < 0, gain != nil {
-                            Text("written off").font(.geist(11)).foregroundStyle(Theme.subtle)
-                        }
+                    Text(meta).font(.geist(12)).monospacedDigit().foregroundStyle(Theme.muted).lineLimit(1)
+                    if let notes = t.notes, !notes.isEmpty, !["Deleted", "Edited", "Voided", "Corrected"].contains(notes) {
+                        Text(notes).font(.geist(12)).foregroundStyle(Theme.subtle).lineLimit(1)
                     }
                 }
-                .contentShape(Rectangle())
+                Spacer(minLength: 6)
+                VStack(alignment: .trailing, spacing: 3) {
+                    if let amount {
+                        Text((t.kind == .sale ? "+" : "−") + Format.money(amount))
+                            .font(.geist(14, .semibold)).monospacedDigit()
+                            .foregroundStyle(voided ? Theme.subtle : .white)
+                            .strikethrough(voided)
+                    }
+                    if let gain {
+                        // Labelled, so it doesn't read as a second price.
+                        (Text(t.kind == .adjustment ? "written off " : "profit ").foregroundColor(Theme.subtle)
+                            + Text(Format.signedMoney(gain)).foregroundColor(Theme.tone(gain)))
+                            .font(.geist(12)).monospacedDigit()
+                    }
+                }
             }
-            .buttonStyle(.plain)
-            if t.kind != .correction, !voided {
-                Menu {
-                    Button { editing = shown } label: { Label("Edit", systemImage: "pencil") }
-                    Button(role: .destructive) { deleting = t } label: { Label("Delete", systemImage: "trash") }
-                } label: {
-                    Image(systemName: "ellipsis").font(.system(size: 13)).foregroundStyle(Theme.muted).frame(width: 44, height: 44).contentShape(Rectangle())
-                }
-            } else {
-                Color.clear.frame(width: 28)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        // Edit and delete on a long press (the row's tap opens the card).
+        .contextMenu {
+            if editable {
+                Button { editing = shown } label: { Label("Edit", systemImage: "pencil") }
+                Button(role: .destructive) { deleting = t } label: { Label("Delete", systemImage: "trash") }
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
     }
 
-    private func kindLabel(_ t: Txn) -> (String, String) {
+    /// Each month's money, on its heading: "spent $124 · sold $879".
+    private func monthTotals(_ rows: [Txn], _ m: Model) -> String {
+        var spent = 0.0, sold = 0.0
+        for t in rows {
+            guard let e = m.effective[t.id] else { continue }
+            if e.kind == .purchase || (e.kind == .adjustment && e.quantity > 0) { spent += e.acquisitionCost }
+            if e.kind == .sale { sold += e.saleProceeds }
+        }
+        return [spent > 0 ? "spent \(Format.money(spent))" : nil, sold > 0 ? "sold \(Format.money(sold))" : nil].compactMap { $0 }.joined(separator: " · ")
+    }
+
+    private func kindTag(_ t: Txn) -> (String, Color) {
         switch t.kind {
-        case .purchase: return ("arrow.down.left", "Purchase")
-        case .sale: return ("arrow.up.right", "Sale")
-        case .adjustment: return t.quantity > 0 ? ("plus", "Added") : ("minus", "Removed")
-        case .correction: return ("pencil", "Edit record")
+        case .purchase: return t.isPull ? ("Pulled", Theme.planBlue) : ("Bought", Theme.muted)
+        case .sale: return ("Sold", Theme.lime)
+        case .adjustment: return t.quantity > 0 ? ("Added", Theme.muted) : ("Removed", Theme.muted)
+        case .correction: return ("Edit record", Theme.muted)
         }
     }
 
-    private func day(_ iso: String) -> String {
-        Format.isoDay.date(from: iso)?.formatted(.dateTime.month(.abbreviated).day().year()) ?? iso
+    private func shortDay(_ iso: String) -> String {
+        Format.isoDay.date(from: iso)?.formatted(.dateTime.month(.abbreviated).day()) ?? iso
     }
 
     private func monthTitle(_ key: String) -> String {
