@@ -373,7 +373,7 @@ struct ListDetailView: View {
         }
         .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)
-        .pageTitle(list.name)
+        .pageTitle("List")
         .task { await groups.loadExtras(list.product_ids, known: store.products) }
         .sheet(isPresented: $adding) { ListAddSheet(listId: listId) }
         .sheet(isPresented: $sharing) { ListShareSheet(listId: listId, name: list.name, forSale: meta.isForSale) }
