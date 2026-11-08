@@ -645,10 +645,10 @@ private struct ReturnVsTime: View {
     private func pick(at location: CGPoint, proxy: ChartProxy, origin: CGPoint) {
         var best: (id: String, distance: CGFloat)?
         for p in points {
-            guard let pos = proxy.position(forX: Double(p.days), y: p.ret) else { continue }
-            let dx = pos.x + origin.x - location.x
-            let dy = pos.y + origin.y - location.y
-            let d = (dx * dx + dy * dy).squareRoot()
+            guard let pos = proxy.position(for: (Double(p.days), p.ret)) else { continue }
+            let dx: CGFloat = pos.x + origin.x - location.x
+            let dy: CGFloat = pos.y + origin.y - location.y
+            let d: CGFloat = (dx * dx + dy * dy).squareRoot()
             if best == nil || d < best!.distance { best = (p.id, d) }
         }
         Haptics.tap()

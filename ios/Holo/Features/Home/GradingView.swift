@@ -313,7 +313,7 @@ struct GradingView: View {
 }
 
 /// The fee and shipping assumed when weighing whether to grade.
-private struct CostsSheet: View {
+struct CostsSheet: View {
     @Environment(GradingStore.self) private var grading
     @Environment(\.dismiss) private var dismiss
     @State private var fee = ""

@@ -15,3 +15,6 @@ SUPABASE_ANON_KEY = your-anon-key
 // A unique bundle id you own, and your Apple Developer Team ID (Xcode > Settings > Accounts).
 HOLO_BUNDLE_ID = com.yourname.holo
 HOLO_TEAM_ID = ABCDE12345
+
+// Where Account → Contact us sends email (optional; the row hides when empty)
+SUPPORT_EMAIL =

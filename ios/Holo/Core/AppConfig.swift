@@ -12,6 +12,8 @@ enum AppConfig {
     static var apiHost: String { value("HoloAPIHost") }
     static var supabaseHost: String { value("SupabaseHost") }
     static var supabaseAnonKey: String { value("SupabaseAnonKey") }
+    /// Account → Contact us (empty: the row is hidden).
+    static var supportEmail: String { value("SupportEmail") }
 
     static var isConfigured: Bool { !apiHost.isEmpty && !supabaseHost.isEmpty && !supabaseAnonKey.isEmpty }
 

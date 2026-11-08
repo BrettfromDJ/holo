@@ -196,6 +196,14 @@ final class HoloAPI {
     }
 
     /// Ask the server to send a test notification to your phones.
+    /// Delete the signed-in account and everything in it (the website does the deleting).
+    func deleteAccount() async throws {
+        struct Done: Decodable { var deleted: Bool }
+        var req = try await request("api/account/delete")
+        req.httpMethod = "POST"
+        _ = try await send(req, as: Done.self)
+    }
+
     func testPush() async throws -> PushTestResult {
         var req = try await request("api/push/test")
         req.httpMethod = "POST"
