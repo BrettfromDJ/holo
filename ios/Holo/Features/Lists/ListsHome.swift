@@ -144,6 +144,9 @@ private struct ListTile: View {
     @Environment(CollectionStore.self) private var store
     @Environment(GroupsStore.self) private var groups
 
+    /// The well's solid black (and the empty placeholders', so they match).
+    static let wellColor = Color(red: 0.07, green: 0.07, blue: 0.08)
+
     private static func worth(_ infos: [ListItemInfo]) -> Double {
         var total: Double = 0
         for info in infos { total += (info.market ?? 0) * info.count }
@@ -162,7 +165,7 @@ private struct ListTile: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: 112)
-            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.black.opacity(0.35)))
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Self.wellColor))
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .overlay(alignment: .topLeading) {
                 if meta.isForSale {
@@ -207,17 +210,22 @@ private struct ListTile: View {
 
     private var emptyFan: some View {
         ZStack {
+            // Tilted about their centres, so the fan sits in the middle of the well; solid in the
+            // well's black, so the cards behind don't show through. The middle one is in front.
             ForEach(0..<3, id: \.self) { i in
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.18), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                let shape = RoundedRectangle(cornerRadius: 6, style: .continuous)
+                shape.fill(Self.wellColor)
+                    .overlay(shape.strokeBorder(Color.white.opacity(0.22), style: StrokeStyle(lineWidth: 1, dash: [4, 4])))
                     .frame(width: 54, height: 74)
-                    .rotationEffect(.degrees(Double(i - 1) * 10), anchor: .bottom)
-                    .offset(x: Double(i - 1) * 28, y: 6)
+                    .rotationEffect(.degrees(Double(i - 1) * 10))
+                    .offset(x: Double(i - 1) * 28)
+                    .zIndex(i == 1 ? 1 : 0)
             }
             Image(systemName: "plus").font(.system(size: 18, weight: .semibold)).foregroundStyle(Theme.lime)
                 .frame(width: 36, height: 36)
-                .background(Circle().fill(Theme.ink.opacity(0.8)))
+                .background(Circle().fill(Self.wellColor))
                 .overlay(Circle().strokeBorder(Theme.lime.opacity(0.4), lineWidth: 1))
+                .zIndex(2)
         }
     }
 }
