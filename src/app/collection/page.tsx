@@ -323,7 +323,7 @@ function Collection() {
             onClick={() => setShelfDialog("new")}
             className="flex h-8 shrink-0 items-center gap-1 rounded-full border border-dashed border-border-strong px-3 text-[13px] font-medium text-muted hover:text-foreground"
           >
-            <Plus className="size-3.5" /> Shelf
+            <Plus className="size-3.5" /> List
           </button>
         </div>
 
@@ -358,7 +358,7 @@ function Collection() {
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm" aria-label="Shelf options">
+              <Button variant="ghost" size="icon-sm" aria-label="List options">
                 <MoreHorizontal />
               </Button>
             </DropdownMenuTrigger>
@@ -369,14 +369,14 @@ function Collection() {
               <DropdownMenuItem
                 className="text-down"
                 onSelect={() => {
-                  if (!confirm(`Delete the shelf "${shelf.name}"? Your products stay in your collection.`)) return;
+                  if (!confirm(`Delete the list "${shelf.name}"? Your products stay in your collection.`)) return;
                   void removeShelf(shelf.id).then(() => {
                     setShelfId(null);
                     router.replace("/collection", { scroll: false });
                   });
                 }}
               >
-                <Trash2 className="size-4" /> Delete shelf
+                <Trash2 className="size-4" /> Delete list
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -397,8 +397,8 @@ function Collection() {
         {shelf && !filtered.length ? (
           <div className="py-20 text-center">
             <Library className="mx-auto size-8 text-subtle" strokeWidth={1.5} />
-            <p className="mt-3 font-medium">This shelf is empty</p>
-            <p className="mt-1 text-sm text-muted">Open any product and use “Add to shelf” to put it here.</p>
+            <p className="mt-3 font-medium">This list is empty</p>
+            <p className="mt-1 text-sm text-muted">Open any product and use “Add to list” to put it here.</p>
           </div>
         ) : kind === "watchlist" ? (
           <WatchGrid query={query} />

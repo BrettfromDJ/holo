@@ -50,7 +50,7 @@ export function ShelfDialog({
       }
       onOpenChange(false);
     } catch (err) {
-      toast.error("Couldn't save shelf", { description: err instanceof Error ? err.message : undefined });
+      toast.error("Couldn't save list", { description: err instanceof Error ? err.message : undefined });
     } finally {
       setSaving(false);
     }
@@ -65,16 +65,16 @@ export function ShelfDialog({
           inputRef.current?.focus();
         }}
       >
-        <DialogTitle className="text-[17px] font-semibold">{shelf ? "Edit shelf" : "New shelf"}</DialogTitle>
+        <DialogTitle className="text-[17px] font-semibold">{shelf ? "Edit list" : "New list"}</DialogTitle>
         <DialogDescription className="mt-1 text-[13px] text-muted">Group products your way — grails, things to open, things to sell.</DialogDescription>
         <form onSubmit={submit} className="mt-5 space-y-4">
-          <Input ref={inputRef} value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder="e.g. Grails" aria-label="Shelf name" />
+          <Input ref={inputRef} value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder="e.g. For sale at the show" aria-label="List name" />
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" variant="primary" disabled={!name.trim() || saving}>
-              {shelf ? "Save" : "Create shelf"}
+              {shelf ? "Save" : "Create list"}
             </Button>
           </div>
         </form>
@@ -93,9 +93,9 @@ export function ShelfMenu({ productId, compact }: { productId: string; compact?:
     <>
       <DropdownMenu>
         {compact ? (
-          <Hint content={on.length ? `On ${on.length} shelf${on.length === 1 ? "" : "s"}` : "Add to shelf"}>
+          <Hint content={on.length ? `On ${on.length} list${on.length === 1 ? "" : "s"}` : "Add to list"}>
             <DropdownMenuTrigger asChild>
-              <Button variant="secondary" size="icon" aria-label={on.length ? `On ${on.length} shelf${on.length === 1 ? "" : "s"}` : "Add to shelf"} className="relative">
+              <Button variant="secondary" size="icon" aria-label={on.length ? `On ${on.length} list${on.length === 1 ? "" : "s"}` : "Add to list"} className="relative">
                 <Library />
                 {on.length > 0 && <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-foreground" aria-hidden />}
               </Button>
@@ -104,7 +104,7 @@ export function ShelfMenu({ productId, compact }: { productId: string; compact?:
         ) : (
           <DropdownMenuTrigger asChild>
             <Button variant="secondary">
-              <Library /> {on.length ? `On ${on.length} shelf${on.length === 1 ? "" : "s"}` : "Add to shelf"}
+              <Library /> {on.length ? `On ${on.length} list${on.length === 1 ? "" : "s"}` : "Add to list"}
             </Button>
           </DropdownMenuTrigger>
         )}
@@ -131,7 +131,7 @@ export function ShelfMenu({ productId, compact }: { productId: string; compact?:
           })}
           {shelves.length > 0 && <DropdownMenuSeparator />}
           <DropdownMenuItem onSelect={() => window.setTimeout(() => setCreating(true), 0)} disabled={Boolean(error)}>
-            <Plus className="size-4" /> New shelf…
+            <Plus className="size-4" /> New list…
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

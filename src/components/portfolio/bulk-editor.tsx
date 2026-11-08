@@ -163,11 +163,11 @@ export function BulkBar({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="secondary" size="sm" disabled={!n || busy || !shelves.length}>
-                <Library /> Shelf
+                <Library /> List
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="center" side="top">
-              <DropdownMenuLabel>Add to shelf</DropdownMenuLabel>
+              <DropdownMenuLabel>Add to list</DropdownMenuLabel>
               {shelves.map((s) => (
                 <DropdownMenuItem
                   key={s.id}
@@ -175,7 +175,7 @@ export function BulkBar({
                     void run(async () => {
                       await addMany(s.id, selected.map((h) => h.identity.productId));
                       toast(`Added ${items(n)} to ${s.name}`);
-                    }, "Couldn't add to shelf")
+                    }, "Couldn't add to list")
                   }
                 >
                   {s.name}

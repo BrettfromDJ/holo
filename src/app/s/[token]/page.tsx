@@ -10,6 +10,7 @@ import { computeHoldings, summarize, type HoldingView } from "@/lib/finance/port
 import { formatDate, money } from "@/lib/format";
 import { loadCollection } from "@/lib/supabase/load";
 import { getAdminSupabase } from "@/lib/supabase/server";
+import { listIdFromShareTitle } from "@/lib/lists";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,8 @@ async function loadShare(token: string) {
   const admin = getAdminSupabase();
   if (!admin || !/^[A-Za-z0-9_-]{20,64}$/.test(token)) return null;
   const { data: link } = await admin.from("share_links").select("*").eq("token", token).is("revoked_at", null).maybeSingle();
-  if (!link) return null;
+  // A link to one list opens only at /l/<token>, never the whole collection.
+  if (!link || listIdFromShareTitle(link.title)) return null;
   const data = await loadCollection(admin, link.user_id);
   const today = todayISO();
   const holdings = computeHoldings(data, today).sort((a, b) => (b.value ?? -1) - (a.value ?? -1));
