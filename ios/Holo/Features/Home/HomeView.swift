@@ -445,6 +445,7 @@ private struct Hero: View {
                     Button(action: onAdd) { Label("Add to Collection", systemImage: "plus").lineLimit(1) }
                         .buttonStyle(Button3D(kind: .lime, height: 48))
                 }
+                .environment(\.inGlassBar, true)
             }
             .frame(height: 48)
             // The buttons rise 1pt and their 3D edge drops 3pt, so 9 above and 10 below

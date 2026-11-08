@@ -1140,41 +1140,6 @@ struct CollectionBackdrop: View {
     }
 }
 
-/// A glass chip with a breathing lime dot: how fresh the prices are.
-private struct FreshnessChip: View {
-    var refreshedAt: Date?
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var ping = false
-
-    var body: some View {
-        HStack(spacing: 7) {
-            ZStack {
-                Circle().fill(Theme.lime.opacity(0.6)).scaleEffect(ping ? 2.2 : 1).opacity(ping ? 0 : 0.6)
-                Circle().fill(Theme.lime)
-            }
-            .frame(width: 7, height: 7)
-            Text(label).font(.mono(11, .medium)).tracking(0.6).foregroundStyle(Theme.muted)
-        }
-        .fixedSize()
-        .padding(.horizontal, 12)
-        .frame(height: 32)
-        .modifier(BarGlass())
-        .onAppear {
-            guard !reduceMotion else { return }
-            withAnimation(.easeOut(duration: 1.2).repeatForever(autoreverses: false)) { ping = true }
-        }
-    }
-
-    private var label: String {
-        guard let d = refreshedAt else { return "LIVE" }
-        let minutes = Int(Date().timeIntervalSince(d) / 60)
-        if minutes < 60 { return "\(max(minutes, 1))M AGO" }
-        let hours = minutes / 60
-        if hours < 24 { return "\(hours)H AGO" }
-        return "\(hours / 24)D AGO"
-    }
-}
-
 /// In the top bar iOS 26 already puts the item on Liquid Glass, so the chip adds nothing of its
 /// own there; older iOS gets the frosted capsule.
 private struct BarGlass: ViewModifier {

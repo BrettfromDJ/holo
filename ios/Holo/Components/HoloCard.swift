@@ -24,13 +24,17 @@ struct HoloCard<Content: View>: View {
     /// When the current touch began, to tell a tap from a press-and-tilt.
     @State private var downAt: Date?
     @State private var size: CGSize = .zero
+    /// On screen and not under a sheet: the drift only runs then (otherwise the page never rests
+    /// and every tap on it waits).
+    @State private var onScreen = true
 
     var body: some View {
         Group {
             if drifts && !reduceMotion {
                 // One clock: the slow tilt and the light's sweep. Paused while you hold it (the
                 // same view throughout, so a drag is never interrupted).
-                TimelineView(.animation(minimumInterval: nil, paused: touch != nil)) { context in
+                // 30 a second is plenty for a slow drift (it was every frame, up to 120).
+                TimelineView(.animation(minimumInterval: 1.0 / 30, paused: touch != nil || !onScreen)) { context in
                     let c = context.date.timeIntervalSinceReferenceDate
                     let idle = CGPoint(x: cos(c * 0.45) * 0.545, y: -sin(c * 0.6) * 0.5)
                     card(lean: touch ?? idle, sweep: touch == nil ? sin(c * 0.6) : nil)
@@ -41,6 +45,7 @@ struct HoloCard<Content: View>: View {
             }
         }
         .sensoryFeedback(.impact(weight: .light), trigger: touch != nil) { _, touching in touching }
+        .onVisibilityChange { visible in if visible != onScreen { onScreen = visible } }
     }
 
     /// Makes the card drift (tilt slowly, light sweeping across) until it's touched.

@@ -310,7 +310,7 @@ struct ScanView: View {
         }
         // Reading the tracker here (an action, not `body`) doesn't make this view observe it.
         if let live = tracker.readyMatch {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            Haptics.tap()
             flashOnce()
             model.add(matched: OnDeviceScan.result(for: live.hit), photo: live.crop.jpeg, thumbnail: live.crop.image)
             return

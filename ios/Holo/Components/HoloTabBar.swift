@@ -62,7 +62,7 @@ struct HoloTabBar<Tab: Hashable>: View {
                             .background {
                                 Circle().fill(Theme.lime.opacity(0.3)).blur(radius: 18).scaleEffect(1.35).allowsHitTesting(false)
                             }
-                            Sheen(strength: 0.6).clipShape(Circle())
+                            Sheen(strength: 0.6, once: true).clipShape(Circle())
                         }
                     )
             }

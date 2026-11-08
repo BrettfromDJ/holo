@@ -220,7 +220,7 @@ struct DealView: View {
                     let name = parkName
                     parkName = ""
                     withAnimation(.snappy) { deals.park(name: name) }
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    Haptics.tap()
                 }
             } message: {
                 Text("Set it aside with its photos and notes, and start a fresh one. Pick it back up from Parked.")
@@ -308,6 +308,7 @@ struct DealView: View {
             .disabled(unpriced)
             .opacity(unpriced ? 0.55 : 1)
         }
+        .environment(\.inGlassBar, true)
         }
         .padding(8)
         .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -328,7 +329,7 @@ struct DealView: View {
     private func roundCash() {
         guard let target = roundTarget(totals) else { return }
         withAnimation(.snappy) { deals.setAgreedCash(target) }
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        Haptics.tap()
     }
 
     /// Open the agreed-cash box, filled in with the cash as it stands.
@@ -352,7 +353,7 @@ struct DealView: View {
         cashText = ""
         guard let amount = MoneyField.value(text) else { return }
         withAnimation(.snappy) { deals.setAgreedCash(signedAgreedCash(amount, totals: totals)) }
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        Haptics.tap()
     }
 
     /// Lets go of the agreed cash; the slider stays where it moved to.
@@ -1067,7 +1068,7 @@ private struct DealItemCard: View {
     private var collectionChip: some View {
         Button {
             change { $0.track = !tracked }
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            Haptics.tap()
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: tracked ? "checkmark" : "plus").font(.system(size: 10, weight: .semibold))
@@ -1415,7 +1416,7 @@ private struct CustomerViewSheet: View {
                         if i.qty > 1 {
                             Text("×\(i.qty)").font(.geist(cols >= 4 ? 11 : 14, .semibold)).monospacedDigit().foregroundStyle(.white)
                                 .padding(.horizontal, cols >= 4 ? 6 : 10).frame(height: cols >= 4 ? 20 : 28)
-                                .liquidGlass(in: Capsule())
+                                .background(Capsule().fill(Theme.background.opacity(0.85)))
                                 .padding(cols >= 4 ? 4 : 8)
                         }
                     }
@@ -1772,7 +1773,7 @@ struct ParkedDealsList: View {
 
     private func resume(_ entry: ParkedDeal) {
         withAnimation(.snappy) { deals.resume(entry) }
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        Haptics.tap()
         onResumed()
     }
 }

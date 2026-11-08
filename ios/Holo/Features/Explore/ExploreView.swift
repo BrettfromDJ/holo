@@ -432,6 +432,7 @@ private struct SetView: View {
                     .foregroundStyle(.white)
                     .frame(width: 44, height: 44)
                     .liquidGlass(in: Circle())
+                    .contentShape(Circle())
             }
             .accessibilityLabel("Sort")
         }
@@ -793,7 +794,8 @@ private struct SetProductTile: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .liquidGlass(in: Capsule())
+                        // A dark pill, not glass: one per tile in a grid adds up.
+                        .background(Capsule().fill(Theme.background.opacity(0.85)))
                         .padding(8)
                     }
                 }

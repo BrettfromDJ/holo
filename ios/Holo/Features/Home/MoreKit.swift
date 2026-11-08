@@ -298,9 +298,12 @@ struct DotField: View {
     var radius: CGFloat = 0.75
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var onScreen = true
+    /// The dots twinkle for a few seconds as the page opens, then hold still: glass tiles sit
+    /// over them, and anything moving under glass makes it re-blur nonstop (taps feel slow).
+    @State private var settled = false
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 12, paused: reduceMotion || !onScreen)) { context in
+        TimelineView(.animation(minimumInterval: 1 / 12, paused: reduceMotion || !onScreen || settled)) { context in
             let t = reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate
             Canvas { ctx, size in
                 let cols = Int(size.width / spacing) + 1
@@ -324,6 +327,10 @@ struct DotField: View {
             }
         }
         .onVisibilityChange { onScreen = $0 }
+        .task {
+            try? await Task.sleep(nanoseconds: 4_000_000_000)
+            settled = true
+        }
     }
 }
 

@@ -163,7 +163,7 @@ struct GradingView: View {
                     Menu {
                         Button("Remove submission", role: .destructive) { grading.cancel(s.id) }
                     } label: {
-                        Image(systemName: "ellipsis").foregroundStyle(Theme.muted).frame(width: 28, height: 28)
+                        Image(systemName: "ellipsis").foregroundStyle(Theme.muted).frame(width: 44, height: 44).contentShape(Rectangle())
                     }
                 }
                 .padding(.vertical, 4)

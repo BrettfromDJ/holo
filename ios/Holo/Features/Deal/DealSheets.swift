@@ -120,7 +120,7 @@ struct DealPickerSheet: View {
                     let id = UUID().uuidString.lowercased()
                     let product = Product(id: "custom:\(id)", source: "custom", name: name, productType: "Custom", kind: "sealed")
                     deals.add(DealItem(key: "c:\(id)", product: product, printing: nil, market: nil, qty: qty, price: price, custom: true), to: side)
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    Haptics.tap()
                     dismiss()
                 }
             }
@@ -135,13 +135,13 @@ struct DealPickerSheet: View {
         )
         deals.add(item, to: side)
         added.insert(h.id)
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        Haptics.tap()
     }
 
     private func addHit(_ hit: SearchHit) {
         deals.add(DealItem(key: "p:\(hit.product.id):\(hit.printing ?? ""):", product: hit.product, printing: hit.printing, market: hit.market), to: side)
         added.insert(hit.id)
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        Haptics.tap()
     }
 
     private func search() async {

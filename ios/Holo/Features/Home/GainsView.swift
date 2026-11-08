@@ -7,6 +7,9 @@ struct GainsView: View {
     @State private var mode = Gains.Mode.unrealized
     @State private var group = Gains.Group.product
     @State private var expanded = false
+    /// The last breakdown and what it was worked out from, so a redraw that changes none of
+    /// those (an unrelated store update) doesn't redo the whole attribution.
+    @State private var memo = GainsMemo()
 
     private static let collapsedRows = 12
 
@@ -27,8 +30,7 @@ struct GainsView: View {
     }
 
     var body: some View {
-        let a = Gains.attribute(holdings: store.holdings, transactions: store.portfolioTransactions, products: store.products,
-                                mode: mode, group: group, maxRows: expanded ? nil : Self.collapsedRows)
+        let a = memo.attribution(store: store, mode: mode, group: group, maxRows: expanded ? nil : Self.collapsedRows)
         // Part of Analytics: the mode chips and the breakdown.
         VStack(alignment: .leading, spacing: 16) {
             ChipPicker(options: [(.unrealized, "Unrealized"), (.realized, "Realized"), (.all, "All-time")], selection: $mode)
@@ -59,6 +61,7 @@ struct GainsView: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14).frame(height: 36)
                     .liquidGlass(in: Capsule())
+                    .contentShape(Capsule())
                 }
             }
             Text("Each bar starts where the last one ended, gains first, then losses").font(.geist(14)).foregroundStyle(Theme.muted)
@@ -201,5 +204,23 @@ private struct Bar: View {
     private func grow() {
         guard !reduceMotion else { return }
         withAnimation(.spring(response: 0.7, dampingFraction: 0.85).delay(0.1 + delay)) { grown = true }
+    }
+}
+
+/// Remembers Gains' last breakdown by its inputs (a class, so filling it doesn't redraw).
+final class GainsMemo {
+    private var key: String?
+    private var value: Gains.Attribution?
+
+    func attribution(store: CollectionStore, mode: Gains.Mode, group: Gains.Group, maxRows: Int?) -> Gains.Attribution {
+        let holdings = store.holdings
+        let txns = store.portfolioTransactions
+        let worth = holdings.reduce(0) { $0 + ($1.value ?? 0) }
+        let k = "\(mode.rawValue)|\(group.rawValue)|\(maxRows ?? -1)|\(holdings.count)|\(txns.count)|\(worth)"
+        if k == key, let value { return value }
+        let a = Gains.attribute(holdings: holdings, transactions: txns, products: store.products, mode: mode, group: group, maxRows: maxRows)
+        key = k
+        value = a
+        return a
     }
 }

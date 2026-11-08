@@ -351,6 +351,7 @@ private struct HistorySection: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14).frame(height: 36)
                     .liquidGlass(in: Capsule())
+                    .contentShape(Capsule())
                 }
             }
             // What the chart says, or the day under your finger.

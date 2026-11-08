@@ -434,7 +434,7 @@ private struct HoldingHistory: View {
                             Button { editing = t } label: { Label("Edit", systemImage: "pencil") }
                             Button(role: .destructive) { deleting = t } label: { Label("Delete", systemImage: "trash") }
                         } label: {
-                            Image(systemName: "ellipsis").font(.system(size: 13)).foregroundStyle(Theme.muted).frame(width: 28, height: 28)
+                            Image(systemName: "ellipsis").font(.system(size: 13)).foregroundStyle(Theme.muted).frame(width: 44, height: 44).contentShape(Rectangle())
                         }
                     }
                     .padding(.vertical, 10)

@@ -317,13 +317,27 @@ struct GlassButton: ButtonStyle {
 }
 
 /// 3D buttons: lit top, solid bottom edge; pressing sinks onto the edge.
+private struct InGlassBarKey: EnvironmentKey { static let defaultValue = false }
+
+extension EnvironmentValues {
+    /// Buttons inside a glass bar (the Deal close bar, Overview's floating bar): no looping
+    /// shine or glow and no glass of their own, so the bar's glass isn't redrawn nonstop.
+    var inGlassBar: Bool {
+        get { self[InGlassBarKey.self] }
+        set { self[InGlassBarKey.self] = newValue }
+    }
+}
+
 struct Button3D: ButtonStyle {
     enum Kind { case light, lime, dark, blue, pink }
 
     var kind: Kind = .lime
     var fullWidth = true
     var height: CGFloat = 50
-    @Environment(\.onGlassSheet) private var onGlass
+    @Environment(\.onGlassSheet) private var onGlassSheet
+    @Environment(\.inGlassBar) private var inGlassBar
+    /// On glass of any kind: dark buttons take a faint fill instead of glass on glass.
+    private var onGlass: Bool { onGlassSheet || inGlassBar }
 
     private var fill: Color {
         switch kind {
@@ -385,7 +399,7 @@ struct Button3D: ButtonStyle {
 
     private func solid(_ configuration: Configuration) -> some View {
         let pressed = configuration.isPressed
-        let shines = kind == .lime || kind == .blue || kind == .pink
+        let shines = !inGlassBar && (kind == .lime || kind == .blue || kind == .pink)
         return configuration.label
             .font(.geist(16, .semibold))
             .foregroundStyle(text)
@@ -423,6 +437,9 @@ struct Button3D: ButtonStyle {
 /// slides, and it spends most of each loop off the button so the sweep reads as occasional.
 struct Sheen: View {
     var strength: Double = 0.5
+    /// Sweep once each time it comes into view, then rest (the tab bar's +: always on screen,
+    /// so a loop there meant the app never went idle).
+    var once = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var across = false
 
@@ -437,7 +454,10 @@ struct Sheen: View {
                 .allowsHitTesting(false)
                 // Only runs while on screen.
                 .onVisibilityChange { on in
-                    if on {
+                    if on && once {
+                        across = false
+                        withAnimation(.linear(duration: 4.5)) { across = true }
+                    } else if on {
                         withAnimation(.linear(duration: 4.5).repeatForever(autoreverses: false)) { across = true }
                     } else {
                         stopLoop { across = false }
@@ -1172,10 +1192,13 @@ struct CardLink<Label: View>: View {
         let wantedKey = wanted?.key
         var exact = false
         var best: HoldingView?
-        for h in store.allHoldings {
+        // Only this card's copies (the store indexes them by product), not every holding.
+        for h in store.holdings(for: productId) {
             if let wanted, !exact, h.identity.productId == wanted.productId, h.identity.key == wantedKey { exact = true }
-            if h.identity.productId == productId, best == nil || (best?.value ?? 0) < (h.value ?? 0) { best = h }
+            if best == nil || (best?.value ?? 0) < (h.value ?? 0) { best = h }
         }
+        // The exact copy asked for may sit under another product id (rare); check it directly.
+        if !exact, let wantedKey, store.holding(key: wantedKey) != nil { exact = true }
         if exact, let wanted { return wanted }
         return best?.identity
     }
@@ -1293,6 +1316,9 @@ struct LimeToggleStyle: ToggleStyle {
 
 /// Small taps you feel: a light one for an ordinary tap, a firmer one when something is removed.
 enum Haptics {
-    @MainActor static func tap() { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
-    @MainActor static func remove() { UIImpactFeedbackGenerator(style: .medium).impactOccurred() }
+    // Made once and kept warm, not created on every tap.
+    @MainActor private static let light: UIImpactFeedbackGenerator = { let g = UIImpactFeedbackGenerator(style: .light); g.prepare(); return g }()
+    @MainActor private static let medium: UIImpactFeedbackGenerator = { let g = UIImpactFeedbackGenerator(style: .medium); g.prepare(); return g }()
+    @MainActor static func tap() { light.impactOccurred(); light.prepare() }
+    @MainActor static func remove() { medium.impactOccurred(); medium.prepare() }
 }

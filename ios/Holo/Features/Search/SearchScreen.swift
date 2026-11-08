@@ -700,6 +700,8 @@ struct FilterBar: View {
         .frame(height: 34)
         .foregroundStyle(on ? Theme.ink : .white)
         .background { if on { Capsule().fill(Theme.lime) } else { Color.clear.liquidGlass(in: Capsule()).allowsHitTesting(false) } }
+        // The whole pill takes the tap, not just its text.
+        .contentShape(Capsule())
     }
 }
 

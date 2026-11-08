@@ -190,7 +190,7 @@ struct DealPhotosStrip: View {
             uploading -= 1
         }
         if !saved.isEmpty {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            Haptics.tap()
             withAnimation(.snappy) { onChange(photos + saved) }
         }
     }

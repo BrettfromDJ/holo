@@ -47,7 +47,7 @@ struct ProductDetailView: View {
     }
     private var price: Price? { store.marketPrice(productId, printing: printing) }
     /// The price history, oldest first.
-    private var hist: [PricePoint] { (store.history[priceKey(productId, printing)] ?? []).sorted { $0.date < $1.date } }
+    private var hist: [PricePoint] { store.sortedHistory(priceKey(productId, printing)) }
     /// The current price, or, for products without one, the latest point in its price history.
     private var headline: Double? { price?.market ?? hist.last?.price }
 
@@ -682,7 +682,7 @@ struct ProductDetailView: View {
                         Button { editing = t } label: { Label("Edit", systemImage: "pencil") }
                         Button(role: .destructive) { deleting = t } label: { Label("Delete", systemImage: "trash") }
                     } label: {
-                        Image(systemName: "ellipsis").font(.system(size: 13)).foregroundStyle(Theme.muted).frame(width: 28, height: 24)
+                        Image(systemName: "ellipsis").font(.system(size: 13)).foregroundStyle(Theme.muted).frame(width: 44, height: 44).contentShape(Rectangle())
                     }
                 }
                 .padding(.vertical, 12)
@@ -974,9 +974,14 @@ private struct ProductStage: View {
                                      .init(color: .black, location: 0.8), .init(color: .clear, location: 1)],
                              startPoint: .top, endPoint: .bottom))
         .allowsHitTesting(false)
-        .onAppear {
+        // Breathes only while on screen and uncovered; settles still otherwise.
+        .onVisibilityChange { visible in
             guard !reduceMotion else { return }
-            withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) { breathe = true }
+            if visible {
+                withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) { breathe = true }
+            } else {
+                withAnimation(.easeOut(duration: 0.2)) { breathe = false }
+            }
         }
     }
 }

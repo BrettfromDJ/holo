@@ -14,7 +14,7 @@ final class CollectionStore {
     private(set) var isFresh = false
     var products: [String: Product] = [:]
     var prices: [String: Price] = [:] { didSet { refreshedCache = nil } }
-    var history: [String: [PricePoint]] = [:] { didSet { seriesCache = [:] } }
+    var history: [String: [PricePoint]] = [:] { didSet { seriesCache = [:]; sortedHistoryCache = [:] } }
     /// What you hold in the selected portfolio (everything when none is picked).
     var holdings: [HoldingView] = []
     /// Everything you hold, whatever portfolio is selected (deals use these).
@@ -354,6 +354,19 @@ final class CollectionStore {
     /// every redraw). Outer nil: not worked out yet.
     @ObservationIgnored private var refreshedCache: Date??
     @ObservationIgnored private var spentCache: (month: String, value: Double)?
+    /// Pulled copies by holding key, and the products with any pulled copy (cached per log change).
+    @ObservationIgnored fileprivate var pulledCache: (keys: Set<String>, products: Set<String>)?
+    /// Each price history sorted oldest first, by price key (the card page reads it many times a redraw).
+    @ObservationIgnored private var sortedHistoryCache: [String: [PricePoint]] = [:]
+
+    /// A product's price history, oldest first (sorted once, then remembered).
+    func sortedHistory(_ key: String) -> [PricePoint] {
+        let raw = history[key] ?? []
+        if let cached = sortedHistoryCache[key], cached.count == raw.count { return cached }
+        let sorted = raw.sorted { $0.date < $1.date }
+        sortedHistoryCache[key] = sorted
+        return sorted
+    }
 
     /// The log with corrections applied (cached).
     var effectiveTransactions: [Txn] {
@@ -370,6 +383,7 @@ final class CollectionStore {
         recentCache = [:]
         entriesCache = nil
         spentCache = nil
+        pulledCache = nil
     }
 
     private func recompute(timelineNow: Bool = false, timelineSoon: Bool = false) {
@@ -1240,17 +1254,24 @@ extension CollectionStore {
 
 extension CollectionStore {
     /// The copies you pulled from a pack (recorded with the "Pulled" source), by holding key.
-    var pulledKeys: Set<String> {
-        Set(Ledger.effective(transactions).filter(\.isPull).map(\.identity.key))
+    var pulledKeys: Set<String> { pulled.keys }
+
+    /// Worked out once per log change (it was a pass over every purchase on each redraw).
+    private var pulled: (keys: Set<String>, products: Set<String>) {
+        // Reading `transactions` keeps views showing this updating when the log changes.
+        _ = transactions
+        if let pulledCache { return pulledCache }
+        let pulls = effectiveTransactions.filter(\.isPull)
+        let value = (Set(pulls.map(\.identity.key)), Set(pulls.map(\.identity.productId)))
+        pulledCache = value
+        return value
     }
 
     /// Whether this copy was (at least partly) pulled from a pack.
     func isPulled(_ identity: HoldingIdentity) -> Bool { pulledKeys.contains(identity.key) }
 
     /// Whether any copy of this product was pulled.
-    func isPulled(productId: String) -> Bool {
-        Ledger.effective(transactions).contains { $0.isPull && $0.identity.productId == productId }
-    }
+    func isPulled(productId: String) -> Bool { pulled.products.contains(productId) }
 
     /// Your pulls you still hold, most valuable first.
     var pulledHoldings: [HoldingView] {
