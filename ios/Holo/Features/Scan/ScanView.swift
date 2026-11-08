@@ -107,6 +107,21 @@ struct ScanView: View {
             await model.refreshBalance()
             // CardSight does the identifying: the live border stays, the phone's own read doesn't run.
             if model.cardSight { tracker.identifies = false }
+            // Screenshots: -HoloScanSample ambiguous|retake opens a made-up scan's sheet.
+            if Demo.isOn, let kind = Demo.value("-HoloScanSample") {
+                let ids = ["sample:charizard-ex-151", "sample:charizard-ex-of", "sample:mew-ex-gold", "sample:pikachu-ex-ss"]
+                let candidates = kind == "retake" ? [] : ids.compactMap { id in
+                    store.products[id].map { ScanCandidate(product: $0, printing: nil, printings: $0.printings ?? [], market: store.marketPrice(id, printing: $0.printings?.first)?.market, score: 0.5) }
+                }
+                var e = ScanModel.Entry(photo: Data())
+                e.state = .done
+                e.result = ScanResult(status: kind == "retake" ? "retake" : "ambiguous",
+                                      message: kind == "retake" ? "No card found in the photo. Fill the frame with the card and try again." : nil,
+                                      read: nil, candidates: candidates, scansRemaining: nil)
+                model.entries.append(e)
+                try? await Task.sleep(nanoseconds: 800_000_000)
+                editing = EditingScan(id: e.id)
+            }
         }
         .sheet(isPresented: $reviewing) {
             ScanReviewSheet(model: model, focus: focused, onAdded: { dismiss() })

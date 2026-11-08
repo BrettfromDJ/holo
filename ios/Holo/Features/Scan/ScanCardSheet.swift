@@ -147,8 +147,9 @@ private struct ScanPanel: View {
     }
 }
 
-/// A scan with no card yet: the photo, the close matches to pick from (or why there are none),
-/// search for the right one, try again, or remove.
+/// A scan with no card yet. Two layouts: close matches to pick from (a header with your photo,
+/// then the matches two a row), or nothing found (your photo large and centred, why, and Try
+/// again). Either way the ways out sit in a bar pinned to the bottom: Search and Remove.
 private struct Unmatched: View {
     let model: ScanModel
     let entry: ScanModel.Entry
@@ -156,67 +157,161 @@ private struct Unmatched: View {
     var onRemove: () -> Void
     @Environment(\.dismiss) private var dismiss
 
+    private var candidates: [ScanCandidate] { Array((entry.result?.candidates ?? []).prefix(6)) }
+    private var canRetry: Bool { entry.state == .failed || entry.result?.status == "retake" }
+    private var message: String? { entry.error ?? entry.result?.message }
+
     var body: some View {
+        let list = candidates
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 18) {
-                let list = Array((entry.result?.candidates ?? []).prefix(6))
-                // Your photo beside the question, big enough to compare against.
-                HStack(alignment: .top, spacing: 14) {
-                    Group {
-                        if let img = entry.thumbnail { Image(uiImage: img).resizable().scaledToFill() } else { Color.white.opacity(0.08) }
-                    }
-                    .frame(width: 104, height: 145)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.white.opacity(0.18)))
-                    VStack(alignment: .leading, spacing: 8) {
-                        MonoLabel(text: "Your scan")
-                        Text(title).font(.display(24)).tracking(-0.6).lineLimit(3)
-                        if !list.isEmpty {
-                            Text("Tap the card that matches. Check the set symbol and the number in the bottom corner. Hold a card to see it bigger.")
-                                .font(.geist(13)).foregroundStyle(Theme.muted).fixedSize(horizontal: false, vertical: true)
-                        } else if let message = entry.error ?? entry.result?.message {
-                            Text(message).font(.geist(14)).lineLimit(4)
-                        }
-                    }
-                    Spacer(minLength: 0)
-                }
-                if !list.isEmpty {
-                    // Two big cards a row, the best match first and marked, each with everything
-                    // that tells look-alikes apart: set, number, rarity, printings and price.
-                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                        ForEach(Array(list.enumerated()), id: \.offset) { i, c in
-                            CandidateCard(candidate: c, best: i == 0 && list.count > 1) { model.pick(c, for: entry.id) }
-                        }
-                    }
-                }
-                HStack(spacing: 10) {
-                    pill("Search for it", icon: "magnifyingglass", action: onWrong)
-                    if entry.state == .failed || entry.result?.status == "retake" {
-                        pill("Try again", icon: "arrow.clockwise") { model.retry(entry.id); dismiss() }
-                    }
-                }
-                Button(action: onRemove) {
-                    Label("Remove from this scan", systemImage: "trash.fill")
-                }
-                .buttonStyle(Button3D(kind: .pink, height: 48))
+            VStack(spacing: 0) {
+                closeRow
+                if list.isEmpty { nothingFound } else { matches(list) }
             }
-            .padding(.horizontal, 20).padding(.top, 18).padding(.bottom, 24)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 24)
         }
         .foregroundStyle(.white)
+        .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
     }
 
-    private func pill(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 7) {
-                Image(systemName: icon).font(.system(size: 13, weight: .semibold))
-                Text(title).font(.geist(14, .semibold))
+    /// Room under the grabber, and a close button you can see.
+    private var closeRow: some View {
+        HStack {
+            Spacer()
+            Button { Haptics.tap(); dismiss() } label: {
+                Image(systemName: "xmark").font(.system(size: 14, weight: .semibold)).foregroundStyle(.white)
+                    .frame(width: 34, height: 34)
+                    .background(Circle().fill(Color.white.opacity(0.1)))
             }
-            .foregroundStyle(.white)
-            .padding(.horizontal, 14).frame(height: 40)
-            .background(Color.white.opacity(0.12), in: Capsule())
-            .contentShape(Capsule())
+            .buttonStyle(.plain)
+            .accessibilityLabel("Close")
         }
-        .buttonStyle(.plain)
+        .padding(.top, 22)
+    }
+
+    private var photo: some View {
+        Group {
+            if let img = entry.thumbnail { Image(uiImage: img).resizable().scaledToFill() } else { Color.white.opacity(0.08) }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.white.opacity(0.18)))
+    }
+
+    // MARK: Close matches
+
+    private func matches(_ list: [ScanCandidate]) -> some View {
+        VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 6) {
+                MonoLabel(text: "\(list.count) close match\(list.count == 1 ? "" : "es")")
+                DisplayText(text: title, size: 30)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            // Your photo beside the tip, to compare against.
+            HStack(alignment: .center, spacing: 14) {
+                photo.frame(width: 64, height: 90)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Your scan").font(.geist(13, .semibold)).foregroundStyle(.white)
+                    Text("Match the set symbol and the number in the bottom corner. Hold a card to see it bigger.")
+                        .font(.geist(13)).foregroundStyle(Theme.muted).fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.white.opacity(0.06)))
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                ForEach(Array(list.enumerated()), id: \.offset) { i, c in
+                    CandidateCard(candidate: c, best: i == 0 && list.count > 1) { model.pick(c, for: entry.id) }
+                }
+            }
+        }
+        .padding(.top, 4)
+    }
+
+    // MARK: Nothing found
+
+    private var nothingFound: some View {
+        VStack(spacing: 0) {
+            photo.frame(width: 150, height: 210)
+                .shadow(color: .black.opacity(0.5), radius: 18, y: 8)
+                .padding(.top, 8)
+            DisplayText(text: title, size: 28, alignment: .center)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 26)
+            if let message {
+                BalancedText(text: message, font: .geist(15), color: Theme.muted)
+                    .frame(maxWidth: 300)
+                    .padding(.top, 10)
+            }
+            // Tips for the next photo, when the scanner couldn't make it out.
+            if canRetry {
+                VStack(alignment: .leading, spacing: 10) {
+                    tip("viewfinder", "Fill the frame with the card")
+                    tip("sun.max", "Tilt away from glare and bright lights")
+                    tip("hand.raised", "Hold still for a moment")
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(16)
+                .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.white.opacity(0.06)))
+                .padding(.top, 24)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func tip(_ icon: String, _ text: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon).font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.lime).frame(width: 22)
+            Text(text).font(.geist(14)).foregroundStyle(.white)
+        }
+    }
+
+    // MARK: Pinned bar
+
+    private var bottomBar: some View {
+        VStack(spacing: 10) {
+            if canRetry && candidates.isEmpty {
+                Button { Haptics.tap(); model.retry(entry.id); dismiss() } label: {
+                    Label("Try again", systemImage: "arrow.clockwise")
+                }
+                .buttonStyle(Button3D(kind: .lime, height: 52))
+            }
+            HStack(spacing: 10) {
+                Button { Haptics.tap(); onWrong() } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "magnifyingglass").font(.system(size: 15, weight: .semibold))
+                        Text(candidates.isEmpty ? "Search for it" : "Not here? Search").font(.geist(15, .semibold))
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity).frame(height: 52)
+                    .background(Capsule().fill(Color.white.opacity(0.12)))
+                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.14)))
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                Button { Haptics.remove(); onRemove() } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "trash").font(.system(size: 15, weight: .semibold))
+                        Text("Remove").font(.geist(15, .semibold))
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity).frame(height: 52)
+                    .background(Capsule().fill(Theme.planPink))
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Remove from this scan")
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 14)
+        .padding(.bottom, 8)
+        .background {
+            // Fades the matches out under the bar instead of a hard edge.
+            LinearGradient(colors: [Color.black.opacity(0), Color.black.opacity(0.85), Color.black.opacity(0.95)],
+                           startPoint: .top, endPoint: .bottom)
+                .ignoresSafeArea(edges: .bottom)
+        }
     }
 
     private var title: String {
@@ -228,7 +323,7 @@ private struct Unmatched: View {
             case "ambiguous": return "Which one is it?"
             case "retake": return "Couldn't read it clearly"
             case "unsupported": return "That game or language isn't supported"
-            default: return "No match found"
+            default: return candidates.isEmpty ? "No match found" : "Which one is it?"
             }
         }
     }

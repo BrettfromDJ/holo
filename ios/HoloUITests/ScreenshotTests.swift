@@ -67,6 +67,8 @@ final class ScreenshotTests: XCTestCase {
     func testGrading() { capture("grading", args: ["-HoloDemoKind", "graded", "-HoloPage", "grading"], pages: 4) }
 
     func testScanner() { capture("scanner", args: ["-HoloScan"], pages: 1) }
+    func testScanWhichOne() { capture("scan-which", args: ["-HoloScan", "-HoloScanSample", "ambiguous"], pages: 1) }
+    func testScanRetake() { capture("scan-retake", args: ["-HoloScan", "-HoloScanSample", "retake"], pages: 1) }
     // Onboarding: the welcome pages (swiped sideways).
     func testOnboarding() { capture("onboarding", args: ["-HoloOnboarding"], pages: 6, swipe: .left) }
     // The first welcome page again after a longer wait: shows whether the grid's card pictures
