@@ -595,65 +595,79 @@ private struct ReturnVsTime: View {
                     let lo = min(points.map(\.ret).min() ?? 0, 0)
                     let hi = max(points.map(\.ret).max() ?? 0, 0)
                     let pad = max((hi - lo) * 0.18, 0.1)
-                    Chart {
-                        ForEach(points) { p in
-                            PointMark(x: .value("Days held", Double(p.days)), y: .value("Return", p.ret))
-                                .foregroundStyle((p.ret >= 0 ? Theme.up : Theme.down).opacity(selected == nil || selected == p.id ? 0.9 : 0.3))
-                                .symbolSize(30 + min(260, p.value / 4))
-                        }
-                        // One zero line over the dots (it used to be drawn once per holding).
-                        RuleMark(y: .value("Zero", 0)).foregroundStyle(Theme.borderStrong)
-                    }
-                    .chartXScale(domain: (-maxDays * 0.08)...(maxDays * 1.08 + 1))
-                    .chartYScale(domain: (lo - pad)...(hi + pad))
-                    .chartXAxis {
-                        AxisMarks(values: .automatic(desiredCount: 4)) { v in
-                            AxisValueLabel { if let d = v.as(Double.self), d >= 0 { Text("\(Int(d))d").font(.geist(11)).foregroundStyle(Theme.subtle) } }
-                        }
-                    }
-                    .chartYAxis {
-                        AxisMarks(position: .trailing, values: .automatic(desiredCount: 4)) { v in
-                            AxisGridLine().foregroundStyle(Color.white.opacity(0.05))
-                            AxisValueLabel { if let d = v.as(Double.self) { Text(percent(d, 0)).font(.geist(11)).foregroundStyle(Theme.subtle) } }
-                        }
-                    }
-                    .chartOverlay { proxy in
-                        GeometryReader { geo in
-                            Rectangle().fill(.clear).contentShape(Rectangle())
-                                .onTapGesture { location in
-                                    let origin = proxy.plotFrame.map { geo[$0].origin } ?? .zero
-                                    // The nearest dot to the tap, if it's close enough.
-                                    let near = points.map { p -> (String, CGFloat) in
-                                        guard let pos = proxy.position(forX: Double(p.days), y: p.ret) else { return (p.id, .infinity) }
-                                        let dx = pos.x + origin.x - location.x, dy = pos.y + origin.y - location.y
-                                        return (p.id, (dx * dx + dy * dy).squareRoot())
-                                    }.min { $0.1 < $1.1 }
-                                    Haptics.tap()
-                                    withAnimation(.snappy(duration: 0.2)) {
-                                        selected = near.flatMap { $0.1 < 36 && $0.0 != selected ? $0.0 : nil }
-                                    }
-                                }
-                        }
-                    }
-                    .frame(height: 220)
-                    .drawIn(duration: 1.0)
-                    if let p = points.first(where: { $0.id == selected }) {
-                        HStack(spacing: 10) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(p.name).font(.geist(14, .semibold)).foregroundStyle(.white).lineLimit(1)
-                                Text("Held \(p.days) days · \(Format.money(p.value))").font(.geist(12)).monospacedDigit().foregroundStyle(Theme.muted)
-                            }
-                            Spacer(minLength: 8)
-                            DeltaPill(ratio: p.ret, size: 13)
-                        }
-                        .padding(12)
-                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.06)))
-                        .transition(.opacity)
-                    }
+                    plot(maxDays: maxDays, lo: lo, hi: hi, pad: pad)
+                    if let p = points.first(where: { $0.id == selected }) { selectedCard(p) }
                 }
                 .surface(radius: 16, padding: 16)
             }
         }
+    }
+
+    /// The dots, the zero line and the axes; tap near a dot to name it.
+    private func plot(maxDays: Double, lo: Double, hi: Double, pad: Double) -> some View {
+        Chart {
+            ForEach(points) { p in
+                PointMark(x: .value("Days held", Double(p.days)), y: .value("Return", p.ret))
+                    .foregroundStyle(dotColor(p))
+                    .symbolSize(30 + min(260, p.value / 4))
+            }
+            RuleMark(y: .value("Zero", 0)).foregroundStyle(Theme.borderStrong)
+        }
+        .chartXScale(domain: (-maxDays * 0.08)...(maxDays * 1.08 + 1))
+        .chartYScale(domain: (lo - pad)...(hi + pad))
+        .chartXAxis {
+            AxisMarks(values: .automatic(desiredCount: 4)) { v in
+                AxisValueLabel { if let d = v.as(Double.self), d >= 0 { Text("\(Int(d))d").font(.geist(11)).foregroundStyle(Theme.subtle) } }
+            }
+        }
+        .chartYAxis {
+            AxisMarks(position: .trailing, values: .automatic(desiredCount: 4)) { v in
+                AxisGridLine().foregroundStyle(Color.white.opacity(0.05))
+                AxisValueLabel { if let d = v.as(Double.self) { Text(percent(d, 0)).font(.geist(11)).foregroundStyle(Theme.subtle) } }
+            }
+        }
+        .chartOverlay { proxy in
+            GeometryReader { geo in
+                Rectangle().fill(.clear).contentShape(Rectangle())
+                    .onTapGesture { location in pick(at: location, proxy: proxy, origin: proxy.plotFrame.map { geo[$0].origin } ?? .zero) }
+            }
+        }
+        .frame(height: 220)
+        .drawIn(duration: 1.0)
+    }
+
+    private func dotColor(_ p: Analytics.HeldPoint) -> Color {
+        let base = p.ret >= 0 ? Theme.up : Theme.down
+        return base.opacity(selected == nil || selected == p.id ? 0.9 : 0.3)
+    }
+
+    /// The nearest dot to a tap, if it's close; tapping it again clears it.
+    private func pick(at location: CGPoint, proxy: ChartProxy, origin: CGPoint) {
+        var best: (id: String, distance: CGFloat)?
+        for p in points {
+            guard let pos = proxy.position(forX: Double(p.days), y: p.ret) else { continue }
+            let dx = pos.x + origin.x - location.x
+            let dy = pos.y + origin.y - location.y
+            let d = (dx * dx + dy * dy).squareRoot()
+            if best == nil || d < best!.distance { best = (p.id, d) }
+        }
+        Haptics.tap()
+        let next: String? = best.flatMap { $0.distance < 36 && $0.id != selected ? $0.id : nil }
+        withAnimation(.snappy(duration: 0.2)) { selected = next }
+    }
+
+    private func selectedCard(_ p: Analytics.HeldPoint) -> some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(p.name).font(.geist(14, .semibold)).foregroundStyle(.white).lineLimit(1)
+                Text("Held \(p.days) days · \(Format.money(p.value))").font(.geist(12)).monospacedDigit().foregroundStyle(Theme.muted)
+            }
+            Spacer(minLength: 8)
+            DeltaPill(ratio: p.ret, size: 13)
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.06)))
+        .transition(.opacity)
     }
 }
 

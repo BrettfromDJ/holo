@@ -202,7 +202,8 @@ struct SlabFanHero<Line: View, Below: View>: View {
     @State private var dealt = false
 
     var body: some View {
-        let top = Array(slabs.prefix(3))
+        // No fanned slabs at the top: they repeated the Your slabs grid right below.
+        let top: [HoldingView] = []
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 8) {
                 MonoLabel(text: slabs.isEmpty ? "No slabs yet" : "Your slabs are worth")
