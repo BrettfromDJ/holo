@@ -50,6 +50,7 @@ struct AnalyticsView: View {
                 kpis(risk: risk, summary: s, holdings: holdings)
                 // Gains lives here now: which products, sets or types your gains come from.
                 GainsView().reveal()
+                salesLink
                 // Its own view, so dragging across the chart redraws only the chart.
                 HistorySection(timeline: timeline).reveal()
                 CollectionMap(holdings: holdings).reveal()
@@ -72,6 +73,34 @@ struct AnalyticsView: View {
         .replaysAnimations()
         .navigationBarTitleDisplayMode(.inline)
         .pageTitle("Analytics")
+    }
+
+    /// Sales & taxes: this year's profit from selling, and the page with every sale.
+    private var salesLink: some View {
+        let lines = SalesReport.lines(store.transactions)
+        let year = Calendar.current.component(.year, from: Date())
+        let gain = SalesReport.totals(lines.filter { $0.year == year }).gain
+        return NavigationLink(value: MorePage.sales) {
+            HStack(spacing: 12) {
+                Image(systemName: "doc.text").font(.system(size: 17, weight: .semibold)).foregroundStyle(Theme.lime)
+                    .frame(width: 40, height: 40)
+                    .background(Circle().fill(Theme.lime.opacity(0.12)))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Sales & taxes").font(.geist(16, .semibold)).foregroundStyle(.white)
+                    Text(lines.isEmpty ? "Your profit from selling, ready for tax time" : "Profit from selling in \(String(year))")
+                        .font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                if !lines.isEmpty {
+                    Text(Format.signedMoney(gain)).font(.geist(15, .semibold)).monospacedDigit()
+                        .foregroundStyle(gain == 0 ? .white : Theme.tone(gain))
+                }
+                Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.subtle)
+            }
+            .padding(14)
+            .liquidGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: Key numbers

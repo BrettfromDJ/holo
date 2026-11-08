@@ -654,6 +654,18 @@ final class CollectionStore {
                             kind: .purchase, date: date, quantity: qty, unitPrice: unit, shipping: 4, createdAt: "\(date)T12:00:00Z",
                             source: n % 3 == 0 ? "Card show" : "TCGplayer"))
         }
+        // A few made-up sales, so Sales & taxes has something to show (one last year, two this year).
+        if kind == .mixed {
+            let sales: [(String, Int, Double, Double, Double)] = [("es-bb", 400, 1, 1010, 131.3), ("cz-etb", 45, 1, 92, 11.9), ("pf-tin", 30, 2, 31, 8.1)]
+            for (n, sale) in sales.enumerated() {
+                let (slug, daysAgo, qty, unit, fees) = sale
+                let id = realIds[slug]?.id ?? "sample:\(slug)"
+                guard let bought = txns.first(where: { $0.identity.productId == id }) else { continue }
+                let date = Format.day(Calendar.current.date(byAdding: .day, value: -daysAgo, to: Date()) ?? Date())
+                txns.append(Txn(id: "demo-sale-\(n)", identity: bought.identity, kind: .sale, date: date, quantity: qty, unitPrice: unit,
+                                fees: fees, createdAt: "\(date)T18:00:00Z", source: "eBay"))
+            }
+        }
         // Slabs are priced like recent eBay sales for their grade would put them.
         var graded: [String: Double] = [:]
         let multiple: [String: Double] = ["PSA 10": 3.2, "PSA 9": 1.6, "CGC 9.5": 1.8, "BGS 9.5": 2.1]

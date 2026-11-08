@@ -135,6 +135,7 @@ struct HomeView: View {
                 case .grading: GradingView()
                 case .masterSets: MasterSetsView()
                 case .activity: ActivityView()
+                case .sales: SalesView()
                 }
             }
             .task {
@@ -289,6 +290,7 @@ struct HomeView: View {
         case .grading: path.append(MorePage.grading)
         case .masterSets: path.append(MorePage.masterSets)
         case .activity: path.append(MorePage.activity)
+        case .sales: path.append(MorePage.sales)
         case .lists: lists = true
         case .account: account = true
         }
@@ -1660,7 +1662,7 @@ enum Milestones {
 }
 
 enum MorePage: String, Hashable, Identifiable {
-    case analytics, gains, grading, activity
+    case analytics, gains, grading, activity, sales
     case masterSets = "master-sets"
     var id: String { rawValue }
     static var opened = false
@@ -1721,13 +1723,13 @@ private struct ShineUnlessSealed: ViewModifier {
 
 /// The top-right menu's panel: every main place in the app, in three groups, on one glass card.
 private struct PlacesMenu: View {
-    enum Place { case collection, explore, deal, analytics, grading, masterSets, activity, lists, account }
+    enum Place { case collection, explore, deal, analytics, grading, masterSets, activity, sales, lists, account }
     var go: (Place) -> Void
 
     private static let groups: [[(Place, String, String)]] = [
         [(.collection, "Collection", "square.grid.2x2"), (.explore, "Explore", "safari"), (.deal, "Deal", "arrow.left.arrow.right")],
         [(.analytics, "Analytics", "chart.xyaxis.line"), (.grading, "Grading", "checkmark.seal"), (.masterSets, "Master sets", "square.grid.3x3.fill"),
-         (.activity, "Activity", "list.bullet.rectangle"), (.lists, "Watchlist and wishlist", "heart")],
+         (.activity, "Activity", "list.bullet.rectangle"), (.sales, "Sales & taxes", "doc.text"), (.lists, "Watchlist and wishlist", "heart")],
         [(.account, "Account and settings", "gearshape")],
     ]
 
