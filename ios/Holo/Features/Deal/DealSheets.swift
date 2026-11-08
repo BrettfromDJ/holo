@@ -50,11 +50,6 @@ struct DealPickerSheet: View {
                     }
                 }
                 }
-                if side == .incoming && query.count < 2 {
-                    Section {
-                        Text("Search for what the customer is handing you.").foregroundStyle(Theme.muted)
-                    }
-                }
                 if query.count >= 2 {
                     Section {
                         if searching && results.isEmpty { ProgressView() }
