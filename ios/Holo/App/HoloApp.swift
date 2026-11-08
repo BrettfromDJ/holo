@@ -57,6 +57,8 @@ struct RootView: View {
                         store.loadDemo(Demo.value("-HoloDemoKind").flatMap(DemoKind.init(rawValue:)) ?? .mixed)
                         if let id = Demo.value("-HoloProduct") { Router.shared.product = id }
                         if ProcessInfo.processInfo.arguments.contains("-HoloDealDemo") { deals.loadDemo(from: store) }
+                        // -HoloDealRole collector: the Deal tab as a collector at a vendor's table.
+                        if let role = Demo.value("-HoloDealRole").flatMap(DealRole.init(rawValue:)) { deals.role = role }
                         Task { await groups.load(userId: nil, store: store) }
                         // Screenshots: a rainbow bumper on the first slab, and the pull reveal.
                         if ProcessInfo.processInfo.arguments.contains("-HoloBumper"),

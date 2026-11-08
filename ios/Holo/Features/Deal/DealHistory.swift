@@ -921,8 +921,9 @@ struct DealRecordDetail: View {
                 VStack(alignment: .leading, spacing: 28) {
                     header(r)
                     if let lines = r.lines, !lines.isEmpty {
-                        lineSection(.incoming, lines.filter { $0.side == .incoming }, r.inValue)
-                        lineSection(.outgoing, lines.filter { $0.side == .outgoing }, r.outValue)
+                        // Cash is a line too, on the side it came in or went out, so the two sides add up.
+                        lineSection(.incoming, lines.filter { $0.side == .incoming }, r.inValue, cash: r.balance > 0.005 ? r.balance : nil)
+                        lineSection(.outgoing, lines.filter { $0.side == .outgoing }, r.outValue, cash: r.balance < -0.005 ? -r.balance : nil)
                     } else {
                         Text("Came in \(Format.money(r.inValue)) · went out \(Format.money(r.outValue)). Item details weren't kept for deals closed before they were recorded.")
                             .font(.geist(13)).foregroundStyle(Theme.muted)
@@ -1018,8 +1019,24 @@ struct DealRecordDetail: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    @ViewBuilder private func lineSection(_ side: DealSide, _ lines: [DealRecord.Line], _ total: Double) -> some View {
-        if !lines.isEmpty {
+    private func cashRow(_ amount: Double, incoming: Bool) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "banknote").font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.lime)
+                .frame(width: 40, height: 56)
+                .background(RoundedRectangle(cornerRadius: 4).fill(Theme.lime.opacity(0.12)))
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Cash").font(.geist(14, .medium)).foregroundStyle(.white)
+                Text(incoming ? "They paid you" : "You paid them").font(.geist(12)).foregroundStyle(Theme.muted)
+            }
+            Spacer(minLength: 8)
+            Text(Format.money(amount)).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(.white)
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+    }
+
+    @ViewBuilder private func lineSection(_ side: DealSide, _ lines: [DealRecord.Line], _ total: Double, cash: Double? = nil) -> some View {
+        if !lines.isEmpty || cash != nil {
             let incoming = side == .incoming
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .lastTextBaseline) {
@@ -1027,7 +1044,7 @@ struct DealRecordDetail: View {
                         .foregroundStyle(incoming ? Theme.lime : Theme.planPink)
                     Text(incoming ? "Came in" : "Went out").font(.display(22)).tracking(-0.6)
                     Spacer()
-                    Text(Format.money(total)).font(.display(22)).tracking(-0.6).monospacedDigit()
+                    Text(Format.money(total + (cash ?? 0))).font(.display(22)).tracking(-0.6).monospacedDigit()
                 }
                 VStack(spacing: 0) {
                     ForEach(Array(lines.enumerated()), id: \.offset) { i, line in
@@ -1048,8 +1065,9 @@ struct DealRecordDetail: View {
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
-                        if i < lines.count - 1 { Divider().overlay(Theme.border).padding(.leading, 64) }
+                        if i < lines.count - 1 || cash != nil { Divider().overlay(Theme.border).padding(.leading, 64) }
                     }
+                    if let cash { cashRow(cash, incoming: incoming) }
                 }
                 .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.surface))
                 .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Theme.border))

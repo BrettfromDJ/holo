@@ -79,6 +79,7 @@ final class ScreenshotTests: XCTestCase {
     }
     func testDeal() { capture("deal", args: ["-HoloTab", "deal"], pages: 1) }
     func testDealFilled() { capture("deal-filled", args: ["-HoloTab", "deal", "-HoloDealDemo"], pages: 3) }
+    func testDealCollector() { capture("deal-collector", args: ["-HoloTab", "deal", "-HoloDealDemo", "-HoloDealRole", "collector"], pages: 2) }
     func testDealCustomer() {
         capture("deal-customer", args: ["-HoloTab", "deal", "-HoloDealDemo", "-HoloDealCustomer"], pages: 1)
         capture("deal-customer-many", args: ["-HoloTab", "deal", "-HoloDealDemo", "-HoloDealMany", "-HoloDealCustomer"], pages: 1)

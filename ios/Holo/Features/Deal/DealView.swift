@@ -38,7 +38,7 @@ struct DealView: View {
         var d = deals.deal
         d.rateIn = nil
         d.rateOut = nil
-        return d.rates(deals.defaults)
+        return deals.rates(for: d)
     }
 
     /// The deal at its agreed cash, when one is set (the stored prices never change).
@@ -72,7 +72,11 @@ struct DealView: View {
         // them (they were recomputed for every number, accent and item card on the page).
         let agreed = self.agreed
         let totals = DealTotals(agreed.deal, rates: rates, cost: { deals.cost(of: $0, in: store) })
-        let warning = Self.warning(totals)
+        let role = deals.role
+        // A collector's read on the deal: the vendor's offer and prices against market.
+        let read: CollectorRead? = role == .collector && deals.deal.kind != .empty ? CollectorRead(agreed.deal, totals: totals, rates: rates) : nil
+        // Pink warnings are a vendor's (selling to a vendor always comes in under market).
+        let warning = role == .vendor && Self.warning(totals)
         let accent = warning ? Theme.planPink : Theme.lime
         NavigationStack(path: $path) {
             ScrollView {
@@ -83,9 +87,21 @@ struct DealView: View {
                             DealHint { withAnimation(.snappy) { hintSeen = true } }
                                 .transition(.opacity.combined(with: .move(edge: .top)))
                         }
+                        // Before a deal starts: who you're dealing as, one tap from changing it.
+                        if deals.deal.kind == .empty {
+                            Button { settings = true } label: {
+                                HStack(spacing: 6) {
+                                    Text("Dealing as").foregroundStyle(Theme.muted)
+                                    Text(role.title).foregroundStyle(.white)
+                                    Text("· Change").foregroundStyle(Theme.lime)
+                                }
+                                .font(.geist(13, .medium))
+                            }
+                            .buttonStyle(.plain)
+                        }
                         if !todays.isEmpty { TodayStrip(deals: todays) { path.append(DealRoute.history) } }
                         if !deals.parked.isEmpty { ParkedChip(count: deals.parked.count) { parkedList = true } }
-                        BalanceCard(totals: totals, roundTo: roundTarget(totals), onRound: roundCash,
+                        BalanceCard(totals: totals, role: role, read: read, roundTo: roundTarget(totals), onRound: roundCash,
                                     agreed: agreed.side != nil, share: agreed.share,
                                     onEditCash: { startEditingCash(totals) }, onClearAgreed: clearAgreed)
                             // Reports only when it crosses the top, not on every scroll frame.
@@ -131,9 +147,12 @@ struct DealView: View {
                     if docked {
                         Button { path.append(DealRoute.history) } label: { Image(systemName: "clock.arrow.circlepath") }.accessibilityLabel("Closed deals")
                     }
-                    Button { customer = true } label: { Image(systemName: "eye") }
-                        .accessibilityLabel("Customer view")
-                        .disabled(deals.deal.kind == .empty)
+                    // The customer view is a vendor's: it shows the customer their side of the deal.
+                    if role == .vendor {
+                        Button { customer = true } label: { Image(systemName: "eye") }
+                            .accessibilityLabel("Customer view")
+                            .disabled(deals.deal.kind == .empty)
+                    }
                     Button { settings = true } label: { Image(systemName: "slider.horizontal.3") }.accessibilityLabel("Deal settings")
                 }
             }
@@ -143,7 +162,7 @@ struct DealView: View {
                     // Tap to go back up to the full card (the same as tapping the Deal tab).
                     Button {
                         Router.shared.tabTap = TabTap(name: "deal", count: Router.shared.tabTap.count + 1)
-                    } label: { PinnedBalance(totals: totals) }
+                    } label: { PinnedBalance(totals: totals, role: role, read: read) }
                         .buttonStyle(.plain)
                         .accessibilityHint("Scrolls back to the top")
                         .padding(.horizontal, 16)
@@ -317,7 +336,8 @@ struct DealView: View {
     private func agreedPrompt(_ totals: DealTotals) -> String {
         let customerPays = signedAgreedCash(1, totals: totals) > 0
         let moving = deals.deal.outgoing.isEmpty ? "coming in" : "going out"
-        return (customerPays ? "What the customer pays you." : "What you pay the customer.") + " The prices \(moving) move to match."
+        let other = deals.role.other
+        return (customerPays ? "What the \(other) pays you." : "What you pay the \(other).") + " The prices \(moving) move to match."
     }
 
     /// The typed amount, paid the way the cash goes now (see signedAgreedCash).
@@ -345,7 +365,7 @@ struct DealView: View {
                     Text("Photos").font(.display(24)).tracking(-0.6).displayTrim(24)
                     if !deals.deal.photos.isEmpty { MonoLabel(text: "\(deals.deal.photos.count)") }
                 }
-                Text("Document the deal: the cards on the table, a receipt, the customer's binder").font(.geist(12)).foregroundStyle(Theme.muted)
+                Text("Document the deal: the cards on the table, a receipt, the \(deals.role.other)'s binder").font(.geist(12)).foregroundStyle(Theme.muted)
             }
             DealPhotosStrip(photos: deals.deal.photos, accountId: store.demo == nil ? deals.accountId : nil, accent: accent) { photos in
                 deals.update { $0.photos = photos }
@@ -387,7 +407,7 @@ struct DealView: View {
                             .foregroundStyle(incoming ? accent : Theme.planPink)
                         Text(incoming ? "Coming in" : "Going out").font(.display(24)).tracking(-0.6).displayTrim(24)
                     }
-                    Text(incoming ? "What the customer hands you" : "What you hand over").font(.geist(12)).foregroundStyle(Theme.muted)
+                    Text(incoming ? "What the \(deals.role.other) hands you" : "What you hand over").font(.geist(12)).foregroundStyle(Theme.muted)
                 }
                 Spacer(minLength: 8)
                 Text(Format.money(incoming ? totals.inValue : totals.outValue))
@@ -396,7 +416,10 @@ struct DealView: View {
                     .animation(.snappy, value: incoming ? totals.inValue : totals.outValue)
             }
 
-            RateCard(rate: rate, fallback: fallback, accent: accent, result: deals.deal.kind == .empty ? nil : totals.summary) { r in
+            RateCard(rate: rate, fallback: fallback, accent: accent,
+                     result: deals.deal.kind == .empty ? nil
+                        : (deals.role == .collector ? totals.cashLine + " · at market " + Format.signedMoney(CollectorRead(settled, totals: totals, rates: rates).net) : totals.summary),
+                     lead: deals.role == .vendor ? "At " : (incoming ? "They charge " : "They offer ")) { r in
                 deals.update { d in if incoming { d.rateIn = r } else { d.rateOut = r } }
             }
 
@@ -529,7 +552,7 @@ extension DealTotals {
     }
 
     var cashLine: String {
-        abs(balance) < 0.005 ? "Even swap" : (balance > 0 ? "Customer pays you \(Format.money(balance))" : "You pay \(Format.money(-balance))")
+        abs(balance) < 0.005 ? "Even swap" : (balance > 0 ? "\(DealRole.stored.theyPay) \(Format.money(balance))" : "You pay \(Format.money(-balance))")
     }
 
     var verdict: String? {
@@ -556,7 +579,7 @@ extension DealTotals {
 
 /// What each number means, one sentence each (tap a label to read it).
 enum DealTerm: String {
-    case verdict, ahead, cash, comingIn, goingOut, profit, value, rate
+    case verdict, ahead, cash, comingIn, goingOut, profit, value, rate, offer, charge
 
     var title: String {
         switch self {
@@ -568,6 +591,8 @@ enum DealTerm: String {
         case .profit: return "Sale profit"
         case .value: return "Trade-in value"
         case .rate: return "Share of market"
+        case .offer: return "Their offer"
+        case .charge: return "Their price"
         }
     }
 
@@ -576,11 +601,13 @@ enum DealTerm: String {
         case .verdict: return "Your profit on what you hand over plus the value you gain on what comes in: how much better off you are after this deal, at market prices."
         case .ahead: return "Market value of what comes in, minus what you paid for what goes out, minus any cash you pay (plus any you get): your profit plus the value you gain."
         case .cash: return "The difference between the two sides, paid in cash so the deal comes out even."
-        case .comingIn: return "What the customer's cards count for in this deal, at the prices you set."
+        case .comingIn: return "What the \(DealRole.stored.other)'s cards count for in this deal, at the prices you set."
         case .goingOut: return "What your cards count for in this deal, at the prices you set."
         case .profit: return "What your cards go for in this deal, minus what you paid for them."
         case .value: return "Market value of what comes in, minus what you're giving for it: how far below market you're getting it."
         case .rate: return "Each item counts for this share of its market price. Drag to counter-offer, or set one item's own % or price."
+        case .offer: return "What the vendor is paying for your cards, as a share of their market price. Cash offers are usually lower than trade-in credit."
+        case .charge: return "What the vendor is charging for their cards, as a share of market. Over 100% means you pay above market."
         }
     }
 }
@@ -614,6 +641,9 @@ private struct TermLabel: View {
 /// goes pink, so there's never pink on lime.
 private struct BalanceCard: View {
     var totals: DealTotals
+    var role: DealRole = .vendor
+    /// A collector's read (the vendor's offer against market); nil for a vendor.
+    var read: CollectorRead?
     var roundTo: Double?
     var onRound: () -> Void
     /// The cash is one the two of you agreed on (the prices are spread to reach it).
@@ -628,7 +658,7 @@ private struct BalanceCard: View {
         let t = totals
         let b = t.balance
         let empty = t.kind == .empty
-        let down = (t.showsEquity && t.equity < -0.005) || (t.ahead ?? 0) < -0.005
+        let down = read == nil && ((t.showsEquity && t.equity < -0.005) || (t.ahead ?? 0) < -0.005)
         let fill = down ? Theme.planPink : Theme.lime
         // A soft glow of the color around a dark middle, so the text is white on both.
         let ink = Color.white
@@ -645,7 +675,24 @@ private struct BalanceCard: View {
 
             // How far ahead you come out, in plain English (pink when behind: it sits on the ink pill,
             // never on lime).
-            if let verdict = t.headline {
+            if let read {
+                // A collector's headline: more or less market value after the deal, cash included.
+                HStack(spacing: 8) {
+                    Image(systemName: read.net >= 0 ? "arrow.up.right" : "arrow.down.right").font(.system(size: 13, weight: .medium))
+                    Text(read.headline).font(.geist(15, .bold)).lineLimit(1).minimumScaleFactor(0.7)
+                }
+                .foregroundStyle(fill)
+                .padding(.horizontal, 14).frame(height: 36)
+                .background(Capsule().fill(Theme.ink.opacity(0.85)))
+                .padding(.top, 16)
+                .contentTransition(.numericText())
+                .animation(.snappy, value: read.net)
+                if read.offerShare != nil {
+                    Text("Vendors often pay 60 to 80% of market for cards they buy.")
+                        .font(.geist(12, .medium)).foregroundStyle(ink.opacity(0.7))
+                        .padding(.top, 8)
+                }
+            } else if let verdict = t.headline {
                 let score = t.ahead ?? t.net ?? 0
                 HStack(spacing: 8) {
                     Image(systemName: score >= 0 ? "arrow.up.right" : "arrow.down.right").font(.system(size: 13, weight: .medium))
@@ -659,19 +706,19 @@ private struct BalanceCard: View {
                 .contentTransition(.numericText())
                 .animation(.snappy, value: t.ahead ?? t.net)
             }
-            if let paper = t.onPaper {
+            if read == nil, let paper = t.onPaper {
                 Text("Includes \(Format.money(paper)) on paper")
                     .font(.geist(12, .medium)).foregroundStyle(ink.opacity(0.7))
                     .padding(.top, 8)
             }
-            if t.uncosted > 0 {
+            if read == nil, t.uncosted > 0 {
                 Text("Add what you paid for every item to see your total")
                     .font(.geist(12, .medium)).foregroundStyle(ink.opacity(0.7))
                     .padding(.top, 8)
             }
 
             HStack(alignment: .center, spacing: 8) {
-                TermLabel(text: empty ? "Add items to start" : (abs(b) < 0.005 ? "Settled · no cash" : (b > 0 ? "Customer pays you" : "You pay the customer")), term: .cash, color: ink.opacity(0.7))
+                TermLabel(text: empty ? "Add items to start" : (abs(b) < 0.005 ? "Settled · no cash" : (b > 0 ? role.theyPay : role.youPay)), term: .cash, color: ink.opacity(0.7))
                 Spacer()
             }
             .padding(.top, 16)
@@ -733,8 +780,13 @@ private struct BalanceCard: View {
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], alignment: .leading, spacing: 14) {
                 stat("Coming in", .comingIn, Format.money(t.inValue), ink)
                 stat("Going out", .goingOut, Format.money(t.outValue), ink)
-                stat("Sale profit", .profit, t.profit.map { Format.signedMoney($0) } ?? "—", ink)
-                stat("Trade-in value", .value, t.showsEquity ? Format.signedMoney(t.equity) : "—", ink)
+                if let read {
+                    stat("Their offer", .offer, read.offerShare.map { "\(Int(($0 * 100).rounded()))% of market" } ?? "—", ink)
+                    stat("Their price", .charge, read.chargeShare.map { "\(Int(($0 * 100).rounded()))% of market" } ?? "—", ink)
+                } else {
+                    stat("Sale profit", .profit, t.profit.map { Format.signedMoney($0) } ?? "—", ink)
+                    stat("Trade-in value", .value, t.showsEquity ? Format.signedMoney(t.equity) : "—", ink)
+                }
             }
             .padding(.top, 18)
         }
@@ -813,12 +865,14 @@ private struct RateCard: View {
     var fallback: Double
     var accent: Color
     var result: String?
+    /// Before the percentage: "At " (a vendor's own rate), "They offer " / "They charge " (a collector's).
+    var lead = "At "
     var onChange: (Double?) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
-                Text("At ").foregroundColor(Theme.muted) + Text("\(Int((rate * 100).rounded()))%").foregroundColor(.white) + Text(" of market").foregroundColor(Theme.muted)
+                Text(lead).foregroundColor(Theme.muted) + Text("\(Int((rate * 100).rounded()))%").foregroundColor(.white) + Text(" of market").foregroundColor(Theme.muted)
                 TermInfo(term: .rate, color: .white)
                 Spacer()
                 if abs(rate - fallback) > 0.0001 {
@@ -1816,20 +1870,27 @@ private struct DealHint: View {
 /// the cash figure and how far ahead it leaves you, on the card's lime (pink when behind).
 private struct PinnedBalance: View {
     var totals: DealTotals
+    var role: DealRole = .vendor
+    var read: CollectorRead?
 
     var body: some View {
         let b = totals.balance
-        let down = (totals.showsEquity && totals.equity < -0.005) || (totals.ahead ?? 0) < -0.005
+        let down = read == nil && ((totals.showsEquity && totals.equity < -0.005) || (totals.ahead ?? 0) < -0.005)
         let fill = down ? Theme.planPink : Theme.lime
         let ink = down ? Color.white : Theme.ink
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text((abs(b) < 0.005 ? "Settled · no cash" : (b > 0 ? "Customer pays you" : "You pay the customer")).uppercased())
+                Text((abs(b) < 0.005 ? "Settled · no cash" : (b > 0 ? role.theyPay : role.youPay)).uppercased())
                     .font(.mono(10)).tracking(1).opacity(0.7)
                 Text(Format.money(abs(b))).font(.display(26)).tracking(-0.8).monospacedDigit().displayTrim(26)
             }
             Spacer(minLength: 8)
-            if let ahead = totals.ahead {
+            if let read {
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("AT MARKET").font(.mono(10)).tracking(1).opacity(0.7)
+                    Text(Format.signedMoney(read.net)).font(.geist(17, .semibold)).monospacedDigit()
+                }
+            } else if let ahead = totals.ahead {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(ahead >= 0 ? "AHEAD" : "BEHIND").font(.mono(10)).tracking(1).opacity(0.7)
                     Text(Format.signedMoney(ahead)).font(.geist(17, .semibold)).monospacedDigit()

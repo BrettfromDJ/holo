@@ -47,7 +47,17 @@ final class DealStore {
         loaded = true
     }
 
-    var rates: (in: Double, out: Double) { deal.rates(defaults) }
+    var rates: (in: Double, out: Double) { rates(for: deal) }
+
+    /// Vendor or collector (kept on this phone); it changes the words and the default rates.
+    var role: DealRole = DealRole.stored { didSet { UserDefaults.standard.set(role.rawValue, forKey: DealRole.key) } }
+    /// A collector's usual expectations of vendors (kept on this phone).
+    var collector = CollectorRates.stored { didSet { collector.save() } }
+
+    /// The rate each side of a deal is at, for whoever you are.
+    func rates(for deal: DealState) -> (in: Double, out: Double) {
+        role == .collector ? collector.rates(deal) : deal.rates(defaults)
+    }
 
     /// The signed-in account photos are stored under (nil keeps them on the phone, as in a demo).
     var accountId: String? { userId }

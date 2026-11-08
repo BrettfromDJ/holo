@@ -206,12 +206,26 @@ struct DealRatesSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(DealStore.self) private var deals
     @State private var rates = DealRates()
+    @State private var role = DealRole.vendor
+    @State private var collector = CollectorRates()
 
     var body: some View { sheetBody.glassSheet() }
 
     @ViewBuilder private var sheetBody: some View {
         NavigationStack {
             GlassForm {
+                Section {
+                    ChipPicker(options: DealRole.allCases.map { ($0, $0.title) }, selection: $role, fills: true)
+                        .frame(maxWidth: .infinity)
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets())
+                } header: {
+                    SectionTitle("You're dealing as")
+                } footer: {
+                    SectionNote(role == .vendor
+                        ? "Your own buy and sell rates, with your profit on every deal."
+                        : "At a vendor's table: what they offer for your cards and charge for theirs, against market, so you can tell a fair deal.")
+                }
                 Section {
                     Toggle("Add what comes in to my collection", isOn: Binding(get: { rates.addsIncoming }, set: { rates.addIncoming = $0 }))
                     Toggle("Ask what I paid for things not in Lucent", isOn: Binding(get: { rates.asksCost }, set: { rates.askCost = $0 }))
@@ -229,9 +243,15 @@ struct DealRatesSheet: View {
                 } footer: {
                     Text("What Round up on the cash rounds to.")
                 }
-                rate("Buying", "What you pay for cards you buy", \.buy)
-                rate("Trade-in", "What you credit for cards taken in on trade", \.trade)
-                rate("Selling", "What you charge for cards going out", \.sell)
+                if role == .vendor {
+                    rate("Buying", "What you pay for cards you buy", \.buy)
+                    rate("Trade-in", "What you credit for cards taken in on trade", \.trade)
+                    rate("Selling", "What you charge for cards going out", \.sell)
+                } else {
+                    collectorRate("Their cash offer", "What you expect a vendor to pay in cash for your cards", \.offer)
+                    collectorRate("Their trade-in credit", "What you expect in trade credit for your cards", \.tradeOffer)
+                    collectorRate("Their prices", "What you expect a vendor to charge for theirs", \.charge)
+                }
             }
             .scrollContentBackground(.hidden)
             .navigationTitle("Deal settings")
@@ -241,13 +261,32 @@ struct DealRatesSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         deals.setDefaults(rates)
+                        deals.role = role
+                        deals.collector = collector
                         dismiss()
                     }
                 }
             }
-            .onAppear { rates = deals.defaults }
+            .onAppear {
+                rates = deals.defaults
+                role = deals.role
+                collector = deals.collector
+            }
         }
         .presentationDetents([.medium, .large])
+    }
+
+    private func collectorRate(_ title: String, _ hint: String, _ key: WritableKeyPath<CollectorRates, Double>) -> some View {
+        Section {
+            HStack {
+                Text(title)
+                Spacer()
+                Text("\(Int((collector[keyPath: key] * 100).rounded()))%").monospacedDigit().bold()
+            }
+            Slider(value: Binding(get: { collector[keyPath: key] }, set: { collector[keyPath: key] = ($0 * 100).rounded() / 100 }), in: 0.3...1.5, step: 0.01)
+        } footer: {
+            Text("\(hint), as a share of market. Each deal starts here; drag it on the deal to match their offer.")
+        }
     }
 
     private func rate(_ title: String, _ hint: String, _ key: WritableKeyPath<DealRates, Double>) -> some View {
@@ -323,7 +362,7 @@ struct DealCloseSheet: View {
                         }
                         // Who pays whom, big enough to turn the phone around.
                         VStack(alignment: .leading, spacing: 8) {
-                            MonoLabel(text: abs(b) < 0.005 ? "Even trade" : (b > 0 ? "Customer pays you" : "You pay the customer"))
+                            MonoLabel(text: abs(b) < 0.005 ? "Even trade" : (b > 0 ? deals.role.theyPay : deals.role.youPay))
                             Text(Format.money(abs(b))).font(.display(56)).tracking(-2.2).monospacedDigit().displayTrim(56)
                                 .lineLimit(1).minimumScaleFactor(0.5)
                         }

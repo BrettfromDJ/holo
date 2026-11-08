@@ -531,3 +531,73 @@ func dealAheadTitle(_ n: Double, past: Bool = false) -> String {
 }
 
 func round2(_ n: Double) -> Double { (n * 100).rounded() / 100 }
+
+// MARK: - Vendor or collector
+
+/// Who you are in a deal: a vendor (your own buy and sell rates, profit) or a collector at a
+/// vendor's table (judging their offer). The math is the same; the words and defaults differ.
+/// Kept on this phone.
+enum DealRole: String, CaseIterable {
+    case vendor, collector
+
+    static let key = "holo.dealRole"
+    static var stored: DealRole { UserDefaults.standard.string(forKey: key).flatMap(DealRole.init(rawValue:)) ?? .vendor }
+
+    var title: String { self == .vendor ? "Vendor" : "Collector" }
+    /// The other side of the table.
+    var other: String { self == .vendor ? "customer" : "vendor" }
+    var theyPay: String { self == .vendor ? "Customer pays you" : "The vendor pays you" }
+    var youPay: String { self == .vendor ? "You pay the customer" : "You pay the vendor" }
+}
+
+/// A collector's usual expectations, as a share of market: what vendors pay for your cards
+/// (cash and trade-in credit) and what they charge for theirs. Kept on this phone.
+struct CollectorRates: Codable, Equatable {
+    var offer: Double = 0.7
+    var tradeOffer: Double = 0.8
+    var charge: Double = 1
+
+    static let key = "holo.collectorRates"
+    static var stored: CollectorRates {
+        UserDefaults.standard.data(forKey: key).flatMap { try? JSONDecoder().decode(CollectorRates.self, from: $0) } ?? CollectorRates()
+    }
+    func save() { UserDefaults.standard.set(try? JSONEncoder().encode(self), forKey: Self.key) }
+
+    /// The rate each side is at for a collector: this deal's own, else what vendors usually
+    /// charge (coming in) and offer (going out: trade-in credit on a trade, cash otherwise).
+    func rates(_ deal: DealState) -> (in: Double, out: Double) {
+        (deal.rateIn ?? charge, deal.rateOut ?? (deal.kind == .trade ? tradeOffer : offer))
+    }
+}
+
+/// A collector's read on a deal, at market prices: how much of market the vendor pays for your
+/// cards and charges for theirs, and whether you end up with more or less market value.
+struct CollectorRead {
+    /// Market value of what you get and what you give (items with a known market only).
+    var marketIn: Double
+    var marketOut: Double
+    /// What the vendor pays for your cards, as a share of their market value (nil with none going out).
+    var offerShare: Double?
+    /// What the vendor charges for theirs, as a share of market (nil with none coming in).
+    var chargeShare: Double?
+    /// Market value you end up with, less what you started with, cash included.
+    var net: Double
+
+    init(_ deal: DealState, totals: DealTotals, rates: (in: Double, out: Double)) {
+        let priced = { (items: [DealItem]) in items.filter { $0.market != nil } }
+        let inItems = priced(deal.incoming), outItems = priced(deal.outgoing)
+        marketIn = round2(inItems.reduce(0) { $0 + ($1.market ?? 0) * Double($1.qty) })
+        marketOut = round2(outItems.reduce(0) { $0 + ($1.market ?? 0) * Double($1.qty) })
+        let paidForOut = outItems.reduce(0) { $0 + $1.total(side: rates.out) }
+        let chargedForIn = inItems.reduce(0) { $0 + $1.total(side: rates.in) }
+        offerShare = marketOut > 0 ? paidForOut / marketOut : nil
+        chargeShare = marketIn > 0 ? chargedForIn / marketIn : nil
+        // Balance > 0: the vendor pays you.
+        net = round2(marketIn - marketOut + totals.balance)
+    }
+
+    var headline: String {
+        if abs(net) < 0.005 { return "Even at market" }
+        return net > 0 ? "You gain \(Format.money(net)) at market" : "You give up \(Format.money(-net)) at market"
+    }
+}
