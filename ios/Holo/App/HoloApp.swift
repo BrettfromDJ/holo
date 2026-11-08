@@ -249,7 +249,7 @@ struct MainTabView: View {
                     .init(tab: .home, title: "Overview", icon: "chart.line.uptrend.xyaxis"),
                     .init(tab: .collection, title: "Collection", icon: "square.grid.2x2"),
                     .init(tab: .explore, title: "Explore", icon: "safari"),
-                    .init(tab: .deal, title: "Deal", icon: "arrow.left.arrow.right"),
+                    .init(tab: .deal, title: "Deal", icon: "arrow.left.arrow.right", iconSize: 17),
                 ],
                 selection: $tab,
                 plusOpen: adding,

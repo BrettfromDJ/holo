@@ -6,6 +6,8 @@ struct HoloTabBar<Tab: Hashable>: View {
         var tab: Tab
         var title: String
         var icon: String
+        /// Some symbols draw larger than others at the same size; this evens them out.
+        var iconSize: CGFloat = 21
     }
 
     var items: [Item]
@@ -82,7 +84,7 @@ struct HoloTabBar<Tab: Hashable>: View {
             onTap(item.tab)
         } label: {
             VStack(spacing: 4) {
-                Image(systemName: item.icon).font(.system(size: 21, weight: on ? .semibold : .regular))
+                Image(systemName: item.icon).font(.system(size: item.iconSize, weight: on ? .semibold : .regular))
                     .foregroundStyle(on ? Theme.lime : Theme.muted)
                     // The chosen tab's icon glows.
                     .shadow(color: on ? Theme.lime.opacity(0.6) : .clear, radius: 7)
