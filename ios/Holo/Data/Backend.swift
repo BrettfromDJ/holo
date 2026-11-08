@@ -113,7 +113,8 @@ final class HoloAPI {
     /// the round trip took (upload, server, download), in seconds.
     func scan(jpeg: Data) async throws -> (result: ScanResult, request: TimeInterval) {
         let started = Date()
-        var req = try await request("api/scan")
+        // Say which game it is: left to guess, the scanner can read a faint Pokémon card as Magic.
+        var req = try await request("api/scan", query: [URLQueryItem(name: "game", value: ScanGame.current.rawValue)])
         req.httpMethod = "POST"
         req.timeoutInterval = 75
         let boundary = "holo-\(UUID().uuidString)"
@@ -229,5 +230,25 @@ enum SavedSets {
     static func save(_ sets: [ExploreSet]) {
         guard let file, !sets.isEmpty, let data = try? JSONEncoder().encode(sets) else { return }
         try? data.write(to: file, options: .atomic)
+    }
+}
+
+/// Which game the scanner reads (kept on this phone; Pokémon unless you switch). The scanning
+/// service supports these three; telling it stops one game's card being read as another's.
+enum ScanGame: String, CaseIterable, Identifiable {
+    case pokemon
+    case magic
+    case onePiece = "one-piece"
+
+    static let key = "holo.scanGame"
+    static var current: ScanGame { UserDefaults.standard.string(forKey: key).flatMap(ScanGame.init(rawValue:)) ?? .pokemon }
+
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .pokemon: return "Pokémon"
+        case .magic: return "Magic"
+        case .onePiece: return "One Piece"
+        }
     }
 }

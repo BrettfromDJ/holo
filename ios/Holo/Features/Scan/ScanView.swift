@@ -26,6 +26,7 @@ struct ScanView: View {
     @State private var flash = false
     @State private var focused: UUID?
     @State private var torch = false
+    @AppStorage(ScanGame.key) private var scanGame = ScanGame.pokemon.rawValue
     @State private var searchingManually = false
     /// The scan open close up (tap a tile): condition, printing, price, paid, remove.
     @State private var editing: EditingScan?
@@ -50,6 +51,7 @@ struct ScanView: View {
 
             VStack(spacing: 0) {
                 topBar
+                gamePicker.padding(.top, 10)
                 guide
                 bottom
             }
@@ -116,6 +118,26 @@ struct ScanView: View {
     }
 
     // MARK: Top: close, search instead of scanning, scans left (all Liquid Glass)
+
+    /// Which game the scanner reads, under the top bar: Pokémon unless you switch.
+    private var gamePicker: some View {
+        Menu {
+            Picker("Game", selection: $scanGame) {
+                ForEach(ScanGame.allCases) { Text($0.title).tag($0.rawValue) }
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Text("Scanning").foregroundStyle(.white.opacity(0.7))
+                Text(ScanGame(rawValue: scanGame)?.title ?? "Pokémon").foregroundStyle(.white)
+                Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold)).foregroundStyle(.white.opacity(0.7))
+            }
+            .font(.geist(13, .semibold))
+            .padding(.horizontal, 12).frame(height: 32)
+            .background(Capsule().fill(Color.black.opacity(0.55)))
+        }
+        .onChange(of: scanGame) { _, _ in Haptics.tap() }
+        .accessibilityLabel("Game: \(ScanGame(rawValue: scanGame)?.title ?? "Pokémon")")
+    }
 
     private var topBar: some View {
         HStack(spacing: 8) {
