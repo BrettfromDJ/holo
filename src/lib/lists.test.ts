@@ -11,6 +11,13 @@ describe("lists", () => {
     expect(askingPrice(undefined, "b", 12.34)).toBe(12.34);
   });
 
+  it("a card's own percentage wins over the list's, and a typed price over both", () => {
+    const meta = { forSale: true, askPercent: 90, prices: { a: 50 }, percents: { a: 70, c: 80 } };
+    expect(askingPrice(meta, "a", 100)).toBe(50);
+    expect(askingPrice(meta, "c", 100)).toBe(80);
+    expect(askingPrice(meta, "d", 100)).toBe(90);
+  });
+
   it("round-trips share titles", () => {
     expect(listIdFromShareTitle(listShareTitle("abc"))).toBe("abc");
     expect(listIdFromShareTitle("My collection")).toBeNull();
@@ -19,6 +26,6 @@ describe("lists", () => {
 
   it("drops malformed meta", () => {
     expect(parseListMeta(null)).toEqual({});
-    expect(parseListMeta({ x: { forSale: true, askPercent: 0, prices: { a: -1, b: 4 } } })).toEqual({ x: { forSale: true, askPercent: null, prices: { b: 4 } } });
+    expect(parseListMeta({ x: { forSale: true, askPercent: 0, prices: { a: -1, b: 4 } } })).toEqual({ x: { forSale: true, askPercent: null, prices: { b: 4 }, percents: {} } });
   });
 });

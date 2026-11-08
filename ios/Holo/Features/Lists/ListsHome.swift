@@ -200,8 +200,8 @@ struct ListDetailView: View {
     @State private var renaming = false
     @State private var deleting = false
     @State private var name = ""
+    /// The card whose price is being set.
     @State private var pricing: String?
-    @State private var priceText = ""
     @State private var error: String?
 
     private static let percents: [Double] = [100, 95, 90, 85, 80, 75, 70]
@@ -297,19 +297,11 @@ struct ListDetailView: View {
         } message: {
             Text("The list goes, and its share link stops working. Your cards stay in your collection.")
         }
-        .alert("Your price", isPresented: Binding(get: { pricing != nil }, set: { if !$0 { pricing = nil } })) {
-            TextField("0.00", text: $priceText).keyboardType(.decimalPad)
-            Button("Cancel", role: .cancel) {}
-            Button("Use the list's %") {
-                guard let id = pricing else { return }
-                run { try await groups.updateMeta(listId) { $0.prices?[id] = nil } }
+        .sheet(isPresented: Binding(get: { pricing != nil }, set: { if !$0 { pricing = nil } })) {
+            if let id = pricing {
+                let info = ListItemInfo(id, store: store, groups: groups)
+                ListItemPriceSheet(listId: listId, productId: id, product: info.product, market: info.market)
             }
-            Button("Save") {
-                guard let id = pricing, let value = MoneyField.value(priceText) else { return }
-                run { try await groups.updateMeta(listId) { m in var p = m.prices ?? [:]; p[id] = value; m.prices = p } }
-            }
-        } message: {
-            Text("What you're asking for one copy. Leave it to the list's percentage of market if you like.")
         }
     }
 
@@ -368,7 +360,7 @@ struct ListDetailView: View {
                                selection: Binding(get: { meta.askPercent ?? 100 }, set: { pct in
                                    run { try await groups.updateMeta(listId) { $0.askPercent = pct == 100 ? nil : pct } }
                                }), scrolls: true)
-                    Text("Tap a card's price to set your own.").font(.geist(12)).foregroundStyle(Theme.subtle)
+                    Text("Tap a card's price to give it its own % or a set price.").font(.geist(12)).foregroundStyle(Theme.subtle)
                 }
             }
         }
@@ -377,7 +369,8 @@ struct ListDetailView: View {
 
     private func row(_ productId: String, _ info: ListItemInfo, meta: ListMeta) -> some View {
         let asking = ListPricing.asking(meta, productId: productId, market: info.market)
-        let own = meta.prices?[productId] != nil
+        // Priced on its own (a typed price or its own %), not by the list's %.
+        let own = meta.prices?[productId] != nil || meta.percents?[productId] != nil
         return HStack(spacing: 12) {
             CardLink(productId: productId, identity: info.copies.first?.identity) {
                 HStack(spacing: 12) {
@@ -394,7 +387,6 @@ struct ListDetailView: View {
             if meta.isForSale {
                 Button {
                     Haptics.tap()
-                    priceText = asking.map { String(format: "%.2f", $0) } ?? ""
                     pricing = productId
                 } label: {
                     VStack(alignment: .trailing, spacing: 2) {
@@ -411,7 +403,7 @@ struct ListDetailView: View {
             }
             Menu {
                 if meta.isForSale {
-                    Button { priceText = asking.map { String(format: "%.2f", $0) } ?? ""; pricing = productId } label: { Label("Set your price", systemImage: "tag") }
+                    Button { pricing = productId } label: { Label("Set its price", systemImage: "tag") }
                 }
                 Button(role: .destructive) {
                     Haptics.remove()
@@ -445,6 +437,111 @@ struct ListDetailView: View {
             } catch {
                 self.error = error.localizedDescription
             }
+        }
+    }
+}
+
+// MARK: - One card's price
+
+/// A card's asking price on a list you're selling: the list's %, its own %, or a set price.
+struct ListItemPriceSheet: View {
+    var listId: String
+    var productId: String
+    var product: Product?
+    var market: Double?
+    @Environment(\.dismiss) private var dismiss
+    @Environment(GroupsStore.self) private var groups
+    /// 0 follows the list's percentage.
+    @State private var percent: Double = 0
+    @State private var priceText = ""
+    @State private var error: String?
+    @FocusState private var typing: Bool
+
+    private static let percents: [Double] = [0, 100, 95, 90, 85, 80, 75, 70, 65, 60]
+
+    private var meta: ListMeta { groups.meta(listId) }
+    private var typed: Double? { MoneyField.value(priceText) }
+    private var listPercent: Double { meta.askPercent ?? 100 }
+
+    private var asking: Double? {
+        if let typed { return typed }
+        guard let market else { return nil }
+        return (market * (percent == 0 ? listPercent : percent)).rounded() / 100
+    }
+
+    var body: some View { sheetBody.presentationDetents([.medium, .large]).glassSheet() }
+
+    private var sheetBody: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                HStack {
+                    Button("Cancel") { dismiss() }.font(.geist(16)).foregroundStyle(.white)
+                    Spacer()
+                    Text("Your price").font(.geist(17, .semibold)).foregroundStyle(.white)
+                    Spacer()
+                    Button("Save") { save() }.font(.geist(16, .semibold)).foregroundStyle(Theme.lime)
+                }
+                HStack(spacing: 12) {
+                    ProductImage(product: product, cornerRadius: 4).frame(width: 44, height: 62)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(product?.name ?? "Card").font(.geist(15, .semibold)).foregroundStyle(.white).lineLimit(2)
+                        Text("Market \(Format.money(market))").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted)
+                    }
+                    Spacer(minLength: 0)
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    MonoLabel(text: "Asking")
+                    Text(Format.money(asking)).font(.display(44)).tracking(-1.2).monospacedDigit().foregroundStyle(.white)
+                        .contentTransition(.numericText())
+                        .animation(.snappy, value: asking)
+                }
+                VStack(alignment: .leading, spacing: 8) {
+                    MonoLabel(text: "Percentage of market")
+                    ChipPicker(options: Self.percents.map { ($0, $0 == 0 ? "List \(Int(listPercent))%" : "\(Int($0))%") },
+                               selection: Binding(get: { typed == nil ? percent : -1 }, set: { pct in
+                                   Haptics.tap()
+                                   percent = pct
+                                   priceText = ""
+                                   typing = false
+                               }), scrolls: true)
+                }
+                VStack(alignment: .leading, spacing: 8) {
+                    MonoLabel(text: "Or a set price")
+                    HStack {
+                        Text("$").foregroundStyle(Theme.muted)
+                        TextField("0.00", text: $priceText).keyboardType(.decimalPad).focused($typing).monospacedDigit()
+                    }
+                    .font(.geist(17))
+                    .padding(.horizontal, 14).frame(height: 48)
+                    .background(RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.06)))
+                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(typed != nil ? Theme.lime : Color.white.opacity(0.08), lineWidth: 1))
+                }
+                if let error { Text(error).font(.geist(13)).foregroundStyle(.white) }
+            }
+            .padding(20)
+        }
+        .onAppear {
+            percent = meta.percents?[productId] ?? 0
+            if let own = meta.prices?[productId] { priceText = String(format: "%.2f", own) }
+        }
+    }
+
+    private func save() {
+        let price = typed
+        let pct = percent
+        Task {
+            do {
+                try await groups.updateMeta(listId) { m in
+                    var prices = m.prices ?? [:]
+                    var percents = m.percents ?? [:]
+                    prices[productId] = price
+                    percents[productId] = price == nil && pct != 0 ? pct : nil
+                    m.prices = prices
+                    m.percents = percents
+                }
+                Haptics.tap()
+                dismiss()
+            } catch { self.error = error.localizedDescription }
         }
     }
 }

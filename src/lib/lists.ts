@@ -9,8 +9,10 @@ export interface ListMeta {
   forSale?: boolean;
   /** Asking price as a share of market, e.g. 90 for 90%. Missing means 100%. */
   askPercent?: number | null;
-  /** Asking prices set by hand, by product id. They win over the percentage. */
+  /** Asking prices set by hand, by product id. They win over any percentage. */
   prices?: Record<string, number>;
+  /** A percentage of market for one card, by product id. Wins over the list's percentage. */
+  percents?: Record<string, number>;
 }
 
 export type ListMetaMap = Record<string, ListMeta>;
@@ -27,12 +29,12 @@ export function listIdFromShareTitle(title: string | null | undefined): string |
   return title && title.startsWith(LIST_SHARE_PREFIX) ? title.slice(LIST_SHARE_PREFIX.length) || null : null;
 }
 
-/** What you're asking for one copy: your own price, else market × the list's percentage. */
+/** What you're asking for one copy: your own price, else market × the card's percentage, else × the list's. */
 export function askingPrice(meta: ListMeta | undefined, productId: string, market: number | null): number | null {
   const own = meta?.prices?.[productId];
   if (own != null && Number.isFinite(own) && own >= 0) return own;
   if (market == null) return null;
-  const pct = meta?.askPercent ?? 100;
+  const pct = meta?.percents?.[productId] ?? meta?.askPercent ?? 100;
   return Math.round(market * pct) / 100;
 }
 
@@ -47,11 +49,20 @@ export function parseListMeta(value: unknown): ListMetaMap {
     if (r.prices && typeof r.prices === "object") {
       for (const [pid, v] of Object.entries(r.prices as Record<string, unknown>)) if (typeof v === "number" && v >= 0) prices[pid] = v;
     }
+    const percents: Record<string, number> = {};
+    if (r.percents && typeof r.percents === "object") {
+      for (const [pid, v] of Object.entries(r.percents as Record<string, unknown>)) if (validPercent(v)) percents[pid] = v;
+    }
     out[id] = {
       forSale: r.forSale === true,
-      askPercent: typeof r.askPercent === "number" && r.askPercent > 0 && r.askPercent <= 200 ? r.askPercent : null,
+      askPercent: validPercent(r.askPercent) ? r.askPercent : null,
       prices,
+      percents,
     };
   }
   return out;
+}
+
+function validPercent(v: unknown): v is number {
+  return typeof v === "number" && v > 0 && v <= 200;
 }
