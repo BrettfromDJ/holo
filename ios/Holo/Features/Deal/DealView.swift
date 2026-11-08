@@ -270,7 +270,13 @@ struct DealView: View {
         // The answer, always on screen: who pays and whether you come out ahead.
         HStack(spacing: 6) {
             Text(totals.cashLine).foregroundStyle(.white)
-            if let ahead = totals.ahead {
+            if deals.role == .collector {
+                // A collector's answer: market value gained or given up, as on the card.
+                let net = CollectorRead(agreed.deal, totals: totals, rates: rates).net
+                Text("·").foregroundStyle(Theme.muted)
+                Text("At market").foregroundStyle(Theme.muted)
+                Text(Format.signedMoney(net)).foregroundStyle(Theme.tone(net))
+            } else if let ahead = totals.ahead {
                 Text("·").foregroundStyle(Theme.muted)
                 Text(ahead < 0 ? "Behind" : "Ahead").foregroundStyle(Theme.muted)
                 Text(Format.signedMoney(ahead)).foregroundStyle(Theme.tone(ahead))
