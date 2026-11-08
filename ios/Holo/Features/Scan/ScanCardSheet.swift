@@ -69,11 +69,30 @@ private struct ScanPanel: View {
                         if owned > 0 { Tag(text: "Owned ×\(Int(owned))", tint: Theme.lime) }
                     }
                 }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(Format.money(entry.value)).font(.display(30)).tracking(-0.9).padding(.trailing, 0.9).monospacedDigit().foregroundStyle(.white)
-                        .contentTransition(.numericText())
-                        .animation(.snappy(duration: 0.25), value: entry.value)
-                    Text(entry.priceNote ?? "No price yet").font(.geist(12)).foregroundStyle(.white).lineLimit(2)
+                HStack(alignment: .center, spacing: 14) {
+                    // The photo you took, beside what it matched: check it's the same card.
+                    if let img = entry.thumbnail {
+                        Image(uiImage: img).resizable().scaledToFill()
+                            .frame(width: 58, height: 81)
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.white.opacity(0.18)))
+                            .contextMenu {
+                                Text("Your photo")
+                            } preview: {
+                                Image(uiImage: img).resizable().scaledToFit().frame(maxWidth: 320, maxHeight: 460)
+                            }
+                            .accessibilityLabel("Your photo. Hold to see it bigger.")
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(Format.money(entry.value)).font(.display(30)).tracking(-0.9).padding(.trailing, 0.9).monospacedDigit().foregroundStyle(.white)
+                            .contentTransition(.numericText())
+                            .animation(.snappy(duration: 0.25), value: entry.value)
+                        Text(entry.priceNote ?? "No price yet").font(.geist(12)).foregroundStyle(.white).lineLimit(2)
+                        if entry.thumbnail != nil {
+                            Text("Your photo on the left. Hold it to see it bigger.").font(.geist(11)).foregroundStyle(Theme.subtle).lineLimit(1)
+                        }
+                    }
+                    Spacer(minLength: 0)
                 }
                 if !inDeal {
                     if let printings = c.product.printings, printings.count > 1 {
