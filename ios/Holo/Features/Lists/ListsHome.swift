@@ -113,6 +113,75 @@ struct ListNameSheet: View {
     }
 }
 
+/// Three dashed card outlines fanned around a lime plus: an empty list, waiting for cards.
+struct ListPlaceholderFan: View {
+    var well: Color
+    var cardWidth: CGFloat = 54
+
+    var body: some View {
+        let h = cardWidth * 74 / 54
+        ZStack {
+            // Tilted about their centres so the fan sits in the middle; solid in the well's
+            // black so the cards behind don't show through. The middle one is in front.
+            ForEach(0..<3, id: \.self) { i in
+                let shape = RoundedRectangle(cornerRadius: cardWidth / 9, style: .continuous)
+                shape.fill(well)
+                    .overlay(shape.strokeBorder(Color.white.opacity(0.22), style: StrokeStyle(lineWidth: 1, dash: [4, 4])))
+                    .frame(width: cardWidth, height: h)
+                    .rotationEffect(.degrees(Double(i - 1) * 10))
+                    .offset(x: Double(i - 1) * cardWidth * 0.52)
+                    .zIndex(i == 1 ? 1 : 0)
+            }
+            Image(systemName: "plus").font(.system(size: cardWidth / 3, weight: .semibold)).foregroundStyle(Theme.lime)
+                .frame(width: cardWidth * 0.67, height: cardWidth * 0.67)
+                .background(Circle().fill(well))
+                .overlay(Circle().strokeBorder(Theme.lime.opacity(0.4), lineWidth: 1))
+                .zIndex(2)
+        }
+    }
+}
+
+/// No lists yet: the empty fan, a short balanced line on what lists are for, and one button.
+private struct ListsEmptyState: View {
+    @Binding var opened: String?
+    @Environment(GroupsStore.self) private var groups
+    @State private var naming = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ListPlaceholderFan(well: Color(red: 0.07, green: 0.07, blue: 0.08), cardWidth: 66)
+                .frame(maxWidth: .infinity)
+                .frame(height: 150)
+                .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color(red: 0.07, green: 0.07, blue: 0.08)))
+                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color.white.opacity(0.06)))
+            DisplayText(text: "No lists yet", size: 26, alignment: .center)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 28)
+            BalancedText(text: "Group your favorite illustration rares, a want list, or the cards you're taking to a show. Share any list as a link.")
+                .frame(maxWidth: 300)
+                .padding(.top, 10)
+            Button {
+                Haptics.tap()
+                naming = true
+            } label: {
+                Label("Create a list", systemImage: "plus").font(.geist(16, .semibold)).foregroundStyle(Theme.ink)
+                    .padding(.horizontal, 22).frame(height: 50)
+                    .background(Capsule().fill(Theme.lime))
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 24)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 8)
+        .sheet(isPresented: $naming) {
+            ListNameSheet(title: "New list", action: "Create list") { name in
+                let list = try await groups.createShelf(name)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { opened = list.id }
+            }
+        }
+    }
+}
+
 /// The Lists page's New button and its naming sheet.
 private struct NewListButton: View {
     @Binding var opened: String?
@@ -161,18 +230,12 @@ struct ListsHomeView: View {
                     }
                     Spacer()
                     // Its own view with its own state, so opening the sheet doesn't redraw the page.
-                    NewListButton(opened: $opened)
+                    if !groups.shelves.isEmpty { NewListButton(opened: $opened) }
                 }
                 if let error { Text(error).font(.geist(13)).foregroundStyle(Theme.down) }
 
                 if groups.shelves.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("No lists yet").font(.geist(17, .semibold))
-                        Text("Make one for your favorite illustration rares, a want list, or the cards you're taking to a show to sell. You can share any list as a link.")
-                            .font(.geist(14)).foregroundStyle(Theme.muted)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .surface(radius: 18, padding: 16)
+                    ListsEmptyState(opened: $opened)
                 } else {
                     LazyVGrid(columns: columns, spacing: 12) {
                         ForEach(groups.shelves) { list in
@@ -297,26 +360,7 @@ private struct ListTile: View {
         }
     }
 
-    private var emptyFan: some View {
-        ZStack {
-            // Tilted about their centres, so the fan sits in the middle of the well; solid in the
-            // well's black, so the cards behind don't show through. The middle one is in front.
-            ForEach(0..<3, id: \.self) { i in
-                let shape = RoundedRectangle(cornerRadius: 6, style: .continuous)
-                shape.fill(Self.wellColor)
-                    .overlay(shape.strokeBorder(Color.white.opacity(0.22), style: StrokeStyle(lineWidth: 1, dash: [4, 4])))
-                    .frame(width: 54, height: 74)
-                    .rotationEffect(.degrees(Double(i - 1) * 10))
-                    .offset(x: Double(i - 1) * 28)
-                    .zIndex(i == 1 ? 1 : 0)
-            }
-            Image(systemName: "plus").font(.system(size: 18, weight: .semibold)).foregroundStyle(Theme.lime)
-                .frame(width: 36, height: 36)
-                .background(Circle().fill(Self.wellColor))
-                .overlay(Circle().strokeBorder(Theme.lime.opacity(0.4), lineWidth: 1))
-                .zIndex(2)
-        }
-    }
+    private var emptyFan: some View { ListPlaceholderFan(well: Self.wellColor) }
 }
 
 // MARK: - One list

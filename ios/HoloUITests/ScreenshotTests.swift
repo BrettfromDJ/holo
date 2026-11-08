@@ -57,6 +57,7 @@ final class ScreenshotTests: XCTestCase {
     func testAddPurchase() { capture("add-purchase", args: ["-HoloProduct", "sample:umbreon-vmax-alt", "-HoloAddPurchase", "-HoloAddPulled"], pages: 2) }
     func testSales() { capture("sales", args: ["-HoloPage", "sales"], pages: 2) }
     func testLists() { capture("lists", args: ["-HoloPage", "lists"], pages: 1) }
+    func testListsEmpty() { capture("lists-empty", args: ["-HoloPage", "lists", "-HoloNoLists"], pages: 1) }
     func testListForSale() { capture("list-sale", args: ["-HoloPage", "lists", "-HoloList", "demo-show"], pages: 2) }
     // A card you own two different copies of (raw and PSA 10): each is listed under You own.
     func testCardCopies() { capture("card-copies", args: ["-HoloDemoKind", "graded", "-HoloProduct", "sample:umbreon-vmax-alt"], pages: 1) }

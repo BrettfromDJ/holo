@@ -98,7 +98,7 @@ final class GroupsStore {
             selected = UserDefaults.standard.string(forKey: Self.selectedKey) ?? Self.all
         } else {
             // Made-up lists only for the screenshot runs (-HoloDemo); a demo picked in the app starts with none.
-            shelves = !Demo.isOn ? [] : [
+            shelves = !Demo.isOn || ProcessInfo.processInfo.arguments.contains("-HoloNoLists") ? [] : [
                 Shelf(id: "demo-grails", name: "Grails", product_ids: ["sample:umbreon-vmax-alt", "sample:charizard-base", "sample:es-bb"]),
                 Shelf(id: "demo-show", name: "For sale at the show", product_ids: ["sample:charizard-ex-151", "sample:mew-ex-gold", "sample:giratina-v-alt", "sample:pf-tin"]),
                 Shelf(id: "demo-sirs", name: "Favorite SIRs", product_ids: ["sample:pikachu-ex-ss", "sample:charizard-ex-151", "sample:charizard-ex-of", "sample:rayquaza-vmax-alt"]),

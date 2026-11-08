@@ -831,6 +831,26 @@ extension View {
 
 /// A multi-line Anton heading with the website's tight leading (about 0.98), wrapped in
 /// balanced lines like the website's `text-wrap: balance`, so a lone word never hangs on the last line.
+/// Body text whose lines wrap balanced (no lone word left on the last line), word by word on
+/// the same flow as `DisplayText`. For short centred copy like empty states.
+struct BalancedText: View {
+    var text: String
+    var font: Font = .geist(15)
+    /// The width of a space at this font size.
+    var spacing: CGFloat = 4
+    var lineGap: CGFloat = 3
+    var color: Color = Theme.muted
+    var alignment: HorizontalAlignment = .center
+
+    var body: some View {
+        WordFlow(spacing: spacing, lineGap: lineGap, alignment: alignment) {
+            ForEach(Array(text.split(separator: " ").enumerated()), id: \.offset) { _, word in
+                Text(word).font(font).foregroundStyle(color)
+            }
+        }
+    }
+}
+
 struct DisplayText: View {
     var text: String
     var size: CGFloat
