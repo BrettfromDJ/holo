@@ -95,8 +95,8 @@ struct HoldingSheet: View {
         .sheet(isPresented: $selling) { if let h = holding { SellSheet(holding: h) } }
         .sheet(isPresented: $removing) { if let h = holding { RemoveSheet(holding: h) } }
         .sheet(isPresented: $editingDetails) { if let h = holding { EditDetailsSheet(holding: h) } }
-        .alert("New shelf", isPresented: $namingShelf) {
-            TextField("Grails, For sale…", text: $newShelf)
+        .alert("New list", isPresented: $namingShelf) {
+            TextField("Grails, For sale at the show…", text: $newShelf)
             Button("Cancel", role: .cancel) { newShelf = "" }
             Button("Create") {
                 let value = String(newShelf.trimmingCharacters(in: .whitespaces).prefix(40))
@@ -224,9 +224,9 @@ struct HoldingSheet: View {
                     if shelf.product_ids.contains(productId) { Label(shelf.name, systemImage: "checkmark") } else { Text(shelf.name) }
                 }
             }
-            Button { newShelf = ""; namingShelf = true } label: { Label("New shelf…", systemImage: "plus") }
+            Button { newShelf = ""; namingShelf = true } label: { Label("New list…", systemImage: "plus") }
         } label: {
-            Label { Text("Shelves"); Text(on.isEmpty ? "On no shelf" : on.joined(separator: ", ")) } icon: { Image(systemName: "square.stack") }
+            Label { Text("Lists"); Text(on.isEmpty ? "On no list" : on.joined(separator: ", ")) } icon: { Image(systemName: "square.stack") }
         }
     }
 
@@ -844,12 +844,12 @@ struct EditDetailsSheet: View {
                             if shelfIds.contains(shelf.id) { shelfIds.remove(shelf.id) } else { shelfIds.insert(shelf.id) }
                         }
                     }
-                    Button { newShelf = ""; namingShelf = true } label: { Label("New shelf", systemImage: "plus") }
+                    Button { newShelf = ""; namingShelf = true } label: { Label("New list", systemImage: "plus") }
                         .foregroundStyle(Theme.lime)
                 } header: {
-                    SectionTitle("Shelves")
+                    SectionTitle("Lists")
                 } footer: {
-                    SectionNote("Shelves hold the card, whatever copy it is.")
+                    SectionNote("Lists hold the card, whatever copy it is.")
                 }
                 if !groups.portfolios.isEmpty {
                     Section {
@@ -910,8 +910,8 @@ struct EditDetailsSheet: View {
                 if startPortfolios.isEmpty { startPortfolios = [GroupsStore.main] }
                 portfolioIds = startPortfolios
             }
-            .alert("New shelf", isPresented: $namingShelf) {
-                TextField("Grails, For sale…", text: $newShelf)
+            .alert("New list", isPresented: $namingShelf) {
+                TextField("Grails, For sale at the show…", text: $newShelf)
                 Button("Cancel", role: .cancel) { newShelf = "" }
                 Button("Create") {
                     let value = String(newShelf.trimmingCharacters(in: .whitespaces).prefix(40))

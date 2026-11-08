@@ -10,7 +10,6 @@ struct HomeView: View {
     @Environment(SessionModel.self) private var session
     @Environment(GradingStore.self) private var grading
     @State private var account = false
-    @State private var lists = false
     @State private var search = false
     /// The top-right menu of every main place in the app.
     @State private var menuOpen = false
@@ -128,6 +127,13 @@ struct HomeView: View {
             // Every page pushes by value, so links inside them (a card, Gains from Analytics) push
             // on top instead of jumping back.
             .navigationDestination(for: MasterSetRoute.self) { MasterSetDetailView(setId: $0.id, setName: $0.name) }
+            .navigationDestination(for: ListRoute.self) { route in
+                switch route {
+                case let .list(id): ListDetailView(listId: id)
+                case .watchlist: ListsView(which: .watchlist, embedded: true)
+                case .wishlist: ListsView(which: .wishlist, embedded: true)
+                }
+            }
             .navigationDestination(for: MorePage.self) { p in
                 switch p {
                 case .analytics: AnalyticsView()
@@ -136,6 +142,7 @@ struct HomeView: View {
                 case .masterSets: MasterSetsView()
                 case .activity: ActivityView()
                 case .sales: SalesView()
+                case .lists: ListsHomeView()
                 }
             }
             .task {
@@ -144,6 +151,11 @@ struct HomeView: View {
                     try? await Task.sleep(nanoseconds: 600_000_000)
                     path.append(p)
                     // -HoloMasterSet: then open your biggest set's page.
+                    // -HoloList <id>: then open that list.
+                    if let id = Demo.value("-HoloList") {
+                        try? await Task.sleep(nanoseconds: 400_000_000)
+                        path.append(ListRoute.list(id))
+                    }
                     if ProcessInfo.processInfo.arguments.contains("-HoloMasterSet"), let s = MasterSetDetailView.ownedSets(store.holdings).first {
                         try? await Task.sleep(nanoseconds: 400_000_000)
                         path.append(MasterSetRoute(id: s.id, name: s.name))
@@ -158,7 +170,6 @@ struct HomeView: View {
                 }
             }
             .sheet(isPresented: $account) { SettingsView() }
-            .sheet(isPresented: $lists) { ListsView() }
             .fullScreenCover(isPresented: $search) { SearchScreen() }
             .fullScreenCover(isPresented: $addSearch) { SearchScreen(mode: .add) }
             .fullScreenCover(isPresented: $recap) { WeeklyRecap(store: store) }
@@ -291,7 +302,7 @@ struct HomeView: View {
         case .masterSets: path.append(MorePage.masterSets)
         case .activity: path.append(MorePage.activity)
         case .sales: path.append(MorePage.sales)
-        case .lists: lists = true
+        case .lists: path.append(MorePage.lists)
         case .account: account = true
         }
     }
@@ -1662,7 +1673,7 @@ enum Milestones {
 }
 
 enum MorePage: String, Hashable, Identifiable {
-    case analytics, gains, grading, activity, sales
+    case analytics, gains, grading, activity, sales, lists
     case masterSets = "master-sets"
     var id: String { rawValue }
     static var opened = false
@@ -1696,6 +1707,7 @@ private struct ShortcutRow: View {
             tile("Grading", icon: "checkmark.seal", page: .grading)
             tile("Master sets", icon: "square.grid.3x3.fill", page: .masterSets)
             tile("Activity", icon: "list.bullet.rectangle", page: .activity)
+            tile("Lists", icon: "square.stack", page: .lists)
         }
     }
 
@@ -1729,7 +1741,7 @@ private struct PlacesMenu: View {
     private static let groups: [[(Place, String, String)]] = [
         [(.collection, "Collection", "square.grid.2x2"), (.explore, "Explore", "safari"), (.deal, "Deal", "arrow.left.arrow.right")],
         [(.analytics, "Analytics", "chart.xyaxis.line"), (.grading, "Grading", "checkmark.seal"), (.masterSets, "Master sets", "square.grid.3x3.fill"),
-         (.activity, "Activity", "list.bullet.rectangle"), (.sales, "Sales & taxes", "doc.text"), (.lists, "Watchlist and wishlist", "heart")],
+         (.activity, "Activity", "list.bullet.rectangle"), (.sales, "Sales & taxes", "doc.text"), (.lists, "Lists", "square.stack")],
         [(.account, "Account and settings", "gearshape")],
     ]
 

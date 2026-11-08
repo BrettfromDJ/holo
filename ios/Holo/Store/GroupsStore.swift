@@ -24,7 +24,15 @@ final class GroupsStore {
     static let main = "main"
     static let all = "all"
 
+    /// Lists (the `shelves` table; the app called them shelves before).
     var shelves: [Shelf] = []
+    /// Each list's extras (for sale, asking prices), user_state `list-meta`.
+    private(set) var listMeta: [String: ListMeta] = [:]
+    /// Cards on lists that aren't in your collection: their catalog rows and market prices.
+    private(set) var extraProducts: [String: Product] = [:]
+    private(set) var extraMarket: [String: Double] = [:]
+    /// Share links already looked up this session, by list id (nil: not shared).
+    private(set) var shareURLs: [String: URL?] = [:]
     var portfolios: [PortfolioGroup] = []
     /// Holdings kept in Main as well as in a named portfolio (user_state `portfolio-main`).
     private(set) var mainKeys: [String] = []
@@ -51,6 +59,8 @@ final class GroupsStore {
 
     func reset() {
         shelves = []
+        listMeta = [:]
+        shareURLs = [:]
         portfolios = []
         mainKeys = []
         mainSynced = false
@@ -75,6 +85,7 @@ final class GroupsStore {
             } catch {
                 self.error = error.localizedDescription
             }
+            listMeta = (try? await UserState.load(ListPricing.metaKey, as: [String: ListMeta].self)) ?? [:]
             mainSynced = false
             do {
                 mainKeys = try await UserState.load("portfolio-main", as: [String].self) ?? []
@@ -86,8 +97,10 @@ final class GroupsStore {
         } else {
             shelves = [
                 Shelf(id: "demo-grails", name: "Grails", product_ids: ["sample:umbreon-vmax-alt", "sample:charizard-base", "sample:es-bb"]),
-                Shelf(id: "demo-xmas", name: "Opening at Christmas", product_ids: ["sample:pe-etb", "sample:151-bundle"]),
+                Shelf(id: "demo-show", name: "For sale at the show", product_ids: ["sample:charizard-ex-151", "sample:mew-ex-gold", "sample:giratina-v-alt", "sample:pf-tin"]),
+                Shelf(id: "demo-sirs", name: "Favorite SIRs", product_ids: ["sample:pikachu-ex-ss", "sample:charizard-ex-151", "sample:charizard-ex-of", "sample:rayquaza-vmax-alt"]),
             ]
+            listMeta = ["demo-show": ListMeta(forSale: true, askPercent: 90, prices: ["sample:giratina-v-alt": 300])]
             portfolios = []
             mainKeys = []
             selected = Self.all
@@ -266,5 +279,93 @@ final class GroupsStore {
         if let at = ids.firstIndex(of: productId) { ids.remove(at: at) } else { ids.append(productId) }
         if cloud { try await db.from("shelves").update(Patch(product_ids: ids)).eq("id", value: shelfId).execute() }
         shelves[i].product_ids = ids
+    }
+
+    // MARK: List extras and sharing
+
+    func meta(_ listId: String) -> ListMeta { listMeta[listId] ?? ListMeta() }
+
+    /// Change one list's extras, merged onto what the account has (the website may have changed others).
+    @MainActor
+    func updateMeta(_ listId: String, _ change: (inout ListMeta) -> Void) async throws {
+        var local = listMeta
+        var entry = local[listId] ?? ListMeta()
+        change(&entry)
+        guard cloud, let userId else {
+            local[listId] = entry
+            listMeta = local
+            return
+        }
+        var base = try await UserState.load(ListPricing.metaKey, as: [String: ListMeta].self) ?? [:]
+        var merged = base[listId] ?? ListMeta()
+        change(&merged)
+        base[listId] = merged
+        try await UserState.save(ListPricing.metaKey, base, userId: userId)
+        listMeta = base
+    }
+
+    private struct ShareRow: Codable { var token: String; var revoked_at: String? }
+
+    private static func url(_ token: String) -> URL { AppConfig.apiBaseURL.appendingPathComponent("l").appendingPathComponent(token) }
+
+    /// The list's live share link, if it has one.
+    @MainActor
+    func loadShare(_ listId: String) async {
+        guard cloud else { return }
+        let rows: [ShareRow] = (try? await db.from("share_links").select("token,revoked_at").eq("title", value: ListPricing.shareTitle(listId)).execute().value) ?? []
+        shareURLs[listId] = .some(rows.first { $0.revoked_at == nil }.map { Self.url($0.token) })
+    }
+
+    /// Share a list: a link anyone can open (no sign-in), showing only that list.
+    @MainActor
+    func share(_ listId: String) async throws -> URL {
+        guard cloud, let userId else { throw HoloError.server(code: nil, message: "Sign in to share a list. Nothing is saved in a demo.") }
+        await loadShare(listId)
+        if let existing = shareURLs[listId] ?? nil { return existing }
+        struct New: Encodable { var user_id: String; var token: String; var title: String; var show_gains: Bool }
+        let token = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased() + UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(8).lowercased()
+        try await db.from("share_links").insert(New(user_id: userId, token: token, title: ListPricing.shareTitle(listId), show_gains: false)).execute()
+        let url = Self.url(token)
+        shareURLs[listId] = url
+        return url
+    }
+
+    /// Turn the link off: anyone who has it sees nothing.
+    @MainActor
+    func stopSharing(_ listId: String) async throws {
+        struct Patch: Encodable { var revoked_at: String }
+        if cloud {
+            try await db.from("share_links").update(Patch(revoked_at: ISO8601DateFormatter().string(from: Date()))).eq("title", value: ListPricing.shareTitle(listId)).execute()
+        }
+        shareURLs[listId] = .some(nil)
+    }
+
+    /// Take products off a list.
+    @MainActor
+    func removeMany(_ listId: String, productIds: [String]) async throws {
+        struct Patch: Encodable { var product_ids: [String] }
+        guard let i = shelves.firstIndex(where: { $0.id == listId }) else { return }
+        let ids = shelves[i].product_ids.filter { !productIds.contains($0) }
+        if cloud { try await db.from("shelves").update(Patch(product_ids: ids)).eq("id", value: listId).execute() }
+        shelves[i].product_ids = ids
+    }
+
+    /// Remember a card added from the catalog, so its picture and price show right away.
+    func remember(_ product: Product, market: Double?) {
+        extraProducts[product.id] = product
+        if let market { extraMarket[product.id] = market }
+    }
+
+    /// Fetch the catalog rows and prices of list cards you don't own (once each per session).
+    @MainActor
+    func loadExtras(_ ids: [String], known: [String: Product]) async {
+        let missing = Array(Set(ids.filter { known[$0] == nil && extraProducts[$0] == nil }))
+        guard !missing.isEmpty, cloud else { return }
+        guard let rows: [ProductRow] = try? await db.from("products").select().in("id", values: missing).execute().value else { return }
+        let priceRows: [PriceRow] = (try? await db.from("product_prices").select().in("product_id", values: missing).execute().value) ?? []
+        for r in rows { extraProducts[r.id] = r.product }
+        for r in priceRows {
+            if let m = r.price.market { extraMarket[r.product_id] = max(extraMarket[r.product_id] ?? 0, m) }
+        }
     }
 }

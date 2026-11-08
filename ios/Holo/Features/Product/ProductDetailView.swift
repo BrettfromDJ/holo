@@ -432,8 +432,8 @@ struct ProductDetailView: View {
             }
             groupsMenu
         }
-        .alert("New shelf", isPresented: $naming) {
-            TextField("Grails, For sale…", text: $newShelf)
+        .alert("New list", isPresented: $naming) {
+            TextField("Grails, For sale at the show…", text: $newShelf)
             Button("Cancel", role: .cancel) { newShelf = "" }
             Button("Create") {
                 let name = String(newShelf.trimmingCharacters(in: .whitespaces).prefix(40))
@@ -442,7 +442,7 @@ struct ProductDetailView: View {
                 Task { await run { _ = try await groups.createShelf(name, productIds: [productId]) } }
             }
         } message: {
-            Text("Shelves group products however you like, and show as filters on Collection.")
+            Text("Lists group cards however you like: favorites, want lists, or cards to sell at a show. They show as filters on Collection.")
         }
     }
 
@@ -482,8 +482,8 @@ struct ProductDetailView: View {
                             if shelf.product_ids.contains(productId) { Label(shelf.name, systemImage: "checkmark") } else { Text(shelf.name) }
                         }
                     }
-                    Button { naming = true } label: { Label("New shelf…", systemImage: "plus") }
-                } label: { Label("Shelves", systemImage: "square.stack") }
+                    Button { naming = true } label: { Label("New list…", systemImage: "plus") }
+                } label: { Label("Lists", systemImage: "square.stack") }
             }
             Section {
                 Button { viewingArt = true } label: { Label("View full screen", systemImage: "arrow.up.left.and.arrow.down.right") }
@@ -516,7 +516,7 @@ struct ProductDetailView: View {
     /// Shelves this product is on, and which portfolio your copies are in (shared with the website).
     private var groupsMenu: some View {
         Menu {
-            Section("Shelves") {
+            Section("Lists") {
                 ForEach(groups.shelves) { shelf in
                     Button {
                         Task { await run { try await groups.toggle(shelf.id, productId: productId) } }
@@ -524,7 +524,7 @@ struct ProductDetailView: View {
                         if shelf.product_ids.contains(productId) { Label(shelf.name, systemImage: "checkmark") } else { Text(shelf.name) }
                     }
                 }
-                Button { naming = true } label: { Label("New shelf…", systemImage: "plus") }
+                Button { naming = true } label: { Label("New list…", systemImage: "plus") }
             }
             if !owned.isEmpty, !groups.portfolios.isEmpty {
                 // A check on every portfolio your copies show in; picking one moves them there.
@@ -540,12 +540,12 @@ struct ProductDetailView: View {
                 }
             }
         } label: {
-            // The shelf icon (as in Collection's "Add to shelf"), filled when it's on a shelf.
+            // The shelf icon (as in Collection's "Add to list"), filled when it's on a shelf.
             Image(systemName: groups.shelves.contains { $0.product_ids.contains(productId) } ? "square.stack.fill" : "square.stack")
         }
         .menuStyle(.button)
         .buttonStyle(IconButton3D(size: 36))
-        .accessibilityLabel("Add to shelf")
+        .accessibilityLabel("Add to list")
     }
 
     // MARK: Your position

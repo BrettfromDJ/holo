@@ -184,16 +184,16 @@ struct CollectionView: View {
                                         Image(systemName: "trash").font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.down)
                                     }
                                     .buttonStyle(Button3D(kind: .dark, fullWidth: false, height: 34))
-                                    .accessibilityLabel("Delete shelf")
+                                    .accessibilityLabel("Delete list")
                                 }
                                 .confirmationDialog("Delete \(shelf.name)?", isPresented: $deletingShelf, titleVisibility: .visible) {
-                                    Button("Delete shelf", role: .destructive) {
+                                    Button("Delete list", role: .destructive) {
                                         let id = shelf.id
                                         reshuffle { shelfId = nil }
                                         Task { await groupRun { try await groups.removeShelf(id) } }
                                     }
                                 } message: {
-                                    Text("The shelf goes; its cards stay in your collection.")
+                                    Text("The list goes; its cards stay in your collection.")
                                 }
                             }
                             if pullsOnly {
@@ -354,15 +354,15 @@ struct CollectionView: View {
                 let n = counts.shelves[shelf.id] ?? 0
                 Chip(title: shelf.name, selected: shelfId == shelf.id && !pullsOnly, count: n) { reshuffle { shelfId = shelf.id; category = nil; pullsOnly = false } }
                     .contextMenu {
-                        Button { name = shelf.name; naming = .renameShelf(shelf.id) } label: { Label("Rename shelf", systemImage: "pencil") }
-                        Button("Delete shelf", role: .destructive) {
+                        Button { name = shelf.name; naming = .renameShelf(shelf.id) } label: { Label("Rename list", systemImage: "pencil") }
+                        Button("Delete list", role: .destructive) {
                             if shelfId == shelf.id { reshuffle { shelfId = nil } }
                             Task { await groupRun { try await groups.removeShelf(shelf.id) } }
                         }
                     }
             }
             Button { shelfProduct = nil; naming = .shelf } label: {
-                Label("Shelf", systemImage: "plus").font(.geist(14, .semibold)).foregroundStyle(Theme.muted)
+                Label("List", systemImage: "plus").font(.geist(14, .semibold)).foregroundStyle(Theme.muted)
                     .padding(.horizontal, 14).frame(height: 36)
             }
             .buttonStyle(.plain)
@@ -410,7 +410,7 @@ struct CollectionView: View {
             }
             Rectangle().fill(Color.white.opacity(0.1)).frame(height: 1).padding(.vertical, 6).padding(.horizontal, 16)
             menuRow("New portfolio", icon: "plus", tint: .white) { naming = .portfolio }
-            menuRow("Shelves and portfolios", icon: "slider.horizontal.3", tint: .white) { managing = true }
+            menuRow("Lists and portfolios", icon: "slider.horizontal.3", tint: .white) { managing = true }
             if own {
                 let id = groups.selected
                 menuRow("Rename portfolio", icon: "pencil", tint: .white) { name = groups.name(of: id); naming = .renamePortfolio(id) }
@@ -457,10 +457,10 @@ struct CollectionView: View {
 
     private var namingTitle: String {
         switch naming {
-        case .shelf: "New shelf"
+        case .shelf: "New list"
         case .portfolio: "New portfolio"
         case .renamePortfolio: "Rename portfolio"
-        case .renameShelf: "Rename shelf"
+        case .renameShelf: "Rename list"
         case nil: ""
         }
     }
@@ -518,9 +518,9 @@ struct CollectionView: View {
                     if shelf.product_ids.contains(productId) { Label(shelf.name, systemImage: "checkmark") } else { Text(shelf.name) }
                 }
             }
-            Button { shelfProduct = productId; naming = .shelf } label: { Label("New shelf…", systemImage: "plus") }
+            Button { shelfProduct = productId; naming = .shelf } label: { Label("New list…", systemImage: "plus") }
         } label: {
-            Label("Add to shelf", systemImage: "square.stack")
+            Label("Add to list", systemImage: "square.stack")
         }
         Button { path.append(productId) } label: { Label("Open card", systemImage: "arrow.up.right") }
         Divider()
@@ -680,13 +680,13 @@ struct CollectionView: View {
 
     private func shelfMenu(productIds: [String]) -> some View {
         Menu {
-            Section("Add to shelf") {
+            Section("Add to list") {
                 ForEach(groups.shelves) { shelf in
                     Button(shelf.name) { bulk { try await groups.addMany(shelf.id, productIds: productIds) } }
                 }
             }
         } label: {
-            barAction("Shelf", "square.stack")
+            barAction("List", "square.stack")
         }
     }
 
@@ -1226,8 +1226,8 @@ struct ManageGroupsSheet: View {
                     ForEach(groups.shelves) { shelf in
                         row(shelf.name, sub: "\(shelf.product_ids.count) item\(shelf.product_ids.count == 1 ? "" : "s")", kind: .shelf, id: shelf.id)
                     }
-                    newRow("New shelf", kind: .shelf)
-                } header: { sectionTitle("Shelves") } footer: { sectionNote("Your own groups, like Grails or For sale. Deleting a shelf keeps its cards in your collection.") }
+                    newRow("New list", kind: .shelf)
+                } header: { sectionTitle("Lists") } footer: { sectionNote("Your own lists, like Grails or For sale at the show. Deleting a list keeps its cards in your collection.") }
                 Section {
                     if groups.portfolios.isEmpty { Text("No portfolios yet.").foregroundStyle(Theme.muted) }
                     ForEach(groups.portfolios) { p in
@@ -1237,15 +1237,15 @@ struct ManageGroupsSheet: View {
                 } header: { sectionTitle("Portfolios") } footer: { sectionNote("Separate collections with their own totals. Deleting one moves its cards back to Main.") }
                 if let error { Section { Text(error).foregroundStyle(Theme.down) } }
             }
-            .navigationTitle("Shelves and portfolios")
+            .navigationTitle("Lists and portfolios")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
-            .alert(renaming?.kind == .shelf ? "Rename shelf" : "Rename portfolio", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
+            .alert(renaming?.kind == .shelf ? "Rename list" : "Rename portfolio", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
                 TextField("Name", text: $name)
                 Button("Cancel", role: .cancel) { renaming = nil }
                 Button("Save") { saveRename() }
             }
-            .alert(creating == .shelf ? "New shelf" : "New portfolio", isPresented: Binding(get: { creating != nil }, set: { if !$0 { creating = nil } })) {
+            .alert(creating == .shelf ? "New list" : "New portfolio", isPresented: Binding(get: { creating != nil }, set: { if !$0 { creating = nil } })) {
                 TextField(creating == .shelf ? "Grails, For sale…" : "Resale, PC, Graded…", text: $newName)
                 Button("Cancel", role: .cancel) { creating = nil; newName = "" }
                 Button("Create") { saveNew() }
@@ -1254,7 +1254,7 @@ struct ManageGroupsSheet: View {
                 Button("Cancel", role: .cancel) { deleting = nil }
                 Button("Delete", role: .destructive) { confirmDelete() }
             } message: {
-                Text(deleting?.kind == .shelf ? "The shelf goes; its cards stay in your collection." : "The portfolio goes; its cards move back to Main.")
+                Text(deleting?.kind == .shelf ? "The list goes; its cards stay in your collection." : "The portfolio goes; its cards move back to Main.")
             }
         }
         .presentationDetents([.medium, .fraction(0.93)])

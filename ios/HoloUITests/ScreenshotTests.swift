@@ -56,6 +56,10 @@ final class ScreenshotTests: XCTestCase {
     // Add to collection, as a pull: the Bought / Pulled choice.
     func testAddPurchase() { capture("add-purchase", args: ["-HoloProduct", "sample:umbreon-vmax-alt", "-HoloAddPurchase", "-HoloAddPulled"], pages: 2) }
     func testSales() { capture("sales", args: ["-HoloPage", "sales"], pages: 2) }
+    func testLists() { capture("lists", args: ["-HoloPage", "lists"], pages: 1) }
+    func testListForSale() { capture("list-sale", args: ["-HoloPage", "lists", "-HoloList", "demo-show"], pages: 2) }
+    // A card you own two different copies of (raw and PSA 10): each is listed under You own.
+    func testCardCopies() { capture("card-copies", args: ["-HoloDemoKind", "graded", "-HoloProduct", "sample:umbreon-vmax-alt"], pages: 1) }
     func testActivity() { capture("activity", args: ["-HoloPage", "activity"], pages: 3) }
     func testMasterSets() { capture("master-sets", args: ["-HoloDemoKind", "singles", "-HoloPage", "master-sets"], pages: 2) }
     func testMasterSet() { capture("master-set", args: ["-HoloDemoKind", "singles", "-HoloPage", "master-sets", "-HoloMasterSet"], pages: 2) }

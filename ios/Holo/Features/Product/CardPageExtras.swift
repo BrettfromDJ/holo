@@ -118,8 +118,57 @@ struct YourCopyStrip: View {
     var onOpen: (HoldingView) -> Void
 
     var body: some View {
+        if owned.count > 1 { copies } else { single }
+    }
+
+    /// Different copies (a raw one and a slab, two grades…): the total, then a row for each, so
+    /// you open the one you mean.
+    private var copies: some View {
+        let sorted = owned.sorted { ($0.value ?? 0) > ($1.value ?? 0) }
+        return VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                line.font(.geist(14, .medium)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.75)
+                if let r = gainRatio { DeltaPill(ratio: r, size: 12) }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 16)
+            .frame(height: 46)
+            ForEach(sorted) { h in
+                Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1).padding(.horizontal, 16)
+                Button {
+                    Haptics.tap()
+                    onOpen(h)
+                } label: {
+                    HStack(spacing: 10) {
+                        Text(h.identity.isGraded ? (h.identity.gradeLabel ?? "Graded") : h.identity.condition)
+                            .font(.geist(12, .semibold))
+                            .foregroundStyle(h.identity.isGraded ? Theme.ink : .white)
+                            .padding(.horizontal, 8).padding(.vertical, 3)
+                            .background(Capsule().fill(h.identity.isGraded ? Theme.lime : Color.white.opacity(0.12)))
+                        if h.quantity > 1 {
+                            Text(verbatim: "\u{00D7}\(Int(h.quantity))").font(.geist(13, .medium)).foregroundStyle(Theme.muted)
+                        }
+                        Spacer(minLength: 4)
+                        Text(Format.money(h.value)).font(.geist(14, .semibold)).monospacedDigit().foregroundStyle(.white)
+                        if let g = h.gain {
+                            Text(Format.signedMoney(g)).font(.geist(12)).monospacedDigit().foregroundStyle(Theme.tone(g))
+                        }
+                        Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.muted)
+                    }
+                    .padding(.horizontal, 16)
+                    .frame(height: 46)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Opens this copy")
+            }
+        }
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private var single: some View {
         Button {
-            if let h = owned.max(by: { ($0.value ?? 0) < ($1.value ?? 0) }) { onOpen(h) }
+            if let h = owned.first { onOpen(h) }
         } label: {
             HStack(spacing: 8) {
                 line

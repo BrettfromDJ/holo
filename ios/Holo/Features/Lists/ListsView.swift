@@ -5,19 +5,31 @@ struct ListsView: View {
     enum Which: String, CaseIterable { case watchlist = "Watchlist", wishlist = "Wishlist" }
 
     @Environment(CollectionStore.self) private var store
-    @State private var which = Which.watchlist
+    @State private var which: Which
     @State private var editingWatch: WatchRow?
     @State private var error: String?
+    /// Pushed inside another page's navigation (Lists), not shown as its own sheet.
+    var embedded = false
+
+    init(which: Which = .watchlist, embedded: Bool = false) {
+        _which = State(initialValue: which)
+        self.embedded = embedded
+    }
 
     var body: some View {
-        NavigationStack {
+        if embedded { page } else { NavigationStack { page.navigationDestination(for: String.self) { ProductDetailView(productId: $0) } } }
+    }
+
+    private var page: some View {
             List {
-                Picker("List", selection: $which) {
-                    ForEach(Which.allCases, id: \.self) { Text($0.rawValue) }
+                if !embedded {
+                    Picker("List", selection: $which) {
+                        ForEach(Which.allCases, id: \.self) { Text($0.rawValue) }
+                    }
+                    .pickerStyle(.segmented)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 8, trailing: 0))
                 }
-                .pickerStyle(.segmented)
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 8, trailing: 0))
 
                 if let error { Text(error).foregroundStyle(Theme.down) }
 
@@ -30,13 +42,11 @@ struct ListsView: View {
             .background(Theme.background)
             .navigationBarTitleDisplayMode(.inline)
             .pageTitle(which.rawValue)
-            .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
             .sheet(item: $editingWatch) { w in
                 if let p = store.products[w.product_id] {
                     WatchSheet(product: p, printing: w.printing, market: store.marketPrice(w.product_id, printing: w.printing)?.market, existing: w)
                 }
             }
-        }
     }
 
     @ViewBuilder private var watchlist: some View {
