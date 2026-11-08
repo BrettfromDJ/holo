@@ -206,8 +206,8 @@ private struct Unmatched: View {
                 .font(.geist(14)).foregroundStyle(Theme.muted).fixedSize(horizontal: false, vertical: true)
                 .padding(.top, -12)
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                ForEach(Array(list.enumerated()), id: \.offset) { i, c in
-                    CandidateCard(candidate: c, best: i == 0 && list.count > 1) { model.pick(c, for: entry.id) }
+                ForEach(Array(list.enumerated()), id: \.offset) { _, c in
+                    CandidateCard(candidate: c, best: false) { model.pick(c, for: entry.id) }
                 }
             }
         }
@@ -325,6 +325,7 @@ private struct CandidateCard: View {
                 ProductImage(product: p, cornerRadius: 8, large: true)
                     // Shrunk to the size it shows at (the full picture is for the hold preview).
                     .imageMaxPixel(520)
+                    .environment(\.quietPlaceholder, true)
                     .aspectRatio(0.716, contentMode: .fit)
                     .frame(maxWidth: .infinity)
                     .overlay(alignment: .topLeading) {
