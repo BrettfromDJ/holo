@@ -1706,7 +1706,6 @@ private struct ShortcutRow: View {
             tile("Analytics", icon: "chart.xyaxis.line", page: .analytics)
             tile("Grading", icon: "checkmark.seal", page: .grading)
             tile("Master sets", icon: "square.grid.3x3.fill", page: .masterSets)
-            tile("Activity", icon: "list.bullet.rectangle", page: .activity)
             tile("Lists", icon: "square.stack", page: .lists)
         }
     }
