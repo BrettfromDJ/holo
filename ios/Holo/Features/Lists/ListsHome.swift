@@ -22,12 +22,81 @@ struct ListItemInfo {
         return top.identity.gradeLabel ?? top.identity.condition
     }
 
-    init(_ productId: String, store: CollectionStore, groups: GroupsStore) {
+    /// `owned`: your holdings by product id, built once per page (see `ownedIndex`), so a page
+    /// with many cards doesn't search the whole collection once per card.
+    init(_ productId: String, store: CollectionStore, groups: GroupsStore, owned: [String: [HoldingView]]? = nil) {
         product = store.products[productId] ?? groups.extraProducts[productId]
-        copies = store.allHoldings.filter { $0.identity.productId == productId && $0.quantity > 0 }.sorted { ($0.price ?? -1) > ($1.price ?? -1) }
+        let mine = owned.map { $0[productId] ?? [] } ?? store.allHoldings.filter { $0.identity.productId == productId }
+        copies = mine.filter { $0.quantity > 0 }.sorted { ($0.price ?? -1) > ($1.price ?? -1) }
         market = copies.first?.price
             ?? store.marketPrice(productId, printing: product?.printings?.first)?.market
             ?? groups.extraMarket[productId]
+    }
+}
+
+extension ListItemInfo {
+    static func ownedIndex(_ store: CollectionStore) -> [String: [HoldingView]] {
+        Dictionary(grouping: store.allHoldings, by: \.identity.productId)
+    }
+}
+
+/// Name a list: its own small sheet, so typing redraws only the box (not the page behind it).
+struct ListNameSheet: View {
+    var title: String
+    var initial = ""
+    var action: String
+    var onSave: (String) async throws -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var text = ""
+    @State private var saving = false
+    @State private var error: String?
+    @FocusState private var focused: Bool
+
+    private var trimmed: String { String(text.trimmingCharacters(in: .whitespaces).prefix(40)) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Button("Cancel") { dismiss() }.font(.geist(16)).foregroundStyle(.white)
+                Spacer()
+                Text(title).font(.geist(17, .semibold)).foregroundStyle(.white)
+                Spacer()
+                Button(action) { save() }.font(.geist(16, .semibold))
+                    .foregroundStyle(trimmed.isEmpty ? Theme.subtle : Theme.lime)
+                    .disabled(trimmed.isEmpty || saving)
+            }
+            TextField("Favorite SIRs, For sale at the show…", text: $text)
+                .font(.geist(17))
+                .focused($focused)
+                .submitLabel(.done)
+                .onSubmit { save() }
+                .padding(.horizontal, 14).frame(height: 50)
+                .background(RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.08)))
+            if let error { Text(error).font(.geist(13)).foregroundStyle(.white) }
+            Spacer(minLength: 0)
+        }
+        .padding(20)
+        .presentationDetents([.height(200)])
+        .glassSheet()
+        .onAppear {
+            text = initial
+            focused = true
+        }
+    }
+
+    private func save() {
+        let name = trimmed
+        guard !name.isEmpty, !saving else { return }
+        saving = true
+        Task {
+            do {
+                try await onSave(name)
+                dismiss()
+            } catch {
+                self.error = error.localizedDescription
+                saving = false
+            }
+        }
     }
 }
 
@@ -39,7 +108,8 @@ struct ListsHomeView: View {
     @Environment(CollectionStore.self) private var store
     @Environment(GroupsStore.self) private var groups
     @State private var naming = false
-    @State private var newName = ""
+    /// A list just made: opened right away so you can add cards.
+    @State private var opened: String?
     @State private var error: String?
 
     private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
@@ -55,7 +125,6 @@ struct ListsHomeView: View {
                     Spacer()
                     Button {
                         Haptics.tap()
-                        newName = ""
                         naming = true
                     } label: {
                         Label("New", systemImage: "plus").font(.geist(14, .semibold)).foregroundStyle(Theme.ink)
@@ -76,8 +145,9 @@ struct ListsHomeView: View {
                     .surface(radius: 18, padding: 16)
                 } else {
                     LazyVGrid(columns: columns, spacing: 12) {
+                        let owned = ListItemInfo.ownedIndex(store)
                         ForEach(groups.shelves) { list in
-                            NavigationLink(value: ListRoute.list(list.id)) { ListTile(list: list) }
+                            NavigationLink(value: ListRoute.list(list.id)) { ListTile(list: list, owned: owned) }
                                 .buttonStyle(.plain)
                         }
                     }
@@ -104,17 +174,13 @@ struct ListsHomeView: View {
         .navigationBarTitleDisplayMode(.inline)
         .pageTitle("Lists")
         .task { await groups.loadExtras(groups.shelves.flatMap(\.product_ids), known: store.products) }
-        .alert("New list", isPresented: $naming) {
-            TextField("Favorite SIRs, For sale at the show…", text: $newName)
-            Button("Cancel", role: .cancel) {}
-            Button("Create") {
-                let name = String(newName.trimmingCharacters(in: .whitespaces).prefix(40))
-                guard !name.isEmpty else { return }
-                Task {
-                    do { _ = try await groups.createShelf(name) } catch { self.error = error.localizedDescription }
-                }
+        .sheet(isPresented: $naming) {
+            ListNameSheet(title: "New list", action: "Create") { name in
+                let list = try await groups.createShelf(name)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { opened = list.id }
             }
         }
+        .navigationDestination(item: $opened) { ListDetailView(listId: $0) }
     }
 
     private func trackRow(_ route: ListRoute, _ title: String, _ sub: String, icon: String, count: Int) -> some View {
@@ -141,6 +207,7 @@ struct ListsHomeView: View {
 /// An empty list shows three dashed card outlines with a plus, inviting you in.
 private struct ListTile: View {
     var list: GroupsStore.Shelf
+    var owned: [String: [HoldingView]]
     @Environment(CollectionStore.self) private var store
     @Environment(GroupsStore.self) private var groups
 
@@ -155,7 +222,7 @@ private struct ListTile: View {
 
     var body: some View {
         let meta = groups.meta(list.id)
-        let infos = list.product_ids.map { ListItemInfo($0, store: store, groups: groups) }
+        let infos = list.product_ids.map { ListItemInfo($0, store: store, groups: groups, owned: owned) }
         let total = Self.worth(infos)
         let shown = Array(infos.filter { $0.product != nil }.sorted { ($0.market ?? 0) > ($1.market ?? 0) }.prefix(3))
         let count = list.product_ids.count
@@ -242,7 +309,6 @@ struct ListDetailView: View {
     @State private var sharing = false
     @State private var renaming = false
     @State private var deleting = false
-    @State private var name = ""
     /// The card whose price is being set.
     @State private var pricing: String?
     @State private var error: String?
@@ -260,7 +326,8 @@ struct ListDetailView: View {
 
     private func page(_ list: GroupsStore.Shelf) -> some View {
         let meta = groups.meta(listId)
-        let items = list.product_ids.map { ($0, ListItemInfo($0, store: store, groups: groups)) }
+        let owned = ListItemInfo.ownedIndex(store)
+        let items = list.product_ids.map { ($0, ListItemInfo($0, store: store, groups: groups, owned: owned)) }
         let totals = Self.totals(items, meta: meta)
         let marketTotal = totals.market
         let askTotal = totals.asking
@@ -310,7 +377,7 @@ struct ListDetailView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button { name = list.name; renaming = true } label: { Label("Rename", systemImage: "pencil") }
+                    Button { renaming = true } label: { Label("Rename", systemImage: "pencil") }
                     Button(role: .destructive) { deleting = true } label: { Label("Delete list", systemImage: "trash") }
                 } label: { Image(systemName: "ellipsis") }
             }
@@ -318,13 +385,9 @@ struct ListDetailView: View {
         .task { await groups.loadExtras(list.product_ids, known: store.products) }
         .sheet(isPresented: $adding) { ListAddSheet(listId: listId) }
         .sheet(isPresented: $sharing) { ListShareSheet(listId: listId, name: list.name, forSale: meta.isForSale) }
-        .alert("Rename list", isPresented: $renaming) {
-            TextField("Name", text: $name)
-            Button("Cancel", role: .cancel) {}
-            Button("Save") {
-                let value = String(name.trimmingCharacters(in: .whitespaces).prefix(40))
-                guard !value.isEmpty else { return }
-                run { try await groups.renameShelf(listId, to: value) }
+        .sheet(isPresented: $renaming) {
+            ListNameSheet(title: "Rename list", initial: list.name, action: "Save") { name in
+                try await groups.renameShelf(listId, to: name)
             }
         }
         .confirmationDialog("Delete \(list.name)?", isPresented: $deleting, titleVisibility: .visible) {
