@@ -374,14 +374,6 @@ struct ListDetailView: View {
         .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)
         .pageTitle(list.name)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button { renaming = true } label: { Label("Rename", systemImage: "pencil") }
-                    Button(role: .destructive) { deleting = true } label: { Label("Delete list", systemImage: "trash") }
-                } label: { Image(systemName: "ellipsis") }
-            }
-        }
         .task { await groups.loadExtras(list.product_ids, known: store.products) }
         .sheet(isPresented: $adding) { ListAddSheet(listId: listId) }
         .sheet(isPresented: $sharing) { ListShareSheet(listId: listId, name: list.name, forSale: meta.isForSale) }
@@ -444,6 +436,17 @@ struct ListDetailView: View {
                     .background(Capsule().fill(Theme.lime))
             }
             .buttonStyle(.plain)
+            // Rename and delete: a full-size button in the page, not a small icon in the top bar.
+            Menu {
+                Button { renaming = true } label: { Label("Rename", systemImage: "pencil") }
+                Button(role: .destructive) { deleting = true } label: { Label("Delete list", systemImage: "trash") }
+            } label: {
+                Image(systemName: "ellipsis").font(.system(size: 17, weight: .semibold)).foregroundStyle(.white)
+                    .frame(width: 46, height: 46)
+                    .liquidGlass(in: Circle())
+                    .contentShape(Circle())
+            }
+            .accessibilityLabel("More")
         }
     }
 
@@ -517,7 +520,7 @@ struct ListDetailView: View {
                 } label: { Label("Remove from list", systemImage: "minus.circle") }
             } label: {
                 Image(systemName: "ellipsis").font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.muted)
-                    .frame(width: 28, height: 44).contentShape(Rectangle())
+                    .frame(width: 36, height: 44).contentShape(Rectangle())
             }
         }
         .padding(.vertical, 8)
