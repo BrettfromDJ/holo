@@ -588,9 +588,6 @@ struct ScanChip: View {
                         Text(p.subtitle).font(.geist(12)).foregroundStyle(.white).lineLimit(1)
                     }
                     detail.font(.geist(13)).lineLimit(1)
-                    if entry.picked != nil, owned > 0 {
-                        Tag(text: "Owned ×\(owned)", tint: Theme.lime).padding(.top, 1)
-                    }
                 }
                 Spacer(minLength: 0)
                 // Room for the trash button laid over this edge.
@@ -654,9 +651,15 @@ struct ScanChip: View {
                 let condition = entry.isSlab ? entry.result?.read?.grade.map { "\($0.company) \($0.grade)" } : (p.product.isSealed ? nil : CardCondition(rawValue: entry.condition)?.short)
                 let printing = (p.product.printings?.count ?? 0) > 1 ? (entry.printing ?? p.printing) : nil
                 let lead = [condition, printing].compactMap { $0 }.joined(separator: " · ")
-                (Text(lead.isEmpty ? "" : lead + " · ").foregroundStyle(.white)
-                    + Text(Format.money(entry.value)).bold().foregroundStyle(.white))
-                    .monospacedDigit()
+                // The price on its own line, so the trash button never squeezes it out.
+                VStack(alignment: .leading, spacing: 3) {
+                    if !lead.isEmpty { Text(lead).foregroundStyle(.white) }
+                    HStack(spacing: 6) {
+                        Text(Format.money(entry.value)).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(.white)
+                            .fixedSize()
+                        if owned > 0 { Tag(text: "Owned ×\(owned)", tint: Theme.lime) }
+                    }
+                }
             } else {
                 Text(entry.result?.status == "ambiguous" ? "Tap to pick" : "Tap for details").foregroundStyle(Theme.warn)
             }
