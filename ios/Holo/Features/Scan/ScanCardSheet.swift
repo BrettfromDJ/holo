@@ -295,13 +295,11 @@ private struct Unmatched: View {
         .padding(.bottom, 8)
         .background {
             // Fades the matches out under the bar instead of a hard edge.
-            // Solid under the buttons, with a short fade above so the cards slide out of view.
-            VStack(spacing: 0) {
-                LinearGradient(colors: [Color.black.opacity(0), Color.black], startPoint: .top, endPoint: .bottom).frame(height: 24)
-                Color.black
-            }
-            .padding(.top, -24)
-            .ignoresSafeArea(edges: .bottom)
+            // Frosted: the cards blur as they slide under the buttons (a dark wash keeps them readable).
+            Rectangle().fill(.ultraThinMaterial)
+                .overlay(Color.black.opacity(0.35))
+                .overlay(alignment: .top) { Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1) }
+                .ignoresSafeArea(edges: .bottom)
         }
     }
 
