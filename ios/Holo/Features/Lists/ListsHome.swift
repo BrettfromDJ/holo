@@ -140,10 +140,16 @@ private struct ListTile: View {
     @Environment(CollectionStore.self) private var store
     @Environment(GroupsStore.self) private var groups
 
+    private static func worth(_ infos: [ListItemInfo]) -> Double {
+        var total: Double = 0
+        for info in infos { total += (info.market ?? 0) * info.count }
+        return total
+    }
+
     var body: some View {
         let meta = groups.meta(list.id)
         let infos = list.product_ids.map { ListItemInfo($0, store: store, groups: groups) }
-        let total = infos.reduce(0) { $0 + ($1.market ?? 0) * $1.count }
+        let total = Self.worth(infos)
         let shown = Array(infos.filter { $0.product != nil }.sorted { ($0.market ?? 0) > ($1.market ?? 0) }.prefix(3))
         let mid = Double(max(shown.count - 1, 0)) / 2
         VStack(alignment: .leading, spacing: 10) {
@@ -212,9 +218,10 @@ struct ListDetailView: View {
     private func page(_ list: GroupsStore.Shelf) -> some View {
         let meta = groups.meta(listId)
         let items = list.product_ids.map { ($0, ListItemInfo($0, store: store, groups: groups)) }
-        let marketTotal = items.reduce(0) { $0 + ($1.1.market ?? 0) * $1.1.count }
-        let askTotal = items.reduce(0) { $0 + (ListPricing.asking(meta, productId: $1.0, market: $1.1.market) ?? 0) * $1.1.count }
-        let cards = Int(items.reduce(0) { $0 + $1.1.count })
+        let totals = Self.totals(items, meta: meta)
+        let marketTotal = totals.market
+        let askTotal = totals.asking
+        let cards = totals.cards
         return ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 VStack(alignment: .leading, spacing: 8) {
@@ -242,7 +249,7 @@ struct ListDetailView: View {
                     .surface(radius: 18, padding: 16)
                 } else {
                     VStack(spacing: 0) {
-                        ForEach(Array(items.enumerated()), id: \.element.0) { i, item in
+                        ForEach(Array(items.enumerated()), id: \.offset) { i, item in
                             if i > 0 { Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1) }
                             row(item.0, item.1, meta: meta)
                         }
@@ -304,6 +311,19 @@ struct ListDetailView: View {
         } message: {
             Text("What you're asking for one copy. Leave it to the list's percentage of market if you like.")
         }
+    }
+
+    private static func totals(_ items: [(String, ListItemInfo)], meta: ListMeta) -> (market: Double, asking: Double, cards: Int) {
+        var market: Double = 0
+        var asking: Double = 0
+        var cards: Double = 0
+        for (id, info) in items {
+            let n = info.count
+            market += (info.market ?? 0) * n
+            asking += (ListPricing.asking(meta, productId: id, market: info.market) ?? 0) * n
+            cards += n
+        }
+        return (market, asking, Int(cards))
     }
 
     private var actions: some View {
