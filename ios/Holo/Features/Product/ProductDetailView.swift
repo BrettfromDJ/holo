@@ -133,6 +133,10 @@ struct ProductDetailView: View {
         .sheet(item: $bumperFor) { h in BumperSheet(holding: h) }
         // Screenshots: -HoloWhatIf opens the calculator for the first copy you own.
         .task {
+            if Demo.isOn, ProcessInfo.processInfo.arguments.contains("-HoloAddPurchase"), !adding {
+                try? await Task.sleep(nanoseconds: 800_000_000)
+                adding = true
+            }
             if Demo.isOn, ProcessInfo.processInfo.arguments.contains("-HoloWhatIf"), whatIf == nil {
                 try? await Task.sleep(nanoseconds: 800_000_000)
                 whatIf = owned.first

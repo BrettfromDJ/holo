@@ -146,8 +146,12 @@ struct AddPurchaseSheet: View {
                 // How you got it: bought, or pulled from a pack (a pull has no price to fill in).
                 if !product.isSealed {
                     Section {
-                        ChipPicker(options: [(false, "Bought"), (true, "Pulled from a pack")], selection: $pulled, fills: true)
-                            .frame(maxWidth: .infinity)
+                        HStack(spacing: 10) {
+                            HowYouGotIt(icon: "bag", title: "Bought", detail: "You paid for it", selected: !pulled) { pulled = false }
+                            HowYouGotIt(icon: "sparkles", title: "Pulled", detail: "From a pack you opened", selected: pulled) { pulled = true }
+                        }
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets())
                     } header: {
                         SectionTitle("How you got it")
                     } footer: {
@@ -226,6 +230,7 @@ struct AddPurchaseSheet: View {
             .onAppear {
                 if printing == nil { printing = hit.printing ?? product.printings?.first }
                 source = lastSource
+                if Demo.isOn, ProcessInfo.processInfo.arguments.contains("-HoloAddPulled") { pulled = true }
                 if !product.isSealed {
                     if CardCondition(rawValue: lastCondition) != nil { condition = lastCondition }
                     graded = lastGraded
@@ -306,5 +311,48 @@ struct AddPurchaseSheet: View {
         } catch {
             self.error = error.localizedDescription
         }
+    }
+}
+
+/// One of the two "How you got it" choices: a tile with an icon, a name and a line under it.
+/// The chosen one is outlined in lime with a lime icon; the other stays quiet.
+private struct HowYouGotIt: View {
+    var icon: String
+    var title: String
+    var detail: String
+    var selected: Bool
+    var action: () -> Void
+
+    var body: some View {
+        Button {
+            Haptics.tap()
+            withAnimation(.snappy(duration: 0.2)) { action() }
+        } label: {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Image(systemName: icon)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(selected ? Theme.ink : .white)
+                        .frame(width: 36, height: 36)
+                        .background(Circle().fill(selected ? Theme.lime : Color.white.opacity(0.08)))
+                    Spacer()
+                    Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: 20))
+                        .foregroundStyle(selected ? Theme.lime : Color.white.opacity(0.25))
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title).font(.geist(17, .semibold)).foregroundStyle(.white)
+                    Text(detail).font(.geist(13)).foregroundStyle(Theme.muted)
+                        .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 20).fill(selected ? Theme.lime.opacity(0.08) : Color.white.opacity(0.06)))
+            .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(selected ? Theme.lime : Color.white.opacity(0.08), lineWidth: selected ? 1.5 : 1))
+            .contentShape(RoundedRectangle(cornerRadius: 20))
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }

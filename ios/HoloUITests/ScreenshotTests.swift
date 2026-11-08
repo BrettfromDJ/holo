@@ -53,6 +53,8 @@ final class ScreenshotTests: XCTestCase {
     func testPulledReveal() { capture("pulled-reveal", args: ["-HoloPull", "-HoloPulled"], pages: 1) }
     // The card's back, held partway through its spin.
     func testPullBack() { capture("pull-back", args: ["-HoloPull", "-HoloPullBack"], pages: 1) }
+    // Add to collection, as a pull: the Bought / Pulled choice.
+    func testAddPurchase() { capture("add-purchase", args: ["-HoloProduct", "sample:umbreon-vmax-alt", "-HoloAddPurchase", "-HoloAddPulled"], pages: 2) }
     func testActivity() { capture("activity", args: ["-HoloPage", "activity"], pages: 3) }
     func testMasterSets() { capture("master-sets", args: ["-HoloDemoKind", "singles", "-HoloPage", "master-sets"], pages: 2) }
     func testMasterSet() { capture("master-set", args: ["-HoloDemoKind", "singles", "-HoloPage", "master-sets", "-HoloMasterSet"], pages: 2) }
