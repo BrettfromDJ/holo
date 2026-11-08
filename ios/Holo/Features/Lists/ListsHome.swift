@@ -137,7 +137,8 @@ struct ListsHomeView: View {
     }
 }
 
-/// A list on the Lists page: up to three of its cards fanned out, its name, count and worth.
+/// A list on the Lists page: its cards fanned in a dark well, then its name, count and worth.
+/// An empty list shows three dashed card outlines with a plus, inviting you in.
 private struct ListTile: View {
     var list: GroupsStore.Shelf
     @Environment(CollectionStore.self) private var store
@@ -154,39 +155,70 @@ private struct ListTile: View {
         let infos = list.product_ids.map { ListItemInfo($0, store: store, groups: groups) }
         let total = Self.worth(infos)
         let shown = Array(infos.filter { $0.product != nil }.sorted { ($0.market ?? 0) > ($1.market ?? 0) }.prefix(3))
-        let mid = Double(max(shown.count - 1, 0)) / 2
-        VStack(alignment: .leading, spacing: 10) {
+        let count = list.product_ids.count
+        VStack(alignment: .leading, spacing: 12) {
             ZStack {
-                if shown.isEmpty {
-                    RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.06)).frame(width: 52, height: 72)
-                }
-                ForEach(Array(shown.enumerated()), id: \.offset) { i, info in
-                    ProductImage(product: info.product, cornerRadius: 4)
-                        .frame(width: 52, height: 72)
-                        .rotationEffect(.degrees((Double(i) - mid) * 9), anchor: .bottom)
-                        .offset(x: (Double(i) - mid) * 26)
-                        .zIndex(-abs(Double(i) - mid))
-                }
+                if shown.isEmpty { emptyFan } else { fan(shown) }
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 86)
-            .overlay(alignment: .topTrailing) {
+            .frame(height: 112)
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.black.opacity(0.35)))
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(alignment: .topLeading) {
                 if meta.isForSale {
                     Text("For sale").font(.geist(10, .semibold)).foregroundStyle(Theme.ink)
                         .padding(.horizontal, 7).padding(.vertical, 3)
                         .background(Capsule().fill(Theme.lime))
+                        .padding(8)
                 }
             }
-            VStack(alignment: .leading, spacing: 3) {
-                Text(list.name).font(.geist(15, .semibold)).foregroundStyle(.white).lineLimit(2, reservesSpace: true)
-                Text("\(list.product_ids.count) card\(list.product_ids.count == 1 ? "" : "s") · \(Format.money(total))")
-                    .font(.geist(12)).monospacedDigit().foregroundStyle(Theme.muted).lineLimit(1)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(list.name).font(.geist(15, .semibold)).foregroundStyle(.white).lineLimit(1)
+                Group {
+                    if count == 0 {
+                        Text("Empty · tap to add")
+                    } else {
+                        Text("\(count) card\(count == 1 ? "" : "s") · \(Format.money(total))").monospacedDigit()
+                    }
+                }
+                .font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
+            }
+            .padding(.horizontal, 4)
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    private func fan(_ shown: [ListItemInfo]) -> some View {
+        let mid = Double(shown.count - 1) / 2
+        return ZStack {
+            ForEach(Array(shown.enumerated()), id: \.offset) { i, info in
+                ProductImage(product: info.product, cornerRadius: 4)
+                    .frame(width: 58, height: 80)
+                    .shadow(color: .black.opacity(0.5), radius: 6, y: 3)
+                    .rotationEffect(.degrees((Double(i) - mid) * 10), anchor: .bottom)
+                    .offset(x: (Double(i) - mid) * 30, y: 6)
+                    .zIndex(-abs(Double(i) - mid))
             }
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .liquidGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private var emptyFan: some View {
+        ZStack {
+            ForEach(0..<3, id: \.self) { i in
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.18), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                    .frame(width: 54, height: 74)
+                    .rotationEffect(.degrees(Double(i - 1) * 10), anchor: .bottom)
+                    .offset(x: Double(i - 1) * 28, y: 6)
+            }
+            Image(systemName: "plus").font(.system(size: 18, weight: .semibold)).foregroundStyle(Theme.lime)
+                .frame(width: 36, height: 36)
+                .background(Circle().fill(Theme.ink.opacity(0.8)))
+                .overlay(Circle().strokeBorder(Theme.lime.opacity(0.4), lineWidth: 1))
+        }
     }
 }
 
