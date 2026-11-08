@@ -30,11 +30,13 @@ struct DealPickerSheet: View {
     var body: some View { sheetBody.presentationDetents([.fraction(0.93)]).glassSheet() }
 
     @ViewBuilder private var sheetBody: some View {
-        // Filtered once per keystroke, not once per use.
-        let owned = self.owned
+        // Filtered once per keystroke, not once per use (going out only).
+        let owned = side == .outgoing ? self.owned : []
         NavigationStack {
             GlassList {
-                Section(side == .outgoing ? "Your inventory" : "In your inventory") {
+                // Coming in is the customer's cards, so only going out lists your inventory.
+                if side == .outgoing {
+                Section("Your inventory") {
                     if owned.isEmpty { Text("Nothing matches.").foregroundStyle(Theme.muted) }
                     ForEach(owned) { h in
                         Button { addHolding(h) } label: {
@@ -45,6 +47,12 @@ struct DealPickerSheet: View {
                             }
                         }
                         .buttonStyle(.plain)
+                    }
+                }
+                }
+                if side == .incoming && query.count < 2 {
+                    Section {
+                        Text("Search for what the customer is handing you.").foregroundStyle(Theme.muted)
                     }
                 }
                 if query.count >= 2 {

@@ -53,12 +53,13 @@ export function DealPicker({ side, onClose, onPick }: { side: DealSide | null; o
 
   useEffect(() => {
     if (side) {
-      setSource(side === "out" || holdings.length ? "inventory" : "catalog");
+      // Coming in is the customer's cards: search the catalog, never your own inventory.
+      setSource(side === "out" ? "inventory" : "catalog");
       setCustom({ name: "", price: "", qty: "1" });
       setQ("");
       setResults(null);
     }
-  }, [side, holdings.length]);
+  }, [side]);
 
   useEffect(() => {
     if (source !== "catalog" || q.trim().length < 2) return setResults(null);
@@ -103,9 +104,9 @@ export function DealPicker({ side, onClose, onPick }: { side: DealSide | null; o
               value={source}
               onChange={setSource}
               options={[
-                { value: "inventory", label: side === "out" ? "Your inventory" : "Same as yours" },
-                { value: "catalog", label: side === "out" ? "Not in Holo" : "Catalog" },
-                { value: "custom", label: "Custom" },
+                ...(side === "out" ? [{ value: "inventory" as const, label: "Your inventory" }] : []),
+                { value: "catalog" as const, label: side === "out" ? "Not in Lucent" : "Catalog" },
+                { value: "custom" as const, label: "Custom" },
               ]}
             />
           </div>
