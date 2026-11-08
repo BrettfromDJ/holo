@@ -40,19 +40,24 @@ struct AnalyticsView: View {
                 } below: {
                     VStack(alignment: .leading, spacing: 14) {
                         HStack(spacing: 8) {
-                            GlassStat(label: "Time-weighted", value: Format.signedPercent(risk.totalReturn), tint: Theme.tone(risk.totalReturn))
+                            GlassStat(label: "Market only", value: Format.signedPercent(risk.totalReturn), tint: Theme.tone(risk.totalReturn))
                             GlassStat(label: "Realized", value: Format.signedMoney(s.realized), tint: Theme.tone(s.realized))
                             GlassStat(label: "Invested", value: Format.money(s.totalCost))
                         }
+                        // Why two percentages: the headline counts what you paid; "market only"
+                        // is how prices moved, leaving out when you bought and sold.
+                        Text("Market only is how prices moved, leaving out when you bought and sold.")
+                            .font(.geist(12)).foregroundStyle(Theme.subtle)
                         AllocationBar(holdings: holdings, total: s.value)
                     }
                 }
-                kpis(risk: risk, summary: s, holdings: holdings)
-                // Gains lives here now: which products, sets or types your gains come from.
-                GainsView().reveal()
+                // Next to the Realized number it explains.
                 salesLink
+                kpis(risk: risk, summary: s, holdings: holdings)
                 // Its own view, so dragging across the chart redraws only the chart.
                 HistorySection(timeline: timeline).reveal()
+                // Gains lives here now: which products, sets or types your gains come from.
+                GainsView().reveal()
                 CollectionMap(holdings: holdings).reveal()
                 MonthlyHeatmap(months: Analytics.monthlyReturns(timeline)).reveal()
                 ReturnVsTime(points: Analytics.returnVsTime(holdings, today: today)).reveal()
@@ -62,6 +67,7 @@ struct AnalyticsView: View {
                 // Each holds its own chips, so flipping one redraws only that section, not the page.
                 SetPerformance(holdings: holdings).reveal()
                 RankSections(holdings: holdings)
+                AdvancedStats(risk: risk).reveal()
                 Text("Performance percentages are time-weighted: daily market returns are chained so that purchases and sales never count as gains. History starts \(timeline.first.map { $0.day.formatted(date: .abbreviated, time: .omitted) } ?? "—").")
                     .font(.geist(12)).foregroundStyle(Theme.subtle)
             }
@@ -112,7 +118,7 @@ struct AnalyticsView: View {
         let short = { (d: String?) in d.flatMap { Format.isoDay.date(from: $0)?.formatted(.dateTime.month(.abbreviated).day()) } ?? "—" }
         let glow = { (v: Double?) in (v ?? 0) < 0 ? Theme.planPink : Theme.lime }
         return LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-            CountTile(label: "Max drawdown", value: risk.maxDrawdown, format: { percent($0, 1) }, valueTint: Theme.tone(risk.maxDrawdown),
+            CountTile(label: "Biggest drop", value: risk.maxDrawdown, format: { percent($0, 1) }, valueTint: Theme.tone(risk.maxDrawdown),
                       sub: risk.maxDrawdownTo != nil ? "\(short(risk.maxDrawdownFrom)) → \(short(risk.maxDrawdownTo))" : "No dips yet", glow: Theme.planPink)
                 .popIn(delay: 0.1)
             CountTile(label: "Best day", value: risk.bestDay?.gain, format: { Format.signedMoney($0) }, valueTint: Theme.tone(risk.bestDay?.gain),
@@ -123,10 +129,6 @@ struct AnalyticsView: View {
                 .popIn(delay: 0.2)
             CountTile(label: "In profit", value: winRate, format: { percent($0, 0) }, sub: "of \(holdings.count) holdings", glow: Theme.planBlue)
                 .popIn(delay: 0.25)
-            CountTile(label: "Up days", value: risk.upDays, format: { percent($0, 0) }, sub: "Days the market moved your way", glow: Theme.planBlue)
-                .popIn(delay: 0.3)
-            CountTile(label: "Volatility", value: risk.volatility, format: { percent($0, 0) }, sub: "Annualized swing in value", glow: Theme.planBlue)
-                .popIn(delay: 0.35)
         }
     }
 
@@ -392,7 +394,7 @@ private struct HistorySection: View {
 
     private var caption: String {
         switch mode {
-        case .value: return "White: market value. Dashed: what the priced items cost. Drag to see a day."
+        case .value: return "Lime: market value. Dashed: what the priced items cost. Drag to see a day."
         case .ret: return "Time-weighted return: market moves only, so buying and selling don't count."
         case .drawdown: return "How far below its previous high the collection's return has been. 0% is a new high."
         }
@@ -518,8 +520,12 @@ private struct MonthlyHeatmap: View {
                                 Spacer()
                                 DeltaPill(ratio: yearRet, size: 12)
                             }
+                            // Only months since you started (and up to now): no year of empty boxes.
+                            let first = row.map(\.month).min() ?? 0
+                            let last = y == years.first ? (row.map(\.month).max() ?? 11) : 11
+                            let span = y == years.last ? first...last : 0...last
                             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 5), count: 6), spacing: 5) {
-                                ForEach(0..<12, id: \.self) { i in
+                                ForEach(Array(span), id: \.self) { i in
                                     cell(i, row.first { $0.month == i })
                                         .popIn(delay: Double(i) * 0.03)
                                 }
@@ -568,12 +574,14 @@ private struct MonthlyHeatmap: View {
 /// Each holding's return against how long you've held it.
 private struct ReturnVsTime: View {
     var points: [Analytics.HeldPoint]
+    /// The dot you tapped, shown by name under the chart.
+    @State private var selected: String?
 
     var body: some View {
         if !points.isEmpty {
             let avg = Analytics.averageHoldDays(points)
             VStack(alignment: .leading, spacing: 16) {
-                MoreHeading(title: "Return vs. time held", subtitle: "Each dot is a holding, sized by value")
+                MoreHeading(title: "Return vs. time held", subtitle: "Each dot is a holding, sized by value. Tap one to see which.")
                 VStack(alignment: .leading, spacing: 12) {
                     if let avg {
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -590,7 +598,7 @@ private struct ReturnVsTime: View {
                     Chart {
                         ForEach(points) { p in
                             PointMark(x: .value("Days held", Double(p.days)), y: .value("Return", p.ret))
-                                .foregroundStyle((p.ret >= 0 ? Theme.up : Theme.down).opacity(0.85))
+                                .foregroundStyle((p.ret >= 0 ? Theme.up : Theme.down).opacity(selected == nil || selected == p.id ? 0.9 : 0.3))
                                 .symbolSize(30 + min(260, p.value / 4))
                         }
                         // One zero line over the dots (it used to be drawn once per holding).
@@ -609,8 +617,39 @@ private struct ReturnVsTime: View {
                             AxisValueLabel { if let d = v.as(Double.self) { Text(percent(d, 0)).font(.geist(11)).foregroundStyle(Theme.subtle) } }
                         }
                     }
+                    .chartOverlay { proxy in
+                        GeometryReader { geo in
+                            Rectangle().fill(.clear).contentShape(Rectangle())
+                                .onTapGesture { location in
+                                    let origin = proxy.plotFrame.map { geo[$0].origin } ?? .zero
+                                    // The nearest dot to the tap, if it's close enough.
+                                    let near = points.map { p -> (String, CGFloat) in
+                                        guard let pos = proxy.position(forX: Double(p.days), y: p.ret) else { return (p.id, .infinity) }
+                                        let dx = pos.x + origin.x - location.x, dy = pos.y + origin.y - location.y
+                                        return (p.id, (dx * dx + dy * dy).squareRoot())
+                                    }.min { $0.1 < $1.1 }
+                                    Haptics.tap()
+                                    withAnimation(.snappy(duration: 0.2)) {
+                                        selected = near.flatMap { $0.1 < 36 && $0.0 != selected ? $0.0 : nil }
+                                    }
+                                }
+                        }
+                    }
                     .frame(height: 220)
                     .drawIn(duration: 1.0)
+                    if let p = points.first(where: { $0.id == selected }) {
+                        HStack(spacing: 10) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(p.name).font(.geist(14, .semibold)).foregroundStyle(.white).lineLimit(1)
+                                Text("Held \(p.days) days · \(Format.money(p.value))").font(.geist(12)).monospacedDigit().foregroundStyle(Theme.muted)
+                            }
+                            Spacer(minLength: 8)
+                            DeltaPill(ratio: p.ret, size: 13)
+                        }
+                        .padding(12)
+                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.06)))
+                        .transition(.opacity)
+                    }
                 }
                 .surface(radius: 16, padding: 16)
             }
@@ -626,7 +665,7 @@ private struct TypeBreakdown: View {
         if !groups.isEmpty {
             let top = max(groups.map(\.value).max() ?? 1, 1)
             VStack(alignment: .leading, spacing: 16) {
-                MoreHeading(title: "By product type", subtitle: "Where the value sits, and how each type has done")
+                MoreHeading(title: "By product type", subtitle: "Bar: what it's worth. Dashed outline: what you paid.")
                 VStack(alignment: .leading, spacing: 16) {
                     ForEach(Array(groups.enumerated()), id: \.element.id) { i, g in
                         VStack(alignment: .leading, spacing: 7) {
@@ -645,7 +684,6 @@ private struct TypeBreakdown: View {
                                 }
                         }
                     }
-                    Text("Bar: what it's worth. Dashed outline: what you paid.").font(.geist(12)).foregroundStyle(Theme.subtle)
                 }
                 .surface(radius: 16, padding: 16)
             }
@@ -763,21 +801,24 @@ private struct CollectionMap: View {
     }
 
     private func tile(_ h: HoldingView, size: CGSize) -> some View {
-        let showName = size.width > 70 && size.height > 40
-        let showValue = size.width > 70 && size.height > 60
+        // Text only where it fits whole: small tiles stay plain (tap to open), so no names split
+        // mid-word and no prices cut down to a lone "$".
+        let showName = size.width >= 96 && size.height >= 52
+        let showValue = size.width >= 124 && size.height >= 84
         return RoundedRectangle(cornerRadius: 6, style: .continuous)
             .fill(h.gainRatio.map { Self.heat($0) } ?? Theme.surface2)
             .overlay(alignment: .topLeading) {
                 if showName {
                     VStack(alignment: .leading, spacing: 0) {
-                        Text(h.product?.name ?? "Unknown").font(.geist(12, .medium)).lineLimit(2)
+                        Text(h.product?.name ?? "Unknown").font(.geist(12, .medium)).lineLimit(2).truncationMode(.tail)
+                            .minimumScaleFactor(0.9)
                         Spacer(minLength: 0)
                         if showValue {
                             HStack(spacing: 6) {
-                                Text(Format.money(h.value)).font(.geist(12, .semibold)).monospacedDigit()
+                                Text(Format.money(h.value)).font(.geist(12, .semibold)).monospacedDigit().fixedSize()
                                 DeltaPill(ratio: h.gainRatio, size: 10)
                             }
-                            .lineLimit(1).minimumScaleFactor(0.7)
+                            .lineLimit(1)
                         }
                     }
                     .foregroundStyle(.white)
@@ -845,5 +886,50 @@ enum Treemap {
             }
         }
         return out
+    }
+}
+
+/// The rarer measures, closed until you open them: how often the market moved your way and
+/// how much the value swings.
+private struct AdvancedStats: View {
+    var risk: Analytics.Risk
+    @State private var open = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Button {
+                Haptics.tap()
+                withAnimation(.snappy(duration: 0.25)) { open.toggle() }
+            } label: {
+                HStack {
+                    MoreHeading(title: "Advanced", subtitle: "Up days and volatility")
+                    Image(systemName: "chevron.down").font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.muted)
+                        .rotationEffect(.degrees(open ? 180 : 0))
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            if open {
+                VStack(spacing: 12) {
+                    row("Up days", risk.upDays.map { "\(Int(($0 * 100).rounded()))%" } ?? "—",
+                        "The share of days your collection's market value went up.")
+                    row("Volatility", risk.volatility.map { "\(Int(($0 * 100).rounded()))%" } ?? "—",
+                        "How much the value swings, scaled to a year. Higher means bumpier.")
+                }
+                .transition(.opacity)
+            }
+        }
+    }
+
+    private func row(_ title: String, _ value: String, _ note: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(.geist(15, .semibold)).foregroundStyle(.white)
+                Text(note).font(.geist(12)).foregroundStyle(Theme.muted).fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 8)
+            Text(value).font(.display(22)).monospacedDigit().foregroundStyle(.white)
+        }
+        .surface(radius: 16, padding: 14)
     }
 }

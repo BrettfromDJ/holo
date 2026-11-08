@@ -11,7 +11,8 @@ struct GainsView: View {
     /// those (an unrelated store update) doesn't redo the whole attribution.
     @State private var memo = GainsMemo()
 
-    private static let collapsedRows = 12
+    /// Collapsed: the five biggest movers, up to three biggest losers, and the rest combined.
+    private static let collapsedRows = 9
 
     private var label: String {
         switch mode {
@@ -32,10 +33,7 @@ struct GainsView: View {
     var body: some View {
         let a = memo.attribution(store: store, mode: mode, group: group, maxRows: expanded ? nil : Self.collapsedRows)
         // Part of Analytics: the mode chips and the breakdown.
-        VStack(alignment: .leading, spacing: 16) {
-            ChipPicker(options: [(.unrealized, "Unrealized"), (.realized, "Realized"), (.all, "All-time")], selection: $mode)
-            breakdown(a)
-        }
+        breakdown(a)
         .sensoryFeedback(.selection, trigger: "\(mode.rawValue)\(group.rawValue)")
     }
 
@@ -66,6 +64,8 @@ struct GainsView: View {
             }
             Text("Each bar starts where the last one ended, gains first, then losses").font(.geist(14)).foregroundStyle(Theme.muted)
             }
+            // Which gains: under the heading they belong to.
+            ChipPicker(options: [(.unrealized, "Unrealized"), (.realized, "Realized"), (.all, "All-time")], selection: $mode)
             if a.steps.isEmpty {
                 Text(mode == .realized ? "No sales or write-offs yet." : "No gains or losses yet.")
                     .font(.geist(14)).foregroundStyle(Theme.muted)

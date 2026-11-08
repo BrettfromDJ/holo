@@ -115,6 +115,17 @@ extension View {
         // Never a bar behind the top: every page's header is fully transparent.
         .toolbarBackground(.hidden, for: .navigationBar)
         .clearTopEdge()
+        // A soft fade (no bar) behind the status bar and title, so Back and the title never
+        // sit on top of the page's text as it scrolls under them.
+        .overlay(alignment: .top) {
+            LinearGradient(stops: [.init(color: Theme.background.opacity(0.92), location: 0),
+                                   .init(color: Theme.background.opacity(0.75), location: 0.55),
+                                   .init(color: Theme.background.opacity(0), location: 1)],
+                           startPoint: .top, endPoint: .bottom)
+                .frame(height: 118)
+                .ignoresSafeArea(edges: .top)
+                .allowsHitTesting(false)
+        }
     }
 
     /// No tinted blur behind the top bar on iOS 26: content scrolls under a fully clear header.

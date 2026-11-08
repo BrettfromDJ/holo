@@ -178,11 +178,9 @@ struct ValueLineHero<Line: View, Below: View>: View {
             if recent.count > 1 {
                 VStack(alignment: .leading, spacing: 6) {
                     Sparkline(points: recent, color: change < 0 ? Theme.planPink : Theme.lime).frame(height: 54)
-                    HStack {
-                        MonoLabel(text: "Last 6 months")
-                        Spacer()
-                        Text(Format.signedMoney(change)).font(.geist(12, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(change))
-                    }
+                    // Just the label: the value's change includes money you put in, so a figure
+                    // here read as a second, different "return" beside the headline.
+                    MonoLabel(text: "Collection value · last 6 months")
                 }
             }
             below
