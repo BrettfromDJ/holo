@@ -220,39 +220,44 @@ struct GradingView: View {
             }
             ForEach(showAll ? candidates : Array(candidates.prefix(Self.shown)), id: \.0.id) { h, o in
                 let est = o.source == .estimate ? "≈" : ""
-                HStack(spacing: 12) {
+                // Two lines: the card and its upside on top; the prices, a sales tag and Send below,
+                // so nothing is squeezed into a narrow column.
+                VStack(alignment: .leading, spacing: 8) {
                     CardLink(productId: h.identity.productId, identity: h.identity) {
-                        HStack(spacing: 12) {
+                        HStack(alignment: .top, spacing: 12) {
                             HoldingArt(product: h.product, identity: h.identity, cornerRadius: 6, caption: false).frame(width: 40, height: 56)
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(h.product?.name ?? "Card").font(.geist(14, .medium)).foregroundStyle(.white)
                                     .lineLimit(2).fixedSize(horizontal: false, vertical: true)
-                                // Raw now → what a 10 sells for: the one comparison that matters.
                                 Text("Raw \(Format.money(o.raw)) → PSA 10 \(est)\(Format.money(o.psa10))")
                                     .font(.geist(12)).monospacedDigit().foregroundStyle(Theme.muted).lineLimit(1).minimumScaleFactor(0.8)
-                                Tag(text: o.source == .sales ? "10s \(Grading.liquidity(o.psa10Sales).lowercased())" : "Estimate · few sales",
-                                    tint: o.psa10Sales < 12 ? Theme.muted : Theme.lime)
                             }
                             Spacer(minLength: 4)
                             VStack(alignment: .trailing, spacing: 2) {
-                                Text(Format.signedMoney(o.upside10)).font(.geist(14, .semibold)).monospacedDigit().foregroundStyle(Theme.up)
-                                (Text("at a 9: ").foregroundColor(Theme.muted) + Text(Format.signedMoney(o.upside9)).foregroundColor(Theme.tone(o.upside9)))
+                                Text(Format.signedMoney(o.upside10)).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(Theme.up)
+                                (Text("at a 9 ").foregroundColor(Theme.muted) + Text(Format.signedMoney(o.upside9)).foregroundColor(Theme.tone(o.upside9)))
                                     .font(.geist(11)).monospacedDigit()
                             }
                         }
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    if (away[h.identity.key] ?? 0) >= h.quantity {
-                        Text("Sent").font(.geist(12, .medium)).foregroundStyle(Theme.subtle).frame(width: 52)
-                    } else {
-                        Button { Haptics.tap(); sending = h } label: {
-                            Text("Send").font(.geist(13, .semibold)).foregroundStyle(.white)
-                                .padding(.horizontal, 12).frame(height: 32)
-                                .background(Capsule().fill(Color.white.opacity(0.1)))
-                                .contentShape(Capsule())
+                    HStack(spacing: 8) {
+                        Color.clear.frame(width: 40, height: 1)
+                        Tag(text: o.source == .sales ? "10s \(Grading.liquidity(o.psa10Sales).lowercased())" : "Estimate",
+                            tint: o.psa10Sales < 12 ? Theme.muted : Theme.lime)
+                        Spacer(minLength: 4)
+                        if (away[h.identity.key] ?? 0) >= h.quantity {
+                            Text("Sent").font(.geist(12, .medium)).foregroundStyle(Theme.subtle)
+                        } else {
+                            Button { Haptics.tap(); sending = h } label: {
+                                Text("Send for grading").font(.geist(13, .semibold)).foregroundStyle(.white)
+                                    .padding(.horizontal, 12).frame(height: 32)
+                                    .background(Capsule().fill(Color.white.opacity(0.1)))
+                                    .contentShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Send for grading")
                     }
                 }
                 .padding(.vertical, 6)
