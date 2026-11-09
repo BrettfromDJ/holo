@@ -41,12 +41,12 @@ struct MasterSetsView: View {
     /// Your sets in the chosen brand. A set the catalog doesn't know (a demo set, or before the
     /// list arrives) counts as Pokémon.
     private var owned: [MasterSetDetailView.OwnedSet] {
-        let bySlug = Dictionary(index.map { ($0.slug, $0.gameSlug) }, uniquingKeysWith: { a, _ in a })
-        let byName = Dictionary(index.map { ($0.name.lowercased(), $0.gameSlug) }, uniquingKeysWith: { a, _ in a })
-        return MasterSetDetailView.ownedSets(store.holdings).filter { s in
-            (bySlug[s.id] ?? byName[s.name.lowercased()] ?? "pokemon") == brand
-        }
+        memo.owned(store.holdings, index: index, brand: brand)
     }
+
+    /// Remembers the catalog lookups and your sets, so a search (or any redraw) only filters;
+    /// rebuilding them for thousands of sets on every keystroke froze the page.
+    @State private var memo = MasterSetsMemo()
 
     /// Starts downloading the banners of your sets right away (the ones on screen first), at the
     /// size the page shows them, so they're there by the time each card is drawn.
@@ -71,8 +71,7 @@ struct MasterSetsView: View {
     }
 
     private func rows(_ owned: [MasterSetDetailView.OwnedSet]) -> [Row] {
-        let bySlug = Dictionary(index.map { ($0.slug, $0) }, uniquingKeysWith: { a, _ in a })
-        let byName = Dictionary(index.map { ($0.name.lowercased(), $0) }, uniquingKeysWith: { a, _ in a })
+        let (bySlug, byName) = memo.lookups(index)
         func row(_ s: MasterSetDetailView.OwnedSet) -> Row {
             let list = cache.checklists[s.id]
             let ids = Set(s.holdings.map(\.identity.productId))
@@ -205,7 +204,7 @@ struct MasterSetsView: View {
     private var controls: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
-                SettledSearchField(prompt: "Search sets", settled: $query, delay: 0.15)
+                SettledSearchField(prompt: "Search sets", settled: $query, delay: 0.3)
                 Menu {
                     Picker("Sort", selection: $sort) {
                         ForEach(Sort.allCases, id: \.self) { Text($0.rawValue).tag($0) }
@@ -364,5 +363,39 @@ private struct IconStat: View {
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .liquidGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+}
+
+/// Master Sets' remembered work: the catalog lookups (rebuilt only when the set list changes)
+/// and your sets in the chosen brand (only when your holdings, the list or the brand change).
+/// A plain object, so filling it while drawing never asks for another redraw.
+final class MasterSetsMemo {
+    private var indexCount = -1
+    private var bySlug: [String: ExploreSet] = [:]
+    private var byName: [String: ExploreSet] = [:]
+    private var ownedKey: String?
+    private var ownedValue: [MasterSetDetailView.OwnedSet] = []
+
+    func lookups(_ index: [ExploreSet]) -> ([String: ExploreSet], [String: ExploreSet]) {
+        if index.count != indexCount {
+            indexCount = index.count
+            bySlug = Dictionary(index.map { ($0.slug, $0) }, uniquingKeysWith: { a, _ in a })
+            byName = Dictionary(index.map { ($0.name.lowercased(), $0) }, uniquingKeysWith: { a, _ in a })
+            ownedKey = nil
+        }
+        return (bySlug, byName)
+    }
+
+    func owned(_ holdings: [HoldingView], index: [ExploreSet], brand: String) -> [MasterSetDetailView.OwnedSet] {
+        let (slugs, names) = lookups(index)
+        var worth = 0.0
+        for h in holdings { worth += h.value ?? 0 }
+        let key = "\(brand)|\(holdings.count)|\(worth)|\(index.count)"
+        if key == ownedKey { return ownedValue }
+        ownedKey = key
+        ownedValue = MasterSetDetailView.ownedSets(holdings).filter { s in
+            ((slugs[s.id] ?? names[s.name.lowercased()])?.gameSlug ?? "pokemon") == brand
+        }
+        return ownedValue
     }
 }

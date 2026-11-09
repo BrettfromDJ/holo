@@ -102,9 +102,12 @@ struct MasterSetDetailView: View {
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 3)
 
+    /// The set's cards and your copies, worked out once per change (not on every search pause).
+    @State private var memo = SetEntriesMemo()
+
     var body: some View {
         let current = self.current
-        let entries = entries(for: current)
+        let entries = memo.entries(current, checklist: checklists[current.id]) { entries(for: current) }
         let complete = checklists[current.id] != nil && !entries.isEmpty && entries.allSatisfy(\.owned)
         let ownedCount: Int = entries.reduce(0) { $0 + ($1.owned ? 1 : 0) }
         let ownedValue: Double = current.holdings.reduce(0.0) { $0 + ($1.value ?? 0) }
@@ -287,7 +290,7 @@ struct MasterSetDetailView: View {
         let ownedCount = entries.filter(\.owned).count
         return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
-                SettledSearchField(prompt: "Search this set", settled: $settledQuery)
+                SettledSearchField(prompt: "Search this set", settled: $settledQuery, delay: 0.3)
                 Menu {
                     Picker("Sort", selection: $sort) {
                         ForEach(Sort.allCases, id: \.self) { Text($0.rawValue).tag($0) }
@@ -516,5 +519,21 @@ struct SettledSearchField: View {
                 guard !Task.isCancelled, settled != text else { return }
                 settled = text
             }
+    }
+}
+
+/// Remembers a set page's card list by what it's built from (a plain object: no redraws).
+final class SetEntriesMemo {
+    private var key: String?
+    private var value: [MasterSetDetailView.Entry] = []
+
+    func entries(_ set: MasterSetDetailView.OwnedSet, checklist: [SearchHit]?, build: () -> [MasterSetDetailView.Entry]) -> [MasterSetDetailView.Entry] {
+        var worth = 0.0
+        for h in set.holdings { worth += h.value ?? 0 }
+        let k = "\(set.id)|\(set.holdings.count)|\(worth)|\(checklist?.count ?? -1)|\(checklist?.first?.product.id ?? "")"
+        if k == key { return value }
+        key = k
+        value = build()
+        return value
     }
 }
