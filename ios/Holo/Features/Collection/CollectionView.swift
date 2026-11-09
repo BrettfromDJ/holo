@@ -59,6 +59,7 @@ struct CollectionView: View {
     @State private var setFilter: String?
     @State private var typeFilter: String?
     @State private var perf = Perf.all
+    @State private var filtering = false
 
     enum Perf: String, CaseIterable { case all = "All", profit = "In profit", loss = "At a loss" }
     @State private var grid = true
@@ -287,6 +288,12 @@ struct CollectionView: View {
                     // After the sheet slides away, so the push animates.
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { path.append(h.identity.productId) }
                 }
+            }
+            .sheet(isPresented: $filtering) {
+                let options = filterOptions
+                CollectionFilterSheet(sort: $sort, perf: $perf, setFilter: $setFilter, typeFilter: $typeFilter,
+                                      sets: options.sets, types: options.types,
+                                      setCounts: Dictionary(grouping: store.holdings.compactMap { $0.product?.setName }, by: { $0 }).mapValues(\.count))
             }
             .sheet(item: $selling) { h in SellSheet(holding: h) }
             .sheet(item: $whatIf) { h in SellCalculatorSheet(holding: h) }
@@ -786,16 +793,12 @@ struct CollectionView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
                 HoloSearchField(text: $query, prompt: "Search", focus: $searchFocused, scan: .collection)
-                Menu {
-                    Picker("Sort", selection: $sort) {
-                        ForEach(Sort.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                    }
-                } label: {
-                    Image(systemName: "arrow.up.arrow.down")
+                // Sort and filters in one bottom sheet.
+                Button { filtering = true } label: {
+                    Image(systemName: filtersOn || sort != .value ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease")
                 }
-                .menuStyle(.button)
-                .buttonStyle(IconButton3D(size: 46))
-                filterMenu
+                .buttonStyle(IconButton3D(size: 46, active: filtersOn || sort != .value))
+                .accessibilityLabel("Sort and filter")
                 HStack(spacing: 2) {
                     Button { grid = true } label: { Image(systemName: "square.grid.2x2") }.buttonStyle(IconButton3D(size: 40, active: grid, inTrack: true))
                     Button { grid = false } label: { Image(systemName: "list.bullet") }.buttonStyle(IconButton3D(size: 40, active: !grid, inTrack: true))
@@ -846,37 +849,6 @@ struct CollectionView: View {
                 .filter { present.contains($0) }
             return FilterOptions(sets: sets, types: types)
         }
-    }
-
-    /// Filter by set, product type and profit or loss, like the website's filter panel.
-    private var filterMenu: some View {
-        let options = filterOptions
-        let sets = options.sets
-        let types = options.types
-        return Menu {
-            Picker("Profit", selection: $perf) {
-                ForEach(Perf.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-            }
-            Menu("Set: \(setFilter ?? "All")") {
-                Picker("Set", selection: $setFilter) {
-                    Text("All sets").tag(String?.none)
-                    ForEach(sets, id: \.self) { Text($0).tag(String?.some($0)) }
-                }
-            }
-            Menu("Type: \(typeFilter ?? "All")") {
-                Picker("Type", selection: $typeFilter) {
-                    Text("All types").tag(String?.none)
-                    ForEach(types, id: \.self) { Text($0).tag(String?.some($0)) }
-                }
-            }
-            if filtersOn {
-                Button("Clear filters", role: .destructive) { setFilter = nil; typeFilter = nil; perf = .all }
-            }
-        } label: {
-            Image(systemName: filtersOn ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease")
-        }
-        .menuStyle(.button)
-        .buttonStyle(IconButton3D(size: 46, active: filtersOn))
     }
 
     private var empty: some View {
