@@ -112,6 +112,8 @@ struct MasterSetDetailView: View {
         let ownedCount: Int = entries.reduce(0) { $0 + ($1.owned ? 1 : 0) }
         let ownedValue: Double = current.holdings.reduce(0.0) { $0 + ($1.value ?? 0) }
         let missingValue: Double = entries.reduce(0.0) { $0 + ($1.owned ? 0 : ($1.hit.market ?? 0)) }
+        // Missing cards with no price yet: the total covers the rest and says how many are left out.
+        let unpriced: Int = entries.reduce(0) { $0 + (!$1.owned && $1.hit.market == nil ? 1 : 0) }
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 // The top, like Collection's: on the same lit backdrop. Its own equatable view, so
@@ -122,6 +124,7 @@ struct MasterSetDetailView: View {
                     owned: ownedCount,
                     ownedValue: ownedValue,
                     missingValue: missingValue,
+                    unpriced: unpriced,
                     strip: entries.map(\.owned),
                     sweep: sweep,
                     pulse: pulse
@@ -146,7 +149,19 @@ struct MasterSetDetailView: View {
         .pageTitle(setName)
         .onChange(of: complete, initial: true) { _, done in if done { celebrate() } }
         .sensoryFeedback(.success, trigger: celebrated) { _, now in now }
-        .task(id: setId) { await Self.load([current], store: store) }
+        .task(id: setId) {
+            await Self.load([current], store: store)
+            // The catalog fetches a set's prices just after the first look: when the cards you're
+            // missing came back without prices, ask again a little later (once a visit).
+            guard store.demo == nil, !Demo.isOn, let list = checklists[setId] else { return }
+            let mine = Set(current.holdings.map(\.identity.productId))
+            let missing = list.filter { !mine.contains($0.product.id) }
+            guard !missing.isEmpty, missing.filter({ $0.market == nil }).count * 2 > missing.count else { return }
+            try? await Task.sleep(nanoseconds: 12_000_000_000)
+            guard !Task.isCancelled else { return }
+            cache.refreshed.remove(setId)
+            await Self.load([current], store: store)
+        }
     }
 
     // MARK: Loading
@@ -363,6 +378,8 @@ private struct SetProgressHeader: View, Equatable {
     var owned: Int
     var ownedValue: Double
     var missingValue: Double
+    /// Missing cards with no price yet.
+    var unpriced: Int = 0
     var strip: [Bool]
     /// The dial's fraction while it sweeps (nil: show the real one).
     var sweep: Double?
@@ -414,8 +431,11 @@ private struct SetProgressHeader: View, Equatable {
                 // Two money figures only: the counts are in the dial and the chips below.
                 HStack(spacing: 10) {
                     heroTile(label: "Yours worth", value: Format.moneyWhole(ownedValue))
-                    heroTile(label: "To finish", value: missingValue > 0 ? Format.moneyWhole(missingValue) : "Not priced", dim: missingValue <= 0,
-                             note: missingValue > 0 ? "Full set \(Format.moneyWhole(missingValue + ownedValue))" : nil)
+                    // The whole figure or none: a total missing some cards would mislead.
+                    heroTile(label: "To finish", value: unpriced == 0 && missingValue > 0 ? Format.moneyWhole(missingValue) : "Pricing…",
+                             dim: unpriced > 0 || missingValue <= 0,
+                             note: unpriced > 0 ? "Waiting on \(unpriced) price\(unpriced == 1 ? "" : "s")"
+                                : missingValue > 0 ? "Full set \(Format.moneyWhole(missingValue + ownedValue))" : nil)
                 }
                 // The taller tile sets the height of both.
                 .fixedSize(horizontal: false, vertical: true)

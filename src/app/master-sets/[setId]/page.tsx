@@ -119,6 +119,8 @@ export default function MasterSetPage() {
   const known = Boolean(checklist);
   const ownedValue = set.holdings.reduce((s, h) => s + (h.value ?? 0), 0);
   const toFinish = entries.filter((e) => !owned(e)).reduce((s, e) => s + (e.card.market ?? 0), 0);
+  // Missing cards with no price yet: the total covers the rest and says how many are left out.
+  const unpriced = entries.filter((e) => !owned(e) && e.card.market == null).length;
 
   return (
     <div className="animate-fade-in">
@@ -129,6 +131,7 @@ export default function MasterSetPage() {
         owned={entries.map(owned)}
         ownedValue={ownedValue}
         toFinish={toFinish > 0 && !sample ? toFinish : null}
+        unpriced={sample ? 0 : unpriced}
         note={error ?? "full list not in Holo yet"}
       />
 
@@ -246,6 +249,7 @@ function SetHero({
   owned,
   ownedValue,
   toFinish,
+  unpriced,
   note,
 }: {
   name: string;
@@ -254,6 +258,7 @@ function SetHero({
   owned: boolean[];
   ownedValue: number;
   toFinish: number | null;
+  unpriced: number;
   note: string;
 }) {
   const total = owned.length;
@@ -294,7 +299,7 @@ function SetHero({
 
           {known && !loading && (
             <div className="hidden w-full grid-cols-2 gap-2.5 lg:grid">
-              <HeroTiles ownedValue={ownedValue} toFinish={toFinish} />
+              <HeroTiles ownedValue={ownedValue} toFinish={toFinish} unpriced={unpriced} />
             </div>
           )}
         </div>
@@ -313,7 +318,7 @@ function SetHero({
               </p>
             </GlowPie>
             <div className="grid w-full grid-cols-2 gap-2.5 lg:hidden">
-              <HeroTiles ownedValue={ownedValue} toFinish={toFinish} />
+              <HeroTiles ownedValue={ownedValue} toFinish={toFinish} unpriced={unpriced} />
             </div>
           </>
         )}
@@ -324,15 +329,22 @@ function SetHero({
 }
 
 /** Two money figures only: the counts are in the dial and the chips below. */
-function HeroTiles({ ownedValue, toFinish }: { ownedValue: number; toFinish: number | null }) {
+function HeroTiles({ ownedValue, toFinish, unpriced }: { ownedValue: number; toFinish: number | null; unpriced: number }) {
   return (
     <>
       <HeroTile label="Yours worth" value={moneyWhole(ownedValue)} />
       <HeroTile
         label="To finish"
-        value={toFinish !== null && toFinish > 0 ? moneyWhole(toFinish) : "Not priced"}
-        dim={!(toFinish !== null && toFinish > 0)}
-        note={toFinish !== null && toFinish > 0 ? `Full set ${moneyWhole(toFinish + ownedValue)}` : undefined}
+        value={unpriced === 0 && toFinish !== null && toFinish > 0 ? moneyWhole(toFinish) : "Pricing…"}
+        dim={unpriced > 0 || !(toFinish !== null && toFinish > 0)}
+        note={
+          // The whole figure or none: a total missing some cards would mislead.
+          unpriced > 0
+            ? `Waiting on ${unpriced} price${unpriced === 1 ? "" : "s"}`
+            : toFinish !== null && toFinish > 0
+              ? `Full set ${moneyWhole(toFinish + ownedValue)}`
+              : undefined
+        }
       />
     </>
   );
