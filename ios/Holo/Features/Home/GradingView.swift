@@ -218,49 +218,58 @@ struct GradingView: View {
                 Text("No raw singles worth more than \(Format.money(Grading.minRaw)) with upside after grading costs.")
                     .font(.geist(13)).foregroundStyle(Theme.muted).padding(.vertical, 12)
             }
-            ForEach(showAll ? candidates : Array(candidates.prefix(Self.shown)), id: \.0.id) { h, o in
+            // Rows touch, divided by a hairline, so the spacing above and below each line matches.
+            let rows = showAll ? candidates : Array(candidates.prefix(Self.shown))
+            let firstId = rows.first?.0.id
+            VStack(spacing: 0) {
+            ForEach(rows, id: \.0.id) { h, o in
                 let est = o.source == .estimate ? "≈" : ""
-                // Two lines: the card and its upside on top; the prices, a sales tag and Send below,
-                // so nothing is squeezed into a narrow column.
-                VStack(alignment: .leading, spacing: 8) {
+                let sent = (away[h.identity.key] ?? 0) >= h.quantity
+                // One balanced row: picture | name, prices, tag | upside and Send, top-aligned.
+                HStack(alignment: .top, spacing: 12) {
                     CardLink(productId: h.identity.productId, identity: h.identity) {
                         HStack(alignment: .top, spacing: 12) {
-                            HoldingArt(product: h.product, identity: h.identity, cornerRadius: 6, caption: false).frame(width: 40, height: 56)
-                            VStack(alignment: .leading, spacing: 4) {
+                            HoldingArt(product: h.product, identity: h.identity, cornerRadius: 6, caption: false).frame(width: 44, height: 62)
+                            VStack(alignment: .leading, spacing: 5) {
                                 Text(h.product?.name ?? "Card").font(.geist(14, .medium)).foregroundStyle(.white)
                                     .lineLimit(2).fixedSize(horizontal: false, vertical: true)
                                 Text("Raw \(Format.money(o.raw)) → PSA 10 \(est)\(Format.money(o.psa10))")
                                     .font(.geist(12)).monospacedDigit().foregroundStyle(Theme.muted).lineLimit(1).minimumScaleFactor(0.8)
+                                Tag(text: o.source == .sales ? "10s \(Grading.liquidity(o.psa10Sales).lowercased())" : "Estimate",
+                                    tint: o.psa10Sales < 12 ? Theme.muted : Theme.lime)
                             }
-                            Spacer(minLength: 4)
-                            VStack(alignment: .trailing, spacing: 2) {
-                                Text(Format.signedMoney(o.upside10)).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(Theme.up)
-                                (Text("at a 9 ").foregroundColor(Theme.muted) + Text(Format.signedMoney(o.upside9)).foregroundColor(Theme.tone(o.upside9)))
-                                    .font(.geist(11)).monospacedDigit()
-                            }
+                            Spacer(minLength: 0)
                         }
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    HStack(spacing: 8) {
-                        Color.clear.frame(width: 40, height: 1)
-                        Tag(text: o.source == .sales ? "10s \(Grading.liquidity(o.psa10Sales).lowercased())" : "Estimate",
-                            tint: o.psa10Sales < 12 ? Theme.muted : Theme.lime)
-                        Spacer(minLength: 4)
-                        if (away[h.identity.key] ?? 0) >= h.quantity {
-                            Text("Sent").font(.geist(12, .medium)).foregroundStyle(Theme.subtle)
+                    VStack(alignment: .trailing, spacing: 6) {
+                        Text(Format.signedMoney(o.upside10)).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(Theme.up)
+                        (Text("at a 9 ").foregroundColor(Theme.muted) + Text(Format.signedMoney(o.upside9)).foregroundColor(Theme.tone(o.upside9)))
+                            .font(.geist(11)).monospacedDigit()
+                        if sent {
+                            Text("Sent").font(.geist(12, .medium)).foregroundStyle(Theme.subtle).frame(height: 30)
                         } else {
                             Button { Haptics.tap(); sending = h } label: {
-                                Text("Send for grading").font(.geist(13, .semibold)).foregroundStyle(.white)
-                                    .padding(.horizontal, 12).frame(height: 32)
+                                Text("Send").font(.geist(13, .semibold)).foregroundStyle(.white)
+                                    .padding(.horizontal, 14).frame(height: 30)
                                     .background(Capsule().fill(Color.white.opacity(0.1)))
                                     .contentShape(Capsule())
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel("Send for grading")
                         }
                     }
+                    .fixedSize()
                 }
-                .padding(.vertical, 6)
+                .padding(.vertical, 14)
+                .overlay(alignment: .top) {
+                    // A divider between rows (not above the first).
+                    if h.id != firstId {
+                        Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                    }
+                }
+            }
             }
             if candidates.count > Self.shown {
                 Button(showAll ? "Show fewer" : "Show all \(candidates.count)") { showAll.toggle() }
