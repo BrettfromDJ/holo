@@ -190,7 +190,7 @@ function CardCell({ entry: e }: { entry: Entry }) {
         </HoloTilt>
       ) : e.card.imageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element -- a missing card, ghosted
-        <img src={e.card.imageUrl} alt="" loading="lazy" className="h-full w-full rounded-[4.5%/3.2%] object-cover opacity-[0.28] grayscale transition-opacity group-hover:opacity-50" />
+        <img src={e.card.imageUrl} alt="" loading="lazy" className="h-full w-full rounded-[4.5%/3.2%] object-cover opacity-[0.32] transition-opacity group-hover:opacity-50" />
       ) : (
         <div className="flex h-full w-full items-center justify-center rounded-md border border-dashed border-border-strong">
           <span className="font-mono text-[11px] text-subtle">#{e.card.number ?? "—"}</span>

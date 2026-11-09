@@ -459,7 +459,8 @@ private struct CardCell: View {
                         HoldingArt(product: h.product, identity: h.identity, cornerRadius: 5, caption: false)
                     } else if entry.hit.product.imageURL != nil {
                         ProductImage(product: entry.hit.product, cornerRadius: 5)
-                            .grayscale(1).opacity(0.28)
+                            // In color, faded, so the cards you have still stand out.
+                            .opacity(0.32)
                     } else {
                         RoundedRectangle(cornerRadius: 6, style: .continuous)
                             .strokeBorder(Color.white.opacity(0.12), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
