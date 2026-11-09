@@ -240,7 +240,7 @@ final class CollectionStore {
             guard self.userId == userId, demo == nil else { return }
             // Keep showing what's on screen (offline, or a refresh that failed); only an empty
             // screen turns into the error.
-            if !showing { status = .failed(error.localizedDescription) }
+            if !showing, !error.isCancellation { status = .failed(error.localizedDescription) }
         }
     }
 
@@ -535,7 +535,8 @@ final class CollectionStore {
             historyLoad[key] = nil
             history[key] = Self.onePerDay((history[key] ?? []) + res.points)
         } catch {
-            historyLoad[key] = .failed(error.localizedDescription)
+            // Leaving the card page cancels the load: try again next time instead of "cancelled".
+            historyLoad[key] = error.isCancellation ? nil : .failed(error.localizedDescription)
             return
         }
         // It may change what your collection was worth on past days.

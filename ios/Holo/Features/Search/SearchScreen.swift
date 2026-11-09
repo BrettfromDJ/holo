@@ -507,7 +507,7 @@ struct SearchScreen: View {
             hits = try await Backend.shared.api.liveSearch(q)
         } catch {
             // Usually today's limit for live searches; say so rather than "nothing found".
-            guard q == trimmed else { return }
+            guard q == trimmed, !error.isCancellation else { return }
             self.error = error.localizedDescription
             return
         }

@@ -260,3 +260,14 @@ enum ScanGame: String, CaseIterable, Identifiable {
         }
     }
 }
+
+extension Error {
+    /// The request was cancelled (you left the screen before it finished), not a real failure:
+    /// never show it as an error.
+    var isCancellation: Bool {
+        if self is CancellationError { return true }
+        if let u = self as? URLError, u.code == .cancelled { return true }
+        let ns = self as NSError
+        return ns.domain == NSURLErrorDomain && ns.code == NSURLErrorCancelled
+    }
+}

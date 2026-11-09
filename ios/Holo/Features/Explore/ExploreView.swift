@@ -119,9 +119,12 @@ struct ExploreView: View {
             }
             return
         }
+        failed = nil
         do {
             index = try await Backend.shared.api.exploreIndex()
         } catch {
+            // Leaving the tab cancels the load: not an error. It loads again when you come back.
+            guard !error.isCancellation, !Task.isCancelled else { return }
             failed = error.localizedDescription
         }
     }
@@ -332,7 +335,11 @@ private struct SetView: View {
         if Demo.isOn {
             loaded = DemoData.exploreSet(set.slug) ?? ExploreSetDetail(set: set, products: [])
         } else {
-            do { loaded = try await Backend.shared.api.exploreSet(set.slug) } catch { failed = true }
+            failed = false
+            do { loaded = try await Backend.shared.api.exploreSet(set.slug) } catch {
+                // Backing out before it loaded cancels it: not a failure.
+                if !error.isCancellation, !Task.isCancelled { failed = true }
+            }
         }
         if let loaded {
             // Worked out before the page shows the products, so the first redraw has it.
