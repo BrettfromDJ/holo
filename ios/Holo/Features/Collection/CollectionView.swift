@@ -59,7 +59,8 @@ struct CollectionView: View {
     @State private var setFilter: String?
     @State private var typeFilter: String?
     @State private var perf = Perf.all
-    @State private var filtering = false
+    /// The sort & filter sheet (screenshots open it with `-HoloFilters`).
+    @State private var filtering = Demo.isOn && ProcessInfo.processInfo.arguments.contains("-HoloFilters")
 
     enum Perf: String, CaseIterable { case all = "All", profit = "In profit", loss = "At a loss" }
     @State private var grid = true
