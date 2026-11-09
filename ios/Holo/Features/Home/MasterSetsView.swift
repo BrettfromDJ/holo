@@ -107,7 +107,7 @@ struct MasterSetDetailView: View {
 
     var body: some View {
         let current = self.current
-        let entries = memo.entries(current, checklist: checklists[current.id]) { entries(for: current) }
+        let entries = memo.entries(current, checklist: checklists[current.id]) { self.entries(for: current) }
         let complete = checklists[current.id] != nil && !entries.isEmpty && entries.allSatisfy(\.owned)
         let ownedCount: Int = entries.reduce(0) { $0 + ($1.owned ? 1 : 0) }
         let ownedValue: Double = current.holdings.reduce(0.0) { $0 + ($1.value ?? 0) }
