@@ -890,7 +890,7 @@ struct ReleaseCalendarView: View {
                 .padding(.top, 8)
                 .background(alignment: .top) { ExploreBackdrop() }
                 if upcoming.isEmpty {
-                    Text("No upcoming releases in the catalog yet.").font(.geist(14)).foregroundStyle(Theme.muted).padding(.horizontal, 16)
+                    Text("No upcoming releases in the catalog\u{00A0}yet.").font(.geist(14)).foregroundStyle(Theme.muted).padding(.horizontal, 16)
                 }
                 ForEach(months(upcoming), id: \.month) { group in
                     section(monthTitle(group.month), group.sets, upcoming: true)

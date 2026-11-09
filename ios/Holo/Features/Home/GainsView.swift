@@ -62,7 +62,7 @@ struct GainsView: View {
                     .contentShape(Capsule())
                 }
             }
-            Text("Each bar starts where the last one ended, gains first, then losses").font(.geist(14)).foregroundStyle(Theme.muted)
+            Text("Each bar starts where the last one ended, gains first, then\u{00A0}losses").font(.geist(14)).foregroundStyle(Theme.muted)
             }
             // Which gains: under the heading they belong to.
             ChipPicker(options: [(.unrealized, "Unrealized"), (.realized, "Realized"), (.all, "All-time")], selection: $mode)

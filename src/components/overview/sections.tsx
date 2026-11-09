@@ -163,7 +163,7 @@ export function Spotlight({ holdings }: { holdings: HoldingView[] }) {
             <span className="tag-skew tag-lime self-start">
               <Sparkles className="size-3" /> Star of the collection
             </span>
-            <h3 className="mt-4 line-clamp-3 text-balance font-display text-[24px] leading-[0.98] sm:text-[32px]">{star.product?.name}</h3>
+            <h3 className="mt-4 line-clamp-3 font-display text-[24px] leading-[0.98] sm:text-[32px]">{star.product?.name}</h3>
             <p className="mt-2 truncate text-[13px] text-muted">{[star.product?.setName, holdingLabel(star)].filter(Boolean).join(" · ")}</p>
             <p className="hype-num tabular mt-6 text-[40px] font-semibold leading-none tracking-[-0.035em] sm:text-[52px]">
               <span className="text-up">

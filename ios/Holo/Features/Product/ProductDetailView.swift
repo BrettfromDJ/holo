@@ -156,7 +156,7 @@ struct ProductDetailView: View {
                 Task { await run { try await store.delete(t) } }
             }
         } message: {
-            Text("Your totals update as if it never happened. The original stays in the record.")
+            Text("Your totals update as if it never happened. The original stays in the\u{00A0}record.")
         }
         // Cards you don't own aren't loaded with your collection: fetch them from the catalog.
         .task(id: productId) {
@@ -442,7 +442,7 @@ struct ProductDetailView: View {
                 Task { await run { _ = try await groups.createShelf(name, productIds: [productId]) } }
             }
         } message: {
-            Text("Lists group cards however you like: favorites, want lists, or cards to sell at a show. They show as filters on Collection.")
+            Text("Lists group cards however you like: favorites, want lists, or cards to sell at a show. They show as filters on\u{00A0}Collection.")
         }
     }
 
@@ -857,7 +857,7 @@ private struct PriceHistoryCard: View {
                         } else {
                             Text("Not enough price history yet").font(.geist(13, .medium))
                         }
-                        Text("Lucent stores a daily snapshot for products you own or watch, so this chart fills in over time. Missing days are never filled with estimates.")
+                        Text("Lucent stores a daily snapshot for products you own or watch, so this chart fills in over time. Missing days are never filled with\u{00A0}estimates.")
                             .font(.geist(13)).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
                         if case let .failed(message) = load {
                             Text(message).font(.geist(12)).foregroundStyle(Theme.warn).multilineTextAlignment(.center)

@@ -49,7 +49,7 @@ struct SettingsView: View {
                         if let deleteError { Text(deleteError).font(.footnote).foregroundStyle(Theme.muted) }
                     } else {
                         // Trying the demo without an account.
-                        Text("You're looking at a demo. Sign in to track your own collection.").foregroundStyle(Theme.muted)
+                        Text("You're looking at a demo. Sign in to track your own\u{00A0}collection.").foregroundStyle(Theme.muted)
                         Button("Sign in") { Onboarding.shared.tryingDemo = false }
                     }
                 } header: {
@@ -59,7 +59,7 @@ struct SettingsView: View {
                     if notifyStatus == .denied {
                         // The switches can't do anything until iOS allows Lucent's notifications.
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Notifications are off for Lucent in your iPhone's Settings, so none of these will arrive.")
+                            Text("Notifications are off for Lucent in your iPhone's Settings, so none of these will\u{00A0}arrive.")
                                 .font(.geist(14)).foregroundStyle(.white)
                             Button("Open iPhone Settings") {
                                 if let url = URL(string: UIApplication.openNotificationSettingsURLString) { openURL(url) }
@@ -204,13 +204,13 @@ struct SettingsView: View {
                 Button("Remove", role: .destructive) { Task { try? await store.setMonthlyBudget(nil) } }
                 Button("Save") { Task { try? await store.setMonthlyBudget(MoneyField.value(budgetText)) } }
             } message: {
-                Text("What you plan to spend a month. Overview shows how much is left.")
+                Text("What you plan to spend a month. Overview shows how much is\u{00A0}left.")
             }
             .alert("Delete your account?", isPresented: $deletingAccount) {
                 Button("Cancel", role: .cancel) {}
                 Button("Delete everything", role: .destructive) { Task { await deleteAccount() } }
             } message: {
-                Text("This permanently removes your account and everything in it: your collection, lists, deals and settings, on the app and the website. It can't be undone. Export your data first if you want a copy.")
+                Text("This permanently removes your account and everything in it: your collection, lists, deals and settings, on the app and the website. It can't be undone. Export your data first if you want a\u{00A0}copy.")
             }
             .fullScreenCover(isPresented: $showingWelcome) {
                 // A look at the welcome pages; its buttons just close it here.
@@ -373,13 +373,13 @@ private struct ShareCollectionSheet: View {
                     Section {
                         Button("Stop sharing", role: .destructive) { Task { await stop() } }
                     } footer: {
-                        Text("Anyone with the link sees your cards and their value. Never your email, notes or where you bought things.")
+                        Text("Anyone with the link sees your cards and their value. Never your email, notes or where you bought\u{00A0}things.")
                     }
                 } else if !loading {
                     Section {
                         Button("Create a link") { Task { await create() } }
                     } footer: {
-                        Text("A read-only page anyone with the link can open, no sign-in needed. You can turn it off any time.")
+                        Text("A read-only page anyone with the link can open, no sign-in needed. You can turn it off any\u{00A0}time.")
                     }
                 }
                 if let error { Section { Text(error).foregroundStyle(Theme.muted) } }

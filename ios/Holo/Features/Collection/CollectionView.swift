@@ -195,7 +195,7 @@ struct CollectionView: View {
                                         Task { await groupRun { try await groups.removeShelf(id) } }
                                     }
                                 } message: {
-                                    Text("The list goes; its cards stay in your collection.")
+                                    Text("The list goes; its cards stay in your\u{00A0}collection.")
                                 }
                             }
                             if pullsOnly {
@@ -307,13 +307,13 @@ struct CollectionView: View {
                     Task { await groupRun { try await store.deleteCopy(h.identity) } }
                 }
             } message: { _ in
-                Text("It's removed as if you never added it: it leaves your value, cost and gains. To count it as a loss instead, use Remove.")
+                Text("It's removed as if you never added it: it leaves your value, cost and gains. To count it as a loss instead, use\u{00A0}Remove.")
             }
             .alert(bulkDeleteTitle, isPresented: $confirmingBulkDelete) {
                 Button("Cancel", role: .cancel) {}
                 Button("Delete", role: .destructive) { bulkDelete() }
             } message: {
-                Text("Their purchase and sale records are removed.")
+                Text("Their purchase and sale records are\u{00A0}removed.")
             }
             .fullScreenCover(isPresented: $adding) { SearchScreen(mode: .add) }
             .onAppear {
@@ -539,7 +539,7 @@ struct CollectionView: View {
             Label { Text("Remove"); Text("Opened, lost or gave away") } icon: { Image(systemName: "minus.circle") }
         }
         Button(role: .destructive) { deleting = h } label: {
-            Label { Text("Delete"); Text("As if you never added it") } icon: { Image(systemName: "trash") }
+            Label { Text("Delete"); Text("As if you never added\u{00A0}it") } icon: { Image(systemName: "trash") }
         }
     }
 

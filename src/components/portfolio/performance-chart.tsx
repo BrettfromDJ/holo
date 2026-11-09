@@ -60,7 +60,7 @@ export function PerformanceChart({ timeline, header }: { timeline: TimelinePoint
           )}
         </div>
         <div className="flex items-center gap-3">
-          <label className="flex cursor-pointer items-center gap-2 text-[12px] text-muted">
+          <label className="flex cursor-pointer items-center gap-2 whitespace-nowrap text-[12px] text-muted">
             <input type="checkbox" checked={showInvested} onChange={(e) => setShowInvested(e.target.checked)} className="size-3.5 accent-[var(--foreground)]" />
             <span className="flex items-center gap-1.5">
               <span className="inline-block h-0 w-4 border-t-[1.5px] border-dashed border-subtle" aria-hidden />

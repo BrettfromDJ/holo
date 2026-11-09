@@ -359,7 +359,7 @@ struct SearchScreen: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text(liveFor == trimmed ? "Nothing found for \u{201C}\(trimmed)\u{201D}, even live" : "Nothing in Lucent's catalog for \u{201C}\(trimmed)\u{201D}")
                     .font(.geist(16, .semibold))
-                Text("Try fewer words, the set name, or the card number (like 215/203).").font(.geist(14)).foregroundStyle(Theme.muted)
+                Text("Try fewer words, the set name, or the card number (like\u{00A0}215/203).").font(.geist(14)).foregroundStyle(Theme.muted)
                 if liveFor != trimmed {
                     // The live catalog has things not synced yet, but each look is a paid TCG API call.
                     Button { Task { await searchLive() } } label: {
@@ -718,7 +718,7 @@ struct PriceRangeSheet: View {
             GlassForm {
                 MoneyField(title: "Minimum", text: $min, hint: "Any")
                 MoneyField(title: "Maximum", text: $max, hint: "Any")
-                Section { Text("Items without a price are left out when a range is set.").font(.footnote).foregroundStyle(Theme.muted) }
+                Section { Text("Items without a price are left out when a range is\u{00A0}set.").font(.footnote).foregroundStyle(Theme.muted) }
             }
             .navigationTitle("Price range")
             .navigationBarTitleDisplayMode(.inline)

@@ -93,7 +93,7 @@ struct PageHeader<Trailing: View>: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text(title).font(.display(size)).tracking(size * -0.03).lineLimit(2).minimumScaleFactor(0.7).displayTrim(size)
                 if let subtitle {
-                    Text(subtitle).font(.geist(15)).foregroundStyle(Theme.muted)
+                    Text(subtitle.noWidow).font(.geist(15)).foregroundStyle(Theme.muted)
                 }
             }
             Spacer(minLength: 8)
@@ -864,6 +864,20 @@ extension View {
 /// balanced lines like the website's `text-wrap: balance`, so a lone word never hangs on the last line.
 /// Body text whose lines wrap balanced (no lone word left on the last line), word by word on
 /// the same flow as `DisplayText`. For short centred copy like empty states.
+extension String {
+    /// Pretty wrap for running text: joins the last two words with a non-breaking space so a
+    /// sentence never ends with one word alone on its last line. Only for sentences of four or
+    /// more words whose last two are short, so it can't push a long pair off a narrow screen.
+    var noWidow: String {
+        guard let cut = range(of: " ", options: .backwards) else { return self }
+        let last = self[cut.upperBound...]
+        let before = self[..<cut.lowerBound]
+        let prev = before.split(separator: " ").last ?? ""
+        guard split(separator: " ").count >= 4, last.count + prev.count <= 16 else { return self }
+        return String(before) + "\u{00A0}" + String(last)
+    }
+}
+
 struct BalancedText: View {
     var text: String
     var font: Font = .geist(15)

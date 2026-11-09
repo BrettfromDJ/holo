@@ -52,10 +52,10 @@ struct EbaySalesPanel: View {
                 }
                 .padding(.vertical, 24)
             case .failed:
-                Text("Couldn't load eBay sales right now.").font(.geist(13)).foregroundStyle(Theme.muted).padding(.vertical, 16)
+                Text("Couldn't load eBay sales right\u{00A0}now.").font(.geist(13)).foregroundStyle(Theme.muted).padding(.vertical, 16)
             case .ready:
                 if let ebay { content(ebay) } else {
-                    Text("No eBay sales tracked for this card yet.").font(.geist(13)).foregroundStyle(Theme.muted).padding(.vertical, 16)
+                    Text("No eBay sales tracked for this card\u{00A0}yet.").font(.geist(13)).foregroundStyle(Theme.muted).padding(.vertical, 16)
                 }
             }
         }
@@ -78,7 +78,7 @@ struct EbaySalesPanel: View {
                         } label: {
                             HStack(spacing: 6) {
                                 Text(l).font(.geist(13, on ? .semibold : .regular))
-                                Text("\(l == Self.ungradedTab ? e.ungraded.count : (e.graded[l]?.count ?? 0))")
+                                Text("\(l == Self.ungradedTab ? e.ungraded.count : (e.graded[l]?.count ??\u{00A0}0))")
                                     .font(.geist(13)).monospacedDigit().opacity(0.6)
                             }
                             .padding(.horizontal, 12)

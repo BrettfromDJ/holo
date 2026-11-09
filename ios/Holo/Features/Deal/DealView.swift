@@ -223,7 +223,7 @@ struct DealView: View {
                     Haptics.tap()
                 }
             } message: {
-                Text("Set it aside with its photos and notes, and start a fresh one. Pick it back up from Parked.")
+                Text("Set it aside with its photos and notes, and start a fresh one. Pick it back up from\u{00A0}Parked.")
             }
             .sheet(item: $detailItem) { item in
                 // The card's full page (prices, history, eBay sales, graded values) in a sheet,
@@ -695,7 +695,7 @@ private struct BalanceCard: View {
                 .contentTransition(.numericText())
                 .animation(.snappy, value: read.net)
                 if read.offerShare != nil {
-                    Text("Vendors often pay 60 to 80% of market for cards they buy.")
+                    Text("Vendors often pay 60 to 80% of market for cards they\u{00A0}buy.")
                         .font(.geist(12, .medium)).foregroundStyle(ink.opacity(0.7))
                         .padding(.top, 8)
                 }
@@ -719,7 +719,7 @@ private struct BalanceCard: View {
                     .padding(.top, 8)
             }
             if read == nil, t.uncosted > 0 {
-                Text("Add what you paid for every item to see your total")
+                Text("Add what you paid for every item to see your\u{00A0}total")
                     .font(.geist(12, .medium)).foregroundStyle(ink.opacity(0.7))
                     .padding(.top, 8)
             }
@@ -1684,7 +1684,7 @@ private struct ParkedDealsSheet: View {
                         Spacer()
                         Button("Done") { dismiss() }.font(.geist(16, .semibold)).foregroundStyle(.white)
                     }
-                    Text("Deals you set aside to finish later, here or on the website.").font(.geist(14)).foregroundStyle(Theme.muted)
+                    Text("Deals you set aside to finish later, here or on the\u{00A0}website.").font(.geist(14)).foregroundStyle(Theme.muted)
                         .padding(.top, 4)
                         .padding(.bottom, 18)
                     ParkedDealsList { dismiss() }
@@ -1721,7 +1721,7 @@ struct ParkedDealsList: View {
             Button("Park it and resume \(entry.name)") { resume(entry) }
             Button("Cancel", role: .cancel) {}
         } message: { _ in
-            Text("It's parked first, so nothing is lost.")
+            Text("It's parked first, so nothing is\u{00A0}lost.")
         }
         .confirmationDialog("Delete this parked deal?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible, presenting: deleting) { entry in
             Button("Delete \(entry.name)", role: .destructive) { withAnimation(.snappy) { deals.deleteParked(entry) } }
@@ -1858,7 +1858,7 @@ private struct DealHint: View {
                 .background(Theme.lime.opacity(0.12), in: Circle())
             VStack(alignment: .leading, spacing: 3) {
                 Text("Start a deal").font(.geist(14, .semibold))
-                Text("Add what's coming in and what's going out (scan or search). The cash, your profit and whether it's fair are worked out for you.")
+                Text("Add what's coming in and what's going out (scan or search). The cash, your profit and whether it's fair are worked out for\u{00A0}you.")
                     .font(.geist(13)).foregroundStyle(Theme.muted).fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 4)

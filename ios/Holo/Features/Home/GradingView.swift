@@ -215,7 +215,7 @@ struct GradingView: View {
                 Button("Costs") { editingCosts = true }.buttonStyle(Button3D(kind: .dark, fullWidth: false, height: 34))
             }
             if candidates.isEmpty {
-                Text("No raw singles worth more than \(Format.money(Grading.minRaw)) with upside after grading costs.")
+                Text("No raw singles worth more than \(Format.money(Grading.minRaw)) with upside after grading\u{00A0}costs.")
                     .font(.geist(13)).foregroundStyle(Theme.muted).padding(.vertical, 12)
             }
             // Rows touch, divided by a hairline, so the spacing above and below each line matches.
@@ -342,7 +342,7 @@ struct CostsSheet: View {
                     MoneyField(title: "Fee per card", text: $fee)
                     MoneyField(title: "Shipping per card", text: $shipping)
                 } footer: {
-                    Text("Used to weigh which cards are worth grading, and as the default when you send one in. Shipping both ways, with insurance.")
+                    Text("Used to weigh which cards are worth grading, and as the default when you send one in. Shipping both ways, with\u{00A0}insurance.")
                 }
             }
             .scrollContentBackground(.hidden)
@@ -397,7 +397,7 @@ struct SendSheet: View {
                 } header: {
                     Text(holding.product?.name ?? "Card")
                 } footer: {
-                    Text("It stays in your collection raw until it comes back.")
+                    Text("It stays in your collection raw until it comes\u{00A0}back.")
                 }
             }
             .scrollContentBackground(.hidden)
@@ -449,7 +449,7 @@ private struct ReturnSheet: View {
                 } header: {
                     Text(store.products[submission.productId]?.name ?? "Card")
                 } footer: {
-                    Text("The raw copies move into a \(submission.company) slab at what they cost you, plus the grading fee and shipping.")
+                    Text("The raw copies move into a \(submission.company) slab at what they cost you, plus the grading fee and\u{00A0}shipping.")
                 }
                 if let error { Section { Text(error).foregroundStyle(Theme.down) } }
             }

@@ -180,7 +180,7 @@ struct ActivityView: View {
                 }
             }
         } message: {
-            Text("Your totals update as if it never happened. The original stays in the record.")
+            Text("Your totals update as if it never happened. The original stays in the\u{00A0}record.")
         }
     }
 

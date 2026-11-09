@@ -30,7 +30,7 @@ struct SalesView: View {
                     heldSplit(t)
                     export(lines, year: shown)
                     list(lines)
-                    Text("Profit is what each sale brought in after its fees, shipping and tax, minus what those copies cost you, oldest copies first. Cards you pulled count as costing nothing. A guide for your records, not tax advice.")
+                    Text("Profit is what each sale brought in after its fees, shipping and tax, minus what those copies cost you, oldest copies first. Cards you pulled count as costing nothing. A guide for your records, not tax\u{00A0}advice.")
                         .font(.geist(12)).foregroundStyle(Theme.subtle)
                 }
                 .padding(.horizontal, 16)
@@ -68,7 +68,7 @@ struct SalesView: View {
                 heldTile("Over a year", t.longTermGain)
                 heldTile("A year or less", t.shortTermGain)
             }
-            Text("In the US, collectibles held over a year are taxed at up to 28%. A year or less is taxed like income. Your accountant will know what applies to you.")
+            Text("In the US, collectibles held over a year are taxed at up to 28%. A year or less is taxed like income. Your accountant will know what applies to\u{00A0}you.")
                 .font(.geist(12)).foregroundStyle(Theme.subtle)
         }
     }

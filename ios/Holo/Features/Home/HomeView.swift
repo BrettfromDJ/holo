@@ -193,7 +193,7 @@ struct HomeView: View {
                     Button { account = true } label: {
                         HStack(spacing: 6) {
                             SkewTag(text: "Demo", color: Theme.planPink, textColor: .white)
-                            Text("\(demo.title) · made-up prices, nothing is saved").font(.geist(12)).foregroundStyle(Theme.muted)
+                            Text("\(demo.title) · made-up prices, nothing is\u{00A0}saved").font(.geist(12)).foregroundStyle(Theme.muted)
                             Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.subtle)
                         }
                     }
@@ -204,7 +204,7 @@ struct HomeView: View {
                     Button { groups.select(GroupsStore.all, store: store) } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "folder").font(.system(size: 11, weight: .semibold))
-                            Text("Showing \(groups.name(of: groups.selected)) · show all").font(.geist(12))
+                            Text("Showing \(groups.name(of: groups.selected)) · show\u{00A0}all").font(.geist(12))
                         }
                         .foregroundStyle(Theme.muted)
                     }
@@ -728,7 +728,7 @@ private struct PerformanceSection: View {
                     return .selection
                 }
                 if let end = days.last {
-                    Text("Daily closing values · \(Format.money(end.value)) on \(end.date.formatted(date: .abbreviated, time: .omitted))")
+                    Text("Daily closing values · \(Format.money(end.value)) on \(end.date.formatted(date: .abbreviated, time:\u{00A0}.omitted))")
                         .font(.geist(12)).foregroundStyle(Theme.muted)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                 }
@@ -857,7 +857,7 @@ private struct BudgetCard: View {
                 .frame(height: 6)
                 let projected = projection(spent)
                 if !over, spent > 0, let budget, projected > budget {
-                    Text("At this pace you'll spend about \(Format.money(projected)) this month.").font(.geist(12)).foregroundStyle(Theme.subtle)
+                    Text("At this pace you'll spend about \(Format.money(projected)) this\u{00A0}month.").font(.geist(12)).foregroundStyle(Theme.subtle)
                 }
             }
             if let error { Text(error).font(.geist(12)).foregroundStyle(Theme.down) }
@@ -872,7 +872,7 @@ private struct BudgetCard: View {
             if budget != nil { Button("Remove", role: .destructive) { save(nil) } }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("How much you want to spend on cards each month.")
+            Text("How much you want to spend on cards each\u{00A0}month.")
         }
     }
 
@@ -904,7 +904,7 @@ private struct PriceFreshness: View {
     var onReload: () async -> Void = {}
 
     var body: some View {
-        Text("Prices from TCG API · updated \(ago) · updates daily")
+        Text("Prices from TCG API · updated \(ago) · updates\u{00A0}daily")
             .lineLimit(2)
             .font(.geist(12))
             .foregroundStyle(Theme.subtle)

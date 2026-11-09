@@ -139,6 +139,32 @@
 }
 
 @layer base {
+  /* Pretty text wrap. Headings and display text break into even lines;
+     running text avoids a lone word on its last line. :where() keeps this
+     at zero specificity, and the longhand never undoes nowrap or truncate.
+     Opt out with data-text-wrap="off". */
+  :where(h1, h2, h3, h4, h5, h6, [role="heading"], figcaption, caption,
+         legend, dt, summary, th, .font-display, [data-title],
+         [data-text-wrap="balance"]) {
+    text-wrap-style: balance;
+  }
+  :where(p, li, dd, td, label, blockquote, [data-description],
+         [data-radix-popper-content-wrapper], [data-text-wrap="pretty"]) {
+    text-wrap-style: pretty;
+  }
+  /* Clamped previews and live or editable text keep plain wrapping. */
+  :where([class*="line-clamp"], input, textarea, [contenteditable], pre, code,
+         [data-text-wrap="off"], [data-text-wrap="off"] *) {
+    text-wrap-style: auto;
+  }
+  @supports (text-wrap: balance) and (not (text-wrap-style: balance)) {
+    :where(:is(h1, h2, h3, h4, h5, h6, [role="heading"], figcaption, caption,
+               legend, dt, summary, th):not([class*="truncate"], [class*="nowrap"],
+                                            [class*="ellipsis"], [class*="line-clamp"])) {
+      text-wrap: balance;
+    }
+  }
+
   * {
     border-color: var(--border);
   }

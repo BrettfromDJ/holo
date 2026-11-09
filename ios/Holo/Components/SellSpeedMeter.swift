@@ -34,7 +34,7 @@ struct SellSpeedMeter: View {
                     HStack(spacing: 8) {
                         SellSpeedBar(tier: score.tier, small: false)
                         Text(score.tier.rawValue).font(.geist(14, .semibold)).foregroundStyle(.white).lineLimit(1)
-                        (Text("\(score.score)%").foregroundColor(percentColor) + Text(" · \(score.sold) sold this month").foregroundColor(Theme.muted))
+                        (Text("\(score.score)%").foregroundColor(percentColor) + Text(" · \(score.sold) sold this\u{00A0}month").foregroundColor(Theme.muted))
                             .font(.geist(13)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.8)
                         Spacer(minLength: 0)
                         Image(systemName: "info.circle").font(.system(size: 13)).foregroundStyle(Theme.subtle)

@@ -182,7 +182,7 @@ struct MasterSetsView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
-                    Text("Add cards from a set to see how close you are.").font(.geist(13)).foregroundStyle(Theme.muted)
+                    Text("Add cards from a set to see how close you\u{00A0}are.").font(.geist(13)).foregroundStyle(Theme.muted)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }

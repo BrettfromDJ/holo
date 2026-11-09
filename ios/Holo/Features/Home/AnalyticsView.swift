@@ -46,7 +46,7 @@ struct AnalyticsView: View {
                         }
                         // Why two percentages: the headline counts what you paid; "market only"
                         // is how prices moved, leaving out when you bought and sold.
-                        Text("Market only is how prices moved, leaving out when you bought and sold.")
+                        Text("Market only is how prices moved, leaving out when you bought and\u{00A0}sold.")
                             .font(.geist(12)).foregroundStyle(Theme.subtle)
                         AllocationBar(holdings: holdings, total: s.value)
                     }
@@ -724,7 +724,7 @@ private struct Diversification: View {
                             .font(.display(54)).tracking(-2.2).monospacedDigit().foregroundStyle(Theme.lime).displayTrim(54)
                         VStack(alignment: .leading, spacing: 4) {
                             SkewTag(text: label.uppercased(), color: Theme.planBlue, textColor: .white)
-                            Text("Your \(holdings.count) holdings behave like \(effective) equally sized ones").font(.geist(13)).foregroundStyle(Theme.muted)
+                            Text("Your \(holdings.count) holdings behave like \(effective) equally sized\u{00A0}ones").font(.geist(13)).foregroundStyle(Theme.muted)
                         }
                     }
                     // The top five's shares side by side, sweeping in from the left.

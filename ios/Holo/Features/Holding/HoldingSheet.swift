@@ -69,7 +69,7 @@ struct HoldingSheet: View {
                     if identity.isGraded { slabRows(identity) } else if product?.isSealed == false { ifGraded(identity, h) }
                     actions(h)
                 } else {
-                    Text("You don't hold any of these right now.").font(.geist(14)).foregroundStyle(Theme.muted)
+                    Text("You don't hold any of these right\u{00A0}now.").font(.geist(14)).foregroundStyle(Theme.muted)
                 }
                 HoldingHistory(entries: store.entries(for: identity), editing: $editing, deleting: $deleting)
                 if let error { Text(error).font(.geist(13)).foregroundStyle(Theme.down) }
@@ -116,7 +116,7 @@ struct HoldingSheet: View {
                 }
             }
         } message: {
-            Text("It's removed as if you never added it: it leaves your value, cost and gains. To count it as a loss instead, use Remove.")
+            Text("It's removed as if you never added it: it leaves your value, cost and gains. To count it as a loss instead, use\u{00A0}Remove.")
         }
         .sheet(isPresented: $whatIf) { if let h = holding { SellCalculatorSheet(holding: h) } }
         .sheet(isPresented: $sending) { if let h = holding { SendSheet(holding: h) } }
@@ -133,7 +133,7 @@ struct HoldingSheet: View {
                 }
             }
         } message: {
-            Text("Your totals update as if it never happened. The original stays in the record.")
+            Text("Your totals update as if it never happened. The original stays in the\u{00A0}record.")
         }
         .task(id: identity.productId) {
             defer { withAnimation(.easeOut(duration: 0.25)) { gradedReady = true } }
@@ -190,13 +190,13 @@ struct HoldingSheet: View {
             shelfMenu
             if !groups.portfolios.isEmpty { portfolioMenu }
             Button { selling = true } label: {
-                Label { Text("Mark as sold"); Text("Record the price you sold it for") } icon: { Image(systemName: "tag") }
+                Label { Text("Mark as sold"); Text("Record the price you sold it\u{00A0}for") } icon: { Image(systemName: "tag") }
             }
             Button { removing = true } label: {
                 Label { Text("Remove"); Text("Opened, lost or gave away") } icon: { Image(systemName: "minus.circle") }
             }
             Button(role: .destructive) { confirmDelete = true } label: {
-                Label { Text("Delete"); Text("As if you never added it") } icon: { Image(systemName: "trash") }
+                Label { Text("Delete"); Text("As if you never added\u{00A0}it") } icon: { Image(systemName: "trash") }
             }
         } label: {
             Image(systemName: "ellipsis").font(.system(size: 17, weight: .semibold)).foregroundStyle(.white)
@@ -531,7 +531,7 @@ struct SellSheet: View {
                     LabeledContent("Cost of these") { Text(Format.money(cost)).monospacedDigit() }
                     LabeledContent("Profit") { Text(Format.signedMoney(net - cost)).monospacedDigit().foregroundStyle(Theme.tone(net - cost)) }
                 } footer: {
-                    Text("Cost comes from your oldest copies first.")
+                    Text("Cost comes from your oldest copies\u{00A0}first.")
                 }
                 if let error { Section { Text(error).foregroundStyle(Theme.down) } }
             }
@@ -595,7 +595,7 @@ struct EntryEditSheet: View {
                     MoneyField(title: "Shipping", text: $shipping)
                     DatePicker("Date", selection: $date, in: ...Date(), displayedComponents: .date)
                 } footer: {
-                    Text("Saved as a correction, so the original stays in the record.")
+                    Text("Saved as a correction, so the original stays in the\u{00A0}record.")
                 }
                 if let error { Section { Text(error).foregroundStyle(Theme.down) } }
             }
@@ -643,7 +643,7 @@ struct ManualValueSheet: View {
                 Section {
                     MoneyField(title: identity.gradeLabel ?? "Value", text: $value, hint: current.map { Format.money($0) } ?? "$0.00")
                 } footer: {
-                    Text("Used for this slab's value from today on.")
+                    Text("Used for this slab's value from today\u{00A0}on.")
                 }
                 if current != nil {
                     Section { Button("Clear value", role: .destructive) { Task { await save(nil) } } }

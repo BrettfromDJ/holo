@@ -239,7 +239,7 @@ struct GradedPricesPanel: View {
                 .background { if mine { RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.lime.opacity(0.1)).padding(.horizontal, -10) } }
                 if i < priced.count - 1 { Divider().overlay(Theme.border) }
             }
-            Text("eBay: the median of this month's sales of that exact slab (a CGC Pristine 10 is a sale whose title says pristine). ≈: an estimate, from PriceCharting's price for the grade (which mixes every company) adjusted for the company, from the usual grade curve, or for a Pristine 10, the Gem Mint 10 price × the usual Pristine premium.")
+            Text("eBay: the median of this month's sales of that exact slab (a CGC Pristine 10 is a sale whose title says pristine). ≈: an estimate, from PriceCharting's price for the grade (which mixes every company) adjusted for the company, from the usual grade curve, or for a Pristine 10, the Gem Mint 10 price × the usual Pristine\u{00A0}premium.")
                 .font(.geist(12)).foregroundStyle(Theme.subtle).padding(.top, 10)
         }
     }

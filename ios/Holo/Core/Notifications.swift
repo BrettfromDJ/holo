@@ -132,12 +132,12 @@ struct NotificationNoteSheet: View {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Notifications").font(.display(24)).tracking(-0.6)
-                    Text("Only when something you asked for happens").font(.geist(13)).foregroundStyle(Theme.muted)
+                    Text("Only when something you asked for\u{00A0}happens").font(.geist(13)).foregroundStyle(Theme.muted)
                 }
                 Spacer()
                 Button("Not now") { onAnswer(false) }.font(.geist(15, .medium)).foregroundStyle(Theme.muted)
             }
-            Text("Lucent sends one when a watched card reaches your price, or a set you set a reminder for comes out. Nothing else.")
+            Text("Lucent sends one when a watched card reaches your price, or a set you set a reminder for comes out. Nothing\u{00A0}else.")
                 .font(.geist(15)).foregroundStyle(.white.opacity(0.85)).fixedSize(horizontal: false, vertical: true)
             Button("Turn on") { onAnswer(true) }.buttonStyle(Button3D(kind: .lime))
         }

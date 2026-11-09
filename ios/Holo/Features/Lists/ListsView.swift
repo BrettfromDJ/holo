@@ -179,7 +179,7 @@ struct WatchSheet: View {
                     LabeledContent("Market now") { Text(Format.money(market)).monospacedDigit() }
                     MoneyField(title: "Target price", text: $target, hint: "Optional")
                 } footer: {
-                    Text("With a target, you get a notification when the daily price check finds it at or below it.")
+                    Text("With a target, you get a notification when the daily price check finds it at or below\u{00A0}it.")
                 }
                 if let error { Section { Text(error).foregroundStyle(Theme.down) } }
             }

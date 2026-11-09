@@ -77,7 +77,7 @@ struct DealPickerSheet: View {
                         Text(side == .incoming ? "Catalog" : "Not in Lucent")
                     } footer: {
                         if side == .outgoing {
-                            Text("Something you have that isn't in Lucent yet. Add what you paid on the deal and it's recorded properly; otherwise it's counted in the deal but not tracked.")
+                            Text("Something you have that isn't in Lucent yet. Add what you paid on the deal and it's recorded properly; otherwise it's counted in the deal but not\u{00A0}tracked.")
                         }
                     }
                 }
@@ -179,7 +179,7 @@ private struct CustomItemSheet: View {
                     MoneyField(title: "Price each", text: $price, hint: "0.00")
                     Stepper("Quantity: \(qty)", value: $qty, in: 1...999)
                 } footer: {
-                    Text("For things that aren't in the catalog. Counted in the deal, not tracked in your collection.")
+                    Text("For things that aren't in the catalog. Counted in the deal, not tracked in your\u{00A0}collection.")
                 }
             }
             .scrollContentBackground(.hidden)
@@ -230,7 +230,7 @@ struct DealRatesSheet: View {
                     Toggle("Add what comes in to my collection", isOn: Binding(get: { rates.addsIncoming }, set: { rates.addIncoming = $0 }))
                     Toggle("Ask what I paid for things not in Lucent", isOn: Binding(get: { rates.asksCost }, set: { rates.askCost = $0 }))
                 } footer: {
-                    Text("You can still switch any single item in or out on the deal. Items going out that aren't in Lucent are tracked when you add what you paid.")
+                    Text("You can still switch any single item in or out on the deal. Items going out that aren't in Lucent are tracked when you add what you\u{00A0}paid.")
                 }
                 .tint(Theme.lime)
                 Section {
@@ -241,7 +241,7 @@ struct DealRatesSheet: View {
                     }
                     .padding(.vertical, 4)
                 } footer: {
-                    Text("What Round up on the cash rounds to.")
+                    Text("What Round up on the cash rounds\u{00A0}to.")
                 }
                 if role == .vendor {
                     rate("Buying", "What you pay for cards you buy", \.buy)
@@ -285,7 +285,7 @@ struct DealRatesSheet: View {
             }
             Slider(value: Binding(get: { collector[keyPath: key] }, set: { collector[keyPath: key] = ($0 * 100).rounded() / 100 }), in: 0.3...1.5, step: 0.01)
         } footer: {
-            Text("\(hint), as a share of market. Each deal starts here; drag it on the deal to match their offer.")
+            Text("\(hint), as a share of market. Each deal starts here; drag it on the deal to match their\u{00A0}offer.")
         }
     }
 
@@ -298,7 +298,7 @@ struct DealRatesSheet: View {
             }
             Slider(value: Binding(get: { rates[keyPath: key] }, set: { rates[keyPath: key] = ($0 * 100).rounded() / 100 }), in: 0.3...1.5, step: 0.01)
         } footer: {
-            Text("\(hint), as a share of market.")
+            Text("\(hint), as a share of\u{00A0}market.")
         }
     }
 }
@@ -390,7 +390,7 @@ struct DealCloseSheet: View {
                                 Text("includes \(Format.money(paper)) on paper").font(.geist(12)).foregroundStyle(Theme.muted)
                             }
                             if t.uncosted > 0 {
-                                Text("Add what you paid for every item to see your total").font(.geist(13)).foregroundStyle(Theme.muted)
+                                Text("Add what you paid for every item to see your\u{00A0}total").font(.geist(13)).foregroundStyle(Theme.muted)
                             }
                         }
                         if !deal.incoming.isEmpty { sideRow(.incoming, deal.incoming, t.inValue) }
@@ -671,7 +671,7 @@ private struct RecordedScreen: View {
                 Text("includes \(Format.money(paper)) on paper").font(.geist(12, .medium)).foregroundStyle(ink.opacity(0.65))
             }
         } else if t.uncosted > 0 {
-            Text("Total unknown: not every item had a cost").font(.geist(12, .medium)).foregroundStyle(ink.opacity(0.65))
+            Text("Total unknown: not every item had a\u{00A0}cost").font(.geist(12, .medium)).foregroundStyle(ink.opacity(0.65))
         }
     }
 

@@ -229,7 +229,7 @@ struct ScanView: View {
             if showTip, camera.state == .running {
                 HStack(spacing: 8) {
                     Image(systemName: "hand.tap.fill").font(.system(size: 15, weight: .medium)).foregroundStyle(Theme.lime)
-                    Text("Tap the card to scan it").font(.geist(14, .medium))
+                    Text("Tap the card to scan\u{00A0}it").font(.geist(14, .medium))
                 }
                 .foregroundStyle(.white)
                 .padding(.horizontal, 16).frame(height: 40)
@@ -247,7 +247,7 @@ struct ScanView: View {
                 VStack(spacing: 14) {
                     Image(systemName: "camera.fill").font(.system(size: 30)).foregroundStyle(Theme.lime)
                     Text("Camera is off for Lucent").font(.display(22)).tracking(-0.6)
-                    Text("Turn it on in Settings to scan cards.").font(.geist(14)).foregroundStyle(.white)
+                    Text("Turn it on in Settings to scan\u{00A0}cards.").font(.geist(14)).foregroundStyle(.white)
                     Button("Open Settings") { if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) } }
                         .buttonStyle(Button3D(kind: .lime, fullWidth: false, height: 44))
                 }
@@ -438,7 +438,7 @@ private struct ScanTray: View {
                             .overlay(Image(systemName: "rectangle.on.rectangle").font(.system(size: 16)).foregroundStyle(.white))
                         VStack(alignment: .leading, spacing: 3) {
                             Text("No cards yet").font(.geist(15, .semibold))
-                            Text("Hold a card in view, then tap it.").font(.geist(13)).foregroundStyle(.white)
+                            Text("Hold a card in view, then tap\u{00A0}it.").font(.geist(13)).foregroundStyle(.white)
                         }
                         Spacer(minLength: 0)
                     }
@@ -508,7 +508,7 @@ private struct ScanTray: View {
             Button("Cancel", role: .cancel) {}
             Button("Clear", role: .destructive) { Haptics.remove(); withAnimation(.snappy) { for e in model.entries { model.remove(e.id) } } }
         } message: {
-            Text("Nothing has been added to your collection yet.")
+            Text("Nothing has been added to your collection\u{00A0}yet.")
         }
     }
 
@@ -712,8 +712,8 @@ private struct CameraNote: View {
     var body: some View {
         VStack(spacing: 14) {
             Image(systemName: "camera.viewfinder").font(.system(size: 28, weight: .medium)).foregroundStyle(Theme.lime)
-            Text("Lucent uses the camera to read your cards").font(.geist(16, .semibold)).multilineTextAlignment(.center)
-            Text("Nothing is kept unless you add it.").font(.geist(13)).foregroundStyle(Theme.muted)
+            Text("Lucent uses the camera to read your\u{00A0}cards").font(.geist(16, .semibold)).multilineTextAlignment(.center)
+            Text("Nothing is kept unless you add\u{00A0}it.").font(.geist(13)).foregroundStyle(Theme.muted)
             Button("Continue", action: onContinue).buttonStyle(Button3D(kind: .lime, height: 46)).padding(.top, 4)
         }
         .foregroundStyle(.white)

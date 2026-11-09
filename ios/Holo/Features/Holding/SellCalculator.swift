@@ -102,7 +102,7 @@ struct SellCalculatorSheet: View {
                     .buttonStyle(.plain)
                 }
             }
-            Text("Each, after fees and shipping. The small number is how far the market price is above it.")
+            Text("Each, after fees and shipping. The small number is how far the market price is above\u{00A0}it.")
                 .font(.geist(11)).foregroundStyle(Theme.subtle)
         }
     }

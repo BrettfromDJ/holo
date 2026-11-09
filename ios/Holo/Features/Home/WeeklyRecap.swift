@@ -239,7 +239,7 @@ private struct Slide {
                 VStack(alignment: .leading, spacing: 0) {
                     Text("Your collection is worth").font(.geist(18, .medium)).foregroundStyle(.white.opacity(0.85))
                     Big(value: s.value, format: { Format.money($0) }, color: .white)
-                    Text("\(Int(s.items)) items · \(Format.signedMoney(s.gain)) (\(Format.signedPercent(s.gainRatio))) all time")
+                    Text("\(Int(s.items)) items · \(Format.signedMoney(s.gain)) (\(Format.signedPercent(s.gainRatio))) all\u{00A0}time")
                         .font(.geist(15)).monospacedDigit().foregroundStyle(.white.opacity(0.75)).padding(.top, 8)
                 }
                 .padding(20)

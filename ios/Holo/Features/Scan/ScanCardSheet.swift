@@ -202,7 +202,7 @@ private struct Unmatched: View {
                 DisplayText(text: title, size: 30)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            Text("Match the set symbol and the number in the bottom corner. Hold a card to see it bigger.")
+            Text("Match the set symbol and the number in the bottom corner. Hold a card to see it\u{00A0}bigger.")
                 .font(.geist(14)).foregroundStyle(Theme.muted).fixedSize(horizontal: false, vertical: true)
                 .padding(.top, -12)
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {

@@ -424,7 +424,7 @@ private struct SetProgressHeader: View, Equatable {
                         .foregroundStyle(Theme.lime)
                         .displayTrim(56)
                         .shadow(color: Theme.lime.opacity(0.55), radius: 16)
-                    Text("full list not in Lucent yet").font(.geist(13)).foregroundStyle(Theme.muted)
+                    Text("full list not in Lucent\u{00A0}yet").font(.geist(13)).foregroundStyle(Theme.muted)
                 }
             }
             // No money figures here: the dial and the card grid say it all.

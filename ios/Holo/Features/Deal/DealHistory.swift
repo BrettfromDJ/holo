@@ -146,7 +146,7 @@ struct DealPhotosStrip: View {
                 Button("Choose from library") { library = true }
             }
             if failed {
-                Text("A photo couldn't be saved. Check your connection and try again.").font(.geist(12)).foregroundStyle(Theme.warn)
+                Text("A photo couldn't be saved. Check your connection and try\u{00A0}again.").font(.geist(12)).foregroundStyle(Theme.warn)
             }
         }
         .photosPicker(isPresented: $library, selection: $picks, maxSelectionCount: 10, matching: .images)
@@ -262,7 +262,7 @@ struct DealCameraView: View {
                 VStack(spacing: 14) {
                     Image(systemName: "camera.fill").font(.system(size: 30)).foregroundStyle(Theme.lime)
                     Text("Camera is off for Lucent").font(.display(22)).tracking(-0.6)
-                    Text("Turn it on in Settings to photograph deals.").font(.geist(14)).foregroundStyle(Theme.muted)
+                    Text("Turn it on in Settings to photograph\u{00A0}deals.").font(.geist(14)).foregroundStyle(Theme.muted)
                     Button("Open Settings") {
                         if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
                     }
@@ -279,7 +279,7 @@ struct DealCameraView: View {
                 topBar
                 Spacer()
                 if shots.isEmpty {
-                    Text("Shoot the cards, the table, a receipt")
+                    Text("Shoot the cards, the table, a\u{00A0}receipt")
                         .font(.geist(13, .medium)).foregroundStyle(.white)
                         .padding(.horizontal, 14).frame(height: 34)
                         .liquidGlass(in: Capsule())
@@ -616,7 +616,7 @@ struct DealHistoryView: View {
                 .frame(width: 76, height: 76).background(Circle().fill(Theme.lime))
                 .shadow(color: Theme.lime.opacity(0.4), radius: 20)
             Text("No closed deals yet").font(.display(28)).tracking(-0.7)
-            Text("Every buy, sale and trade you close lands here, with what changed hands, your profit and your photos.")
+            Text("Every buy, sale and trade you close lands here, with what changed hands, your profit and your\u{00A0}photos.")
                 .font(.geist(14)).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
@@ -925,7 +925,7 @@ struct DealRecordDetail: View {
                         lineSection(.incoming, lines.filter { $0.side == .incoming }, r.inValue, cash: r.balance > 0.005 ? r.balance : nil)
                         lineSection(.outgoing, lines.filter { $0.side == .outgoing }, r.outValue, cash: r.balance < -0.005 ? -r.balance : nil)
                     } else {
-                        Text("Came in \(Format.money(r.inValue)) · went out \(Format.money(r.outValue)). Item details weren't kept for deals closed before they were recorded.")
+                        Text("Came in \(Format.money(r.inValue)) · went out \(Format.money(r.outValue)). Item details weren't kept for deals closed before they were\u{00A0}recorded.")
                             .font(.geist(13)).foregroundStyle(Theme.muted)
                     }
                     VStack(alignment: .leading, spacing: 12) {
@@ -985,7 +985,7 @@ struct DealRecordDetail: View {
             } else {
                 Text("Total unknown").font(.display(26)).tracking(-0.8).foregroundStyle(.white)
                     .padding(.top, 18)
-                Text("Not every item that went out had a cost.").font(.geist(13)).foregroundStyle(Theme.muted)
+                Text("Not every item that went out had a\u{00A0}cost.").font(.geist(13)).foregroundStyle(Theme.muted)
                     .padding(.top, 6)
             }
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], alignment: .leading, spacing: 14) {

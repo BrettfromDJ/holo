@@ -226,7 +226,7 @@ struct ListsHomeView: View {
                 HStack(alignment: .firstTextBaseline) {
                     VStack(alignment: .leading, spacing: 4) {
                         DisplayText(text: "Lists", size: 40)
-                        Text("Favorites, want lists and cards to sell").font(.geist(14)).foregroundStyle(Theme.muted)
+                        Text("Favorites, want lists and cards to\u{00A0}sell").font(.geist(14)).foregroundStyle(Theme.muted)
                     }
                     Spacer()
                     // Its own view with its own state, so opening the sheet doesn't redraw the page.
@@ -417,7 +417,7 @@ struct ListDetailView: View {
                 if items.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Nothing on this list yet").font(.geist(17, .semibold))
-                        Text("Add cards from your collection or anywhere in the catalog. You don't have to own them.")
+                        Text("Add cards from your collection or anywhere in the catalog. You don't have to own\u{00A0}them.")
                             .font(.geist(14)).foregroundStyle(Theme.muted)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -458,7 +458,7 @@ struct ListDetailView: View {
                 }
             }
         } message: {
-            Text("The list goes, and its share link stops working. Your cards stay in your collection.")
+            Text("The list goes, and its share link stops working. Your cards stay in your\u{00A0}collection.")
         }
         .sheet(isPresented: Binding(get: { pricing != nil }, set: { if !$0 { pricing = nil } })) {
             if let id = pricing {
@@ -524,7 +524,7 @@ struct ListDetailView: View {
             })) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("For sale").font(.geist(15, .semibold)).foregroundStyle(.white)
-                    Text("Show asking prices on this list and its link").font(.geist(12)).foregroundStyle(Theme.muted)
+                    Text("Show asking prices on this list and its\u{00A0}link").font(.geist(12)).foregroundStyle(Theme.muted)
                 }
             }
             if meta.isForSale {
@@ -534,7 +534,7 @@ struct ListDetailView: View {
                                selection: Binding(get: { meta.askPercent ?? 100 }, set: { pct in
                                    run { try await groups.updateMeta(listId) { $0.askPercent = pct == 100 ? nil : pct } }
                                }), scrolls: true)
-                    Text("Tap a card's price to give it its own % or a set price.").font(.geist(12)).foregroundStyle(Theme.subtle)
+                    Text("Tap a card's price to give it its own % or a set\u{00A0}price.").font(.geist(12)).foregroundStyle(Theme.subtle)
                 }
             }
         }
