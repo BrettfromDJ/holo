@@ -210,7 +210,7 @@ struct GradingView: View {
         let away = grading.atGrader
         return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top) {
-                MoreHeading(title: "Worth grading", subtitle: "Most upside as a PSA 10, after \(Format.money(grading.costs.fee + grading.costs.shipping)) in costs")
+                MoreHeading(title: "Worth grading", subtitle: "Your raw cards that would make the most if graded a PSA 10, after \(Format.money(grading.costs.fee + grading.costs.shipping)) for grading and shipping. The smaller figure is what you'd make at a 9.")
                 Spacer(minLength: 8)
                 Button("Costs") { editingCosts = true }.buttonStyle(Button3D(kind: .dark, fullWidth: false, height: 34))
             }
