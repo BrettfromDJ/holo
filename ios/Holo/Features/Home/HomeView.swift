@@ -728,7 +728,7 @@ private struct PerformanceSection: View {
                     return .selection
                 }
                 if let end = days.last {
-                    Text("Daily closing values · \(Format.money(end.value)) on \(end.date.formatted(date: .abbreviated, time:\u{00A0}.omitted))")
+                    Text("Daily closing values · \(Format.money(end.value)) on \(end.date.formatted(date: .abbreviated, time: .omitted))")
                         .font(.geist(12)).foregroundStyle(Theme.muted)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                 }

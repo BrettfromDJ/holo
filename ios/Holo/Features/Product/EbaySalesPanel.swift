@@ -78,7 +78,7 @@ struct EbaySalesPanel: View {
                         } label: {
                             HStack(spacing: 6) {
                                 Text(l).font(.geist(13, on ? .semibold : .regular))
-                                Text("\(l == Self.ungradedTab ? e.ungraded.count : (e.graded[l]?.count ??\u{00A0}0))")
+                                Text("\(l == Self.ungradedTab ? e.ungraded.count : (e.graded[l]?.count ?? 0))")
                                     .font(.geist(13)).monospacedDigit().opacity(0.6)
                             }
                             .padding(.horizontal, 12)
