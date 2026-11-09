@@ -149,11 +149,9 @@ struct HoldingSheet: View {
 
     private var titleRow: some View {
         ZStack {
-            // A lime check says this one is in your collection.
-            HStack(spacing: 6) {
-                Image(systemName: "checkmark").font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.lime)
-                Text("Owned").font(.geist(17, .semibold))
-            }
+            // The card page's lime tag: in your collection, and how many copies you have.
+            let owns = store.holdings(for: identity.productId).reduce(0) { $0 + $1.quantity }
+            SkewTag(text: "Owned" + (owns > 1 ? " ×\(Int(owns))" : ""), icon: "checkmark")
             HStack {
                 Spacer()
                 Button("Done") { dismiss() }
