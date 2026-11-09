@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useChecklist, type OwnedSet } from "@/lib/checklists";
 import { compareCollectorNumbers } from "@/lib/collector-number";
 import type { HoldingView } from "@/lib/finance/portfolio";
-import { money, moneyWhole } from "@/lib/format";
+import { money } from "@/lib/format";
 import { useHeroLink } from "@/lib/motion/hero";
 import type { ChecklistCard } from "@/lib/pricing/types";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
@@ -117,10 +117,6 @@ export default function MasterSetPage() {
   const total = entries.length;
   const ownedCount = entries.filter(owned).length;
   const known = Boolean(checklist);
-  const ownedValue = set.holdings.reduce((s, h) => s + (h.value ?? 0), 0);
-  const toFinish = entries.filter((e) => !owned(e)).reduce((s, e) => s + (e.card.market ?? 0), 0);
-  // Missing cards with no price yet: the total covers the rest and says how many are left out.
-  const unpriced = entries.filter((e) => !owned(e) && e.card.market == null).length;
 
   return (
     <div className="animate-fade-in">
@@ -129,9 +125,6 @@ export default function MasterSetPage() {
         loading={loading}
         known={known}
         owned={entries.map(owned)}
-        ownedValue={ownedValue}
-        toFinish={toFinish > 0 && !sample ? toFinish : null}
-        unpriced={sample ? 0 : unpriced}
         note={error ?? "full list not in Holo yet"}
       />
 
@@ -239,26 +232,20 @@ function CardCell({ entry: e }: { entry: Entry }) {
 
 /**
  * The set's top, like the app's: on a dark lit grid that runs up under the top of the page, the
- * name, the % in glowing lime dot-matrix digits, a dial of how much you own, two glass tiles
- * (what you own is worth, what finishing would cost), then every card in the set as one tick.
+ * name, the % in glowing lime dot-matrix digits, a dial of how much you own, then every card in
+ * the set as one tick.
  */
 function SetHero({
   name,
   loading,
   known,
   owned,
-  ownedValue,
-  toFinish,
-  unpriced,
   note,
 }: {
   name: string;
   loading: boolean;
   known: boolean;
   owned: boolean[];
-  ownedValue: number;
-  toFinish: number | null;
-  unpriced: number;
   note: string;
 }) {
   const total = owned.length;
@@ -297,11 +284,6 @@ function SetHero({
             </>
           )}
 
-          {known && !loading && (
-            <div className="hidden w-full grid-cols-2 gap-2.5 lg:grid">
-              <HeroTiles ownedValue={ownedValue} toFinish={toFinish} unpriced={unpriced} />
-            </div>
-          )}
         </div>
 
         {known && !loading && (
@@ -317,9 +299,6 @@ function SetHero({
                 {have} of {total}
               </p>
             </GlowPie>
-            <div className="grid w-full grid-cols-2 gap-2.5 lg:hidden">
-              <HeroTiles ownedValue={ownedValue} toFinish={toFinish} unpriced={unpriced} />
-            </div>
           </>
         )}
       </div>
@@ -328,38 +307,6 @@ function SetHero({
   );
 }
 
-/** Two money figures only: the counts are in the dial and the chips below. */
-function HeroTiles({ ownedValue, toFinish, unpriced }: { ownedValue: number; toFinish: number | null; unpriced: number }) {
-  return (
-    <>
-      <HeroTile label="Yours worth" value={moneyWhole(ownedValue)} />
-      <HeroTile
-        label="To finish"
-        value={unpriced === 0 && toFinish !== null && toFinish > 0 ? moneyWhole(toFinish) : "Pricing…"}
-        dim={unpriced > 0 || !(toFinish !== null && toFinish > 0)}
-        note={
-          // The whole figure or none: a total missing some cards would mislead.
-          unpriced > 0
-            ? `Waiting on ${unpriced} price${unpriced === 1 ? "" : "s"}`
-            : toFinish !== null && toFinish > 0
-              ? `Full set ${moneyWhole(toFinish + ownedValue)}`
-              : undefined
-        }
-      />
-    </>
-  );
-}
-
-/** A glass tile on the set's lit grid. */
-function HeroTile({ label, value, dim, note }: { label: string; value: string; dim?: boolean; note?: string }) {
-  return (
-    <div className="min-h-[80px] min-w-0 rounded-[20px] border border-white/10 bg-white/[0.06] px-3.5 py-3 shadow-[inset_0_1px_0_rgb(255_255_255/0.08)] backdrop-blur-md">
-      <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-white/55">{label}</p>
-      <p className={cn("tabular mt-1.5 truncate font-semibold tracking-[-0.03em]", dim ? "text-[17px] text-white/55" : "text-[24px]")}>{value}</p>
-      {note && <p className="tabular mt-1 truncate text-[12px] text-white/55">{note}</p>}
-    </div>
-  );
-}
 
 function SetSkeleton() {
   return (

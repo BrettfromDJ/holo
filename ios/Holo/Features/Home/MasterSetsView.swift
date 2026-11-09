@@ -427,19 +427,7 @@ private struct SetProgressHeader: View, Equatable {
                     Text("full list not in Lucent yet").font(.geist(13)).foregroundStyle(Theme.muted)
                 }
             }
-            if known {
-                // Two money figures only: the counts are in the dial and the chips below.
-                HStack(spacing: 10) {
-                    heroTile(label: "Yours worth", value: Format.moneyWhole(ownedValue))
-                    // The whole figure or none: a total missing some cards would mislead.
-                    heroTile(label: "To finish", value: unpriced == 0 && missingValue > 0 ? Format.moneyWhole(missingValue) : "Pricing…",
-                             dim: unpriced > 0 || missingValue <= 0,
-                             note: unpriced > 0 ? "Waiting on \(unpriced) price\(unpriced == 1 ? "" : "s")"
-                                : missingValue > 0 ? "Full set \(Format.moneyWhole(missingValue + ownedValue))" : nil)
-                }
-                // The taller tile sets the height of both.
-                .fixedSize(horizontal: false, vertical: true)
-            }
+            // No money figures here: the dial and the card grid say it all.
         }
         .foregroundStyle(.white)
         .padding(.horizontal, 16)
