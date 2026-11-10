@@ -90,7 +90,7 @@ export default async function SharedCollectionPage({ params }: { params: Promise
       </section>
 
       <footer className="mt-16 border-t border-border pt-6 text-[12px] text-subtle">
-        Values are market prices as of {formatDate(today)}{summary.unpricedCount > 0 ? `; ${summary.unpricedCount} item${summary.unpricedCount === 1 ? " has" : "s have"} no market price and ${summary.unpricedCount === 1 ? "isn't" : "aren't"} counted` : ""}. Shared with Holo.
+        Values are market prices as of {formatDate(today)}{summary.unpricedCount > 0 ? `; ${summary.unpricedCount} item${summary.unpricedCount === 1 ? " has" : "s have"} no market price and ${summary.unpricedCount === 1 ? "isn't" : "aren't"} counted` : ""}. Shared with Dexora.
       </footer>
     </main>
   );

@@ -261,7 +261,7 @@ struct DealCameraView: View {
             if camera.denied {
                 VStack(spacing: 14) {
                     Image(systemName: "camera.fill").font(.system(size: 30)).foregroundStyle(Theme.lime)
-                    Text("Camera is off for Lucent").font(.display(22)).tracking(-0.6)
+                    Text("Camera is off for Dexora").font(.display(22)).tracking(-0.6)
                     Text("Turn it on in Settings to photograph\u{00A0}deals.").font(.geist(14)).foregroundStyle(Theme.muted)
                     Button("Open Settings") {
                         if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }

@@ -25,7 +25,7 @@ struct SettingsView: View {
     @State private var sharing = false
     @State private var deletingAccount = false
     @State private var deleteError: String?
-    /// Whether iOS lets Lucent show notifications (the switches do nothing when it doesn't).
+    /// Whether iOS lets Dexora show notifications (the switches do nothing when it doesn't).
     @State private var notifyStatus: UNAuthorizationStatus?
 
     private var email: String? {
@@ -57,9 +57,9 @@ struct SettingsView: View {
                 }
                 Section {
                     if notifyStatus == .denied {
-                        // The switches can't do anything until iOS allows Lucent's notifications.
+                        // The switches can't do anything until iOS allows Dexora's notifications.
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Notifications are off for Lucent in your iPhone's Settings, so none of these will\u{00A0}arrive.")
+                            Text("Notifications are off for Dexora in your iPhone's Settings, so none of these will\u{00A0}arrive.")
                                 .font(.geist(14)).foregroundStyle(.white)
                             Button("Open iPhone Settings") {
                                 if let url = URL(string: UIApplication.openNotificationSettingsURLString) { openURL(url) }
@@ -72,7 +72,7 @@ struct SettingsView: View {
                     notifyToggle("Big moves", "One of your cards moves 15% in a day", \.bigMoves)
                     notifyToggle("Milestones", "Your collection passes a new high, or a card doubles", \.milestones)
                     notifyToggle("Sets nearly done", "Sundays, when a set is 1 to 5 cards from finished", \.nearlyDone)
-                    notifyToggle("Weekly recap", "Sundays at 6pm, your week in Lucent", \.weeklyRecap)
+                    notifyToggle("Weekly recap", "Sundays at 6pm, your week in Dexora", \.weeklyRecap)
                     if notifyStatus == .authorized || notifyStatus == .provisional {
                     Button {
                         Task { await sendTest() }
@@ -112,7 +112,7 @@ struct SettingsView: View {
                 Section {
                     ShareLink(item: ExportFile(transactions: store.transactions, watchlist: store.watchlist, products: store.products,
                                                mode: store.demo == nil ? "cloud" : "demo"),
-                              preview: SharePreview("Lucent export")) {
+                              preview: SharePreview("Dexora export")) {
                         Label("Export your data", systemImage: "square.and.arrow.up")
                     }
                     if signedIn && store.demo == nil {
@@ -128,7 +128,7 @@ struct SettingsView: View {
                     if !AppConfig.supportEmail.isEmpty, let url = contactURL {
                         Link("Contact us", destination: url)
                     }
-                    Link("Open Lucent on the web", destination: AppConfig.apiBaseURL)
+                    Link("Open Dexora on the web", destination: AppConfig.apiBaseURL)
                 } header: {
                     SectionTitle("Help")
                 } footer: {
@@ -183,7 +183,7 @@ struct SettingsView: View {
             .toolbarBackground(.hidden, for: .navigationBar)
             .clearTopEdge()
             .toolbar { ToolbarItem(placement: .confirmationAction) { DoneButton() } }
-            .alert("Sign out of Lucent?", isPresented: $confirming) {
+            .alert("Sign out of Dexora?", isPresented: $confirming) {
                 Button("Cancel", role: .cancel) {}
                 Button("Sign out", role: .destructive) {
                     // Signed out, the welcome pages show again (the ways in, demo included).
@@ -240,7 +240,7 @@ struct SettingsView: View {
         var c = URLComponents()
         c.scheme = "mailto"
         c.path = AppConfig.supportEmail
-        c.queryItems = [URLQueryItem(name: "subject", value: "Lucent \(versionText)")]
+        c.queryItems = [URLQueryItem(name: "subject", value: "Dexora \(versionText)")]
         return c.url
     }
 
@@ -304,7 +304,7 @@ struct SettingsView: View {
                 testResult = "Apple didn't accept it: \(r.reasons.joined(separator: ", "))."
             }
         } catch let error as HoloError where error.code == "no_devices" {
-            testResult = "This phone isn't registered yet. Check notifications are allowed for Lucent in Settings, then try again."
+            testResult = "This phone isn't registered yet. Check notifications are allowed for Dexora in Settings, then try again."
         } catch {
             testResult = error.localizedDescription
         }

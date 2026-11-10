@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// "Your week in Lucent": story-style slides about the last seven days, like the website's recap.
+/// "Your week in Dexora": story-style slides about the last seven days, like the website's recap.
 /// Tap the right two thirds to go on, the left third to go back; hold to pause. Each slide
 /// moves on by itself after a few seconds.
 struct WeeklyRecap: View {
@@ -151,7 +151,7 @@ private struct Slide {
         let range = "\(shortDate(Calendar.current.date(byAdding: .day, value: -6, to: today) ?? today)) – \(shortDate(today))"
         slides.append(Slide(key: "intro", background: glow(0x5B3DF5, 0x1B1240, at: UnitPoint(x: 0.2, y: 0)), content: AnyView(
             VStack(alignment: .leading, spacing: 0) {
-                Kicker(text: "Your week in Lucent")
+                Kicker(text: "Your week in Dexora")
                 Text(range).font(.geist(14)).foregroundStyle(.white.opacity(0.7)).padding(.top, 8)
                 // The week's value, drawing across the page; today pings at the end.
                 RecapWeekChart(values: week.map(\.value), days: week.map(\.date), up: gain >= 0)

@@ -74,10 +74,10 @@ struct DealPickerSheet: View {
                             .buttonStyle(.plain)
                         }
                     } header: {
-                        Text(side == .incoming ? "Catalog" : "Not in Lucent")
+                        Text(side == .incoming ? "Catalog" : "Not in Dexora")
                     } footer: {
                         if side == .outgoing {
-                            Text("Something you have that isn't in Lucent yet. Add what you paid on the deal and it's recorded properly; otherwise it's counted in the deal but not\u{00A0}tracked.")
+                            Text("Something you have that isn't in Dexora yet. Add what you paid on the deal and it's recorded properly; otherwise it's counted in the deal but not\u{00A0}tracked.")
                         }
                     }
                 }
@@ -228,9 +228,9 @@ struct DealRatesSheet: View {
                 }
                 Section {
                     Toggle("Add what comes in to my collection", isOn: Binding(get: { rates.addsIncoming }, set: { rates.addIncoming = $0 }))
-                    Toggle("Ask what I paid for things not in Lucent", isOn: Binding(get: { rates.asksCost }, set: { rates.askCost = $0 }))
+                    Toggle("Ask what I paid for things not in Dexora", isOn: Binding(get: { rates.asksCost }, set: { rates.askCost = $0 }))
                 } footer: {
-                    Text("You can still switch any single item in or out on the deal. Items going out that aren't in Lucent are tracked when you add what you\u{00A0}paid.")
+                    Text("You can still switch any single item in or out on the deal. Items going out that aren't in Dexora are tracked when you add what you\u{00A0}paid.")
                 }
                 .tint(Theme.lime)
                 Section {

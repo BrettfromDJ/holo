@@ -1902,7 +1902,7 @@ private struct AlertStack: View {
     }
 }
 
-/// A notification, as iPhone shows it: the app's mark, "Lucent", "now" and the message.
+/// A notification, as iPhone shows it: the app's mark, "Dexora", "now" and the message.
 private struct AlertBanner: View {
     var icon: String = "bell.badge.fill"
     var message: String
@@ -1918,7 +1918,7 @@ private struct AlertBanner: View {
                 .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Theme.lime))
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
-                    Text("Lucent").font(.geist(14, .semibold))
+                    Text("Dexora").font(.geist(14, .semibold))
                     Spacer()
                     Text("now").font(.geist(12)).foregroundStyle(welcomeSoft)
                 }

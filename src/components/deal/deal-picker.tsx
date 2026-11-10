@@ -105,7 +105,7 @@ export function DealPicker({ side, onClose, onPick }: { side: DealSide | null; o
               onChange={setSource}
               options={[
                 ...(side === "out" ? [{ value: "inventory" as const, label: "Your inventory" }] : []),
-                { value: "catalog" as const, label: side === "out" ? "Not in Lucent" : "Catalog" },
+                { value: "catalog" as const, label: side === "out" ? "Not in Dexora" : "Catalog" },
                 { value: "custom" as const, label: "Custom" },
               ]}
             />

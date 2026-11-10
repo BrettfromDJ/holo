@@ -140,7 +140,7 @@ export default async function SharedListPage({ params }: { params: Promise<{ tok
       </section>
 
       <footer className="mt-16 border-t border-border pt-6 text-[12px] text-subtle">
-        {forSale ? "Asking prices are set by the seller. " : ""}Market prices as of {formatDate(today)}. Shared with Lucent.
+        {forSale ? "Asking prices are set by the seller. " : ""}Market prices as of {formatDate(today)}. Shared with Dexora.
       </footer>
     </main>
   );

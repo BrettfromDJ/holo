@@ -385,7 +385,7 @@ struct BrandMark: View {
                 .foregroundStyle(Theme.ink)
                 .frame(width: 30, height: 30)
                 .background(RoundedRectangle(cornerRadius: 8).fill(Color(hex: 0xF5F5F7)))
-            Text("Lucent").font(.geist(19, .semibold))
+            Text("Dexora").font(.geist(19, .semibold))
         }
     }
 }

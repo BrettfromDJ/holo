@@ -857,7 +857,7 @@ private struct PriceHistoryCard: View {
                         } else {
                             Text("Not enough price history yet").font(.geist(13, .medium))
                         }
-                        Text("Lucent stores a daily snapshot for products you own or watch, so this chart fills in over time. Missing days are never filled with\u{00A0}estimates.")
+                        Text("Dexora stores a daily snapshot for products you own or watch, so this chart fills in over time. Missing days are never filled with\u{00A0}estimates.")
                             .font(.geist(13)).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
                         if case let .failed(message) = load {
                             Text(message).font(.geist(12)).foregroundStyle(Theme.warn).multilineTextAlignment(.center)

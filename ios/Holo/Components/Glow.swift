@@ -1,7 +1,7 @@
 import SwiftUI
 
 // The small graphic pieces Master Sets uses: the set deck's glow, the
-// ownership dial (`GlowPie`), a thin ring and a tick bar. (Left from the brief "Lucent glow"
+// ownership dial (`GlowPie`), a thin ring and a tick bar. (Left from the brief "Dexora glow"
 // look; the rest of it was removed.)
 
 /// A set card's light: the dark surface with a lime, blue or pink glow from one corner and a

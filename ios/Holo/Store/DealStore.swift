@@ -349,7 +349,7 @@ final class DealStore {
 
     /// A card scanned into the deal (from the Deal tab's scanners or the main scanner while a
     /// deal is open): coming in, it's priced from your copy if you own one; going out, it uses
-    /// your copy, or goes in marked "not in Lucent".
+    /// your copy, or goes in marked "not in Dexora".
     @MainActor
     func addScanned(_ c: ScanCandidate, read: ScanRead?, to side: DealSide, store: CollectionStore) -> (ok: Bool, note: String) {
         let grade = read?.kind == "slab" ? read?.grade : nil
@@ -368,7 +368,7 @@ final class DealStore {
             // Not in Holo: it still goes in the deal, marked so, with an optional "you paid".
             let gradeLabel = grade.map { "\($0.company) \($0.grade)" } ?? ""
             add(DealItem(key: "p:\(c.product.id):\(c.printing ?? ""):\(gradeLabel)", product: c.product, printing: c.printing, market: c.value(for: read), grade: grade), to: .outgoing)
-            return (true, "Added · not in Lucent")
+            return (true, "Added · not in Dexora")
         }
         add(DealItem(key: "h:\(h.identity.key)", product: p, printing: h.identity.printing, market: h.price, holdingKey: h.identity.key, maxQty: Int(h.quantity)), to: .outgoing)
         return (true, "Added to going out")

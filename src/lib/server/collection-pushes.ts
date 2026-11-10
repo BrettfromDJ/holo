@@ -89,7 +89,7 @@ export async function sendCollectionPushes(admin: Admin, userId: string, data: C
     const summary = summarize(holdings, totalRealized(data, today).total);
     const { show, record } = pickNew(reachedMilestones(summary, holdings), seen, false, 1);
     if (show[0]) {
-      messages.push({ kind: "milestone", message: { title: show[0].title, body: show[0].description ?? "Open Lucent to see your collection." } });
+      messages.push({ kind: "milestone", message: { title: show[0].title, body: show[0].description ?? "Open Dexora to see your collection." } });
       const next = [...seen, ...record];
       await admin.from("user_state").upsert({ user_id: userId, key: "milestones-seen", value: next, updated_at: new Date().toISOString() });
     }

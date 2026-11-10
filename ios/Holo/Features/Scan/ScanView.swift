@@ -246,7 +246,7 @@ struct ScanView: View {
             if camera.state == .denied {
                 VStack(spacing: 14) {
                     Image(systemName: "camera.fill").font(.system(size: 30)).foregroundStyle(Theme.lime)
-                    Text("Camera is off for Lucent").font(.display(22)).tracking(-0.6)
+                    Text("Camera is off for Dexora").font(.display(22)).tracking(-0.6)
                     Text("Turn it on in Settings to scan\u{00A0}cards.").font(.geist(14)).foregroundStyle(.white)
                     Button("Open Settings") { if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) } }
                         .buttonStyle(Button3D(kind: .lime, fullWidth: false, height: 44))
@@ -712,7 +712,7 @@ private struct CameraNote: View {
     var body: some View {
         VStack(spacing: 14) {
             Image(systemName: "camera.viewfinder").font(.system(size: 28, weight: .medium)).foregroundStyle(Theme.lime)
-            Text("Lucent uses the camera to read your\u{00A0}cards").font(.geist(16, .semibold)).multilineTextAlignment(.center)
+            Text("Dexora uses the camera to read your\u{00A0}cards").font(.geist(16, .semibold)).multilineTextAlignment(.center)
             Text("Nothing is kept unless you add\u{00A0}it.").font(.geist(13)).foregroundStyle(Theme.muted)
             Button("Continue", action: onContinue).buttonStyle(Button3D(kind: .lime, height: 46)).padding(.top, 4)
         }

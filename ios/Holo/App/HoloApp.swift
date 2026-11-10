@@ -144,7 +144,7 @@ struct NotConfiguredView: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: "wrench.and.screwdriver").font(.largeTitle).foregroundStyle(Theme.muted)
-            Text("Lucent isn't set up yet").font(.title3.bold())
+            Text("Dexora isn't set up yet").font(.title3.bold())
             Text("Copy ios/Config.xcconfig.example to ios/Config.xcconfig, fill in your API and Supabase hosts, then run xcodegen and build\u{00A0}again.")
                 .font(.callout).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
         }

@@ -11,7 +11,7 @@ export default function TermsPage() {
       <h1 className="mt-10 font-display text-[34px] leading-tight tracking-tight">Terms</h1>
       <p className="mt-2 text-[14px] text-muted">Last updated November 2026</p>
       <div className="mt-8 space-y-6 text-[15px] leading-relaxed text-white/80">
-        <p>Lucent helps you track a trading card collection: what you own, what it&apos;s worth, and what you&apos;ve bought and sold.</p>
+        <p>Dexora helps you track a trading card collection: what you own, what it&apos;s worth, and what you&apos;ve bought and sold.</p>
         <p>
           <strong className="text-white">Prices are estimates.</strong> Market values come from third-party pricing data and recent
           sales. They can be wrong or out of date. Don&apos;t rely on them as an appraisal, an offer, or financial advice.

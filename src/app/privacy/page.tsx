@@ -12,7 +12,7 @@ export default function PrivacyPage() {
       <p className="mt-2 text-[14px] text-muted">Last updated November 2026</p>
       <div className="mt-8 space-y-6 text-[15px] leading-relaxed text-white/80">
         <Section title="What we keep">
-          Your account email, and what you add to Lucent: the cards and products you own, what you paid and sold them for,
+          Your account email, and what you add to Dexora: the cards and products you own, what you paid and sold them for,
           your lists, watchlist, wishlist, deals, notes, deal photos and settings. It&apos;s stored with our database provider
           (Supabase) so it syncs between the app and the website.
         </Section>

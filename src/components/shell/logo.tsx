@@ -9,7 +9,7 @@ export function Logo({ className, withWordmark = true }: { className?: string; w
         <path d="M8.5 16h15" stroke="var(--background)" strokeWidth="2.5" />
         <circle cx="16" cy="16" r="2.6" fill="var(--foreground)" stroke="var(--background)" strokeWidth="2" />
       </svg>
-      {withWordmark && <span className="text-[17px] font-semibold tracking-tight">Holo</span>}
+      {withWordmark && <span className="text-[17px] font-semibold tracking-tight">Dexora</span>}
     </span>
   );
 }

@@ -357,7 +357,7 @@ struct SearchScreen: View {
             ForEach(0 ..< 5, id: \.self) { _ in SkeletonRow() }
         } else if results.isEmpty && searchedFor == trimmed {
             VStack(alignment: .leading, spacing: 12) {
-                Text(liveFor == trimmed ? "Nothing found for \u{201C}\(trimmed)\u{201D}, even live" : "Nothing in Lucent's catalog for \u{201C}\(trimmed)\u{201D}")
+                Text(liveFor == trimmed ? "Nothing found for \u{201C}\(trimmed)\u{201D}, even live" : "Nothing in Dexora's catalog for \u{201C}\(trimmed)\u{201D}")
                     .font(.geist(16, .semibold))
                 Text("Try fewer words, the set name, or the card number (like\u{00A0}215/203).").font(.geist(14)).foregroundStyle(Theme.muted)
                 if liveFor != trimmed {

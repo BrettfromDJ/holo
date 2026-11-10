@@ -166,7 +166,7 @@ export default function LoginPage() {
           </form>
         )}
         <Link href="/" className="mt-10 inline-flex items-center gap-1 text-[14px] text-muted hover:text-foreground">
-          <ArrowLeft className="size-4" /> Back to Lucent
+          <ArrowLeft className="size-4" /> Back to Dexora
         </Link>
       </div>
       </div>
@@ -182,7 +182,7 @@ function ValueProps() {
     { icon: <ArrowLeftRight />, title: "Deals, made easier", line: "Add what's coming in and going out; the cash and your profit are worked out for you." },
   ];
   return (
-    <section aria-label="What Lucent does" className="w-full max-w-sm animate-rise lg:max-w-md">
+    <section aria-label="What Dexora does" className="w-full max-w-sm animate-rise lg:max-w-md">
       <h2 className="font-display text-[26px] font-semibold tracking-tight">Track what your cards are worth</h2>
       <ul className="mt-6 flex flex-col gap-3">
         {items.map((it) => (

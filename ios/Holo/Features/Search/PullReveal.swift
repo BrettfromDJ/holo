@@ -475,7 +475,7 @@ struct PullShareCard: View {
                 .frame(width: 220, height: identity?.isGraded == true ? 352 : 307)
             Text(product.name).font(.geist(18, .semibold)).foregroundStyle(.white).multilineTextAlignment(.center).lineLimit(2)
             Text(Format.money(value)).font(.display(40)).tracking(-1.4).monospacedDigit().foregroundStyle(Theme.lime)
-            Text("Lucent").font(.geist(12, .semibold)).tracking(1).foregroundStyle(.white.opacity(0.5))
+            Text("Dexora").font(.geist(12, .semibold)).tracking(1).foregroundStyle(.white.opacity(0.5))
         }
         .padding(24)
         .frame(width: 320)

@@ -86,7 +86,7 @@ final class Camera: NSObject, ObservableObject {
     private let lock = NSLock()
 
     /// True only while the scanner is on screen. The camera is never started, or restarted after
-    /// an interruption, unless the scanner wants it and Lucent is in front, so Lucent never holds
+    /// an interruption, unless the scanner wants it and Dexora is in front, so Dexora never holds
     /// the camera away from other apps (Apple's Camera included).
     private var wanted = false
     private var appObservers: [NSObjectProtocol] = []
@@ -136,7 +136,7 @@ final class Camera: NSObject, ObservableObject {
         waiter?.cont.resume(throwing: NoFrame())
     }
 
-    /// Let go of the camera the moment Lucent leaves the front; take it back on return only if
+    /// Let go of the camera the moment Dexora leaves the front; take it back on return only if
     /// the scanner is still open.
     private func watchApp() {
         guard appObservers.isEmpty else { return }
@@ -203,7 +203,7 @@ final class Camera: NSObject, ObservableObject {
         for name in [AVCaptureSession.interruptionEndedNotification, AVCaptureSession.runtimeErrorNotification] {
             sessionObservers.append(center.addObserver(forName: name, object: session, queue: nil) { [weak self] _ in
                 guard let self else { return }
-                // Only while the scanner is open and Lucent is in front: never fight another app
+                // Only while the scanner is open and Dexora is in front: never fight another app
                 // (or the system) for the camera.
                 DispatchQueue.main.async {
                     guard self.wanted, UIApplication.shared.applicationState == .active else { return }

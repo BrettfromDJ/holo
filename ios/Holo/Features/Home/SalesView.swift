@@ -85,7 +85,7 @@ struct SalesView: View {
     }
 
     private func export(_ lines: [SalesReport.Line], year: Int) -> some View {
-        let file = SalesFile(csv: SalesReport.csv(lines, products: store.products), name: "Lucent sales \(year)")
+        let file = SalesFile(csv: SalesReport.csv(lines, products: store.products), name: "Dexora sales \(year)")
         return ShareLink(item: file, preview: SharePreview(file.name)) {
             HStack(spacing: 8) {
                 Image(systemName: "square.and.arrow.up").font(.system(size: 16, weight: .semibold))

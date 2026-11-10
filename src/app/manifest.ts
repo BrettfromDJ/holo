@@ -1,10 +1,10 @@
 import type { MetadataRoute } from "next";
 
-/** Lets Holo be installed to the home screen and open full-screen like an app. */
+/** Lets Dexora be installed to the home screen and open full-screen like an app. */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Holo",
-    short_name: "Holo",
+    name: "Dexora",
+    short_name: "Dexora",
     description: "Track the value of your trading cards and sealed products.",
     start_url: "/",
     scope: "/",

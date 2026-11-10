@@ -1,14 +1,14 @@
 import SwiftUI
 import UIKit
 
-// The website's design language, in SwiftUI: Geist for text, (in Lucent, Geist too, sentence case) for
+// The website's design language, in SwiftUI: Geist for text, (in Dexora, Geist too, sentence case) for
 // headlines and big numbers, Geist Mono for small caps labels, lime accents, 3D buttons,
 // hairline-bordered surfaces and slanted tags.
 
 // MARK: - Type
 
 extension Font {
-    /// Headlines and big numbers. Lucent: Geist in sentence case, matching the glow cards
+    /// Headlines and big numbers. Dexora: Geist in sentence case, matching the glow cards
     /// (was Anton, tall condensed caps), SemiBold so big numbers have weight; sizes come down a
     /// fifth since Geist is wider than Anton.
     static func display(_ size: CGFloat) -> Font {

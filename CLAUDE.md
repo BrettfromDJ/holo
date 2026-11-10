@@ -1,4 +1,4 @@
-# Holo (the app is now called Lucent)
+# Holo (the app is now called Dexora)
 
 A TCG collection tracker (Pokémon first): a Next.js 15 website (`src/`, Supabase, deployed on
 Vercel) and a native SwiftUI iPhone app (`ios/`) on the same account and data.
@@ -44,7 +44,7 @@ and say exactly what to run or click.
   Color only numbers (gains green/lime, losses pink); text stays white or muted.
 - **No grey text.** Quiet text is white made partly see-through (`Theme.muted` = white 60%,
   `Theme.subtle` = white 42%), never a grey color.
-- **Lucent (app):** named Lucent, original Holo look everywhere (lime, grid and dot backdrops, glows,
+- **Dexora (app):** named Dexora, original Holo look everywhere (lime, grid and dot backdrops, glows,
   lime charts, the star card's electric border). Master Sets also uses the pieces in
   `Components/Glow.swift` (the set deck's `SetGlow`, the `GlowPie` dial, ring and ticks; no
   dot-matrix digits: numbers use `Font.display`). The iridescent and glow-card experiments were removed; don't bring them back.

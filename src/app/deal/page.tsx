@@ -182,7 +182,7 @@ export default function DealPage() {
     });
   const setPhotos = (next: string[]) => setDeal((cur) => ({ ...EMPTY, ...cur, photos: next }));
 
-  /** A scanned card: anything can come in; going out, one you don't hold is added as not in Holo. */
+  /** A scanned card: anything can come in; going out, one you don't hold is added as not in Dexora. */
   const addScan = (side: DealSide, pick: ScanPick): ScanOutcome => {
     const c = pick.candidate;
     const grade = pick.read?.grade ?? null;
@@ -1243,7 +1243,7 @@ function CustomerView({ open, onOpenChange, deal, rate, totals }: { open: boolea
           <div className="relative min-h-0 flex-1 overflow-y-auto px-5 pt-[72px] sm:px-6">
             <div ref={measure} className="mx-auto h-full max-w-[640px]">
               <div className="flex items-baseline justify-between">
-                <span className="font-display text-[20px] tracking-[-0.025em] text-[var(--lime)]">Lucent</span>
+                <span className="font-display text-[20px] tracking-[-0.025em] text-[var(--lime)]">Dexora</span>
                 <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-subtle">{new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
               </div>
               <h2 className="mt-3 truncate font-display text-[40px] leading-none tracking-[-0.035em] sm:text-[44px]">{CUSTOMER_TITLE[kind]}</h2>
