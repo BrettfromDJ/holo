@@ -552,6 +552,8 @@ struct ListDetailView: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(info.product?.name ?? "Loading…").font(.geist(14, .semibold)).foregroundStyle(.white).lineLimit(2)
                         Text(detail(info)).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
+                        // Owned or not, at a glance: the lime tag from the Owned sheet, or a quiet outline.
+                        if info.product != nil { ownedTag(info).padding(.top, 3) }
                     }
                     Spacer(minLength: 4)
                 }
@@ -594,13 +596,20 @@ struct ListDetailView: View {
     private func detail(_ info: ListItemInfo) -> String {
         var parts: [String] = []
         if let set = info.product?.setName { parts.append(set) }
-        if let label = info.copyLabel {
-            let n = Int(info.copies.reduce(0) { $0 + $1.quantity })
-            parts.append(n > 1 ? "\(label) ×\(n)" : label)
-        } else if info.product != nil {
-            parts.append("Not in your collection")
-        }
+        if let label = info.copyLabel { parts.append(label) }
         return parts.joined(separator: " · ")
+    }
+
+    @ViewBuilder private func ownedTag(_ info: ListItemInfo) -> some View {
+        let n = Int(info.copies.reduce(0) { $0 + $1.quantity })
+        if n > 0 {
+            SkewTag(text: "Owned" + (n > 1 ? " ×\(n)" : ""), icon: "checkmark")
+        } else {
+            Text("NOT OWNED").font(.geist(11, .bold)).italic().tracking(0.2).foregroundStyle(Theme.muted)
+                .padding(.leading, 8).padding(.trailing, 10).padding(.vertical, 3)
+                .background(Parallelogram(inset: 5).stroke(Color.white.opacity(0.22), lineWidth: 1))
+                .fixedSize()
+        }
     }
 
     private func run(_ work: @escaping () async throws -> Void) {
