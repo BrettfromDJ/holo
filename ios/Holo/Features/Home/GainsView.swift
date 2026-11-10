@@ -40,7 +40,7 @@ struct GainsView: View {
     /// Where it comes from: each product, set or type's share of the gain, as a waterfall.
     private func breakdown(_ a: Gains.Attribution) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            // The title with its note tight under it, the grouping menu beside the title.
+            // The title with its note under it (clear of the grouping menu), the menu beside the title.
             VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .center) {
                 MoreHeading(title: "Where it comes from", subtitle: nil)
