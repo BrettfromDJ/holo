@@ -150,6 +150,9 @@ struct AddPurchaseSheet: View {
                             HowYouGotIt(icon: "bag", title: "Bought", detail: "You paid for it", selected: !pulled) { pulled = false }
                             HowYouGotIt(icon: "sparkles", title: "Pulled", detail: "From a pack you opened", selected: pulled) { pulled = true }
                         }
+                        // A little in from the row's edges: the form clips each row to its own,
+                        // rounder corners, which shaved the selected card's outline.
+                        .padding(3)
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets())
                     } header: {
