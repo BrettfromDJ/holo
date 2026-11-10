@@ -28,6 +28,15 @@ describe("graded prices", () => {
     expect(sampleMultiple("p1", { company: "PSA", grade: "10" })).toBe(ten);
   });
 
+  it("keeps a PSA 10 above every other company's regular 10", () => {
+    for (const id of ["p1", "p2", "sv-rayquaza", "base-charizard", "x9"]) {
+      const at = (company: string) => sampleMultiple(id, { company, grade: "10" });
+      expect(at("PSA")).toBeGreaterThan(at("BGS"));
+      expect(at("BGS")).toBeGreaterThan(at("CGC"));
+      expect(at("CGC")).toBeGreaterThan(at("SGC"));
+    }
+  });
+
   // Demo products get sample graded prices; real ones are priced from eBay.
   const demoSlab: Transaction = { ...slab, productId: "sample:p1" };
   const demo = () => data({ transactions: [demoSlab], prices: { [priceKey("sample:p1", null)]: { ...raw, productId: "sample:p1" } }, history: { [priceKey("sample:p1", null)]: [{ date: "2026-10-01", price: 90 }] } });

@@ -66,6 +66,8 @@ enum WorthCalc {
     private static let gradeMultiple: [(Double, Double)] = [(10, 5.2), (9.5, 2.6), (9, 1.75), (8.5, 1.4), (8, 1.22), (7, 0.98), (6, 0.82), (5, 0.7), (0, 0.55)]
     /// How each company's slabs trade relative to PSA at the same grade.
     private static let companyFactor: [String: Double] = ["PSA": 1, "BGS": 1.05, "CGC": 0.72, "SGC": 0.7, "TAG": 0.66]
+    /// A BGS 10 against a PSA 10 (below 10, BGS trades a little over PSA). Same as the web.
+    private static let bgsTenFactor = 0.85
 
     /// PriceCharting gives one price for grades below 10 across every grading company. Those
     /// sales are mostly PSA, so the blend sits a little under PSA; this scales the blend to one
@@ -79,10 +81,11 @@ enum WorthCalc {
     static func multiple(productId: String, company: String, grade: String) -> Double {
         let n = Double(grade) ?? 0
         let c = company.uppercased()
-        var base = gradeMultiple.first { n >= $0.0 }?.1 ?? 0.55
-        if c == "BGS" && n >= 10 { base *= 1.8 }
-        let factor = companyFactor[c] ?? 0.7
-        let jitter = 0.82 + stableHash("\(productId)|\(c)|\(grade)") * 0.36
+        let base = gradeMultiple.first { n >= $0.0 }?.1 ?? 0.55
+        // A regular BGS 10 (gold label) trades under a PSA 10; a Black Label is rarer but isn't marked.
+        let factor = c == "BGS" && n >= 10 ? bgsTenFactor : (companyFactor[c] ?? 0.7)
+        // Every company shares PSA's nudge, so they always keep the same order.
+        let jitter = 0.82 + stableHash("\(productId)|PSA|\(grade)") * 0.36
         return max(0.4, base * factor * jitter)
     }
 

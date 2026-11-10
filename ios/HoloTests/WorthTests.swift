@@ -3,6 +3,15 @@ import XCTest
 
 /// What a raw copy is worth by condition (the website's src/lib/worth.test.ts, kept in step).
 final class WorthTests: XCTestCase {
+    func testPSATenStaysAboveOtherCompaniesTens() {
+        for id in ["p1", "p2", "sv-rayquaza", "base-charizard", "x9"] {
+            func at(_ c: String) -> Double { WorthCalc.multiple(productId: id, company: c, grade: "10") }
+            XCTAssertGreaterThan(at("PSA"), at("BGS"))
+            XCTAssertGreaterThan(at("BGS"), at("CGC"))
+            XCTAssertGreaterThan(at("CGC"), at("SGC"))
+        }
+    }
+
     func testNearMintIsMarketAndOthersAreEstimates() {
         XCTAssertEqual(WorthCalc.raw(nm: 100, condition: .nearMint, ebay: nil, conditions: [], printing: nil).price, 100)
         let lp = WorthCalc.raw(nm: 100, condition: .lightlyPlayed, ebay: nil, conditions: [], printing: nil)

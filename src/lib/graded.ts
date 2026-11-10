@@ -62,6 +62,8 @@ const GRADE_MULTIPLE: [number, number][] = [
 
 /** How each company's slabs trade relative to PSA at the same grade. */
 const COMPANY_FACTOR: Record<string, number> = { PSA: 1, BGS: 1.05, CGC: 0.72, SGC: 0.7, TAG: 0.66 };
+/** A BGS 10 against a PSA 10 (below 10, BGS trades a little over PSA). */
+const BGS_TEN_FACTOR = 0.85;
 
 /**
  * PriceCharting's prices below 10 mix every company (mostly PSA, which trade a little above the
@@ -83,12 +85,12 @@ function hash(s: string): number {
 export function sampleMultiple(productId: string, grade: Grade): number {
   const n = Number.parseFloat(grade.grade);
   const company = grade.company.toUpperCase();
-  let base = GRADE_MULTIPLE.find(([g]) => (Number.isFinite(n) ? n : 0) >= g)?.[1] ?? 0.55;
-  // A BGS 10 (Black Label) is rarer than a PSA 10.
-  if (company === "BGS" && n >= 10) base *= 1.8;
-  const factor = COMPANY_FACTOR[company] ?? 0.7;
-  // ±18% per product, so premiums differ from card to card.
-  const jitter = 0.82 + hash(`${productId}|${company}|${grade.grade}`) * 0.36;
+  const base = GRADE_MULTIPLE.find(([g]) => (Number.isFinite(n) ? n : 0) >= g)?.[1] ?? 0.55;
+  // A regular BGS 10 (gold label) trades under a PSA 10; a Black Label is rarer but isn't marked.
+  const factor = company === "BGS" && n >= 10 ? BGS_TEN_FACTOR : (COMPANY_FACTOR[company] ?? 0.7);
+  // ±18% per product and grade, so premiums differ from card to card. Every company shares PSA's
+  // nudge, so the companies always keep the same order (PSA 10 above BGS 10 above CGC and SGC).
+  const jitter = 0.82 + hash(`${productId}|PSA|${grade.grade}`) * 0.36;
   return Math.max(0.4, base * factor * jitter);
 }
 
