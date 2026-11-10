@@ -1311,8 +1311,8 @@ struct SectionNote: View {
     var body: some View { Text(text).font(.geist(12)).foregroundStyle(Theme.subtle).textCase(nil) }
 }
 
-/// The app's switch: lime with a dark knob when on (a white knob would vanish into the lime),
-/// a dim track with a white knob when off.
+/// The app's switch: a white knob with a soft drop shadow so it stands off the track, on lime
+/// when on and a dim track when off.
 struct LimeToggleStyle: ToggleStyle {
     func makeBody(configuration: Configuration) -> some View {
         HStack(spacing: 12) {
@@ -1323,9 +1323,9 @@ struct LimeToggleStyle: ToggleStyle {
                     .fill(configuration.isOn ? Theme.lime : Color.white.opacity(0.16))
                     .frame(width: 51, height: 31)
                 Circle()
-                    .fill(configuration.isOn ? Theme.ink : .white)
+                    .fill(.white)
                     .frame(width: 27, height: 27)
-                    .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
+                    .shadow(color: .black.opacity(0.35), radius: 3, y: 1.5)
                     .padding(2)
             }
             .animation(.snappy(duration: 0.2), value: configuration.isOn)
