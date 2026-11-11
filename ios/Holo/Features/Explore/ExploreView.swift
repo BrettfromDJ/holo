@@ -599,6 +599,7 @@ private struct SetHero: View {
                 .aspectRatio(3.0 / 2.0, contentMode: .fit)
                 .overlay { CachedImage(url: banner) { img in img.resizable().scaledToFill() } placeholder: { Theme.well } }
                 .overlay { SetLogoOverlay(url: set.logoUrl) }
+                .environment(\.imageFadesIn, false)
                 .clipShape(shape)
                 // Glow first, then the spinning border, so the glow isn't redrawn every frame.
                 .shadow(color: Theme.lime.opacity(0.22), radius: 22)
@@ -1139,6 +1140,8 @@ struct SetArt: View {
                     .overlay { SetLogoOverlay(url: set.logoUrl) }
             }
         }
+        .environment(\.imageFadesIn, false)
+        .transaction { $0.animation = nil }
     }
 }
 

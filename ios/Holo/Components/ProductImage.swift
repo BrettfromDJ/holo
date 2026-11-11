@@ -43,6 +43,15 @@ struct ProductImage: View {
 }
 
 private struct QuietPlaceholderKey: EnvironmentKey { static let defaultValue = false }
+private struct ImageFadesInKey: EnvironmentKey { static let defaultValue = true }
+
+extension EnvironmentValues {
+    /// Off for set artwork: it appears in place as it arrives, never fading or sliding in.
+    var imageFadesIn: Bool {
+        get { self[ImageFadesInKey.self] }
+        set { self[ImageFadesInKey.self] = newValue }
+    }
+}
 
 extension EnvironmentValues {
     /// Missing pictures show a small faint mark instead of the lime line-art outline.
@@ -64,6 +73,7 @@ struct CachedImage<Content: View, Placeholder: View>: View {
     /// Tried after `fallback`, in turn.
     var fallbacks: [URL] = []
     @ViewBuilder var content: (Image) -> Content
+    @Environment(\.imageFadesIn) private var fadesIn
     @ViewBuilder var placeholder: () -> Placeholder
     /// Long lists set this (`.imageMaxPixel(…)`) so pictures are shrunk to thumbnail size off the
     /// main thread instead of decoding full-size photos while you scroll.
@@ -91,7 +101,7 @@ struct CachedImage<Content: View, Placeholder: View>: View {
             // While a large version loads, show any copy of the usual picture already here.
             if let image = (imageURL == url ? image : nil) ?? url.flatMap({ ImageCache.shared.cached($0, maxPixel: maxPixel) ?? ImageCache.shared.cached($0) })
                 ?? ([fallback].compactMap { $0 } + fallbacks).lazy.compactMap({ ImageCache.shared.anyCached($0) }).first {
-                content(Image(uiImage: image)).transition(.opacity)
+                content(Image(uiImage: image)).transition(fadesIn ? .opacity : .identity)
             } else if url == nil || failed {
                 placeholder()
             } else {
@@ -123,7 +133,13 @@ struct CachedImage<Content: View, Placeholder: View>: View {
             // Handed another address while this one loaded: leave it to that load.
             guard imageURL == url, !Task.isCancelled else { return }
             if let loaded {
-                withAnimation(.easeOut(duration: 0.3)) { image = loaded }
+                if fadesIn {
+                    withAnimation(.easeOut(duration: 0.3)) { image = loaded }
+                } else {
+                    // Set art: appears in place, with no animation at all.
+                    var t = Transaction(); t.disablesAnimations = true
+                    withTransaction(t) { image = loaded }
+                }
             } else {
                 failed = true
             }
