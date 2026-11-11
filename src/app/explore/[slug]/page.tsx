@@ -112,6 +112,17 @@ export default function ExploreSetPage() {
             </div>
           </header>
 
+          {products.length === 0 ? (
+            <div className="mt-8 rounded-[var(--radius-card)] border border-border bg-surface p-5">
+              <p className="text-[16px] font-semibold">Cards for this set are on the way</p>
+              <p className="mt-1 text-[14px] text-muted">
+                {(state.set.releaseDate ?? "") > new Date().toISOString().slice(0, 10)
+                  ? "Its cards and sealed products show up here once the set is out."
+                  : "The catalog adds a few sets each day. Check back soon."}
+              </p>
+            </div>
+          ) : (
+          <>
           <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-20 -mx-4 mt-6 flex flex-wrap items-center justify-between gap-3 bg-background/90 px-4 py-3 backdrop-blur-xl sm:-mx-8 sm:px-8 lg:top-0">
             <Segmented
               ariaLabel="Product type"
@@ -148,6 +159,8 @@ export default function ExploreSetPage() {
             </FlipGrid>
           ) : (
             <p className="py-20 text-center text-[14px] text-muted">No {tab === "single" ? "singles" : "sealed products"} in this set.</p>
+          )}
+          </>
           )}
         </>
       )}

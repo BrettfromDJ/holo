@@ -6,17 +6,13 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { logoTone, SetTile, useExploreIndex } from "@/components/explore/explore-items";
-import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-
-type Show = "all" | "loaded";
 
 /** One brand's sets, newest first, grouped by release year. */
 export default function ExploreGamePage() {
   const { game: slug } = useParams<{ game: string }>();
   const index = useExploreIndex();
-  const [show, setShow] = useState<Show>("all");
   const [query, setQuery] = useState("");
 
   const game = index.status === "ready" ? index.games.find((g) => g.slug === slug) : undefined;
@@ -25,14 +21,14 @@ export default function ExploreGamePage() {
     // Every word typed appears in the set's name (any case, accents ignored).
     const fold = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     const words = fold(query).split(/\s+/).filter(Boolean);
-    const sets = index.sets.filter((s) => s.gameSlug === slug && (show === "all" || s.loaded) && words.every((w) => fold(s.name).includes(w)));
+    const sets = index.sets.filter((s) => s.gameSlug === slug && words.every((w) => fold(s.name).includes(w)));
     const groups = new Map<string, typeof sets>();
     for (const s of sets) {
       const y = s.releaseDate?.slice(0, 4) ?? "Undated";
       groups.set(y, [...(groups.get(y) ?? []), s]);
     }
     return [...groups.entries()].sort(([a], [b]) => (a === "Undated" ? 1 : b === "Undated" ? -1 : b.localeCompare(a)));
-  }, [index, slug, show, query]);
+  }, [index, slug, query]);
 
   return (
     <div className="animate-fade-in">
@@ -61,20 +57,10 @@ export default function ExploreGamePage() {
               <div>
                 <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.02em]">{game.name}</h1>
                 <p className="tabular mt-0.5 text-[13px] text-muted">
-                  {game.sets} sets · {game.loadedSets} loaded
+                  {game.sets} sets
                 </p>
               </div>
             </div>
-            <Segmented
-              ariaLabel="Show"
-              size="sm"
-              value={show}
-              onChange={setShow}
-              options={[
-                { value: "all", label: "All sets" },
-                { value: "loaded", label: "Loaded" },
-              ]}
-            />
           </header>
 
           <label className="mt-8 flex h-11 items-center gap-2.5 rounded-full border border-border bg-surface-2 px-4 focus-within:border-[var(--border-strong)]">

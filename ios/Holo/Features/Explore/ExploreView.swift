@@ -174,7 +174,6 @@ struct ReleaseRow: View {
 private struct BrandView: View {
     var game: ExploreGame
     var sets: [ExploreSet]
-    @State private var loadedOnly = false
     @State private var query = ""
     @FocusState private var searchFocused: Bool
 
@@ -186,7 +185,7 @@ private struct BrandView: View {
     }
 
     private var years: [(year: String, sets: [ExploreSet])] {
-        let shown = (loadedOnly ? sets.filter(\.loaded) : sets).filter(matches)
+        let shown = sets.filter(matches)
         let grouped = Dictionary(grouping: shown) { $0.releaseDate.map { String($0.prefix(4)) } ?? "Undated" }
         return grouped.keys
             .sorted { a, b in a == "Undated" ? false : (b == "Undated" ? true : a > b) }
@@ -204,10 +203,7 @@ private struct BrandView: View {
             VStack(alignment: .leading, spacing: 36) {
                 hero
                 VStack(alignment: .leading, spacing: 30) {
-                    VStack(alignment: .leading, spacing: 14) {
-                        HoloSearchField(text: $query, prompt: "Search \(game.name) sets", focus: $searchFocused)
-                        ChipPicker(options: [(false, "All sets"), (true, "Loaded")], selection: $loadedOnly)
-                    }
+                    HoloSearchField(text: $query, prompt: "Search \(game.name) sets", focus: $searchFocused)
                     let years = self.years
                     if years.isEmpty && !query.isEmpty {
                         Text("No sets match \u{201C}\(query)\u{201D}.").font(.geist(14)).foregroundStyle(Theme.muted)
@@ -256,7 +252,6 @@ private struct BrandView: View {
             }
             HStack(spacing: 8) {
                 StatTile(label: "Sets", value: Double(game.sets))
-                StatTile(label: "Loaded", value: Double(game.loadedSets))
                 StatTile(label: "Cards", value: Double(game.cardCount ?? 0))
             }
             if let next { NextRelease(set: next) }
@@ -369,11 +364,11 @@ private struct SetView: View {
 
     private var emptyNote: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(failed ? "Couldn't load this set" : "Not in the catalog yet").font(.geist(16, .semibold))
+            Text(failed ? "Couldn't load this set" : "Cards for this set are on the way").font(.geist(16, .semibold))
             Text(failed ? "Check your connection and try again."
                  : (info.releaseDate ?? "") >= Format.day()
                  ? "Its cards and sealed products show up here once the set is out."
-                 : "The catalog fills in a few sets a day. Check back soon.")
+                 : "The catalog adds a few sets each day. Check back soon.")
                 .font(.geist(14)).foregroundStyle(Theme.muted)
         }
         .padding(18)

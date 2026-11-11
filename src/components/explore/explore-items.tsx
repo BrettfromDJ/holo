@@ -134,20 +134,19 @@ export function SetTile({ set }: { set: ExploreSet }) {
           {isNew(set.releaseDate) && <span className="mt-px shrink-0 rounded bg-[var(--cat-1)]/20 px-1.5 py-px text-[10px] font-medium font-mono uppercase tracking-[0.06em] text-[var(--cat-1)]">New</span>}
         </p>
         <p className="tabular mt-0.5 truncate text-[12px] text-subtle">
-          {[set.releaseDate ? formatDate(set.releaseDate) : null, set.loaded ? `${set.productCount ?? 0} products` : "Loading soon"].filter(Boolean).join(" · ")}
+          {[set.releaseDate ? formatDate(set.releaseDate) : null, set.loaded ? `${set.productCount ?? 0} products` : null].filter(Boolean).join(" · ")}
         </p>
       </div>
     </>
   );
-  const cls = "group flex flex-col overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface";
-  return set.loaded ? (
-    <Link href={`/explore/${encodeURIComponent(set.slug)}`} className={cn(cls, "transition-colors hover:border-border-strong")}>
+  // Every set opens; one whose cards aren't in the catalog yet says so on its page.
+  return (
+    <Link
+      href={`/explore/${encodeURIComponent(set.slug)}`}
+      className="group flex flex-col overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface transition-colors hover:border-border-strong"
+    >
       {body}
     </Link>
-  ) : (
-    <div className={cn(cls, "opacity-45")} title="This set loads in an upcoming daily catalog sync.">
-      {body}
-    </div>
   );
 }
 
