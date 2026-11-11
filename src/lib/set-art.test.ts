@@ -28,6 +28,21 @@ describe("set artwork", () => {
     expect(slugOf("SV: Prismatic Evolutions")).toBe("prismatic-evolutions-pre");
   });
 
+  it("matches Japanese sets by their code, then by name", () => {
+    const ja = (name: string, abbreviation?: string) => setArtFor({ gameName: "Pokemon Japan", name, abbreviation })?.background.split("/")[3] ?? null;
+    expect(setArtFor({ gameName: "Pokemon Japan", name: "M2a: MEGA Dream ex" })?.background).toBe("/sets/pokemon-japan/mega-dream-m2a/background.webp");
+    expect(ja("MEGA Dream ex")).toBe("mega-dream-m2a");
+    expect(ja("SV2a: Pokemon Card 151")).toBe("pokemon-card-151-japanese-sv2a");
+    expect(ja("SV11B: Black Bolt")).toBe("black-bolt-japanese-sv11b");
+    expect(ja("S8a: 25th Anniversary Collection")).toBe("25th-anniversary-collection-s8a");
+    expect(ja("SV4a: Shiny Treasure ex")).toBe("shiny-treasure-ex-sv4a");
+    expect(ja("S12a: VSTAR Universe")).toBe("vstar-universe-s12a");
+    expect(ja("Eevee Heroes", "S6a")).toBe("eevee-heroes-s6a");
+    // A code several decks share falls back to the name.
+    expect(ja("BW5: Dragon Blade")).toBe("dragon-blade-bw5");
+    expect(ja("BW5: Dragon Blast")).toBe("dragon-blast-bw5");
+  });
+
   it("leaves other games and unknown sets to the catalog's own art", () => {
     expect(slugOf("Crown Zenith", "Pokemon Japan")).toBeNull();
     expect(slugOf("Crown Zenith", "Magic: The Gathering")).toBeNull();

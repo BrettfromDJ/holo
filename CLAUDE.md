@@ -149,8 +149,8 @@ and say exactly what to run or click.
   `shelves` / `portfolios` tables. Screenshot pages: `-HoloPage analytics|gains|grading|master-sets|activity` (plus `-HoloMasterSet`,
   `-HoloBumper`, `-HoloPull`, `-HoloWhatIf`, `-HoloScan`, `-HoloDealCustomer`, `-HoloOnboarding`). Slab certs and bumpers: `user_state` `slab-certs`,
   `slab-bumpers`, `slab-pristine` (CGC Pristine 10 marks, a list of holding keys; in `GradingStore`).
-- Set art: our own art for English Pokémon sets in `public/sets/pokemon/<slug>/` (background,
-  logo, symbol; list in `src/lib/set-art-manifest.json`), matched by name in `src/lib/set-art.ts`
+- Set art: our own art for Pokémon sets in `public/sets/pokemon/<slug>/` and `public/sets/pokemon-japan/<slug>/` (background,
+  logo, symbol; lists in `src/lib/set-art-manifest.json` / `-ja.json`), matched in `src/lib/set-art.ts` (Japanese by set code first)
   and sent by `/api/explore` as `iconUrl` (banner) + `logoUrl`; TCG API's art is the fallback.
   New sets: add a folder and a manifest entry.
 - Not in the app on purpose: the separate trade checker (the Deal tab covers trades).

@@ -12,12 +12,12 @@ import { setArtFor } from "../set-art";
 export const EXPLORE_CACHE = "public, s-maxage=600, stale-while-revalidate=3600";
 
 /**
- * A stored set as Explore sends it. English Pokémon sets with our own artwork use it: the
+ * A stored set as Explore sends it. Pokémon sets (English and Japanese) with our own artwork use it: the
  * background as the banner (`iconUrl`), with its logo and symbol; others keep TCG API's art.
  * `origin` makes our art's addresses absolute, for the app.
  */
 export function setFromRow(r: CatalogSetRow, origin = ""): ExploreSet {
-  const art = setArtFor({ gameName: r.game_name, name: r.name });
+  const art = setArtFor({ gameName: r.game_name, name: r.name, abbreviation: r.abbreviation });
   return {
     slug: r.slug,
     gameSlug: r.game_slug,
