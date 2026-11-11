@@ -56,27 +56,43 @@ private struct ScanPanel: View {
 
     private var entry: ScanModel.Entry? { model.entries.first { $0.id == id } }
     private var inDeal: Bool { model.onPick != nil }
+    @FocusState private var paidFocused: Bool
 
     var body: some View {
         if let entry, let c = entry.picked {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("This scan").font(.geist(13, .semibold)).foregroundStyle(.white)
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(alignment: .center) {
+                    MonoLabel(text: "This scan")
                     Spacer()
                     HStack(spacing: 6) {
                         if let g = entry.result?.read?.grade { Tag(text: "\(g.company) \(g.grade)", tint: Theme.lime) }
                         let owned = store.allHoldings.filter { $0.identity.productId == c.product.id }.reduce(0) { $0 + $1.quantity }
-                        if owned > 0 { Tag(text: "Owned ×\(Int(owned))", tint: Theme.lime) }
+                        if owned > 0 { SkewTag(text: "Owned ×\(Int(owned))", icon: "checkmark") }
                     }
                 }
-                HStack(alignment: .center, spacing: 14) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(Format.money(entry.value)).font(.display(30)).tracking(-0.9).padding(.trailing, 0.9).monospacedDigit().foregroundStyle(.white)
+                // Worth and what you paid, side by side in matching tiles.
+                HStack(alignment: .top, spacing: 10) {
+                    tile("Worth") {
+                        Text(Format.money(entry.value)).font(.display(26)).tracking(-0.8).monospacedDigit().foregroundStyle(.white)
+                            .lineLimit(1).minimumScaleFactor(0.7)
                             .contentTransition(.numericText())
                             .animation(.snappy(duration: 0.25), value: entry.value)
-                        Text(entry.priceNote ?? "No price yet").font(.geist(12)).foregroundStyle(.white).lineLimit(2)
+                        Text(entry.priceNote ?? "No price yet").font(.geist(11)).foregroundStyle(Theme.muted).lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    Spacer(minLength: 0)
+                    if !inDeal {
+                        tile("You paid") {
+                            // The price shows in white when nothing is typed (it's what a blank means).
+                            TextField("", text: Binding(get: { entry.paid }, set: { model.setPaid(id, $0) }),
+                                      prompt: Text(Format.money(entry.value ?? 0)).foregroundColor(.white))
+                                .keyboardType(.decimalPad)
+                                .font(.display(26)).tracking(-0.8).monospacedDigit().foregroundStyle(.white)
+                                .focused($paidFocused)
+                            Text("Tap to change").font(.geist(11)).foregroundStyle(Theme.muted)
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture { paidFocused = true }
+                    }
                 }
                 if !inDeal {
                     if let printings = c.product.printings, printings.count > 1 {
@@ -89,37 +105,15 @@ private struct ScanPanel: View {
                     if !c.product.isSealed, !entry.isSlab {
                         labelled("Condition") {
                             ChipPicker(options: CardCondition.allCases.map { ($0.rawValue, $0.short) },
-                                       selection: Binding(get: { entry.condition }, set: { model.setCondition(id, $0) }))
+                                       selection: Binding(get: { entry.condition }, set: { model.setCondition(id, $0) }),
+                                       fills: true)
                         }
-                    }
-                    HStack(spacing: 12) {
-                        Text("Paid").font(.geist(13, .semibold)).foregroundStyle(.white)
-                        Spacer()
-                        // The price shows in white when nothing is typed (it's what a blank means).
-                        TextField("", text: Binding(get: { entry.paid }, set: { model.setPaid(id, $0) }),
-                                  prompt: Text(Format.money(entry.value ?? 0)).foregroundColor(.white))
-                            .keyboardType(.decimalPad)
-                            .multilineTextAlignment(.trailing)
-                            .font(.geist(16, .semibold)).monospacedDigit().foregroundStyle(.white)
-                            .frame(width: 110)
-                            .padding(.horizontal, 12).frame(height: 40)
-                            .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
                 }
+                // Two equal ways out: search for the right card, or drop this scan.
                 HStack(spacing: 10) {
-                    pill("Wrong card?", icon: "magnifyingglass", action: onWrong)
-                    Spacer()
-                    Button(action: onRemove) {
-                        HStack(spacing: 7) {
-                            Image(systemName: "trash.fill").font(.system(size: 13, weight: .semibold))
-                            Text("Remove").font(.geist(14, .semibold))
-                        }
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 14).frame(height: 40)
-                        .background(Theme.planPink, in: Capsule())
-                        .contentShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
+                    action("Wrong card?", icon: "magnifyingglass", iconColor: .white, fill: Color.white.opacity(0.1), run: onWrong)
+                    action("Remove", icon: "trash", iconColor: Theme.planPink, fill: Theme.planPink.opacity(0.14), run: onRemove)
                 }
             }
             .padding(16)
@@ -135,15 +129,27 @@ private struct ScanPanel: View {
         }
     }
 
-    private func pill(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+    private func tile<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            MonoLabel(text: label)
+            content()
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, minHeight: 104, alignment: .topLeading)
+        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func action(_ title: String, icon: String, iconColor: Color, fill: Color, run: @escaping () -> Void) -> some View {
+        Button {
+            Haptics.tap()
+            run()
+        } label: {
             HStack(spacing: 7) {
-                Image(systemName: icon).font(.system(size: 13, weight: .semibold))
-                Text(title).font(.geist(14, .semibold))
+                Image(systemName: icon).font(.system(size: 13, weight: .semibold)).foregroundStyle(iconColor)
+                Text(title).font(.geist(14, .semibold)).foregroundStyle(.white)
             }
-            .foregroundStyle(.white)
-            .padding(.horizontal, 14).frame(height: 40)
-            .background(Color.white.opacity(0.12), in: Capsule())
+            .frame(maxWidth: .infinity).frame(height: 44)
+            .background(fill, in: Capsule())
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
