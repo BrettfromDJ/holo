@@ -6,7 +6,7 @@ import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ProductTile, useOwnedIds } from "@/components/explore/explore-items";
+import { ProductTile, SetLogo, useOwnedIds } from "@/components/explore/explore-items";
 import { Segmented } from "@/components/ui/segmented";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -87,7 +87,10 @@ export default function ExploreSetPage() {
         <>
           <header className="flex flex-col gap-5 sm:flex-row sm:items-center">
             {state.set.iconUrl ? (
-              <img src={state.set.iconUrl} alt="" className="aspect-[3/2] w-full shrink-0 rounded-2xl object-cover shadow-xl shadow-black/40 sm:w-56" />
+              <div className="relative aspect-[3/2] w-full shrink-0 sm:w-56">
+                <img src={state.set.iconUrl} alt="" className="h-full w-full rounded-2xl object-cover shadow-xl shadow-black/40" />
+                <SetLogo url={state.set.logoUrl} />
+              </div>
             ) : state.set.imageUrl ? (
               <div className="flex h-28 w-full shrink-0 items-center justify-center rounded-2xl bg-image-well p-3 sm:w-40">
                 <img src={state.set.imageUrl} alt="" className="max-h-full max-w-full object-contain" />

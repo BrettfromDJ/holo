@@ -14,12 +14,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   if (!set) return NextResponse.json({ error: { message: "Set not found." } }, { status: 404 });
   // Prices more than a day old: refresh this set after answering, so the next look is current.
   after(() => refreshSetIfStale(admin, set).catch(() => {}));
-  if (new URL(req.url).searchParams.get("meta")) return NextResponse.json({ set: setFromRow(set) }, { headers: { "cache-control": EXPLORE_CACHE } });
+  if (new URL(req.url).searchParams.get("meta")) return NextResponse.json({ set: setFromRow(set, new URL(req.url).origin) }, { headers: { "cache-control": EXPLORE_CACHE } });
   let rows: ProductRow[];
   try {
     rows = await selectAll<ProductRow>((from, to) => admin.from("products").select("*").eq("set_id", slug).order("id").range(from, to), 10_000);
   } catch (e) {
     return NextResponse.json({ error: { message: (e as Error).message } }, { status: 500 });
   }
-  return NextResponse.json({ set: setFromRow(set), products: await withPrices(admin, rows) }, { headers: { "cache-control": EXPLORE_CACHE } });
+  return NextResponse.json({ set: setFromRow(set, new URL(req.url).origin), products: await withPrices(admin, rows) }, { headers: { "cache-control": EXPLORE_CACHE } });
 }

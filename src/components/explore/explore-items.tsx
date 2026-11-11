@@ -79,11 +79,27 @@ export function GameTile({ game }: { game: ExploreGame }) {
  * A set's banner art filling its frame (the app's SetArt): the banner cropped to fill, else a
  * sample product fitted inside, else just a mark (the name is shown beside it). The parent sizes it.
  */
-export function SetArt({ set, className }: { set: Pick<ExploreSet, "iconUrl" | "imageUrl">; className?: string }) {
+/** Our own set logo, centred over the set's background art (English Pokémon sets). */
+export function SetLogo({ url, className }: { url: string | null | undefined; className?: string }) {
+  if (!url) return null;
+  return (
+    <img
+      src={url}
+      alt=""
+      loading="lazy"
+      className={cn("pointer-events-none absolute inset-0 m-auto max-h-[62%] max-w-[74%] object-contain drop-shadow-[0_6px_14px_rgba(0,0,0,0.55)]", className)}
+    />
+  );
+}
+
+export function SetArt({ set, className }: { set: Pick<ExploreSet, "iconUrl" | "imageUrl" | "logoUrl">; className?: string }) {
   return (
     <div className={cn("relative flex items-center justify-center overflow-hidden bg-image-well", className)}>
       {set.iconUrl ? (
-        <img src={set.iconUrl} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-[var(--ease-apple)] group-hover:scale-[1.03]" />
+        <>
+          <img src={set.iconUrl} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-[var(--ease-apple)] group-hover:scale-[1.03]" />
+          <SetLogo url={set.logoUrl} />
+        </>
       ) : set.imageUrl ? (
         <img src={set.imageUrl} alt="" loading="lazy" className="absolute inset-3 h-[calc(100%-1.5rem)] w-[calc(100%-1.5rem)] object-contain transition-transform duration-500 ease-[var(--ease-apple)] group-hover:scale-[1.03]" />
       ) : (
@@ -101,7 +117,10 @@ export function SetTile({ set }: { set: ExploreSet }) {
       <div className="relative aspect-[3/2] overflow-hidden">
         <div className="absolute inset-4 flex items-center justify-center sm:inset-5">
           {set.iconUrl ? (
-            <img src={set.iconUrl} alt="" loading="lazy" className="h-full w-full rounded-lg object-cover shadow-lg shadow-black/40 transition-transform duration-500 ease-[var(--ease-apple)] group-hover:scale-[1.03]" />
+            <div className="relative h-full w-full transition-transform duration-500 ease-[var(--ease-apple)] group-hover:scale-[1.03]">
+              <img src={set.iconUrl} alt="" loading="lazy" className="h-full w-full rounded-lg object-cover shadow-lg shadow-black/40" />
+              <SetLogo url={set.logoUrl} />
+            </div>
           ) : set.imageUrl ? (
             <img src={set.imageUrl} alt="" loading="lazy" className="h-full w-full object-contain drop-shadow-[0_8px_16px_rgba(0,0,0,0.45)] transition-transform duration-500 ease-[var(--ease-apple)] group-hover:scale-[1.03]" />
           ) : (

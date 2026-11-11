@@ -500,6 +500,9 @@ struct ExploreSet: Codable, Identifiable, Hashable {
     var releaseDate: String?
     var imageUrl: String?
     var iconUrl: String?
+    /// Our own art for English Pokémon sets: the logo drawn over the banner, and the set's symbol.
+    var logoUrl: String?
+    var symbolUrl: String?
     var productCount: Int?
     /// False until the daily catalog sync has loaded this set's products.
     var loaded: Bool

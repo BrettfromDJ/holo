@@ -329,6 +329,7 @@ struct SetBannerRow: View {
     @ViewBuilder private var art: some View {
         if let banner = row.art?.iconUrl.flatMap(URL.init(string:)) {
             CachedImage(url: banner) { img in img.resizable().scaledToFill() } placeholder: { Color.clear }
+                .overlay { SetLogoOverlay(url: row.art?.logoUrl) }
         } else if catalogReady, let cover = row.holdings.max(by: { ($0.value ?? 0) < ($1.value ?? 0) }) {
             // No banner (a demo set, or one the catalog lacks): your best card from it, tilted.
             HoldingArt(product: cover.product, identity: cover.identity, cornerRadius: 5, caption: false)

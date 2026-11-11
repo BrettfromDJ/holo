@@ -6,11 +6,18 @@ import type { Product } from "../types";
 import type { CatalogSetRow, Database, ProductRow } from "../supabase/database.types";
 import { productFromRow } from "../supabase/mappers";
 import { selectAll } from "./paging";
+import { setArtFor } from "../set-art";
 
 /** Browsing is read from Supabase only — never from the TCG API. Cached at the CDN for ten minutes. */
 export const EXPLORE_CACHE = "public, s-maxage=600, stale-while-revalidate=3600";
 
-export function setFromRow(r: CatalogSetRow): ExploreSet {
+/**
+ * A stored set as Explore sends it. English Pokémon sets with our own artwork use it: the
+ * background as the banner (`iconUrl`), with its logo and symbol; others keep TCG API's art.
+ * `origin` makes our art's addresses absolute, for the app.
+ */
+export function setFromRow(r: CatalogSetRow, origin = ""): ExploreSet {
+  const art = setArtFor({ gameName: r.game_name, name: r.name });
   return {
     slug: r.slug,
     gameSlug: r.game_slug,
@@ -18,7 +25,9 @@ export function setFromRow(r: CatalogSetRow): ExploreSet {
     name: r.name,
     releaseDate: r.release_date,
     imageUrl: r.image_url,
-    iconUrl: r.icon_url,
+    iconUrl: art ? origin + art.background : r.icon_url,
+    logoUrl: art ? origin + art.logo : null,
+    symbolUrl: art?.symbol ? origin + art.symbol : null,
     productCount: r.product_count,
     loaded: Boolean(r.products_synced_at),
     syncedAt: r.products_synced_at,

@@ -7,7 +7,11 @@ export interface ExploreSet {
   name: string;
   releaseDate: string | null;
   imageUrl: string | null;
+  /** The set's banner: our own background art for English Pokémon sets, else TCG API's. */
   iconUrl: string | null;
+  /** Our own art only: the set's logo (drawn over the banner) and its symbol. */
+  logoUrl?: string | null;
+  symbolUrl?: string | null;
   productCount: number | null;
   /** False until the daily catalog sync has loaded this set's products. */
   loaded: boolean;

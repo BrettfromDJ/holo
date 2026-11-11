@@ -1,0 +1,1106 @@
+[
+{
+"slug": "30th-celebration-30c",
+"name": "30th Celebration",
+"code": "30C",
+"symbol": false
+},
+{
+"slug": "30th-celebration-classic-collection",
+"name": "30th Celebration Classic Collection",
+"code": null,
+"symbol": false
+},
+{
+"slug": "alternate-art-promos-pr",
+"name": "Alternate Art Promos",
+"code": "PR",
+"symbol": true
+},
+{
+"slug": "ancient-origins-aor",
+"name": "Ancient Origins",
+"code": "AOR",
+"symbol": true
+},
+{
+"slug": "aquapolis-aq",
+"name": "Aquapolis",
+"code": "AQ",
+"symbol": true
+},
+{
+"slug": "arceus-ar",
+"name": "Arceus",
+"code": "AR",
+"symbol": true
+},
+{
+"slug": "ascended-heroes-asc",
+"name": "Ascended Heroes",
+"code": "ASC",
+"symbol": false
+},
+{
+"slug": "astral-radiance-swsh10",
+"name": "Astral Radiance",
+"code": "SWSH10",
+"symbol": true
+},
+{
+"slug": "breakpoint-bkp",
+"name": "BREAKpoint",
+"code": "BKP",
+"symbol": true
+},
+{
+"slug": "breakthrough-bkt",
+"name": "BREAKthrough",
+"code": "BKT",
+"symbol": true
+},
+{
+"slug": "base-set-1st-edition-bss",
+"name": "Base Set 1st Edition",
+"code": "BSS",
+"symbol": false
+},
+{
+"slug": "base-set-2-bs2",
+"name": "Base Set 2",
+"code": "BS2",
+"symbol": true
+},
+{
+"slug": "base-set-shadowless-bss",
+"name": "Base Set Shadowless",
+"code": "BSS",
+"symbol": false
+},
+{
+"slug": "base-set-unlimited-bs",
+"name": "Base Set Unlimited",
+"code": "BS",
+"symbol": false
+},
+{
+"slug": "battle-styles-swsh05",
+"name": "Battle Styles",
+"code": "SWSH05",
+"symbol": true
+},
+{
+"slug": "black-bolt-blk",
+"name": "Black Bolt",
+"code": "BLK",
+"symbol": false
+},
+{
+"slug": "black-and-white-blw",
+"name": "Black and White",
+"code": "BLW",
+"symbol": true
+},
+{
+"slug": "black-and-white-promos-pr",
+"name": "Black and White Promos",
+"code": "PR",
+"symbol": true
+},
+{
+"slug": "boundaries-crossed-bcr",
+"name": "Boundaries Crossed",
+"code": "BCR",
+"symbol": true
+},
+{
+"slug": "brilliant-stars-swsh09",
+"name": "Brilliant Stars",
+"code": "SWSH09",
+"symbol": true
+},
+{
+"slug": "burning-shadows-sm03",
+"name": "Burning Shadows",
+"code": "SM03",
+"symbol": true
+},
+{
+"slug": "call-of-legends-cl",
+"name": "Call of Legends",
+"code": "CL",
+"symbol": true
+},
+{
+"slug": "celebrations-clb",
+"name": "Celebrations",
+"code": "CLB",
+"symbol": false
+},
+{
+"slug": "celebrations-classic-collection-ccc",
+"name": "Celebrations: Classic Collection",
+"code": "CCC",
+"symbol": false
+},
+{
+"slug": "celestial-storm-ces",
+"name": "Celestial Storm",
+"code": "CES",
+"symbol": true
+},
+{
+"slug": "champions-path-chp",
+"name": "Champion's Path",
+"code": "CHP",
+"symbol": true
+},
+{
+"slug": "chaos-rising-cri",
+"name": "Chaos Rising",
+"code": "CRI",
+"symbol": false
+},
+{
+"slug": "chilling-reign-swsh06",
+"name": "Chilling Reign",
+"code": "SWSH06",
+"symbol": true
+},
+{
+"slug": "cosmic-eclipse-sm12",
+"name": "Cosmic Eclipse",
+"code": "SM12",
+"symbol": true
+},
+{
+"slug": "crimson-invasion-sm04",
+"name": "Crimson Invasion",
+"code": "SM04",
+"symbol": true
+},
+{
+"slug": "crown-zenith-crz",
+"name": "Crown Zenith",
+"code": "CRZ",
+"symbol": true
+},
+{
+"slug": "crystal-guardians-cg",
+"name": "Crystal Guardians",
+"code": "CG",
+"symbol": true
+},
+{
+"slug": "dark-explorers-dex",
+"name": "Dark Explorers",
+"code": "DEX",
+"symbol": true
+},
+{
+"slug": "darkness-ablaze-swsh03",
+"name": "Darkness Ablaze",
+"code": "SWSH03",
+"symbol": true
+},
+{
+"slug": "delta-reign-dlr",
+"name": "Delta Reign",
+"code": "DLR",
+"symbol": false
+},
+{
+"slug": "delta-species-ds",
+"name": "Delta Species",
+"code": "DS",
+"symbol": true
+},
+{
+"slug": "deoxys-dx",
+"name": "Deoxys",
+"code": "DX",
+"symbol": true
+},
+{
+"slug": "destined-rivals-dri",
+"name": "Destined Rivals",
+"code": "DRI",
+"symbol": false
+},
+{
+"slug": "detective-pikachu-dep",
+"name": "Detective Pikachu",
+"code": "DEP",
+"symbol": true
+},
+{
+"slug": "diamond-and-pearl-dp",
+"name": "Diamond & Pearl",
+"code": "DP",
+"symbol": true
+},
+{
+"slug": "diamond-and-pearl-promo-pr",
+"name": "Diamond and Pearl Promo",
+"code": "PR",
+"symbol": false
+},
+{
+"slug": "double-crisis-dcr",
+"name": "Double Crisis",
+"code": "DCR",
+"symbol": true
+},
+{
+"slug": "dragon-dr",
+"name": "Dragon",
+"code": "DR",
+"symbol": true
+},
+{
+"slug": "dragon-frontiers-df",
+"name": "Dragon Frontiers",
+"code": "DF",
+"symbol": true
+},
+{
+"slug": "dragon-majesty-drm",
+"name": "Dragon Majesty",
+"code": "DRM",
+"symbol": true
+},
+{
+"slug": "dragon-vault-drv",
+"name": "Dragon Vault",
+"code": "DRV",
+"symbol": true
+},
+{
+"slug": "dragons-exalted-drx",
+"name": "Dragons Exalted",
+"code": "DRX",
+"symbol": true
+},
+{
+"slug": "emerald-em",
+"name": "Emerald",
+"code": "EM",
+"symbol": true
+},
+{
+"slug": "emerging-powers-epo",
+"name": "Emerging Powers",
+"code": "EPO",
+"symbol": true
+},
+{
+"slug": "evolutions-evo",
+"name": "Evolutions",
+"code": "EVO",
+"symbol": true
+},
+{
+"slug": "evolving-skies-swsh07",
+"name": "Evolving Skies",
+"code": "SWSH07",
+"symbol": true
+},
+{
+"slug": "expedition-ex",
+"name": "Expedition",
+"code": "EX",
+"symbol": true
+},
+{
+"slug": "fates-collide-fco",
+"name": "Fates Collide",
+"code": "FCO",
+"symbol": true
+},
+{
+"slug": "fire-red-leaf-green-rg",
+"name": "Fire Red Leaf Green",
+"code": "RG",
+"symbol": true
+},
+{
+"slug": "flashfire-flf",
+"name": "Flashfire",
+"code": "FLF",
+"symbol": true
+},
+{
+"slug": "forbidden-light-sm06",
+"name": "Forbidden Light",
+"code": "SM06",
+"symbol": true
+},
+{
+"slug": "fossil-fo",
+"name": "Fossil",
+"code": "FO",
+"symbol": true
+},
+{
+"slug": "fossil-1st-edition-fo",
+"name": "Fossil 1st Edition",
+"code": "FO",
+"symbol": true
+},
+{
+"slug": "furious-fists-ffi",
+"name": "Furious Fists",
+"code": "FFI",
+"symbol": true
+},
+{
+"slug": "fusion-strike-swsh08",
+"name": "Fusion Strike",
+"code": "SWSH08",
+"symbol": true
+},
+{
+"slug": "generations-gen",
+"name": "Generations",
+"code": "GEN",
+"symbol": true
+},
+{
+"slug": "generations-radiant-collection-gen",
+"name": "Generations Radiant Collection",
+"code": "GEN",
+"symbol": false
+},
+{
+"slug": "great-encounters-ge",
+"name": "Great Encounters",
+"code": "GE",
+"symbol": true
+},
+{
+"slug": "guardians-rising-sm02",
+"name": "Guardians Rising",
+"code": "SM02",
+"symbol": true
+},
+{
+"slug": "gym-challenge-g2",
+"name": "Gym Challenge",
+"code": "G2",
+"symbol": true
+},
+{
+"slug": "gym-challenge-1st-edition-g2",
+"name": "Gym Challenge 1st Edition",
+"code": "G2",
+"symbol": true
+},
+{
+"slug": "gym-heroes-g1",
+"name": "Gym Heroes",
+"code": "G1",
+"symbol": true
+},
+{
+"slug": "gym-heroes-1st-edition-g1",
+"name": "Gym Heroes 1st Edition",
+"code": "G1",
+"symbol": true
+},
+{
+"slug": "hgss-black-star-promo-pr",
+"name": "HGSS Black Star Promo",
+"code": "PR",
+"symbol": true
+},
+{
+"slug": "heartgold-soulsilver-hs",
+"name": "HeartGold SoulSilver",
+"code": "HS",
+"symbol": true
+},
+{
+"slug": "hidden-fates-hif",
+"name": "Hidden Fates",
+"code": "HIF",
+"symbol": true
+},
+{
+"slug": "hidden-legends-hl",
+"name": "Hidden Legends",
+"code": "HL",
+"symbol": true
+},
+{
+"slug": "holon-phantoms-hp",
+"name": "Holon Phantoms",
+"code": "HP",
+"symbol": true
+},
+{
+"slug": "journey-together-jtg",
+"name": "Journey Together",
+"code": "JTG",
+"symbol": false
+},
+{
+"slug": "jungle-ju",
+"name": "Jungle",
+"code": "JU",
+"symbol": true
+},
+{
+"slug": "jungle-1st-edition-ju",
+"name": "Jungle 1st Edition",
+"code": "JU",
+"symbol": true
+},
+{
+"slug": "legend-maker-lm",
+"name": "Legend Maker",
+"code": "LM",
+"symbol": true
+},
+{
+"slug": "legendary-collection-lc",
+"name": "Legendary Collection",
+"code": "LC",
+"symbol": true
+},
+{
+"slug": "legendary-treasures-ltr",
+"name": "Legendary Treasures",
+"code": "LTR",
+"symbol": true
+},
+{
+"slug": "legendary-treasures-radiant-collection-ltr",
+"name": "Legendary Treasures Radiant Collection",
+"code": "LTR",
+"symbol": true
+},
+{
+"slug": "legends-awakened-la",
+"name": "Legends Awakened",
+"code": "LA",
+"symbol": true
+},
+{
+"slug": "lost-origin-swsh11",
+"name": "Lost Origin",
+"code": "SWSH11",
+"symbol": true
+},
+{
+"slug": "lost-thunder-sm8",
+"name": "Lost Thunder",
+"code": "SM8",
+"symbol": true
+},
+{
+"slug": "majestic-dawn-md",
+"name": "Majestic Dawn",
+"code": "MD",
+"symbol": true
+},
+{
+"slug": "mcdonalds-promos-2011-m11",
+"name": "McDonald's Promos 2011",
+"code": "M11",
+"symbol": true
+},
+{
+"slug": "mcdonalds-promos-2012-m12",
+"name": "McDonald's Promos 2012",
+"code": "M12",
+"symbol": true
+},
+{
+"slug": "mcdonalds-promos-2014-m14",
+"name": "McDonald's Promos 2014",
+"code": "M14",
+"symbol": true
+},
+{
+"slug": "mcdonalds-promos-2015-m15",
+"name": "McDonald's Promos 2015",
+"code": "M15",
+"symbol": true
+},
+{
+"slug": "mcdonalds-promos-2016-m16",
+"name": "McDonald's Promos 2016",
+"code": "M16",
+"symbol": true
+},
+{
+"slug": "mcdonalds-promos-2017-m17",
+"name": "McDonald's Promos 2017",
+"code": "M17",
+"symbol": true
+},
+{
+"slug": "mcdonalds-promos-2018-m18",
+"name": "McDonald's Promos 2018",
+"code": "M18",
+"symbol": true
+},
+{
+"slug": "mcdonalds-promos-2019-m19",
+"name": "McDonald's Promos 2019",
+"code": "M19",
+"symbol": true
+},
+{
+"slug": "mcdonalds-promos-2023-m23",
+"name": "McDonald's Promos 2023",
+"code": "M23",
+"symbol": false
+},
+{
+"slug": "mcdonalds-25th-anniversary-m21",
+"name": "Mcdonald's 25th Anniversary",
+"code": "M21",
+"symbol": false
+},
+{
+"slug": "mcdonalds-dragon-discovery-m24",
+"name": "Mcdonald's Dragon Discovery",
+"code": "M24",
+"symbol": false
+},
+{
+"slug": "mcdonalds-promos-2022-m22",
+"name": "Mcdonald's Promos 2022",
+"code": "M22",
+"symbol": true
+},
+{
+"slug": "mega-evolution-meg",
+"name": "Mega Evolution",
+"code": "MEG",
+"symbol": false
+},
+{
+"slug": "mega-evolution-promos-mep",
+"name": "Mega Evolution Promos",
+"code": "MEP",
+"symbol": false
+},
+{
+"slug": "miscellaneous-promos-mcap",
+"name": "Miscellaneous Promos",
+"code": "MCAP",
+"symbol": true
+},
+{
+"slug": "mysterious-treasures-mt",
+"name": "Mysterious Treasures",
+"code": "MT",
+"symbol": true
+},
+{
+"slug": "neo-destiny-n4",
+"name": "Neo Destiny",
+"code": "N4",
+"symbol": true
+},
+{
+"slug": "neo-destiny-1st-edition-n4",
+"name": "Neo Destiny 1st Edition",
+"code": "N4",
+"symbol": false
+},
+{
+"slug": "neo-discovery-n2",
+"name": "Neo Discovery",
+"code": "N2",
+"symbol": true
+},
+{
+"slug": "neo-discovery-1st-edition-n2",
+"name": "Neo Discovery 1st Edition",
+"code": "N2",
+"symbol": false
+},
+{
+"slug": "neo-genesis-n1",
+"name": "Neo Genesis",
+"code": "N1",
+"symbol": true
+},
+{
+"slug": "neo-genesis-1st-edition-n1",
+"name": "Neo Genesis 1st Edition",
+"code": "N1",
+"symbol": true
+},
+{
+"slug": "neo-revelation-n3",
+"name": "Neo Revelation",
+"code": "N3",
+"symbol": true
+},
+{
+"slug": "neo-revelation-1st-edition-n3",
+"name": "Neo Revelation 1st Edition",
+"code": "N3",
+"symbol": true
+},
+{
+"slug": "next-destinies-nxd",
+"name": "Next Destinies",
+"code": "NXD",
+"symbol": true
+},
+{
+"slug": "nintendo-black-star-promo-pr",
+"name": "Nintendo Black Star Promo",
+"code": "PR",
+"symbol": true
+},
+{
+"slug": "noble-victories-nvi",
+"name": "Noble Victories",
+"code": "NVI",
+"symbol": true
+},
+{
+"slug": "obsidian-flames-obf",
+"name": "Obsidian Flames",
+"code": "OBF",
+"symbol": false
+},
+{
+"slug": "paldea-evolved-pal",
+"name": "Paldea Evolved",
+"code": "PAL",
+"symbol": false
+},
+{
+"slug": "paldean-fates-paf",
+"name": "Paldean Fates",
+"code": "PAF",
+"symbol": false
+},
+{
+"slug": "paradox-rift-par",
+"name": "Paradox Rift",
+"code": "PAR",
+"symbol": false
+},
+{
+"slug": "perfect-order-por",
+"name": "Perfect Order",
+"code": "POR",
+"symbol": false
+},
+{
+"slug": "phantasmal-flames-pfl",
+"name": "Phantasmal Flames",
+"code": "PFL",
+"symbol": false
+},
+{
+"slug": "phantom-forces-phf",
+"name": "Phantom Forces",
+"code": "PHF",
+"symbol": true
+},
+{
+"slug": "pitch-black-me05",
+"name": "Pitch Black",
+"code": "ME05",
+"symbol": false
+},
+{
+"slug": "plasma-blast-plb",
+"name": "Plasma Blast",
+"code": "PLB",
+"symbol": true
+},
+{
+"slug": "plasma-freeze-plf",
+"name": "Plasma Freeze",
+"code": "PLF",
+"symbol": true
+},
+{
+"slug": "plasma-storm-pls",
+"name": "Plasma Storm",
+"code": "PLS",
+"symbol": true
+},
+{
+"slug": "platinum-pl",
+"name": "Platinum",
+"code": "PL",
+"symbol": true
+},
+{
+"slug": "pokemon-card-151-mew",
+"name": "Pokemon Card 151",
+"code": "MEW",
+"symbol": false
+},
+{
+"slug": "pokemon-go-pgo",
+"name": "Pokemon GO",
+"code": "PGO",
+"symbol": true
+},
+{
+"slug": "pokemon-rumble-rum",
+"name": "Pokemon Rumble",
+"code": "RUM",
+"symbol": false
+},
+{
+"slug": "pop-series-1-pop",
+"name": "Pop Series 1",
+"code": "POP",
+"symbol": true
+},
+{
+"slug": "pop-series-2-pop",
+"name": "Pop Series 2",
+"code": "POP",
+"symbol": true
+},
+{
+"slug": "pop-series-3-pop",
+"name": "Pop Series 3",
+"code": "POP",
+"symbol": true
+},
+{
+"slug": "pop-series-4-pop",
+"name": "Pop Series 4",
+"code": "POP",
+"symbol": true
+},
+{
+"slug": "pop-series-5-pop",
+"name": "Pop Series 5",
+"code": "POP",
+"symbol": true
+},
+{
+"slug": "pop-series-6-pop",
+"name": "Pop Series 6",
+"code": "POP",
+"symbol": true
+},
+{
+"slug": "pop-series-7-pop",
+"name": "Pop Series 7",
+"code": "POP",
+"symbol": true
+},
+{
+"slug": "pop-series-8-pop",
+"name": "Pop Series 8",
+"code": "POP",
+"symbol": true
+},
+{
+"slug": "pop-series-9-pop",
+"name": "Pop Series 9",
+"code": "POP",
+"symbol": true
+},
+{
+"slug": "power-keepers-pk",
+"name": "Power Keepers",
+"code": "PK",
+"symbol": true
+},
+{
+"slug": "primal-clash-prc",
+"name": "Primal Clash",
+"code": "PRC",
+"symbol": true
+},
+{
+"slug": "prismatic-evolutions-pre",
+"name": "Prismatic Evolutions",
+"code": "PRE",
+"symbol": false
+},
+{
+"slug": "rebel-clash-swsh02",
+"name": "Rebel Clash",
+"code": "SWSH02",
+"symbol": true
+},
+{
+"slug": "rising-rivals-rr",
+"name": "Rising Rivals",
+"code": "RR",
+"symbol": true
+},
+{
+"slug": "roaring-skies-ros",
+"name": "Roaring Skies",
+"code": "ROS",
+"symbol": true
+},
+{
+"slug": "ruby-and-sapphire-rs",
+"name": "Ruby and Sapphire",
+"code": "RS",
+"symbol": true
+},
+{
+"slug": "sandstorm-ss",
+"name": "Sandstorm",
+"code": "SS",
+"symbol": true
+},
+{
+"slug": "scarlet-and-violet-base-svi",
+"name": "Scarlet & Violet Base",
+"code": "SVI",
+"symbol": true
+},
+{
+"slug": "scarlet-and-violet-promos-svp",
+"name": "Scarlet & Violet Promos",
+"code": "SVP",
+"symbol": false
+},
+{
+"slug": "secret-wonders-sw",
+"name": "Secret Wonders",
+"code": "SW",
+"symbol": true
+},
+{
+"slug": "shining-fates-shf",
+"name": "Shining Fates",
+"code": "SHF",
+"symbol": true
+},
+{
+"slug": "shining-legends-shl",
+"name": "Shining Legends",
+"code": "SHL",
+"symbol": true
+},
+{
+"slug": "shrouded-fable-sfa",
+"name": "Shrouded Fable",
+"code": "SFA",
+"symbol": false
+},
+{
+"slug": "silver-tempest-swsh12",
+"name": "Silver Tempest",
+"code": "SWSH12",
+"symbol": false
+},
+{
+"slug": "skyridge-sk",
+"name": "Skyridge",
+"code": "SK",
+"symbol": true
+},
+{
+"slug": "southern-islands-si",
+"name": "Southern Islands",
+"code": "SI",
+"symbol": true
+},
+{
+"slug": "steam-siege-sts",
+"name": "Steam Siege",
+"code": "STS",
+"symbol": true
+},
+{
+"slug": "stellar-crown-scr",
+"name": "Stellar Crown",
+"code": "SCR",
+"symbol": false
+},
+{
+"slug": "stormfront-sf",
+"name": "Stormfront",
+"code": "SF",
+"symbol": true
+},
+{
+"slug": "sun-and-moon-sm01",
+"name": "Sun & Moon",
+"code": "SM01",
+"symbol": true
+},
+{
+"slug": "sun-and-moon-black-star-promo-smp",
+"name": "Sun & Moon Black Star Promo",
+"code": "SMP",
+"symbol": true
+},
+{
+"slug": "supreme-victors-sv",
+"name": "Supreme Victors",
+"code": "SV",
+"symbol": true
+},
+{
+"slug": "surging-sparks-ssp",
+"name": "Surging Sparks",
+"code": "SSP",
+"symbol": false
+},
+{
+"slug": "sword-and-shield-swsh01",
+"name": "Sword & Shield",
+"code": "SWSH01",
+"symbol": false
+},
+{
+"slug": "sword-and-shield-promo-swsd",
+"name": "Sword & Shield Promo",
+"code": "SWSD",
+"symbol": false
+},
+{
+"slug": "team-magma-vs-team-aqua-ma",
+"name": "Team Magma vs Team Aqua",
+"code": "MA",
+"symbol": true
+},
+{
+"slug": "team-rocket-tr",
+"name": "Team Rocket",
+"code": "TR",
+"symbol": true
+},
+{
+"slug": "team-rocket-1st-edition-tr",
+"name": "Team Rocket 1st Edition",
+"code": "TR",
+"symbol": true
+},
+{
+"slug": "team-rocket-returns-rr",
+"name": "Team Rocket Returns",
+"code": "RR",
+"symbol": true
+},
+{
+"slug": "team-up-sm9",
+"name": "Team Up",
+"code": "SM9",
+"symbol": true
+},
+{
+"slug": "temporal-forces-tef",
+"name": "Temporal Forces",
+"code": "TEF",
+"symbol": false
+},
+{
+"slug": "trading-card-game-classic-cl",
+"name": "Trading Card Game Classic",
+"code": "CL",
+"symbol": false
+},
+{
+"slug": "trick-or-trade-2022-ttbb",
+"name": "Trick or Trade 2022",
+"code": "TTBB",
+"symbol": true
+},
+{
+"slug": "trick-or-trade-2023-ttbb23",
+"name": "Trick or Trade 2023",
+"code": "TTBB23",
+"symbol": false
+},
+{
+"slug": "trick-or-trade-2024-ttbb24",
+"name": "Trick or Trade 2024",
+"code": "TTBB24",
+"symbol": false
+},
+{
+"slug": "triumphant-tm",
+"name": "Triumphant",
+"code": "TM",
+"symbol": true
+},
+{
+"slug": "twilight-masquerade-twm",
+"name": "Twilight Masquerade",
+"code": "TWM",
+"symbol": false
+},
+{
+"slug": "ultra-prism-sm05",
+"name": "Ultra Prism",
+"code": "SM05",
+"symbol": true
+},
+{
+"slug": "unbroken-bonds-sm10",
+"name": "Unbroken Bonds",
+"code": "SM10",
+"symbol": true
+},
+{
+"slug": "undaunted-ud",
+"name": "Undaunted",
+"code": "UD",
+"symbol": true
+},
+{
+"slug": "unified-minds-sm11",
+"name": "Unified Minds",
+"code": "SM11",
+"symbol": true
+},
+{
+"slug": "unleashed-ul",
+"name": "Unleashed",
+"code": "UL",
+"symbol": true
+},
+{
+"slug": "unseen-forces-uf",
+"name": "Unseen Forces",
+"code": "UF",
+"symbol": true
+},
+{
+"slug": "vivid-voltage-swsh04",
+"name": "Vivid Voltage",
+"code": "SWSH04",
+"symbol": true
+},
+{
+"slug": "wotc-promo-pr",
+"name": "WOTC Promo",
+"code": "PR",
+"symbol": true
+},
+{
+"slug": "white-flare-wht",
+"name": "White Flare",
+"code": "WHT",
+"symbol": false
+},
+{
+"slug": "xy-base-xy",
+"name": "XY Base",
+"code": "XY",
+"symbol": true
+},
+{
+"slug": "xy-black-star-promos-pr",
+"name": "XY Black Star Promos",
+"code": "PR",
+"symbol": true
+}
+]

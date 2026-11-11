@@ -598,6 +598,7 @@ private struct SetHero: View {
             Color.clear
                 .aspectRatio(3.0 / 2.0, contentMode: .fit)
                 .overlay { CachedImage(url: banner) { img in img.resizable().scaledToFill() } placeholder: { Theme.well } }
+                .overlay { SetLogoOverlay(url: set.logoUrl) }
                 .clipShape(shape)
                 // Glow first, then the spinning border, so the glow isn't redrawn every frame.
                 .shadow(color: Theme.lime.opacity(0.22), radius: 22)
@@ -1067,6 +1068,23 @@ private struct ExploreBackdrop: View {
     }
 }
 
+/// Our own set logo, centred over the set's background art (English Pokémon sets).
+struct SetLogoOverlay: View {
+    var url: String?
+
+    var body: some View {
+        if let logo = url.flatMap(URL.init(string:)) {
+            GeometryReader { geo in
+                CachedImage(url: logo) { img in img.resizable().scaledToFit() } placeholder: { Color.clear }
+                    .frame(maxWidth: geo.size.width * 0.74, maxHeight: geo.size.height * 0.62)
+                    .shadow(color: .black.opacity(0.55), radius: 7, y: 3)
+                    .frame(width: geo.size.width, height: geo.size.height)
+            }
+            .allowsHitTesting(false)
+        }
+    }
+}
+
 /// A set's art filling its frame: the banner, else a sample product on a dark well, else its name.
 struct SetArt: View {
     var set: ExploreSet
@@ -1118,6 +1136,7 @@ struct SetArt: View {
                         }
                     }
                     .clipped()
+                    .overlay { SetLogoOverlay(url: set.logoUrl) }
             }
         }
     }

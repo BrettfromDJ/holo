@@ -9,7 +9,7 @@ import { getAdminSupabase } from "@/lib/supabase/server";
  * GET /api/explore — brands and every set in the stored catalog, newest first, plus the market
  * sections (`trending`, `drops`, `boosterBoxes`) read from stored prices.
  */
-export async function GET() {
+export async function GET(req: Request) {
   const admin = getAdminSupabase();
   if (!admin) return NextResponse.json({ error: { message: "Explore needs Supabase to be configured." } }, { status: 503 });
   let data: CatalogSetRow[] = [];
@@ -31,7 +31,8 @@ export async function GET() {
       { status: missing ? 503 : 500 },
     );
   }
-  const sets = (data ?? []).map(setFromRow);
+  const origin = new URL(req.url).origin;
+  const sets = (data ?? []).map((r) => setFromRow(r, origin));
 
   // Brands come from catalog_games when available; otherwise from the set list.
   const games = new Map<string, ExploreGame>();
