@@ -29,14 +29,9 @@ struct HoloTabBar<Tab: Hashable>: View {
         .frame(height: 64)
         .liquidGlass(in: Capsule(), tint: Theme.background.opacity(0.4))
         .shadow(color: .black.opacity(0.45), radius: 18, y: 8)
-        // A glowing lime edge, brightest at the left and right ends; the glow is the edge's own
-        // still shadow, drawn once.
+        // A faint hairline edge (no glow).
         .overlay {
-            Capsule()
-                .strokeBorder(LinearGradient(colors: [Theme.lime.opacity(0.7), .white.opacity(0.10), .white.opacity(0.06), Theme.lime.opacity(0.45)],
-                                             startPoint: .leading, endPoint: .trailing), lineWidth: 1.2)
-                .shadow(color: Theme.lime.opacity(0.35), radius: 8)
-                .allowsHitTesting(false)
+            Capsule().strokeBorder(Color.white.opacity(0.1), lineWidth: 1).allowsHitTesting(false)
         }
         // Drawn over the bar, not inside the glass, so the bar's edge never shows through it.
         .overlay {
@@ -49,19 +44,15 @@ struct HoloTabBar<Tab: Hashable>: View {
                     .frame(width: 64, height: 64)
                     .background(
                         ZStack {
-                            // The glow is cast by the still button only. It used to include the
-                            // sweeping sheen, which re-rendered the shadow on every frame.
+                            // The shadow is cast by the still button only, not the sweeping sheen.
                             ZStack {
                                 Circle().fill(Theme.limeEdge).offset(y: 4)
                                 Circle().fill(Theme.lime)
                                 Circle().fill(LinearGradient(colors: [.white.opacity(0.25), .clear], startPoint: .top, endPoint: .center))
                             }
                             .compositingGroup()
-                            .shadow(color: Theme.lime.opacity(0.65), radius: 16, y: 2)
-                            // A wider, softer halo around it (still, drawn once).
-                            .background {
-                                Circle().fill(Theme.lime.opacity(0.3)).blur(radius: 18).scaleEffect(1.35).allowsHitTesting(false)
-                            }
+                            // A plain drop shadow for lift; no lime glow.
+                            .shadow(color: .black.opacity(0.35), radius: 8, y: 4)
                             Sheen(strength: 0.6, once: true).clipShape(Circle())
                         }
                     )
@@ -86,8 +77,6 @@ struct HoloTabBar<Tab: Hashable>: View {
             VStack(spacing: 4) {
                 Image(systemName: item.icon).font(.system(size: item.iconSize, weight: on ? .semibold : .regular))
                     .foregroundStyle(on ? Theme.lime : Theme.muted)
-                    // The chosen tab's icon glows.
-                    .shadow(color: on ? Theme.lime.opacity(0.6) : .clear, radius: 7)
                     .frame(height: 26)
                 Text(item.title).font(.geist(11, .medium)).foregroundStyle(on ? .white : Theme.muted)
             }

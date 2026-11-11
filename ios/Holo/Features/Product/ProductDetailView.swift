@@ -276,7 +276,10 @@ struct ProductDetailView: View {
 
     @ViewBuilder private var pieceArt: some View {
         Group {
-            if let slab = heroSlab {
+            if product == nil {
+                // Still loading the card's details: hold its space empty, no stand-in picture.
+                Color.clear.frame(width: 260, height: 363)
+            } else if let slab = heroSlab {
                 HoloCard(foil: false, textured: false, cornerRadius: 18) {
                     HoldingArt(product: product, identity: slab.identity)
                 }
