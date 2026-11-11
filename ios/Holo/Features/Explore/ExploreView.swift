@@ -175,9 +175,18 @@ private struct BrandView: View {
     var game: ExploreGame
     var sets: [ExploreSet]
     @State private var loadedOnly = false
+    @State private var query = ""
+    @FocusState private var searchFocused: Bool
+
+    /// Every word typed appears in the set's name (any case, accents ignored).
+    private func matches(_ s: ExploreSet) -> Bool {
+        let words = query.split(separator: " ")
+        guard !words.isEmpty else { return true }
+        return words.allSatisfy { s.name.range(of: $0, options: [.caseInsensitive, .diacriticInsensitive]) != nil }
+    }
 
     private var years: [(year: String, sets: [ExploreSet])] {
-        let shown = loadedOnly ? sets.filter(\.loaded) : sets
+        let shown = (loadedOnly ? sets.filter(\.loaded) : sets).filter(matches)
         let grouped = Dictionary(grouping: shown) { $0.releaseDate.map { String($0.prefix(4)) } ?? "Undated" }
         return grouped.keys
             .sorted { a, b in a == "Undated" ? false : (b == "Undated" ? true : a > b) }
@@ -195,7 +204,14 @@ private struct BrandView: View {
             VStack(alignment: .leading, spacing: 36) {
                 hero
                 VStack(alignment: .leading, spacing: 30) {
-                    ChipPicker(options: [(false, "All sets"), (true, "Loaded")], selection: $loadedOnly)
+                    VStack(alignment: .leading, spacing: 14) {
+                        HoloSearchField(text: $query, prompt: "Search \(game.name) sets", focus: $searchFocused)
+                        ChipPicker(options: [(false, "All sets"), (true, "Loaded")], selection: $loadedOnly)
+                    }
+                    let years = self.years
+                    if years.isEmpty && !query.isEmpty {
+                        Text("No sets match \u{201C}\(query)\u{201D}.").font(.geist(14)).foregroundStyle(Theme.muted)
+                    }
                     ForEach(years, id: \.year) { group in
                         VStack(alignment: .leading, spacing: 14) {
                             SectionCount(title: group.year, count: group.sets.count, noun: "set")
@@ -221,6 +237,7 @@ private struct BrandView: View {
         .tabBarClearance()
         .navigationBarTitleDisplayMode(.inline)
         .pageTitle(game.name)
+        .scrollDismissesKeyboard(.immediately)
     }
 
     private var hero: some View {

@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- brand logos come from the pricing source's CDN */
 
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Search } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -17,18 +17,22 @@ export default function ExploreGamePage() {
   const { game: slug } = useParams<{ game: string }>();
   const index = useExploreIndex();
   const [show, setShow] = useState<Show>("all");
+  const [query, setQuery] = useState("");
 
   const game = index.status === "ready" ? index.games.find((g) => g.slug === slug) : undefined;
   const years = useMemo(() => {
     if (index.status !== "ready") return [];
-    const sets = index.sets.filter((s) => s.gameSlug === slug && (show === "all" || s.loaded));
+    // Every word typed appears in the set's name (any case, accents ignored).
+    const fold = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const words = fold(query).split(/\s+/).filter(Boolean);
+    const sets = index.sets.filter((s) => s.gameSlug === slug && (show === "all" || s.loaded) && words.every((w) => fold(s.name).includes(w)));
     const groups = new Map<string, typeof sets>();
     for (const s of sets) {
       const y = s.releaseDate?.slice(0, 4) ?? "Undated";
       groups.set(y, [...(groups.get(y) ?? []), s]);
     }
     return [...groups.entries()].sort(([a], [b]) => (a === "Undated" ? 1 : b === "Undated" ? -1 : b.localeCompare(a)));
-  }, [index, slug, show]);
+  }, [index, slug, show, query]);
 
   return (
     <div className="animate-fade-in">
@@ -72,6 +76,19 @@ export default function ExploreGamePage() {
               ]}
             />
           </header>
+
+          <label className="mt-8 flex h-11 items-center gap-2.5 rounded-full border border-border bg-surface-2 px-4 focus-within:border-[var(--border-strong)]">
+            <Search className="size-4 text-muted" aria-hidden />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={`Search ${game.name} sets`}
+              aria-label={`Search ${game.name} sets`}
+              className="h-full w-full bg-transparent text-[15px] text-foreground outline-none placeholder:text-subtle"
+            />
+          </label>
+          {years.length === 0 && query.trim() && <p className="mt-10 text-[14px] text-muted">No sets match &ldquo;{query.trim()}&rdquo;.</p>}
 
           {years.map(([year, sets]) => (
             <section key={year} className="mt-10" aria-label={year}>
