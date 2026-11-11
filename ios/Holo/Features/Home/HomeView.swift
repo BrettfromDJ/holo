@@ -406,7 +406,8 @@ private struct Hero: View {
 
     var body: some View {
         let s = store.summary
-        let top = Array(store.holdings.filter { ($0.value ?? 0) > 0 }.prefix(5))
+        // Raw and graded cards only: sealed products stay out of the hero fan.
+        let top = Array(store.holdings.filter { ($0.value ?? 0) > 0 && $0.product?.isSealed != true && $0.identity.condition != "Sealed" }.prefix(5))
         VStack(spacing: 10) {
             CardFan(holdings: top, spread: spread).frame(height: 200)
             VStack(spacing: 6) {

@@ -9,6 +9,7 @@ import { money, signedMoney, signedPct } from "@/lib/format";
 import { useHeroLink } from "@/lib/motion/hero";
 import { useStore } from "@/lib/store/collection-store";
 import { cn } from "@/lib/utils";
+import { looksSealed } from "@/lib/catalog";
 
 /** Positions for up to five fanned cards, center first. */
 const FAN = [
@@ -36,7 +37,8 @@ export function HypeHero({
   const { openAdd } = useStore();
   const hero = useHeroLink();
   const top = [...holdings]
-    .filter((h) => h.product?.imageUrl && (h.value ?? 0) > 0)
+    // Raw and graded cards only: sealed products stay out of the hero fan.
+    .filter((h) => h.product?.imageUrl && (h.value ?? 0) > 0 && h.product.kind !== "sealed" && !looksSealed(h.product.name) && h.identity.condition !== "Sealed")
     .sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
     .slice(0, 5);
   const allTime = summary.unrealized + summary.realized;
