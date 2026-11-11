@@ -107,8 +107,13 @@ struct ScanView: View {
             await model.refreshBalance()
             // CardSight does the identifying: the live border stays, the phone's own read doesn't run.
             if model.cardSight { tracker.identifies = false }
-            // Screenshots: -HoloScanSample ambiguous|retake opens a made-up scan's sheet.
-            if Demo.isOn, let kind = Demo.value("-HoloScanSample") {
+            // Screenshots: -HoloScanSample ambiguous|retake|matched opens a made-up scan's sheet.
+            if Demo.isOn, Demo.value("-HoloScanSample") == "matched", let p = store.products["sample:charizard-ex-151"] {
+                let hit = ScanCandidate(product: p, printing: nil, printings: p.printings ?? [], market: store.marketPrice(p.id, printing: p.printings?.first)?.market, score: 0.9)
+                model.add(matched: ScanResult(status: "matched", message: nil, read: nil, candidates: [hit], scansRemaining: nil), photo: Data(), thumbnail: nil)
+                try? await Task.sleep(nanoseconds: 800_000_000)
+                if let first = model.entries.first { editing = EditingScan(id: first.id) }
+            } else if Demo.isOn, let kind = Demo.value("-HoloScanSample") {
                 let ids = ["sample:charizard-ex-151", "sample:charizard-ex-of", "sample:mew-ex-gold", "sample:pikachu-ex-ss"]
                 let candidates = kind == "retake" ? [] : ids.compactMap { id in
                     store.products[id].map { ScanCandidate(product: $0, printing: nil, printings: $0.printings ?? [], market: store.marketPrice(id, printing: $0.printings?.first)?.market, score: 0.5) }
