@@ -158,6 +158,22 @@ struct EbaySalesPanel: View {
             }
             .buttonStyle(.plain)
             .padding(.top, 16)
+            // What's for sale right now, cheapest first: a quieter second button.
+            if let listings = Self.searchURL(product, grade: tab == Self.ungradedTab ? nil : tab, sold: false) {
+                Link(destination: listings) {
+                    HStack(spacing: 8) {
+                        Text("See \(tab == Self.ungradedTab ? "" : "\(tab) ")for sale on eBay")
+                        Image(systemName: "arrow.up.right").font(.system(size: 12, weight: .semibold))
+                    }
+                    .font(.geist(15, .semibold)).foregroundStyle(.white)
+                    .frame(maxWidth: .infinity).frame(height: 46)
+                    .background(Capsule().fill(Color.white.opacity(0.08)))
+                    .overlay(Capsule().strokeBorder(Theme.borderStrong, lineWidth: 1))
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 10)
+            }
         }
     }
 
@@ -177,7 +193,11 @@ struct EbaySalesPanel: View {
     /// eBay sold-listings search: the name without bracketed notes, the set's words (so other
     /// printings don't fill it), the card number as sellers write it (the part before "/"), and
     /// the grade; ungraded singles leave out slabs. Same as the website.
-    static func soldURL(_ p: Product, grade: String?) -> URL? {
+    static func soldURL(_ p: Product, grade: String?) -> URL? { searchURL(p, grade: grade, sold: true) }
+
+    /// The same eBay search: sold listings, or (`sold: false`) what's for sale now, cheapest
+    /// first (price plus shipping). Same as the website's `ebaySoldUrl` / `ebayListingsUrl`.
+    static func searchURL(_ p: Product, grade: String?, sold: Bool) -> URL? {
         var q = p.name.replacingOccurrences(of: #"\([^)]*\)"#, with: " ", options: .regularExpression)
             .replacingOccurrences(of: #"\s+-\s+\S*\d+/\d+\S*"#, with: " ", options: .regularExpression)
             .replacingOccurrences(of: #"\s+-\s+"#, with: " ", options: .regularExpression)
@@ -192,10 +212,14 @@ struct EbaySalesPanel: View {
         }
         if let grade { q += " \(grade)" } else if !p.isSealed { q += " -psa -bgs -cgc -sgc" }
         var c = URLComponents(string: "https://www.ebay.com/sch/i.html")
-        c?.queryItems = [
+        c?.queryItems = sold ? [
             URLQueryItem(name: "_nkw", value: q),
             URLQueryItem(name: "LH_Sold", value: "1"),
             URLQueryItem(name: "LH_Complete", value: "1"),
+            URLQueryItem(name: "_sacat", value: "0"),
+        ] : [
+            URLQueryItem(name: "_nkw", value: q),
+            URLQueryItem(name: "_sop", value: "15"),
             URLQueryItem(name: "_sacat", value: "0"),
         ]
         return c?.url

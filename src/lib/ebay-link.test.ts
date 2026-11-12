@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ebaySetWords, ebaySoldUrl } from "./ebay-link";
+import { ebayListingsUrl, ebaySetWords, ebaySoldUrl } from "./ebay-link";
 
 const q = (url: string) => new URL(url).searchParams.get("_nkw");
 
@@ -24,5 +24,15 @@ describe("ebaySetWords", () => {
     expect(ebaySetWords("Crown Zenith: Galarian Gallery")).toBe("Crown Zenith");
     expect(ebaySetWords("SWSH12.5: Crown Zenith")).toBe("Crown Zenith");
     expect(ebaySetWords(null)).toBe("");
+  });
+});
+
+describe("ebayListingsUrl", () => {
+  it("searches the same words for live listings, cheapest first", () => {
+    const p = { name: "Charizard ex - 199/165", number: "199/165", kind: "single", setName: "SV: Scarlet & Violet 151" };
+    const url = new URL(ebayListingsUrl(p, "PSA 10"));
+    expect(url.searchParams.get("_nkw")).toBe(new URL(ebaySoldUrl(p, "PSA 10")).searchParams.get("_nkw"));
+    expect(url.searchParams.get("LH_Sold")).toBeNull();
+    expect(url.searchParams.get("_sop")).toBe("15");
   });
 });

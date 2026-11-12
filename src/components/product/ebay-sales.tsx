@@ -8,7 +8,7 @@ import { cachedEbay, EbayLoadError, loadEbay } from "@/lib/ebay-client";
 import { ebaySampleFor, sampleEbaySales } from "@/lib/ebay-sample";
 import type { EbaySales as EbayData } from "@/lib/ebay-types";
 import { formatShortDate, money, relativeTime } from "@/lib/format";
-import { ebaySoldUrl } from "@/lib/ebay-link";
+import { ebayListingsUrl, ebaySoldUrl } from "@/lib/ebay-link";
 import { useStore } from "@/lib/store/collection-store";
 import { priceKey, type Grade } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -94,7 +94,9 @@ export function EbaySales({
   const { data: storeData } = useStore();
   const product = storeData.products[productId];
   const soldName = product?.name ?? name;
-  const soldUrl = soldName ? ebaySoldUrl({ name: soldName, number: product?.number, kind: product?.kind ?? "single", setName: product?.setName }, tab === UNGRADED ? null : tab) : null;
+  const searchFor = soldName ? { name: soldName, number: product?.number, kind: product?.kind ?? "single", setName: product?.setName } : null;
+  const soldUrl = searchFor ? ebaySoldUrl(searchFor, tab === UNGRADED ? null : tab) : null;
+  const listingsUrl = searchFor ? ebayListingsUrl(searchFor, tab === UNGRADED ? null : tab) : null;
   const sales = data ? data.sales.filter((s) => (tab === UNGRADED ? s.grade === null : s.grade === tab)) : [];
   const shown = all ? sales : sales.slice(0, 6);
 
@@ -202,6 +204,16 @@ export function EbaySales({
           className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[var(--lime)]/12 text-[14px] font-semibold text-[var(--lime)] ring-1 ring-inset ring-[var(--lime)]/45 transition-colors hover:bg-[var(--lime)]/20"
         >
           See all {tab === UNGRADED ? "" : `${tab} `}sold on eBay <ExternalLink className="size-3.5" />
+        </a>
+      )}
+      {listingsUrl && (
+        <a
+          href={listingsUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-2.5 flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[var(--foreground)]/[0.07] text-[14px] font-semibold text-foreground ring-1 ring-inset ring-[var(--border-strong)] transition-colors hover:bg-[var(--foreground)]/[0.12]"
+        >
+          See {tab === UNGRADED ? "" : `${tab} `}for sale on eBay <ExternalLink className="size-3.5" />
         </a>
       )}
     </div>

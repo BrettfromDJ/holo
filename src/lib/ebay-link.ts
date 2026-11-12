@@ -22,6 +22,17 @@ export function ebaySetWords(setName: string | null | undefined): string {
  * recent sale, not just ours.
  */
 export function ebaySoldUrl(p: { name: string; number?: string | null; kind?: string | null; setName?: string | null }, grade?: string | null): string {
+  const params = new URLSearchParams({ _nkw: ebayQuery(p, grade), LH_Sold: "1", LH_Complete: "1", _sacat: "0" });
+  return `https://www.ebay.com/sch/i.html?${params.toString()}`;
+}
+
+/** The same search for what's for sale right now, cheapest first (price plus shipping). */
+export function ebayListingsUrl(p: { name: string; number?: string | null; kind?: string | null; setName?: string | null }, grade?: string | null): string {
+  const params = new URLSearchParams({ _nkw: ebayQuery(p, grade), _sop: "15", _sacat: "0" });
+  return `https://www.ebay.com/sch/i.html?${params.toString()}`;
+}
+
+function ebayQuery(p: { name: string; number?: string | null; kind?: string | null; setName?: string | null }, grade?: string | null): string {
   let q = p.name.replace(/\([^)]*\)/g, " ").replace(/\s+-\s+\S*\d+\/\d+\S*/g, " ").replace(/\s+-\s+/g, " ").replace(/\s+/g, " ").trim();
   if (p.kind === "single") {
     const set = ebaySetWords(p.setName);
@@ -31,6 +42,5 @@ export function ebaySoldUrl(p: { name: string; number?: string | null; kind?: st
   }
   if (grade) q += ` ${grade}`;
   else if (p.kind === "single") q += " -psa -bgs -cgc -sgc";
-  const params = new URLSearchParams({ _nkw: q, LH_Sold: "1", LH_Complete: "1", _sacat: "0" });
-  return `https://www.ebay.com/sch/i.html?${params.toString()}`;
+  return q;
 }
