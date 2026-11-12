@@ -216,6 +216,16 @@ export function EbaySales({
           See {tab === UNGRADED ? "" : `${tab} `}for sale on eBay <ExternalLink className="size-3.5" />
         </a>
       )}
+      {product?.tcgplayerUrl && (
+        <a
+          href={product.tcgplayerUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-2.5 flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[var(--foreground)]/[0.07] text-[14px] font-semibold text-foreground ring-1 ring-inset ring-[var(--border-strong)] transition-colors hover:bg-[var(--foreground)]/[0.12]"
+        >
+          Buy on TCGplayer <ExternalLink className="size-3.5" />
+        </a>
+      )}
     </div>
   );
 }

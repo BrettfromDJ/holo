@@ -359,13 +359,27 @@ struct ProductDetailView: View {
             if !owned.isEmpty {
                 YourCopyStrip(owned: owned) { managing = $0 }.padding(.top, 14)
             }
-            Text(price != nil
+            Text(sourceLine(price != nil
                  ? (price?.source == "pricecharting" ? "Ungraded price via PriceCharting (no TCGplayer price)" : "Market price via TCG API")
                     + (price?.updatedAt.flatMap(relative).map { " · updated \($0)" } ?? "")
-                 : (hist.last.map { "Last market price \($0.day.formatted(date: .abbreviated, time: .omitted)) · no current price yet" } ?? "No market price available. Not counted as $0."))
+                 : (hist.last.map { "Last market price \($0.day.formatted(date: .abbreviated, time: .omitted)) · no current price yet" } ?? "No market price available. Not counted as $0.")))
                 .font(.geist(12)).foregroundStyle(Theme.subtle)
                 .padding(.top, 12)
         }
+    }
+
+    /// The price's source, ending in a "TCGplayer ↗" link to check it there (when the card has
+    /// a TCGplayer page and the price is TCGplayer's).
+    private func sourceLine(_ text: String) -> AttributedString {
+        var line = AttributedString(text)
+        guard price?.source != "pricecharting", let url = product?.tcgplayerUrl.flatMap(URL.init(string:)) else { return line }
+        var link = AttributedString("TCGplayer \u{2197}")
+        link.link = url
+        link.foregroundColor = .white
+        link.font = .geist(12, .semibold)
+        line += AttributedString(" · ")
+        line += link
+        return line
     }
 
     private func change(_ label: String, _ pct: Double?) -> some View {
@@ -430,9 +444,6 @@ struct ProductDetailView: View {
             } label: { Image(systemName: wish == nil ? "heart" : "heart.fill") }
                 .buttonStyle(IconButton3D(size: 36, active: wish != nil))
                 .accessibilityLabel(wish == nil ? "Add to wishlist" : "Remove from wishlist")
-            if let url = product?.tcgplayerUrl.flatMap(URL.init(string:)) {
-                Link(destination: url) { Image(systemName: "arrow.up.right.square") }.buttonStyle(IconButton3D(size: 36)).accessibilityLabel("View on TCGplayer")
-            }
             groupsMenu
         }
         .alert("New list", isPresented: $naming) {
@@ -490,9 +501,6 @@ struct ProductDetailView: View {
             }
             Section {
                 Button { viewingArt = true } label: { Label("View full screen", systemImage: "arrow.up.left.and.arrow.down.right") }
-                if let url = product?.tcgplayerUrl.flatMap(URL.init(string:)) {
-                    Link(destination: url) { Label("View on TCGplayer", systemImage: "arrow.up.right.square") }
-                }
                 if let url = webURL {
                     ShareLink(item: url, subject: Text(product?.name ?? "Card"), message: Text(shareText)) {
                         Label("Share", systemImage: "square.and.arrow.up")

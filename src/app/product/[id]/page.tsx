@@ -4,7 +4,7 @@ import { useHeroTarget } from "@/lib/motion/hero";
 import { Hint } from "@/components/ui/tooltip";
 import { WishButton } from "@/components/wishlist/wish-items";
 import { BumperButton, CertDialog, GradeChip, SendToGraderDialog, SlabCard, useAtGrader } from "@/components/grading/grading-items";
-import { Calculator, Check, ChevronDown, ChevronLeft, ExternalLink, Eye, EyeOff, Layers, Loader2, MoreHorizontal, Package, Plus, Tag } from "lucide-react";
+import { Calculator, Check, ChevronDown, ChevronLeft, Eye, EyeOff, Layers, Loader2, MoreHorizontal, Package, Plus, Tag } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -189,6 +189,14 @@ export default function ProductPage() {
                 : lastPoint
                   ? `Last market price ${formatDate(lastPoint.date)} · no current price yet`
                   : "No market price available — not counted as $0."}
+              {price && price.source !== "pricecharting" && product.tcgplayerUrl && (
+                <>
+                  {" · "}
+                  <a href={product.tcgplayerUrl} target="_blank" rel="noreferrer" className="font-semibold text-foreground hover:underline">
+                    TCGplayer ↗
+                  </a>
+                </>
+              )}
             </p>
           </div>
 
@@ -201,15 +209,6 @@ export default function ProductPage() {
             <WatchButton productId={productId} printing={printing} watchId={watch?.id} />
             <WishButton product={product} price={price?.market ?? null} printing={printing} compact />
             <ShelfMenu productId={productId} compact />
-            {product.tcgplayerUrl && (
-              <Hint content="View on TCGplayer">
-                <Button variant="secondary" size="icon" asChild>
-                  <a href={product.tcgplayerUrl} target="_blank" rel="noreferrer" aria-label="View on TCGplayer">
-                    <ExternalLink />
-                  </a>
-                </Button>
-              </Hint>
-            )}
           </div>
 
           <Reveal delay={80}>
