@@ -26,7 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Card, SectionTitle } from "@/components/ui/card";
 import { ConditionTag, EbaySales } from "@/components/product/ebay-sales";
 import { WhatsItWorth } from "@/components/product/whats-it-worth";
-import { GradedPrices } from "@/components/product/graded-prices";
+import { GradedPriceLine, GradedPrices } from "@/components/product/graded-prices";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -159,11 +159,10 @@ export default function ProductPage() {
             <p className="tabular font-display text-[42px] leading-none sm:text-[48px]">
               {headline != null ? <AnimatedNumber key={productId} value={headline} format={money} from={headline * 0.85} /> : <span className="text-muted">No price</span>}
             </p>
-            {product.kind === "sealed" && <PerPack product={product} price={headline} />}
+            {product.kind === "sealed" ? <PerPack product={product} price={headline} /> : <p className="mt-2 text-[13px] text-muted">Near Mint · ungraded</p>}
             {/* The headline is the card's Near Mint price; copies you own that differ get their own figure here. */}
             {yourCopies.length > 0 && (
               <div className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] text-muted">
-                <span>{owned.some((h) => h.identity.grade) ? "Ungraded" : "Near Mint"} price.</span>
                 {yourCopies.map((h) => (
                   <span key={h.key} className="inline-flex items-center gap-1.5">
                     Your {h.identity.grade ? <GradeChip grade={h.identity.grade} /> : <ConditionTag condition={h.identity.condition} />}
@@ -198,6 +197,16 @@ export default function ProductPage() {
                 </>
               )}
             </p>
+            {product.kind === "single" && (
+              <GradedPriceLine
+                key={productId}
+                productId={productId}
+                printing={printing}
+                nm={headline}
+                initial={owned.flatMap((h) => (h.identity.grade ? [{ ...h.identity.grade, pristine: pristineSlabs.has(h.key) }] : []))[0] ?? null}
+                className="mt-4 max-w-md"
+              />
+            )}
           </div>
 
           <div className="mt-6 flex flex-wrap items-center gap-1.5 sm:gap-2 max-sm:[&_button.size-10]:size-9 max-sm:[&_a.size-10]:size-9">

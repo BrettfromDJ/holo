@@ -60,6 +60,50 @@ export function usePriceChartingGraded(productId: string): {
   return state?.id === productId ? { ready: true, data: state.data } : { ready: false, data: null };
 }
 
+/* ------------------------ One grade, under the price ---------------------- */
+
+/**
+ * Under a card's headline (its Near Mint, ungraded price): one graded price, PSA 10 to begin with
+ * (or the grade of a slab you own), and a menu to pick any company and grade. Priced the same way
+ * as the Graded prices panel. Same as the app's GradedPriceLine.
+ */
+export function GradedPriceLine({ productId, printing, nm, initial, className }: { productId: string; printing: string | null; nm: number | null; initial?: (Grade & { pristine?: boolean }) | null; className?: string }) {
+  const pc = usePriceChartingGraded(productId);
+  const { load } = useEbayData(productId, printing, { market: nm, active: productId.startsWith("tcgapi:") });
+  const ebay = load.state === "ready" ? load.data : null;
+  const start = initial ? `${initial.company}|${initial.pristine && isCgcTenGrade(initial.company, initial.grade) ? PRISTINE_10 : initial.grade}` : "PSA|10";
+  const [choice, setChoice] = useState(start);
+  const [company, grade] = choice.split("|") as [WorthGrader, string];
+  const pristine = grade === PRISTINE_10;
+  const r = gradedLookup(productId, nm, { company, grade: pristine ? "10" : grade }, ebay, pc.data, pristine);
+  const ready = pc.ready && load.state !== "loading";
+  return (
+    <div className={className}>
+      <div className="flex items-center gap-3 rounded-2xl border border-border bg-surface py-2.5 pl-2.5 pr-4">
+        <label className="relative inline-flex h-9 items-center gap-1.5 rounded-full bg-[var(--foreground)]/[0.07] pl-3.5 pr-8 text-[14px] font-semibold ring-1 ring-inset ring-[var(--border-strong)]">
+          {company} {pristine ? PRISTINE_10 : gradeTitle(company, grade)}
+          <ChevronsUpDown className="pointer-events-none absolute right-3 size-3.5 text-muted" aria-hidden />
+          <select aria-label="Grade" value={choice} onChange={(e) => setChoice(e.target.value)} className="absolute inset-0 cursor-pointer opacity-0">
+            {WORTH_GRADERS.map((c) => (
+              <optgroup key={c} label={c}>
+                {lookupGrades(c).map((g) => (
+                  <option key={g} value={`${c}|${g}`}>
+                    {c} {g === PRISTINE_10 ? g : gradeTitle(c, g)}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </label>
+        <span className="ml-auto tabular font-display text-[22px] leading-none">
+          {!ready ? <Skeleton className="h-6 w-24 rounded-md" /> : r.price != null ? `${r.source && isEstimate(r.source) ? "≈ " : ""}${money(r.price)}` : "—"}
+        </span>
+      </div>
+      {ready && <p className="mt-1.5 text-[12px] text-subtle">{r.detail}</p>}
+    </div>
+  );
+}
+
 /* ------------------------------- The panel -------------------------------- */
 
 /**

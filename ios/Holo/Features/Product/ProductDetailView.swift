@@ -333,11 +333,14 @@ struct ProductDetailView: View {
                 }
             }
             .font(.display(52)).tracking(-2.1).monospacedDigit().displayTrim(52).padding(.top, 12)
+            // The headline is a single's Near Mint, ungraded price: say so.
+            if product?.isSealed == false {
+                Text("Near Mint · ungraded").font(.geist(13)).foregroundStyle(Theme.muted).padding(.top, 4)
+            }
             // The headline is the Near Mint (ungraded) price; copies you own that differ are listed here.
             let differing = owned.filter { $0.identity.isGraded || $0.isConditionEstimate }
             if !differing.isEmpty {
                 HStack(spacing: 8) {
-                    Text(owned.contains(where: { $0.identity.isGraded }) ? "Ungraded price." : "Near Mint price.").foregroundStyle(Theme.muted)
                     ForEach(differing) { h in
                         HStack(spacing: 4) {
                             Text("Your").foregroundStyle(Theme.muted)
@@ -365,6 +368,15 @@ struct ProductDetailView: View {
                  : (hist.last.map { "Last market price \($0.day.formatted(date: .abbreviated, time: .omitted)) · no current price yet" } ?? "No market price available. Not counted as $0.")))
                 .font(.geist(12)).foregroundStyle(Theme.subtle)
                 .padding(.top, 12)
+            // One graded price (PSA 10, or a slab you own), with a menu for any company and grade.
+            if product?.isSealed == false {
+                GradedPriceLine(productId: productId, printing: printing, nm: headline, initial: owned.lazy.compactMap { h -> (company: String, grade: String, pristine: Bool)? in
+                    guard let c = h.identity.gradeCompany, let g = h.identity.grade else { return nil }
+                    return (company: c, grade: g, pristine: grading.pristine.contains(h.identity.key))
+                }.first)
+                .id(productId)
+                .padding(.top, 14)
+            }
         }
     }
 
