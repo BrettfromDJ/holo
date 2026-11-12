@@ -15,6 +15,8 @@ struct ProductDetailView: View {
     @Environment(DealStore.self) private var deals
     /// The art full screen (tap the card).
     @State private var viewingArt = false
+    /// The card grows from its place on the page into the full-screen view, and back.
+    @Namespace private var artZoom
     @State private var certFor: HoldingView?
     @State private var bumperFor: HoldingView?
     @State private var adding = false
@@ -126,6 +128,7 @@ struct ProductDetailView: View {
         .sheet(item: $managing) { h in HoldingSheet(identity: h.identity) }
         .fullScreenCover(isPresented: $viewingArt) {
             ArtViewer(product: product, slab: heroSlab?.identity)
+                .zoomTransition(id: "art", in: artZoom)
         }
         .sheet(item: $selling) { h in SellSheet(holding: h) }
         .sheet(item: $whatIf) { h in SellCalculatorSheet(holding: h) }
@@ -300,6 +303,7 @@ struct ProductDetailView: View {
                 .onCardTap { if product?.imageURL != nil { viewingArt = true } }
             }
         }
+        .zoomSource(id: "art", in: artZoom)
         .accessibilityAction(named: "View full screen") { viewingArt = true }
         // The big art is decoded at full size: the page it was opened from may ask for small
         // thumbnails (Overview, Collection and Explore do, for smooth scrolling).
@@ -975,8 +979,7 @@ private final class HistoryMemo {
 /// and a pink one opposite, fading out at the top and bottom.
 private struct ProductStage: View {
     var mood: Color
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var breathe = false
+    private let breathe = true
 
     var body: some View {
         ZStack {
@@ -997,15 +1000,8 @@ private struct ProductStage: View {
                                      .init(color: .black, location: 0.8), .init(color: .clear, location: 1)],
                              startPoint: .top, endPoint: .bottom))
         .allowsHitTesting(false)
-        // Breathes only while on screen and uncovered; settles still otherwise.
-        .onVisibilityChange { visible in
-            guard !reduceMotion else { return }
-            if visible {
-                withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) { breathe = true }
-            } else {
-                withAnimation(.easeOut(duration: 0.2)) { breathe = false }
-            }
-        }
+        // Still: it used to breathe on a never-ending animation, which kept the page from ever
+        // resting, so the ⋯ menu often missed its first tap. The card's own drift is the motion.
     }
 }
 

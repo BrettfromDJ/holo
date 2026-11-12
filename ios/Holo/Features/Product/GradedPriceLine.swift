@@ -50,7 +50,10 @@ struct GradedPriceLine: View {
                     if !loaded {
                         Text(" ")
                     } else if let price = r.price {
-                        Text((r.estimate ? "≈ " : "") + Format.money(price))
+                        HStack(spacing: 8) {
+                            if r.estimate { EstimatePill() }
+                            Text(Format.money(price))
+                        }
                     } else {
                         Text("—")
                     }

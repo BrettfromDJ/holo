@@ -148,6 +148,25 @@ extension PageHeader where Trailing == EmptyView {
     }
 }
 
+/// Marks a figure we worked out rather than saw sold: a soft blue pill with a ± mark. Quiet,
+/// but clearly a label (no dotted outline, no ≈). Same as the website's EstimatePill.
+struct EstimatePill: View {
+    var text = "Estimate"
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "plusminus").font(.system(size: 9, weight: .heavy))
+                .foregroundStyle(Color(hex: 0x8FA6FF))
+            Text(text).font(.geist(11, .semibold)).foregroundStyle(Color.white.opacity(0.88))
+        }
+        .padding(.leading, 7).padding(.trailing, 8).padding(.vertical, 3)
+        .background(Theme.planBlue.opacity(0.2), in: Capsule())
+        .overlay(Capsule().strokeBorder(Theme.planBlue.opacity(0.35), lineWidth: 0.5))
+        .fixedSize()
+        .accessibilityLabel("Estimate")
+    }
+}
+
 /// A small uppercase mono label ("TODAY", "COST BASIS").
 struct MonoLabel: View {
     var text: String

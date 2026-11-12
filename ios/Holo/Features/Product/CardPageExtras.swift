@@ -343,13 +343,28 @@ struct ArtViewer: View {
         .statusBarHidden()
     }
 
+    /// At 1×, the same live card as on the page: it drifts, the light sweeps across, and you can
+    /// press and tilt it. Zoomed in, it holds still so pinching and panning stay steady.
     @ViewBuilder private var art: some View {
+        let still = scale > 1.01
         if let slab, slab.isGraded {
-            HoldingArt(product: product, identity: slab)
-                .aspectRatio(5.0 / 8.0, contentMode: .fit)
-        } else {
+            if still {
+                slabArt(slab)
+            } else {
+                HoloCard(foil: false, textured: false, cornerRadius: 18) { slabArt(slab) }.drifting()
+            }
+        } else if product?.isSealed == true || still {
             ProductImage(product: product, cornerRadius: product?.isSealed == true ? 8 : 16, large: true)
+        } else {
+            HoloCard(foil: product?.isFoil == true, textured: false, cornerRadius: 16) {
+                ProductImage(product: product, cornerRadius: 16, large: true)
+            }
+            .drifting()
         }
+    }
+
+    private func slabArt(_ slab: HoldingIdentity) -> some View {
+        HoldingArt(product: product, identity: slab).aspectRatio(5.0 / 8.0, contentMode: .fit)
     }
 
     private func clamp(_ s: CGFloat) -> CGFloat { min(5, max(1, s)) }

@@ -385,3 +385,17 @@ extension View {
         modifier(TabTopReset(tab: tab, path: path))
     }
 }
+
+// MARK: - Zoom between a picture and its full-screen view
+
+extension View {
+    /// The picture a full-screen view grows out of (iOS 18 and later; earlier, a plain cover).
+    @ViewBuilder func zoomSource(id: String, in namespace: Namespace.ID) -> some View {
+        if #available(iOS 18.0, *) { matchedTransitionSource(id: id, in: namespace) } else { self }
+    }
+
+    /// Opens (and closes) by growing from `zoomSource` with the same id (iOS 18 and later).
+    @ViewBuilder func zoomTransition(id: String, in namespace: Namespace.ID) -> some View {
+        if #available(iOS 18.0, *) { navigationTransition(.zoom(sourceID: id, in: namespace)) } else { self }
+    }
+}

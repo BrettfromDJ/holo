@@ -17,6 +17,7 @@ struct GradedPricesPanel: View {
     @State private var loaded = false
     @State private var company = "PSA"
     @State private var grade = "9"
+    @State private var explaining = false
 
     private struct Row: Identifiable {
         var company: String
@@ -231,16 +232,25 @@ struct GradedPricesPanel: View {
                     .frame(minWidth: 64, alignment: .leading)
                     if mine { Text("Yours").font(.geist(11, .semibold)).foregroundStyle(Theme.lime) }
                     Spacer(minLength: 8)
-                    Text(sourceLabel(p.source)).font(.geist(12)).foregroundStyle(Theme.subtle)
-                    Text((estimate ? "≈ " : "") + Format.money(p.value)).font(.geist(16, .semibold)).monospacedDigit()
+                    if estimate { EstimatePill() } else { Text(sourceLabel(p.source)).font(.geist(12)).foregroundStyle(Theme.subtle) }
+                    Text(Format.money(p.value)).font(.geist(16, .semibold)).monospacedDigit()
                         .frame(minWidth: 96, alignment: .trailing)
                 }
                 .padding(.vertical, 11)
                 .background { if mine { RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.lime.opacity(0.1)).padding(.horizontal, -10) } }
                 if i < priced.count - 1 { Divider().overlay(Theme.border) }
             }
-            Text("eBay: the median of this month's sales of that exact slab (a CGC Pristine 10 is a sale whose title says pristine). ≈: an estimate, from PriceCharting's price for the grade (which mixes every company) adjusted for the company, from the usual grade curve, or for a Pristine 10, the Gem Mint 10 price × the usual Pristine\u{00A0}premium.")
-                .font(.geist(12)).foregroundStyle(Theme.subtle).padding(.top, 10)
+            // The long explanation folds away under a title: tap to read it.
+            DisclosureGroup(isExpanded: $explaining) {
+                Text("eBay: the median of this month's sales of that exact slab (a CGC Pristine 10 is a sale whose title says pristine). Estimate: worked out from PriceCharting's price for the grade (which mixes every company) adjusted for the company, from the usual grade curve, or for a Pristine 10, the Gem Mint 10 price × the usual Pristine\u{00A0}premium.")
+                    .font(.geist(12)).foregroundStyle(Theme.muted)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 8)
+            } label: {
+                Text("How these prices work").font(.geist(13, .semibold)).foregroundStyle(.white)
+            }
+            .tint(Theme.muted)
+            .padding(.top, 12)
         }
     }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronsUpDown } from "lucide-react";
+import { ChevronDown, ChevronsUpDown } from "lucide-react";
 import { AnimatedNumber } from "@/components/motion/animated-number";
 import { useInView } from "@/components/motion/reveal";
 import { Card, SectionTitle } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import type { Grade } from "@/lib/types";
 import { isCgcTenGrade } from "@/lib/pristine";
 import { GRADED_ROWS, gradedLookup, gradedPrice, gradedSourceLabel, gradeTitle, isEstimate, lookupGrades, PRISTINE_10, rowGradeTitle, WORTH_GRADERS, type GradedRow, type WorthGrader } from "@/lib/worth";
 import { useEbayData } from "./ebay-sales";
+import { EstimatePill } from "@/components/ui/estimate-pill";
 
 /* ------------------------- PriceCharting, per card ------------------------ */
 
@@ -96,7 +97,16 @@ export function GradedPriceLine({ productId, printing, nm, initial, className }:
           </select>
         </label>
         <span className="ml-auto tabular font-display text-[22px] leading-none">
-          {!ready ? <Skeleton className="h-6 w-24 rounded-md" /> : r.price != null ? `${r.source && isEstimate(r.source) ? "≈ " : ""}${money(r.price)}` : "—"}
+          {!ready ? (
+            <Skeleton className="h-6 w-24 rounded-md" />
+          ) : r.price != null ? (
+            <span className="inline-flex items-center gap-2">
+              {r.source && isEstimate(r.source) && <EstimatePill className="font-sans" />}
+              {money(r.price)}
+            </span>
+          ) : (
+            "—"
+          )}
         </span>
       </div>
       {ready && <p className="mt-1.5 text-[12px] text-subtle">{r.detail}</p>}
@@ -185,18 +195,22 @@ export function GradedPrices({ productId, printing, nm, owned, className }: { pr
                           <span className="text-foreground">{rowGradeTitle(row)}</span>
                         </span>
                         {mine && <span className="relative text-[11px] font-semibold text-[var(--lime)]">Yours</span>}
-                        <span className="relative ml-auto text-[12px] text-subtle">{gradedSourceLabel(p.source)}</span>
-                        <span className="relative tabular min-w-24 text-right text-[16px] font-semibold">
-                          {isEstimate(p.source) ? "≈ " : ""}
-                          {money(p.value)}
-                        </span>
+                        {isEstimate(p.source) ? <EstimatePill className="relative ml-auto" /> : <span className="relative ml-auto text-[12px] text-subtle">{gradedSourceLabel(p.source)}</span>}
+                        <span className="relative tabular min-w-24 text-right text-[16px] font-semibold">{money(p.value)}</span>
                       </li>
                     );
                   })}
                 </ul>
-                <p className="mt-3 text-[12px] text-subtle">
-                  eBay: the median of this month&apos;s sales of that exact slab (a CGC Pristine 10 is a sale whose title says pristine). ≈: an estimate, from PriceCharting&apos;s price for the grade (which mixes every company) adjusted for the company, from the usual grade curve, or for a Pristine 10, the Gem Mint 10 price × the usual Pristine premium.
-                </p>
+                {/* The long explanation folds away under a title: click to read it. */}
+                <details className="group mt-3">
+                  <summary className="flex cursor-pointer list-none items-center gap-1.5 text-[13px] font-semibold text-foreground [&::-webkit-details-marker]:hidden">
+                    How these prices work
+                    <ChevronDown className="size-3.5 text-muted transition-transform group-open:rotate-180" aria-hidden />
+                  </summary>
+                  <p className="mt-2 text-[12px] text-muted">
+                    eBay: the median of this month&apos;s sales of that exact slab (a CGC Pristine 10 is a sale whose title says pristine). Estimate: worked out from PriceCharting&apos;s price for the grade (which mixes every company) adjusted for the company, from the usual grade curve, or for a Pristine 10, the Gem Mint 10 price × the usual Pristine premium.
+                  </p>
+                </details>
               </>
             )}
             <div className="my-5 h-px bg-border" />

@@ -81,13 +81,19 @@ struct SourceTag: View {
     var source: Worth.Source
 
     var body: some View {
-        let label = ["market": "Market price", "sales": "eBay sales", "guide": "Price guide", "estimate": "Estimate"][source.rawValue] ?? ""
-        Text(label)
-            .font(.system(size: 11, weight: .semibold))
+        if source == .estimate {
+            EstimatePill()
+        } else {
+            let label = ["market": "Market price", "sales": "eBay sales", "guide": "Price guide"][source.rawValue] ?? ""
+            let icon = ["market": "chart.line.uptrend.xyaxis", "sales": "checkmark.seal.fill", "guide": "book.closed.fill"][source.rawValue] ?? "circle"
+            HStack(spacing: 4) {
+                Image(systemName: icon).font(.system(size: 9, weight: .bold))
+                Text(label).font(.geist(11, .semibold))
+            }
             .padding(.horizontal, 8).padding(.vertical, 3)
-            .foregroundStyle(source == .sales ? Theme.up : Color.primary.opacity(0.8))
-            .background(source == .estimate ? Color.clear : (source == .sales ? Theme.lime.opacity(0.16) : Theme.surface2), in: Capsule())
-            .overlay(Capsule().strokeBorder(source == .estimate ? Theme.muted : .clear, style: StrokeStyle(lineWidth: 1, dash: [3, 2])))
+            .foregroundStyle(source == .sales ? Theme.up : Color.white.opacity(0.85))
+            .background(source == .sales ? Theme.lime.opacity(0.16) : Color.white.opacity(0.08), in: Capsule())
+        }
     }
 }
 

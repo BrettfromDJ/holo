@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnimatedNumber } from "@/components/motion/animated-number";
 import { Badge } from "@/components/ui/badge";
+import { EstimatePill } from "@/components/ui/estimate-pill";
 import { loadConditions } from "@/lib/ebay-client";
 import type { ConditionPrice } from "@/lib/ebay-types";
 import type { HoldingView } from "@/lib/finance/portfolio";
@@ -98,14 +99,11 @@ function SourceLine({ worth }: { worth: Worth }) {
   const tag = { market: "Market price", sales: "eBay sales", guide: "Price guide", estimate: "Estimate" }[worth.source];
   return (
     <p className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-muted">
-      <span
-        className={cn(
-          "rounded-full px-2 py-0.5 text-[11px] font-semibold",
-          worth.source === "estimate" ? "border border-dashed border-border-strong text-foreground/80" : worth.source === "sales" ? "bg-[color-mix(in_srgb,var(--lime)_16%,transparent)] text-up" : "bg-surface-2 text-foreground/80",
-        )}
-      >
-        {tag}
-      </span>
+      {worth.source === "estimate" ? (
+        <EstimatePill />
+      ) : (
+        <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", worth.source === "sales" ? "bg-[color-mix(in_srgb,var(--lime)_16%,transparent)] text-up" : "bg-surface-2 text-foreground/80")}>{tag}</span>
+      )}
       {worth.detail}
     </p>
   );
