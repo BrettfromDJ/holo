@@ -467,7 +467,7 @@ private struct ScanTray: View {
                         .padding(.horizontal, 16)
                 }
             }
-            .frame(height: expanded ? min(CGFloat(model.entries.count) * 120 + 16, 480) : (model.entries.isEmpty ? 128 : 208))
+            .frame(height: expanded ? min(CGFloat(model.entries.count) * 120 + 16, 480) : (model.entries.isEmpty ? 128 : 222))
             .padding(.vertical, 4)
             Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
             HStack(spacing: 10) {
@@ -566,7 +566,8 @@ private struct LatestScan: View {
             picture
             panel
         }
-        .padding(.vertical, 8)
+        .padding(.top, 8)
+        .padding(.bottom, 20)
     }
 
     // MARK: The picture, with Change card under it
@@ -588,20 +589,23 @@ private struct LatestScan: View {
         }
         .buttonStyle(.plain)
         .overlay(alignment: .bottom) {
+            // Big and bright, half over the card's bottom edge: easy to find and hit without looking.
             Button(action: matched ? onChange : onOpen) {
-                HStack(spacing: 5) {
-                    Image(systemName: matched ? "arrow.left.arrow.right" : "magnifyingglass").font(.system(size: 11, weight: .semibold))
-                    Text(matched ? "Change card" : "Pick card").font(.geist(12, .semibold))
+                HStack(spacing: 6) {
+                    Image(systemName: matched ? "arrow.left.arrow.right" : "magnifyingglass").font(.system(size: 13, weight: .bold))
+                    Text(matched ? "Wrong card?" : "Pick card").font(.geist(15, .semibold))
                 }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 10).frame(height: 28)
-                .background(Capsule().fill(Color.black.opacity(0.78)))
-                .overlay(Capsule().strokeBorder(Color.white.opacity(0.16), lineWidth: 1))
-                .contentShape(Capsule())
+                .foregroundStyle(Theme.lime)
+                .padding(.horizontal, 14).frame(height: 38)
+                .background(Capsule().fill(Color(hex: 0x111111)))
+                .overlay(Capsule().strokeBorder(Theme.lime.opacity(0.45), lineWidth: 1))
+                .shadow(color: .black.opacity(0.45), radius: 6, y: 3)
+                .fixedSize()
+                .contentShape(Capsule().inset(by: -6))
             }
             .buttonStyle(.plain)
-            .padding(.bottom, 8)
-            .accessibilityLabel(matched ? "Change card" : "Pick the right card")
+            .offset(y: 16)
+            .accessibilityLabel(matched ? "Wrong card? Change it" : "Pick the right card")
         }
         .accessibilityLabel("Open this card")
     }
