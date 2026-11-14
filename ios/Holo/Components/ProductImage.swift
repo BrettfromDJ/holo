@@ -130,8 +130,11 @@ struct CachedImage<Content: View, Placeholder: View>: View {
                 print("[Card picture] \(Int(loaded.size.width * loaded.scale))×\(Int(loaded.size.height * loaded.scale)) px")
             }
             #endif
-            // Handed another address while this one loaded: leave it to that load.
-            guard imageURL == url, !Task.isCancelled else { return }
+            // Handed another address while this one loaded: leave it to that load. A picture that
+            // arrives for this address is always shown, even if this wait was called off on the
+            // way (a grid pauses tiles as it lays out and scrolls): dropping it left tiles empty
+            // until they were scrolled away and back.
+            guard imageURL == url else { return }
             if let loaded {
                 if fadesIn {
                     withAnimation(.easeOut(duration: 0.3)) { image = loaded }
@@ -179,6 +182,29 @@ final class ImageCache: @unchecked Sendable {
         URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad, timeoutInterval: 30)
     }
 
+    /// At most this many downloads at once. A page of set tiles asks for 40 or so pictures at
+    /// once; sent all together, the last ones waited in line so long they timed out and those
+    /// tiles stayed empty. Waiting here, a download's clock starts only when it's sent.
+    private static let gate = DownloadGate(limit: 6)
+
+    /// A picture's bytes: from the phone's storage when it's there, else downloaded (in turn, see
+    /// `gate`), tried up to three times. Nil only when every try failed or it isn't a picture.
+    static func download(_ url: URL) async -> Data? {
+        for attempt in 0..<3 {
+            if attempt > 0 { try? await Task.sleep(nanoseconds: UInt64(attempt) * 800_000_000) }
+            await gate.enter()
+            let result = try? await URLSession.shared.data(for: request(url))
+            await gate.leave()
+            if let (data, response) = result {
+                let status = (response as? HTTPURLResponse)?.statusCode ?? 200
+                if (200..<300).contains(status), !data.isEmpty { return data }
+                // Not found or refused: trying again won't help.
+                if (400..<500).contains(status) { return nil }
+            }
+        }
+        return nil
+    }
+
     func load(_ url: URL, maxPixel: CGFloat? = nil) async -> UIImage? {
         let cacheKey = key(url, maxPixel)
         if let hit = memory.object(forKey: cacheKey as NSURL) { return hit }
@@ -191,11 +217,11 @@ final class ImageCache: @unchecked Sendable {
                 if let maxPixel {
                     // Read the file and decode it straight to thumbnail size (ImageIO), never full size.
                     let data: Data?
-                    if url.isFileURL { data = try? Data(contentsOf: url) } else { data = try? await URLSession.shared.data(for: ImageCache.request(url)).0 }
+                    if url.isFileURL { data = try? Data(contentsOf: url) } else { data = await ImageCache.download(url) }
                     return data.flatMap { ImageCache.downsample($0, maxPixel: maxPixel) }
                 }
                 if url.isFileURL { return UIImage(contentsOfFile: url.path) }
-                guard let (data, _) = try? await URLSession.shared.data(for: ImageCache.request(url)) else { return nil }
+                guard let data = await ImageCache.download(url) else { return nil }
                 // Decode here, off the main thread, so scrolling a grid of new pictures stays smooth.
                 return await UIImage(data: data)?.byPreparingForDisplay() ?? UIImage(data: data)
             }
@@ -341,5 +367,31 @@ struct MiniRow: View {
             Text(trailing).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(tint)
         }
         .contentShape(Rectangle())
+    }
+}
+
+/// Lets a fixed number of downloads run at once; the rest wait their turn, first come first served.
+actor DownloadGate {
+    private let limit: Int
+    private var running = 0
+    private var waiting: [CheckedContinuation<Void, Never>] = []
+
+    init(limit: Int) { self.limit = limit }
+
+    func enter() async {
+        if running < limit {
+            running += 1
+            return
+        }
+        await withCheckedContinuation { waiting.append($0) }
+    }
+
+    func leave() {
+        if waiting.isEmpty {
+            running -= 1
+        } else {
+            // Hand this place straight to the next in line.
+            waiting.removeFirst().resume()
+        }
     }
 }
