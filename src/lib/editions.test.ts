@@ -42,7 +42,9 @@ describe("editions", () => {
   it("uses our Unlimited photos for Unlimited copies only", () => {
     expect(unlimitedCardImage("Base Set", "4/102")).toBe("/cards/pokemon/base-set-unlimited/4.webp");
     expect(unlimitedCardImage("Base Set", "8/102")).toBeNull();
-    expect(unlimitedCardImage("Jungle", "60/64")).toBeNull();
+    expect(unlimitedCardImage("Jungle", "60/64")).toBe("/cards/pokemon/jungle-unlimited/60.webp");
+    expect(unlimitedCardImage("Fossil", "15/62")).toBe("/cards/pokemon/fossil-unlimited/15.webp");
+    expect(unlimitedCardImage("Team Rocket", "1/82")).toBeNull();
     const card = { kind: "single", source: "tcgapi", setName: "Base Set", number: "4/102", imageUrl: "tcg.jpg" };
     expect(withEditionArt(card, "Holofoil").imageUrl).toBe("/cards/pokemon/base-set-unlimited/4.webp");
     expect(withEditionArt(card, "1st Edition Holofoil").imageUrl).toBe("tcg.jpg");

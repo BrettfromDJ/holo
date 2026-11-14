@@ -22,6 +22,8 @@ final class EditionsTests: XCTestCase {
     func testUnlimitedPhotosForUnlimitedCopiesOnly() {
         XCTAssertNotNil(Editions.unlimitedImage(setName: "Base Set", number: "4/102"))
         XCTAssertNil(Editions.unlimitedImage(setName: "Base Set", number: "8/102"))
-        XCTAssertNil(Editions.unlimitedImage(setName: "Jungle", number: "60/64"))
+        XCTAssertNotNil(Editions.unlimitedImage(setName: "Jungle", number: "60/64"))
+        XCTAssertNotNil(Editions.unlimitedImage(setName: "Fossil", number: "15/62"))
+        XCTAssertNil(Editions.unlimitedImage(setName: "Team Rocket", number: "1/82"))
     }
 }
