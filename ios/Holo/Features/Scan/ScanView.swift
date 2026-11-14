@@ -112,8 +112,10 @@ struct ScanView: View {
                 let hit = ScanCandidate(product: p, printing: nil, printings: p.printings ?? [], market: store.marketPrice(p.id, printing: p.printings?.first)?.market, score: 0.9)
                 model.add(matched: ScanResult(status: "matched", message: nil, read: nil, candidates: [hit], scansRemaining: nil), photo: Data(), thumbnail: nil)
                 try? await Task.sleep(nanoseconds: 800_000_000)
-                // "tray" leaves it in the tray (the latest scan, big); "matched" opens its card page.
+                // "tray" leaves it in the tray (the latest scan, big); "matched" opens its card page;
+                // -HoloScanList opens the tray's list.
                 if Demo.value("-HoloScanSample") == "matched", let first = model.entries.first { editing = EditingScan(id: first.id) }
+                if ProcessInfo.processInfo.arguments.contains("-HoloScanList") { expanded = true }
             } else if Demo.isOn, let kind = Demo.value("-HoloScanSample") {
                 let ids = ["sample:charizard-ex-151", "sample:charizard-ex-of", "sample:mew-ex-gold", "sample:pikachu-ex-ss"]
                 let candidates = kind == "retake" ? [] : ids.compactMap { id in
@@ -367,6 +369,8 @@ private struct ScanTray: View {
     var onNext: () -> Void
     var onDone: () -> Void
     @State private var clearing = false
+    /// The scan whose Change card sheet is open.
+    @State private var changing: EditingScan?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(CollectionStore.self) private var store
 
@@ -382,6 +386,7 @@ private struct ScanTray: View {
             tray
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.75), value: model.entries.count)
+        .sheet(item: $changing) { e in ChangeCardSheet(model: model, id: e.id) }
     }
 
     private var tray: some View {
@@ -427,7 +432,7 @@ private struct ScanTray: View {
                     ScrollView(showsIndicators: false) {
                         LazyVStack(spacing: 8) {
                             ForEach(model.entries) { e in
-                                chip(e, fills: true)
+                                listRow(e)
                                     // Swipe either way to remove.
                                     .swipeAway(e.picked?.product.name ?? "this scan") { withAnimation(.snappy) { model.remove(e.id) } }
                                     .transition(.opacity)
@@ -454,6 +459,7 @@ private struct ScanTray: View {
                     // its printing and condition to change right here. The count above opens the rest.
                     LatestScan(entry: latest, owned: owned(latest), inDeal: model.onPick != nil,
                                onOpen: { Haptics.tap(); onOpen(latest) },
+                               onChange: { Haptics.tap(); changing = EditingScan(id: latest.id) },
                                setPrinting: { model.setPrinting(latest.id, $0) },
                                setCondition: { model.setCondition(latest.id, $0) })
                         .id(latest.id)
@@ -514,6 +520,19 @@ private struct ScanTray: View {
         }
     }
 
+    /// One scan in the opened-out list: a matched card as a row you can edit in place (its
+    /// printing and condition), anything else as its tile.
+    @ViewBuilder private func listRow(_ e: ScanModel.Entry) -> some View {
+        if e.state == .done, e.picked != nil, !e.rejected {
+            ScanListRow(entry: e, owned: owned(e), inDeal: model.onPick != nil,
+                        onOpen: { Haptics.tap(); onOpen(e) },
+                        setPrinting: { model.setPrinting(e.id, $0) },
+                        setCondition: { model.setCondition(e.id, $0) })
+        } else {
+            chip(e, fills: true)
+        }
+    }
+
     /// One scan's tile, in the strip (fixed width) or the opened-out list (full width).
     private func chip(_ e: ScanModel.Entry, fills: Bool) -> some View {
         ScanChip(entry: e, owned: owned(e), fills: fills, onTap: { Haptics.tap(); onOpen(e) },
@@ -535,6 +554,8 @@ private struct LatestScan: View {
     /// Scanning into a deal: the deal sets the price, so no printing or condition menus.
     var inDeal: Bool
     var onOpen: () -> Void
+    /// Change card: the next best matches, or search.
+    var onChange: () -> Void
     var setPrinting: (String?) -> Void
     var setCondition: (String) -> Void
 
@@ -563,7 +584,11 @@ private struct LatestScan: View {
             }
             .frame(width: 128, height: 178)
             .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-            .overlay(alignment: .bottom) {
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .overlay(alignment: .bottom) {
+            Button(action: matched ? onChange : onOpen) {
                 HStack(spacing: 5) {
                     Image(systemName: matched ? "arrow.left.arrow.right" : "magnifyingglass").font(.system(size: 11, weight: .semibold))
                     Text(matched ? "Change card" : "Pick card").font(.geist(12, .semibold))
@@ -572,12 +597,13 @@ private struct LatestScan: View {
                 .padding(.horizontal, 10).frame(height: 28)
                 .background(Capsule().fill(Color.black.opacity(0.78)))
                 .overlay(Capsule().strokeBorder(Color.white.opacity(0.16), lineWidth: 1))
-                .padding(.bottom, 8)
+                .contentShape(Capsule())
             }
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .padding(.bottom, 8)
+            .accessibilityLabel(matched ? "Change card" : "Pick the right card")
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(matched ? "Open this card, or change it" : "Pick the right card")
+        .accessibilityLabel("Open this card")
     }
 
     // MARK: What it is, its price and the menus
@@ -596,12 +622,8 @@ private struct LatestScan: View {
                     .contentTransition(.numericText())
                     .animation(.snappy(duration: 0.25), value: entry.value)
                     .lineLimit(1).minimumScaleFactor(0.6)
-                if !inDeal, let p = entry.picked, !p.product.isSealed {
-                    HStack(spacing: 6) {
-                        if !entry.isSlab, (p.printings.count > 1 || (p.product.printings?.count ?? 0) > 1) { printingMenu(p) }
-                        if !entry.isSlab { conditionMenu }
-                    }
-                    .padding(.top, 8)
+                if !inDeal {
+                    ScanEditMenus(entry: entry, setPrinting: setPrinting, setCondition: setCondition).padding(.top, 8)
                 }
             } else {
                 Text(note).font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(3)
@@ -635,6 +657,65 @@ private struct LatestScan: View {
         case .queued, .reading: return "Finding the card and its price."
         case .failed: return "Tap the picture to try again."
         case .done: return entry.result?.status == "ambiguous" ? "Tap the picture to choose between close matches." : "Tap the picture to search for it."
+        }
+    }
+
+}
+
+/// A matched scan in the opened-out list: its picture (tap for the card), name and price, number
+/// and set, and its printing and condition to change right here.
+private struct ScanListRow: View {
+    var entry: ScanModel.Entry
+    var owned: Int
+    var inDeal: Bool
+    var onOpen: () -> Void
+    var setPrinting: (String?) -> Void
+    var setCondition: (String) -> Void
+
+    var body: some View {
+        let p = entry.picked!.product
+        HStack(alignment: .top, spacing: 12) {
+            Button(action: onOpen) {
+                ProductImage(product: p, cornerRadius: 6).frame(width: 62, height: 86)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Open \(p.name)")
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(p.name).font(.geist(16, .semibold)).foregroundStyle(.white).lineLimit(1)
+                    Spacer(minLength: 6)
+                    Text(Format.money(entry.value)).font(.geist(16, .semibold)).monospacedDigit().foregroundStyle(.white)
+                        .contentTransition(.numericText())
+                }
+                HStack(spacing: 6) {
+                    Text([p.number.map { "#\($0)" }, p.setName].compactMap { $0 }.joined(separator: " · "))
+                        .font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
+                    if owned > 0 { Spacer(minLength: 4); SkewTag(text: "Owned ×\(owned)", icon: "checkmark") }
+                }
+                if !inDeal {
+                    ScanEditMenus(entry: entry, setPrinting: setPrinting, setCondition: setCondition).padding(.top, 4)
+                }
+            }
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 4)
+        .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1) }
+        .contentShape(Rectangle())
+    }
+}
+
+/// A scan's printing and condition, as two small menus (the tray's latest scan and the list).
+private struct ScanEditMenus: View {
+    var entry: ScanModel.Entry
+    var setPrinting: (String?) -> Void
+    var setCondition: (String) -> Void
+
+    var body: some View {
+        if let p = entry.picked, !p.product.isSealed, !entry.isSlab {
+            HStack(spacing: 6) {
+                if p.printings.count > 1 || (p.product.printings?.count ?? 0) > 1 { printingMenu(p) }
+                conditionMenu
+            }
         }
     }
 

@@ -70,6 +70,7 @@ final class ScreenshotTests: XCTestCase {
     func testScanner() { capture("scanner", args: ["-HoloScan"], pages: 1) }
     func testScanWhichOne() { capture("scan-which", args: ["-HoloScan", "-HoloScanSample", "ambiguous"], pages: 1) }
     func testScanTray() { capture("scan-tray", args: ["-HoloScan", "-HoloScanSample", "tray"], pages: 1) }
+    func testScanList() { capture("scan-list", args: ["-HoloScan", "-HoloScanSample", "tray", "-HoloScanList"], pages: 1) }
     func testScanMatched() { capture("scan-matched", args: ["-HoloScan", "-HoloScanSample", "matched"], pages: 2) }
     func testScanRetake() { capture("scan-retake", args: ["-HoloScan", "-HoloScanSample", "retake"], pages: 1) }
     // Onboarding: the welcome pages (swiped sideways).

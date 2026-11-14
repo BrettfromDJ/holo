@@ -12,6 +12,7 @@ struct ScanCardSheet: View {
     var onRemove: () -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var searching = false
+    @State private var changing = false
 
     private var entry: ScanModel.Entry? { model.entries.first { $0.id == id } }
 
@@ -19,7 +20,7 @@ struct ScanCardSheet: View {
         Group {
             if let entry, let product = entry.picked?.product {
                 NavigationStack {
-                    ProductDetailView(productId: product.id, extra: AnyView(ScanPanel(model: model, id: id, onWrong: { searching = true }, onRemove: {
+                    ProductDetailView(productId: product.id, extra: AnyView(ScanPanel(model: model, id: id, onWrong: { changing = true }, onRemove: {
                         dismiss()
                         onRemove()
                     })))
@@ -38,6 +39,8 @@ struct ScanCardSheet: View {
         .presentationDetents([.fraction(0.93)])
         .presentationDragIndicator(.visible)
         .glassSheet()
+        // Wrong card?: the next best matches, or search (Change card).
+        .sheet(isPresented: $changing) { ChangeCardSheet(model: model, id: id) }
         // The right card, picked from search, takes this scan over.
         .sheet(isPresented: $searching) {
             SearchScreen(mode: .add, onPick: { hit in model.replace(id, with: hit) })
@@ -367,5 +370,105 @@ private struct CandidateCard: View {
             ProductImage(product: p, cornerRadius: 14, large: true).frame(width: 300, height: 419)
         }
         .accessibilityLabel("\(p.name), \(p.subtitle), \(Format.money(candidate.market))")
+    }
+}
+
+/// "Change card": the card this scan matched, the scanner's next best matches to swap in with one
+/// tap (picture, name, number and set, price), Search all cards, or keep it as it is. Opens from
+/// the tray's Change card and the card page's Wrong card?.
+struct ChangeCardSheet: View {
+    let model: ScanModel
+    let id: UUID
+    @Environment(\.dismiss) private var dismiss
+    @State private var searching = false
+
+    private var entry: ScanModel.Entry? { model.entries.first { $0.id == id } }
+
+    /// The other close matches, best first (the one picked now left out).
+    private var others: [ScanCandidate] {
+        guard let entry else { return [] }
+        let picked = entry.picked?.product.id
+        return Array((entry.result?.candidates ?? []).filter { $0.product.id != picked }.prefix(6))
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Text("Change card").font(.display(26)).tracking(-0.7).foregroundStyle(.white)
+                .padding(.top, 28).padding(.bottom, 18)
+            Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 0) {
+                    if let p = entry?.picked?.product {
+                        Text("Replacing: \(p.name)" + (p.number.map { " · #\($0)" } ?? ""))
+                            .font(.geist(16, .semibold)).foregroundStyle(.white).lineLimit(2)
+                            .padding(.top, 20)
+                    }
+                    if !others.isEmpty {
+                        let condition = entry.flatMap { CardCondition(rawValue: $0.condition)?.short }
+                        MonoLabel(text: "Next best matches" + (condition.map { " · \($0)" } ?? ""))
+                            .padding(.top, 18).padding(.bottom, 6)
+                        ForEach(Array(others.enumerated()), id: \.offset) { i, c in
+                            if i > 0 { Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1) }
+                            row(c)
+                        }
+                    } else {
+                        Text("No other close matches for this scan. Search for the right card.")
+                            .font(.geist(14)).foregroundStyle(Theme.muted).padding(.top, 14)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 16)
+            }
+            VStack(spacing: 12) {
+                Button { Haptics.tap(); searching = true } label: {
+                    Label("Search all cards", systemImage: "magnifyingglass")
+                }
+                .buttonStyle(Button3D(kind: .dark, height: 52))
+                if let name = entry?.picked?.product.name {
+                    Button { dismiss() } label: {
+                        Text("Keep \(name)").font(.geist(15, .medium)).foregroundStyle(Theme.muted).underline().lineLimit(1)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 16)
+        }
+        .foregroundStyle(.white)
+        .presentationDetents([.fraction(0.75), .fraction(0.93)])
+        .presentationDragIndicator(.visible)
+        .glassSheet()
+        .sheet(isPresented: $searching) {
+            SearchScreen(mode: .add, onPick: { hit in
+                model.replace(id, with: hit)
+                dismiss()
+            })
+        }
+    }
+
+    private func row(_ c: ScanCandidate) -> some View {
+        Button {
+            Haptics.tap()
+            // In a deal a scan is handed over once, so swapping goes through replace there.
+            if model.onPick != nil {
+                model.replace(id, with: SearchHit(product: c.product, printing: c.printing, market: c.market))
+            } else {
+                model.pick(c, for: id)
+            }
+            dismiss()
+        } label: {
+            HStack(spacing: 14) {
+                ProductImage(product: c.product, cornerRadius: 5).frame(width: 44, height: 62)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(c.product.name).font(.geist(16, .semibold)).foregroundStyle(.white).lineLimit(2)
+                    Text([c.product.number.map { "#\($0)" }, c.product.setName].compactMap { $0 }.joined(separator: " · "))
+                        .font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                Text(Format.money(c.market)).font(.geist(17, .semibold)).monospacedDigit().foregroundStyle(.white)
+            }
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
