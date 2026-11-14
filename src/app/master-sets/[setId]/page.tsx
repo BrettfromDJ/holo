@@ -10,7 +10,7 @@ import { ErrorState } from "@/components/portfolio/error-state";
 import { ProductImage } from "@/components/product/product-image";
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useChecklist, type OwnedSet } from "@/lib/checklists";
+import { ownedSets, useChecklist, type OwnedSet } from "@/lib/checklists";
 import { compareCollectorNumbers } from "@/lib/collector-number";
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { money } from "@/lib/format";
@@ -63,8 +63,8 @@ export default function MasterSetPage() {
   const { holdings } = usePortfolio();
 
   const set: OwnedSet = useMemo(() => {
-    const mine = holdings.filter((h) => h.product?.kind === "single" && h.product.setId === setId);
-    return { setId, name: mine[0]?.product?.setName ?? setId, sample: mine.some((h) => h.product?.source === "sample"), holdings: mine };
+    // Grouped the way the Master Sets list groups them (old sets split by edition).
+    return ownedSets(holdings).find((s) => s.setId === setId) ?? { setId, name: setId, sample: false, holdings: [] };
   }, [holdings, setId]);
   const { checklist, loading: fetching, error, sample } = useChecklist(store.status === "ready" ? set : null);
   // Until the first load starts the state is empty; treat that as loading too.

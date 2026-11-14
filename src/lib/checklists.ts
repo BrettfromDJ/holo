@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { compareCollectorNumbers } from "./collector-number";
+import { editionName, editionOf, editionSlug, isEditionSet } from "./editions";
 import type { HoldingView } from "./finance/portfolio";
 import type { ExploreProduct, ExploreSet } from "./explore/types";
 import type { ChecklistCard, SetChecklist } from "./pricing/types";
@@ -41,9 +42,13 @@ export function ownedSets(holdings: HoldingView[]): OwnedSet[] {
   for (const h of holdings) {
     const p = h.product;
     if (!p || p.kind !== "single" || !p.setId) continue;
-    const set = map.get(p.setId) ?? { setId: p.setId, name: p.setName ?? p.setId, sample: p.source === "sample", holdings: [] };
+    // Old sets printed in two editions are two sets: a copy goes to its own edition's.
+    const edition = p.source === "tcgapi" && isEditionSet({ name: p.setName }) ? editionOf(h.identity.printing) : null;
+    const setId = edition ? editionSlug(p.setId, edition) : p.setId;
+    const name = edition ? editionName(p.setName ?? p.setId, edition) : (p.setName ?? p.setId);
+    const set = map.get(setId) ?? { setId, name, sample: p.source === "sample", holdings: [] };
     set.holdings.push(h);
-    map.set(p.setId, set);
+    map.set(setId, set);
   }
   return [...map.values()].sort((a, b) => b.holdings.length - a.holdings.length || a.name.localeCompare(b.name));
 }

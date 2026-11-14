@@ -425,3 +425,21 @@ export async function setProductsPage(
   const more = (res.meta as { has_more?: boolean } | undefined)?.has_more;
   return { products, prices, hasMore: more ?? res.data.length === 200 };
 }
+
+/** Every printing's price for every card in a set, in one call (old sets printed in two editions). */
+export async function setAllPrintingPrices(setId: number): Promise<NormalizedPrice[]> {
+  const res = await call((c) => c.sets.prices(setId));
+  return res.data
+    .filter((r) => r.printing)
+    .map((r) =>
+      normalizePrice(`tcgapi:${r.card_id}`, {
+        printing: r.printing,
+        market_price: r.market_price,
+        low_price: r.low_price,
+        price_change_24h: r.price_change_24h,
+        price_change_7d: r.price_change_7d,
+        price_change_30d: r.price_change_30d,
+        last_updated_at: ((r as { last_updated_at?: string | null }).last_updated_at ?? null) as string,
+      }),
+    );
+}

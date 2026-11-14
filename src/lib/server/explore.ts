@@ -7,6 +7,7 @@ import type { CatalogSetRow, Database, ProductRow } from "../supabase/database.t
 import { productFromRow } from "../supabase/mappers";
 import { selectAll } from "./paging";
 import { setArtFor } from "../set-art";
+import { editionArtName, editionName, editionSlug, EDITIONS, isEditionSet, isFirstEditionPrinting, type Edition } from "../editions";
 
 /** Browsing is read from Supabase only — never from the TCG API. Cached at the CDN for ten minutes. */
 export const EXPLORE_CACHE = "public, s-maxage=600, stale-while-revalidate=3600";
@@ -16,13 +17,13 @@ export const EXPLORE_CACHE = "public, s-maxage=600, stale-while-revalidate=3600"
  * background as the banner (`iconUrl`), with its logo and symbol; others keep TCG API's art.
  * `origin` makes our art's addresses absolute, for the app.
  */
-export function setFromRow(r: CatalogSetRow, origin = ""): ExploreSet {
-  const art = setArtFor({ gameName: r.game_name, name: r.name, abbreviation: r.abbreviation });
+export function setFromRow(r: CatalogSetRow, origin = "", edition?: Edition): ExploreSet {
+  const art = setArtFor({ gameName: r.game_name, name: edition ? editionArtName(r.name, edition) : r.name, abbreviation: r.abbreviation });
   return {
-    slug: r.slug,
+    slug: edition ? editionSlug(r.slug, edition) : r.slug,
     gameSlug: r.game_slug,
     gameName: r.game_name,
-    name: r.name,
+    name: edition ? editionName(r.name, edition) : r.name,
     releaseDate: r.release_date,
     imageUrl: r.image_url,
     iconUrl: art ? origin + art.background : r.icon_url,
@@ -34,8 +35,18 @@ export function setFromRow(r: CatalogSetRow, origin = ""): ExploreSet {
   };
 }
 
+/** A stored set as Explore lists it: old sets printed in both editions become two sets (1st Edition first). */
+export function setsFromRow(r: CatalogSetRow, origin = ""): ExploreSet[] {
+  return isEditionSet({ name: r.name, gameName: r.game_name }) ? EDITIONS.map((e) => setFromRow(r, origin, e)) : [setFromRow(r, origin)];
+}
+
+/** For one edition of a set: prefer that edition's printing when a card has both. */
+export function editionPreference(edition: Edition): (printing: string) => boolean {
+  return edition === "1st-edition" ? (p) => isFirstEditionPrinting(p) : (p) => !isFirstEditionPrinting(p);
+}
+
 /** Attach each product's stored price (default printing first). */
-export async function withPrices(admin: SupabaseClient<Database>, rows: ProductRow[]): Promise<ExploreProduct[]> {
+export async function withPrices(admin: SupabaseClient<Database>, rows: ProductRow[], prefer?: (printing: string) => boolean): Promise<ExploreProduct[]> {
   const ids = rows.map((r) => r.id);
   const prices = new Map<string, { printing: string; market_price: number | null; source_updated_at: string | null }>();
   // Brand names and release dates, from each product's set.
@@ -54,8 +65,10 @@ export async function withPrices(admin: SupabaseClient<Database>, rows: ProductR
         .then(({ data }) => {
           for (const p of data ?? []) {
             const prev = prices.get(p.product_id);
-            // Prefer the row with a price; otherwise keep the first.
-            if (!prev || (prev.market_price === null && p.market_price !== null)) prices.set(p.product_id, p);
+            // An edition's own printing first (when asked), then the row with a price, else the first.
+            const wanted = (row: { printing: string }) => (prefer ? prefer(row.printing) : true);
+            const better = !prev || (wanted(p) && !wanted(prev)) || (wanted(p) === wanted(prev) && prev.market_price === null && p.market_price !== null);
+            if (better) prices.set(p.product_id, p);
           }
         }),
     );

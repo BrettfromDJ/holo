@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { ExploreGame } from "@/lib/explore/types";
-import { EXPLORE_CACHE, exploreMarket, setFromRow } from "@/lib/server/explore";
+import { EXPLORE_CACHE, exploreMarket, setsFromRow } from "@/lib/server/explore";
 import { selectAll } from "@/lib/server/paging";
 import type { CatalogSetRow } from "@/lib/supabase/database.types";
 import { getAdminSupabase } from "@/lib/supabase/server";
@@ -32,7 +32,8 @@ export async function GET(req: Request) {
     );
   }
   const origin = new URL(req.url).origin;
-  const sets = (data ?? []).map((r) => setFromRow(r, origin));
+  // Old sets printed in both editions show as two sets.
+  const sets = (data ?? []).flatMap((r) => setsFromRow(r, origin));
 
   // Brands come from catalog_games when available; otherwise from the set list.
   const games = new Map<string, ExploreGame>();

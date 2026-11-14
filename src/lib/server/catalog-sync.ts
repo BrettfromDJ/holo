@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { catalogGameList, gameSetsPage, setProductsPage } from "../pricing/tcgapi";
+import { catalogGameList, gameSetsPage, setAllPrintingPrices, setProductsPage } from "../pricing/tcgapi";
+import { isEditionSet } from "../editions";
 import { PricingUnavailableError } from "../pricing/types";
 import type { CatalogSetRow, Database } from "../supabase/database.types";
 import { priceToRow, productToRow } from "../supabase/mappers";
@@ -56,7 +57,7 @@ type QueuedSet = { slug: string; tcgapi_id: number; name: string; products_synce
  */
 export async function refreshSet(
   admin: SupabaseClient<Database>,
-  set: Pick<QueuedSet, "slug" | "tcgapi_id" | "name">,
+  set: Pick<QueuedSet, "slug" | "tcgapi_id" | "name"> & { game_slug?: string },
   canCall: () => boolean,
   onCall: () => void,
   result?: CatalogSyncResult,
@@ -82,6 +83,19 @@ export async function refreshSet(
       if (result) result.pricesStored += stored;
     }
     if (!hasMore || page === 25) break;
+  }
+  // Old sets printed in two editions: one more call for every printing's price, so both the
+  // 1st Edition and the Unlimited half have theirs (the pages above carry one printing each).
+  if (set.game_slug === "pokemon" && isEditionSet({ name: set.name }) && canCall()) {
+    onCall();
+    try {
+      const all = await setAllPrintingPrices(set.tcgapi_id);
+      const stored = await storePrices(admin, all);
+      if (result) result.pricesStored += stored;
+    } catch (err) {
+      if (err instanceof PricingUnavailableError && err.code === "rate_limited") throw err;
+      // Not on the plan, or no answer: the set still loads, priced at one printing per card.
+    }
   }
   const { error } = await admin.from("catalog_sets").update({ products_synced_at: new Date().toISOString(), product_count: count }).eq("slug", set.slug);
   if (error) throw new Error(error.message);
@@ -201,10 +215,11 @@ async function storePrices(admin: SupabaseClient<Database>, prices: NormalizedPr
   const rows = prices.map(priceToRow);
   const ids = [...new Set(rows.map((r) => r.product_id))];
   const { data: existing } = await admin.from("product_prices").select("product_id, printing, fetched_at, market_price").in("product_id", ids);
-  const fresh = new Set((existing ?? []).filter((r) => Date.now() - Date.parse(r.fetched_at) < SET_FRESH_MS).map((r) => r.product_id));
+  // Fresh per printing: a card priced today at one printing still takes its other printings.
+  const fresh = new Set((existing ?? []).filter((r) => Date.now() - Date.parse(r.fetched_at) < SET_FRESH_MS).map((r) => `${r.product_id}|${r.printing}`));
   // A blank never replaces a known price (e.g. PriceCharting's, for cards TCGplayer doesn't price).
   const known = new Set((existing ?? []).filter((r) => r.market_price !== null).map((r) => `${r.product_id}|${r.printing}`));
-  const toWrite = rows.filter((r) => !fresh.has(r.product_id) && !(r.market_price === null && known.has(`${r.product_id}|${r.printing}`)));
+  const toWrite = rows.filter((r) => !fresh.has(`${r.product_id}|${r.printing}`) && !(r.market_price === null && known.has(`${r.product_id}|${r.printing}`)));
   if (!toWrite.length) return 0;
   const { error } = await admin.from("product_prices").upsert(toWrite);
   if (error) throw new Error(error.message);
@@ -249,7 +264,7 @@ const refreshing = new Map<string, number>();
  */
 export async function refreshSetIfStale(
   admin: SupabaseClient<Database>,
-  set: Pick<CatalogSetRow, "slug" | "tcgapi_id" | "name" | "products_synced_at">,
+  set: Pick<CatalogSetRow, "slug" | "tcgapi_id" | "name" | "products_synced_at"> & { game_slug?: string },
 ): Promise<void> {
   if (set.products_synced_at && Date.now() - Date.parse(set.products_synced_at) < SET_FRESH_MS) return;
   if (Date.now() - (refreshing.get(set.slug) ?? 0) < 10 * 60 * 1000) return;

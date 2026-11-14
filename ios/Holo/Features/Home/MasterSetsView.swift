@@ -87,15 +87,16 @@ struct MasterSetDetailView: View {
 
     /// Your singles from this set.
     private var current: OwnedSet {
-        OwnedSet(id: setId, name: setName, holdings: store.holdings.filter { $0.product?.isSealed == false && $0.product?.setId == setId })
+        // Grouped the way the Master Sets list groups them (old sets split by edition).
+        OwnedSet(id: setId, name: setName, holdings: store.holdings.filter { Editions.masterSet(for: $0)?.id == setId })
     }
 
     /// Sets you own singles from, most owned first.
     static func ownedSets(_ holdings: [HoldingView]) -> [OwnedSet] {
         var map: [String: OwnedSet] = [:]
         for h in holdings {
-            guard let p = h.product, !p.isSealed, let setId = p.setId else { continue }
-            map[setId, default: OwnedSet(id: setId, name: p.setName ?? setId, holdings: [])].holdings.append(h)
+            guard let set = Editions.masterSet(for: h) else { continue }
+            map[set.id, default: OwnedSet(id: set.id, name: set.name, holdings: [])].holdings.append(h)
         }
         return map.values.sorted { $0.holdings.count != $1.holdings.count ? $0.holdings.count > $1.holdings.count : $0.name < $1.name }
     }
