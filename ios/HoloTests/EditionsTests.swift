@@ -18,4 +18,10 @@ final class EditionsTests: XCTestCase {
         XCTAssertEqual(Editions.of(printing: "Unlimited Holofoil"), .unlimited)
         XCTAssertEqual(Editions.of(printing: nil), .unlimited)
     }
+
+    func testUnlimitedPhotosForUnlimitedCopiesOnly() {
+        XCTAssertNotNil(Editions.unlimitedImage(setName: "Base Set", number: "4/102"))
+        XCTAssertNil(Editions.unlimitedImage(setName: "Base Set", number: "8/102"))
+        XCTAssertNil(Editions.unlimitedImage(setName: "Jungle", number: "60/64"))
+    }
 }

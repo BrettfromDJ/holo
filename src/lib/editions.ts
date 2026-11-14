@@ -6,6 +6,8 @@
  * Same as the app's `Editions`.
  */
 
+import unlimitedArt from "./unlimited-art-manifest.json";
+
 export type Edition = "1st-edition" | "unlimited";
 
 const EDITION_SETS = new Set([
@@ -64,3 +66,22 @@ export function editionOf(printing: string | null | undefined): Edition {
   return isFirstEditionPrinting(printing) ? "1st-edition" : "unlimited";
 }
 
+/**
+ * Our own photos of the Unlimited prints (the catalog's pictures for these sets are the 1st
+ * Edition scans, stamp and all): public/cards/pokemon/<dir>/<number>.webp, listed in
+ * unlimited-art-manifest.json by set. Null for a card we have no photo of.
+ */
+export function unlimitedCardImage(setName: string | null | undefined, number: string | null | undefined): string | null {
+  const entry = (unlimitedArt as Record<string, { dir: string; numbers: number[] }>)[fold(setName)];
+  const n = Number(number?.match(/^\s*#?(\d+)/)?.[1]);
+  return entry && n && entry.numbers.includes(n) ? `/cards/pokemon/${entry.dir}/${n}.webp` : null;
+}
+
+/** A card shown as one printing: our Unlimited photo when that printing is the Unlimited one. */
+export function withEditionArt<P extends { kind?: string | null; source?: string | null; setName?: string | null; number?: string | null; imageUrl?: string | null }>(product: P, printing: string | null | undefined): P;
+export function withEditionArt<P extends { kind?: string | null; source?: string | null; setName?: string | null; number?: string | null; imageUrl?: string | null }>(product: P | undefined, printing: string | null | undefined): P | undefined;
+export function withEditionArt<P extends { kind?: string | null; source?: string | null; setName?: string | null; number?: string | null; imageUrl?: string | null }>(product: P | undefined, printing: string | null | undefined): P | undefined {
+  if (!product || product.kind !== "single" || product.source !== "tcgapi" || editionOf(printing) !== "unlimited") return product;
+  const art = unlimitedCardImage(product.setName, product.number);
+  return art ? { ...product, imageUrl: art } : product;
+}

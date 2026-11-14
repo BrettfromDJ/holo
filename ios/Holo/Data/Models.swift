@@ -55,7 +55,8 @@ struct Product: Codable, Identifiable, Hashable {
         var out: [String] = []
         // Any card with a TCGplayer ID: TCGplayer's 1000px picture, whatever address the
         // catalog gave (the catalog's own picture is a small preview).
-        let ownHiRes = s.contains("images.pokemontcg.io/") || s.contains("assets.tcgdex.net/") || s.contains("cards.scryfall.io/")
+        // Our own photos (the Unlimited prints of the old sets) are full size already.
+        let ownHiRes = s.contains("images.pokemontcg.io/") || s.contains("assets.tcgdex.net/") || s.contains("cards.scryfall.io/") || s.contains("/cards/pokemon/")
         if let id = tcgplayerId, id > 0, !ownHiRes {
             out = ["https://tcgplayer-cdn.tcgplayer.com/product/\(id)_in_1000x1000.jpg"]
         }

@@ -153,4 +153,9 @@ and say exactly what to run or click.
   logo, symbol; lists in `src/lib/set-art-manifest.json` / `-ja.json`), matched in `src/lib/set-art.ts` (Japanese by set code first)
   and sent by `/api/explore` as `iconUrl` (banner) + `logoUrl`; TCG API's art is the fallback.
   New sets: add a folder and a manifest entry.
+- Old sets split by edition (Base Set, Jungle, Fossil, Team Rocket, Gym, Neo): `src/lib/editions.ts`
+  and `Domain/Editions.swift` (slugs `<set>--1st-edition` / `--unlimited`). The catalog's card
+  pictures are 1st Edition scans; the owner supplies Unlimited photos per set in
+  `public/cards/pokemon/<dir>/<number>.webp`, listed in `src/lib/unlimited-art-manifest.json`
+  and the same list in `Editions.unlimitedArt` (keep both in step). Base Set done (no #8).
 - Not in the app on purpose: the separate trade checker (the Deal tab covers trades).

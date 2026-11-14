@@ -41,6 +41,8 @@ struct ProductDetailView: View {
     /// own, else the first priced one.
     @State private var chosenPrinting: String?
     private var printing: String? { chosenPrinting ?? owned.first?.identity.printing ?? product?.printings?.first }
+    /// The card as pictured: an old set's Unlimited printing shows the Unlimited print's photo.
+    private var artProduct: Product? { Editions.art(product, printing: printing) }
     /// Printings to switch between (only when there's more than one).
     private var printings: [String] {
         var list = product?.printings ?? []
@@ -127,7 +129,7 @@ struct ProductDetailView: View {
         }
         .sheet(item: $managing) { h in HoldingSheet(identity: h.identity) }
         .fullScreenCover(isPresented: $viewingArt) {
-            ArtViewer(product: product, slab: heroSlab?.identity)
+            ArtViewer(product: artProduct, slab: heroSlab?.identity)
                 .zoomTransition(id: "art", in: artZoom)
         }
         .sheet(item: $selling) { h in SellSheet(holding: h) }
@@ -284,7 +286,7 @@ struct ProductDetailView: View {
                 Color.clear.frame(width: 260, height: 363)
             } else if let slab = heroSlab {
                 HoloCard(foil: false, textured: false, cornerRadius: 18) {
-                    HoldingArt(product: product, identity: slab.identity)
+                    HoldingArt(product: artProduct, identity: slab.identity)
                 }
                 .onCardTap { viewingArt = true }
                 .drifting()
@@ -292,7 +294,7 @@ struct ProductDetailView: View {
             } else if product?.isSealed == false, product?.imageURL != nil {
                 HoloCard(foil: product?.isFoil == true, textured: false, cornerRadius: 12) {
                     // Rounded like a real card (about 5% of its width), so the scan's white corners don't show.
-                    ProductImage(product: product, cornerRadius: 13, large: true).frame(width: 260, height: 363)
+                    ProductImage(product: artProduct, cornerRadius: 13, large: true).frame(width: 260, height: 363)
                 }
                 .onCardTap { viewingArt = true }
                 .drifting()

@@ -20,6 +20,7 @@ import {
 } from "./ledger";
 import { holdingPriceKey } from "../graded";
 import { PriceResolver, type ResolvedPrice } from "./prices";
+import { withEditionArt } from "../editions";
 
 export type HoldingCategory = "sealed" | "single" | "graded";
 
@@ -70,7 +71,8 @@ export function computeHoldings(data: CollectionData, today: ISODate): HoldingVi
   for (const [key, pos] of ledger.positions) {
     const quantity = quantityOf(pos);
     if (quantity <= 0) continue;
-    const product = data.products[pos.identity.productId];
+    // An Unlimited copy of an old set shows the Unlimited print's photo.
+    const product = withEditionArt(data.products[pos.identity.productId], pos.identity.printing);
     const costBasis = costBasisOf(pos);
     const resolved = resolver.resolve(pos.identity, today);
     const price = resolved?.price ?? null;

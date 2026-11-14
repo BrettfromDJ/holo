@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { editionArtName, editionName, editionOf, editionSlug, isEditionSet, parseEditionSlug } from "./editions";
+import { editionArtName, editionName, editionOf, editionSlug, isEditionSet, parseEditionSlug, unlimitedCardImage, withEditionArt } from "./editions";
 import { setArtFor } from "./set-art";
 import { ownedSets } from "./checklists";
 import type { HoldingView } from "./finance/portfolio";
@@ -37,5 +37,14 @@ describe("editions", () => {
       ["base-set--unlimited", "Base Set Unlimited", 2],
       ["base-set--1st-edition", "Base Set 1st Edition", 1],
     ]);
+  });
+
+  it("uses our Unlimited photos for Unlimited copies only", () => {
+    expect(unlimitedCardImage("Base Set", "4/102")).toBe("/cards/pokemon/base-set-unlimited/4.webp");
+    expect(unlimitedCardImage("Base Set", "8/102")).toBeNull();
+    expect(unlimitedCardImage("Jungle", "60/64")).toBeNull();
+    const card = { kind: "single", source: "tcgapi", setName: "Base Set", number: "4/102", imageUrl: "tcg.jpg" };
+    expect(withEditionArt(card, "Holofoil").imageUrl).toBe("/cards/pokemon/base-set-unlimited/4.webp");
+    expect(withEditionArt(card, "1st Edition Holofoil").imageUrl).toBe("tcg.jpg");
   });
 });

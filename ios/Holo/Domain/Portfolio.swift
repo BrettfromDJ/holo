@@ -122,7 +122,8 @@ enum Portfolio {
                 change30 = p.change30dPct
             }
             return HoldingView(
-                identity: id, product: products[id.productId], quantity: qty, costBasis: pos.costBasis,
+                // An Unlimited copy of an old set shows the Unlimited print's photo.
+                identity: id, product: Editions.art(products[id.productId], printing: id.printing), quantity: qty, costBasis: pos.costBasis,
                 realizedGain: pos.realizedGain, price: price, isConditionEstimate: estimate, isManual: manual,
                 change24hPct: change, change7dPct: change7, change30dPct: change30, lastAcquired: pos.lastAcquired, lots: pos.lots, firstAcquired: pos.firstAcquired
             )

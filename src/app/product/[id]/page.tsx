@@ -39,6 +39,7 @@ import { formatDate, money, relativeTime, tone } from "@/lib/format";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
 import { useSlabPristine } from "@/lib/store/grading";
 import { priceKey, type Product, type Transaction } from "@/lib/types";
+import { withEditionArt } from "@/lib/editions";
 
 type HistRange = "1M" | "3M" | "1Y" | "ALL";
 const HIST_DAYS: Record<HistRange, number | null> = { "1M": 30, "3M": 91, "1Y": 365, ALL: null };
@@ -89,6 +90,8 @@ export default function ProductPage() {
   const yourCopies = owned.filter((h) => h.price !== null && (h.identity.grade || h.conditionEstimate));
   const realizedHere = realized.filter((r) => r.holdingKey.startsWith(`${productId}|`)).reduce((s, r) => s + r.gain, 0);
   const printing = chosenPrinting ?? owned[0]?.identity.printing ?? product.printings?.[0] ?? null;
+  // The Unlimited printing of an old set shows the Unlimited print's photo, not the 1st Edition scan.
+  const art = withEditionArt(product, printing);
   const printings = [...new Set([...(product.printings ?? []), ...owned.map((h) => h.identity.printing).filter((p): p is string => Boolean(p))])];
   const price = store.data.prices[priceKey(productId, printing)];
   // No current price (older or unsynced products): fall back to the latest point in its price
@@ -123,18 +126,18 @@ export default function ProductPage() {
           // Only slabs of this card are owned: show it in its slab.
           <div className="flex flex-col items-center self-start lg:sticky lg:top-10">
             <HoloTilt heroName={hero.name} radius="7% / 4.4%" foil={false} className={`mx-auto aspect-[5/8] w-full max-w-[260px] ${hero.arriving ? "" : "animate-pop"} sm:max-w-[340px]`}>
-              <ProductImage product={product} grade={slab} slabKey={owned[0]?.key} size="xl" priority className="h-full w-full" />
+              <ProductImage product={art} grade={slab} slabKey={owned[0]?.key} size="xl" priority className="h-full w-full" />
             </HoloTilt>
             <BumperButton h={owned[0]} className="mt-6 py-1.5 pl-1.5 pr-3.5 text-[13px]" />
           </div>
         ) : product.kind === "single" && product.imageUrl ? (
           // A bare card: no well or frame, just the card at its own proportions.
           <HoloTilt heroName={hero.name} radius="4.5% / 3.2%" foil={isFoilCard(product)} className={`mx-auto aspect-[63/88] w-full max-w-[260px] ${hero.arriving ? "" : "animate-pop"} sm:max-w-[360px] self-start lg:sticky lg:top-10`}>
-            <ProductImage product={product} size="xl" priority frame={false} className="h-full w-full rounded-[4.5%/3.2%] shadow-2xl shadow-black/50" />
+            <ProductImage product={art} size="xl" priority frame={false} className="h-full w-full rounded-[4.5%/3.2%] shadow-2xl shadow-black/50" />
           </HoloTilt>
         ) : (
           <HoloTilt heroName={hero.name} radius="1.75rem" foil={false} className={`aspect-square w-full ${hero.arriving ? "" : "animate-pop"} lg:sticky lg:top-10`}>
-            <ProductImage product={product} size="xl" priority className="h-full w-full rounded-[1.75rem]" />
+            <ProductImage product={art} size="xl" priority className="h-full w-full rounded-[1.75rem]" />
           </HoloTilt>
         )}
 
