@@ -524,6 +524,22 @@ struct ExploreIndex: Codable {
     var boosterBoxes: [SearchHit]? = nil
 }
 
+extension ExploreSet {
+    /// Our own set art always from the site's public address: an address the server built from a
+    /// deployment's private host (behind Vercel's login) wouldn't load in the app.
+    func withOwnArtOnPublicHost() -> ExploreSet {
+        func fix(_ s: String?) -> String? {
+            guard let s, let r = s.range(of: "/sets/pokemon") else { return s }
+            return AppConfig.apiBaseURL.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + s[r.lowerBound...]
+        }
+        var copy = self
+        copy.iconUrl = fix(iconUrl)
+        copy.logoUrl = fix(logoUrl)
+        copy.symbolUrl = fix(symbolUrl)
+        return copy
+    }
+}
+
 struct ExploreSetDetail: Codable {
     var set: ExploreSet
     var products: [SearchHit]

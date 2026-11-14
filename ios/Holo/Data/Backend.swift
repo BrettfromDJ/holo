@@ -133,13 +133,15 @@ final class HoloAPI {
     // MARK: Explore and market data (stored catalog; eBay and conditions are cached 12h at the CDN)
 
     func exploreIndex() async throws -> ExploreIndex {
-        let index = try await send(try await request("api/explore"), as: ExploreIndex.self)
+        var index = try await send(try await request("api/explore"), as: ExploreIndex.self)
+        index.sets = index.sets.map { $0.withOwnArtOnPublicHost() }
         SavedSets.save(index.sets)
         return index
     }
 
     func exploreSet(_ slug: String) async throws -> ExploreSetDetail {
         var detail = try await send(try await request("api/explore/sets/\(slug)"), as: ExploreSetDetail.self)
+        detail.set = detail.set.withOwnArtOnPublicHost()
         detail.products.removeAll { $0.product.isCodeCard }
         return detail
     }
@@ -232,7 +234,7 @@ enum SavedSets {
 
     static func load() -> [ExploreSet] {
         guard let file, let data = try? Data(contentsOf: file) else { return [] }
-        return (try? JSONDecoder().decode([ExploreSet].self, from: data)) ?? []
+        return ((try? JSONDecoder().decode([ExploreSet].self, from: data)) ?? []).map { $0.withOwnArtOnPublicHost() }
     }
 
     static func save(_ sets: [ExploreSet]) {

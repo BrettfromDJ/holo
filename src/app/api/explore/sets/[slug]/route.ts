@@ -1,6 +1,6 @@
 import { after, NextResponse } from "next/server";
 import { ensureEditionPrices, refreshSetIfStale } from "@/lib/server/catalog-sync";
-import { editionPreference, EXPLORE_CACHE, setFromRow, withPrices } from "@/lib/server/explore";
+import { editionPreference, EXPLORE_CACHE, publicOrigin, setFromRow, withPrices } from "@/lib/server/explore";
 import { parseEditionSlug } from "@/lib/editions";
 import { selectAll } from "@/lib/server/paging";
 import type { ProductRow } from "@/lib/supabase/database.types";
@@ -27,7 +27,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   }
   // A set that still has nothing isn't cached, so the next look tries again.
   const cache = set.products_synced_at ? EXPLORE_CACHE : "no-store";
-  if (new URL(req.url).searchParams.get("meta")) return NextResponse.json({ set: setFromRow(set, new URL(req.url).origin, half?.edition) }, { headers: { "cache-control": cache } });
+  if (new URL(req.url).searchParams.get("meta")) return NextResponse.json({ set: setFromRow(set, publicOrigin(req), half?.edition) }, { headers: { "cache-control": cache } });
   let rows: ProductRow[];
   try {
     rows = await selectAll<ProductRow>((from, to) => admin.from("products").select("*").eq("set_id", slug).order("id").range(from, to), 10_000);
@@ -40,5 +40,5 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   // the picture from it (`withEditionArt`). The product itself is never changed, so a card seen
   // in one half isn't remembered with the other half's picture.
   const products = await withPrices(admin, rows, half ? editionPreference(half.edition) : undefined);
-  return NextResponse.json({ set: setFromRow(set, new URL(req.url).origin, half?.edition), products }, { headers: { "cache-control": rows.length ? cache : "no-store" } });
+  return NextResponse.json({ set: setFromRow(set, publicOrigin(req), half?.edition), products }, { headers: { "cache-control": rows.length ? cache : "no-store" } });
 }

@@ -9,6 +9,17 @@ import { selectAll } from "./paging";
 import { setArtFor } from "../set-art";
 import { editionArtName, editionName, editionSlug, EDITIONS, isEditionSet, isFirstEditionPrinting, type Edition } from "../editions";
 
+/**
+ * The site's public address, for links to our own files (set art) that the app downloads. Vercel
+ * names the production domain in VERCEL_PROJECT_PRODUCTION_URL; the request's own address can be
+ * a deployment's private one (behind Vercel's login), which the app can't open. Falls back to the
+ * request's address when not on Vercel (local development).
+ */
+export function publicOrigin(req: Request): string {
+  const prod = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  return prod ? `https://${prod.replace(/^https?:\/\//, "").replace(/\/$/, "")}` : new URL(req.url).origin;
+}
+
 /** Browsing is read from Supabase only — never from the TCG API. Cached at the CDN for ten minutes. */
 export const EXPLORE_CACHE = "public, s-maxage=600, stale-while-revalidate=3600";
 

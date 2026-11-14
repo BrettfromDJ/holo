@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { ExploreGame } from "@/lib/explore/types";
-import { EXPLORE_CACHE, exploreMarket, setsFromRow } from "@/lib/server/explore";
+import { EXPLORE_CACHE, exploreMarket, publicOrigin, setsFromRow } from "@/lib/server/explore";
 import { selectAll } from "@/lib/server/paging";
 import type { CatalogSetRow } from "@/lib/supabase/database.types";
 import { getAdminSupabase } from "@/lib/supabase/server";
@@ -31,7 +31,7 @@ export async function GET(req: Request) {
       { status: missing ? 503 : 500 },
     );
   }
-  const origin = new URL(req.url).origin;
+  const origin = publicOrigin(req);
   // Old sets printed in both editions show as two sets.
   const sets = (data ?? []).flatMap((r) => setsFromRow(r, origin));
 
