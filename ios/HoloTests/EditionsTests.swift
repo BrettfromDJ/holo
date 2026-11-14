@@ -25,6 +25,6 @@ final class EditionsTests: XCTestCase {
         XCTAssertNotNil(Editions.unlimitedImage(setName: "Jungle", number: "60/64"))
         XCTAssertNotNil(Editions.unlimitedImage(setName: "Fossil", number: "15/62"))
         XCTAssertNotNil(Editions.unlimitedImage(setName: "Team Rocket", number: "83/82"))
-        XCTAssertNil(Editions.unlimitedImage(setName: "Neo Destiny", number: "1/105"))
+        XCTAssertNotNil(Editions.unlimitedImage(setName: "Neo Destiny", number: "113/105"))
     }
 }

@@ -157,5 +157,5 @@ and say exactly what to run or click.
   and `Domain/Editions.swift` (slugs `<set>--1st-edition` / `--unlimited`). The catalog's card
   pictures are 1st Edition scans; the owner supplies Unlimited photos per set in
   `public/cards/pokemon/<dir>/<number>.webp`, listed in `src/lib/unlimited-art-manifest.json`
-  and the same list in `Editions.unlimitedArt` (keep both in step). Done: Base Set (no #8), Jungle, Fossil, Team Rocket, Gym Heroes, Gym Challenge, Neo Genesis, Neo Discovery.
+  and the same list in `Editions.unlimitedArt` (keep both in step). Done: Base Set (no #8), Jungle, Fossil, Team Rocket, Gym Heroes, Gym Challenge, Neo Genesis, Neo Discovery, Neo Revelation, Neo Destiny.
 - Not in the app on purpose: the separate trade checker (the Deal tab covers trades).
