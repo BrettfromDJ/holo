@@ -1,18 +1,15 @@
 "use client";
 
 import { FlipGrid, FlipItem } from "@/components/motion/flip-grid";
-import { ArrowRight, Compass, Loader2, Search, X } from "lucide-react";
-import Link from "next/link";
+import { Compass, Loader2, Search, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { GameTile, ProductTile, useExploreIndex, useOwnedIds, useOwnedQuantities } from "@/components/explore/explore-items";
-import { BoosterBoxList, MarketSection, MoverRow } from "@/components/explore/market-items";
-import { ReleaseRow } from "@/components/explore/release-items";
+import { ProductTile, useExploreIndex, useOwnedIds, useOwnedQuantities } from "@/components/explore/explore-items";
+import { BrandCard, CatalogHero, ExploreBackdrop, LandingHeading, SetCarousel } from "@/components/explore/landing";
 import { PageHeader } from "@/components/shell/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchFilterBar } from "@/components/explore/search-filters";
 import { applyFilters, groupByKind, NO_FILTERS, type SearchFilters } from "@/lib/explore/filters";
 import { useCatalogSearch } from "@/lib/explore/use-catalog-search";
-import { relativeTime } from "@/lib/format";
 import { useStore } from "@/lib/store/collection-store";
 
 export default function ExplorePage() {
@@ -35,12 +32,13 @@ export default function ExplorePage() {
     if (q) setQuery(q);
   }, []);
 
-  const loaded = index.status === "ready" ? index.sets.filter((s) => s.loaded) : [];
-  const upcoming = index.status === "ready" ? index.sets.filter((s) => s.releaseDate && s.releaseDate >= today).sort((a, b) => (a.releaseDate! < b.releaseDate! ? -1 : 1)).slice(0, 4) : [];
-  const lastSync = loaded.reduce<string | null>((m, s) => (s.syncedAt && (!m || s.syncedAt > m) ? s.syncedAt : m), null);
+  // Sets still to come (soonest first) and already out (newest first), as in the app.
+  const upcoming = index.status === "ready" ? index.sets.filter((s) => s.releaseDate && s.releaseDate >= today).sort((a, b) => (a.releaseDate! < b.releaseDate! ? -1 : 1)) : [];
+  const recent = index.status === "ready" ? index.sets.filter((s) => s.releaseDate && s.releaseDate < today).sort((a, b) => (a.releaseDate! > b.releaseDate! ? -1 : 1)) : [];
 
   return (
-    <div className="animate-fade-in">
+    <div className="relative animate-fade-in">
+      <ExploreBackdrop />
       <PageHeader title="Explore" subtitle="Every brand, set, sealed product and single" />
 
       <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-20 -mx-4 bg-background/90 px-4 py-3 backdrop-blur-xl sm:-mx-8 sm:px-8 lg:top-0">
@@ -121,56 +119,31 @@ export default function ExplorePage() {
         <EmptyCatalog title="The catalog is empty for now" body="It fills in automatically each day. To start it now, run the “sync-catalog” cron job." />
       ) : (
         <>
-        {upcoming.length > 0 && (
-          <section aria-label="Coming soon" className="mt-4">
-            <div className="mb-2 flex items-baseline justify-between gap-3">
-              <h2 className="font-display text-[18px] leading-none ">Coming soon</h2>
-              <Link href="/explore/releases" className="flex items-center gap-1 text-[13px] font-medium text-muted hover:text-foreground">
-                Release calendar <ArrowRight className="size-3.5" />
-              </Link>
-            </div>
-            <div className="grid grid-cols-1 gap-x-6 sm:grid-cols-2">
-              {upcoming.map((s) => (
-                <ReleaseRow key={s.slug} set={s} />
+          {/* The app's Explore: the catalog's size and the next release, sets coming soon and just
+              released as rows of art, then the brands. */}
+          <div className="mt-4">
+            <CatalogHero index={index} next={upcoming[0]} />
+          </div>
+          {upcoming.length > 1 && (
+            <section aria-label="Coming soon" className="mt-10">
+              <LandingHeading title="Coming soon" subtitle="New sets on the way" href="/explore/releases" linkLabel="Calendar" />
+              <SetCarousel sets={upcoming.slice(1, 13)} upcoming />
+            </section>
+          )}
+          {recent.length > 0 && (
+            <section aria-label="Just released" className="mt-10">
+              <LandingHeading title="Just released" subtitle="The newest sets in the catalog" />
+              <SetCarousel sets={recent.slice(0, 12)} upcoming={false} />
+            </section>
+          )}
+          <section aria-label="Brands" className="mt-10">
+            <LandingHeading title="Brands" subtitle="Every game in the catalog" />
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {games.map((g, i) => (
+                <BrandCard key={g.slug} game={g} i={i} />
               ))}
             </div>
           </section>
-        )}
-        {index.trending.length > 0 && (
-          <MarketSection title="Hot singles" subtitle="Biggest 7-day rises">
-            <MoverRow items={index.trending} owned={owned} />
-          </MarketSection>
-        )}
-        {index.hotSealed.length > 0 && (
-          <MarketSection title="Hot sealed" subtitle="Sealed products rising fastest this week">
-            <MoverRow items={index.hotSealed} owned={owned} square />
-          </MarketSection>
-        )}
-        {index.drops.length > 0 && (
-          <MarketSection title="Biggest drops" subtitle="Biggest 7-day falls">
-            <MoverRow items={index.drops} owned={owned} />
-          </MarketSection>
-        )}
-        {index.boosterBoxes.length > 0 && (
-          <MarketSection title="Booster boxes" subtitle="How sealed boxes are moving">
-            <BoosterBoxList items={index.boosterBoxes} />
-          </MarketSection>
-        )}
-        <section aria-label="Brands" className="mt-8">
-          <div className="mb-4 flex items-baseline gap-3">
-            <h2 className="font-display text-[18px] leading-none ">Brands</h2>
-            <span className="text-[12px] text-subtle">
-              {loaded.length} of {index.sets.length} sets loaded{lastSync ? ` · updated ${relativeTime(lastSync)}` : ""}
-            </span>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {games.map((g, i) => (
-              <div key={g.slug} className="animate-rise" style={{ animationDelay: `${i * 60}ms` }}>
-                <GameTile game={g} />
-              </div>
-            ))}
-          </div>
-        </section>
         </>
       )}
     </div>
