@@ -34,6 +34,8 @@ final class ScanModel {
         var rejected = false
 
         var isSlab: Bool { result?.read?.kind == "slab" }
+        /// Picked as the best of several close matches, not a clear match: worth a glance.
+        var isBestGuess: Bool { result?.status == "ambiguous" && picked != nil }
     }
 
     var entries: [Entry] = []
@@ -303,7 +305,9 @@ final class ScanModel {
         let others = first.others ?? []
         first.others = nil
         entries[i].result = first
-        if first.status == "matched", let top = first.candidates.first {
+        // A clear match, or the best of several close ones (shown as a best guess, with the
+        // others a tap away under Wrong card?), rather than asking which it is.
+        if first.status == "matched" || first.status == "ambiguous", let top = first.candidates.first {
             entries[i].picked = top
             entries[i].printing = top.printing
             reprice(i)
@@ -315,7 +319,7 @@ final class ScanModel {
             e.thumbnail = entries[i].thumbnail
             e.state = .done
             e.result = other
-            if other.status == "matched", let top = other.candidates.first {
+            if other.status == "matched" || other.status == "ambiguous", let top = other.candidates.first {
                 e.picked = top
                 e.printing = top.printing
             }

@@ -619,6 +619,7 @@ private struct LatestScan: View {
             if let sub = subtitle {
                 Text(sub).font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1).padding(.top, 2)
             }
+            if matched, entry.isBestGuess { BestGuessLabel().padding(.top, 4) }
             Spacer(minLength: 6)
             if matched {
                 Text(Format.money(entry.value)).font(.display(30)).tracking(-0.9).padding(.trailing, 0.9).monospacedDigit()
@@ -696,6 +697,7 @@ private struct ScanListRow: View {
                         .font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
                     if owned > 0 { Spacer(minLength: 4); SkewTag(text: "Owned ×\(owned)", icon: "checkmark") }
                 }
+                if entry.isBestGuess { BestGuessLabel() }
                 if !inDeal {
                     ScanEditMenus(entry: entry, setPrinting: setPrinting, setCondition: setCondition).padding(.top, 4)
                 }
@@ -705,6 +707,16 @@ private struct ScanListRow: View {
         .padding(.horizontal, 4)
         .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1) }
         .contentShape(Rectangle())
+    }
+}
+
+/// "Best guess": the scan picked the closest of several matches. Check it (Wrong card? lists the others).
+private struct BestGuessLabel: View {
+    var body: some View {
+        Label("Best guess", systemImage: "questionmark.circle")
+            .font(.geist(12, .medium)).foregroundStyle(Theme.muted)
+            .labelStyle(.titleAndIcon)
+            .accessibilityLabel("Best guess: check it's the right card")
     }
 }
 
