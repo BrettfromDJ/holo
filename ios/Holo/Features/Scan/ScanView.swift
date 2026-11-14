@@ -108,11 +108,12 @@ struct ScanView: View {
             // CardSight does the identifying: the live border stays, the phone's own read doesn't run.
             if model.cardSight { tracker.identifies = false }
             // Screenshots: -HoloScanSample ambiguous|retake|matched opens a made-up scan's sheet.
-            if Demo.isOn, Demo.value("-HoloScanSample") == "matched", let p = store.products["sample:charizard-ex-151"] {
+            if Demo.isOn, ["matched", "tray"].contains(Demo.value("-HoloScanSample") ?? ""), let p = store.products["sample:charizard-ex-151"] {
                 let hit = ScanCandidate(product: p, printing: nil, printings: p.printings ?? [], market: store.marketPrice(p.id, printing: p.printings?.first)?.market, score: 0.9)
                 model.add(matched: ScanResult(status: "matched", message: nil, read: nil, candidates: [hit], scansRemaining: nil), photo: Data(), thumbnail: nil)
                 try? await Task.sleep(nanoseconds: 800_000_000)
-                if let first = model.entries.first { editing = EditingScan(id: first.id) }
+                // "tray" leaves it in the tray (the latest scan, big); "matched" opens its card page.
+                if Demo.value("-HoloScanSample") == "matched", let first = model.entries.first { editing = EditingScan(id: first.id) }
             } else if Demo.isOn, let kind = Demo.value("-HoloScanSample") {
                 let ids = ["sample:charizard-ex-151", "sample:charizard-ex-of", "sample:mew-ex-gold", "sample:pikachu-ex-ss"]
                 let candidates = kind == "retake" ? [] : ids.compactMap { id in
@@ -448,23 +449,19 @@ private struct ScanTray: View {
                         Spacer(minLength: 0)
                     }
                     .padding(.horizontal, 20)
-                } else {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        LazyHStack(spacing: 8) {
-                            // Newest first, so the card you just scanned lands on the left.
-                            ForEach(model.entries) { e in
-                                chip(e, fills: false)
-                                    .transition(.scale(scale: 0.6).combined(with: .opacity))
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 8)
-                    }
-                    // A long-pressed tile lifts a little past its edges: don't cut it off.
-                    .scrollClipDisabled()
+                } else if let latest = model.entries.first {
+                    // The card you just scanned, big: its picture, then what it is, its price and
+                    // its printing and condition to change right here. The count above opens the rest.
+                    LatestScan(entry: latest, owned: owned(latest), inDeal: model.onPick != nil,
+                               onOpen: { Haptics.tap(); onOpen(latest) },
+                               setPrinting: { model.setPrinting(latest.id, $0) },
+                               setCondition: { model.setCondition(latest.id, $0) })
+                        .id(latest.id)
+                        .transition(.opacity)
+                        .padding(.horizontal, 16)
                 }
             }
-            .frame(height: expanded ? min(CGFloat(model.entries.count) * 120 + 16, 480) : 128)
+            .frame(height: expanded ? min(CGFloat(model.entries.count) * 120 + 16, 480) : (model.entries.isEmpty ? 128 : 208))
             .padding(.vertical, 4)
             Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
             HStack(spacing: 10) {
@@ -527,6 +524,165 @@ private struct ScanTray: View {
     private func owned(_ e: ScanModel.Entry) -> Int {
         guard let id = e.picked?.product.id else { return 0 }
         return Int(store.allHoldings.filter { $0.identity.productId == id }.reduce(0) { $0 + $1.quantity })
+    }
+}
+
+/// The latest scan, big, in the tray: its picture (tap for the full card, or Change card), and
+/// beside it the name, number and set, the price, and menus for its printing and condition.
+private struct LatestScan: View {
+    var entry: ScanModel.Entry
+    var owned: Int
+    /// Scanning into a deal: the deal sets the price, so no printing or condition menus.
+    var inDeal: Bool
+    var onOpen: () -> Void
+    var setPrinting: (String?) -> Void
+    var setCondition: (String) -> Void
+
+    private var matched: Bool { entry.state == .done && entry.picked != nil && !entry.rejected }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            picture
+            panel
+        }
+        .padding(.vertical, 8)
+    }
+
+    // MARK: The picture, with Change card under it
+
+    private var picture: some View {
+        Button(action: onOpen) {
+            Group {
+                if let p = entry.picked?.product {
+                    ProductImage(product: p, cornerRadius: 9)
+                } else if let img = entry.thumbnail {
+                    Image(uiImage: img).resizable().scaledToFill()
+                } else {
+                    Color.white.opacity(0.06)
+                }
+            }
+            .frame(width: 128, height: 178)
+            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .overlay(alignment: .bottom) {
+                HStack(spacing: 5) {
+                    Image(systemName: matched ? "arrow.left.arrow.right" : "magnifyingglass").font(.system(size: 11, weight: .semibold))
+                    Text(matched ? "Change card" : "Pick card").font(.geist(12, .semibold))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 10).frame(height: 28)
+                .background(Capsule().fill(Color.black.opacity(0.78)))
+                .overlay(Capsule().strokeBorder(Color.white.opacity(0.16), lineWidth: 1))
+                .padding(.bottom, 8)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(matched ? "Open this card, or change it" : "Pick the right card")
+    }
+
+    // MARK: What it is, its price and the menus
+
+    private var panel: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if owned > 0 { SkewTag(text: "Owned ×\(owned)", icon: "checkmark").padding(.bottom, 6) }
+            Text(title).font(.geist(18, .semibold)).foregroundStyle(.white).lineLimit(2).minimumScaleFactor(0.85)
+            if let sub = subtitle {
+                Text(sub).font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1).padding(.top, 2)
+            }
+            Spacer(minLength: 6)
+            if matched {
+                Text(Format.money(entry.value)).font(.display(30)).tracking(-0.9).padding(.trailing, 0.9).monospacedDigit()
+                    .foregroundStyle(.white)
+                    .contentTransition(.numericText())
+                    .animation(.snappy(duration: 0.25), value: entry.value)
+                    .lineLimit(1).minimumScaleFactor(0.6)
+                if !inDeal, let p = entry.picked, !p.product.isSealed {
+                    HStack(spacing: 6) {
+                        if !entry.isSlab, (p.printings.count > 1 || (p.product.printings?.count ?? 0) > 1) { printingMenu(p) }
+                        if !entry.isSlab { conditionMenu }
+                    }
+                    .padding(.top, 8)
+                }
+            } else {
+                Text(note).font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(3)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 178, maxHeight: 178, alignment: .topLeading)
+        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(matched ? Theme.lime.opacity(0.07) : Color.white.opacity(0.06)))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(matched ? Theme.lime.opacity(0.32) : Color.white.opacity(0.1), lineWidth: 1))
+    }
+
+    private var title: String {
+        switch entry.state {
+        case .queued, .reading: return "Reading…"
+        case .failed: return "Couldn't read it"
+        case .done:
+            if let p = entry.picked { return p.product.name }
+            return entry.result?.status == "ambiguous" ? "Which one is it?" : "No match"
+        }
+    }
+
+    private var subtitle: String? {
+        guard entry.state == .done, let p = entry.picked?.product else { return nil }
+        let line = [p.number.map { "#\($0)" }, p.setName].compactMap { $0 }.joined(separator: " · ")
+        return line.isEmpty ? nil : line
+    }
+
+    private var note: String {
+        if entry.rejected, let n = entry.note { return n }
+        switch entry.state {
+        case .queued, .reading: return "Finding the card and its price."
+        case .failed: return "Tap the picture to try again."
+        case .done: return entry.result?.status == "ambiguous" ? "Tap the picture to choose between close matches." : "Tap the picture to search for it."
+        }
+    }
+
+    private func printingMenu(_ p: ScanCandidate) -> some View {
+        let options = p.printings.isEmpty ? (p.product.printings ?? []) : p.printings
+        let current = entry.printing ?? p.printing ?? options.first ?? ""
+        return Menu {
+            Picker("Printing", selection: Binding(get: { current }, set: { setPrinting($0) })) {
+                ForEach(options, id: \.self) { Text($0).tag($0) }
+            }
+        } label: {
+            pill(icon: "square.stack", text: current)
+        }
+        .menuStyle(.button).buttonStyle(.plain)
+    }
+
+    private var conditionMenu: some View {
+        let current = CardCondition(rawValue: entry.condition) ?? .nearMint
+        return Menu {
+            Picker("Condition", selection: Binding(get: { entry.condition }, set: { setCondition($0) })) {
+                ForEach(CardCondition.allCases) { Text($0.rawValue).tag($0.rawValue) }
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Circle().fill(current.tint).frame(width: 7, height: 7)
+                Text(current.short).font(.geist(13, .semibold))
+                Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.muted)
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 10).frame(height: 32)
+            .background(Capsule().fill(Color.white.opacity(0.1)))
+            .contentShape(Capsule())
+        }
+        .menuStyle(.button).buttonStyle(.plain)
+        .fixedSize()
+    }
+
+    private func pill(icon: String, text: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon).font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.muted)
+            Text(text).font(.geist(13, .semibold)).lineLimit(1)
+            Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.muted)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 10).frame(height: 32)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Capsule().fill(Color.white.opacity(0.1)))
+        .contentShape(Capsule())
     }
 }
 
