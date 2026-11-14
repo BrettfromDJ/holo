@@ -19,7 +19,7 @@ struct AddMenu: View {
                 .accessibilityHidden(true)
 
             HStack(spacing: 14) {
-                pill("Scan", icon: "viewfinder", side: -1, delay: 0, action: onScan)
+                pill("Scan", icon: "camera", side: -1, delay: 0, action: onScan)
                 pill("Search", icon: "magnifyingglass", side: 1, delay: 0.04, action: onSearch)
             }
             // Just above the +, which sits 18pt above the 64pt bar.

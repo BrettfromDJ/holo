@@ -466,7 +466,7 @@ struct DealView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(Button3D(kind: .dark, fullWidth: true, height: 46))
-                Button { scanning = side } label: { Label("Scan", systemImage: "viewfinder") }
+                Button { scanning = side } label: { Label("Scan", systemImage: "camera") }
                     .buttonStyle(Button3D(kind: .dark, fullWidth: false, height: 46))
                     .accessibilityLabel(incoming ? "Scan what's coming in" : "Scan what's going out")
             }

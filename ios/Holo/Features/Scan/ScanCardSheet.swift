@@ -224,7 +224,7 @@ private struct Unmatched: View {
 
     private var nothingFound: some View {
         VStack(spacing: 0) {
-            Image(systemName: "viewfinder").font(.system(size: 30, weight: .semibold)).foregroundStyle(Theme.lime)
+            Image(systemName: "camera").font(.system(size: 30, weight: .semibold)).foregroundStyle(Theme.lime)
                 .frame(width: 72, height: 72)
                 .background(Circle().fill(Theme.lime.opacity(0.12)))
                 .padding(.top, 24)

@@ -872,7 +872,7 @@ private struct CameraNote: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            Image(systemName: "camera.viewfinder").font(.system(size: 28, weight: .medium)).foregroundStyle(Theme.lime)
+            Image(systemName: "camera").font(.system(size: 28, weight: .medium)).foregroundStyle(Theme.lime)
             Text("Dexora uses the camera to read your\u{00A0}cards").font(.geist(16, .semibold)).multilineTextAlignment(.center)
             Text("Nothing is kept unless you add\u{00A0}it.").font(.geist(13)).foregroundStyle(Theme.muted)
             Button("Continue", action: onContinue).buttonStyle(Button3D(kind: .lime, height: 46)).padding(.top, 4)

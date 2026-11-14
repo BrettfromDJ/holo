@@ -81,7 +81,7 @@ struct ScanIconButton: View {
 
     var body: some View {
         Button(action: scan.action) {
-            Image(systemName: "viewfinder")
+            Image(systemName: "camera")
                 .font(.system(size: 17, weight: .medium))
                 .foregroundStyle(Theme.lime)
                 .frame(width: 36, height: 40)

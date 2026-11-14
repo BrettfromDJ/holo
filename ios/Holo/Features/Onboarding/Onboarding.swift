@@ -44,7 +44,7 @@ struct EmptyPage: View {
     var title: String
     var line: String
     var action: String?
-    var icon: String = "viewfinder"
+    var icon: String = "camera"
     var onAction: () -> Void = {}
     var link: String?
     var onLink: () -> Void = {}
