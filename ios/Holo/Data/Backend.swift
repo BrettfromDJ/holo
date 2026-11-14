@@ -136,6 +136,7 @@ final class HoloAPI {
         var index = try await send(try await request("api/explore"), as: ExploreIndex.self)
         index.sets = index.sets.map { $0.withOwnArtOnPublicHost() }
         SavedSets.save(index.sets)
+        SavedExplore.save(index)
         return index
     }
 
@@ -239,6 +240,25 @@ enum SavedSets {
 
     static func save(_ sets: [ExploreSet]) {
         guard let file, !sets.isEmpty, let data = try? JSONEncoder().encode(sets) else { return }
+        try? data.write(to: file, options: .atomic)
+    }
+}
+
+/// Explore as last loaded (sets, brands and market rows), kept on the phone so Explore opens on it
+/// at once and refreshes in place, instead of waiting for the whole catalog. Not account data.
+enum SavedExplore {
+    private static var file: URL? {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?.appendingPathComponent("explore-index.json")
+    }
+
+    static func load() -> ExploreIndex? {
+        guard let file, let data = try? Data(contentsOf: file), var index = try? JSONDecoder().decode(ExploreIndex.self, from: data) else { return nil }
+        index.sets = index.sets.map { $0.withOwnArtOnPublicHost() }
+        return index
+    }
+
+    static func save(_ index: ExploreIndex) {
+        guard let file, !index.sets.isEmpty, let data = try? JSONEncoder().encode(index) else { return }
         try? data.write(to: file, options: .atomic)
     }
 }

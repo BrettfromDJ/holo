@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { ExploreGame } from "@/lib/explore/types";
-import { EXPLORE_CACHE, exploreMarket, publicOrigin, setsFromRow } from "@/lib/server/explore";
+import { EXPLORE_INDEX_CACHE, exploreMarket, publicOrigin, setsFromRow } from "@/lib/server/explore";
 import { selectAll } from "@/lib/server/paging";
 import type { CatalogSetRow } from "@/lib/supabase/database.types";
 import { getAdminSupabase } from "@/lib/supabase/server";
@@ -50,6 +50,6 @@ export async function GET(req: Request) {
   // Never cache an empty or barely-started catalog, so the first sync shows up right away.
   // Nor one whose market rows came back empty (a slow or failed read), so they appear on the next visit.
   const marketEmpty = !market.trending.length && !market.drops.length && !market.hotSealed.length && !market.boosterBoxes.length;
-  const cache = sets.some((s) => s.loaded) && !marketEmpty ? EXPLORE_CACHE : "no-store";
+  const cache = sets.some((s) => s.loaded) && !marketEmpty ? EXPLORE_INDEX_CACHE : "no-store";
   return NextResponse.json({ games: ordered, sets, ...market }, { headers: { "cache-control": cache } });
 }

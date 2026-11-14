@@ -172,6 +172,13 @@ final class ImageCache: @unchecked Sendable {
         return nil
     }
 
+    /// A picture once downloaded is used from the phone's storage from then on, without asking the
+    /// server again (card and set pictures don't change; checking each one on every launch made
+    /// pages fill in slowly).
+    static func request(_ url: URL) -> URLRequest {
+        URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad, timeoutInterval: 30)
+    }
+
     func load(_ url: URL, maxPixel: CGFloat? = nil) async -> UIImage? {
         let cacheKey = key(url, maxPixel)
         if let hit = memory.object(forKey: cacheKey as NSURL) { return hit }
@@ -184,11 +191,11 @@ final class ImageCache: @unchecked Sendable {
                 if let maxPixel {
                     // Read the file and decode it straight to thumbnail size (ImageIO), never full size.
                     let data: Data?
-                    if url.isFileURL { data = try? Data(contentsOf: url) } else { data = try? await URLSession.shared.data(from: url).0 }
+                    if url.isFileURL { data = try? Data(contentsOf: url) } else { data = try? await URLSession.shared.data(for: ImageCache.request(url)).0 }
                     return data.flatMap { ImageCache.downsample($0, maxPixel: maxPixel) }
                 }
                 if url.isFileURL { return UIImage(contentsOfFile: url.path) }
-                guard let (data, _) = try? await URLSession.shared.data(from: url) else { return nil }
+                guard let (data, _) = try? await URLSession.shared.data(for: ImageCache.request(url)) else { return nil }
                 // Decode here, off the main thread, so scrolling a grid of new pictures stays smooth.
                 return await UIImage(data: data)?.byPreparingForDisplay() ?? UIImage(data: data)
             }

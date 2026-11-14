@@ -24,6 +24,13 @@ export function publicOrigin(req: Request): string {
 export const EXPLORE_CACHE = "public, s-maxage=600, stale-while-revalidate=3600";
 
 /**
+ * The catalog index (every brand and set, plus the market rows) changes once a night: kept at the
+ * CDN for six hours and served while it refreshes for a day, so a visit almost never waits for the
+ * many reads that build it.
+ */
+export const EXPLORE_INDEX_CACHE = "public, s-maxage=21600, stale-while-revalidate=86400";
+
+/**
  * A stored set as Explore sends it. Pokémon sets (English and Japanese) with our own artwork use it: the
  * background as the banner (`iconUrl`), with its logo and symbol; others keep TCG API's art.
  * `origin` makes our art's addresses absolute, for the app.

@@ -6,6 +6,8 @@ struct ExploreView: View {
     @Environment(CollectionStore.self) private var store
     @State private var index: ExploreIndex?
     @State private var failed: String?
+    /// Fetched from the server this time (the saved copy shows first, then this replaces it).
+    @State private var fresh = false
     @State private var searchOpen = false
     @State private var path = NavigationPath()
 
@@ -98,13 +100,28 @@ struct ExploreView: View {
             }
             .padding(.bottom, 40)
         } else {
-            ProgressView().padding(.top, 160).frame(maxWidth: .infinity)
+            // First visit only (later ones open on the saved copy): dim, still shapes, no spinner.
+            VStack(alignment: .leading, spacing: 16) {
+                RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Color.white.opacity(0.05)).frame(height: 220)
+                ForEach(0..<2, id: \.self) { _ in
+                    RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.06)).frame(width: 140, height: 18).padding(.top, 14)
+                    HStack(spacing: 12) {
+                        ForEach(0..<3, id: \.self) { _ in
+                            RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white.opacity(0.05)).frame(width: 150, height: 110)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .allowsHitTesting(false)
         }
     }
 
     private func loadIndex() async {
-        guard index == nil else { return }
+        guard !fresh else { return }
         if Demo.isOn {
+            guard index == nil else { return }
             // Screenshots: a made-up catalog, and `-HoloExplore calendar|brand:<slug>|set:<slug>`
             // opens a page in it.
             let demo = DemoData.exploreIndex
@@ -119,13 +136,19 @@ struct ExploreView: View {
             }
             return
         }
+        // Open on the copy saved at the last visit (read off the main thread), then refresh it in place.
+        if index == nil, let saved = await Task.detached(priority: .userInitiated, operation: { SavedExplore.load() }).value {
+            index = saved
+        }
         failed = nil
         do {
             index = try await Backend.shared.api.exploreIndex()
+            fresh = true
         } catch {
             // Leaving the tab cancels the load: not an error. It loads again when you come back.
             guard !error.isCancellation, !Task.isCancelled else { return }
-            failed = error.localizedDescription
+            // With a saved copy showing, keep it quietly; the next visit tries again.
+            if index == nil { failed = error.localizedDescription }
         }
     }
 }
