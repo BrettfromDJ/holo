@@ -1697,6 +1697,14 @@ extension EnvironmentValues {
 }
 
 
+/// The tilt shine, for cards and slabs only: sealed products have no shine.
+private struct ShineUnlessSealed: ViewModifier {
+    var sealed: Bool
+    func body(content: Content) -> some View {
+        if sealed { content } else { content.tiltShine(cornerRadius: 12) }
+    }
+}
+
 /// The top-right menu's panel: every main place in the app, in three groups, on one glass card.
 private struct PlacesMenu: View {
     enum Place { case collection, explore, deal, analytics, grading, masterSets, activity, sales, lists, account }
