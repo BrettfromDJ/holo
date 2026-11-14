@@ -77,12 +77,25 @@ export function unlimitedCardImage(setName: string | null | undefined, number: s
   return entry && n && entry.numbers.includes(n) ? `/cards/pokemon/${entry.dir}/${n}.webp` : null;
 }
 
-/** A card shown as one printing: our Unlimited photo when that printing is the Unlimited one. */
+/**
+ * Sets whose catalog pictures are the Unlimited prints (no stamp), so their 1st Edition half needs
+ * other photos: pokemontcg.io's scans of these are the 1st Edition prints.
+ */
+const FIRST_EDITION_ART: Record<string, string> = { "base set": "base1" };
+
+/** The 1st Edition print's photo for a card, when the catalog's own picture lacks the stamp. */
+export function firstEditionCardImage(setName: string | null | undefined, number: string | null | undefined): string | null {
+  const code = FIRST_EDITION_ART[fold(setName)];
+  const n = Number(number?.match(/^\s*#?(\d+)/)?.[1]);
+  return code && n ? `https://images.pokemontcg.io/${code}/${n}_hires.png` : null;
+}
+
+/** A card shown as one printing: the photo of that edition's print, where the catalog's is the other one. */
 export function withEditionArt<P extends { kind?: string | null; source?: string | null; setName?: string | null; number?: string | null; imageUrl?: string | null }>(product: P, printing: string | null | undefined): P;
 export function withEditionArt<P extends { kind?: string | null; source?: string | null; setName?: string | null; number?: string | null; imageUrl?: string | null }>(product: P | undefined, printing: string | null | undefined): P | undefined;
 export function withEditionArt<P extends { kind?: string | null; source?: string | null; setName?: string | null; number?: string | null; imageUrl?: string | null }>(product: P | undefined, printing: string | null | undefined): P | undefined {
   // Only when the printing is known: no printing means we can't tell which edition it is.
-  if (!product || !printing?.trim() || product.kind !== "single" || product.source !== "tcgapi" || editionOf(printing) !== "unlimited") return product;
-  const art = unlimitedCardImage(product.setName, product.number);
+  if (!product || !printing?.trim() || product.kind !== "single" || product.source !== "tcgapi") return product;
+  const art = editionOf(printing) === "unlimited" ? unlimitedCardImage(product.setName, product.number) : firstEditionCardImage(product.setName, product.number);
   return art ? { ...product, imageUrl: art } : product;
 }

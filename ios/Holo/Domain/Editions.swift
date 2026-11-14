@@ -62,12 +62,31 @@ enum Editions {
         return AppConfig.apiBaseURL.appendingPathComponent("cards/pokemon/\(entry.dir)/\(n).webp").absoluteString
     }
 
-    /// A card shown as one printing: our Unlimited photo when that printing is the Unlimited one.
+    /// Sets whose catalog pictures are the Unlimited prints (no stamp), so their 1st Edition half
+    /// needs other photos: pokemontcg.io's scans of these are the 1st Edition prints. Same as the website.
+    private static let firstEditionArt: [String: String] = ["base set": "base1"]
+
+    private static func leadingNumber(_ number: String?) -> Int? {
+        guard let digits = number?.trimmingCharacters(in: .whitespaces).drop(while: { $0 == "#" }).prefix(while: \.isNumber) else { return nil }
+        return Int(digits)
+    }
+
+    /// The 1st Edition print's photo for a card, when the catalog's own picture lacks the stamp.
+    static func firstEditionImage(setName: String?, number: String?) -> String? {
+        guard let key = setName?.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil).trimmingCharacters(in: .whitespaces),
+              let code = firstEditionArt[key], let n = leadingNumber(number) else { return nil }
+        return "https://images.pokemontcg.io/\(code)/\(n)_hires.png"
+    }
+
+    /// A card shown as one printing: the photo of that edition's print, where the catalog's is the other one.
     static func art(_ product: Product?, printing: String?) -> Product? {
         // Only when the printing is known: no printing means we can't tell which edition it is.
         guard var p = product, let printing, !printing.trimmingCharacters(in: .whitespaces).isEmpty,
-              !p.isSealed, p.id.hasPrefix("tcgapi:"), of(printing: printing) == .unlimited,
-              let url = unlimitedImage(setName: p.setName, number: p.number) else { return product }
+              !p.isSealed, p.id.hasPrefix("tcgapi:") else { return product }
+        let url = of(printing: printing) == .unlimited
+            ? unlimitedImage(setName: p.setName, number: p.number)
+            : firstEditionImage(setName: p.setName, number: p.number)
+        guard let url else { return product }
         p.imageUrl = url
         return p
     }

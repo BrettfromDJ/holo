@@ -27,4 +27,9 @@ final class EditionsTests: XCTestCase {
         XCTAssertNotNil(Editions.unlimitedImage(setName: "Team Rocket", number: "83/82"))
         XCTAssertNotNil(Editions.unlimitedImage(setName: "Neo Destiny", number: "113/105"))
     }
+
+    func testBaseSetFirstEditionUsesStampedScan() {
+        XCTAssertEqual(Editions.firstEditionImage(setName: "Base Set", number: "4/102"), "https://images.pokemontcg.io/base1/4_hires.png")
+        XCTAssertNil(Editions.firstEditionImage(setName: "Jungle", number: "60/64"))
+    }
 }

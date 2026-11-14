@@ -48,7 +48,9 @@ describe("editions", () => {
     expect(unlimitedCardImage("Neo Destiny", "113/105")).toBe("/cards/pokemon/neo-destiny-unlimited/113.webp");
     const card = { kind: "single", source: "tcgapi", setName: "Base Set", number: "4/102", imageUrl: "tcg.jpg" };
     expect(withEditionArt(card, "Holofoil").imageUrl).toBe("/cards/pokemon/base-set-unlimited/4.webp");
-    expect(withEditionArt(card, "1st Edition Holofoil").imageUrl).toBe("tcg.jpg");
+    // Base Set's catalog pictures are the Unlimited prints: its 1st Edition copies get the stamped scan.
+    expect(withEditionArt(card, "1st Edition Holofoil").imageUrl).toBe("https://images.pokemontcg.io/base1/4_hires.png");
+    expect(withEditionArt({ ...card, setName: "Jungle", number: "60/64" }, "1st Edition").imageUrl).toBe("tcg.jpg");
     expect(withEditionArt(card, null).imageUrl).toBe("tcg.jpg");
   });
 });
