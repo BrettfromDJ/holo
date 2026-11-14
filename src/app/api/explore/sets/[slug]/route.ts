@@ -1,7 +1,7 @@
 import { after, NextResponse } from "next/server";
 import { ensureEditionPrices, refreshSetIfStale } from "@/lib/server/catalog-sync";
 import { editionPreference, EXPLORE_CACHE, setFromRow, withPrices } from "@/lib/server/explore";
-import { parseEditionSlug, unlimitedImageUrl } from "@/lib/editions";
+import { parseEditionSlug } from "@/lib/editions";
 import { selectAll } from "@/lib/server/paging";
 import type { ProductRow } from "@/lib/supabase/database.types";
 import { getAdminSupabase } from "@/lib/supabase/server";
@@ -36,13 +36,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   }
   // One edition of an old set: make sure both editions' prices are stored before pricing it.
   if (half) await ensureEditionPrices(admin, set, rows.map((r) => r.id)).catch(() => {});
-  let products = await withPrices(admin, rows, half ? editionPreference(half.edition) : undefined);
-  // The Unlimited half shows the Unlimited prints' pictures (the catalog's are the 1st Edition scans).
-  if (half?.edition === "unlimited") {
-    products = products.map((p) => {
-      const art = p.product.kind === "single" ? unlimitedImageUrl(set.name, p.product.number) : null;
-      return art ? { ...p, product: { ...p.product, imageUrl: art } } : p;
-    });
-  }
+  const products = await withPrices(admin, rows, half ? editionPreference(half.edition) : undefined);
   return NextResponse.json({ set: setFromRow(set, new URL(req.url).origin, half?.edition), products }, { headers: { "cache-control": rows.length ? cache : "no-store" } });
 }

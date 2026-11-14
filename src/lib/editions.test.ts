@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { editionArtName, editionName, editionOf, editionSlug, isEditionSet, parseEditionSlug, unlimitedImageUrl } from "./editions";
+import { editionArtName, editionName, editionOf, editionSlug, isEditionSet, parseEditionSlug } from "./editions";
 import { setArtFor } from "./set-art";
 import { ownedSets } from "./checklists";
 import type { HoldingView } from "./finance/portfolio";
@@ -37,11 +37,5 @@ describe("editions", () => {
       ["base-set--unlimited", "Base Set Unlimited", 2],
       ["base-set--1st-edition", "Base Set 1st Edition", 1],
     ]);
-  });
-
-  it("finds the Unlimited print's picture", () => {
-    expect(unlimitedImageUrl("Jungle", "60/64")).toBe("https://images.pokemontcg.io/base2/60_hires.png");
-    expect(unlimitedImageUrl("Team Rocket", "083/082")).toBe("https://images.pokemontcg.io/base5/83_hires.png");
-    expect(unlimitedImageUrl("Crown Zenith", "1/159")).toBeNull();
   });
 });

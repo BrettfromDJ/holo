@@ -64,26 +64,3 @@ export function editionOf(printing: string | null | undefined): Edition {
   return isFirstEditionPrinting(printing) ? "1st-edition" : "unlimited";
 }
 
-/** pokemontcg.io's codes for these sets: its scans are the Unlimited prints (no 1st Edition stamp). */
-const UNLIMITED_ART_CODES: Record<string, string> = {
-  "base set": "base1",
-  jungle: "base2",
-  fossil: "base3",
-  "team rocket": "base5",
-  "gym heroes": "gym1",
-  "gym challenge": "gym2",
-  "neo genesis": "neo1",
-  "neo discovery": "neo2",
-  "neo revelation": "neo3",
-  "neo destiny": "neo4",
-};
-
-/**
- * The Unlimited print's picture for a card: the catalog has one picture per card, and for these
- * sets it's the 1st Edition scan (stamp and all), which is wrong in the Unlimited half.
- */
-export function unlimitedImageUrl(setName: string | null | undefined, number: string | null | undefined): string | null {
-  const code = UNLIMITED_ART_CODES[fold(setName)];
-  const n = number?.match(/^\s*#?(\d+)/)?.[1];
-  return code && n ? `https://images.pokemontcg.io/${code}/${Number(n)}_hires.png` : null;
-}
