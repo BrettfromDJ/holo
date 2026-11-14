@@ -233,9 +233,6 @@ struct HomeView: View {
                      onToday: { todayOpen = true },
                      onPinned: { _ in })
             }
-            // Sits close under the hero's buttons (it belongs with them) and a little nearer the
-            // chart than the usual section gap, with more room between the tiles themselves.
-            ShortcutRow().padding(.horizontal, 16).padding(.top, -34).padding(.bottom, -10)
             PerformanceSection(store: store).padding(.horizontal, 16).reveal()
             MetricGrid(store: store, onReload: refresh).padding(.horizontal, 16).reveal()
             Spotlight(store: store).padding(.horizontal, 16).reveal()
@@ -1699,40 +1696,6 @@ extension EnvironmentValues {
     }
 }
 
-
-/// The other pages, one tap from the top of Overview: Analytics (with Gains), Grading, Master
-/// sets and Activity, as four small glass tiles.
-private struct ShortcutRow: View {
-    var body: some View {
-        HStack(spacing: 12) {
-            tile("Analytics", icon: "chart.xyaxis.line", page: .analytics)
-            tile("Grading", icon: "checkmark.seal", page: .grading)
-            tile("Master sets", icon: "square.grid.3x3.fill", page: .masterSets)
-            tile("Lists", icon: "square.stack", page: .lists)
-        }
-    }
-
-    private func tile(_ title: String, icon: String, page: MorePage) -> some View {
-        NavigationLink(value: page) {
-            VStack(spacing: 6) {
-                Image(systemName: icon).font(.system(size: 17, weight: .semibold)).foregroundStyle(Theme.lime)
-                Text(title).font(.geist(11, .medium)).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.8)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .liquidGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-/// The tilt shine, for cards and slabs only: sealed products have no shine.
-private struct ShineUnlessSealed: ViewModifier {
-    var sealed: Bool
-    func body(content: Content) -> some View {
-        if sealed { content } else { content.tiltShine(cornerRadius: 12) }
-    }
-}
 
 /// The top-right menu's panel: every main place in the app, in three groups, on one glass card.
 private struct PlacesMenu: View {

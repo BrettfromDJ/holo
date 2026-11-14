@@ -50,7 +50,8 @@ and say exactly what to run or click.
   dot-matrix digits: numbers use `Font.display`). The iridescent and glow-card experiments were removed; don't bring them back.
 - **Tapping a card:** one you own opens Owned (`HoldingSheet`) everywhere; one you don't opens
   its card page. Use `CardLink(productId:identity:)` in the app; it decides. Gains lives inside
-  Analytics; Overview has a shortcut row (Analytics, Grading, Master sets, Activity).
+  Analytics; Analytics, Grading, Master sets and Activity open from Overview's top-right menu (the
+  shortcut tiles were removed).
 - **Loading:** no spinners. The app opens on the collection saved on the phone at the last load
   (`SnapshotFile`, per account, deleted on sign-out; never in a demo) and refreshes it in place;
   only a first launch with nothing saved shows dim, still placeholders (`LoadingPlaceholder`).
@@ -142,7 +143,7 @@ and say exactly what to run or click.
   and a selected portfolio. Same id format as the website (`value:10000`, `items:50`,
   `gain:<holding key>:1`).
 - In the app since: Analytics (with Gains inside), Grading, Master Sets (was Binder), Activity —
-  all from Overview's shortcut row, shelves (Collection chips, a card's ⋯ menu), portfolios (switcher on
+  all from Overview's top-right menu, shelves (Collection chips, a card's ⋯ menu), portfolios (switcher on
   Collection; `store.holdingFilter` filters holdings, summary and timeline, `allHoldings` is
   unfiltered for deals), show deleted & edit records (card page). Grading state is in
   `user_state` `grading-submissions` / `grading-costs`; shelves and portfolios use the
