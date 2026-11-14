@@ -795,7 +795,7 @@ struct CollectionView: View {
             HStack(spacing: 10) {
                 // Its own view: tapping it or typing doesn't redraw the page; the page's query
                 // changes once you pause typing.
-                CollectionSearchBox(query: $query)
+                SettlingSearchBox(query: $query, prompt: "Search", scan: .collection)
                 // Sort and filters in one bottom sheet.
                 Button { filtering = true } label: {
                     Image(systemName: filtersOn || sort != .value ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease")
@@ -1129,25 +1129,6 @@ private struct BarGlass: ViewModifier {
 
 /// Remembers a value worked out from some inputs and hands it back while the inputs are the
 /// same. Kept in @State (one per view) and not observed, so filling it never causes a redraw.
-/// Collection's search box. It keeps what you type and its focus to itself, so focusing it or
-/// typing redraws only the box; the page's `query` changes once you pause (a quarter second), or
-/// straight away when the box is cleared.
-private struct CollectionSearchBox: View {
-    @Binding var query: String
-    @State private var text = ""
-    @FocusState private var focused: Bool
-
-    var body: some View {
-        HoloSearchField(text: $text, prompt: "Search", focus: $focused, scan: .collection)
-            .onAppear { text = query }
-            .task(id: text) {
-                if !text.isEmpty { try? await Task.sleep(nanoseconds: 250_000_000) }
-                guard !Task.isCancelled, query != text else { return }
-                query = text
-            }
-    }
-}
-
 private final class CollectionMemo<Key: Equatable, Value> {
     private var key: Key?
     private var value: Value?

@@ -4,6 +4,28 @@ import SwiftUI
 
 /// The app's search box: a Liquid Glass capsule with a magnifier, your text, a spinner while it
 /// looks, and a clear button. Every search in the app uses it, so they all look the same.
+/// A search box that keeps what you type and its focus to itself, so focusing it or typing redraws
+/// only the box, not the page around it; the page's `query` changes once you pause (a quarter
+/// second), or straight away when the box is cleared. For pages that filter long lists as you type
+/// (Collection, a game's sets).
+struct SettlingSearchBox: View {
+    @Binding var query: String
+    var prompt: String
+    var scan: SearchScan? = nil
+    @State private var text = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        HoloSearchField(text: $text, prompt: prompt, focus: $focused, scan: scan)
+            .onAppear { text = query }
+            .task(id: text) {
+                if !text.isEmpty { try? await Task.sleep(nanoseconds: 250_000_000) }
+                guard !Task.isCancelled, query != text else { return }
+                query = text
+            }
+    }
+}
+
 struct HoloSearchField: View {
     @Binding var text: String
     var prompt: String

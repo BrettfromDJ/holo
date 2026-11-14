@@ -198,7 +198,6 @@ private struct BrandView: View {
     var game: ExploreGame
     var sets: [ExploreSet]
     @State private var query = ""
-    @FocusState private var searchFocused: Bool
 
     /// Every word typed appears in the set's name (any case, accents ignored).
     private func matches(_ s: ExploreSet) -> Bool {
@@ -226,7 +225,8 @@ private struct BrandView: View {
             VStack(alignment: .leading, spacing: 36) {
                 hero
                 VStack(alignment: .leading, spacing: 30) {
-                    HoloSearchField(text: $query, prompt: "Search \(game.name) sets", focus: $searchFocused)
+                    // Its own view: tapping it or typing doesn't redraw the page of sets.
+                    SettlingSearchBox(query: $query, prompt: "Search \(game.name) sets")
                     let years = self.years
                     if years.isEmpty && !query.isEmpty {
                         Text("No sets match \u{201C}\(query)\u{201D}.").font(.geist(14)).foregroundStyle(Theme.muted)
