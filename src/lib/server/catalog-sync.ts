@@ -278,3 +278,24 @@ export async function refreshSetIfStale(
     await recordCatalogCalls(admin, calls).catch(() => {});
   }
 }
+
+const editionFetched = new Map<string, number>();
+
+/**
+ * An old set split by edition, opened before the nightly run fetched every printing's price:
+ * fetch them now (one call), so each half shows its own edition's prices. Only when no card in
+ * the set has more than one printing priced yet, and at most every 10 minutes per set.
+ */
+export async function ensureEditionPrices(admin: SupabaseClient<Database>, set: Pick<CatalogSetRow, "slug" | "tcgapi_id">, productIds: string[]): Promise<void> {
+  if (!productIds.length || Date.now() - (editionFetched.get(set.slug) ?? 0) < 10 * 60 * 1000) return;
+  const counts = new Map<string, number>();
+  for (let i = 0; i < productIds.length; i += 150) {
+    const { data } = await admin.from("product_prices").select("product_id, printing").in("product_id", productIds.slice(i, i + 150));
+    for (const r of data ?? []) counts.set(r.product_id, (counts.get(r.product_id) ?? 0) + 1);
+  }
+  if ([...counts.values()].some((n) => n > 1)) return;
+  editionFetched.set(set.slug, Date.now());
+  const all = await setAllPrintingPrices(set.tcgapi_id);
+  await recordCatalogCalls(admin, 1).catch(() => {});
+  await storePrices(admin, all);
+}
