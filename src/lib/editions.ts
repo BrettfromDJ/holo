@@ -81,7 +81,8 @@ export function unlimitedCardImage(setName: string | null | undefined, number: s
 export function withEditionArt<P extends { kind?: string | null; source?: string | null; setName?: string | null; number?: string | null; imageUrl?: string | null }>(product: P, printing: string | null | undefined): P;
 export function withEditionArt<P extends { kind?: string | null; source?: string | null; setName?: string | null; number?: string | null; imageUrl?: string | null }>(product: P | undefined, printing: string | null | undefined): P | undefined;
 export function withEditionArt<P extends { kind?: string | null; source?: string | null; setName?: string | null; number?: string | null; imageUrl?: string | null }>(product: P | undefined, printing: string | null | undefined): P | undefined {
-  if (!product || product.kind !== "single" || product.source !== "tcgapi" || editionOf(printing) !== "unlimited") return product;
+  // Only when the printing is known: no printing means we can't tell which edition it is.
+  if (!product || !printing?.trim() || product.kind !== "single" || product.source !== "tcgapi" || editionOf(printing) !== "unlimited") return product;
   const art = unlimitedCardImage(product.setName, product.number);
   return art ? { ...product, imageUrl: art } : product;
 }

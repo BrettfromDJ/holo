@@ -57,7 +57,9 @@ enum Editions {
 
     /// A card shown as one printing: our Unlimited photo when that printing is the Unlimited one.
     static func art(_ product: Product?, printing: String?) -> Product? {
-        guard var p = product, !p.isSealed, p.id.hasPrefix("tcgapi:"), of(printing: printing) == .unlimited,
+        // Only when the printing is known: no printing means we can't tell which edition it is.
+        guard var p = product, let printing, !printing.trimmingCharacters(in: .whitespaces).isEmpty,
+              !p.isSealed, p.id.hasPrefix("tcgapi:"), of(printing: printing) == .unlimited,
               let url = unlimitedImage(setName: p.setName, number: p.number) else { return product }
         p.imageUrl = url
         return p

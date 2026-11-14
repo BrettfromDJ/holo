@@ -15,6 +15,7 @@ import { formatDate, money } from "@/lib/format";
 import { packCount, pricePerPack } from "@/lib/packs";
 import { usePortfolio } from "@/lib/store/collection-store";
 import { cn } from "@/lib/utils";
+import { withEditionArt } from "@/lib/editions";
 
 /** Product ids the user owns, for "Owned" badges. */
 export function useOwnedIds() {
@@ -187,7 +188,7 @@ export function ProductTile({ item, owned, ownedQty, gameSlug, showBrand }: { it
         {p.kind === "single" && p.imageUrl ? (
           <div className="flex aspect-[5/7] w-full items-end justify-center">
             <HoloTilt max={8} foil={isFoilCard(p)} radius="4.5% / 3.2%" className="aspect-[63/88] h-full max-w-full">
-              <ProductImage product={p} size="lg" frame={false} className="h-full w-full" />
+              <ProductImage product={withEditionArt(p, item.printing)} size="lg" frame={false} className="h-full w-full" />
             </HoloTilt>
           </div>
         ) : (

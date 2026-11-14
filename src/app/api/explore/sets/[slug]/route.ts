@@ -1,7 +1,7 @@
 import { after, NextResponse } from "next/server";
 import { ensureEditionPrices, refreshSetIfStale } from "@/lib/server/catalog-sync";
 import { editionPreference, EXPLORE_CACHE, setFromRow, withPrices } from "@/lib/server/explore";
-import { parseEditionSlug, withEditionArt } from "@/lib/editions";
+import { parseEditionSlug } from "@/lib/editions";
 import { selectAll } from "@/lib/server/paging";
 import type { ProductRow } from "@/lib/supabase/database.types";
 import { getAdminSupabase } from "@/lib/supabase/server";
@@ -36,15 +36,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   }
   // One edition of an old set: make sure both editions' prices are stored before pricing it.
   if (half) await ensureEditionPrices(admin, set, rows.map((r) => r.id)).catch(() => {});
-  let products = await withPrices(admin, rows, half ? editionPreference(half.edition) : undefined);
-  // The Unlimited half shows our photos of the Unlimited prints where we have them (the catalog's
-  // pictures are the 1st Edition scans). Absolute addresses, for the app.
-  if (half?.edition === "unlimited") {
-    const origin = new URL(req.url).origin;
-    products = products.map((p) => {
-      const shown = withEditionArt(p.product, "Unlimited");
-      return shown === p.product ? p : { ...p, product: { ...shown, imageUrl: origin + shown.imageUrl } };
-    });
-  }
+  // Each card comes with the printing it's priced at (the half's own edition); the tiles pick
+  // the picture from it (`withEditionArt`). The product itself is never changed, so a card seen
+  // in one half isn't remembered with the other half's picture.
+  const products = await withPrices(admin, rows, half ? editionPreference(half.edition) : undefined);
   return NextResponse.json({ set: setFromRow(set, new URL(req.url).origin, half?.edition), products }, { headers: { "cache-control": rows.length ? cache : "no-store" } });
 }

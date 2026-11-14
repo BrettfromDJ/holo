@@ -48,5 +48,6 @@ describe("editions", () => {
     const card = { kind: "single", source: "tcgapi", setName: "Base Set", number: "4/102", imageUrl: "tcg.jpg" };
     expect(withEditionArt(card, "Holofoil").imageUrl).toBe("/cards/pokemon/base-set-unlimited/4.webp");
     expect(withEditionArt(card, "1st Edition Holofoil").imageUrl).toBe("tcg.jpg");
+    expect(withEditionArt(card, null).imageUrl).toBe("tcg.jpg");
   });
 });

@@ -793,7 +793,9 @@ private struct SetProductTile: View {
     var square = false
 
     var body: some View {
-        let p = hit.product
+        // The picture of the printing this tile is priced at (an old set's Unlimited half shows
+        // the Unlimited print); the stored product keeps the catalog's own picture.
+        let p = Editions.art(hit.product, printing: hit.printing) ?? hit.product
         let rarity = p.rarity.flatMap { $0.isEmpty || $0.lowercased() == "none" ? nil : $0 }
         let sub = [p.number.map { "#\($0)" }, rarity ?? (p.isSealed ? p.productType : nil)].compactMap { $0 }.joined(separator: " · ")
         VStack(alignment: .leading, spacing: 0) {
