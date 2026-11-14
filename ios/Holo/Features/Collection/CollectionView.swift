@@ -50,7 +50,6 @@ struct CollectionView: View {
             }
         }
     }
-    @FocusState private var searchFocused: Bool
     @State private var query = ""
     /// The chosen kind (screenshots can start on one with `-HoloCategory singles`).
     @State private var category: HoldingCategory? = Demo.value("-HoloCategory").flatMap { HoldingCategory(rawValue: $0.capitalized) }
@@ -223,7 +222,8 @@ struct CollectionView: View {
                                     }
                                 }
                             } else {
-                                VStack(spacing: 0) {
+                                // Lazy: only the rows on screen are built (it used to build every row).
+                                LazyVStack(spacing: 0) {
                                     ForEach(shown) { h in
                                         VStack(spacing: 0) {
                                             listItem(h)
@@ -793,7 +793,9 @@ struct CollectionView: View {
     private var controls: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
-                HoloSearchField(text: $query, prompt: "Search", focus: $searchFocused, scan: .collection)
+                // Its own view: tapping it or typing doesn't redraw the page; the page's query
+                // changes once you pause typing.
+                CollectionSearchBox(query: $query)
                 // Sort and filters in one bottom sheet.
                 Button { filtering = true } label: {
                     Image(systemName: filtersOn || sort != .value ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease")
@@ -1127,6 +1129,25 @@ private struct BarGlass: ViewModifier {
 
 /// Remembers a value worked out from some inputs and hands it back while the inputs are the
 /// same. Kept in @State (one per view) and not observed, so filling it never causes a redraw.
+/// Collection's search box. It keeps what you type and its focus to itself, so focusing it or
+/// typing redraws only the box; the page's `query` changes once you pause (a quarter second), or
+/// straight away when the box is cleared.
+private struct CollectionSearchBox: View {
+    @Binding var query: String
+    @State private var text = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        HoloSearchField(text: $text, prompt: "Search", focus: $focused, scan: .collection)
+            .onAppear { text = query }
+            .task(id: text) {
+                if !text.isEmpty { try? await Task.sleep(nanoseconds: 250_000_000) }
+                guard !Task.isCancelled, query != text else { return }
+                query = text
+            }
+    }
+}
+
 private final class CollectionMemo<Key: Equatable, Value> {
     private var key: Key?
     private var value: Value?
