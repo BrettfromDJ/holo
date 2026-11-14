@@ -46,7 +46,7 @@ struct OtherVersionsRow: View {
 
     private func tile(_ hit: SearchHit) -> some View {
         VStack(alignment: .leading, spacing: 3) {
-            ProductImage(product: hit.product, cornerRadius: 5)
+            ProductImage(product: hit.pictured, cornerRadius: 5)
                 .frame(width: 84, height: 117)
                 .padding(.bottom, 5)
             Text(Self.shortSet(hit.product.setName) ?? " ")

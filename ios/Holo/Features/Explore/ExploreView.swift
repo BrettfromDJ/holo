@@ -700,7 +700,7 @@ private struct TopChase: View {
     var owned: Bool
 
     var body: some View {
-        let p = hit.product
+        let p = hit.pictured
         let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
         HStack(alignment: .center, spacing: 18) {
             ProductImage(product: p, cornerRadius: 7)
@@ -742,7 +742,7 @@ private struct ChaseTile: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ProductImage(product: hit.product, cornerRadius: 6)
+            ProductImage(product: hit.pictured, cornerRadius: 6)
                 .frame(width: 118, height: 165)
                 .overlay(alignment: .topLeading) {
                     Text("#\(rank)").font(.display(15)).tracking(-0.4).foregroundStyle(Theme.ink)
@@ -795,7 +795,7 @@ private struct SetProductTile: View {
     var body: some View {
         // The picture of the printing this tile is priced at (an old set's Unlimited half shows
         // the Unlimited print); the stored product keeps the catalog's own picture.
-        let p = Editions.art(hit.product, printing: hit.printing) ?? hit.product
+        let p = hit.pictured
         let rarity = p.rarity.flatMap { $0.isEmpty || $0.lowercased() == "none" ? nil : $0 }
         let sub = [p.number.map { "#\($0)" }, rarity ?? (p.isSealed ? p.productType : nil)].compactMap { $0 }.joined(separator: " · ")
         VStack(alignment: .leading, spacing: 0) {
@@ -1354,7 +1354,7 @@ private struct MoverTile: View {
                 if square {
                     SealedWell(product: hit.product, cornerRadius: 18, caption: false).frame(width: 120, height: 120)
                 } else {
-                    ProductImage(product: hit.product, cornerRadius: 5).frame(width: 96, height: 134)
+                    ProductImage(product: hit.pictured, cornerRadius: 5).frame(width: 96, height: 134)
                 }
             }
             VStack(alignment: .leading, spacing: 3) {

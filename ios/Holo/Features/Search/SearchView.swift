@@ -5,7 +5,7 @@ struct SearchRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            ProductImage(product: hit.product, cornerRadius: 5).frame(width: 42, height: 58)
+            ProductImage(product: hit.pictured, cornerRadius: 5).frame(width: 42, height: 58)
             VStack(alignment: .leading, spacing: 2) {
                 Text(hit.product.name).font(.subheadline.weight(.medium)).foregroundStyle(.primary).lineLimit(2)
                 Text([hit.gameName, hit.product.setName, hit.product.number.map { "#\($0)" }].compactMap { $0 }.joined(separator: " · "))

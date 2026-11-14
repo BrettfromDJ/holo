@@ -91,3 +91,9 @@ enum Editions {
         return p
     }
 }
+
+extension SearchHit {
+    /// The product as this hit pictures it: an old set's card shows the photo of the edition it's
+    /// priced at. Use for any picture of a hit; `product` itself keeps the catalog's picture.
+    var pictured: Product { Editions.art(product, printing: printing) ?? product }
+}
