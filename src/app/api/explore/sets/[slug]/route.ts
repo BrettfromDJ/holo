@@ -10,16 +10,25 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   const { slug } = await params;
   const admin = getAdminSupabase();
   if (!admin) return NextResponse.json({ error: { message: "Explore needs Supabase to be configured." } }, { status: 503 });
-  const { data: set } = await admin.from("catalog_sets").select("*").eq("slug", slug).maybeSingle();
+  let { data: set } = await admin.from("catalog_sets").select("*").eq("slug", slug).maybeSingle();
   if (!set) return NextResponse.json({ error: { message: "Set not found." } }, { status: 404 });
-  // Prices more than a day old: refresh this set after answering, so the next look is current.
-  after(() => refreshSetIfStale(admin, set).catch(() => {}));
-  if (new URL(req.url).searchParams.get("meta")) return NextResponse.json({ set: setFromRow(set, new URL(req.url).origin) }, { headers: { "cache-control": EXPLORE_CACHE } });
+  if (!set.products_synced_at) {
+    // Never loaded: load it now (a call or two per 200 products), so whoever opened it sees its
+    // cards instead of "on the way". Then read the set again for its new count.
+    await refreshSetIfStale(admin, set).catch(() => {});
+    set = (await admin.from("catalog_sets").select("*").eq("slug", slug).maybeSingle()).data ?? set;
+  } else {
+    // Prices more than a day old: refresh this set after answering, so the next look is current.
+    after(() => refreshSetIfStale(admin, set!).catch(() => {}));
+  }
+  // A set that still has nothing isn't cached, so the next look tries again.
+  const cache = set.products_synced_at ? EXPLORE_CACHE : "no-store";
+  if (new URL(req.url).searchParams.get("meta")) return NextResponse.json({ set: setFromRow(set, new URL(req.url).origin) }, { headers: { "cache-control": cache } });
   let rows: ProductRow[];
   try {
     rows = await selectAll<ProductRow>((from, to) => admin.from("products").select("*").eq("set_id", slug).order("id").range(from, to), 10_000);
   } catch (e) {
     return NextResponse.json({ error: { message: (e as Error).message } }, { status: 500 });
   }
-  return NextResponse.json({ set: setFromRow(set, new URL(req.url).origin), products: await withPrices(admin, rows) }, { headers: { "cache-control": EXPLORE_CACHE } });
+  return NextResponse.json({ set: setFromRow(set, new URL(req.url).origin), products: await withPrices(admin, rows) }, { headers: { "cache-control": rows.length ? cache : "no-store" } });
 }

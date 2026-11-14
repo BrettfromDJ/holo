@@ -24,6 +24,8 @@ export interface CatalogSyncResult {
   pricesStored: number;
   stoppedBecause: "done" | "budget" | "daily_budget" | "time" | "rate_limited" | "error";
   error?: string;
+  /** Sets skipped this run because loading them failed (tried again next run). */
+  setsFailed?: string[];
 }
 
 /** A set's prices count as fresh for this long; after that it's refreshed (so, daily). */
@@ -69,6 +71,13 @@ export async function refreshSet(
     if (products.length) {
       const { error } = await admin.from("products").upsert(products.map(productToRow), { onConflict: "id", ignoreDuplicates: true });
       if (error) throw new Error(error.message);
+      // Cards saved earlier (from a search) without their set: give them this one, so the set's
+      // page finds them.
+      try {
+        await admin.from("products").update({ set_id: set.slug }).in("id", products.map((p) => p.id)).is("set_id", null);
+      } catch {
+        // Not needed for the set to count as loaded.
+      }
       const stored = await storePrices(admin, prices);
       if (result) result.pricesStored += stored;
     }
@@ -159,13 +168,24 @@ async function runCatalogSync(admin: SupabaseClient<Database>, opts: CatalogSync
     if (qErr) throw new Error(qErr.message);
     const now = Date.now();
     const age = (s: QueuedSet) => (s.products_synced_at ? now - Date.parse(s.products_synced_at) : Infinity);
-    const tier = (s: QueuedSet) => (!s.products_synced_at ? 0 : /pokemon/i.test(s.game_slug) ? 1 : 2);
+    // Never-loaded Pokémon sets first, then other never-loaded sets, then refreshes (Pokémon first).
+    const pokemon = (s: QueuedSet) => /pokemon/i.test(s.game_slug);
+    const tier = (s: QueuedSet) => (!s.products_synced_at ? (pokemon(s) ? 0 : 1) : pokemon(s) ? 2 : 3);
     const due = ((queue ?? []) as QueuedSet[])
       .filter((s) => age(s) >= SET_FRESH_MS)
-      .sort((a, b) => tier(a) - tier(b) || (tier(a) === 0 ? (b.release_date ?? "").localeCompare(a.release_date ?? "") : age(b) - age(a)));
+      .sort((a, b) => tier(a) - tier(b) || (tier(a) <= 1 ? (b.release_date ?? "").localeCompare(a.release_date ?? "") : age(b) - age(a)));
 
     for (const set of due) {
-      const finished = await refreshSet(admin, set, canCall, () => result.calls++, result);
+      // One set that fails (a bad answer for it, a row that won't save) is skipped, not the end of
+      // the night: before, it stopped every run at the same set, so the sets after it never loaded.
+      let finished: boolean;
+      try {
+        finished = await refreshSet(admin, set, canCall, () => result.calls++, result);
+      } catch (err) {
+        if (err instanceof PricingUnavailableError && err.code === "rate_limited") throw err;
+        result.setsFailed = [...(result.setsFailed ?? []), set.slug];
+        continue;
+      }
       if (!finished) break;
       result.setsSynced.push(set.slug);
     }
