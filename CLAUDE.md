@@ -154,6 +154,11 @@ and say exactly what to run or click.
   logo, symbol; lists in `src/lib/set-art-manifest.json` / `-ja.json`), matched in `src/lib/set-art.ts` (Japanese by set code first)
   and sent by `/api/explore` as `iconUrl` (banner) + `logoUrl`; TCG API's art is the fallback.
   New sets: add a folder and a manifest entry.
+- Sealed photos: our own pictures of sealed products (backgrounds removed) in
+  `public/products/<dir>/<file>.webp`, listed in `src/lib/sealed-art-manifest.json` and the same list
+  in `Domain/SealedArt.swift` (keep both in step), matched by set and product name
+  (`src/lib/sealed-art.ts`; the web `ProductImage` and the app's `Product.imageURL` use them).
+  Done: Delta Reign.
 - Old sets split by edition (Base Set, Jungle, Fossil, Team Rocket, Gym, Neo): `src/lib/editions.ts`
   and `Domain/Editions.swift` (slugs `<set>--1st-edition` / `--unlimited`). The catalog's card
   pictures are 1st Edition scans; the owner supplies Unlimited photos per set in

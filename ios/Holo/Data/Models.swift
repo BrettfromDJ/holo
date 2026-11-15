@@ -45,12 +45,15 @@ struct Product: Codable, Identifiable, Hashable {
     var isCodeCard: Bool {
         "\(name) \(productType ?? "") \(rarity ?? "")".range(of: #"\bcode\s*card\b|\bonline code\b"#, options: [.regularExpression, .caseInsensitive]) != nil
     }
-    var imageURL: URL? { imageUrl.flatMap(URL.init(string:)) }
+    /// Our own photo for a sealed product when we have one (`SealedArt`), else the catalog's.
+    var imageURL: URL? { SealedArt.url(self) ?? imageUrl.flatMap(URL.init(string:)) }
 
     /// The catalog's biggest versions of the picture, best first, when its address follows a
     /// known pattern (TCGplayer's CDN, pokemontcg.io, TCGdex and Scryfall serve small previews
     /// by default). Empty otherwise. The card page tries them in turn, then the usual picture.
     var largeImageURLs: [URL] {
+        // Our own sealed photos are full size already.
+        if SealedArt.url(self) != nil { return [] }
         let s = imageUrl ?? ""
         var out: [String] = []
         // Any card with a TCGplayer ID: TCGplayer's 1000px picture, whatever address the

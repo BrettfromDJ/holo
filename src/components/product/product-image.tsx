@@ -7,6 +7,7 @@ import { bumperById, GLITTER_SPECKS, type Bumper } from "@/lib/bumpers";
 import { cgcLabelLines, fallbackCert, gradeDescriptor, isCgcTen, slabStyle } from "@/lib/graded";
 import { useSlabBumpers, useSlabCerts, useSlabPristine } from "@/lib/store/grading";
 import type { Grade, Product } from "@/lib/types";
+import { sealedArt } from "@/lib/sealed-art";
 import { cn } from "@/lib/utils";
 
 /**
@@ -65,7 +66,9 @@ function ProductPhoto({
     if (img && img.complete && img.naturalWidth === 0) setFailed(true);
   }, []);
   const pad = { xs: "p-1", sm: "p-1.5", md: "p-3", lg: "p-5", xl: "p-8" }[size];
-  const showImage = product?.imageUrl && !failed;
+  // Our own photo of a sealed product (background removed) when we have one, else the catalog's.
+  const src = sealedArt(product) ?? product?.imageUrl ?? null;
+  const showImage = src && !failed;
   // Single cards are never framed: just the card, at its own shape, with rounded corners.
   const bare = Boolean(showImage) && (!frame || product?.kind === "single");
 
@@ -78,13 +81,13 @@ function ProductPhoto({
         className,
       )}
     >
-      {showImage && bare && product.kind === "single" ? (
+      {showImage && bare && product?.kind === "single" ? (
         // A bare card, as printed: no texture laid over it (the grain and print pattern were too much).
         <span className="relative inline-flex h-full max-w-full">
           <img
             ref={imgRef}
-            src={product.imageUrl!}
-            alt={product.name}
+            src={src!}
+            alt={product?.name ?? ""}
             loading={priority ? "eager" : "lazy"}
             decoding="async"
             onError={() => setFailed(true)}
@@ -96,8 +99,8 @@ function ProductPhoto({
       ) : showImage ? (
         <img
           ref={imgRef}
-          src={product.imageUrl!}
-          alt={product.name}
+          src={src!}
+          alt={product?.name ?? ""}
           loading={priority ? "eager" : "lazy"}
           decoding="async"
           onError={() => setFailed(true)}

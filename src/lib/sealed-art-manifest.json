@@ -1,0 +1,30 @@
+{
+  "sets": [
+    {
+      "set": "Delta Reign",
+      "dir": "pokemon/delta-reign",
+      "products": {
+        "3 Pack Blister [Seel]": "3-pack-blister-seel",
+        "Booster Box Case": "booster-box-case",
+        "Booster Box": "booster-box",
+        "Booster Bundle Case": "booster-bundle-case",
+        "Booster Bundle": "booster-bundle",
+        "Booster Pack Art Bundle [Set of 4]": "booster-pack-art-bundle-set-of-4",
+        "Booster Pack": "booster-pack",
+        "Build & Battle Box": "build-and-battle-box",
+        "Elite Trainer Box Case": "elite-trainer-box-case",
+        "Elite Trainer Box": "elite-trainer-box",
+        "Pokemon Center Elite Trainer Box (Exclusive)": "pokemon-center-elite-trainer-box-exclusive",
+        "Pokemon Center Elite Trainer Box Case (Exclusive)": "pokemon-center-elite-trainer-box-case-exclusive",
+        "Premium Checklane Blister [Ampharos Line]": "premium-checklane-blister-ampharos-line",
+        "Premium Checklane Blister [Delphox Line]": "premium-checklane-blister-delphox-line",
+        "Single Pack Blister (Target Exclusive) [Keldeo]": "single-pack-blister-target-exclusive-keldeo",
+        "Single Pack Blister (Target Exclusive) [Xerneas]": "single-pack-blister-target-exclusive-xerneas",
+        "Single Pack Blister [Spritzee]": "single-pack-blister-spritzee",
+        "Sleeved Booster Case": "sleeved-booster-case",
+        "Sleeved Booster Pack Art Bundle [Set of 4]": "sleeved-booster-pack-art-bundle-set-of-4",
+        "Sleeved Booster Pack": "sleeved-booster-pack"
+      }
+    }
+  ]
+}
