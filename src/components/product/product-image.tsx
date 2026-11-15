@@ -1,5 +1,6 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- images come from arbitrary pricing-source CDNs */
+import { ImageIcon, Package } from "lucide-react";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { categoryOf } from "@/lib/catalog";
 import { bumperById, GLITTER_SPECKS, type Bumper } from "@/lib/bumpers";
@@ -7,7 +8,6 @@ import { cgcLabelLines, fallbackCert, gradeDescriptor, isCgcTen, slabStyle } fro
 import { useSlabBumpers, useSlabCerts, useSlabPristine } from "@/lib/store/grading";
 import type { Grade, Product } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { ProductSilhouette } from "./product-silhouette";
 
 /**
  * Product photography in a neutral "well". When a product has no image (or
@@ -411,7 +411,7 @@ function CgcLabel({ product, grade, cert, pristine, tiny }: { product: Parameter
   );
 }
 
-/** No image: a lime line drawing of what the product is, with the type and set underneath at larger sizes. */
+/** No image: a small, faint icon (a picture for a card, a box for sealed). */
 function Placeholder({
   product,
   size,
@@ -427,24 +427,11 @@ function Placeholder({
         kind: product.kind,
       })
     : "Card";
-  if (size === "xs" || size === "sm") {
-    return (
-      <div className="flex h-full w-full items-center justify-center p-[18%]" role="img" aria-label={`${name} (no image available)`}>
-        <div className="flex h-full w-full items-center justify-center">
-          <ProductSilhouette category={category} />
-        </div>
-      </div>
-    );
-  }
+  // A small, faint icon on the dark tile (a card, or a box for sealed): quiet, never in your face.
+  const Icon = category === "Card" ? ImageIcon : Package;
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-[7%] p-[12%]" role="img" aria-label={`${name} (no image available)`}>
-      <div className="flex h-[46%] w-[72%] items-center justify-center">
-        <ProductSilhouette category={category} />
-      </div>
-      <div className="max-w-full text-center">
-        <p className="truncate text-[10px] font-medium font-mono uppercase tracking-[0.06em] text-subtle">{category}</p>
-        <p className="mt-0.5 truncate text-[11px] text-muted">{product?.setName ?? name}</p>
-      </div>
+    <div className="flex h-full w-full items-center justify-center" role="img" aria-label={`${name} (no image available)`}>
+      <Icon className={size === "xs" || size === "sm" ? "size-4 text-white/25" : "size-6 text-white/25"} strokeWidth={1.5} aria-hidden />
     </div>
   );
 }

@@ -768,6 +768,20 @@ struct Silhouette: View {
     }
 
     var body: some View {
+        // A small, faint icon on the dark tile (a picture for a card, a box for sealed): quiet,
+        // never in your face. (The old lime line drawing and caption are below, unused.)
+        GeometryReader { geo in
+            let s = min(geo.size.width, geo.size.height)
+            Image(systemName: shape == .card ? "photo" : "shippingbox")
+                .font(.system(size: max(12, min(22, s * 0.16)), weight: .regular))
+                .foregroundStyle(Color.white.opacity(0.25))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .background(Color.white.opacity(0.04))
+        .accessibilityLabel((product?.name ?? "Product") + ", no image")
+    }
+
+    private var drawing: some View {
         GeometryReader { geo in
             let s = min(geo.size.width, geo.size.height)
             VStack(spacing: s * 0.06) {

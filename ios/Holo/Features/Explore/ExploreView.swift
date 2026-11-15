@@ -1153,7 +1153,7 @@ struct SetArt: View {
     var parallax = false
 
     private var icon: some View {
-        Image(systemName: "square.stack.3d.up").font(.system(size: 22)).foregroundStyle(Theme.lime.opacity(0.6))
+        Image(systemName: "square.stack.3d.up").font(.system(size: 18)).foregroundStyle(Color.white.opacity(0.25))
     }
 
     /// Only when the banner couldn't be loaded: a sample product from the set instead.

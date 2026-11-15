@@ -104,7 +104,7 @@ export function SetArt({ set, className }: { set: Pick<ExploreSet, "iconUrl" | "
       ) : set.imageUrl ? (
         <img src={set.imageUrl} alt="" loading="lazy" className="absolute inset-3 h-[calc(100%-1.5rem)] w-[calc(100%-1.5rem)] object-contain transition-transform duration-500 ease-[var(--ease-apple)] group-hover:scale-[1.03]" />
       ) : (
-        <Layers className="size-6 text-lime/60" strokeWidth={1.5} />
+        <Layers className="size-5 text-white/25" strokeWidth={1.5} />
       )}
     </div>
   );
