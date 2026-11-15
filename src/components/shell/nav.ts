@@ -1,4 +1,4 @@
-import { Activity, ArrowLeftRight, Handshake, Award, Heart, BarChart3, Compass, Grid3x3, Eye, LayoutGrid, LineChart, Settings, TrendingUp } from "lucide-react";
+import { Activity, Play, ArrowLeftRight, Handshake, Award, Heart, BarChart3, Compass, Grid3x3, Eye, LayoutGrid, LineChart, Settings, TrendingUp } from "lucide-react";
 
 export const NAV = [
   { href: "/", label: "Overview", icon: LineChart },
@@ -10,6 +10,7 @@ export const NAV = [
   { href: "/wishlist", label: "Wishlist", icon: Heart },
   { href: "/trade", label: "Trade", icon: ArrowLeftRight },
   { href: "/deal", label: "Deal", icon: Handshake },
+  { href: "/?week=1", label: "Your week", icon: Play },
   { href: "/gains", label: "Gains", icon: TrendingUp },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/activity", label: "Activity", icon: Activity },
@@ -24,7 +25,7 @@ const byHref = (href: string) => NAV.find((n) => n.href === href)!;
 export const NAV_GROUPS: { label: string | null; items: NavItem[] }[] = [
   { label: null, items: ["/", "/collection", "/master-sets", "/grading"].map(byHref) },
   { label: "Market", items: ["/explore", "/watchlist", "/wishlist", "/trade", "/deal"].map(byHref) },
-  { label: "Insights", items: ["/gains", "/analytics", "/activity"].map(byHref) },
+  { label: "Insights", items: ["/?week=1", "/gains", "/analytics", "/activity"].map(byHref) },
 ];
 
 export const SETTINGS = byHref("/settings");

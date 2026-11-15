@@ -91,6 +91,11 @@ struct HomeView: View {
                 try? await Task.sleep(for: .seconds(1.5))
                 guard !Task.isCancelled else { return }
                 await checkMilestones()
+                guard !Task.isCancelled else { return }
+                // A milestone banner gets its moment first.
+                if banner?.isMilestone == true { try? await Task.sleep(for: .seconds(5)) }
+                guard !Task.isCancelled else { return }
+                checkRecap()
             }
             // The "Prices updated" banner stays off (see refresh()).
             .toolbar {
@@ -229,7 +234,7 @@ struct HomeView: View {
                         }
                     }
                 }
-                Hero(store: store, spread: refreshing, onRecap: { recap = true }, onAdd: { Router.shared.addMenu = true },
+                Hero(store: store, spread: refreshing, onAdd: { Router.shared.addMenu = true },
                      onToday: { todayOpen = true },
                      onPinned: { _ in })
             }
@@ -294,6 +299,9 @@ struct HomeView: View {
         case .collection: Router.shared.tabRequest = "collection"
         case .explore: Router.shared.tabRequest = "explore"
         case .deal: Router.shared.tabRequest = "deal"
+        case .recap:
+            // After the menu closes, so the cover rises cleanly.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { recap = true }
         case .analytics: path.append(MorePage.analytics)
         case .grading: path.append(MorePage.grading)
         case .masterSets: path.append(MorePage.masterSets)
@@ -319,6 +327,24 @@ struct HomeView: View {
     private var milestoneTrigger: String? {
         guard store.status == .ready, store.isFresh, store.demo == nil, !Demo.isOn, store.holdingFilter == nil else { return nil }
         return "\(store.summary.value)|\(store.summary.items)"
+    }
+
+    /// Your week opens on its own once a week: the first time the app opens on or after
+    /// Sunday. Remembered on the phone per account (`recap-seen:<user id>`, the start of the
+    /// last week shown). The first time ever it only marks this week, so it doesn't pop up
+    /// mid-week right after an update; it then waits for Sunday.
+    @MainActor
+    private func checkRecap() {
+        guard milestoneTrigger != nil, !store.holdings.isEmpty, !recap,
+              case let .signedIn(userId, _) = session.state else { return }
+        var cal = Calendar(identifier: .gregorian)
+        cal.firstWeekday = 1 // Sunday
+        guard let weekStart = cal.dateInterval(of: .weekOfYear, for: Date())?.start else { return }
+        let key = "recap-seen:\(userId)"
+        let seen = UserDefaults.standard.object(forKey: key) as? Date
+        UserDefaults.standard.set(weekStart, forKey: key)
+        guard let seen, seen < weekStart else { return }
+        recap = true
     }
 
     /// Celebrates a new milestone once (shared with the website's "milestones-seen", a list of
@@ -394,7 +420,6 @@ private struct Hero: View {
     var store: CollectionStore
     /// Fans the cards open (while refreshing).
     var spread = false
-    var onRecap: () -> Void
     var onAdd: () -> Void
     /// The Today column was tapped: show what moved today.
     var onToday: () -> Void = {}
@@ -432,19 +457,11 @@ private struct Hero: View {
             .onGeometryChange(for: Bool.self) { $0.frame(in: .global).maxY < 120 } action: { gone in
                 onPinned(gone)
             }
-            // The website's floating action bar: your week's recap and the lime add button.
-            // Widths split 1 : 1.4 like the website, on one line each.
-            GeometryReader { geo in
-                let week = (geo.size.width - 8) / 2.4
-                HStack(spacing: 8) {
-                    Button(action: onRecap) { Label("Your week", systemImage: "play.fill").lineLimit(1) }
-                        .buttonStyle(Button3D(kind: .dark, height: 48))
-                        .frame(width: week)
-                    Button(action: onAdd) { Label("Add to Collection", systemImage: "plus").lineLimit(1) }
-                        .buttonStyle(Button3D(kind: .lime, height: 48))
-                }
+            // The website's floating action bar: the lime add button. (Your week moved to the
+            // top-right menu and opens on its own once a week.)
+            Button(action: onAdd) { Label("Add to Collection", systemImage: "plus").lineLimit(1) }
+                .buttonStyle(Button3D(kind: .lime, height: 48))
                 .environment(\.inGlassBar, true)
-            }
             .frame(height: 48)
             // The buttons rise 1pt and their 3D edge drops 3pt, so 9 above and 10 below
             // leaves the same 8pt visible gap at the top and the bottom.
@@ -1707,12 +1724,12 @@ private struct ShineUnlessSealed: ViewModifier {
 
 /// The top-right menu's panel: every main place in the app, in three groups, on one glass card.
 private struct PlacesMenu: View {
-    enum Place { case collection, explore, deal, analytics, grading, masterSets, activity, sales, lists, account }
+    enum Place { case collection, explore, deal, recap, analytics, grading, masterSets, activity, sales, lists, account }
     var go: (Place) -> Void
 
     private static let groups: [[(Place, String, String)]] = [
         [(.collection, "Collection", "square.grid.2x2"), (.explore, "Explore", "safari"), (.deal, "Deal", "arrow.left.arrow.right")],
-        [(.analytics, "Analytics", "chart.xyaxis.line"), (.grading, "Grading", "checkmark.seal"), (.masterSets, "Master sets", "square.grid.3x3.fill"),
+        [(.recap, "Your week", "play.fill"), (.analytics, "Analytics", "chart.xyaxis.line"), (.grading, "Grading", "checkmark.seal"), (.masterSets, "Master sets", "square.grid.3x3.fill"),
          (.activity, "Activity", "list.bullet.rectangle"), (.sales, "Sales & taxes", "doc.text"), (.lists, "Lists", "square.stack")],
         [(.account, "Account and settings", "gearshape")],
     ]

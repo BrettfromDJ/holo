@@ -1,6 +1,6 @@
 "use client";
 
-import { Play, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import Link from "next/link";
 import { AnimatedNumber } from "@/components/motion/animated-number";
 import { ProductImage } from "@/components/product/product-image";
@@ -28,11 +28,9 @@ const FAN = [
 export function HypeHero({
   holdings,
   summary,
-  onRecap,
 }: {
   holdings: HoldingView[];
   summary: PortfolioSummary;
-  onRecap: () => void;
 }) {
   const { openAdd } = useStore();
   const hero = useHeroLink();
@@ -143,15 +141,8 @@ export function HypeHero({
           <div className="relative mx-auto mt-7 flex w-full max-w-[520px] items-center lg:mx-0 gap-2 rounded-[22px] border border-white/10 bg-surface/80 p-2 shadow-2xl shadow-black/50 backdrop-blur-xl">
             <button
               type="button"
-              onClick={onRecap}
-              className="btn-3d btn-3d-dark flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-surface-2 text-[14px] font-medium transition-colors hover:bg-surface-3"
-            >
-              <Play className="size-4 fill-current" /> Your week
-            </button>
-            <button
-              type="button"
               onClick={() => openAdd()}
-              className="hype-cta btn-3d btn-3d-lime flex h-12 flex-[1.4] items-center justify-center gap-2 rounded-2xl bg-lime text-[14px] font-medium text-[#0b0b0c]"
+              className="hype-cta btn-3d btn-3d-lime flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-lime text-[14px] font-medium text-[#0b0b0c]"
             >
               <Plus className="size-4" strokeWidth={2.4} /> Add to Collection
             </button>

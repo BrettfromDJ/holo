@@ -1,7 +1,8 @@
 "use client";
 
 import { AlertCircle, RefreshCw } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Delta } from "@/components/product/delta";
 import { Reveal } from "@/components/motion/reveal";
 import { MoversBoard, RecentTimeline } from "@/components/overview/boards";
@@ -38,6 +39,7 @@ export default function OverviewPage() {
   const { holdings, summary, timeline } = usePortfolio();
   const [movePeriod, setMovePeriod] = useState<MovePeriod>("1D");
   const [recapOpen, setRecapOpen] = useState(false);
+  const openRecap = useCallback(() => setRecapOpen(true), []);
 
   const movers = useMemo(() => {
     const withMove = holdings.map((h) => ({ h, m: moveOf(h, movePeriod) })).filter((x): x is { h: HoldingView; m: number } => x.m !== null);
@@ -61,9 +63,12 @@ export default function OverviewPage() {
       <HomeSearch className="mb-5" />
       <PortfolioSwitcher compact className="mb-4 lg:hidden" />
       <PortfolioBanner />
-      <HypeHero holdings={holdings} summary={summary} onRecap={() => setRecapOpen(true)} />
+      <HypeHero holdings={holdings} summary={summary} />
       <div className="h-6" />
       <WeeklyRecap open={recapOpen} onClose={() => setRecapOpen(false)} />
+      <Suspense fallback={null}>
+        <RecapOpener onOpen={openRecap} />
+      </Suspense>
       <ReleaseReminders />
 
       <PerformanceChart
@@ -191,4 +196,43 @@ function OverviewSkeleton() {
       </div>
     </div>
   );
+}
+
+/**
+ * Opens Your week from the menu ("/?week=1"), and on its own once a week: the first visit on or
+ * after Sunday. Remembered in this browser per account (`recap-seen:<user id>`, the start of the
+ * last week shown). The first time ever it only marks this week, then waits for Sunday. Not in
+ * the demo. Same rule as the app.
+ */
+function RecapOpener({ onOpen }: { onOpen: () => void }) {
+  const params = useSearchParams();
+  const router = useRouter();
+  const store = useStore();
+  const fromMenu = params.get("week") === "1";
+  const userId = store.mode === "personal" ? (store.user?.id ?? null) : null;
+  const hasHoldings = store.status === "ready" && store.data.transactions.length > 0;
+
+  useEffect(() => {
+    if (!fromMenu) return;
+    onOpen();
+    router.replace("/", { scroll: false });
+  }, [fromMenu, onOpen, router]);
+
+  useEffect(() => {
+    if (!userId || !hasHoldings) return;
+    const now = new Date();
+    const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay()).getTime();
+    const key = `recap-seen:${userId}`;
+    let seen: number | null = null;
+    try {
+      const raw = localStorage.getItem(key);
+      seen = raw ? Number(raw) : null;
+      localStorage.setItem(key, String(weekStart));
+    } catch {
+      return;
+    }
+    if (seen !== null && seen < weekStart) onOpen();
+  }, [userId, hasHoldings, onOpen]);
+
+  return null;
 }
