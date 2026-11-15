@@ -773,6 +773,9 @@ struct CollectionView: View {
                 statTile("Paid", Format.money(s.totalCost), .white)
             }
             AllocationBar(holdings: store.holdings, total: s.value)
+            // The same lime button as Overview: opens Scan / Search to add.
+            Button { Router.shared.addMenu = true } label: { Label("Add to Collection", systemImage: "plus").lineLimit(1) }
+                .buttonStyle(Button3D(kind: .lime, height: 48))
         }
         .background(alignment: .top) {
             CollectionBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)

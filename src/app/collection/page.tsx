@@ -200,6 +200,14 @@ function Collection() {
         </dl>
       )}
 
+      {/* The same lime button as Overview (the phone tab bar's middle button is search now). */}
+      <button
+        type="button"
+        onClick={() => store.openAdd()}
+        className="btn-3d btn-3d-lime mb-4 flex h-12 w-full max-w-[520px] items-center justify-center gap-2 rounded-2xl bg-lime text-[14px] font-medium text-[#0b0b0c]"
+      >
+        <Plus className="size-4" strokeWidth={2.4} /> Add to Collection
+      </button>
       <PortfolioSwitcher compact className="mb-3 lg:hidden" />
       <PortfolioBanner />
       {/* Toolbar */}

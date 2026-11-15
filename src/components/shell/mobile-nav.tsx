@@ -1,10 +1,9 @@
 "use client";
 
-import { Menu, Plus, Settings } from "lucide-react";
+import { Menu, Search, Settings } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { useStore } from "@/lib/store/collection-store";
 import { cn } from "@/lib/utils";
 import { Logo } from "./logo";
 import { MOBILE_MENU, MOBILE_TABS, SETTINGS, isActive, type NavItem } from "./nav";
@@ -58,10 +57,10 @@ export function MobileTopBar() {
   );
 }
 
-/** Bottom tab bar with a prominent center add button. */
+/** Bottom tab bar with a prominent center search button (adding is on Overview and Collection). */
 export function BottomNav() {
   const pathname = usePathname();
-  const { openAdd } = useStore();
+  const router = useRouter();
   const { left, right } = MOBILE_TABS;
   const Tab = ({ href, label, icon: Icon }: NavItem) => {
     const active = isActive(pathname, href);
@@ -87,11 +86,15 @@ export function BottomNav() {
         ))}
         <div className="flex flex-1 justify-center">
           <button
-            onClick={() => openAdd()}
-            aria-label="Add to collection"
+            onClick={() => {
+              // Search everything: Explore's search field, ready to type (as in the app).
+              if (pathname === "/explore") window.dispatchEvent(new Event("focus-explore-search"));
+              else router.push("/explore?search=1");
+            }}
+            aria-label="Search"
             className="btn-3d btn-3d-lime -mt-3 flex size-14 items-center justify-center rounded-full bg-lime text-[#0b0b0c] transition-transform"
           >
-            <Plus className="size-6" strokeWidth={2.4} />
+            <Search className="size-6" strokeWidth={2.4} />
           </button>
         </div>
         {right.map((n) => (

@@ -2,7 +2,7 @@
 
 import { FlipGrid, FlipItem } from "@/components/motion/flip-grid";
 import { Compass, Loader2, Search, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ProductTile, useExploreIndex, useOwnedIds, useOwnedQuantities } from "@/components/explore/explore-items";
 import { BrandCard, CatalogHero, ExploreBackdrop, LandingHeading, SetCarousel } from "@/components/explore/landing";
 import { PageHeader } from "@/components/shell/page-header";
@@ -16,6 +16,7 @@ export default function ExplorePage() {
   const index = useExploreIndex();
   const games = index.status === "ready" ? index.games : [];
   const [query, setQuery] = useState("");
+  const searchInput = useRef<HTMLInputElement>(null);
   const results = useCatalogSearch(query);
   const owned = useOwnedIds();
   const ownedQty = useOwnedQuantities();
@@ -28,8 +29,14 @@ export default function ExplorePage() {
 
   // Arriving from the home search ("/explore?q=…") starts with that query.
   useEffect(() => {
-    const q = new URLSearchParams(window.location.search).get("q");
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get("q");
     if (q) setQuery(q);
+    // From the phone tab bar's search button: straight into typing.
+    if (params.get("search") === "1") searchInput.current?.focus();
+    const focus = () => searchInput.current?.focus();
+    window.addEventListener("focus-explore-search", focus);
+    return () => window.removeEventListener("focus-explore-search", focus);
   }, []);
 
   // Sets still to come (soonest first) and already out (newest first), as in the app.
@@ -45,6 +52,7 @@ export default function ExplorePage() {
         <div className="relative">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-subtle" />
           <input
+            ref={searchInput}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search cards and sealed across every brand — e.g. “umbreon”, “151 etb”"

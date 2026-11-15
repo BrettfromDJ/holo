@@ -36,11 +36,11 @@ struct HoloTabBar<Tab: Hashable>: View {
         // Drawn over the bar, not inside the glass, so the bar's edge never shows through it.
         .overlay {
             Button(action: onPlus) {
-                Image(systemName: "plus")
-                    .font(.system(size: 26, weight: .medium))
+                // Search; a × while the add menu (from an "Add to Collection" button) is open.
+                Image(systemName: plusOpen ? "xmark" : "magnifyingglass")
+                    .font(.system(size: plusOpen ? 22 : 24, weight: .semibold))
                     .foregroundStyle(Theme.ink)
-                    .rotationEffect(.degrees(plusOpen ? 135 : 0))
-                    .animation(.spring(response: 0.3, dampingFraction: 0.68), value: plusOpen)
+                    .contentTransition(.symbolEffect(.replace))
                     .frame(width: 64, height: 64)
                     .background(
                         ZStack {
@@ -57,7 +57,8 @@ struct HoloTabBar<Tab: Hashable>: View {
                         }
                     )
             }
-            .accessibilityLabel(plusOpen ? "Close" : "Add")
+            .accessibilityLabel(plusOpen ? "Close" : "Search")
+            .accessibilityIdentifier("tab-search")
             .offset(y: -18)
         }
         .padding(.horizontal, 14)

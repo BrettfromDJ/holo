@@ -44,9 +44,20 @@ final class ScreenshotTests: XCTestCase {
         app.launchArguments = ["-HoloDemo"]
         app.launch()
         sleep(4)
-        app.buttons["Add"].firstMatch.tap()
+        app.buttons["Add to Collection"].firstMatch.tap()
         sleep(2)
         save(app.screenshot(), "add-menu-0")
+    }
+    // The tab bar's middle button: search.
+    func testTabSearch() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-HoloDemo", "-HoloTab", "collection"]
+        app.launch()
+        sleep(4)
+        save(app.screenshot(), "tab-search-0")
+        app.buttons["tab-search"].firstMatch.tap()
+        sleep(2)
+        save(app.screenshot(), "tab-search-1")
     }
     func testHoldingSheet() { capture("holding-sheet", args: ["-HoloTab", "collection", "-HoloOpenHolding", "-HoloDemoKind", "singles"], pages: 2) }
     func testSlabSheet() { capture("slab-sheet", args: ["-HoloTab", "collection", "-HoloOpenHolding", "-HoloDemoKind", "graded", "-HoloBumper"], pages: 2) }

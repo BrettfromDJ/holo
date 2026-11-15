@@ -191,6 +191,8 @@ struct MainTabView: View {
     enum ScanChoice: Equatable { case collection, deal(DealSide) }
     @State private var adding = false
     @State private var searching = false
+    /// The tab bar's middle button: search everything.
+    @State private var browsing = false
     @State private var router = Router.shared
     @State private var notifications = NotificationExplainer.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -237,7 +239,7 @@ struct MainTabView: View {
         }
         // Undo for a few seconds after a delete or a sale, above the tab bar.
         .undoToast(bottom: 104)
-        // The website's bar: Overview, Collection, the lime +, Explore, Deal. It floats over the
+        // The bar: Overview, Collection, the lime search button, Explore, Deal. It floats over the
         // pages (each page leaves room under its last card), so content shows through the glass.
         // The add menu: Scan and Search pop out from behind the + (drawn under the bar, so the
         // + stays on top and turns into a ×).
@@ -255,7 +257,12 @@ struct MainTabView: View {
                 ],
                 selection: $tab,
                 plusOpen: adding,
-                onPlus: { withAnimation(.spring(response: 0.3, dampingFraction: 0.74)) { adding.toggle() } },
+                // The middle button searches everything (cards open their page). While the add
+                // menu is open (from an "Add to Collection" button) it closes it.
+                onPlus: {
+                    if adding { withAnimation(.spring(response: 0.3, dampingFraction: 0.74)) { adding = false } }
+                    else { browsing = true }
+                },
                 onTap: { t in
                     let name: String = switch t {
                     case .home: "home"
@@ -328,6 +335,7 @@ struct MainTabView: View {
         // A new deal asks again.
         .onChange(of: deals.deal.kind) { _, kind in if kind == .empty { scanChoice = nil } }
         .fullScreenCover(isPresented: $searching) { SearchScreen(mode: .add) }
+        .background { Color.clear.fullScreenCover(isPresented: $browsing) { SearchScreen() } }
         // A card you own, tapped on any page (Activity, Master Sets, Analytics, Explore…): Your copy.
         // "View card details" then opens the full card page.
         .sheet(item: Binding(get: { router.holding.map(OpenedHolding.init) }, set: { router.holding = $0?.identity })) { o in
