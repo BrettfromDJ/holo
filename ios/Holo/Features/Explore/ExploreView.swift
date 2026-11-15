@@ -741,10 +741,13 @@ private struct TopChase: View {
         let p = hit.pictured
         let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
         HStack(alignment: .center, spacing: 18) {
-            ProductImage(product: p, cornerRadius: 7)
-                .frame(width: 120, height: 168)
-                .tiltCard(9, foil: p.isFoil, cornerRadius: 7)
-                .shadow(color: .black.opacity(0.5), radius: 12, y: 8)
+            // Drifts and shines like the card page's hero (hold it to tilt it yourself), with
+            // sparks rising behind it.
+            HoloCard(foil: p.isFoil, textured: false, cornerRadius: 7) {
+                ProductImage(product: p, cornerRadius: 7).frame(width: 120, height: 168)
+            }
+            .drifting()
+            .frame(width: 120, height: 168)
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 6) {
                     SkewTag(text: "No. 1 chase", icon: "flame.fill")
@@ -764,12 +767,60 @@ private struct TopChase: View {
                 shape.fill(Color(hex: 0x070707))
                 GridPattern(step: 28, opacity: 0.06)
                 RadialGradient(colors: [Theme.lime.opacity(0.2), .clear], center: UnitPoint(x: 0.15, y: 0.5), startRadius: 0, endRadius: 200)
+                // Behind the card: lime and white sparks rising, with a few glints.
+                ChaseSparks().frame(width: 190).frame(maxWidth: .infinity, alignment: .leading)
             }
             .clipShape(shape)
         }
         // Glow first, then the spinning border, so the glow isn't redrawn every frame.
         .shadow(color: Theme.lime.opacity(0.18), radius: 18)
         .overlay(ElectricBorder(radius: 22))
+    }
+}
+
+/// Sparks rising behind the No. 1 chase card, lime and white, swaying and fading as they climb,
+/// plus four-pointed glints flashing in turn. One canvas worked out from the clock, 30 times a
+/// second, only while it's on screen; Reduce Motion leaves a still scatter.
+private struct ChaseSparks: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var onScreen = true
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion || !onScreen)) { context in
+            let t = reduceMotion ? 3 : context.date.timeIntervalSinceReferenceDate
+            Canvas { ctx, size in
+                func r(_ i: Int, _ k: Double) -> Double {
+                    let v = sin(Double(i) * 12.9898 + k * 78.233) * 43758.5453
+                    return v - floor(v)
+                }
+                func frac(_ v: Double) -> Double { v - floor(v) }
+                for i in 0 ..< 26 {
+                    let p = frac(t * (0.06 + 0.1 * r(i, 2)) + r(i, 3))
+                    let x = size.width * CGFloat(0.08 + 0.84 * r(i, 1)) + CGFloat(sin(t * 1.4 + Double(i)) * 8 * p)
+                    let y = size.height * CGFloat(1.05 - p * 1.1)
+                    let rad = CGFloat(0.8 + 1.8 * r(i, 4))
+                    let a = sin(Double.pi * p) * 0.9
+                    let color = r(i, 5) < 0.6 ? Theme.lime : Color.white
+                    ctx.fill(Path(ellipseIn: CGRect(x: x - rad * 3, y: y - rad * 3, width: rad * 6, height: rad * 6)), with: .color(color.opacity(0.14 * a)))
+                    ctx.fill(Path(ellipseIn: CGRect(x: x - rad, y: y - rad, width: rad * 2, height: rad * 2)), with: .color(color.opacity(a)))
+                }
+                let spots: [CGPoint] = [CGPoint(x: 0.14, y: 0.16), CGPoint(x: 0.88, y: 0.24), CGPoint(x: 0.1, y: 0.8), CGPoint(x: 0.9, y: 0.78), CGPoint(x: 0.5, y: 0.08)]
+                for (i, spot) in spots.enumerated() {
+                    let s = max(0, sin(t * 1.1 + Double(i) * 1.9))
+                    let k = CGFloat(pow(s, 6)) * 8
+                    guard k > 0.3 else { continue }
+                    let cx = size.width * spot.x, cy = size.height * spot.y
+                    var star = Path()
+                    star.move(to: CGPoint(x: cx, y: cy - k)); star.addLine(to: CGPoint(x: cx + k * 0.18, y: cy))
+                    star.addLine(to: CGPoint(x: cx, y: cy + k)); star.addLine(to: CGPoint(x: cx - k * 0.18, y: cy)); star.closeSubpath()
+                    star.move(to: CGPoint(x: cx - k, y: cy)); star.addLine(to: CGPoint(x: cx, y: cy + k * 0.18))
+                    star.addLine(to: CGPoint(x: cx + k, y: cy)); star.addLine(to: CGPoint(x: cx, y: cy - k * 0.18)); star.closeSubpath()
+                    ctx.fill(star, with: .color(.white.opacity(0.9)))
+                }
+            }
+        }
+        .allowsHitTesting(false)
+        .onVisibilityChange { visible in if visible != onScreen { onScreen = visible } }
     }
 }
 
