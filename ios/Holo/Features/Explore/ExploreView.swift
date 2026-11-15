@@ -667,7 +667,7 @@ private struct ReleaseCountdown: View {
             VStack(alignment: .leading, spacing: 6) {
                 MonoLabel(text: days == 0 ? "Out" : "Out in")
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    SplitFlap(text: "\(days)", tile: Color.white.opacity(0.07), cornerRadius: 7, trim: 44 * 0.06)
+                    Text("\(days)").displayTrim(44)
                         .font(.display(44)).monospacedDigit().foregroundStyle(Theme.lime)
                         .fixedSize()
                     Text(days == 0 ? "today" : (days == 1 ? "day" : "days")).font(.geist(14)).foregroundStyle(Theme.muted)
@@ -1320,8 +1320,8 @@ private struct NextRelease: View {
                 }
                 Spacer(minLength: 0)
                 VStack(spacing: 6) {
-                    // The days flip in like a split-flap departures board.
-                    SplitFlap(text: "\(days)", tile: Color.white.opacity(0.07), cornerRadius: 8, trim: 60 * 0.06)
+                    // The days, plain (no split-flap tiles).
+                    Text("\(days)").displayTrim(60)
                         .font(.display(60)).monospacedDigit().foregroundStyle(Theme.lime)
                         .fixedSize()
                     MonoLabel(text: days == 0 ? "today" : (days == 1 ? "day" : "days"))

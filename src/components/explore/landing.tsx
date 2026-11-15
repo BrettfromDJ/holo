@@ -81,7 +81,7 @@ function NextRelease({ set }: { set: ExploreSet }) {
           </button>
         </div>
         <div className="flex min-w-[70px] flex-col items-center gap-1.5">
-          <span className="tabular rounded-lg bg-white/[0.07] px-2.5 py-1 font-display text-[56px] leading-none text-[var(--lime)]">{days}</span>
+          <span className="tabular font-display text-[56px] leading-none tracking-[-0.03em] text-[var(--lime)]">{days}</span>
           <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted">{days === 0 ? "today" : days === 1 ? "day" : "days"}</span>
         </div>
       </div>
