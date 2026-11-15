@@ -600,7 +600,8 @@ private struct SetHero: View {
             VStack(alignment: .leading, spacing: 8) {
                 MonoLabel(text: set.gameName)
                 DisplayText(text: set.name, size: 34).frame(maxWidth: .infinity, alignment: .leading)
-                Text(meta).font(.geist(13)).foregroundStyle(Theme.muted).monospacedDigit()
+                // Over our blurred art, a stronger white so it never reads as grey.
+                Text(meta).font(.geist(13)).foregroundStyle(ownArt != nil ? Color.white.opacity(0.8) : Theme.muted).monospacedDigit()
             }
             if upcoming { ReleaseCountdown(set: set) }
         }
@@ -660,13 +661,14 @@ private struct ArtBackdrop: View {
     var body: some View {
         CachedImage(url: url) { img in img.resizable().scaledToFill() } placeholder: { Color.clear }
             .environment(\.imageFadesIn, false)
-            .frame(height: 560)
+            .frame(height: 660)
             .frame(maxWidth: .infinity)
             .clipped()
             .blur(radius: 16, opaque: true)
             .overlay(Color.black.opacity(0.25))
             .drawingGroup()
-            .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.55), .init(color: .clear, location: 1)],
+            // A long, soft fade into the black page.
+            .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.42), .init(color: .clear, location: 0.92)],
                                  startPoint: .top, endPoint: .bottom))
             .padding(.top, -260)
             .allowsHitTesting(false)

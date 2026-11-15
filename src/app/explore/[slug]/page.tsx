@@ -14,6 +14,7 @@ import { compareCollectorNumbers } from "@/lib/collector-number";
 import { packCount, pricePerPack } from "@/lib/packs";
 import type { ExploreProduct, ExploreSet } from "@/lib/explore/types";
 import { formatDate, money, relativeTime } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 type Tab = "single" | "sealed";
 type Sort = "price" | "perPack" | "number" | "name";
@@ -91,8 +92,8 @@ export default function ExploreSetPage() {
             <>
               <div
                 aria-hidden
-                className="pointer-events-none absolute -inset-x-4 -top-6 -z-10 h-[480px] overflow-hidden sm:-inset-x-8"
-                style={{ maskImage: "linear-gradient(to bottom, black, black 50%, transparent)", WebkitMaskImage: "linear-gradient(to bottom, black, black 50%, transparent)" }}
+                className="pointer-events-none absolute -inset-x-4 -top-6 -z-10 h-[420px] overflow-hidden sm:-inset-x-8"
+                style={{ maskImage: "linear-gradient(to bottom, black, black 25%, transparent 92%)", WebkitMaskImage: "linear-gradient(to bottom, black, black 25%, transparent 92%)" }}
               >
                 <img src={state.set.iconUrl} alt="" className="h-full w-full scale-110 object-cover blur-[16px] brightness-75" />
               </div>
@@ -115,7 +116,7 @@ export default function ExploreSetPage() {
             <div className="min-w-0">
               <p className="text-[12px] font-medium font-mono uppercase tracking-[0.06em] text-subtle">{state.set.gameName}</p>
               <h1 className="mt-1 font-display text-[27px] leading-[0.98] sm:text-[35px]">{state.set.name}</h1>
-              <p className="tabular mt-1 text-[13px] text-muted">
+              <p className={cn("tabular mt-1 text-[13px]", state.set.logoUrl && state.set.iconUrl ? "text-white/80" : "text-muted")}>
                 {[
                   state.set.releaseDate && `Released ${formatDate(state.set.releaseDate)}`,
                   `${products.length} products`,
