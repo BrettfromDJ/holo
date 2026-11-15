@@ -25,6 +25,22 @@ struct EbaySalesPanel: View {
         return ebay.graded.sorted { $0.value.count > $1.value.count }.map(\.key)
     }
 
+    private static func salesCount(_ n: Int) -> String { n == 1 ? "1 sale" : "\(n) sales" }
+
+    /// Sold grades grouped by company ("PSA", "CGC", …), companies by total sales, grades
+    /// highest first within each.
+    private static func companies(_ labels: [String]) -> [(company: String, grades: [String])] {
+        var order: [String] = []
+        var groups: [String: [String]] = [:]
+        for l in labels {
+            let company = String(l.split(separator: " ").first ?? Substring(l))
+            if groups[company] == nil { order.append(company) }
+            groups[company, default: []].append(l)
+        }
+        func number(_ l: String) -> Double { Double(l.split(separator: " ").last ?? "") ?? 0 }
+        return order.map { c in (c, groups[c]!.sorted { number($0) > number($1) }) }
+    }
+
     private var sales: [EbaySale] {
         let all = ebay?.sales ?? []
         return tab == Self.ungradedTab ? all.filter { $0.grade == nil } : all.filter { $0.grade == tab }
@@ -68,32 +84,36 @@ struct EbaySalesPanel: View {
         let labels = self.labels
         let sales = self.sales
         if !labels.isEmpty {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    ForEach([Self.ungradedTab] + labels, id: \.self) { l in
-                        let on = tab == l
-                        Button {
-                            tab = l
-                            showAll = false
-                        } label: {
-                            HStack(spacing: 6) {
-                                Text(l).font(.geist(13, on ? .semibold : .regular))
-                                Text("\(l == Self.ungradedTab ? e.ungraded.count : (e.graded[l]?.count ?? 0))")
-                                    .font(.geist(13)).monospacedDigit().opacity(0.6)
+            // One pill showing the open grade and its sale count; tap for every grade that has
+            // sold, grouped by company (the chip row scrolled sideways and hid most of them).
+            Menu {
+                Picker("Grade", selection: Binding(get: { tab }, set: { tab = $0; showAll = false })) {
+                    Text("Ungraded · \(Self.salesCount(e.ungraded.count))").tag(Self.ungradedTab)
+                }
+                ForEach(Self.companies(labels), id: \.company) { group in
+                    Section(group.company) {
+                        Picker(group.company, selection: Binding(get: { tab }, set: { tab = $0; showAll = false })) {
+                            ForEach(group.grades, id: \.self) { l in
+                                Text("\(l) · \(Self.salesCount(e.graded[l]?.count ?? 0))").tag(l)
                             }
-                            .padding(.horizontal, 12)
-                            .frame(height: 32)
-                            .foregroundStyle(on ? Theme.background : Theme.muted)
-                            // Selected: filled white. The rest: no fill, just a faint hairline.
-                            .background { if on { Capsule().fill(Color.white) } }
-                            .overlay { if !on { Capsule().strokeBorder(Color.white.opacity(0.12), lineWidth: 1) } }
                         }
-                        .buttonStyle(.plain)
                     }
                 }
-                .padding(.vertical, 4)
+            } label: {
+                HStack(spacing: 8) {
+                    Text(tab).font(.geist(14, .semibold))
+                    Text(Self.salesCount(tab == Self.ungradedTab ? e.ungraded.count : (e.graded[tab]?.count ?? 0)))
+                        .font(.geist(14)).monospacedDigit().foregroundStyle(Theme.muted)
+                    Image(systemName: "chevron.down").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.muted)
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14)
+                .frame(height: 36)
+                .liquidGlass(in: Capsule())
+                .contentShape(Capsule())
             }
-            .padding(.top, 12)
+            .buttonStyle(.plain)
+            .padding(.top, 14)
         }
 
         let stats = tab == Self.ungradedTab ? e.ungraded : (e.graded[tab] ?? e.ungraded)

@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, Loader2 } from "lucide-react";
+import { ChevronDown, ExternalLink, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useInView } from "@/components/motion/reveal";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,19 @@ import { useStore } from "@/lib/store/collection-store";
 import { priceKey, type Grade } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { SellSpeedFromSales } from "./sell-speed";
+
+const salesCount = (n: number) => (n === 1 ? "1 sale" : `${n} sales`);
+
+/** Sold grades grouped by company ("PSA", "CGC", …), companies by total sales, grades highest first. Same as the app. */
+function byCompany(labels: string[]): [string, string[]][] {
+  const groups = new Map<string, string[]>();
+  for (const l of labels) {
+    const company = l.split(" ")[0];
+    groups.set(company, [...(groups.get(company) ?? []), l]);
+  }
+  const num = (l: string) => Number(l.split(" ").pop()) || 0;
+  return [...groups].map(([c, g]) => [c, g.sort((a, b) => num(b) - num(a))]);
+}
 
 type Load = { state: "idle" | "loading" } | { state: "ready"; data: EbayData | null } | { state: "error"; message: string; tier: boolean };
 
@@ -129,22 +142,33 @@ export function EbaySales({
       {data && (
         <>
           {labels.length > 0 && (
-            <div className="fade-row scrollbar-none -mx-1 mt-3 flex gap-1.5 overflow-x-auto px-1 py-1">
-              {[UNGRADED, ...labels].map((l) => (
-                <button
-                  key={l}
-                  type="button"
-                  onClick={() => {
-                    setPicked(l);
-                    setAll(false);
-                  }}
-                  className={cn("h-8 shrink-0 rounded-full px-3 text-[13px] transition-colors", tab === l ? "bg-foreground font-semibold text-background" : "text-muted ring-1 ring-inset ring-white/12 hover:text-foreground")}
-                >
-                  {l}
-                  <span className="tabular ml-1.5 opacity-60">{l === UNGRADED ? data.ungraded.count : data.graded[l].count}</span>
-                </button>
-              ))}
-            </div>
+            // One pill showing the open grade and its sale count; the menu lists every grade
+            // that has sold, grouped by company (the chip row scrolled sideways and hid most).
+            <label className="relative mt-4 inline-flex h-9 items-center gap-2 rounded-full bg-[var(--foreground)]/[0.07] pl-3.5 pr-8 text-[14px] ring-1 ring-inset ring-[var(--border-strong)] hover:bg-[var(--foreground)]/[0.1]">
+              <span className="font-semibold">{tab}</span>
+              <span className="tabular text-muted">{salesCount(tab === UNGRADED ? data.ungraded.count : (data.graded[tab]?.count ?? 0))}</span>
+              <ChevronDown className="pointer-events-none absolute right-3 size-3.5 text-muted" aria-hidden />
+              <select
+                aria-label="Grade"
+                value={tab}
+                onChange={(e) => {
+                  setPicked(e.target.value);
+                  setAll(false);
+                }}
+                className="absolute inset-0 cursor-pointer opacity-0"
+              >
+                <option value={UNGRADED}>Ungraded · {salesCount(data.ungraded.count)}</option>
+                {byCompany(labels).map(([company, grades]) => (
+                  <optgroup key={company} label={company}>
+                    {grades.map((l) => (
+                      <option key={l} value={l}>
+                        {l} · {salesCount(data.graded[l].count)}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
           )}
 
           <dl className="mt-4 grid grid-cols-[minmax(0,1.2fr)_minmax(0,0.6fr)_minmax(0,1.2fr)] gap-3">

@@ -374,15 +374,6 @@ struct ProductDetailView: View {
                  : (hist.last.map { "Last market price \($0.day.formatted(date: .abbreviated, time: .omitted)) · no current price yet" } ?? "No market price available. Not counted as $0.")))
                 .font(.geist(12)).foregroundStyle(Theme.subtle)
                 .padding(.top, 12)
-            // One graded price (PSA 10, or a slab you own), with a menu for any company and grade.
-            if product?.isSealed == false {
-                GradedPriceLine(productId: productId, printing: printing, nm: headline, initial: owned.lazy.compactMap { h -> (company: String, grade: String, pristine: Bool)? in
-                    guard let c = h.identity.gradeCompany, let g = h.identity.grade else { return nil }
-                    return (company: c, grade: g, pristine: grading.pristine.contains(h.identity.key))
-                }.first)
-                .id(productId)
-                .padding(.top, 14)
-            }
         }
     }
 
