@@ -25,6 +25,13 @@ describe("ebaySetWords", () => {
     expect(ebaySetWords("SWSH12.5: Crown Zenith")).toBe("Crown Zenith");
     expect(ebaySetWords(null)).toBe("");
   });
+  it("keeps Base Set whole and takes the set after a series dash", () => {
+    expect(ebaySetWords("Base Set")).toBe("Base Set");
+    expect(ebaySetWords("Jungle")).toBe("Jungle");
+    expect(ebaySetWords("Base Set (1st Edition)")).toBe("Base Set 1st Edition");
+    expect(ebaySetWords("Sword & Shield—Evolving Skies")).toBe("Evolving Skies");
+    expect(q(ebayListingsUrl({ name: "Charizard", number: "4/102", kind: "single", setName: "Base Set" }))).toBe("Charizard Base Set 4 -psa -bgs -cgc -sgc");
+  });
 });
 
 describe("ebayListingsUrl", () => {

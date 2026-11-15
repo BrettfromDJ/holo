@@ -215,14 +215,21 @@ struct EbaySalesPanel: View {
     /// The words sellers use for a set in titles: the set's name without its code prefix
     /// ("SV05:", "ME:") or filler, first two words, or a numbered set's number alone ("151").
     /// Same as the website's `ebaySetWords`.
+    /// The set as sellers write it in titles: its name without the code prefix ("SV05:") or the
+    /// series before a dash ("Scarlet & Violet—"), keeping "Base Set" whole; a numbered set's number
+    /// alone ("151"). Up to two words, plus "1st Edition" for a 1st Edition half. Same as the website.
     static func setWords(_ setName: String?) -> String {
         guard let setName else { return "" }
-        let generic: Set<String> = ["pokemon", "pokémon", "base", "set", "collection", "classic", "the", "and", "&", "of", "promos", "promo", "black", "star", "tcg"]
-        let rest = setName.replacingOccurrences(of: #"^[A-Za-z]{1,6}\d*(\.\d+)?\s*:\s*"#, with: "", options: .regularExpression)
-            .replacingOccurrences(of: #"[:,()]"#, with: " ", options: .regularExpression)
-        let words = rest.split(whereSeparator: { $0.isWhitespace }).map(String.init).filter { !generic.contains($0.lowercased()) }
+        let filler: Set<String> = ["pokemon", "pokémon", "tcg", "the", "and", "&", "of", "-"]
+        let first = setName.lowercased().contains("1st edition")
+        var rest = setName.replacingOccurrences(of: #"^[A-Za-z]{1,6}\d*(\.\d+)?\s*:\s*"#, with: "", options: .regularExpression)
+        if let dash = rest.range(of: "—", options: .backwards) { rest = String(rest[dash.upperBound...]) }
+        rest = rest.replacingOccurrences(of: #"\([^)]*\)"#, with: " ", options: .regularExpression)
+            .replacingOccurrences(of: #"[:,]"#, with: " ", options: .regularExpression)
+        let words = rest.split(whereSeparator: { $0.isWhitespace }).map(String.init).filter { !filler.contains($0.lowercased()) }
         if let numbered = words.first(where: { $0.range(of: #"^\d{2,3}$"#, options: .regularExpression) != nil }) { return numbered }
-        return words.prefix(2).joined(separator: " ")
+        let set = words.prefix(2).joined(separator: " ")
+        return first ? "\(set) 1st Edition" : set
     }
 
     /// eBay sold-listings search: the name without bracketed notes, the set's words (so other

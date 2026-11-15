@@ -1,17 +1,24 @@
 /** Words in set names that don't help find a card on eBay. */
-const GENERIC = new Set(["pokemon", "pokémon", "base", "set", "collection", "classic", "the", "and", "&", "of", "promos", "promo", "black", "star", "tcg"]);
+const FILLER = new Set(["pokemon", "pokémon", "tcg", "the", "and", "&", "of", "-"]);
 
 /**
- * The words sellers use for a set in their titles: the set's name without its code prefix
- * ("SV05:", "ME:") or filler, first two words ("30th Celebration", "Obsidian Flames", "Crown
- * Zenith"), or a numbered set's number alone ("151").
+ * The set as sellers write it in titles: its name without the code prefix ("SV05:", "ME:") or
+ * the series before a dash ("Scarlet & Violet—"), keeping "Base Set" whole ("Obsidian Flames",
+ * "Crown Zenith", "Base Set"); a numbered set's number alone ("151"). Up to two words, plus
+ * "1st Edition" for a 1st Edition half. Same as the app.
  */
 export function ebaySetWords(setName: string | null | undefined): string {
   if (!setName) return "";
-  const rest = setName.replace(/^[A-Za-z]{1,6}\d*(\.\d+)?\s*:\s*/, "").replace(/[:,()]/g, " ");
-  const words = rest.split(/\s+/).filter((w) => w && !GENERIC.has(w.toLowerCase()));
+  const first = /1st edition/i.test(setName);
+  let rest = setName.replace(/^[A-Za-z]{1,6}\d*(\.\d+)?\s*:\s*/, "");
+  const dash = rest.lastIndexOf("—");
+  if (dash >= 0) rest = rest.slice(dash + 1);
+  rest = rest.replace(/\([^)]*\)/g, " ").replace(/[:,]/g, " ");
+  const words = rest.split(/\s+/).filter((w) => w && !FILLER.has(w.toLowerCase()));
   const numbered = words.find((w) => /^\d{2,3}$/.test(w));
-  return numbered ?? words.slice(0, 2).join(" ");
+  if (numbered) return numbered;
+  const set = words.slice(0, 2).join(" ");
+  return first ? `${set} 1st Edition` : set;
 }
 
 /**
