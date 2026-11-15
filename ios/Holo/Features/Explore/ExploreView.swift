@@ -343,7 +343,6 @@ private struct SetView: View {
                             OwnedProgress(owned: ownedCount, total: products.count).padding(.horizontal, 16).reveal()
                         }
                         chase(derived, ownedIds: ownedIds)
-                        packs(derived)
                     }
                     .padding(.bottom, 36)
                     Section {
@@ -432,27 +431,6 @@ private struct SetView: View {
                           options: .regularExpression) != nil
     }
 
-    // MARK: Best value per pack
-
-    @ViewBuilder private func packs(_ derived: SetDerived) -> some View {
-        let priced = derived.packs
-        if !priced.isEmpty {
-            VStack(alignment: .leading, spacing: 14) {
-                PageHeader(title: "Best value", subtitle: "Sealed by price per pack", size: 22).padding(.horizontal, 16)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(alignment: .top, spacing: 12) {
-                        ForEach(Array(priced.prefix(8).enumerated()), id: \.element.hit.id) { i, item in
-                            link(item.hit) { PackTile(hit: item.hit, perPack: item.per, best: i == 0) }
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 4)
-                }
-            }
-            .reveal()
-        }
-    }
-
     // MARK: Every product
 
     private var controls: some View {
@@ -528,8 +506,6 @@ private final class SetDerived {
     let perPack: [String: Double]
     /// The most valuable singles, top ten.
     let chase: [SearchHit]
-    /// Sealed products by price per pack, cheapest first.
-    let packs: [(hit: SearchHit, per: Double)]
     let setValue: Double
     let updatedAt: String?
     private var sorted: [String: [SearchHit]] = [:]
@@ -547,7 +523,6 @@ private final class SetDerived {
         // Cards only: the catalog sometimes files a box or pack as a single, so leave out
         // anything named or typed like sealed product too.
         chase = Array(singles.filter { $0.market != nil && !SetView.looksSealed($0.product) }.sorted { ($0.market ?? 0) > ($1.market ?? 0) }.prefix(10))
-        packs = sealed.compactMap { h in perPack[h.id].map { (hit: h, per: $0) } }.sorted { $0.per < $1.per }
         setValue = singles.compactMap(\.market).reduce(0, +)
         updatedAt = products.compactMap(\.priceUpdatedAt).max()
     }
@@ -820,29 +795,6 @@ private struct ChaseTile: View {
             }
         }
         .frame(width: 118, alignment: .leading)
-    }
-}
-
-/// A sealed product with its price per pack.
-private struct PackTile: View {
-    var hit: SearchHit
-    var perPack: Double
-    var best: Bool
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SealedWell(product: hit.product, cornerRadius: 18, caption: true)
-                .frame(width: 140, height: 140)
-                .overlay(alignment: .topLeading) { if best { SkewTag(text: "Best value", icon: "bolt.fill").padding(8) } }
-            Text(hit.product.name).font(.geist(13, .medium)).foregroundStyle(.white).lineLimit(2).multilineTextAlignment(.leading)
-                .frame(height: 34, alignment: .topLeading)
-            HStack(alignment: .firstTextBaseline, spacing: 5) {
-                Text(Format.money(perPack)).font(.display(19)).tracking(-0.5).monospacedDigit().foregroundStyle(Theme.lime)
-                Text("/pack").font(.geist(12)).foregroundStyle(Theme.muted)
-            }
-            Text(Format.money(hit.market)).font(.geist(12)).monospacedDigit().foregroundStyle(Theme.muted)
-        }
-        .frame(width: 140, alignment: .leading)
     }
 }
 
