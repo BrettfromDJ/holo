@@ -57,7 +57,7 @@ export function MobileTopBar() {
   );
 }
 
-/** Bottom tab bar with a prominent center search button (adding is on Overview and Collection). */
+/** Bottom tab bar: Overview, Collection, Search, Explore, Trade (adding is on Overview and Collection). */
 export function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
@@ -84,17 +84,18 @@ export function BottomNav() {
         {left.map((n) => (
           <Tab key={n.href} {...n} />
         ))}
-        <div className="flex flex-1 justify-center">
+        <div className="flex flex-1">
           <button
+            type="button"
             onClick={() => {
               // Search everything: Explore's search field, ready to type (as in the app).
               if (pathname === "/explore") window.dispatchEvent(new Event("focus-explore-search"));
               else router.push("/explore?search=1");
             }}
-            aria-label="Search"
-            className="btn-3d btn-3d-lime -mt-3 flex size-14 items-center justify-center rounded-full bg-lime text-[#0b0b0c] transition-transform"
+            className="flex w-full flex-col items-center gap-1 pt-2 text-[10px] font-medium text-subtle transition-colors"
           >
-            <Search className="size-6" strokeWidth={2.4} />
+            <Search className="size-[22px]" strokeWidth={1.7} />
+            Search
           </button>
         </div>
         {right.map((n) => (

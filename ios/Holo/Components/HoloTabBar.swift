@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The website's bottom bar: four tabs around a raised lime + button, floating on Liquid Glass.
+/// The bottom bar: Overview, Collection, Search, Explore, Deal, floating on Liquid Glass.
 struct HoloTabBar<Tab: Hashable>: View {
     struct Item {
         var tab: Tab
@@ -12,7 +12,7 @@ struct HoloTabBar<Tab: Hashable>: View {
 
     var items: [Item]
     @Binding var selection: Tab
-    /// The add menu is open: the + turns into a ×.
+    /// The add menu is open: Search turns into a ×.
     var plusOpen = false
     var onPlus: () -> Void
     /// Every tap on a tab, including the one already showing.
@@ -21,8 +21,21 @@ struct HoloTabBar<Tab: Hashable>: View {
     var body: some View {
         HStack(spacing: 0) {
             ForEach(Array(items.prefix(2).enumerated()), id: \.offset) { _, item in button(item) }
-            // The + sits above the glass (below), so this only holds its place.
-            Color.clear.frame(maxWidth: .infinity)
+            // Search, a plain item like the rest (a × while the add menu is open).
+            Button(action: onPlus) {
+                VStack(spacing: 4) {
+                    Image(systemName: plusOpen ? "xmark" : "magnifyingglass").font(.system(size: 20, weight: .regular))
+                        .foregroundStyle(plusOpen ? .white : Theme.muted)
+                        .contentTransition(.symbolEffect(.replace))
+                        .frame(height: 26)
+                    Text(plusOpen ? "Close" : "Search").font(.geist(11, .medium)).foregroundStyle(plusOpen ? .white : Theme.muted)
+                }
+                .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(plusOpen ? "Close" : "Search")
+            .accessibilityIdentifier("tab-search")
             ForEach(Array(items.suffix(2).enumerated()), id: \.offset) { _, item in button(item) }
         }
         .padding(.horizontal, 6)
@@ -32,34 +45,6 @@ struct HoloTabBar<Tab: Hashable>: View {
         // A faint hairline edge (no glow).
         .overlay {
             Capsule().strokeBorder(Color.white.opacity(0.1), lineWidth: 1).allowsHitTesting(false)
-        }
-        // Drawn over the bar, not inside the glass, so the bar's edge never shows through it.
-        .overlay {
-            Button(action: onPlus) {
-                // Search; a × while the add menu (from an "Add to Collection" button) is open.
-                Image(systemName: plusOpen ? "xmark" : "magnifyingglass")
-                    .font(.system(size: plusOpen ? 22 : 24, weight: .semibold))
-                    .foregroundStyle(Theme.ink)
-                    .contentTransition(.symbolEffect(.replace))
-                    .frame(width: 64, height: 64)
-                    .background(
-                        ZStack {
-                            // The shadow is cast by the still button only, not the sweeping sheen.
-                            ZStack {
-                                Circle().fill(Theme.limeEdge).offset(y: 4)
-                                Circle().fill(Theme.lime)
-                                Circle().fill(LinearGradient(colors: [.white.opacity(0.25), .clear], startPoint: .top, endPoint: .center))
-                            }
-                            .compositingGroup()
-                            // A plain drop shadow for lift; no lime glow.
-                            .shadow(color: .black.opacity(0.35), radius: 8, y: 4)
-                            Sheen(strength: 0.6, once: true).clipShape(Circle())
-                        }
-                    )
-            }
-            .accessibilityLabel(plusOpen ? "Close" : "Search")
-            .accessibilityIdentifier("tab-search")
-            .offset(y: -18)
         }
         .padding(.horizontal, 14)
         .padding(.bottom, 2)
