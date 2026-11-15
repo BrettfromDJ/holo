@@ -400,19 +400,21 @@ private struct SetProgressHeader: View, Equatable {
                 ZStack {
                     GlowPie(fraction: sweep ?? ratio)
                         .shadow(color: Theme.lime.opacity(0.25), radius: 24)
+                    // Under 10% the dial counts cards ("2 of 237") instead of saying "1%".
+                    let early = pct < 10 && owned < total
                     VStack(spacing: 4) {
-                        Text("COMPLETE").font(.mono(10)).tracking(1.4).foregroundStyle(Theme.muted)
+                        Text(early ? "OWNED" : "COMPLETE").font(.mono(10)).tracking(1.4).foregroundStyle(Theme.muted)
                         HStack(alignment: .top, spacing: 3) {
-                            Text("\(pct)").font(.display(48)).tracking(-1.6).monospacedDigit()
+                            Text(early ? "\(owned)" : "\(pct)").font(.display(48)).tracking(-1.6).monospacedDigit()
                                 .foregroundStyle(Theme.lime)
                                 .displayTrim(48)
                                 .shadow(color: Theme.lime.opacity(0.55), radius: 12)
                                 // A completed set lights up once: brighter and a touch bigger, then back.
                                 .brightness(pulse ? 0.35 : 0)
                                 .scaleEffect(pulse ? 1.08 : 1)
-                            Text("%").font(.geist(15)).foregroundStyle(Theme.lime)
+                            if !early { Text("%").font(.geist(15)).foregroundStyle(Theme.lime) }
                         }
-                        Text("\(owned) of \(total)").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted)
+                        Text(early ? "of \(total) cards" : "\(owned) of \(total)").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted)
                     }
                 }
                 .frame(width: 260, height: 260)

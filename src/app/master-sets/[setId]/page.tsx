@@ -252,6 +252,8 @@ function SetHero({
   const have = owned.filter(Boolean).length;
   const ratio = total ? have / total : 0;
   const pct = Math.round(ratio * 100);
+  // Under 10% the dial counts cards ("2 of 237") instead of saying "1%". Same as the app.
+  const early = pct < 10 && have < total;
   return (
     <section className="relative isolate -mx-4 -mt-6 mb-6 [--hero-glow-x:50%] lg:[--hero-glow-x:62%] overflow-hidden rounded-b-[34px] bg-[#050505] px-4 pb-6 pt-4 text-white sm:-mx-8 sm:-mt-10 sm:px-8 sm:pb-8 sm:pt-7 lg:rounded-b-[40px]">
       <div aria-hidden className="absolute inset-0 -z-10" style={gridPattern(28)} />
@@ -290,14 +292,12 @@ function SetHero({
           <>
             {/* No drop-shadow filter here: a filter on the dial would stop its glass track blurring what's behind it. */}
             <GlowPie fraction={ratio} size={260} className="lg:mr-6">
-              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/55">Complete</p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/55">{early ? "Owned" : "Complete"}</p>
               <div className="mt-1 flex items-start gap-0.5">
-                <DotMatrix text={String(pct)} dot={5.2} glow={12} />
-                <span className="-mt-0.5 text-[14px] text-lime">%</span>
+                <DotMatrix text={String(early ? have : pct)} dot={5.2} glow={12} />
+                {!early && <span className="-mt-0.5 text-[14px] text-lime">%</span>}
               </div>
-              <p className="tabular mt-1 text-[12px] text-white/55">
-                {have} of {total}
-              </p>
+              <p className="tabular mt-1 text-[12px] text-white/55">{early ? `of ${total} cards` : `${have} of ${total}`}</p>
             </GlowPie>
           </>
         )}

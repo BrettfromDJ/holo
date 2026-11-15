@@ -123,7 +123,7 @@ export default function MasterSetsPage() {
         note={
           best?.ratio != null ? (
             <span className="flex min-w-0 items-center gap-2">
-              <LimeChip>{Math.round(best.ratio * 100)}%</LimeChip>
+              <LimeChip>{best.ratio < 0.1 && best.total ? `${best.owned}/${best.total}` : `${Math.round(best.ratio * 100)}%`}</LimeChip>
               <span className="truncate">of {best.name}, your closest</span>
             </span>
           ) : undefined
@@ -239,7 +239,8 @@ function SetDeck({ rows, loading }: { rows: Row[]; loading: boolean }) {
 function SetDeckCard({ row: r, style }: { row: Row; style?: React.CSSProperties }) {
   const cover = r.art?.iconUrl || r.art?.imageUrl ? null : [...r.holdings].sort((a, b) => (b.value ?? 0) - (a.value ?? 0))[0];
   const started = r.holdings.length > 0;
-  const pct = started && r.ratio !== null ? Math.round(r.ratio * 100) : null;
+  // Under 10% only the count shows ("2 of 208 cards"; "1%" says little). Same as the app.
+  const pct = started && r.ratio !== null && r.ratio >= 0.1 ? Math.round(r.ratio * 100) : null;
   const detail = r.total !== null ? `${r.owned} of ${r.total} cards` : !started ? "Not started" : `${r.owned} card${r.owned === 1 ? "" : "s"}`;
   return (
     <Link
@@ -271,7 +272,7 @@ function SetDeckCard({ row: r, style }: { row: Row; style?: React.CSSProperties 
             </span>
           )}
         </div>
-        {pct !== null && <ProgressBar value={r.ratio ?? 0} className="mt-auto w-full max-w-[200px]" />}
+        {started && r.ratio !== null && <ProgressBar value={r.ratio} className="mt-auto w-full max-w-[200px]" />}
       </div>
     </Link>
   );

@@ -172,7 +172,12 @@ struct MasterSetsView: View {
                             Circle().trim(from: 0, to: max(0.02, min(ratio, 1)))
                                 .stroke(Theme.lime, style: StrokeStyle(lineWidth: 5, lineCap: .round))
                                 .rotationEffect(.degrees(-90))
-                            Text("\(Int((ratio * 100).rounded()))%").font(.geist(13, .semibold)).monospacedDigit()
+                            // Under 10% a percent says little ("1%"): the count instead.
+                            if ratio < 0.1, let total = best.total {
+                                Text("\(best.owned)/\(total)").font(.geist(11, .semibold)).monospacedDigit().minimumScaleFactor(0.6).lineLimit(1).padding(.horizontal, 8)
+                            } else {
+                                Text("\(Int((ratio * 100).rounded()))%").font(.geist(13, .semibold)).monospacedDigit()
+                            }
                         }
                         .frame(width: 56, height: 56)
                         VStack(alignment: .leading, spacing: 3) {
@@ -269,10 +274,11 @@ struct SetBannerRow: View {
                 if isComplete { SkewTag(text: "Complete", icon: "checkmark") }
                 Text(row.name).font(.display(21)).tracking(-0.5).lineLimit(2).minimumScaleFactor(0.8)
                     .fixedSize(horizontal: false, vertical: true)
-                // "2 of 208 cards · 1%": the % beside the count, clear of the artwork.
+                // "40 of 208 cards · 19%": the % beside the count, clear of the artwork. Under 10%
+                // only the count ("2 of 208 cards"; "1%" says little).
                 HStack(spacing: 6) {
                     Text(subtitle).font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted).lineLimit(1)
-                    if let ratio = row.ratio, started {
+                    if let ratio = row.ratio, started, ratio >= 0.1 {
                         Text("·").font(.geist(13)).foregroundStyle(Theme.muted)
                         Text("\(Int((ratio * 100).rounded()))%").font(.geist(13, .semibold)).monospacedDigit()
                             .foregroundStyle(Theme.lime)
