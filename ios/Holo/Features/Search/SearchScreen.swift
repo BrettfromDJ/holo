@@ -208,6 +208,8 @@ struct SearchScreen: View {
     @State private var path = NavigationPath()
     @State private var history = SearchHistory.shared
     @FocusState private var focused: Bool
+    /// The keyboard came up on opening; it doesn't again after coming back from a card.
+    @State private var autoFocused = false
 
     private var trimmed: String { query.trimmingCharacters(in: .whitespaces) }
 
@@ -256,7 +258,10 @@ struct SearchScreen: View {
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
             .task(id: trimmed) { await search() }
             .task {
-                // Ready to type the moment it opens.
+                // Ready to type the moment it opens, once: coming back from a card page keeps the
+                // keyboard down (the task runs again each time the page reappears).
+                guard !autoFocused else { return }
+                autoFocused = true
                 try? await Task.sleep(nanoseconds: 80_000_000)
                 focused = true
             }
