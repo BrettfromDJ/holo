@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Your copy of a card, opened from Collection: what it's worth and what you made, its price
-/// line, what it would be worth graded (raw) or its cert and bumper (slabs), sell or try a sale,
+/// line, a Send for grading button (raw) or its cert and bumper (slabs), sell or try a sale,
 /// its history, and a button to the full card page.
 struct HoldingSheet: View {
     /// The copy as it was when the sheet opened.
@@ -32,10 +32,6 @@ struct HoldingSheet: View {
     @State private var editing: Txn?
     @State private var deleting: Txn?
     @State private var error: String?
-    @State private var graded: GradedValues?
-    /// The graded lookup has answered (or there's nothing to ask), so the If graded tiles show
-    /// their final figures instead of jumping from an estimate.
-    @State private var gradedReady = false
 
     var body: some View {
         // The copy now (it follows a demo card that switched to its real catalog card, or a copy
@@ -66,7 +62,11 @@ struct HoldingSheet: View {
                                       market: store.marketPrice(identity.productId, printing: identity.printing)?.market,
                                       pristine: Pristine.isCGCTen(company: identity.gradeCompany, grade: identity.grade) ? grading.pristine.contains(identity.key) : nil)
                     }
-                    if identity.isGraded { slabRows(identity) } else if product?.isSealed == false { ifGraded(identity, h) }
+                    if identity.isGraded { slabRows(identity) } else if product?.isSealed == false {
+                        // A raw card: send it in. (What it'd be worth graded is on the card page.)
+                        Button { sending = true } label: { Label("Send for grading", systemImage: "paperplane") }
+                            .buttonStyle(GlassButton())
+                    }
                     actions(h)
                 } else {
                     Text("You don't hold any of these right\u{00A0}now.").font(.geist(14)).foregroundStyle(Theme.muted)
@@ -134,11 +134,6 @@ struct HoldingSheet: View {
             }
         } message: {
             Text("Your totals update as if it never happened. The original stays in the\u{00A0}record.")
-        }
-        .task(id: identity.productId) {
-            defer { withAnimation(.easeOut(duration: 0.25)) { gradedReady = true } }
-            guard identity.productId.hasPrefix("tcgapi:"), !identity.isGraded else { return }
-            graded = (try? await Backend.shared.api.gradedValues([identity.productId]))?[identity.productId]
         }
         // Just short of full height: iOS 26 keeps a sheet glass only while it isn't full screen.
         .presentationDetents([.fraction(0.93)])
@@ -259,42 +254,15 @@ struct HoldingSheet: View {
         return store.series(h.identity, days: min(max(held, 7), 3650))
     }
 
-    private func tiles(_ h: HoldingView) -> some View {
-        // One copy: what you paid and what it's worth (quantity and average would repeat them).
-        // Several: all four.
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
-            if h.quantity > 1 {
+    /// Several copies: how many, the average cost and each one's price now. (One copy has none:
+    /// the worth card above already says what it's worth and what you paid.)
+    @ViewBuilder private func tiles(_ h: HoldingView) -> some View {
+        if h.quantity > 1 {
+            HStack(spacing: 8) {
                 SheetStat(label: "Quantity", value: "\(Int(h.quantity))")
-                SheetStat(label: "You paid", value: Format.money(h.costBasis))
                 SheetStat(label: "Average cost", value: Format.money(h.avgCost))
                 SheetStat(label: "Each now", value: Format.money(h.price))
-            } else {
-                SheetStat(label: "You paid", value: Format.money(h.costBasis))
-                SheetStat(label: "Worth now", value: Format.money(h.price))
             }
-        }
-    }
-
-    /// A raw single: what it could be worth graded, and a way to send it in.
-    private func ifGraded(_ identity: HoldingIdentity, _ h: HoldingView) -> some View {
-        let nm = store.marketPrice(identity.productId, printing: identity.printing)?.market ?? h.price ?? 0
-        func worth(_ grade: String) -> (Double, Bool) {
-            // PriceCharting's 9 is for any company; scaled to PSA it's an estimate (≈).
-            if let v = graded?.value(company: "PSA", grade: grade) { return grade == "10" ? (v, false) : (WorthCalc.companyAdjusted(v, company: "PSA"), true) }
-            return ((nm * WorthCalc.multiple(productId: identity.productId, company: "PSA", grade: grade) * 100).rounded() / 100, true)
-        }
-        let ten = worth("10"), nine = worth("9")
-        return VStack(alignment: .leading, spacing: 12) {
-            MonoLabel(text: "If graded")
-            HStack(spacing: 8) {
-                SheetStat(label: "PSA 10", value: (ten.1 ? "≈ " : "") + Format.money(ten.0), tint: Theme.lime)
-                SheetStat(label: "PSA 9", value: (nine.1 ? "≈ " : "") + Format.money(nine.0))
-            }
-            .redacted(reason: gradedReady ? [] : .placeholder)
-            Text(!gradedReady ? "Looking up graded prices…" : ten.1 ? "Estimates from the usual grade curve. The card page has every grade." : "From PriceCharting (≈ adjusted for PSA). The card page has every grade.")
-                .font(.geist(12)).foregroundStyle(Theme.subtle)
-            Button { sending = true } label: { Label("Send for grading", systemImage: "paperplane") }
-                .buttonStyle(GlassButton())
         }
     }
 
@@ -383,7 +351,8 @@ private struct HoldingWorth: View {
                 DeltaPill(ratio: h.gainRatio, size: 13)
                 CountingText(value: h.gain ?? 0, format: { Format.signedMoney($0) }, duration: 0.9, delay: 0.15)
                     .font(.geist(14, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(h.gain))
-                Text("on what you paid").font(.geist(13)).foregroundStyle(Theme.muted)
+                Text("on the \(Format.money(h.costBasis)) you paid").font(.geist(13)).foregroundStyle(Theme.muted)
+                    .lineLimit(1).minimumScaleFactor(0.8)
             }
             // How long you've had it, so the gain has context.
             if let held = HoldingWorth.heldFor(h.firstAcquired) {

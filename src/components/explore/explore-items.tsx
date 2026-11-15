@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- set logos come from the pricing source's CDN */
 
 import { useHeroLink } from "@/lib/motion/hero";
-import { Check, Layers } from "lucide-react";
+import { Check } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { HoloTilt, isFoilCard } from "@/components/motion/holo-tilt";
@@ -93,7 +93,7 @@ export function SetLogo({ url, className }: { url: string | null | undefined; cl
   );
 }
 
-export function SetArt({ set, className }: { set: Pick<ExploreSet, "iconUrl" | "imageUrl" | "logoUrl">; className?: string }) {
+export function SetArt({ set, className }: { set: Pick<ExploreSet, "iconUrl" | "imageUrl" | "logoUrl" | "name">; className?: string }) {
   return (
     <div className={cn("relative flex items-center justify-center overflow-hidden bg-image-well", className)}>
       {set.iconUrl ? (
@@ -104,7 +104,11 @@ export function SetArt({ set, className }: { set: Pick<ExploreSet, "iconUrl" | "
       ) : set.imageUrl ? (
         <img src={set.imageUrl} alt="" loading="lazy" className="absolute inset-3 h-[calc(100%-1.5rem)] w-[calc(100%-1.5rem)] object-contain transition-transform duration-500 ease-[var(--ease-apple)] group-hover:scale-[1.03]" />
       ) : (
-        <Layers className="size-5 text-white/25" strokeWidth={1.5} />
+        // No art (often a set not out yet): its name, large on a faint glow, not an empty box. Same as the app.
+        <>
+          <div aria-hidden className="absolute inset-0" style={{ backgroundImage: "radial-gradient(160px 160px at 0% 100%, color-mix(in srgb, var(--lime) 10%, transparent), transparent)" }} />
+          <span className="relative line-clamp-3 px-3.5 text-center font-display text-[19px] leading-[1.05] tracking-[-0.03em] text-white/85 text-balance">{set.name}</span>
+        </>
       )}
     </div>
   );

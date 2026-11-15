@@ -1033,9 +1033,12 @@ private struct CalendarRow: View {
             }
             .frame(width: 50, height: 60)
             .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.well))
-            SetArt(set: set, parallax: true)
-                .frame(width: 78, height: 52)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            // Its art when it has some; the name beside it is enough otherwise (no empty box).
+            if set.iconUrl != nil || set.imageUrl != nil {
+                SetArt(set: set, parallax: true)
+                    .frame(width: 78, height: 52)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
             VStack(alignment: .leading, spacing: 5) {
                 Text(set.name).font(.geist(15, .semibold)).foregroundStyle(.white).lineLimit(2).multilineTextAlignment(.leading)
                 if upcoming, let days {
@@ -1159,6 +1162,22 @@ struct SetArt: View {
         Image(systemName: "square.stack.3d.up").font(.system(size: 18)).foregroundStyle(Color.white.opacity(0.25))
     }
 
+    /// No art at all (often a set not out yet): its name, set large on a faint glow, so the
+    /// tile reads as a set instead of an empty box.
+    private var nameMark: some View {
+        ZStack {
+            RadialGradient(colors: [Theme.lime.opacity(0.1), .clear], center: .bottomLeading, startRadius: 0, endRadius: 160)
+            GridPattern(step: 18, opacity: 0.05)
+            Text(set.name)
+                .font(.display(19)).tracking(-0.5)
+                .foregroundStyle(.white.opacity(0.85))
+                .multilineTextAlignment(.center)
+                .lineLimit(3)
+                .minimumScaleFactor(0.7)
+                .padding(.horizontal, 14)
+        }
+    }
+
     /// Only when the banner couldn't be loaded: a sample product from the set instead.
     @ViewBuilder private var failedBanner: some View {
         if let sample = set.imageUrl.flatMap(URL.init(string:)) {
@@ -1167,7 +1186,7 @@ struct SetArt: View {
                 CachedImage(url: sample) { img in img.resizable().scaledToFit() } placeholder: { icon }.padding(12)
             }
         } else {
-            Color.clear
+            nameMark
         }
     }
 
@@ -1180,7 +1199,7 @@ struct SetArt: View {
                     CachedImage(url: sample) { img in img.resizable().scaledToFit() } placeholder: { icon }
                         .padding(12)
                 } else {
-                    icon
+                    nameMark
                 }
             } else {
                 icon

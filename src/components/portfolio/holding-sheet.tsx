@@ -11,7 +11,6 @@ import { BumperDialog, CertDialog, SendToGraderDialog } from "@/components/gradi
 import { AnimatedNumber } from "@/components/motion/animated-number";
 import { Sparkline } from "@/components/overview/sparkline";
 import { DeltaPill } from "@/components/product/delta";
-import { usePriceChartingGraded } from "@/components/product/graded-prices";
 import { hasEbayData, SellSpeedFor } from "@/components/product/sell-speed";
 import { ProductImage } from "@/components/product/product-image";
 import { Switch } from "@/components/ui/switch";
@@ -26,7 +25,6 @@ import { usePortfolio, useStore } from "@/lib/store/collection-store";
 import { useSlabBumpers, useSlabCerts, useSlabPristine } from "@/lib/store/grading";
 import { holdingKey, priceKey, type Transaction } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { psaIfGraded } from "@/lib/worth";
 import { holdingHref, holdingLabel } from "./holding-items";
 
 /**
@@ -109,17 +107,25 @@ function SheetBody({ opened, close }: { opened: HoldingView; close: () => void }
         {live ? (
           <>
             <Value h={live} />
-            <dl className="mt-5 grid grid-cols-2 gap-2">
-              <SheetStat label="Quantity" value={String(live.quantity)} />
-              <SheetStat label="You paid" value={money(live.costBasis)} />
-              <SheetStat label="Average cost" value={money(live.avgCost)} />
-              <SheetStat label="Each now" value={(live.conditionEstimate && live.price !== null ? "≈ " : "") + money(live.price)} />
-            </dl>
+            {/* Several copies: how many, the average cost and each one's price. One copy has none:
+                the worth card already says what it's worth and what you paid. Same as the app. */}
+            {live.quantity > 1 && (
+              <dl className="mt-5 grid grid-cols-3 gap-2">
+                <SheetStat label="Quantity" value={String(live.quantity)} />
+                <SheetStat label="Average cost" value={money(live.avgCost)} />
+                <SheetStat label="Each now" value={(live.conditionEstimate && live.price !== null ? "≈ " : "") + money(live.price)} />
+              </dl>
+            )}
             {/* How easily this exact copy sells (its grade, else ungraded); only cards with eBay data. */}
             {hasEbayData(live.identity.productId) && (
               <SellSpeedFor productId={live.identity.productId} printing={live.identity.printing} grade={live.identity.grade ? gradeLabel(live.identity.grade) : null} pristine={pristine} className="sheet-panel mt-2 rounded-[14px] px-3 py-2.5" />
             )}
-            {graded ? <SlabRows h={live} onCert={() => setOpen("cert")} onBumper={() => setOpen("bumper")} onValue={() => setOpen("value")} /> : rawSingle && <IfGraded h={live} onSend={() => setOpen("grade")} />}
+            {graded ? <SlabRows h={live} onCert={() => setOpen("cert")} onBumper={() => setOpen("bumper")} onValue={() => setOpen("value")} /> : rawSingle && (
+              // A raw card: send it in. (What it'd be worth graded is on the card page.)
+              <button type="button" onClick={() => setOpen("grade")} className="sheet-panel mt-6 flex h-11 w-full items-center justify-center gap-2 rounded-full text-[14px] font-semibold transition-colors hover:bg-foreground/[0.11]">
+                <Send className="size-4" /> Send for grading
+              </button>
+            )}
             <div className="mt-5 flex gap-2">
               <button type="button" onClick={() => setOpen("sell")} className="sheet-panel flex h-11 flex-1 items-center justify-center gap-2 rounded-full text-[14px] font-semibold transition-colors hover:bg-foreground/[0.11]">
                 <Tag className="size-4" /> Sell
@@ -243,7 +249,7 @@ function Value({ h }: { h: HoldingView }) {
             <AnimatedNumber value={gain} format={signedMoney} />
           </span>
         )}
-        <span className="text-[13px] text-muted">on what you paid</span>
+        <span className="text-[13px] text-muted">on the {money(h.costBasis)} you paid</span>
       </p>
       {series.length > 1 && (
         <>
@@ -255,31 +261,6 @@ function Value({ h }: { h: HoldingView }) {
           </div>
         </>
       )}
-    </div>
-  );
-}
-
-/** A raw single: what it could be worth as a PSA 10 or 9, and a way to send it in. */
-function IfGraded({ h, onSend }: { h: HoldingView; onSend: () => void }) {
-  const { data } = useStore();
-  const pc = usePriceChartingGraded(h.identity.productId);
-  const nm = data.prices[priceKey(h.identity.productId, h.identity.printing)]?.market ?? h.price;
-  if (nm === null) return null;
-  const ten = psaIfGraded(h.identity.productId, nm, "10", pc.data);
-  const nine = psaIfGraded(h.identity.productId, nm, "9", pc.data);
-  return (
-    <div className="mt-6">
-      <MonoLabel>If graded</MonoLabel>
-      <dl className={cn("mt-3 grid grid-cols-2 gap-2", !pc.ready && "animate-shimmer")}>
-        <SheetStat label="PSA 10" value={pc.ready ? (ten.estimate ? "≈ " : "") + money(ten.price) : "—"} tint />
-        <SheetStat label="PSA 9" value={pc.ready ? (nine.estimate ? "≈ " : "") + money(nine.price) : "—"} />
-      </dl>
-      <p className="mt-2.5 text-[12px] text-subtle">
-        {!pc.ready ? "Looking up graded prices…" : ten.estimate ? "Estimates from the usual grade curve. The card page has every grade." : "From PriceCharting (≈ adjusted for PSA). The card page has every grade."}
-      </p>
-      <button type="button" onClick={onSend} className="sheet-panel mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-full text-[14px] font-semibold transition-colors hover:bg-foreground/[0.11]">
-        <Send className="size-4" /> Send for grading
-      </button>
     </div>
   );
 }
