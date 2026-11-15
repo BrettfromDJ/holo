@@ -61,7 +61,7 @@ export default function ExploreSetPage() {
   const ownedHere = products.filter((p) => owned.has(p.product.id)).length;
 
   return (
-    <div className="animate-fade-in">
+    <div className="relative isolate animate-fade-in">
       {state && "set" in state ? (
         <Link href={`/explore/g/${encodeURIComponent(state.set.gameSlug)}`} className="mb-6 inline-flex items-center gap-1 text-[13px] text-muted hover:text-foreground">
           <ChevronLeft className="size-4" /> {state.set.gameName}
@@ -85,8 +85,24 @@ export default function ExploreSetPage() {
         <p className="py-20 text-center text-[14px] text-muted">{state.error}</p>
       ) : (
         <>
+          {/* Our own set art: the background across the top of the page, blurred, with the logo on it
+              (the app's set page). Other sets keep the framed banner beside the title. */}
+          {state.set.logoUrl && state.set.iconUrl && (
+            <>
+              <div
+                aria-hidden
+                className="pointer-events-none absolute -inset-x-4 -top-6 -z-10 h-[480px] overflow-hidden sm:-inset-x-8"
+                style={{ maskImage: "linear-gradient(to bottom, black, black 50%, transparent)", WebkitMaskImage: "linear-gradient(to bottom, black, black 50%, transparent)" }}
+              >
+                <img src={state.set.iconUrl} alt="" className="h-full w-full scale-110 object-cover blur-[16px] brightness-75" />
+              </div>
+              <div className="mb-6 flex h-[190px] items-center justify-center sm:h-[230px]">
+                <img src={state.set.logoUrl} alt={state.set.name} className="max-h-[150px] max-w-[min(320px,80%)] object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.6)] sm:max-h-[180px]" />
+              </div>
+            </>
+          )}
           <header className="flex flex-col gap-5 sm:flex-row sm:items-center">
-            {state.set.iconUrl ? (
+            {state.set.logoUrl && state.set.iconUrl ? null : state.set.iconUrl ? (
               <div className="relative aspect-[3/2] w-full shrink-0 sm:w-56">
                 <img src={state.set.iconUrl} alt="" className="h-full w-full rounded-2xl object-cover shadow-xl shadow-black/40" />
                 <SetLogo url={state.set.logoUrl} />

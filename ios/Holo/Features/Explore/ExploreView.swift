@@ -606,12 +606,29 @@ private struct SetHero: View {
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
-        .background(alignment: .top) { ExploreBackdrop() }
+        .background(alignment: .top) {
+            if let banner = ownArt { ArtBackdrop(url: banner) } else { ExploreBackdrop() }
+        }
+    }
+
+    /// Our own set art (a background and a logo): the background fills the top of the page, blurred,
+    /// and the logo stands on it. Other sets keep the framed banner.
+    private var ownArt: URL? {
+        guard set.logoUrl != nil else { return nil }
+        return set.iconUrl.flatMap(URL.init(string:))
     }
 
     @ViewBuilder private var art: some View {
         let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
-        if let banner = set.iconUrl.flatMap(URL.init(string:)) {
+        if ownArt != nil, let logo = set.logoUrl.flatMap(URL.init(string:)) {
+            CachedImage(url: logo) { img in img.resizable().scaledToFit() } placeholder: { Color.clear }
+                .environment(\.imageFadesIn, false)
+                .frame(maxWidth: 300, maxHeight: 150)
+                .shadow(color: .black.opacity(0.6), radius: 14, y: 6)
+                .frame(maxWidth: .infinity)
+                .frame(height: 210)
+                .accessibilityLabel(set.name)
+        } else if let banner = set.iconUrl.flatMap(URL.init(string:)) {
             // Sized to the frame, not the picture: the banner fills it and is cut at its edges.
             Color.clear
                 .aspectRatio(3.0 / 2.0, contentMode: .fit)
@@ -632,6 +649,27 @@ private struct SetHero: View {
             .frame(height: 180)
             .overlay(shape.strokeBorder(Theme.border))
         }
+    }
+}
+
+/// A set's background art across the top of its page, blurred, running up under the status bar
+/// and fading into the page. Still: the blur is drawn once, not each frame.
+private struct ArtBackdrop: View {
+    var url: URL
+
+    var body: some View {
+        CachedImage(url: url) { img in img.resizable().scaledToFill() } placeholder: { Color.clear }
+            .environment(\.imageFadesIn, false)
+            .frame(height: 560)
+            .frame(maxWidth: .infinity)
+            .clipped()
+            .blur(radius: 16, opaque: true)
+            .overlay(Color.black.opacity(0.25))
+            .drawingGroup()
+            .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.55), .init(color: .clear, location: 1)],
+                                 startPoint: .top, endPoint: .bottom))
+            .padding(.top, -260)
+            .allowsHitTesting(false)
     }
 }
 
