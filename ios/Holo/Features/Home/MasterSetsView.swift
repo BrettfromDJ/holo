@@ -371,8 +371,7 @@ struct MasterSetDetailView: View {
     }
 }
 
-/// The top of a set's page: the % in glowing dot-matrix digits, the dial, two tiles and every
-/// card as a tick. Equatable on plain values, so it only redraws when they change.
+/// The top of a set's page: how many you own of how many and the %, over one lime bar. Equatable on plain values, so it only redraws when they change.
 private struct SetProgressHeader: View, Equatable {
     var known: Bool
     var total: Int
@@ -396,39 +395,35 @@ private struct SetProgressHeader: View, Equatable {
                 SkewTag(text: "Set complete", icon: "checkmark")
             }
             if known {
-                // The % sits inside the dial, so the top stays compact.
-                ZStack {
-                    GlowPie(fraction: sweep ?? ratio)
-                        .shadow(color: Theme.lime.opacity(0.25), radius: 24)
-                    // Under 10% the dial counts cards ("2 of 237") instead of saying "1%".
-                    let early = pct < 10 && owned < total
-                    VStack(spacing: 4) {
-                        Text(early ? "OWNED" : "COMPLETE").font(.mono(10)).tracking(1.4).foregroundStyle(Theme.muted)
-                        HStack(alignment: .top, spacing: 3) {
-                            Text(early ? "\(owned)" : "\(pct)").font(.display(48)).tracking(-1.6).monospacedDigit()
-                                .foregroundStyle(Theme.lime)
-                                .displayTrim(48)
-                                .shadow(color: Theme.lime.opacity(0.55), radius: 12)
-                                // A completed set lights up once: brighter and a touch bigger, then back.
-                                .brightness(pulse ? 0.35 : 0)
-                                .scaleEffect(pulse ? 1.08 : 1)
-                            if !early { Text("%").font(.geist(15)).foregroundStyle(Theme.lime) }
-                        }
-                        Text(early ? "of \(total) cards" : "\(owned) of \(total)").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted)
+                // One compact line: how many you own of the set and the %, over a lime bar.
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text("\(owned)").font(.display(34)).tracking(-1.1).monospacedDigit()
+                            .foregroundStyle(Theme.lime)
+                            .displayTrim(34)
+                            // A completed set lights up once: brighter and a touch bigger, then back.
+                            .brightness(pulse ? 0.35 : 0)
+                            .scaleEffect(pulse ? 1.08 : 1, anchor: .leading)
+                        Text("of \(total) cards").font(.geist(15)).monospacedDigit().foregroundStyle(Theme.muted)
+                        Spacer(minLength: 8)
+                        // Under 10% the count says it ("1%" says little).
+                        if pct >= 10 || owned >= total { Text("\(pct)%").font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(.white) }
                     }
+                    GrowBar(fraction: sweep ?? ratio, color: Theme.lime, height: 6, gradient: false)
                 }
-                .frame(width: 260, height: 260)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("\(pct)% complete, \(owned) of \(total) cards")
             } else {
-                VStack(spacing: 6) {
-                    Text("CARDS OWNED").font(.mono(11)).tracking(1.6).foregroundStyle(Theme.muted)
-                    Text("\(owned)").font(.display(56)).tracking(-1.8).monospacedDigit()
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("\(owned)").font(.display(34)).tracking(-1.1).monospacedDigit()
                         .foregroundStyle(Theme.lime)
-                        .displayTrim(56)
-                        .shadow(color: Theme.lime.opacity(0.55), radius: 16)
-                    Text("full list not in Dexora\u{00A0}yet").font(.geist(13)).foregroundStyle(Theme.muted)
+                        .displayTrim(34)
+                    Text(owned == 1 ? "card owned" : "cards owned").font(.geist(15)).foregroundStyle(Theme.muted)
+                    Spacer(minLength: 8)
+                    Text("Full list not in Dexora\u{00A0}yet").font(.geist(12)).foregroundStyle(Theme.subtle).lineLimit(1)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             // No money figures here: the dial and the card grid say it all.
         }

@@ -4,7 +4,7 @@ import { Check, ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useDeferredValue, useMemo, useState } from "react";
-import { DotMatrix, GlowPie, gridPattern, MASTER_SETS, SearchSort } from "@/components/master-sets/master-set-items";
+import { gridPattern, MASTER_SETS, ProgressBar, SearchSort } from "@/components/master-sets/master-set-items";
 import { HoloTilt, isFoilCard } from "@/components/motion/holo-tilt";
 import { ErrorState } from "@/components/portfolio/error-state";
 import { ProductImage } from "@/components/product/product-image";
@@ -252,7 +252,7 @@ function SetHero({
   const have = owned.filter(Boolean).length;
   const ratio = total ? have / total : 0;
   const pct = Math.round(ratio * 100);
-  // Under 10% the dial counts cards ("2 of 237") instead of saying "1%". Same as the app.
+  // Under 10% only the count shows ("1%" says little). Same as the app.
   const early = pct < 10 && have < total;
   return (
     <section className="relative isolate -mx-4 -mt-6 mb-6 [--hero-glow-x:50%] lg:[--hero-glow-x:62%] overflow-hidden rounded-b-[34px] bg-[#050505] px-4 pb-6 pt-4 text-white sm:-mx-8 sm:-mt-10 sm:px-8 sm:pb-8 sm:pt-7 lg:rounded-b-[40px]">
@@ -273,33 +273,25 @@ function SetHero({
       </Link>
       <h1 className="mt-3 text-balance font-display text-[24px] font-semibold leading-tight sm:text-[30px]">{name}</h1>
 
-      <div className="mt-5 flex flex-col items-center gap-y-6 lg:mt-4 lg:grid lg:max-w-[940px] lg:grid-cols-[minmax(0,540px)_auto] lg:items-center lg:justify-between lg:gap-x-12">
-        <div className="flex w-full flex-col items-center lg:items-start">
-          {/* With the full list, the % sits inside the dial (below); otherwise the count shows here. */}
-          {!(known && !loading) && (
-            <>
-              <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-white/55">{loading ? "Complete" : "Cards owned"}</p>
-              <div className="mt-2 flex h-[61px] items-start gap-1">
-                {loading ? <DotMatrix text="--" dot={7} color="rgb(255 255 255 / 0.25)" glow={0} /> : <DotMatrix text={String(have)} dot={7} glow={16} />}
-              </div>
-              <p className="tabular mt-2 text-[13px] text-white/55">{loading ? "Loading the card list…" : note}</p>
-            </>
-          )}
-
-        </div>
-
-        {known && !loading && (
+      {/* One compact line: how many you own of the set and the %, over a lime bar. Same as the app. */}
+      <div className="mt-4 max-w-[540px]">
+        {loading ? (
+          <p className="tabular text-[14px] text-white/55">Loading the card list…</p>
+        ) : known ? (
           <>
-            {/* No drop-shadow filter here: a filter on the dial would stop its glass track blurring what's behind it. */}
-            <GlowPie fraction={ratio} size={260} className="lg:mr-6">
-              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/55">{early ? "Owned" : "Complete"}</p>
-              <div className="mt-1 flex items-start gap-0.5">
-                <DotMatrix text={String(early ? have : pct)} dot={5.2} glow={12} />
-                {!early && <span className="-mt-0.5 text-[14px] text-lime">%</span>}
-              </div>
-              <p className="tabular mt-1 text-[12px] text-white/55">{early ? `of ${total} cards` : `${have} of ${total}`}</p>
-            </GlowPie>
+            <div className="flex items-baseline gap-1.5">
+              <span className="tabular font-display text-[34px] leading-none tracking-[-0.03em] text-lime">{have}</span>
+              <span className="tabular text-[15px] text-white/60">of {total} cards</span>
+              {!early && <span className="tabular ml-auto text-[15px] font-semibold">{pct}%</span>}
+            </div>
+            <ProgressBar value={ratio} className="mt-2.5 h-1.5 w-full bg-white/10" />
           </>
+        ) : (
+          <div className="flex items-baseline gap-1.5">
+            <span className="tabular font-display text-[34px] leading-none tracking-[-0.03em] text-lime">{have}</span>
+            <span className="text-[15px] text-white/60">{have === 1 ? "card owned" : "cards owned"}</span>
+            <span className="ml-auto truncate text-[12px] text-white/42">{note}</span>
+          </div>
         )}
       </div>
 
