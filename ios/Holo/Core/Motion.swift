@@ -263,7 +263,8 @@ struct TiltCard: ViewModifier {
             content
         } else {
             content
-                .overlay {
+                // The foil sheen only once the art has loaded.
+                .overlayOnceArtLoads {
                     if foil {
                         LinearGradient(
                             colors: [.clear, Color(hex: 0xFF6AD5).opacity(0.35), Color(hex: 0x8AF5FF).opacity(0.35),

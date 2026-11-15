@@ -9,7 +9,8 @@ private struct TiltShine: ViewModifier {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
-        content.overlay {
+        // Only once the art has loaded: never a band of light over an empty frame.
+        content.overlayOnceArtLoads {
             if !reduceMotion {
                 ShineBand()
                     .blendMode(.plusLighter)

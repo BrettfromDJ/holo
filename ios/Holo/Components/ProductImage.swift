@@ -66,6 +66,22 @@ extension EnvironmentValues {
 /// floating fan, the ticker, the holo card) instead of restarting its download each time.
 /// While downloading it leaves the space empty and fades the picture in when it arrives; the
 /// placeholder only shows when there's no picture or it couldn't be downloaded.
+/// True once a picture inside has loaded. Shine, glare and foil layers read it so they never show
+/// over an empty frame before the card's art arrives.
+struct ArtLoadedKey: PreferenceKey {
+    static let defaultValue = false
+    static func reduce(value: inout Bool, nextValue: () -> Bool) { value = value || nextValue() }
+}
+
+extension View {
+    /// Lays `overlay` over this view only once a picture inside it has loaded.
+    func overlayOnceArtLoads<V: View>(@ViewBuilder _ overlay: @escaping () -> V) -> some View {
+        overlayPreferenceValue(ArtLoadedKey.self) { loaded in
+            if loaded { overlay() }
+        }
+    }
+}
+
 struct CachedImage<Content: View, Placeholder: View>: View {
     var url: URL?
     /// Tried when `url` can't be loaded (e.g. a large version that doesn't exist).
@@ -102,6 +118,8 @@ struct CachedImage<Content: View, Placeholder: View>: View {
             if let image = (imageURL == url ? image : nil) ?? url.flatMap({ ImageCache.shared.cached($0, maxPixel: maxPixel) ?? ImageCache.shared.cached($0) })
                 ?? ([fallback].compactMap { $0 } + fallbacks).lazy.compactMap({ ImageCache.shared.anyCached($0) }).first {
                 content(Image(uiImage: image)).transition(fadesIn ? .opacity : .identity)
+                    // Tells a shine or foil layer over it that the picture is here (see ArtLoadedKey).
+                    .preference(key: ArtLoadedKey.self, value: true)
             } else if url == nil || failed {
                 placeholder()
             } else {

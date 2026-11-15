@@ -60,12 +60,17 @@ struct HoloCard<Content: View>: View {
         let light = UnitPoint(x: 0.5 + lean.x * 0.45, y: 0.5 + lean.y * 0.45)
         let touching = touch != nil
         return content
-            .overlay { if textured { texture(light: light) } }
-            // The foil (rainbow and glitter) shows only while you tilt it, so at rest the art is clean.
-            .overlay { if foil && touching { foilLayer(light: light, strength: 0.6) } }
-            // While drifting, the sweeping band is the light (no glare washing over the art).
-            .overlay { if showsGlare && (sweep == nil || touching) { glare(light: light).opacity(touching ? 1 : 0.5) } }
-            .overlay { if let sweep { sweepBand(sweep) } }
+            // The light layers only once the art has loaded: never a shine over an empty frame.
+            .overlayOnceArtLoads {
+                ZStack {
+                    if textured { texture(light: light) }
+                    // The foil (rainbow and glitter) shows only while you tilt it, so at rest the art is clean.
+                    if foil && touching { foilLayer(light: light, strength: 0.6) }
+                    // While drifting, the sweeping band is the light (no glare washing over the art).
+                    if showsGlare && (sweep == nil || touching) { glare(light: light).opacity(touching ? 1 : 0.5) }
+                    if let sweep { sweepBand(sweep) }
+                }
+            }
             .clipShape(shape)
             .overlay {
                 if textured {
