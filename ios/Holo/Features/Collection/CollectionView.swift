@@ -212,6 +212,12 @@ struct CollectionView: View {
                             }
                             // Filtered and sorted once per redraw.
                             let shown = self.shown
+                            // What the ≈ on some prices means (played copies priced from Near Mint).
+                            if shown.contains(where: \.isConditionEstimate) {
+                                Text("≈ Estimated from the Near Mint price for the card's\u{00A0}condition.")
+                                    .font(.geist(12)).foregroundStyle(Theme.subtle)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
                             if shown.isEmpty {
                                 Text("Nothing matches.").font(.geist(15)).foregroundStyle(Theme.muted).padding(.vertical, 40).frame(maxWidth: .infinity)
                             } else if grid {
@@ -798,7 +804,7 @@ struct CollectionView: View {
             HStack(spacing: 10) {
                 // Its own view: tapping it or typing doesn't redraw the page; the page's query
                 // changes once you pause typing.
-                SettlingSearchBox(query: $query, prompt: "Search", scan: .collection)
+                SettlingSearchBox(query: $query, prompt: "Search")
                 // Sort and filters in one bottom sheet.
                 Button { filtering = true } label: {
                     Image(systemName: filtersOn || sort != .value ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease")

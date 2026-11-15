@@ -402,6 +402,10 @@ function Collection() {
       />
 
       <div className="mt-4">
+        {/* What the ≈ on some prices means (played copies priced from Near Mint). Same as the app. */}
+        {kind !== "watchlist" && filtered.some((h) => h.conditionEstimate) && (
+          <p className="mb-4 text-[12px] text-subtle">≈ Estimated from the Near Mint price for the card&apos;s{"\u00A0"}condition.</p>
+        )}
         {shelf && !filtered.length ? (
           <div className="py-20 text-center">
             <Library className="mx-auto size-8 text-subtle" strokeWidth={1.5} />

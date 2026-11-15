@@ -189,13 +189,9 @@ struct ActivityView: View {
     private func header(_ m: Model) -> some View {
         let count = m.effective.count
         return VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .lastTextBaseline, spacing: 10) {
-                CountingText(value: Double(count), format: { "\(Int($0.rounded()))" })
-                    .font(.display(56)).tracking(-2.2).monospacedDigit().lineLimit(1).displayTrim(56)
-                Text(count == 1 ? "purchase or sale" : "purchases and sales").font(.display(24)).tracking(-0.6).foregroundStyle(Theme.muted).displayTrim(24)
-                    .lineLimit(1).minimumScaleFactor(0.7)
-            }
-            .padding(.top, 8)
+            // Named like the other pages, the count under it.
+            PageHeader(title: "Activity", subtitle: count == 1 ? "1 purchase or sale" : "\(count) purchases and sales", size: 40)
+                .padding(.top, 8)
             VStack(alignment: .leading, spacing: 10) {
                 ChipPicker(options: [(false, "All time"), (true, "This year")], selection: $thisYear)
                     .fixedSize()
