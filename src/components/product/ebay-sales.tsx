@@ -171,14 +171,10 @@ export function EbaySales({
             </label>
           )}
 
-          <dl className="mt-4 grid grid-cols-[minmax(0,1.2fr)_minmax(0,0.6fr)_minmax(0,1.2fr)] gap-3">
+          <dl className="mt-4 grid grid-cols-2 gap-3">
             <div>
               <dt className="font-mono text-[10px] uppercase tracking-[0.06em] text-subtle">Median sold</dt>
               <dd className="tabular mt-1 text-[clamp(16px,4.8vw,24px)] font-semibold leading-none tracking-[-0.02em]">{stats?.median !== null && stats?.median !== undefined ? money(stats.median) : "—"}</dd>
-            </div>
-            <div>
-              <dt className="font-mono text-[10px] uppercase tracking-[0.06em] text-subtle">Sold</dt>
-              <dd className="tabular mt-1 text-[clamp(16px,4.8vw,24px)] font-semibold leading-none tracking-[-0.02em]">{stats?.count ?? 0}</dd>
             </div>
             <div>
               <dt className="font-mono text-[10px] uppercase tracking-[0.06em] text-subtle">Last sale</dt>

@@ -118,13 +118,12 @@ struct EbaySalesPanel: View {
 
         let stats = tab == Self.ungradedTab ? e.ungraded : (e.graded[tab] ?? e.ungraded)
         HStack(alignment: .top, spacing: 12) {
-            stat("Median sold", stats.median.map { Format.money($0) } ?? "—").frame(maxWidth: .infinity, alignment: .leading).layoutPriority(1.2)
-            stat("Sold", "\(stats.count)").frame(maxWidth: .infinity, alignment: .leading).layoutPriority(0.6)
+            stat("Median sold", stats.median.map { Format.money($0) } ?? "—").frame(maxWidth: .infinity, alignment: .leading)
             VStack(alignment: .leading, spacing: 4) {
                 stat("Last sale", stats.lastPrice.map { Format.money($0) } ?? "—")
                 if let last = stats.lastSold { Text(relative(last)).font(.geist(11)).foregroundStyle(Theme.muted) }
             }
-            .frame(maxWidth: .infinity, alignment: .leading).layoutPriority(1.2)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.top, 16)
 
