@@ -238,7 +238,8 @@ struct HomeView: View {
                      onToday: { todayOpen = true },
                      onPinned: { _ in })
             }
-            PerformanceSection(store: store).padding(.horizontal, 16).reveal()
+            // Closer to the hero's Add button than the page's usual section gap (44 + the hero's 12).
+            PerformanceSection(store: store).padding(.horizontal, 16).padding(.top, -24).reveal()
             MetricGrid(store: store, onReload: refresh).padding(.horizontal, 16).reveal()
             Spotlight(store: store).padding(.horizontal, 16).reveal()
             ShelfSection(holdings: store.holdings).reveal()
