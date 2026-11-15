@@ -26,7 +26,6 @@ import { Button } from "@/components/ui/button";
 import { Card, SectionTitle } from "@/components/ui/card";
 import { ConditionTag, EbaySales } from "@/components/product/ebay-sales";
 import { WhatsItWorth } from "@/components/product/whats-it-worth";
-import { GradedPrices } from "@/components/product/graded-prices";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -37,7 +36,6 @@ import { acquisitionCost, effectiveTransactions, saleProceeds } from "@/lib/fina
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { formatDate, money, relativeTime, tone } from "@/lib/format";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
-import { useSlabPristine } from "@/lib/store/grading";
 import { priceKey, type Product, type Transaction } from "@/lib/types";
 import { withEditionArt } from "@/lib/editions";
 
@@ -67,8 +65,6 @@ export default function ProductPage() {
 
   // Lets a card tapped in a grid fly into the image spot once the page has it.
   const hero = useHeroTarget(store.status === "ready" && Boolean(product));
-  // Slabs marked CGC Pristine 10, so Graded prices highlights the right CGC 10 row.
-  const { pristine: pristineSlabs } = useSlabPristine();
   // The printing on show: one picked here or passed in the link (?printing=, from search and
   // set grids), else the one you own, else the first priced one.
   const [chosenPrinting, setChosenPrinting] = useState<string | null>(null);
@@ -220,13 +216,6 @@ export default function ProductPage() {
           {(product.source === "tcgapi" || product.source === "sample") && (
             <Reveal>
               <EbaySales productId={productId} printing={printing} grade={owned.find((h) => h.identity.grade)?.identity.grade ?? null} className="mt-6" />
-            </Reveal>
-          )}
-
-          {/* What it sells for graded (PriceCharting, else the grade curve) and a lookup for any grade, for every single. */}
-          {product.kind === "single" && (
-            <Reveal>
-              <GradedPrices productId={productId} printing={printing} nm={headline} owned={owned.flatMap((h) => (h.identity.grade ? [{ ...h.identity.grade, pristine: pristineSlabs.has(h.key) }] : []))} className="mt-6" />
             </Reveal>
           )}
 

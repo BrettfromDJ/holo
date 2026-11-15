@@ -79,14 +79,6 @@ struct ProductDetailView: View {
                     EbaySalesPanel(productId: productId, printing: printing, grade: owned.first(where: { $0.identity.isGraded })?.identity.gradeLabel)
                         .padding(.top, 24)
                 }
-                // Real graded values (PriceCharting), for singles.
-                if product?.isSealed == false {
-                    GradedPricesPanel(productId: productId, printing: printing, nm: headline, owned: owned.compactMap { h in
-                        guard let c = h.identity.gradeCompany, let g = h.identity.grade else { return nil }
-                        return (company: c, grade: g, pristine: grading.pristine.contains(h.identity.key))
-                    })
-                    .padding(.top, 24)
-                }
                 if let product, !product.isSealed, let nm = price?.market {
                     WorthPanel(productId: productId, printing: printing, nm: nm, owned: owned).padding(.top, 24)
                 }
