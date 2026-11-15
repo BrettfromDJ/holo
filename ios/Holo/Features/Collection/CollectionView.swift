@@ -898,21 +898,28 @@ struct HoldingTile: View {
                             .padding(10)
                     }
                 }
-            Text(holding.product?.name ?? "Unknown").font(.geist(16, .medium)).lineLimit(1).padding(.top, 8)
-            Text(subtitle).font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 1) {
+            // Name and set sit close together as one label; the price block a step below.
+            VStack(alignment: .leading, spacing: 2) {
+                Text(holding.product?.name ?? "Unknown").font(.geist(16, .medium)).lineLimit(1)
+                Text(subtitle).font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
+            }
+            .padding(.top, 6)
+            // Two lines, each paired across: the worth with its % pill (centered on each other),
+            // the price each with the gain (on one baseline).
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .center, spacing: 4) {
                     Text((holding.isConditionEstimate ? "≈" : "") + Format.money(holding.value))
                         .font(.display(22)).tracking(-0.6).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
-                    Text("\(Format.money(holding.price)) ea").font(.geist(12)).foregroundStyle(Theme.muted).monospacedDigit()
-                }
-                Spacer(minLength: 4)
-                VStack(alignment: .trailing, spacing: 3) {
+                    Spacer(minLength: 4)
                     DeltaPill(ratio: holding.gainRatio, size: 12)
+                }
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text("\(Format.money(holding.price)) ea").font(.geist(12)).foregroundStyle(Theme.muted).monospacedDigit().lineLimit(1)
+                    Spacer(minLength: 4)
                     Delta(value: holding.gain, size: 12)
                 }
             }
-            .padding(.top, 2)
+            .padding(.top, 6)
         }
     }
 
