@@ -782,6 +782,9 @@ struct CollectionView: View {
             // The same lime button as Overview: opens Scan / Search to add.
             Button { Router.shared.addMenu = true } label: { Label("Add to Collection", systemImage: "plus").lineLimit(1) }
                 .buttonStyle(Button3D(kind: .lime, height: 48))
+                // No looping sheen or breathing glow (like Overview's): they kept running under
+                // the Owned sheet, so the app never rested there.
+                .environment(\.inGlassBar, true)
         }
         .background(alignment: .top) {
             CollectionBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
