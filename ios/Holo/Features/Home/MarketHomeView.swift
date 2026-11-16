@@ -35,7 +35,9 @@ struct MarketHomeView: View {
                     // Straight in: your collection in one line, then the card of the day (no big
                     // heading taking the top of the screen).
                     if store.status == .ready, !store.holdings.isEmpty {
-                        YourCollectionStrip().padding(.horizontal, 16)
+                        // 10pt above Card of the day, the same gap as between the three tiles
+                        // under it (the page's sections are 32 apart).
+                        YourCollectionStrip().padding(.horizontal, 16).padding(.bottom, -22)
                     }
                     if let index {
                         sections(index)
