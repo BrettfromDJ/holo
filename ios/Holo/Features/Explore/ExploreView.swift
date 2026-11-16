@@ -782,7 +782,7 @@ private struct TopChase: View {
 /// Sparks rising behind the No. 1 chase card, lime and white, swaying and fading as they climb,
 /// plus four-pointed glints flashing in turn. One canvas worked out from the clock, 30 times a
 /// second, only while it's on screen; Reduce Motion leaves a still scatter.
-private struct ChaseSparks: View {
+struct ChaseSparks: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var onScreen = true
 
