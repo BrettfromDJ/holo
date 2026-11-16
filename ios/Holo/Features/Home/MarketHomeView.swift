@@ -359,8 +359,13 @@ private struct CardOfTheDay: View {
             HStack(alignment: .center, spacing: 16) {
                 ZStack {
                     // A soft floor of light under the card.
-                    Ellipse().fill(RadialGradient(colors: [Theme.lime.opacity(0.45), .clear], center: .center, startRadius: 0, endRadius: 70))
-                        .frame(width: 150, height: 34).offset(y: 86)
+                    // A gradient that fades to nothing inside its own square, squashed flat: no
+                    // edge to cut it off (a filled oval showed its rim).
+                    RadialGradient(colors: [Theme.lime.opacity(0.45), Theme.lime.opacity(0.12), .clear], center: .center, startRadius: 0, endRadius: 80)
+                        .frame(width: 160, height: 160)
+                        .scaleEffect(x: 1, y: 0.22)
+                        .offset(y: 86)
+                        .allowsHitTesting(false)
                     HoloCard(foil: p.isFoil, textured: false, cornerRadius: 8) {
                         ProductImage(product: p, cornerRadius: 8, large: true).frame(width: 118, height: 165)
                     }
@@ -393,7 +398,9 @@ private struct CardOfTheDay: View {
                     .fixedSize()
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 4)
+                // The price and ribbon sit a little up from the bottom border.
+                .padding(.top, 4)
+                .padding(.bottom, 14)
             }
             .foregroundStyle(.white)
             .padding(14)
