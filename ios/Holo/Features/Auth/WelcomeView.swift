@@ -315,10 +315,13 @@ struct WelcomeGrid: View {
     @Environment(\.welcomeActive) private var active
 
     static func url(_ item: DemoData.Item) -> URL? { WelcomeTile.product(item).imageURL }
+    /// The tiles are about 120 points wide, so small pictures do: full-size scans, nine copies
+    /// of each column drawn every frame, kept the graphics chip busy enough to stall the keyboard.
+    static let maxPixel: CGFloat = 400
 
     private static func cachedImages() -> [String: UIImage] {
         var out: [String: UIImage] = [:]
-        for item in columns.joined() { if let u = url(item), let img = ImageCache.shared.cached(u) { out[item.slug] = img } }
+        for item in columns.joined() { if let u = url(item), let img = ImageCache.shared.cached(u, maxPixel: maxPixel) { out[item.slug] = img } }
         return out
     }
 
@@ -338,7 +341,8 @@ struct WelcomeGrid: View {
                 if reduceMotion {
                     columns(at: 0, tileW: tileW, tileH: tileH)
                 } else {
-                    TimelineView(.animation(minimumInterval: 1.0 / 60, paused: !active)) { context in
+                    // A slow drift: 30 frames a second looks the same and costs half.
+                    TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !active)) { context in
                         columns(at: context.date.timeIntervalSince(Self.start), tileW: tileW, tileH: tileH)
                     }
                 }
@@ -363,7 +367,7 @@ struct WelcomeGrid: View {
             await withTaskGroup(of: (String, UIImage?).self) { group in
                 for item in Self.columns.joined() where images[item.slug] == nil {
                     guard let u = Self.url(item) else { continue }
-                    group.addTask { (item.slug, await ImageCache.shared.load(u)) }
+                    group.addTask { (item.slug, await ImageCache.shared.load(u, maxPixel: Self.maxPixel)) }
                 }
                 for await (slug, img) in group {
                     guard let img else { continue }
@@ -421,7 +425,7 @@ private struct WelcomeColumn: View {
             ForEach(0 ..< 3, id: \.self) { _ in
                 ForEach(items, id: \.slug) { item in
                     // From the grid's pictures, or straight from the cache once it's there.
-                    WelcomeTile(image: images[item.slug] ?? WelcomeGrid.url(item).flatMap { ImageCache.shared.cached($0) })
+                    WelcomeTile(image: images[item.slug] ?? WelcomeGrid.url(item).flatMap { ImageCache.shared.cached($0, maxPixel: WelcomeGrid.maxPixel) })
                         .frame(width: tileW, height: tileH)
                 }
             }

@@ -60,8 +60,8 @@ struct SignInView: View {
                 .padding(.bottom, 6)
 
                 if !sent {
+                    // No email AutoFill: asking iOS for suggestions held the keyboard back.
                     TextField("you@email.com", text: $email)
-                        .textContentType(.emailAddress)
                         .keyboardType(.emailAddress)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
