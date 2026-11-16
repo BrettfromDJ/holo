@@ -141,6 +141,7 @@ final class HoloAPI {
         if empty, let saved = SavedExplore.load() {
             index.trending = saved.trending
             index.today = saved.today
+            index.eras = saved.eras
             index.drops = saved.drops
             index.hotSealed = saved.hotSealed
             index.boosterBoxes = saved.boosterBoxes
