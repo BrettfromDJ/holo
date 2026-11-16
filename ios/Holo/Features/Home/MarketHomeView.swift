@@ -215,10 +215,11 @@ struct MarketHomeView: View {
     private func section<C: View, L: View>(icon: String, _ title: String, _ subtitle: String, @ViewBuilder content: () -> C, @ViewBuilder link: () -> L) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .lastTextBaseline) {
-                // The title with a small lime icon beside it, then the line under it.
+                // The title with a small, quiet icon beside it, then the line under it.
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Image(systemName: icon).font(.system(size: 17, weight: .semibold)).foregroundStyle(Theme.lime)
+                        // Quiet: white made see-through (Theme.subtle), never lime or a grey color.
+                        Image(systemName: icon).font(.system(size: 16, weight: .medium)).foregroundStyle(Theme.subtle)
                         Text(title).font(.display(22)).tracking(22 * -0.03).lineLimit(1).minimumScaleFactor(0.8).displayTrim(22)
                     }
                     Text(subtitle.noWidow).font(.geist(15)).foregroundStyle(Theme.muted)
