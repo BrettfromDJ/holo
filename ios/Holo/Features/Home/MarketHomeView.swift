@@ -560,27 +560,29 @@ private struct TopTenRow: View {
                                     .offset(x: -6, y: revealed ? 22 : 60)
                                     .opacity(revealed ? 1 : 0)
                                     .animation(.spring(response: 0.55, dampingFraction: 0.8).delay(Double(i) * 0.07), value: revealed)
-                                ZStack(alignment: .topLeading) {
-                                    if i == 0 {
-                                        // No. 1: lime sparks rising behind it.
-                                        MoteParticles(style: .sparks, color: Theme.lime, count: 12)
-                                            .frame(width: 130, height: 170)
-                                            .offset(x: -15, y: -20)
+                                ProductImage(product: hit.pictured, cornerRadius: 6)
+                                    .frame(width: 100, height: 140)
+                                    .shadow(color: .black.opacity(0.6), radius: 10, y: 6)
+                                    // No. 1: lime sparks rising behind it and a small lime crown on its
+                                    // corner, both outside its layout so it sits level with the rest.
+                                    .background {
+                                        if i == 0 {
+                                            MoteParticles(style: .sparks, color: Theme.lime, count: 12)
+                                                .frame(width: 130, height: 170)
+                                                .offset(y: -12)
+                                        }
                                     }
-                                    ProductImage(product: hit.pictured, cornerRadius: 6)
-                                        .frame(width: 100, height: 140)
-                                        .shadow(color: .black.opacity(0.6), radius: 10, y: 6)
-                                    if i == 0 {
-                                        // And a small lime crown on its corner.
-                                        Image(systemName: "crown.fill")
-                                            .font(.system(size: 15, weight: .bold))
-                                            .foregroundStyle(Theme.ink)
-                                            .frame(width: 28, height: 28)
-                                            .background(Circle().fill(Theme.lime))
-                                            .rotationEffect(.degrees(-14))
-                                            .offset(x: -9, y: -10)
+                                    .overlay(alignment: .topLeading) {
+                                        if i == 0 {
+                                            Image(systemName: "crown.fill")
+                                                .font(.system(size: 15, weight: .bold))
+                                                .foregroundStyle(Theme.ink)
+                                                .frame(width: 28, height: 28)
+                                                .background(Circle().fill(Theme.lime))
+                                                .rotationEffect(.degrees(-14))
+                                                .offset(x: -9, y: -10)
+                                        }
                                     }
-                                }
                                 .padding(.leading, i + 1 >= 10 ? 70 : 46)
                             }
                             .frame(height: 150, alignment: .bottomLeading)
