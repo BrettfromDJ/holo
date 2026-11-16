@@ -337,7 +337,7 @@ struct MainTabView: View {
         .fullScreenCover(isPresented: $searching) { SearchScreen(mode: .add) }
         .background { Color.clear.fullScreenCover(isPresented: $browsing) { SearchScreen() } }
         // A card you own, tapped on any page (Activity, Master Sets, Analytics, Explore…): Your copy.
-        // "View card details" then opens the full card page.
+        // "View details" then opens the full card page.
         .sheet(item: Binding(get: { router.holding.map(OpenedHolding.init) }, set: { router.holding = $0?.identity })) { o in
             HoldingSheet(identity: o.identity) {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { router.product = o.identity.productId }

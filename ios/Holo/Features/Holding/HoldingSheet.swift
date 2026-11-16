@@ -86,7 +86,7 @@ struct HoldingSheet: View {
                 Button {
                     dismiss()
                     onOpenCard()
-                } label: { Label("View card details", systemImage: "arrow.right").labelStyle(TrailingIconLabel()) }
+                } label: { Label("View details", systemImage: "arrow.right").labelStyle(TrailingIconLabel()) }
                     .buttonStyle(Button3D(kind: .lime))
                     .padding(.horizontal, 20)
                     .padding(.vertical, 10)
@@ -415,7 +415,7 @@ private struct HoldingHistory: View {
     }
 }
 
-/// "View card details →": the icon after the title.
+/// "View details →": the icon after the title.
 private struct TrailingIconLabel: LabelStyle {
     func makeBody(configuration: Configuration) -> some View {
         HStack(spacing: 8) { configuration.title; configuration.icon }

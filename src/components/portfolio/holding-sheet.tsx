@@ -192,11 +192,11 @@ function MoreMenu({ onPick }: { onPick: (o: Open) => void }) {
   );
 }
 
-/** "View card details →", the lime button pinned under the sheet. */
+/** "View details →", the lime button pinned under the sheet. */
 function Button3DLink({ href, onClick }: { href: string; onClick: () => void }) {
   return (
     <Link href={href} onClick={onClick} className="btn-3d btn-3d-lime flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-lime text-[15px] font-semibold text-[#0b0b0c] transition-transform active:scale-[0.98]">
-      View card details <ArrowRight className="size-4" />
+      View details <ArrowRight className="size-4" />
     </Link>
   );
 }

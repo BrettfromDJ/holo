@@ -8,7 +8,7 @@ struct CollectionView: View {
     @Environment(SessionModel.self) private var session
     @Environment(GroupsStore.self) private var groups
     @State private var adding = false
-    /// Your copy, opened from the grid; "View card details" pushes the card page.
+    /// Your copy, opened from the grid; "View details" pushes the card page.
     @State private var opened: HoldingView?
     @State private var path = NavigationPath()
     @State private var shelfId: String?
