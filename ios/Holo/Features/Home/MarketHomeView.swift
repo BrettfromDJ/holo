@@ -159,12 +159,17 @@ struct MarketHomeView: View {
             // One color card per era, like Collection's sealed and singles boxes: modern in lime,
             // mid-era in blue, vintage in pink. An era with no risers this week says so.
             section(icon: "hourglass", "Rising by era", "This week's risers, from modern to vintage") {
-                VStack(spacing: 12) {
-                    EraCard(era: .modern, hits: eras.modern)
-                    EraCard(era: .midEra, hits: eras.midEra)
-                    EraCard(era: .vintage, hits: eras.vintage)
+                // Side by side, swiped one at a time; the next card peeks in at the edge.
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(alignment: .top, spacing: 12) {
+                        EraCard(era: .modern, hits: eras.modern)
+                        EraCard(era: .midEra, hits: eras.midEra)
+                        EraCard(era: .vintage, hits: eras.vintage)
+                    }
+                    .scrollTargetLayout()
                 }
-                .padding(.horizontal, 16)
+                .contentMargins(.horizontal, 16, for: .scrollContent)
+                .scrollTargetBehavior(.viewAligned)
             }
         }
         if let next = upcoming.first {
@@ -744,6 +749,8 @@ private struct EraCard: View, Equatable {
             }
         }
         .tinted(era.color)
+        // Most of the screen, so the next era peeks in.
+        .containerRelativeFrame(.horizontal) { width, _ in width - 32 - 28 }
     }
 
     /// The three biggest risers fanned out from the middle (the first in front), each opening its page.
