@@ -17,7 +17,7 @@ struct SignInView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            // The welcome screens' lit grid and drifting card wall, as its own piece: tapping the
+            // The welcome screens' lit grid and card wall, held still and drawn once: tapping the
             // field only changes `typing`, so nothing else on the page is worked out again.
             SignInBackdrop(typing: focused).equatable()
             VStack(alignment: .leading, spacing: 0) {
@@ -223,12 +223,11 @@ private struct SignInBackdrop: View, Equatable {
         ZStack(alignment: .top) {
             WelcomeBackdrop().ignoresSafeArea()
             GeometryReader { geo in
-                WelcomeGrid(showsWorth: false)
+                WelcomeGrid(showsWorth: false, still: true)
                     .frame(height: geo.size.height * 0.62)
                     .frame(maxWidth: .infinity)
             }
             .ignoresSafeArea()
-            .environment(\.welcomeActive, !typing)
             Theme.background
                 .opacity(typing ? 0.82 : 0)
                 .ignoresSafeArea()

@@ -309,6 +309,9 @@ struct WelcomeGrid: View {
     private static let tiltScale: CGFloat = 1.3
     /// The glass pill counting up the worth over the bottom (off on the sign-in screen).
     var showsWorth = true
+    /// Still: no drift, drawn once into one flat picture (the sign-in screen, so the keyboard
+    /// never waits on the wall).
+    var still = false
     /// The card pictures, held by the grid itself and handed to the tiles.
     @State private var images: [String: UIImage] = Self.cachedImages()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -338,7 +341,9 @@ struct WelcomeGrid: View {
             let tileW = (geo.size.width - Self.gap * 2) / 3
             let tileH = tileW * 88 / 63
             Group {
-                if reduceMotion {
+                if still {
+                    columns(at: 0, tileW: tileW, tileH: tileH)
+                } else if reduceMotion {
                     columns(at: 0, tileW: tileW, tileH: tileH)
                 } else {
                     // A slow drift: 30 frames a second looks the same and costs half.
@@ -356,6 +361,9 @@ struct WelcomeGrid: View {
             .clipped()
         }
         .mask(fade)
+        // Still: flattened into one picture, so nothing behind the form is redrawn while the
+        // keyboard slides up.
+        .modifier(FlattenWhen(on: still))
         // A soft dark shade at the top, so the clock reads over the cards.
         .overlay(alignment: .top) {
             LinearGradient(colors: [.black.opacity(0.7), .black.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom)
@@ -409,6 +417,14 @@ struct WelcomeGrid: View {
             ],
             startPoint: .top, endPoint: .bottom
         )
+    }
+}
+
+/// Draws the view into one flat picture when `on` (for content that doesn't move).
+private struct FlattenWhen: ViewModifier {
+    var on: Bool
+    func body(content: Content) -> some View {
+        if on { content.drawingGroup() } else { content }
     }
 }
 
