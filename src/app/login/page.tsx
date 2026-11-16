@@ -8,6 +8,7 @@ import { Logo } from "@/components/shell/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getBrowserSupabase, getMagicLinkClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 
 const RESEND_SECONDS = 60;
 
@@ -108,18 +109,9 @@ export default function LoginPage() {
             {error && !showCode && <p className="mt-4 text-[13px] text-down">{error}</p>}
             {showCode ? (
               <form onSubmit={verify} className="mt-6">
-                <Input
-                  autoFocus
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                  placeholder="Code from the email"
-                  aria-label="Sign-in code"
-                  className="tabular tracking-[0.2em]"
-                />
+                <CodeBoxes value={code} onChange={setCode} />
                 {error && <p className="mt-2 text-[13px] text-down">{error}</p>}
-                <Button type="submit" variant="primary" size="lg" className="mt-3 w-full" disabled={code.length < 6 || state === "verifying"}>
+                <Button type="submit" variant="primary" size="lg" className="mt-3 w-full" disabled={code.length < CODE_LENGTH || state === "verifying"}>
                   {state === "verifying" && <Loader2 className="animate-spin" />}
                   Sign in with code
                 </Button>
@@ -204,5 +196,48 @@ function AppleMark() {
     <svg viewBox="0 0 24 24" aria-hidden className="fill-current">
       <path d="M16.37 12.73c-.02-2.3 1.88-3.4 1.96-3.45-1.07-1.56-2.73-1.78-3.32-1.8-1.41-.14-2.76.83-3.48.83-.72 0-1.83-.81-3-.79-1.54.02-2.97.9-3.76 2.28-1.61 2.79-.41 6.92 1.15 9.18.77 1.11 1.68 2.35 2.87 2.3 1.15-.04 1.59-.74 2.98-.74 1.39 0 1.78.74 3 .72 1.24-.02 2.03-1.13 2.79-2.24.88-1.29 1.24-2.54 1.26-2.6-.03-.01-2.42-.93-2.45-3.69ZM14.09 6c.63-.77 1.06-1.84.94-2.9-.91.04-2.01.6-2.66 1.37-.58.68-1.1 1.77-.96 2.81 1.01.08 2.05-.52 2.68-1.28Z" />
     </svg>
+  );
+}
+
+const CODE_LENGTH = 6;
+
+/**
+ * The sign-in code as six boxes, one digit each (the next empty one lit in lime). One input
+ * stretched over them does the typing, so paste and one-time-code autofill work as usual.
+ * Same as the app's `CodeBoxes`.
+ */
+function CodeBoxes({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [focused, setFocused] = useState(true);
+  return (
+    <div className="relative">
+      <input
+        autoFocus
+        inputMode="numeric"
+        autoComplete="one-time-code"
+        value={value}
+        onChange={(e) => onChange(e.target.value.replace(/\D/g, "").slice(0, CODE_LENGTH))}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        aria-label="Sign-in code"
+        className="absolute inset-0 h-full w-full cursor-text opacity-0"
+      />
+      <div className="pointer-events-none grid grid-cols-6 gap-2" aria-hidden>
+        {Array.from({ length: CODE_LENGTH }, (_, i) => {
+          const digit = value[i] ?? "";
+          const current = focused && i === Math.min(value.length, CODE_LENGTH - 1) && value.length < CODE_LENGTH;
+          return (
+            <div
+              key={i}
+              className={cn(
+                "tabular flex h-14 items-center justify-center rounded-2xl bg-surface-2 font-display text-[26px]",
+                current ? "ring-2 ring-[var(--lime)] shadow-[0_0_16px_color-mix(in_srgb,var(--lime)_35%,transparent)]" : digit ? "ring-1 ring-white/20" : "ring-1 ring-white/[0.08]",
+              )}
+            >
+              {digit}
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }

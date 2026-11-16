@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Email sign-in with a code (6 to 8 digits, whatever the account sends), the same account as the website.
+/// Email sign-in with a 6-digit code (six boxes), the same account as the website.
 struct SignInView: View {
     @Environment(SessionModel.self) private var session
     @State private var email = ""
@@ -8,6 +8,11 @@ struct SignInView: View {
     @State private var sent = false
     @State private var busy = false
     @State private var error: String?
+    /// When the last code was sent, and the seconds until another can be.
+    @State private var sentAt = Date.distantPast
+    @State private var resendIn = 0
+    /// Briefly true after a resend, to say it went.
+    @State private var resent = false
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -80,44 +85,65 @@ struct SignInView: View {
                     }
                     AppleSignInButton { message in error = message }
                 } else {
-                    TextField("Code", text: $code)
-                        .textContentType(.oneTimeCode)
-                        .keyboardType(.numberPad)
-                        .font(.system(size: 28, weight: .semibold, design: .monospaced))
-                        .field()
-                        .focused($focused)
-                        // Digits only; codes are 6 to 8 digits depending on the account's settings:
-                        // the field takes up to 8 and signs in by itself once 8 are in (or tap Sign in at 6).
-                        .onChange(of: code) { _, value in
-                            let digits = String(value.filter(\.isNumber).prefix(8))
-                            if digits != value { code = digits; return }
-                            if digits.count == 8, !busy { Task { await verify() } }
-                        }
+                    // Six boxes, one per digit; the sixth signs in by itself. One hidden field takes
+                    // the typing (and iPhone's "from Mail" code suggestion fills all six at once).
+                    CodeBoxes(code: $code, focused: $focused) {
+                        if !busy { Task { await verify() } }
+                    }
                     Button(busy ? "Checking…" : "Sign in") { Task { await verify() } }
                         .buttonStyle(LimeButtonStyle())
-                        .disabled(busy || code.count < 6)
-                    Button("Use a different email") {
-                        sent = false
-                        code = ""
+                        .disabled(busy || code.count < CodeBoxes.length)
+                    HStack {
+                        Button("Use a different email") {
+                            sent = false
+                            code = ""
+                        }
+                        Spacer()
+                        // Resend, once a 30-second wait is up (emails are rate limited).
+                        if resendIn > 0 {
+                            Text("Resend in \(resendIn)s").monospacedDigit().foregroundStyle(Theme.subtle)
+                        } else {
+                            Button("Resend code") { Task { await send(again: true) } }
+                                .foregroundStyle(Theme.lime)
+                                .disabled(busy)
+                        }
                     }
                     .font(.geist(14, .medium))
                     .foregroundStyle(Theme.muted)
-                    .frame(maxWidth: .infinity)
+                    .padding(.top, 2)
+                    .task(id: sentAt) {
+                        // Count down the wait to resend.
+                        while !Task.isCancelled {
+                            let left = 30 - Int(Date().timeIntervalSince(sentAt))
+                            resendIn = max(0, left)
+                            if left <= 0 { break }
+                            try? await Task.sleep(for: .seconds(1))
+                        }
+                    }
                 }
 
+                if resent {
+                    Text("New code sent.").font(.geist(14)).foregroundStyle(Theme.muted)
+                }
                 if let error {
                     Text(error).font(.geist(14)).foregroundStyle(Theme.down)
                 }
             }
     }
 
-    private func send() async {
+    private func send(again: Bool = false) async {
         busy = true
         error = nil
         defer { busy = false }
         do {
             try await session.sendCode(to: email.trimmingCharacters(in: .whitespaces))
             sent = true
+            sentAt = Date()
+            if again {
+                code = ""
+                resent = true
+                Task { try? await Task.sleep(for: .seconds(3)); resent = false }
+            }
             focused = true
         } catch {
             self.error = error.localizedDescription
@@ -142,5 +168,54 @@ extension View {
         padding(.horizontal, 16)
             .frame(minHeight: 52)
             .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+}
+
+/// The sign-in code as six boxes, one digit each: the next empty box lit in lime, a filled one
+/// white. One hidden field underneath does the typing, so paste, autofill from Mail and delete
+/// all work as usual. `onComplete` runs when the sixth digit goes in.
+struct CodeBoxes: View {
+    static let length = 6
+    @Binding var code: String
+    var focused: FocusState<Bool>.Binding
+    var onComplete: () -> Void
+
+    var body: some View {
+        ZStack {
+            TextField("", text: $code)
+                .textContentType(.oneTimeCode)
+                .keyboardType(.numberPad)
+                .focused(focused)
+                .foregroundStyle(.clear)
+                .tint(.clear)
+                .opacity(0.02)
+                .onChange(of: code) { _, value in
+                    let digits = String(value.filter(\.isNumber).prefix(Self.length))
+                    if digits != value { code = digits; return }
+                    if digits.count == Self.length { onComplete() }
+                }
+            HStack(spacing: 8) {
+                ForEach(0 ..< Self.length, id: \.self) { i in
+                    let chars = Array(code)
+                    let digit = i < chars.count ? String(chars[i]) : ""
+                    let current = focused.wrappedValue && i == min(chars.count, Self.length - 1) && chars.count < Self.length
+                    Text(digit)
+                        .font(.display(28)).monospacedDigit()
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 62)
+                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.surface2))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .strokeBorder(current ? Theme.lime : Color.white.opacity(digit.isEmpty ? 0.08 : 0.22), lineWidth: current ? 2 : 1)
+                        )
+                        .shadow(color: current ? Theme.lime.opacity(0.35) : .clear, radius: 10)
+                }
+            }
+            .allowsHitTesting(false)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { focused.wrappedValue = true }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Sign-in code, \(code.count) of \(Self.length) digits")
     }
 }
