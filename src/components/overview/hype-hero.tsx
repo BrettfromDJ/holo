@@ -137,12 +137,13 @@ export function HypeHero({
             <Chip label="Invested">{money(summary.costBasis)}</Chip>
           </div>
 
-          {/* Floating action bar */}
-          <div className="relative mx-auto mt-7 flex w-full max-w-[520px] items-center lg:mx-0 gap-2 rounded-[22px] border border-white/10 bg-surface/80 p-2 shadow-2xl shadow-black/50 backdrop-blur-xl">
+          {/* Add to Collection: a compact lime button sized to its label (the full-width bar was
+              far too big), centered on phones and left-aligned beside the figures on wide screens. */}
+          <div className="mt-6 flex justify-center lg:justify-start">
             <button
               type="button"
               onClick={() => openAdd()}
-              className="hype-cta btn-3d btn-3d-lime flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-lime text-[14px] font-medium text-[#0b0b0c]"
+              className="hype-cta btn-3d btn-3d-lime inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-lime px-5 text-[14px] font-semibold text-[#0b0b0c]"
             >
               <Plus className="size-4" strokeWidth={2.4} /> Add to Collection
             </button>
