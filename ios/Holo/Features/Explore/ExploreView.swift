@@ -741,12 +741,13 @@ private struct TopChase: View {
         let p = hit.pictured
         let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
         HStack(alignment: .center, spacing: 18) {
-            // Drifts and shines like the card page's hero (hold it to tilt it yourself), with
-            // sparks rising behind it.
+            // Drifts and shines like the card page's hero, with sparks rising behind it.
             HoloCard(foil: p.isFoil, textured: false, cornerRadius: 7) {
                 ProductImage(product: p, cornerRadius: 7).frame(width: 120, height: 168)
             }
             .drifting()
+            // A tap on the art opens the card, like the rest of the panel (no press-and-tilt here).
+            .notTiltable()
             .frame(width: 120, height: 168)
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 6) {

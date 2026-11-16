@@ -18,6 +18,9 @@ struct HoloCard<Content: View>: View {
     /// Tilts slowly on its own with a band of light sweeping across (the card page): set with
     /// `.drifting()`. Holds while you touch it; Reduce Motion keeps it still.
     var drifts = false
+    /// False: no press-and-tilt, so a tap goes to whatever the card sits in (a link). Set with
+    /// `.notTiltable()`.
+    var tiltable = true
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var touch: CGPoint?
@@ -46,6 +49,13 @@ struct HoloCard<Content: View>: View {
         }
         .sensoryFeedback(.impact(weight: .light), trigger: touch != nil) { _, touching in touching }
         .onVisibilityChange { visible in if visible != onScreen { onScreen = visible } }
+    }
+
+    /// No press-and-tilt: taps go to the link around it (it still drifts).
+    func notTiltable() -> HoloCard {
+        var copy = self
+        copy.tiltable = false
+        return copy
     }
 
     /// Makes the card drift (tilt slowly, light sweeping across) until it's touched.
@@ -123,7 +133,8 @@ struct HoloCard<Content: View>: View {
                         // Springs back flat, with the light sliding back to the middle.
                         withAnimation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.6)) { touch = nil }
                         if quick, abs(g.translation.width) < 8, abs(g.translation.height) < 8, let tapAction { tapAction() }
-                    }
+                    },
+                including: tiltable ? .all : .subviews
             )
     }
 
