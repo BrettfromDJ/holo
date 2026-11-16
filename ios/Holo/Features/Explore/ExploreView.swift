@@ -551,7 +551,7 @@ private final class SetDerived {
 }
 
 /// The top of a set's page: the banner, the name, what's in it, and a countdown before release.
-private struct SetHero: View {
+struct SetHero: View {
     var set: ExploreSet
     var productCount: Int
     var ownedCount: Int
@@ -689,9 +689,11 @@ private struct ReleaseCountdown: View {
 }
 
 /// "You own 3 of 212": a lime bar that fills in.
-private struct OwnedProgress: View {
+struct OwnedProgress: View {
     var owned: Int
     var total: Int
+    /// What's counted ("products" on a set's page, "cards" on a master set).
+    var noun = "products"
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var filled = false
 
@@ -704,7 +706,7 @@ private struct OwnedProgress: View {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         CountingText(value: Double(owned), format: { "\(Int($0.rounded()))" })
                             .font(.display(34)).tracking(-0.9).monospacedDigit().foregroundStyle(Theme.lime).displayTrim(34).fixedSize()
-                        Text("of \(total) products").font(.geist(14)).foregroundStyle(Theme.muted)
+                        Text("of \(total) \(noun)").font(.geist(14)).foregroundStyle(Theme.muted)
                     }
                 }
                 Spacer()
@@ -733,7 +735,7 @@ private struct OwnedProgress: View {
 }
 
 /// The set's most valuable card, big, leaning with the phone and catching the light if it's foil.
-private struct TopChase: View {
+struct TopChase: View {
     var hit: SearchHit
     var owned: Bool
 
@@ -826,7 +828,7 @@ struct ChaseSparks: View {
 }
 
 /// A chase card in the row under the top one, with its rank.
-private struct ChaseTile: View {
+struct ChaseTile: View {
     var hit: SearchHit
     var rank: Int
 
@@ -1095,7 +1097,7 @@ private struct SectionCount: View {
 }
 
 /// A glass tile with a mono label and a number that counts up.
-private struct StatTile: View {
+struct StatTile: View {
     var label: String
     var value: Double
     var money = false

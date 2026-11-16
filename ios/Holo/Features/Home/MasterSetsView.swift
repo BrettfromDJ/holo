@@ -119,27 +119,40 @@ struct MasterSetDetailView: View {
         let unpriced: Int = entries.reduce(0) { $0 + (!$1.owned && $1.hit.market == nil ? 1 : 0) }
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                // The set's banner and logo across the top, running up under the clear bar.
-                if let banner = art?.iconUrl.flatMap(URL.init(string:)) {
-                    MasterSetBanner(url: banner, logo: art?.logoUrl)
-                        .padding(.bottom, -18)
-                }
-                // The top, like Collection's: on the same lit backdrop. Its own equatable view, so
-                // a chip, the sort or the search doesn't redraw the dial and the strip.
-                SetProgressHeader(
-                    known: checklists[current.id] != nil,
-                    total: entries.count,
-                    owned: ownedCount,
-                    ownedValue: ownedValue,
-                    missingValue: missingValue,
-                    unpriced: unpriced,
-                    strip: entries.map(\.owned),
-                    sweep: sweep,
-                    pulse: pulse
-                )
-                .equatable()
-                .background(alignment: .top) {
-                    if art?.iconUrl == nil {
+                if let art {
+                    // Like the set's page in Explore: its art blurred across the top with the logo
+                    // big on it, the name, tiles, the "You own" bar, then the chase cards.
+                    SetHero(set: art, productCount: 0, ownedCount: 0, updatedAt: nil)
+                        .padding(.horizontal, -16)
+                        .padding(.bottom, 6)
+                    HStack(spacing: 8) {
+                        StatTile(label: "Owned", value: Double(ownedCount), tint: Theme.lime)
+                        StatTile(label: "Your value", value: ownedValue, money: true)
+                        StatTile(label: unpriced > 0 ? "To finish*" : "To finish", value: missingValue, money: true)
+                    }
+                    if checklists[current.id] != nil, !entries.isEmpty {
+                        VStack(alignment: .leading, spacing: 10) {
+                            if complete { SkewTag(text: "Set complete", icon: "checkmark") }
+                            OwnedProgress(owned: ownedCount, total: entries.count, noun: "cards")
+                        }
+                    }
+                    chase(entries)
+                } else {
+                    // The top, like Collection's: on the same lit backdrop. Its own equatable view, so
+                    // a chip, the sort or the search doesn't redraw the dial and the strip.
+                    SetProgressHeader(
+                        known: checklists[current.id] != nil,
+                        total: entries.count,
+                        owned: ownedCount,
+                        ownedValue: ownedValue,
+                        missingValue: missingValue,
+                        unpriced: unpriced,
+                        strip: entries.map(\.owned),
+                        sweep: sweep,
+                        pulse: pulse
+                    )
+                    .equatable()
+                    .background(alignment: .top) {
                         DotBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
                     }
                 }
@@ -156,7 +169,7 @@ struct MasterSetDetailView: View {
         // The lit grid runs up under the clear top bar; the set's name sits centered in the bar.
         .scrollClipDisabled()
         .navigationBarTitleDisplayMode(.inline)
-        .pageTitle(setName)
+        .pageTitle(art?.gameName ?? setName)
         .onChange(of: complete, initial: true) { _, done in if done { celebrate() } }
         .sensoryFeedback(.success, trigger: celebrated) { _, now in now }
         .task(id: setId) {
@@ -179,6 +192,32 @@ struct MasterSetDetailView: View {
             guard !Task.isCancelled else { return }
             cache.refreshed.remove(setId)
             await Self.load([current], store: store)
+        }
+    }
+
+    // MARK: Chase cards
+
+    /// The set's most valuable cards (as on its Explore page): the top one big, the next few in a
+    /// row; each opens Owned if you have it, else its page.
+    @ViewBuilder private func chase(_ entries: [Entry]) -> some View {
+        let top = entries.filter { ($0.hit.market ?? 0) > 0 }.sorted { ($0.hit.market ?? 0) > ($1.hit.market ?? 0) }.prefix(6)
+        if let first = top.first {
+            VStack(alignment: .leading, spacing: 14) {
+                PageHeader(title: "Chase cards", subtitle: "The most valuable cards in this set", size: 22)
+                MarketLink(hit: first.hit) { TopChase(hit: first.hit, owned: first.owned) }
+                if top.count > 1 {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(alignment: .top, spacing: 12) {
+                            ForEach(Array(top.dropFirst().enumerated()), id: \.element.id) { i, e in
+                                MarketLink(hit: e.hit) { ChaseTile(hit: e.hit, rank: i + 2) }
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 4)
+                    }
+                    .padding(.horizontal, -16)
+                }
+            }
         }
     }
 
@@ -390,40 +429,6 @@ struct MasterSetDetailView: View {
                 }
             }
         }
-    }
-}
-
-/// A set's banner across the top of its page, with its logo, fading into the page at the bottom.
-private struct MasterSetBanner: View {
-    var url: URL
-    var logo: String?
-
-    var body: some View {
-        Color.clear
-            .frame(height: 250)
-            .overlay {
-                CachedImage(url: url) { img in img.resizable().scaledToFill() } placeholder: { Color.clear }
-                    .imageMaxPixel(1200)
-            }
-            .overlay(alignment: .bottom) {
-                // The logo big, in the lower, visible part (the top runs under the bar), as large
-                // as it reads on the Master Sets list.
-                if let logo = logo.flatMap(URL.init(string:)) {
-                    CachedImage(url: logo) { img in img.resizable().scaledToFit() } placeholder: { Color.clear }
-                        .imageMaxPixel(900)
-                        .frame(maxWidth: 260, maxHeight: 118)
-                        .shadow(color: .black.opacity(0.55), radius: 8, y: 3)
-                        .padding(.bottom, 34)
-                }
-            }
-            .clipped()
-            .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.62), .init(color: .clear, location: 1)],
-                                 startPoint: .top, endPoint: .bottom))
-            .environment(\.imageFadesIn, false)
-            .padding(.horizontal, -16)
-            .padding(.top, -100)
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
     }
 }
 
