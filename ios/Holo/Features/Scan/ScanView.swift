@@ -589,14 +589,15 @@ private struct LatestScan: View {
         }
         .buttonStyle(.plain)
         .overlay(alignment: .bottom) {
-            // Big and bright, half over the card's bottom edge: easy to find and hit without looking.
+            // Bright, half over the card's bottom edge: easy to find (a little smaller than before;
+            // the tap area reaches past it).
             Button(action: matched ? onChange : onOpen) {
-                HStack(spacing: 6) {
-                    Image(systemName: matched ? "arrow.left.arrow.right" : "magnifyingglass").font(.system(size: 13, weight: .bold))
-                    Text(matched ? "Wrong card?" : "Pick card").font(.geist(15, .semibold))
+                HStack(spacing: 5) {
+                    Image(systemName: matched ? "arrow.left.arrow.right" : "magnifyingglass").font(.system(size: 11, weight: .bold))
+                    Text(matched ? "Wrong card?" : "Pick card").font(.geist(13, .semibold))
                 }
                 .foregroundStyle(Theme.lime)
-                .padding(.horizontal, 14).frame(height: 38)
+                .padding(.horizontal, 11).frame(height: 30)
                 .background(Capsule().fill(Color(hex: 0x111111)))
                 .overlay(Capsule().strokeBorder(Theme.lime.opacity(0.45), lineWidth: 1))
                 .shadow(color: .black.opacity(0.45), radius: 6, y: 3)
@@ -604,7 +605,7 @@ private struct LatestScan: View {
                 .contentShape(Capsule().inset(by: -6))
             }
             .buttonStyle(.plain)
-            .offset(y: 16)
+            .offset(y: 13)
             .accessibilityLabel(matched ? "Wrong card? Change it" : "Pick the right card")
         }
         .accessibilityLabel("Open this card")
