@@ -232,8 +232,17 @@ struct SearchScreen: View {
                         // Pressing Search with nothing found looks in the live catalog.
                         if results.isEmpty && searchedFor == trimmed { Task { await searchLive() } }
                     }
-                    Button("Cancel") { dismiss() }
-                        .font(.geist(16, .medium)).foregroundStyle(Theme.lime)
+                    // A full-height tap area (the word alone was easy to miss), and the keyboard
+                    // let go in the same tap, so one tap always closes.
+                    Button {
+                        focused = false
+                        dismiss()
+                    } label: {
+                        Text("Cancel").font(.geist(16, .medium)).foregroundStyle(Theme.lime)
+                            .padding(.vertical, 12).padding(.leading, 6)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
