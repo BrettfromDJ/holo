@@ -179,4 +179,5 @@ and say exactly what to run or click.
   pictures are 1st Edition scans; the owner supplies Unlimited photos per set in
   `public/cards/pokemon/<dir>/<number>.webp`, listed in `src/lib/unlimited-art-manifest.json`
   and the same list in `Editions.unlimitedArt` (keep both in step). Done: Base Set (no #8), Jungle, Fossil, Team Rocket, Gym Heroes, Gym Challenge, Neo Genesis, Neo Discovery, Neo Revelation, Neo Destiny.
+- Dexora Pro (test mode, app only so far): `Features/Pro/Pro.swift`. Free: whole collection, 20 scans a month, 30 days of price history, 2 lists, 1 portfolio (Main), 3 alerts, 2 master sets; Pro unlocks the rest plus eBay comps, Grading and Analytics. Pro page `ProSheet`, locks `ProOnly` / `EbayLockedPanel` / `.proPaywall`. "Start free trial" only turns `Pro.shared.isPro` on for the phone; real purchases (Apple + Stripe, one Pro for app and website) come later. Demos count as Pro.
 - Not in the app on purpose: the separate trade checker (the Deal tab covers trades), and the welcome pages (removed; signed out opens straight on Sign in, its card wall is `Features/Auth/CardWall.swift`).

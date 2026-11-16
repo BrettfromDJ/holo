@@ -40,6 +40,10 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
+                // The plan: Go Pro, or that Pro is on (test mode).
+                Section {
+                    ProAccountCard().padding(.vertical, 6)
+                }
                 Section {
                     if signedIn {
                         LabeledContent("Signed in as", value: email ?? "—")

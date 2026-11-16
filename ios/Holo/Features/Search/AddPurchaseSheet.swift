@@ -50,6 +50,7 @@ struct AddPurchaseSheet: View {
     /// The portfolio picked for this purchase; nil until you pick one (see `portfolioId`).
     @State private var pickedPortfolio: String?
     @State private var namingPortfolio = false
+    @State private var proPaywall: ProReason?
     @State private var newPortfolio = ""
 
     @State private var printing: String?
@@ -138,7 +139,7 @@ struct AddPurchaseSheet: View {
                         Text("Main").tag(GroupsStore.main)
                         ForEach(groups.portfolios) { Text($0.name).tag($0.id) }
                     }
-                    Button { namingPortfolio = true } label: { Label("New portfolio…", systemImage: "plus") }
+                    Button { if Pro.shared.unlocked { namingPortfolio = true } else { proPaywall = .portfolios } } label: { Label("New portfolio…", systemImage: "plus") }
                         .foregroundStyle(Theme.lime)
                 } header: {
                     SectionTitle("Portfolio")
@@ -244,6 +245,7 @@ struct AddPurchaseSheet: View {
                 }
             }
             .scrollContentBackground(.hidden)
+            .proPaywall($proPaywall)
             .alert("New portfolio", isPresented: $namingPortfolio) {
                 TextField("Resale, PC, Graded…", text: $newPortfolio)
                 Button("Cancel", role: .cancel) { newPortfolio = "" }

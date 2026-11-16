@@ -75,8 +75,10 @@ struct MarketHomeView: View {
             // The menu's pages, pushed here (links inside them push on top).
             .navigationDestination(for: MorePage.self) { p in
                 switch p {
-                case .analytics, .gains: AnalyticsView()
-                case .grading: GradingView()
+                case .analytics, .gains:
+                    ProOnly(reason: .analytics, title: "Analytics", line: "Gains with cost basis, realised and unrealised, your best and worst buys, and a tax export.", icon: "chart.pie") { AnalyticsView() }
+                case .grading:
+                    ProOnly(reason: .grading, title: "Grading", line: "Whether a card is worth grading, your submissions, costs and the return on each.", icon: "checkmark.seal") { GradingView() }
                 case .masterSets: MasterSetsView()
                 case .activity: ActivityView()
                 case .sales: SalesView()

@@ -405,9 +405,16 @@ private struct MasterSetBanner: View {
                 CachedImage(url: url) { img in img.resizable().scaledToFill() } placeholder: { Color.clear }
                     .imageMaxPixel(1200)
             }
-            .overlay {
-                // The logo in the lower, visible part (the top runs under the bar).
-                SetLogoOverlay(url: logo).padding(.top, 90).padding(.bottom, 30)
+            .overlay(alignment: .bottom) {
+                // The logo big, in the lower, visible part (the top runs under the bar), as large
+                // as it reads on the Master Sets list.
+                if let logo = logo.flatMap(URL.init(string:)) {
+                    CachedImage(url: logo) { img in img.resizable().scaledToFit() } placeholder: { Color.clear }
+                        .imageMaxPixel(900)
+                        .frame(maxWidth: 260, maxHeight: 118)
+                        .shadow(color: .black.opacity(0.55), radius: 8, y: 3)
+                        .padding(.bottom, 34)
+                }
             }
             .clipped()
             .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.62), .init(color: .clear, location: 1)],

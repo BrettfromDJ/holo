@@ -78,8 +78,13 @@ struct ProductDetailView: View {
                 PriceHistoryCard(productId: productId, printing: printing, owned: owned).padding(.top, 32)
                 // Catalog cards, and demo ones (sample sales made on the phone).
                 if EbaySalesCache.supports(productId) {
-                    EbaySalesPanel(productId: productId, printing: printing, grade: owned.first(where: { $0.identity.isGraded })?.identity.gradeLabel)
-                        .padding(.top, 24)
+                    // eBay sold comps are Pro (each lookup is a paid call).
+                    if Pro.shared.unlocked {
+                        EbaySalesPanel(productId: productId, printing: printing, grade: owned.first(where: { $0.identity.isGraded })?.identity.gradeLabel)
+                            .padding(.top, 24)
+                    } else {
+                        EbayLockedPanel().padding(.top, 24)
+                    }
                 }
                 if let product, !product.isSealed, let nm = price?.market {
                     WorthPanel(productId: productId, printing: printing, nm: nm, owned: owned).padding(.top, 24)
@@ -763,7 +768,9 @@ private struct PriceHistoryCard: View {
     var printing: String?
     var owned: [HoldingView]
     @Environment(CollectionStore.self) private var store
-    @State private var range = 90
+    @State private var range = Pro.shared.unlocked ? 90 : Pro.freeHistoryDays
+    @State private var pro = Pro.shared
+    @State private var paywall: ProReason?
     /// The parsed, thinned series, kept between redraws (see `HistoryMemo`).
     @State private var memo = HistoryMemo()
     /// Where your finger is on the chart while you hold and drag (nil when you're not).
@@ -818,9 +825,14 @@ private struct PriceHistoryCard: View {
             }
             .font(.geist(13)).monospacedDigit()
             .padding(.top, 4)
-            ChipPicker(options: [(30, "1M"), (90, "3M"), (365, "1Y"), (0, "ALL")], selection: $range)
+            // Free sees a month; the longer ranges open the Pro page (marked with a lock).
+            ChipPicker(options: [(30, "1M"), (90, pro.unlocked ? "3M" : "3M 🔒"), (365, pro.unlocked ? "1Y" : "1Y 🔒"), (0, pro.unlocked ? "ALL" : "ALL 🔒")],
+                       selection: Binding(get: { range }, set: { new in
+                           if new == 30 || pro.unlocked { range = new } else { paywall = .history }
+                       }))
                 .scaleEffect(0.86, anchor: .leading)
                 .padding(.top, 12)
+                .proPaywall($paywall)
             if points.count > 1 {
                 let domain = ChartTicks.domain(points.map(\.price) + buys.map(\.unitPrice))
                 Chart {

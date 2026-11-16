@@ -12,6 +12,9 @@ struct CollectionView: View {
     @State private var opened: HoldingView?
     @State private var path = NavigationPath()
     @State private var shelfId: String?
+    /// Free keeps two lists; Pro, any number.
+    private var canAddShelf: Bool { Pro.shared.unlocked || groups.shelves.count < Pro.freeShelves }
+
     /// Showing only the cards you pulled from packs.
     @State private var pullsOnly = false
     /// Asking before deleting the open shelf.
@@ -20,6 +23,8 @@ struct CollectionView: View {
     @State private var naming: Naming?
     @State private var name = ""
     @State private var groupError: String?
+    /// The Pro page: a portfolio, or a list past Free's two.
+    @State private var proPaywall: ProReason?
     /// The list of every shelf and portfolio, to rename or delete them.
     @State private var managing = false
     /// The portfolio menu (our own frosted panel, opened from the portfolio pill).
@@ -376,7 +381,7 @@ struct CollectionView: View {
                         }
                     }
             }
-            Button { shelfProduct = nil; naming = .shelf } label: {
+            Button { shelfProduct = nil; if canAddShelf { naming = .shelf } else { proPaywall = .shelves } } label: {
                 Label("List", systemImage: "plus").font(.geist(14, .semibold)).foregroundStyle(Theme.muted)
                     .padding(.horizontal, 14).frame(height: 36)
             }
@@ -406,6 +411,7 @@ struct CollectionView: View {
         .sheet(isPresented: $managing) {
             ManageGroupsSheet(onClearShelf: { id in if shelfId == id { shelfId = nil } })
         }
+        .proPaywall($proPaywall)
         .alert(namingTitle, isPresented: Binding(get: { naming != nil }, set: { if !$0 { naming = nil } })) {
             TextField("Name", text: $name)
             Button("Cancel", role: .cancel) { name = ""; shelfProduct = nil }
@@ -425,7 +431,7 @@ struct CollectionView: View {
                 }
             }
             Rectangle().fill(Color.white.opacity(0.1)).frame(height: 1).padding(.vertical, 6).padding(.horizontal, 16)
-            menuRow("New portfolio", icon: "plus", tint: .white) { naming = .portfolio }
+            menuRow("New portfolio", icon: "plus", tint: .white) { if Pro.shared.unlocked { naming = .portfolio } else { proPaywall = .portfolios } }
             menuRow("Lists and portfolios", icon: "slider.horizontal.3", tint: .white) { managing = true }
             if own {
                 let id = groups.selected
@@ -543,7 +549,7 @@ struct CollectionView: View {
                     if shelf.product_ids.contains(productId) { Label(shelf.name, systemImage: "checkmark") } else { Text(shelf.name) }
                 }
             }
-            Button { shelfProduct = productId; naming = .shelf } label: { Label("New list…", systemImage: "plus") }
+            Button { shelfProduct = productId; if canAddShelf { naming = .shelf } else { proPaywall = .shelves } } label: { Label("New list…", systemImage: "plus") }
         } label: {
             Label("Add to list", systemImage: "square.stack")
         }
@@ -1181,6 +1187,7 @@ struct ManageGroupsSheet: View {
     @State private var deleting: (kind: Kind, id: String, name: String)?
     @State private var creating: Kind?
     @State private var newName = ""
+    @State private var proPaywall: ProReason?
     @State private var error: String?
 
     enum Kind { case shelf, portfolio }
@@ -1251,8 +1258,14 @@ struct ManageGroupsSheet: View {
 
     /// A lime row at the end of a section that starts a new shelf or portfolio.
     private func newRow(_ title: String, kind: Kind) -> some View {
-        Button { newName = ""; creating = kind } label: { Label(title, systemImage: "plus") }
+        Button {
+            // Portfolios are Pro; Free keeps two lists.
+            if !Pro.shared.unlocked, kind == .portfolio { proPaywall = .portfolios; return }
+            if !Pro.shared.unlocked, kind == .shelf, groups.shelves.count >= Pro.freeShelves { proPaywall = .shelves; return }
+            newName = ""; creating = kind
+        } label: { Label(title, systemImage: "plus") }
             .foregroundStyle(Theme.lime)
+            .proPaywall($proPaywall)
     }
 
     private func saveNew() {

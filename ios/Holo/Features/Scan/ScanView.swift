@@ -12,6 +12,8 @@ import SwiftUI
 /// Tapping adds it: straight from the live read when it matched (no paid scan), else as a photo
 /// cropped to the card. With no card tracked a tap scans the whole picture.
 struct ScanView: View {
+    /// The Pro page, when Free's monthly scans are used up.
+    @State private var proPaywall: ProReason?
     /// When scanning into a deal: which side, and where each match goes.
     var dealSide: DealSide?
     var onPick: (@MainActor (ScanCandidate, ScanRead?) -> (ok: Bool, note: String))?
@@ -131,6 +133,7 @@ struct ScanView: View {
                 editing = EditingScan(id: e.id)
             }
         }
+        .proPaywall($proPaywall)
         .sheet(isPresented: $reviewing) {
             ScanReviewSheet(model: model, focus: focused, onAdded: { dismiss() })
         }
@@ -318,12 +321,17 @@ struct ScanView: View {
         }
         // Reading the tracker here (an action, not `body`) doesn't make this view observe it.
         if let live = tracker.readyMatch {
+            guard Pro.shared.canScan else { proPaywall = .scans; return }
+            Pro.shared.countScan()
             Haptics.tap()
             flashOnce()
             model.add(matched: OnDeviceScan.result(for: live.hit), photo: live.crop.jpeg, thumbnail: live.crop.image)
             return
         }
         guard model.blocked == nil else { return }
+        // Free: 20 scans a month, then the Pro page.
+        guard Pro.shared.canScan else { proPaywall = .scans; return }
+        Pro.shared.countScan()
         let quad = tracker.quad
         let tappedAt = Date()
         UIImpactFeedbackGenerator(style: quad == nil ? .medium : .light).impactOccurred()
