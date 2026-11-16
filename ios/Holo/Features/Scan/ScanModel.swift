@@ -226,6 +226,10 @@ final class ScanModel {
     func setCondition(_ id: UUID, _ value: String) {
         guard let i = entries.firstIndex(where: { $0.id == id }), entries[i].condition != value else { return }
         entries[i].condition = value
+        if entries[i].draft?.purchase.gradeCompany == nil, entries[i].draft != nil {
+            entries[i].draft?.purchase.condition = value
+            entries[i].draft?.prefill.condition = value
+        }
         reprice(i)
     }
 
@@ -233,6 +237,10 @@ final class ScanModel {
     func setPrinting(_ id: UUID, _ value: String?) {
         guard let i = entries.firstIndex(where: { $0.id == id }), entries[i].printing != value else { return }
         entries[i].printing = value
+        if entries[i].draft != nil {
+            entries[i].draft?.purchase.printing = value
+            entries[i].draft?.prefill.printing = value
+        }
         reprice(i)
     }
 

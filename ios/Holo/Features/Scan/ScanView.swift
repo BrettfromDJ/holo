@@ -667,15 +667,35 @@ private struct LatestScan: View {
 
 }
 
-/// A matched scan in the opened-out list: its picture (tap for the card), name and price, number
-/// and set, and its printing and condition to change right here.
-private struct ScanListRow: View {
+/// A matched scan in the opened-out list (and the review): its picture (tap for the card), name
+/// and price, number and set, its printing and condition to change right here, and (in the
+/// review) how you got it, "Bought $X" with a pencil, opening its purchase details.
+struct ScanListRow: View {
     var entry: ScanModel.Entry
     var owned: Int
     var inDeal: Bool
     var onOpen: () -> Void
     var setPrinting: (String?) -> Void
     var setCondition: (String) -> Void
+    /// The scan's default, bought at market or pulled (what the pill says for an untouched card).
+    var pulled = false
+    /// Opens the purchase details; nil hides the pill.
+    var onPurchase: (() -> Void)? = nil
+
+    /// "Bought" and the price, or "Pulled": the card's own details, a typed price, or the default.
+    private var purchase: (word: String, price: String?, own: Bool) {
+        if let d = entry.draft {
+            if d.pulled { return ("Pulled", nil, true) }
+            let extra = d.purchase.shipping + d.purchase.tax + d.purchase.fees
+            return ("Bought", Format.money(d.purchase.unitPrice) + (extra > 0 ? " +\(Format.money(extra))" : ""), true)
+        }
+        if !entry.paid.isEmpty {
+            let typed = Double(entry.paid.replacingOccurrences(of: "$", with: "").replacingOccurrences(of: ",", with: ""))
+            return ("Bought", typed.map { Format.money($0) } ?? entry.paid, true)
+        }
+        if pulled { return ("Pulled", nil, false) }
+        return ("Bought", Format.money(entry.value), false)
+    }
 
     var body: some View {
         let p = entry.picked!.product
@@ -683,7 +703,7 @@ private struct ScanListRow: View {
             Button(action: onOpen) {
                 ProductImage(product: p, cornerRadius: 6).frame(width: 62, height: 86)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderless)
             .accessibilityLabel("Open \(p.name)")
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -700,6 +720,27 @@ private struct ScanListRow: View {
                 if entry.isBestGuess { BestGuessLabel() }
                 if !inDeal {
                     ScanEditMenus(entry: entry, setPrinting: setPrinting, setCondition: setCondition).padding(.top, 4)
+                }
+                if !inDeal, let onPurchase {
+                    let p = purchase
+                    Button(action: onPurchase) {
+                        HStack(spacing: 6) {
+                            Text(p.word).foregroundStyle(Theme.muted)
+                            if let price = p.price { Text(price).foregroundStyle(.white).monospacedDigit() }
+                            if let d = entry.draft, let co = d.purchase.gradeCompany, let g = d.purchase.grade {
+                                Text("· \(co) \(d.pristine ? "Pristine 10" : g)").foregroundStyle(.white)
+                            }
+                            Image(systemName: "pencil").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.lime)
+                        }
+                        .font(.geist(13, .semibold))
+                        .lineLimit(1)
+                        .padding(.horizontal, 10).frame(height: 32)
+                        .background(Capsule().fill(Color.white.opacity(p.own ? 0.14 : 0.1)))
+                        .contentShape(Capsule())
+                    }
+                    .buttonStyle(.borderless)
+                    .padding(.top, 2)
+                    .accessibilityLabel("\(p.word) \(p.price ?? ""). Edit purchase details")
                 }
             }
         }
@@ -745,7 +786,7 @@ private struct ScanEditMenus: View {
         } label: {
             pill(icon: "square.stack", text: current)
         }
-        .menuStyle(.button).buttonStyle(.plain)
+        .menuStyle(.button).buttonStyle(.borderless)
     }
 
     private var conditionMenu: some View {
@@ -765,7 +806,7 @@ private struct ScanEditMenus: View {
             .background(Capsule().fill(Color.white.opacity(0.1)))
             .contentShape(Capsule())
         }
-        .menuStyle(.button).buttonStyle(.plain)
+        .menuStyle(.button).buttonStyle(.borderless)
         .fixedSize()
     }
 

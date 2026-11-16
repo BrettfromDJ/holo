@@ -55,17 +55,28 @@ struct ScanReviewSheet: View {
                     .listRowSeparator(.hidden)
                 }
                 ForEach(model.entries) { entry in
-                    // Rows are compared by value: a change to one scan redraws that row alone.
-                    ReviewRow(entry: entry, owned: owned(entry), pulled: pulled, onPurchase: { purchaseFor = EditingScan(id: entry.id) })
-                        .equatable()
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            if entry.state == .failed { model.retry(entry.id) }
-                            if let p = entry.picked { store.setOpenPrinting(entry.printing ?? p.printing, for: p.product.id) }
-                            editing = EditingScan(id: entry.id)
+                    Group {
+                        if entry.state == .done, entry.picked != nil, !entry.rejected {
+                            // The scan page's opened-out row: printing and condition in place, and
+                            // "Bought $X" with a pencil for its purchase details.
+                            ScanListRow(entry: entry, owned: owned(entry), inDeal: model.onPick != nil,
+                                        onOpen: { open(entry) },
+                                        setPrinting: { model.setPrinting(entry.id, $0) },
+                                        setCondition: { model.setCondition(entry.id, $0) },
+                                        pulled: pulled,
+                                        onPurchase: { purchaseFor = EditingScan(id: entry.id) })
+                        } else {
+                            // Rows are compared by value: a change to one scan redraws that row alone.
+                            ReviewRow(entry: entry, owned: owned(entry), pulled: pulled).equatable()
                         }
+                    }
+                        .contentShape(Rectangle())
+                        // Anywhere else on the row: the card's page.
+                        .onTapGesture { open(entry) }
                         .id(entry.id)
-                        .listRowBackground(Color.white.opacity(0.07))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
                         // Swipe: pink with a trash icon, like a deal card's.
                         .swipeActions {
                             Button(role: .destructive) { withAnimation(.snappy) { model.remove(entry.id) } } label: {
@@ -93,6 +104,13 @@ struct ScanReviewSheet: View {
         .sheet(item: $editing) { e in
             ScanCardSheet(model: model, id: e.id, onRemove: { withAnimation(.snappy) { model.remove(e.id) } })
         }
+    }
+
+    /// A scan's card page (a failed read is tried again first).
+    private func open(_ entry: ScanModel.Entry) {
+        if entry.state == .failed { model.retry(entry.id) }
+        if let p = entry.picked { store.setOpenPrinting(entry.printing ?? p.printing, for: p.product.id) }
+        editing = EditingScan(id: entry.id)
     }
 
     /// How many of this card you already have.
