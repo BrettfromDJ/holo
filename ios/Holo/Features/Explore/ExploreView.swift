@@ -291,7 +291,7 @@ private struct BrandView: View {
 /// bell before release), its size and value counting up, how much of it you own, its chase
 /// cards, the best sealed value per pack, then every product under Singles and Sealed tabs with
 /// a sort. Cards and sealed share one card-shaped frame so the grid lines up.
-private struct SetView: View {
+struct SetView: View {
     var set: ExploreSet
     @Environment(CollectionStore.self) private var store
     @State private var detail: ExploreSetDetail?
@@ -1289,7 +1289,7 @@ enum Packs {
 
 /// The top of Explore: the catalog's size counting up over a lit grid, and the next release as
 /// a big card with a countdown and its reminder bell.
-private struct CatalogHero: View {
+struct CatalogHero: View {
     var index: ExploreIndex
     var next: ExploreSet?
 
@@ -1380,7 +1380,7 @@ private struct NextRelease: View {
 // MARK: Market sections (trending, drops, booster boxes)
 
 /// A stored percent change (12.5 = +12.5%), lime up and pink down.
-private struct ChangeText: View {
+struct ChangeText: View {
     var pct: Double?
     var size: CGFloat = 12
 
@@ -1398,7 +1398,7 @@ private struct ChangeText: View {
 }
 
 /// Opens a card from Explore's market sections: Owned if you hold it, else its page.
-private struct MarketLink<Label: View>: View {
+struct MarketLink<Label: View>: View {
     var hit: SearchHit
     @ViewBuilder var label: Label
     @Environment(CollectionStore.self) private var store
@@ -1411,7 +1411,7 @@ private struct MarketLink<Label: View>: View {
 }
 
 /// A sideways row of singles with their price and 7-day change (Trending this week).
-private struct MoverCarousel: View {
+struct MoverCarousel: View {
     var hits: [SearchHit]
     /// Sealed: square wells instead of card-shaped art.
     var square = false
@@ -1429,7 +1429,7 @@ private struct MoverCarousel: View {
     }
 }
 
-private struct MoverTile: View {
+struct MoverTile: View {
     var hit: SearchHit
     var square = false
 
@@ -1456,7 +1456,7 @@ private struct MoverTile: View {
 }
 
 /// Booster boxes as a compact list: art, name and set, market price and 30-day change.
-private struct BoosterBoxList: View {
+struct BoosterBoxList: View {
     var hits: [SearchHit]
 
     var body: some View {
@@ -1469,7 +1469,7 @@ private struct BoosterBoxList: View {
     }
 }
 
-private struct BoosterBoxRow: View {
+struct BoosterBoxRow: View {
     var hit: SearchHit
 
     var body: some View {
@@ -1501,7 +1501,7 @@ private struct BoosterBoxRow: View {
 
 /// A sideways row of sets as tiles: the set's art on a dark well, its name, the date, and for
 /// upcoming sets an "in N days" tag and a reminder bell.
-private struct SetCarousel: View {
+struct SetCarousel: View {
     var sets: [ExploreSet]
     var upcoming: Bool
 
@@ -1518,7 +1518,7 @@ private struct SetCarousel: View {
     }
 }
 
-private struct SetTile: View {
+struct SetTile: View {
     var set: ExploreSet
     var upcoming: Bool
     /// Fixed for carousels; nil fills a grid column.

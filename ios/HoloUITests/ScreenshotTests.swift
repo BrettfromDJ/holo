@@ -39,6 +39,9 @@ final class ScreenshotTests: XCTestCase {
     func testGains() { capture("gains", args: ["-HoloPage", "gains"], pages: 3) }
     func testWhatIfSell() { capture("what-if-sell", args: ["-HoloProduct", "sample:umbreon-vmax-alt", "-HoloWhatIf"], pages: 2) }
     func testSlabBumper() { capture("slab-bumper", args: ["-HoloDemoKind", "graded", "-HoloBumper", "-HoloProduct", "sample:umbreon-vmax-alt"], pages: 3) }
+    // The new Home on trial: what's happening across the hobby, and Collection's Summary | Cards.
+    func testNewHome() { capture("new-home", args: ["-HoloNewHome"], pages: 5) }
+    func testNewCollection() { capture("new-collection", args: ["-HoloNewHome", "-HoloCollectionMode", "summary", "-HoloTab", "collection"], pages: 2) }
     func testAddMenu() {
         let app = XCUIApplication()
         app.launchArguments = ["-HoloDemo"]

@@ -120,7 +120,7 @@ struct HomeView: View {
             }
             .toolbarBackground(.hidden, for: .navigationBar)
             .navigationBarTitleDisplayMode(.inline)
-            .pageTitle("Overview")
+            .collectionPageTitle("Overview")
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
             .environment(\.openHolding) { identity in opened = OpenedHolding(identity: identity) }
             .sheet(item: $opened) { o in

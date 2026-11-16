@@ -11,6 +11,8 @@ struct HoloApp: App {
 
     init() {
         Fonts.applyAppearance()
+        // Screenshots: -HoloNewHome turns the new Home on.
+        Labs.applyLaunchArguments()
         // A bigger download cache, so pictures (set banners, cards) come back from the phone's
         // storage on the next launch instead of over the network.
         URLCache.shared = URLCache(memoryCapacity: 32 * 1024 * 1024, diskCapacity: 300 * 1024 * 1024)
@@ -195,6 +197,8 @@ struct MainTabView: View {
     @State private var browsing = false
     @State private var router = Router.shared
     @State private var notifications = NotificationExplainer.shared
+    /// The new Home on trial (see `Labs`): the first tab is named Home.
+    @AppStorage(Labs.newHomeKey) private var newHome = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     enum HomeTab { case home, collection, explore, deal }
@@ -214,11 +218,11 @@ struct MainTabView: View {
         TabView(selection: $tab) {
             // The pages take an action, which SwiftUI can't compare, so without `StablePage`
             // every tab switch or tap on the + re-ran all of them.
-            StablePage { HomeView(onScan: { startScan() }) }
+            StablePage { HomeTabRoot(onScan: { startScan() }) }
                 .equatable()
                 .tag(HomeTab.home)
                 .toolbar(.hidden, for: .tabBar)
-            StablePage { CollectionView(onScan: { startScan() }) }
+            StablePage { CollectionTabRoot(onScan: { startScan() }) }
                 .equatable()
                 .tag(HomeTab.collection)
                 .toolbar(.hidden, for: .tabBar)
@@ -250,7 +254,7 @@ struct MainTabView: View {
             if !router.tabBarHidden && !(tab == .deal && router.dealDocked) {
             HoloTabBar(
                 items: [
-                    .init(tab: .home, title: "Overview", icon: "chart.line.uptrend.xyaxis"),
+                    newHome ? .init(tab: .home, title: "Home", icon: "house") : .init(tab: .home, title: "Overview", icon: "chart.line.uptrend.xyaxis"),
                     .init(tab: .collection, title: "Collection", icon: "square.grid.2x2"),
                     .init(tab: .explore, title: "Explore", icon: "safari"),
                     .init(tab: .deal, title: "Deal", icon: "arrow.left.arrow.right", iconSize: 17),

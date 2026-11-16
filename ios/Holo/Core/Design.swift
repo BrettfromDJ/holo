@@ -105,12 +105,18 @@ struct PageHeader<Trailing: View>: View {
 extension View {
     /// The page's title, small and centered in the top bar (Geist SemiBold).
     func pageTitle(_ title: String) -> some View {
-        toolbar {
-            ToolbarItem(placement: .principal) {
-                // Long titles (a set's full name) shrink a little, then end in "…" on one line.
-                Text(title).font(.geist(17, .semibold)).foregroundStyle(.white)
-                    .lineLimit(1).minimumScaleFactor(0.85).truncationMode(.tail)
-            }
+        pageTitle {
+            // Long titles (a set's full name) shrink a little, then end in "…" on one line.
+            Text(title).font(.geist(17, .semibold)).foregroundStyle(.white)
+                .lineLimit(1).minimumScaleFactor(0.85).truncationMode(.tail)
+        }
+    }
+
+    /// The same clear top, with any view in the title's place (Collection's Summary | Cards).
+    func pageTitle<T: View>(@ViewBuilder _ title: () -> T) -> some View {
+        let title = title()
+        return toolbar {
+            ToolbarItem(placement: .principal) { title }
         }
         // Never a bar behind the top: every page's header is fully transparent.
         .toolbarBackground(.hidden, for: .navigationBar)

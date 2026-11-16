@@ -3,6 +3,7 @@ import UserNotifications
 import Supabase
 
 struct SettingsView: View {
+    @AppStorage(Labs.newHomeKey) private var newHome = false
     @Environment(SessionModel.self) private var session
     @Environment(CollectionStore.self) private var store
     @Environment(GroupsStore.self) private var groups
@@ -148,6 +149,17 @@ struct SettingsView: View {
                     SectionTitle("Try the app")
                 } footer: {
                     SectionNote("What a new person sees before sign-in. A look only; nothing is saved.")
+                }
+                Section {
+                    Toggle(isOn: $newHome) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Try the new Home").font(.geist(15, .medium))
+                            Text("Home shows what's happening across the hobby; Overview moves into Collection").font(.geist(12)).foregroundStyle(Theme.muted)
+                        }
+                    }
+                    .tint(Theme.lime)
+                } header: {
+                    SectionTitle("Try something new")
                 }
                 Section {
                     Picker("Show", selection: $demo) {
