@@ -68,6 +68,13 @@ describe("pickMovers", () => {
     expect(up[1]).toMatchObject({ market: 50, change7dPct: 12.5 });
   });
 
+  it("ranks today's movers by the 24-hour change with by: 24h", () => {
+    const rows = [price("a", 300, 20, { change_24h_pct: 3 }), price("b", 50, 1, { change_24h_pct: 9 }), price("c", 40, 50, { change_24h_pct: null })];
+    const today = pickMovers(rows, products, "up", { by: "24h", minPrice: 10 });
+    expect(today.map((m) => m.product.id)).toEqual(["b", "a"]);
+    expect(today[0]).toMatchObject({ change24hPct: 9, change7dPct: 1 });
+  });
+
   it("picks hot sealed with kind: sealed only, above the sealed floor", () => {
     const rows = [price("box", 900, 40), price("a", 300, 20), price("code", 10, 35)];
     expect(pickMovers(rows, products, "up", { kind: "sealed", minPrice: 20 }).map((m) => m.product.id)).toEqual(["box"]);

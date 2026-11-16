@@ -546,7 +546,7 @@ private struct RecapDriftCard: View {
 
 /// Fire: embers rising and swaying, glowing yellow to red as they climb and fade. Ice: snow
 /// drifting down, and a few glints twinkling around the card. All worked out from the clock.
-private struct RecapParticles: View {
+struct RecapParticles: View {
     var theme: RecapTheme
     var time: Double
 

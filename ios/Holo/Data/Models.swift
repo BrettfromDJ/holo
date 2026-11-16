@@ -125,6 +125,8 @@ struct SearchHit: Codable, Identifiable, Hashable {
     /// Stored price changes in percent (12.5 = +12.5%); sent with Explore's market sections only.
     var change7dPct: Double? = nil
     var change30dPct: Double? = nil
+    /// Today's change in percent; sent with Explore's `today` movers only.
+    var change24hPct: Double? = nil
     /// Release date of the product's set ("YYYY-MM-DD"), when the catalog knows it (for "Newest set").
     var releaseDate: String? = nil
 
@@ -521,6 +523,8 @@ struct ExploreIndex: Codable {
     /// Market sections (optional so older responses still decode): singles with the biggest
     /// 7-day rise and fall, and booster boxes by price.
     var trending: [SearchHit]? = nil
+    /// Today's biggest rises (24 hours), for Home's Card of the day.
+    var today: [SearchHit]? = nil
     var drops: [SearchHit]? = nil
     /// Sealed products with the biggest 7-day rise.
     var hotSealed: [SearchHit]? = nil

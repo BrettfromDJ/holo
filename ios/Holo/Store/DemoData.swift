@@ -235,16 +235,17 @@ enum DemoData {
                 return then > 0 ? (last / then - 1) * 100 : nil
             }
             return SearchHit(product: product(i), printing: product(i).printings?.first, market: s.last?.price, priceUpdatedAt: now,
-                             gameName: "Pokémon", change7dPct: change(7), change30dPct: change(30))
+                             gameName: "Pokémon", change7dPct: change(7), change30dPct: change(30), change24hPct: change(1))
         }
         let singles = hits.filter { !$0.product.isSealed && ($0.market ?? 0) >= 5 }
         let trending = singles.filter { ($0.change7dPct ?? 0) > 0 }.sorted { ($0.change7dPct ?? 0) > ($1.change7dPct ?? 0) }
+        let today = singles.filter { ($0.change24hPct ?? 0) > 0 && ($0.market ?? 0) >= 10 }.sorted { ($0.change24hPct ?? 0) > ($1.change24hPct ?? 0) }
         let drops = singles.filter { ($0.change7dPct ?? 0) < 0 }.sorted { ($0.change7dPct ?? 0) < ($1.change7dPct ?? 0) }
         let boxes = hits.filter { $0.product.productType == "Booster Box" }.sorted { ($0.market ?? 0) > ($1.market ?? 0) }
         let hotSealed = hits.filter { $0.product.isSealed && ($0.market ?? 0) >= 20 && ($0.change7dPct ?? 0) > 0 }
             .sorted { ($0.change7dPct ?? 0) > ($1.change7dPct ?? 0) }
         return ExploreIndex(games: [game], sets: upcoming + sets, trending: Array(trending.prefix(12)),
-                            drops: Array(drops.prefix(12)), hotSealed: Array(hotSealed.prefix(12)), boosterBoxes: Array(boxes.prefix(15)))
+                            today: Array(today.prefix(5)), drops: Array(drops.prefix(12)), hotSealed: Array(hotSealed.prefix(12)), boosterBoxes: Array(boxes.prefix(15)))
     }
 
     static func exploreSet(_ slug: String) -> ExploreSetDetail? {

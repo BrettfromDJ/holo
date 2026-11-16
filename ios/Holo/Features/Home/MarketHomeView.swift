@@ -75,13 +75,16 @@ struct MarketHomeView: View {
         let recent = self.recent
         let trending = index.trending ?? []
         let drops = index.drops ?? []
-        // The week's top riser gets the big stage; the next riser and the biggest faller face off.
-        if let star = trending.first {
-            CardOfTheWeek(hit: star).padding(.horizontal, 16).reveal()
+        // Today's top riser gets the big stage (the week's, until today's movers arrive); the
+        // week's top riser and the biggest faller face off under it.
+        if let star = index.today?.first {
+            CardOfTheDay(hit: star, daily: true).padding(.horizontal, 16)
+        } else if let star = trending.first {
+            CardOfTheDay(hit: star, daily: false).padding(.horizontal, 16)
         }
-        if trending.count > 1 || !drops.isEmpty {
+        if !trending.isEmpty || !drops.isEmpty {
             HStack(spacing: 10) {
-                if trending.count > 1 { HotColdTile(hit: trending[1], hot: true) }
+                if let hot = index.today?.first == nil ? (trending.count > 1 ? trending[1] : nil) : trending.first { HotColdTile(hit: hot, hot: true) }
                 if let cold = drops.first { HotColdTile(hit: cold, hot: false) }
             }
             .padding(.horizontal, 16)
@@ -193,57 +196,117 @@ private struct YourCollectionStrip: View {
 private func pctText(_ pct: Double?) -> String { pct.map { Format.signedPercent($0 / 100) } ?? "—" }
 private func pctTint(_ pct: Double?) -> Color { (pct ?? 0) >= 0 ? Theme.lime : Theme.planPink }
 
-/// The week's top riser on the big stage: the card drifting and shining with sparks behind it,
-/// its rise in huge figures, inside the electric border of the set page's No. 1 chase.
-private struct CardOfTheWeek: View {
+/// The top of Home: today's biggest riser on a stage. Light rays turn slowly behind it, sparks
+/// rise, the card drifts and shines, and its rise sits on a lime ribbon; all inside the electric
+/// border of the set page's No. 1 chase. `daily` false: the week's top riser stands in.
+private struct CardOfTheDay: View {
     var hit: SearchHit
+    var daily: Bool
 
     var body: some View {
         let p = hit.pictured
-        let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
+        let pct = daily ? hit.change24hPct : hit.change7dPct
+        let shape = RoundedRectangle(cornerRadius: 30, style: .continuous)
         MarketLink(hit: hit) {
-            VStack(spacing: 18) {
-                SkewTag(text: "Card of the week", icon: "flame.fill")
-                HoloCard(foil: p.isFoil, textured: false, cornerRadius: 10) {
-                    ProductImage(product: p, cornerRadius: 10, large: true).frame(width: 190, height: 265)
+            VStack(spacing: 0) {
+                HStack {
+                    SkewTag(text: daily ? "Card of the day" : "Card of the week", icon: "flame.fill")
+                    Spacer()
+                    Text(daily ? "NEW EVERY DAY" : "THIS WEEK").font(.mono(10)).tracking(1.2).foregroundStyle(.white.opacity(0.6))
                 }
-                .drifting()
-                .notTiltable()
-                .frame(width: 190, height: 265)
-                VStack(spacing: 6) {
-                    Text(p.name.noWidow).font(.display(24)).tracking(-0.6).multilineTextAlignment(.center).lineLimit(2)
-                    Text([p.setName, p.rarity].compactMap { $0 }.joined(separator: " · ")).font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
-                }
-                HStack(alignment: .firstTextBaseline, spacing: 14) {
-                    Text(Format.money(hit.market)).font(.display(40)).tracking(-1.4).monospacedDigit().displayTrim(40)
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text(pctText(hit.change7dPct)).font(.display(26)).tracking(-0.6).monospacedDigit().foregroundStyle(pctTint(hit.change7dPct))
-                            .shadow(color: pctTint(hit.change7dPct).opacity(0.5), radius: 10)
-                        Text("THIS WEEK").font(.mono(10)).tracking(1.2).foregroundStyle(Theme.subtle)
+                ZStack {
+                    LightRays().frame(width: 420, height: 420)
+                    // A soft floor of light under the card.
+                    Ellipse().fill(RadialGradient(colors: [Theme.lime.opacity(0.45), .clear], center: .center, startRadius: 0, endRadius: 120))
+                        .frame(width: 260, height: 60).offset(y: 165)
+                    HoloCard(foil: p.isFoil, textured: false, cornerRadius: 12) {
+                        ProductImage(product: p, cornerRadius: 12, large: true).frame(width: 220, height: 307)
                     }
+                    .drifting()
+                    .notTiltable()
+                    .frame(width: 220, height: 307)
                 }
+                .frame(height: 360)
+                // The rise on a lime ribbon, ink on lime.
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Image(systemName: "arrow.up.right").font(.system(size: 20, weight: .heavy))
+                    Text(pctText(pct)).font(.display(34)).tracking(-1).monospacedDigit()
+                    Text(daily ? "TODAY" : "THIS WEEK").font(.mono(11)).tracking(1.2)
+                }
+                .foregroundStyle(Theme.ink)
+                .padding(.horizontal, 18).padding(.vertical, 6)
+                .background(Theme.lime, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .rotationEffect(.degrees(-3))
+                .shadow(color: Theme.lime.opacity(0.5), radius: 16)
+                .padding(.top, 6)
+                VStack(spacing: 4) {
+                    Text(p.name.noWidow).font(.display(26)).tracking(-0.7).multilineTextAlignment(.center).lineLimit(2)
+                    Text([p.setName, p.rarity].compactMap { $0 }.joined(separator: " · ")).font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
+                    Text(Format.money(hit.market)).font(.display(30)).tracking(-1).monospacedDigit().padding(.top, 6)
+                }
+                .padding(.top, 18)
             }
             .foregroundStyle(.white)
-            .padding(.vertical, 26).padding(.horizontal, 18)
+            .padding(.vertical, 20).padding(.horizontal, 18)
             .frame(maxWidth: .infinity)
             .background {
                 ZStack {
-                    shape.fill(Color(hex: 0x070707))
-                    GridPattern(step: 28, opacity: 0.07)
-                    RadialGradient(colors: [Theme.lime.opacity(0.28), .clear], center: UnitPoint(x: 0.5, y: 0.36), startRadius: 0, endRadius: 260)
-                    RadialGradient(colors: [Theme.planPink.opacity(0.16), .clear], center: .bottomTrailing, startRadius: 0, endRadius: 220)
+                    shape.fill(Color(hex: 0x060606))
+                    GridPattern(step: 26, opacity: 0.07)
+                    RadialGradient(colors: [Theme.lime.opacity(0.3), .clear], center: UnitPoint(x: 0.5, y: 0.34), startRadius: 0, endRadius: 280)
+                    RadialGradient(colors: [Theme.planPink.opacity(0.18), .clear], center: .topTrailing, startRadius: 0, endRadius: 240)
+                    RadialGradient(colors: [Theme.planBlue.opacity(0.2), .clear], center: .bottomLeading, startRadius: 0, endRadius: 240)
                     ChaseSparks()
                 }
                 .clipShape(shape)
             }
-            .shadow(color: Theme.lime.opacity(0.18), radius: 22)
-            .overlay(ElectricBorder(radius: 28))
+            .shadow(color: Theme.lime.opacity(0.22), radius: 26)
+            .overlay(ElectricBorder(radius: 30))
         }
     }
 }
 
-/// Hot (the next riser, in fire) or cold (the biggest faller, in ice): the card tilted on a
-/// glow of its color, the change big underneath.
+/// Slow light rays fanning out from behind the card: one turning gradient (a single rotation
+/// animation, only while on screen; still under Reduce Motion).
+private struct LightRays: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var turned = false
+
+    var body: some View {
+        AngularGradient(gradient: Gradient(stops: (0 ..< 24).map { i in
+            .init(color: i % 2 == 0 ? Theme.lime.opacity(0.16) : .clear, location: Double(i) / 23)
+        }), center: .center)
+        .mask(RadialGradient(colors: [.black, .clear], center: .center, startRadius: 30, endRadius: 210))
+        .rotationEffect(.degrees(turned ? 360 : 0))
+        .allowsHitTesting(false)
+        .onVisibilityChange { on in
+            guard !reduceMotion else { return }
+            if on {
+                withAnimation(.linear(duration: 60).repeatForever(autoreverses: false)) { turned = true }
+            } else {
+                stopLoop { turned = false }
+            }
+        }
+    }
+}
+
+/// Embers rising (fire) or snow falling (ice), the week recap's particles, only while on screen.
+private struct TileParticles: View {
+    var hot: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var onScreen = true
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion || !onScreen)) { context in
+            RecapParticles(theme: hot ? .fire : .ice, time: reduceMotion ? 3 : context.date.timeIntervalSinceReferenceDate)
+        }
+        .allowsHitTesting(false)
+        .onVisibilityChange { visible in if visible != onScreen { onScreen = visible } }
+    }
+}
+
+/// Hot (the week's top riser, in fire) or cold (the biggest faller, in ice): the card tilted on
+/// a glow of its color with embers or snow around it, the change big underneath.
 private struct HotColdTile: View {
     var hit: SearchHit
     var hot: Bool
@@ -268,6 +331,7 @@ private struct HotColdTile: View {
                     Text(Format.money(hit.market)).font(.display(17)).tracking(-0.4).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
                     Spacer(minLength: 4)
                     Text(pctText(hit.change7dPct)).font(.display(17)).tracking(-0.4).monospacedDigit().foregroundStyle(pctTint(hit.change7dPct))
+                        .lineLimit(1).fixedSize()
                 }
             }
             .foregroundStyle(.white)
@@ -277,6 +341,7 @@ private struct HotColdTile: View {
                 ZStack {
                     shape.fill(Color(hex: 0x080808))
                     RadialGradient(colors: [glow.opacity(0.32), .clear], center: UnitPoint(x: 0.5, y: 0.42), startRadius: 0, endRadius: 130)
+                    TileParticles(hot: hot)
                 }
                 .clipShape(shape)
             }
@@ -306,12 +371,13 @@ private struct TopTenRow: View {
                                     .padding(.leading, i + 1 >= 10 ? 70 : 46)
                             }
                             .frame(height: 150, alignment: .bottomLeading)
+                            // One line each, never wrapping: name, price, then the rise.
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(hit.product.name).font(.geist(13, .medium)).lineLimit(1)
-                                HStack(spacing: 6) {
-                                    Text(Format.money(hit.market)).font(.display(15)).tracking(-0.3).monospacedDigit()
-                                    Text(pctText(hit.change7dPct)).font(.geist(12, .semibold)).monospacedDigit().foregroundStyle(pctTint(hit.change7dPct))
-                                }
+                                Text(Format.money(hit.market)).font(.display(16)).tracking(-0.3).monospacedDigit()
+                                    .lineLimit(1).minimumScaleFactor(0.7)
+                                Text(pctText(hit.change7dPct)).font(.geist(12, .semibold)).monospacedDigit().foregroundStyle(pctTint(hit.change7dPct))
+                                    .lineLimit(1)
                             }
                             .padding(.leading, i + 1 >= 10 ? 70 : 46)
                             .frame(width: (i + 1 >= 10 ? 70 : 46) + 100, alignment: .leading)
@@ -406,7 +472,7 @@ private struct HotSealedRow: View {
                                     }
                                 }
                             Text(hit.product.name).font(.geist(13, .medium)).lineLimit(2).frame(width: 160, alignment: .leading)
-                            Text(Format.money(hit.market)).font(.display(17)).tracking(-0.4).monospacedDigit()
+                            Text(Format.money(hit.market)).font(.display(17)).tracking(-0.4).monospacedDigit().lineLimit(1)
                         }
                         .foregroundStyle(.white)
                     }

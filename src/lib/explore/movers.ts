@@ -2,8 +2,9 @@ import { categoryOf } from "../catalog";
 import type { Product } from "../types";
 import type { ExploreProduct } from "./types";
 
-/** A catalog product with its stored 7- and 30-day price change (percent, 12.5 = +12.5%). */
+/** A catalog product with its stored 24-hour, 7- and 30-day price change (percent, 12.5 = +12.5%). */
 export interface ExploreMover extends ExploreProduct {
+  change24hPct?: number | null;
   change7dPct: number | null;
   change30dPct: number | null;
 }
@@ -12,13 +13,15 @@ export interface ExploreMover extends ExploreProduct {
 export interface ExploreMarket {
   /** Hot singles: the biggest weekly rises among raw singles. */
   trending: ExploreMover[];
+  /** Today's biggest rises among raw singles (the app's Card of the day). */
+  today: ExploreMover[];
   drops: ExploreMover[];
   /** Hot sealed: the biggest weekly rises among sealed products (any kind, never code cards). */
   hotSealed: ExploreMover[];
   boosterBoxes: ExploreMover[];
 }
 
-export const EMPTY_MARKET: ExploreMarket = { trending: [], drops: [], hotSealed: [], boosterBoxes: [] };
+export const EMPTY_MARKET: ExploreMarket = { trending: [], today: [], drops: [], hotSealed: [], boosterBoxes: [] };
 
 /** Sealed starts higher: a $6 pack moving 30% isn't "hot". */
 export const HOT_SEALED_MIN_PRICE = 20;
@@ -33,6 +36,7 @@ export interface MoverPriceRow {
   product_id: string;
   printing: string;
   market_price: number | string | null;
+  change_24h_pct?: number | string | null;
   change_7d_pct: number | string | null;
   change_30d_pct: number | string | null;
   source_updated_at: string | null;
@@ -61,6 +65,7 @@ function mover(product: Product, row: MoverPriceRow, gameName: string | null): E
     market: num(row.market_price),
     priceUpdatedAt: row.source_updated_at,
     gameName,
+    change24hPct: num(row.change_24h_pct),
     change7dPct: num(row.change_7d_pct),
     change30dPct: num(row.change_30d_pct),
   };
@@ -75,7 +80,7 @@ export function pickMovers(
   rows: MoverPriceRow[],
   products: Map<string, Product>,
   direction: "up" | "down",
-  options: { limit?: number; minPrice?: number; kind?: "single" | "sealed"; gameName?: (p: Product) => string | null } = {},
+  options: { limit?: number; minPrice?: number; kind?: "single" | "sealed"; gameName?: (p: Product) => string | null; by?: "7d" | "24h" } = {},
 ): ExploreMover[] {
   const limit = options.limit ?? MOVERS_LIMIT;
   const kind = options.kind ?? "single";
@@ -87,7 +92,8 @@ export function pickMovers(
     const product = products.get(row.product_id);
     if (!product || product.kind !== kind || isCodeCard(product)) continue;
     const market = num(row.market_price);
-    const change = num(row.change_7d_pct);
+    // By the 7-day change (default), or the 24-hour one (today's movers).
+    const change = num(options.by === "24h" ? row.change_24h_pct : row.change_7d_pct);
     if (market === null || market < minPrice || change === null) continue;
     if (direction === "up" ? change <= 0 : change >= 0) continue;
     seen.add(row.product_id);

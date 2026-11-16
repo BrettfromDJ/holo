@@ -131,7 +131,7 @@ async function brandNames(admin: SupabaseClient<Database>, setIdList: (string | 
   return brands;
 }
 
-const MOVER_COLUMNS = "product_id, printing, market_price, change_7d_pct, change_30d_pct, source_updated_at";
+const MOVER_COLUMNS = "product_id, printing, market_price, change_24h_pct, change_7d_pct, change_30d_pct, source_updated_at";
 /** Price rows read per direction: more than shown, since sealed rows and extra printings drop out. */
 const MOVER_SCAN = 150;
 /** Rising rows read for hot sealed: singles fill the top of the list, so look further down it. */
@@ -159,7 +159,10 @@ export async function exploreMarket(admin: SupabaseClient<Database>): Promise<Ex
       const q = admin.from("product_prices").select(MOVER_COLUMNS).gte("market_price", minPrice).not("change_7d_pct", "is", null);
       return (ascending ? q.lt("change_7d_pct", 0) : q.gt("change_7d_pct", 0)).order("change_7d_pct", { ascending }).limit(scan);
     };
-    const [upRes, downRes, sealedUpRes, boxRows] = await Promise.all([
+    // Today's biggest rises (24 hours), for Card of the day. From $10, so a cheap card's jump doesn't win.
+    const dayQuery = () =>
+      admin.from("product_prices").select(MOVER_COLUMNS).gte("market_price", 10).gt("change_24h_pct", 0).order("change_24h_pct", { ascending: false }).limit(MOVER_SCAN);
+    const [upRes, downRes, sealedUpRes, boxRows, dayRes] = await Promise.all([
       moversQuery(false),
       moversQuery(true),
       moversQuery(false, HOT_SEALED_MIN_PRICE, SEALED_SCAN),
@@ -176,6 +179,7 @@ export async function exploreMarket(admin: SupabaseClient<Database>): Promise<Ex
             .range(from, to),
         5000,
       ),
+      dayQuery(),
     ]);
     if (upRes.error) throw new Error(upRes.error.message);
     if (downRes.error) throw new Error(downRes.error.message);
@@ -183,6 +187,8 @@ export async function exploreMarket(admin: SupabaseClient<Database>): Promise<Ex
     const down = (downRes.data ?? []) as MoverPriceRow[];
     // Hot sealed is extra: if its read fails, the other sections still show.
     const sealedUp = sealedUpRes.error ? [] : ((sealedUpRes.data ?? []) as MoverPriceRow[]);
+    // Today's movers are extra too.
+    const dayUp = dayRes.error ? [] : ((dayRes.data ?? []) as MoverPriceRow[]);
 
     const boxes = boxRows.map(productFromRow).filter(isBoosterBox);
     const boxPrices: MoverPriceRow[] = [];
@@ -191,14 +197,15 @@ export async function exploreMarket(admin: SupabaseClient<Database>): Promise<Ex
       boxPrices.push(...((data ?? []) as MoverPriceRow[]));
     }
 
-    const products = await productsById(admin, [...up, ...down, ...sealedUp].map((r) => r.product_id));
+    const products = await productsById(admin, [...up, ...down, ...sealedUp, ...dayUp].map((r) => r.product_id));
     const trendingRaw = pickMovers(up, products, "up");
     const dropsRaw = pickMovers(down, products, "down");
     const hotSealedRaw = pickMovers(sealedUp, products, "up", { kind: "sealed", minPrice: HOT_SEALED_MIN_PRICE });
+    const todayRaw = pickMovers(dayUp, products, "up", { by: "24h", minPrice: 10, limit: 5 });
     const boxesRaw = pickBoosterBoxes(boxes, boxPrices);
-    const brands = await brandNames(admin, [...trendingRaw, ...dropsRaw, ...hotSealedRaw, ...boxesRaw].map((m) => m.product.setId));
+    const brands = await brandNames(admin, [...trendingRaw, ...todayRaw, ...dropsRaw, ...hotSealedRaw, ...boxesRaw].map((m) => m.product.setId));
     const named = <T extends { product: Product; gameName?: string | null }>(m: T): T => ({ ...m, gameName: m.product.setId ? (brands.get(m.product.setId) ?? null) : null });
-    return { trending: trendingRaw.map(named), drops: dropsRaw.map(named), hotSealed: hotSealedRaw.map(named), boosterBoxes: boxesRaw.map(named) };
+    return { trending: trendingRaw.map(named), today: todayRaw.map(named), drops: dropsRaw.map(named), hotSealed: hotSealedRaw.map(named), boosterBoxes: boxesRaw.map(named) };
   } catch (e) {
     console.error("explore market", e);
     return EMPTY_MARKET;
