@@ -160,7 +160,9 @@ struct CollectionView: View {
                         HStack(spacing: 8) {
                             portfolioSwitcher
                             Spacer(minLength: 0)
-                            if !store.holdings.isEmpty { selectPill }
+                            // Select mode starts from a card's long-press menu ("Select"); while it's on,
+                            // the lime Done here ends it.
+                            if selecting { selectPill }
                         }
                         // Drawn above the header's backdrop: that backdrop reaches up behind this
                         // row, and coming later it was painted over the pills, grid and all, so
@@ -523,6 +525,12 @@ struct CollectionView: View {
     @ViewBuilder
     private func quickActions(_ h: HoldingView) -> some View {
         let productId = h.identity.productId
+        // Select mode, starting with this card picked: tap others to add them.
+        Button {
+            picked = [h.identity.key]
+            selecting = true
+        } label: { Label("Select", systemImage: "checkmark.circle") }
+        Divider()
         Button { selling = h } label: { Label("Sell", systemImage: "dollarsign.circle") }
         Button { whatIf = h } label: { Label("What if I sell?", systemImage: "questionmark.circle") }
         Menu {
@@ -592,7 +600,7 @@ struct CollectionView: View {
         if picked.contains(key) { picked.remove(key) } else { picked.insert(key) }
     }
 
-    /// "Select" starts select mode with nothing picked; "Done" leaves it.
+    /// "Done" leaves select mode (a card's long-press "Select" starts it).
     private var selectPill: some View {
         Button {
             if selecting {
