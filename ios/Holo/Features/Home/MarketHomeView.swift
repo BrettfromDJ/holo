@@ -155,23 +155,23 @@ struct MarketHomeView: View {
         if trending.count > 2 {
             section(icon: "trophy.fill", "Top 10 this week", "Singles rising most in 7 days") { TopTenRow(hits: Array(trending.prefix(10))) }
         }
-        if let eras = index.eras, !(eras.modern.isEmpty && eras.midEra.isEmpty && eras.vintage.isEmpty) {
+            let modern = index.eras?.modern ?? [], midEra = index.eras?.midEra ?? [], vintage = index.eras?.vintage ?? []
             // One color card per era, like Collection's sealed and singles boxes: modern in lime,
             // mid-era in blue, vintage in pink. An era with no risers this week says so.
             section(icon: "hourglass", "Rising by era", "This week's risers, from modern to vintage") {
                 // Side by side, swiped one at a time; the next card peeks in at the edge.
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(alignment: .top, spacing: 12) {
-                        EraCard(era: .modern, hits: eras.modern)
-                        EraCard(era: .midEra, hits: eras.midEra)
-                        EraCard(era: .vintage, hits: eras.vintage)
+                        // Made-up risers stand in for an era with none yet (marked Sample).
+                        EraCard(era: .modern, hits: modern.isEmpty ? EraCard.sample(.modern) : modern, sample: modern.isEmpty)
+                        EraCard(era: .midEra, hits: midEra.isEmpty ? EraCard.sample(.midEra) : midEra, sample: midEra.isEmpty)
+                        EraCard(era: .vintage, hits: vintage)
                     }
                     .scrollTargetLayout()
                 }
                 .contentMargins(.horizontal, 16, for: .scrollContent)
                 .scrollTargetBehavior(.viewAligned)
             }
-        }
         if let next = upcoming.first {
             // The next set out, with its countdown and reminder (Explore's top card).
             CatalogHero(index: index, next: next)
@@ -715,8 +715,47 @@ private struct EraCard: View, Equatable {
 
     var era: Era
     var hits: [SearchHit]
+    /// Made-up risers until the real ones arrive: tagged Sample, and nothing opens.
+    var sample = false
 
-    static func == (a: Self, b: Self) -> Bool { a.era == b.era && a.hits == b.hits }
+    static func == (a: Self, b: Self) -> Bool { a.era == b.era && a.hits == b.hits && a.sample == b.sample }
+
+    /// Placeholder risers for an era (real cards and pictures, made-up prices and rises).
+    static func sample(_ era: Era) -> [SearchHit] {
+        let rows: [(String, String, String, String, String, Double, Double)]
+        switch era {
+        case .modern:
+            rows = [
+                ("swsh7", "215", "Umbreon VMAX (Alternate Full Art)", "Evolving Skies", "215/203", 1392, 14.2),
+                ("sv8", "238", "Pikachu ex - 238/191", "Surging Sparks", "238/191", 371.5, 11.8),
+                ("swsh7", "218", "Rayquaza VMAX (Alternate Full Art)", "Evolving Skies", "218/203", 548, 9.6),
+                ("swsh8", "270", "Espeon VMAX (Alternate Art Secret)", "Fusion Strike", "270/264", 512, 7.3),
+                ("swsh11", "186", "Giratina V (Alternate Full Art)", "Lost Origin", "186/196", 318.4, 5.9),
+            ]
+        case .midEra:
+            rows = [
+                ("xy2", "100", "Charizard EX (Full Art)", "Flashfire", "100/106", 286, 12.4),
+                ("xy12", "11", "Charizard", "Evolutions", "11/108", 64.5, 9.1),
+                ("g1", "11", "Charizard", "Generations", "11/83", 48.2, 7.7),
+                ("xy12", "13", "M Charizard EX", "Evolutions", "13/108", 41.9, 6.2),
+                ("xy2", "12", "Charizard EX", "Flashfire", "12/106", 38.6, 4.8),
+            ]
+        case .vintage:
+            rows = []
+        }
+        return rows.map { set, num, name, setName, number, price, rise in
+            let product = Product(id: "sample:era-\(set)-\(num)", source: "sample", externalId: "\(set)-\(num)", name: name, setName: setName,
+                                  setId: set, number: number, rarity: nil, productType: "Cards", kind: "single",
+                                  imageUrl: "https://images.pokemontcg.io/\(set)/\(num)_hires.png", tcgplayerId: nil, tcgplayerUrl: nil,
+                                  printings: ["Holofoil"])
+            return SearchHit(product: product, market: price, change7dPct: rise)
+        }
+    }
+
+    /// A riser that opens its card page, or (sample) just sits there.
+    @ViewBuilder private func link<L: View>(_ hit: SearchHit, @ViewBuilder _ label: () -> L) -> some View {
+        if sample { label() } else { MarketLink(hit: hit, label: label) }
+    }
 
     var body: some View {
         let top = Array(hits.prefix(5))
@@ -727,6 +766,9 @@ private struct EraCard: View, Equatable {
                 Text(era.title).font(.display(30)).tracking(-0.8).displayTrim(30)
                 if let average {
                     SkewTag(text: String(format: "%+.1f%% avg", average), color: era.color, textColor: era.tagText)
+                }
+                if sample {
+                    Text("SAMPLE").font(.mono(10)).tracking(1.2).foregroundStyle(Theme.subtle)
                 }
             }
             Text(era.blurb).font(.geist(14)).foregroundStyle(Theme.muted)
@@ -741,7 +783,7 @@ private struct EraCard: View, Equatable {
                         .padding(.vertical, 10)
                     ForEach(Array(top.enumerated()), id: \.element.id) { i, hit in
                         if i > 0 { Divider().overlay(Color.white.opacity(0.06)) }
-                        MarketLink(hit: hit) { row(i + 1, hit) }
+                        link(hit) { row(i + 1, hit) }
                     }
                 }
                 .padding(14)
@@ -761,7 +803,7 @@ private struct EraCard: View, Equatable {
             ForEach(order, id: \.self) { k in
                 let hit = shown[k]
                 let i = Double(order.firstIndex(of: k) ?? 0)
-                MarketLink(hit: hit) {
+                link(hit) {
                     ProductImage(product: hit.pictured, cornerRadius: 4)
                         .frame(width: 84, height: 117)
                         .shadow(color: .black.opacity(0.4), radius: 8, y: 5)
