@@ -23,7 +23,7 @@ struct ScanReviewSheet: View {
     /// The scan open close up.
     @State private var editing: EditingScan?
 
-    var body: some View { sheetBody.presentationDetents([.large]).glassSheet() }
+    var body: some View { sheetBody.presentationDetents([.fraction(0.93)]).glassSheet() }
 
     @ViewBuilder private var sheetBody: some View {
         ScrollViewReader { proxy in

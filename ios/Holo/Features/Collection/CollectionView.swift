@@ -1231,7 +1231,7 @@ struct ManageGroupsSheet: View {
                 Text(deleting?.kind == .shelf ? "The list goes; its cards stay in your collection." : "The portfolio goes; its cards move back to Main.")
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.medium, .fraction(0.93)])
         .glassSheet()
     }
 

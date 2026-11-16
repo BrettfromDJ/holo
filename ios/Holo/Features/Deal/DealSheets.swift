@@ -27,7 +27,7 @@ struct DealPickerSheet: View {
         }
     }
 
-    var body: some View { sheetBody.presentationDetents([.large]).glassSheet() }
+    var body: some View { sheetBody.presentationDetents([.fraction(0.93)]).glassSheet() }
 
     @ViewBuilder private var sheetBody: some View {
         // Filtered once per keystroke, not once per use (going out only).

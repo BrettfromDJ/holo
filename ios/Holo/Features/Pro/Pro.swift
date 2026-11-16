@@ -165,7 +165,7 @@ struct ProSheet: View {
             .background(Color.black)
         }
         .background(Color.black)
-        .presentationDetents([.large])
+        .presentationDetents([.fraction(0.93)])
         .presentationBackground(Color.black)
         .presentationDragIndicator(.visible)
     }

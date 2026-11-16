@@ -139,7 +139,7 @@ struct HoldingSheet: View {
         }
         .sheet(item: $priceInfo) { PriceInfoSheet(info: $0) }
         // Just short of full height: iOS 26 keeps a sheet glass only while it isn't full screen.
-        .presentationDetents([.large])
+        .presentationDetents([.fraction(0.93)])
         .presentationDragIndicator(.visible)
     }
 
@@ -509,7 +509,7 @@ struct SellSheet: View {
     private var net: Double { gross - fees - ship }
     private var cost: Double { holding.fifoCost(Double(quantity)) }
 
-    var body: some View { sheetBody.presentationDetents([.large]).glassSheet() }
+    var body: some View { sheetBody.presentationDetents([.fraction(0.93)]).glassSheet() }
 
     @ViewBuilder private var sheetBody: some View {
         NavigationStack {
@@ -583,7 +583,7 @@ struct EntryEditSheet: View {
         _date = State(initialValue: Format.isoDay.date(from: entry.date) ?? Date())
     }
 
-    var body: some View { sheetBody.presentationDetents([.large]).glassSheet() }
+    var body: some View { sheetBody.presentationDetents([.fraction(0.93)]).glassSheet() }
 
     @ViewBuilder private var sheetBody: some View {
         NavigationStack {
@@ -750,7 +750,7 @@ struct RemoveSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.medium, .fraction(0.93)])
     }
 }
 
@@ -925,7 +925,7 @@ struct EditDetailsSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.medium, .fraction(0.93)])
     }
 
     /// A row with a lime check when it's on; tap to switch.

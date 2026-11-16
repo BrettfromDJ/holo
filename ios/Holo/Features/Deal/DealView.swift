@@ -235,7 +235,7 @@ struct DealView: View {
                             ToolbarItem(placement: .cancellationAction) { Button("Done") { detailItem = nil } }
                         }
                 }
-                .presentationDetents([.large])
+                .presentationDetents([.fraction(0.93)])
                 .presentationDragIndicator(.visible)
             }
             .sheet(item: $ebayItem) { item in
@@ -247,7 +247,7 @@ struct DealView: View {
                     .navigationTitle(item.product.name)
                     .navigationBarTitleDisplayMode(.inline)
                 }
-                .presentationDetents([.medium, .large])
+                .presentationDetents([.medium, .fraction(0.93)])
                 .glassSheet()
             }
             .fullScreenCover(item: $scanning) { side in

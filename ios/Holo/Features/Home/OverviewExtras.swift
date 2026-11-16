@@ -143,7 +143,7 @@ struct TodaySheet: View {
     }
 
     var body: some View {
-        sheetBody.presentationDetents([.medium, .large]).glassSheet()
+        sheetBody.presentationDetents([.medium, .fraction(0.93)]).glassSheet()
     }
 
     private var sheetBody: some View {

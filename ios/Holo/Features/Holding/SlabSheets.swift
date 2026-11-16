@@ -53,7 +53,7 @@ struct BumperSheet: View {
     /// The first bumper on this slab: a full-screen moment before the sheet closes.
     @State private var celebrating: String?
 
-    var body: some View { sheetBody.presentationDetents([.large]).glassSheet() }
+    var body: some View { sheetBody.presentationDetents([.fraction(0.93)]).glassSheet() }
 
     @ViewBuilder private var sheetBody: some View {
         NavigationStack {
