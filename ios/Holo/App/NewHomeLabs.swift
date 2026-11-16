@@ -1,48 +1,37 @@
 import SwiftUI
 
-/// Trying out a new layout (Account → Try the new Home, or `-HoloNewHome` for screenshots):
-/// the first tab becomes Home, about what's happening across the hobby (trending cards, hot
-/// sealed, new and coming sets), and Collection gets a Summary | Cards switch at the top:
-/// Summary is what Overview showed, Cards is the grid.
-enum Labs {
-    static let newHomeKey = "labs-new-home"
-    static let collectionModeKey = "collection-mode"
+/// Home is about what's happening across the hobby (`MarketHomeView`); Collection has a
+/// Summary | Cards switch at the top: Summary is what Overview showed (`HomeView`), Cards is the
+/// grid (`CollectionView`). The switch's choice is kept on the phone.
+enum CollectionMode {
+    static let key = "collection-mode"
 
-    /// Screenshots turn it on with a launch argument.
-    /// Screenshot runs (`-HoloDemo`) set it every launch, on or off, so one test's choice never
-    /// carries into the next (the simulator keeps settings between launches).
+    /// Screenshot and speed runs (`-HoloDemo`) set it every launch, so one test's choice never
+    /// carries into the next (the simulator keeps settings between launches):
+    /// `-HoloCollectionMode summary|cards` if given; Summary for `-HoloPage` (its pages open from
+    /// Summary's menu); Cards for `-HoloTab collection` (the grid); else Summary.
     static func applyLaunchArguments() {
         let args = ProcessInfo.processInfo.arguments
         guard args.contains("-HoloDemo") else { return }
-        UserDefaults.standard.set(args.contains("-HoloNewHome"), forKey: newHomeKey)
-        UserDefaults.standard.set(Demo.value("-HoloCollectionMode") ?? "summary", forKey: collectionModeKey)
+        let mode = Demo.value("-HoloCollectionMode")
+            ?? (Demo.value("-HoloPage") != nil ? "summary" : Demo.value("-HoloTab") == "collection" ? "cards" : "summary")
+        UserDefaults.standard.set(mode, forKey: key)
     }
 }
 
-/// The first tab: the new Home when it's on, else Overview.
-struct HomeTabRoot: View {
-    var onScan: () -> Void
-    @AppStorage(Labs.newHomeKey) private var newHome = false
-
-    var body: some View {
-        if newHome { MarketHomeView() } else { HomeView(onScan: onScan) }
-    }
-}
-
-/// The Collection tab: with the new Home on, Summary (what Overview showed) or Cards (the grid).
+/// The Collection tab: Summary (what Overview showed) or Cards (the grid).
 struct CollectionTabRoot: View {
     var onScan: () -> Void
-    @AppStorage(Labs.newHomeKey) private var newHome = false
-    @AppStorage(Labs.collectionModeKey) private var mode = "summary"
+    @AppStorage(CollectionMode.key) private var mode = "summary"
 
     var body: some View {
-        if newHome && mode == "summary" { HomeView(onScan: onScan) } else { CollectionView(onScan: onScan) }
+        if mode == "summary" { HomeView(onScan: onScan) } else { CollectionView(onScan: onScan) }
     }
 }
 
 /// Summary | Cards, in the top bar's middle, where the page title sits.
 struct CollectionModeSwitch: View {
-    @AppStorage(Labs.collectionModeKey) private var mode = "summary"
+    @AppStorage(CollectionMode.key) private var mode = "summary"
 
     var body: some View {
         HStack(spacing: 2) {
@@ -64,12 +53,8 @@ struct CollectionModeSwitch: View {
 }
 
 extension View {
-    /// The page title, or, with the new Home on, the Summary | Cards switch in its place.
-    @ViewBuilder func collectionPageTitle(_ title: String) -> some View {
-        if UserDefaults.standard.bool(forKey: Labs.newHomeKey) {
-            pageTitle { CollectionModeSwitch() }
-        } else {
-            pageTitle(title)
-        }
+    /// Collection's top: the Summary | Cards switch where the page title sits.
+    func collectionPageTitle() -> some View {
+        pageTitle { CollectionModeSwitch() }
     }
 }

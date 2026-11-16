@@ -50,8 +50,12 @@ and say exactly what to run or click.
   dot-matrix digits: numbers use `Font.display`). The iridescent and glow-card experiments were removed; don't bring them back.
 - **Tapping a card:** one you own opens Owned (`HoldingSheet`) everywhere; one you don't opens
   its card page. Use `CardLink(productId:identity:)` in the app; it decides. Gains lives inside
-  Analytics; Analytics, Grading, Master sets and Activity open from Overview's top-right menu (the
-  shortcut tiles were removed).
+  Analytics; Analytics, Grading, Master sets and Activity open from the top-right menu of
+  Collection's Summary (what Overview was; the shortcut tiles were removed).
+- **Tabs:** Home (`MarketHomeView`: the hobby, not your collection: card of the day, hot and cold,
+  top 10, newest set showcase, hot sealed, sets), Collection (a Summary | Cards switch in the top
+  bar: Summary is `HomeView`, Cards is `CollectionView`; `CollectionMode`), Search, Explore, Deal.
+  `Router.tabRequest` "collection" opens Cards, "collection-summary" opens Summary.
 - **Loading:** no spinners. The app opens on the collection saved on the phone at the last load
   (`SnapshotFile`, per account, deleted on sign-out; never in a demo) and refreshes it in place;
   only a first launch with nothing saved shows dim, still placeholders (`LoadingPlaceholder`).

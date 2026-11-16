@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The new Home (a trial, see `Labs`): what's happening across the hobby, not your collection.
+/// Home: what's happening across the hobby, not your collection (that's on Collection).
 /// The card of the week, the hottest and coldest movers, the top 10 risers, the newest set's
 /// chase cards, hot sealed and sets just out and coming (from the prices Dexora stores, sent
 /// with Explore's index).
@@ -61,6 +61,8 @@ struct MarketHomeView: View {
             .tabBarClearance()
             .imageMaxPixel(480)
             .refreshable { fresh = false; await load() }
+            // Inline: a large-title bar left a tall empty band under "Home".
+            .navigationBarTitleDisplayMode(.inline)
             .pageTitle("Home")
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
             .navigationDestination(for: ExploreSet.self) { SetView(set: $0) }
@@ -172,7 +174,7 @@ private struct YourCollectionStrip: View {
 
     var body: some View {
         let s = store.summary
-        Button { Router.shared.tabRequest = "collection" } label: {
+        Button { Router.shared.tabRequest = "collection-summary" } label: {
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     MonoLabel(text: "Your collection")

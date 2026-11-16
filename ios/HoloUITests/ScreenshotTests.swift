@@ -8,7 +8,9 @@ final class ScreenshotTests: XCTestCase {
         continueAfterFailure = true
     }
 
-    func testHome() { capture("home", args: [], pages: 7) }
+    func testHome() { capture("home", args: [], pages: 5) }
+    // What Overview showed, now Collection's Summary.
+    func testOverview() { capture("overview", args: ["-HoloTab", "collection", "-HoloCollectionMode", "summary"], pages: 7) }
     func testCollection() { capture("collection", args: ["-HoloTab", "collection"], pages: 3) }
     func testCollectionFilters() { capture("collection-filters", args: ["-HoloTab", "collection", "-HoloFilters"], pages: 1) }
     func testCollectionSingles() { capture("collection-singles", args: ["-HoloTab", "collection", "-HoloCategory", "singles"], pages: 2) }
@@ -39,12 +41,9 @@ final class ScreenshotTests: XCTestCase {
     func testGains() { capture("gains", args: ["-HoloPage", "gains"], pages: 3) }
     func testWhatIfSell() { capture("what-if-sell", args: ["-HoloProduct", "sample:umbreon-vmax-alt", "-HoloWhatIf"], pages: 2) }
     func testSlabBumper() { capture("slab-bumper", args: ["-HoloDemoKind", "graded", "-HoloBumper", "-HoloProduct", "sample:umbreon-vmax-alt"], pages: 3) }
-    // The new Home on trial: what's happening across the hobby, and Collection's Summary | Cards.
-    func testNewHome() { capture("new-home", args: ["-HoloNewHome"], pages: 5) }
-    func testNewCollection() { capture("new-collection", args: ["-HoloNewHome", "-HoloCollectionMode", "summary", "-HoloTab", "collection"], pages: 2) }
     func testAddMenu() {
         let app = XCUIApplication()
-        app.launchArguments = ["-HoloDemo"]
+        app.launchArguments = ["-HoloDemo", "-HoloTab", "collection"]
         app.launch()
         sleep(4)
         app.buttons["Add to Collection"].firstMatch.tap()
@@ -106,7 +105,7 @@ final class ScreenshotTests: XCTestCase {
         capture("deal-customer-many", args: ["-HoloTab", "deal", "-HoloDealDemo", "-HoloDealMany", "-HoloDealCustomer"], pages: 1)
     }
     // Graded slabs: Home, Collection and a slab's card page in the graded demo.
-    func testGradedHome() { capture("graded-home", args: ["-HoloDemoKind", "graded"], pages: 6) }
+    func testGradedHome() { capture("graded-home", args: ["-HoloDemoKind", "graded", "-HoloTab", "collection", "-HoloCollectionMode", "summary"], pages: 6) }
     func testGradedCollection() { capture("graded-collection", args: ["-HoloDemoKind", "graded", "-HoloTab", "collection"], pages: 2) }
     // Rarity pills: a Special Illustration Rare, a Hyper Rare and a Secret Rare.
     func testRarityPills() {

@@ -271,7 +271,7 @@ struct CollectionView: View {
             .onDisappear { if selecting { leaveSelecting() }; Router.shared.tabBarHidden = false }
             .refreshable { await reload() }
             .navigationBarTitleDisplayMode(.inline)
-            .collectionPageTitle("Collection")
+            .collectionPageTitle()
             // The portfolio menu: a frosted panel under the pill, the page dimmed behind; tap
             // anywhere else to close.
             .overlayPreferenceValue(PortfolioPillAnchor.self) { anchor in

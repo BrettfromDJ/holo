@@ -11,8 +11,8 @@ struct HoloApp: App {
 
     init() {
         Fonts.applyAppearance()
-        // Screenshots: -HoloNewHome turns the new Home on.
-        Labs.applyLaunchArguments()
+        // Screenshots: which half of Collection opens (see CollectionMode).
+        CollectionMode.applyLaunchArguments()
         // A bigger download cache, so pictures (set banners, cards) come back from the phone's
         // storage on the next launch instead of over the network.
         URLCache.shared = URLCache(memoryCapacity: 32 * 1024 * 1024, diskCapacity: 300 * 1024 * 1024)
@@ -176,6 +176,8 @@ enum Demo {
 
 struct MainTabView: View {
     @State private var tab: HomeTab = {
+        // Overview's pages (-HoloPage) open from Collection's Summary.
+        if Demo.value("-HoloPage") != nil { return .collection }
         switch Demo.value("-HoloTab") {
         case "collection": return .collection
         case "explore": return .explore
@@ -197,8 +199,7 @@ struct MainTabView: View {
     @State private var browsing = false
     @State private var router = Router.shared
     @State private var notifications = NotificationExplainer.shared
-    /// The new Home on trial (see `Labs`): the first tab is named Home.
-    @AppStorage(Labs.newHomeKey) private var newHome = false
+    @State private var recapOpen = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     enum HomeTab { case home, collection, explore, deal }
@@ -218,7 +219,7 @@ struct MainTabView: View {
         TabView(selection: $tab) {
             // The pages take an action, which SwiftUI can't compare, so without `StablePage`
             // every tab switch or tap on the + re-ran all of them.
-            StablePage { HomeTabRoot(onScan: { startScan() }) }
+            StablePage { MarketHomeView() }
                 .equatable()
                 .tag(HomeTab.home)
                 .toolbar(.hidden, for: .tabBar)
@@ -254,7 +255,7 @@ struct MainTabView: View {
             if !router.tabBarHidden && !(tab == .deal && router.dealDocked) {
             HoloTabBar(
                 items: [
-                    newHome ? .init(tab: .home, title: "Home", icon: "house") : .init(tab: .home, title: "Overview", icon: "chart.line.uptrend.xyaxis"),
+                    .init(tab: .home, title: "Home", icon: "house"),
                     .init(tab: .collection, title: "Collection", icon: "square.grid.2x2"),
                     .init(tab: .explore, title: "Explore", icon: "safari"),
                     .init(tab: .deal, title: "Deal", icon: "arrow.left.arrow.right", iconSize: 17),
@@ -295,6 +296,9 @@ struct MainTabView: View {
         }
         .animation(.easeOut(duration: 0.25), value: router.pull)
         .onChange(of: router.scanRequest) { _, _ in startScan() }
+        // From a tapped notification: the weekly recap, whichever tab is open.
+        .onChange(of: router.recapRequest) { _, _ in recapOpen = true }
+        .fullScreenCover(isPresented: $recapOpen) { WeeklyRecap(store: store) }
         .onChange(of: router.searchRequest) { _, _ in searching = true }
         // One line on why before the notifications prompt, the first time something asks for it.
         .sheet(isPresented: Binding(get: { notifications.pending }, set: { if !$0 { notifications.answer(false) } })) {
@@ -303,7 +307,14 @@ struct MainTabView: View {
         .onChange(of: router.tabRequest) { _, request in
             switch request {
             case "home": tab = .home
-            case "collection": tab = .collection
+            // "collection" opens the grid (Cards): View sealed, See all, the menu's Collection.
+            // "collection-summary" opens Summary (Home's collection strip).
+            case "collection":
+                UserDefaults.standard.set("cards", forKey: CollectionMode.key)
+                tab = .collection
+            case "collection-summary":
+                UserDefaults.standard.set("summary", forKey: CollectionMode.key)
+                tab = .collection
             case "explore": tab = .explore
             case "deal": tab = .deal
             default: break

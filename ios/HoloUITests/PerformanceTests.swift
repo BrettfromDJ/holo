@@ -73,6 +73,12 @@ final class PerformanceTests: XCTestCase {
 
     /// CPU while Overview sits still (the floating fan and ticker run here).
     func testIdleOverview() {
+        let app = launch(["-HoloTab", "collection", "-HoloCollectionMode", "summary"])
+        measure(metrics: [XCTCPUMetric(application: app)], options: options(3)) { sleep(3) }
+    }
+
+    /// CPU while Home sits still (the card of the day drifts, its rays turn and sparks rise here).
+    func testIdleHome() {
         let app = launch([])
         measure(metrics: [XCTCPUMetric(application: app)], options: options(3)) { sleep(3) }
     }
@@ -90,7 +96,7 @@ final class PerformanceTests: XCTestCase {
     func testScrollOverview() { runScrollOverview([]) }
 
     private func runScrollOverview(_ extra: [String]) {
-        let app = launch(extra)
+        let app = launch(["-HoloTab", "collection", "-HoloCollectionMode", "summary"] + extra)
         measure(metrics: [XCTClockMetric(), XCTCPUMetric(application: app)], options: options(3)) {
             for _ in 0 ..< 3 { app.swipeUp(velocity: .fast) }
             for _ in 0 ..< 3 { app.swipeDown(velocity: .fast) }

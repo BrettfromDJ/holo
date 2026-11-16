@@ -52,7 +52,7 @@ struct HomeView: View {
             // No scroll bar beside the placeholder while loading.
             .scrollIndicators(store.status == .ready ? .automatic : .hidden)
             // A tap on this tab (from anywhere) closes pushed pages and scrolls back to the top.
-            .tabTopReset("home", path: $path)
+            .tabTopReset("collection", path: $path)
             .background(Theme.background)
             .imageMaxPixel(720)
             .replaysAnimations()
@@ -120,7 +120,7 @@ struct HomeView: View {
             }
             .toolbarBackground(.hidden, for: .navigationBar)
             .navigationBarTitleDisplayMode(.inline)
-            .collectionPageTitle("Overview")
+            .collectionPageTitle()
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
             .environment(\.openHolding) { identity in opened = OpenedHolding(identity: identity) }
             .sheet(item: $opened) { o in
@@ -178,8 +178,7 @@ struct HomeView: View {
             .fullScreenCover(isPresented: $search) { SearchScreen() }
             .fullScreenCover(isPresented: $addSearch) { SearchScreen(mode: .add) }
             .fullScreenCover(isPresented: $recap) { WeeklyRecap(store: store) }
-            // From a tapped notification: the weekly recap, or Master Sets.
-            .onChange(of: Router.shared.recapRequest) { _, _ in recap = true }
+            // From a tapped notification: Master Sets (the weekly recap opens from the tab view).
             .onChange(of: Router.shared.masterSetsRequest) { _, _ in path.append(MorePage.masterSets) }
             .confirmationDialog("Add to your collection", isPresented: $adding) {
                 Button("Scan cards") { onScan() }
