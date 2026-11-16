@@ -771,10 +771,9 @@ private struct EmptyScanTray: View {
             }
             VStack(spacing: 4) {
                 Text("Tap to scan").font(.display(20)).tracking(-0.4)
-                Text("Hold a card in the frame, then tap the screen. Scan as many as you\u{00A0}like.")
-                    .font(.geist(13)).foregroundStyle(Theme.muted)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
+                // Lines of even length, centred.
+                BalancedText(text: "Hold a card in the frame, then tap the screen. Scan as many as you like.",
+                             font: .geist(13), lineGap: 1, color: Theme.muted, alignment: .center)
             }
             .padding(.horizontal, 32)
         }
