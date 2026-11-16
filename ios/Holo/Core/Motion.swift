@@ -301,14 +301,25 @@ extension View {
     }
 }
 
+/// True on a page kept built out of sight (the Collection tab before you open it): its loops stay paused.
+private struct PageHiddenKey: EnvironmentKey { static let defaultValue = false }
+
+extension EnvironmentValues {
+    var pageHidden: Bool {
+        get { self[PageHiddenKey.self] }
+        set { self[PageHiddenKey.self] = newValue }
+    }
+}
+
 private struct VisibilityChange: ViewModifier {
     var action: (Bool) -> Void
     @Environment(\.onGlassSheet) private var onGlass
+    @Environment(\.pageHidden) private var hidden
     @State private var seen = false
 
     /// Loops run only when seen, not inside a glass sheet, and not under one: anything moving
     /// behind or on a glass sheet makes iOS redraw its blur every frame, and taps feel slow.
-    private func report() { action(seen && !onGlass && !SheetCover.shared.isOpen) }
+    private func report() { action(seen && !hidden && !onGlass && !SheetCover.shared.isOpen) }
 
     func body(content: Content) -> some View {
         let covered = SheetCover.shared.isOpen
@@ -318,10 +329,12 @@ private struct VisibilityChange: ViewModifier {
                 .onAppear { seen = true; report() }
                 .onDisappear { seen = false; report() }
                 .onChange(of: covered) { _, _ in report() }
+                .onChange(of: hidden) { _, _ in report() }
         } else {
             content
                 .onAppear { seen = true; report() }
                 .onDisappear { seen = false; report() }
+                .onChange(of: hidden) { _, _ in report() }
                 .onChange(of: covered) { _, _ in report() }
         }
     }

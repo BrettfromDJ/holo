@@ -194,6 +194,9 @@ struct MainTabView: View {
     @State private var router = Router.shared
     @State private var notifications = NotificationExplainer.shared
     @State private var recapOpen = false
+    /// Collection is built a moment after launch, out of sight, so the first tap on its tab
+    /// doesn't wait for it (building it then took about a second).
+    @State private var collectionBuilt = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     enum HomeTab { case home, collection, explore, deal }
@@ -210,6 +213,7 @@ struct MainTabView: View {
     }
 
     var body: some View {
+        ZStack {
         TabView(selection: $tab) {
             // The pages take an action, which SwiftUI can't compare, so without `StablePage`
             // every tab switch or tap on the + re-ran all of them.
@@ -217,8 +221,8 @@ struct MainTabView: View {
                 .equatable()
                 .tag(HomeTab.home)
                 .toolbar(.hidden, for: .tabBar)
-            StablePage { CollectionTabRoot(onScan: { startScan() }) }
-                .equatable()
+            // Collection itself lives above the tabs (below), kept built once made.
+            Color.clear
                 .tag(HomeTab.collection)
                 .toolbar(.hidden, for: .tabBar)
             ExploreView()
@@ -227,6 +231,21 @@ struct MainTabView: View {
             DealView()
                 .tag(HomeTab.deal)
                 .toolbar(.hidden, for: .tabBar)
+        }
+        if collectionBuilt || tab == .collection {
+            // Out of sight (and its loops paused) until its tab is picked; then it's already there.
+            StablePage { CollectionTabRoot(onScan: { startScan() }) }
+                .equatable()
+                .environment(\.pageHidden, tab != .collection)
+                .opacity(tab == .collection ? 1 : 0)
+                .allowsHitTesting(tab == .collection)
+                .accessibilityHidden(tab != .collection)
+        }
+        }
+        .task {
+            // After Home has drawn and settled.
+            try? await Task.sleep(for: .seconds(1.2))
+            collectionBuilt = true
         }
         // Every page, and everything pushed on it: a fully clear top bar (no iOS 26 tinted blur).
         .clearTopEdge()
