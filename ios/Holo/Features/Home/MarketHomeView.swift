@@ -603,6 +603,8 @@ private struct TopTenRow: View {
             .padding(.vertical, 4)
             .padding(.top, 10)
         }
+        // The crown and No. 1's sparks reach above the row: not cut off at its top.
+        .scrollClipDisabled()
         .onVisibilityChange { on in
             guard on, !revealed else { return }
             if reduceMotion { var t = Transaction(); t.disablesAnimations = true; withTransaction(t) { revealed = true } } else { revealed = true }
