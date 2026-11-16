@@ -12,8 +12,8 @@ struct MarketHomeView: View {
     /// The newest set's most valuable singles.
     @State private var chase: (set: ExploreSet, hits: [SearchHit])?
     @State private var path = NavigationPath()
-    /// Rising by era: which era's row is showing.
-    @State private var era = "modern"
+    /// Rising by era: which era's row is showing ("" until picked: the first with risers).
+    @State private var era = ""
 
     private var today: String { Format.day() }
     private var upcoming: [ExploreSet] {
@@ -105,18 +105,25 @@ struct MarketHomeView: View {
         if trending.count > 2 {
             section("Top 10 this week", "Singles rising most in 7 days") { TopTenRow(hits: Array(trending.prefix(10))) }
         }
-        if let eras = index.eras {
-            // Only the eras with risers get a chip.
-            let options = [("modern", "Modern", eras.modern), ("midEra", "Mid-era", eras.midEra), ("vintage", "Vintage", eras.vintage)].filter { !$0.2.isEmpty }
-            if let first = options.first {
-                let pick = options.contains { $0.0 == era } ? era : first.0
-                section("Rising by era", "This week's risers, from modern to vintage") {
-                    VStack(alignment: .leading, spacing: 14) {
-                        ChipPicker(options: options.map { ($0.0, $0.1) }, selection: Binding(get: { pick }, set: { era = $0 }))
-                            .fixedSize()
+        if let eras = index.eras, !(eras.modern.isEmpty && eras.midEra.isEmpty && eras.vintage.isEmpty) {
+            // All three chips, always; an era with no risers this week says so.
+            let options = [("modern", "Modern", eras.modern), ("midEra", "Mid-era", eras.midEra), ("vintage", "Vintage", eras.vintage)]
+            // Open on the first era that has risers.
+            let pick = era.isEmpty ? (options.first { !$0.2.isEmpty }?.0 ?? "modern") : era
+            let hits = options.first { $0.0 == pick }?.2 ?? []
+            section("Rising by era", "This week's risers, from modern to vintage") {
+                VStack(alignment: .leading, spacing: 14) {
+                    ChipPicker(options: options.map { ($0.0, $0.1) }, selection: Binding(get: { pick }, set: { era = $0 }))
+                        .fixedSize()
+                        .padding(.horizontal, 16)
+                    if hits.isEmpty {
+                        Text("No big movers in this era this\u{00A0}week.")
+                            .font(.geist(14)).foregroundStyle(Theme.muted)
+                            .frame(maxWidth: .infinity, minHeight: 120)
+                            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [4, 4])))
                             .padding(.horizontal, 16)
-                        MoverCarousel(hits: options.first { $0.0 == pick }?.2 ?? [])
-                            .id(pick)
+                    } else {
+                        MoverCarousel(hits: hits).id(pick)
                     }
                 }
             }
