@@ -392,6 +392,8 @@ private struct ScanTray: View {
     private var tray: some View {
         let shape = UnevenRoundedRectangle(topLeadingRadius: 30, topTrailingRadius: 30, style: .continuous)
         return VStack(spacing: 0) {
+            // Nothing scanned yet: just the how-to (no header, no $0.00 total or greyed buttons).
+            if !model.entries.isEmpty {
             HStack {
                 // What this scan is, and the running total.
                 HStack(spacing: 8) {
@@ -426,6 +428,7 @@ private struct ScanTray: View {
             }
             .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 12)
             Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+            }
             Group {
                 if expanded {
                     // Every scan, top to bottom, newest first.
@@ -442,18 +445,7 @@ private struct ScanTray: View {
                     }
                     .scrollClipDisabled()
                 } else if model.entries.isEmpty {
-                    HStack(spacing: 12) {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
-                            .frame(width: 48, height: 64)
-                            .overlay(Image(systemName: "rectangle.on.rectangle").font(.system(size: 16)).foregroundStyle(.white))
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("No cards yet").font(.geist(15, .semibold))
-                            Text("Hold a card in view, then tap\u{00A0}it.").font(.geist(13)).foregroundStyle(.white)
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.horizontal, 20)
+                    EmptyScanTray()
                 } else if let latest = model.entries.first {
                     // The card you just scanned, big: its picture, then what it is, its price and
                     // its printing and condition to change right here. The count above opens the rest.
@@ -467,8 +459,9 @@ private struct ScanTray: View {
                         .padding(.horizontal, 16)
                 }
             }
-            .frame(height: expanded ? min(CGFloat(model.entries.count) * 120 + 16, 480) : (model.entries.isEmpty ? 128 : 222))
+            .frame(height: expanded ? min(CGFloat(model.entries.count) * 120 + 16, 480) : (model.entries.isEmpty ? 196 : 222))
             .padding(.vertical, 4)
+            if !model.entries.isEmpty {
             Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 1) {
@@ -504,6 +497,7 @@ private struct ScanTray: View {
                 .disabled(model.entries.isEmpty)
             }
             .padding(.horizontal, 20).padding(.top, 14).padding(.bottom, 10)
+            }
         }
         .foregroundStyle(.white)
         // Solid black, not glass: the camera behind made the tray's text and tiles hard to read.
@@ -758,6 +752,41 @@ struct ScanListRow: View {
         .buttonStyle(.borderless)
         .fixedSize()
         .accessibilityLabel("\(p.word) \(p.price ?? ""). Edit purchase details")
+    }
+}
+
+/// The tray before anything is scanned: three card outlines, the middle one in the lime scan
+/// corners, and how to scan. Still: nothing moves.
+private struct EmptyScanTray: View {
+    var body: some View {
+        VStack(spacing: 14) {
+            HStack(spacing: -10) {
+                ghost.rotationEffect(.degrees(-9)).offset(y: 6)
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(Color.white.opacity(0.06))
+                    .frame(width: 58, height: 81)
+                    .overlay(ScanCorners(radius: 7).stroke(Theme.lime, style: StrokeStyle(lineWidth: 2, lineCap: .round)))
+                    .zIndex(1)
+                ghost.rotationEffect(.degrees(9)).offset(y: 6)
+            }
+            VStack(spacing: 4) {
+                Text("Tap to scan").font(.display(20)).tracking(-0.4)
+                Text("Hold a card in the frame, then tap the screen. Scan as many as you\u{00A0}like.")
+                    .font(.geist(13)).foregroundStyle(Theme.muted)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, 32)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 18)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var ghost: some View {
+        RoundedRectangle(cornerRadius: 6, style: .continuous)
+            .strokeBorder(Color.white.opacity(0.16), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+            .frame(width: 48, height: 67)
     }
 }
 
