@@ -527,8 +527,11 @@ struct CollectionView: View {
         let productId = h.identity.productId
         // Select mode, starting with this card picked: tap others to add them.
         Button {
-            picked = [h.identity.key]
+            let key = h.identity.key
             selecting = true
+            // After the menu has closed and the grid has switched into select mode, so the pick
+            // isn't lost in that change.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { picked = [key] }
         } label: { Label("Select", systemImage: "checkmark.circle") }
         Divider()
         Button { selling = h } label: { Label("Sell", systemImage: "dollarsign.circle") }
@@ -662,6 +665,16 @@ struct CollectionView: View {
                         .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
+                // The way out, always on screen (the Done at the top scrolls away with the page).
+                Button { leaveSelecting() } label: {
+                    Text("Done")
+                        .font(.geist(14, .semibold)).foregroundStyle(Theme.ink)
+                        .padding(.horizontal, 18).frame(height: 38)
+                        .background(Capsule().fill(Theme.lime))
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("collection-done")
             }
             Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
             HStack(spacing: 0) {
