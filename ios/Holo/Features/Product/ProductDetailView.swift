@@ -407,45 +407,16 @@ struct ProductDetailView: View {
     // MARK: The action row
 
     private var actions: some View {
-        HStack(spacing: 6) {
-            // While a deal is open the row gains a button, so "Add to collection" says just "Add".
+        HStack(spacing: 8) {
+            // While a deal is open the row gains a button, so "Add to Collection" says just "Add".
             let dealOpen = deals.deal.kind != .empty
-            Button { adding = true } label: { Label(owned.isEmpty ? (dealOpen ? "Add" : "Add to collection") : "Add more", systemImage: "plus") }
-                .buttonStyle(Button3D(kind: .light, fullWidth: false, height: 36))
+            // The same lime button as Overview's. Selling, What if, watching, the wishlist, lists
+            // and portfolios are all in the ⋯ menu at the top right.
+            Button { adding = true } label: { Label(owned.isEmpty ? (dealOpen ? "Add" : "Add to Collection") : "Add more", systemImage: "plus").lineLimit(1) }
+                .buttonStyle(Button3D(kind: .lime, height: 48))
+                // No looping sheen or glow (like Overview's): the page should rest when still.
+                .environment(\.inGlassBar, true)
             DealAddButton(product: product, printing: printing, market: headline, owned: owned)
-            if !owned.isEmpty {
-                // What if I sell? (like the website), then record a sale.
-                if owned.count == 1 {
-                    Button { whatIf = owned.first } label: { Image(systemName: "plus.forwardslash.minus") }.buttonStyle(IconButton3D(size: 36)).accessibilityLabel("What if I sell?")
-                } else {
-                    Menu {
-                        ForEach(owned) { h in Button("\(h.label ?? "Near Mint") ×\(Int(h.quantity))") { whatIf = h } }
-                    } label: { Image(systemName: "plus.forwardslash.minus") }
-                        .menuStyle(.button).buttonStyle(IconButton3D(size: 36)).accessibilityLabel("What if I sell?")
-                }
-                if owned.count == 1 {
-                    Button { selling = owned.first } label: { Image(systemName: "tag") }.buttonStyle(IconButton3D(size: 36)).accessibilityLabel("Sell")
-                } else {
-                    Menu {
-                        ForEach(owned) { h in Button("\(h.label ?? "Near Mint") ×\(Int(h.quantity))") { selling = h } }
-                    } label: { Image(systemName: "tag") }
-                        .menuStyle(.button).buttonStyle(IconButton3D(size: 36)).accessibilityLabel("Sell")
-                }
-            }
-            let watch = store.watch(for: productId)
-            Button {
-                if let watch { Task { await run { try await store.removeWatch(watch.id) } } } else { watching = true }
-            } label: { Image(systemName: watch == nil ? "eye" : "eye.fill") }
-                .buttonStyle(IconButton3D(size: 36, active: watch != nil))
-                .accessibilityLabel(watch == nil ? "Watch price" : "Stop watching")
-            let wish = store.wish(for: productId)
-            Button {
-                guard let product else { return }
-                Task { await run { if let wish { try await store.removeWish(wish.id) } else { try await store.addWish(product, printing: printing, price: price?.market) } } }
-            } label: { Image(systemName: wish == nil ? "heart" : "heart.fill") }
-                .buttonStyle(IconButton3D(size: 36, active: wish != nil))
-                .accessibilityLabel(wish == nil ? "Add to wishlist" : "Remove from wishlist")
-            groupsMenu
         }
         .alert("New list", isPresented: $naming) {
             TextField("Grails, For sale at the show…", text: $newShelf)
@@ -499,6 +470,19 @@ struct ProductDetailView: View {
                     }
                     Button { naming = true } label: { Label("New list…", systemImage: "plus") }
                 } label: { Label("Lists", systemImage: "square.stack") }
+                if !owned.isEmpty, !groups.portfolios.isEmpty {
+                    // A check on every portfolio your copies show in; picking one moves them there.
+                    let current = Set(owned.flatMap { groups.portfoliosOf($0.identity.key) })
+                    Menu {
+                        ForEach([GroupsStore.main] + groups.portfolios.map(\.id), id: \.self) { id in
+                            Button {
+                                Task { await run { try await groups.moveMany(owned.map(\.identity.key), to: id, store: store) } }
+                            } label: {
+                                if current.contains(id) { Label(groups.name(of: id), systemImage: "checkmark") } else { Text(groups.name(of: id)) }
+                            }
+                        }
+                    } label: { Label("Portfolio", systemImage: "folder") }
+                }
             }
             Section {
                 Button { viewingArt = true } label: { Label("View full screen", systemImage: "arrow.up.left.and.arrow.down.right") }
@@ -523,41 +507,6 @@ struct ProductDetailView: View {
                 ForEach(owned) { h in Button("\(h.label ?? "Near Mint") \u{00D7}\(Int(h.quantity))") { pick(h) } }
             } label: { Label(title, systemImage: icon) }
         }
-    }
-
-    /// Shelves this product is on, and which portfolio your copies are in (shared with the website).
-    private var groupsMenu: some View {
-        Menu {
-            Section("Lists") {
-                ForEach(groups.shelves) { shelf in
-                    Button {
-                        Task { await run { try await groups.toggle(shelf.id, productId: productId) } }
-                    } label: {
-                        if shelf.product_ids.contains(productId) { Label(shelf.name, systemImage: "checkmark") } else { Text(shelf.name) }
-                    }
-                }
-                Button { naming = true } label: { Label("New list…", systemImage: "plus") }
-            }
-            if !owned.isEmpty, !groups.portfolios.isEmpty {
-                // A check on every portfolio your copies show in; picking one moves them there.
-                let current = Set(owned.flatMap { groups.portfoliosOf($0.identity.key) })
-                Section("Portfolio") {
-                    ForEach([GroupsStore.main] + groups.portfolios.map(\.id), id: \.self) { id in
-                        Button {
-                            Task { await run { try await groups.moveMany(owned.map(\.identity.key), to: id, store: store) } }
-                        } label: {
-                            if current.contains(id) { Label(groups.name(of: id), systemImage: "checkmark") } else { Text(groups.name(of: id)) }
-                        }
-                    }
-                }
-            }
-        } label: {
-            // The shelf icon (as in Collection's "Add to list"), filled when it's on a shelf.
-            Image(systemName: groups.shelves.contains { $0.product_ids.contains(productId) } ? "square.stack.fill" : "square.stack")
-        }
-        .menuStyle(.button)
-        .buttonStyle(IconButton3D(size: 36))
-        .accessibilityLabel("Add to list")
     }
 
     // MARK: Your position
