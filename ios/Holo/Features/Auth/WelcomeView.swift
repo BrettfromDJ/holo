@@ -9,7 +9,7 @@ private let welcomeSoft = Color.white.opacity(0.62)
 /// so each page's moving picture pauses unless it's showing.
 private struct WelcomeActiveKey: EnvironmentKey { static let defaultValue = true }
 
-private extension EnvironmentValues {
+extension EnvironmentValues {
     var welcomeActive: Bool {
         get { self[WelcomeActiveKey.self] }
         set { self[WelcomeActiveKey.self] = newValue }
