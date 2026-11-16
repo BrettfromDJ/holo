@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Product } from "../types";
-import { isBoosterBox, isCodeCard, pickBoosterBoxes, pickMovers, type MoverPriceRow } from "./movers";
+import { eraOf, isBoosterBox, isCodeCard, pickBoosterBoxes, pickMovers, type MoverPriceRow } from "./movers";
 
 function product(id: string, name: string, extra: Partial<Product> = {}): Product {
   return {
@@ -118,5 +118,16 @@ describe("pickBoosterBoxes", () => {
     expect(boxes.map((b) => b.product.id)).toEqual(["es", "op"]);
     expect(boxes[1]).toMatchObject({ market: 420, printing: "Normal", change30dPct: -6.5, change7dPct: -3 });
     expect(pickBoosterBoxes(products, rows, { limit: 1 })).toHaveLength(1);
+  });
+});
+
+describe("eraOf", () => {
+  it("splits sets into vintage, mid-era and modern by release date", () => {
+    expect(eraOf("1999-01-09")).toBe("vintage");
+    expect(eraOf("2003-03-18")).toBe("vintage"); // Skyridge
+    expect(eraOf("2003-07-01")).toBe("midEra"); // EX Ruby & Sapphire
+    expect(eraOf("2019-11-01")).toBe("midEra"); // Cosmic Eclipse
+    expect(eraOf("2020-02-07")).toBe("modern"); // Sword & Shield
+    expect(eraOf(null)).toBeNull();
   });
 });

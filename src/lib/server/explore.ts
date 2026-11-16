@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { EMPTY_MARKET, HOT_SEALED_MIN_PRICE, isBoosterBox, pickBoosterBoxes, pickMovers, type ExploreMarket, type MoverPriceRow } from "../explore/movers";
+import { EMPTY_MARKET, eraOf, HOT_SEALED_MIN_PRICE, isBoosterBox, pickBoosterBoxes, pickMovers, type Era, type ExploreMarket, type MoverPriceRow } from "../explore/movers";
 import type { ExploreProduct, ExploreSet } from "../explore/types";
 import type { Product } from "../types";
 import type { CatalogSetRow, Database, ProductRow } from "../supabase/database.types";
@@ -120,6 +120,17 @@ export async function withPrices(admin: SupabaseClient<Database>, rows: ProductR
   });
 }
 
+/** Release dates ("YYYY-MM-DD"), by set slug. */
+async function releaseDates(admin: SupabaseClient<Database>, setIdList: (string | null)[]): Promise<Map<string, string>> {
+  const setIds = [...new Set(setIdList.filter((x): x is string => Boolean(x)))];
+  const dates = new Map<string, string>();
+  for (let i = 0; i < setIds.length; i += 300) {
+    const { data } = await admin.from("catalog_sets").select("slug, release_date").in("slug", setIds.slice(i, i + 300));
+    for (const s of data ?? []) if (s.release_date) dates.set(s.slug, s.release_date);
+  }
+  return dates;
+}
+
 /** Brand names, from each product's set. */
 async function brandNames(admin: SupabaseClient<Database>, setIdList: (string | null)[]): Promise<Map<string, string>> {
   const setIds = [...new Set(setIdList.filter((x): x is string => Boolean(x)))];
@@ -182,6 +193,9 @@ export async function exploreMarket(admin: SupabaseClient<Database>): Promise<Ex
     ]);
     // After the others, so its read never slows them into failing; any failure just leaves it empty.
     const dayRes = await dayQuery();
+    // A deeper read of weekly risers for the era rows (modern fills the top of the list, so older
+    // sets need a longer look). Also after the others, and also allowed to fail.
+    const eraRes = await moversQuery(false, 5, 800);
     if (upRes.error) throw new Error(upRes.error.message);
     if (downRes.error) throw new Error(downRes.error.message);
     const up = (upRes.data ?? []) as MoverPriceRow[];
@@ -190,6 +204,7 @@ export async function exploreMarket(admin: SupabaseClient<Database>): Promise<Ex
     const sealedUp = sealedUpRes.error ? [] : ((sealedUpRes.data ?? []) as MoverPriceRow[]);
     // Today's movers are extra too.
     const dayUp = dayRes.error ? [] : ((dayRes.data ?? []) as MoverPriceRow[]);
+    const eraUp = eraRes.error ? [] : ((eraRes.data ?? []) as MoverPriceRow[]);
 
     const boxes = boxRows.map(productFromRow).filter(isBoosterBox);
     const boxPrices: MoverPriceRow[] = [];
@@ -198,15 +213,30 @@ export async function exploreMarket(admin: SupabaseClient<Database>): Promise<Ex
       boxPrices.push(...((data ?? []) as MoverPriceRow[]));
     }
 
-    const products = await productsById(admin, [...up, ...down, ...sealedUp, ...dayUp].map((r) => r.product_id));
+    const products = await productsById(admin, [...up, ...down, ...sealedUp, ...dayUp, ...eraUp].map((r) => r.product_id));
     const trendingRaw = pickMovers(up, products, "up");
     const dropsRaw = pickMovers(down, products, "down");
     const hotSealedRaw = pickMovers(sealedUp, products, "up", { kind: "sealed", minPrice: HOT_SEALED_MIN_PRICE });
     const todayRaw = pickMovers(dayUp, products, "up", { by: "24h", minPrice: 10, limit: 5 });
+    // Each era's top risers, by its set's release date.
+    const released = await releaseDates(admin, eraUp.map((r) => products.get(r.product_id)?.setId ?? null));
+    const eraFor = (r: MoverPriceRow): Era | null => {
+      const setId = products.get(r.product_id)?.setId;
+      return setId ? eraOf(released.get(setId)) : null;
+    };
+    const erasRaw: Record<Era, ReturnType<typeof pickMovers>> = {
+      modern: pickMovers(eraUp.filter((r) => eraFor(r) === "modern"), products, "up", { limit: 10 }),
+      midEra: pickMovers(eraUp.filter((r) => eraFor(r) === "midEra"), products, "up", { limit: 10 }),
+      vintage: pickMovers(eraUp.filter((r) => eraFor(r) === "vintage"), products, "up", { limit: 10 }),
+    };
     const boxesRaw = pickBoosterBoxes(boxes, boxPrices);
-    const brands = await brandNames(admin, [...trendingRaw, ...todayRaw, ...dropsRaw, ...hotSealedRaw, ...boxesRaw].map((m) => m.product.setId));
+    const brands = await brandNames(admin, [...trendingRaw, ...todayRaw, ...erasRaw.modern, ...erasRaw.midEra, ...erasRaw.vintage, ...dropsRaw, ...hotSealedRaw, ...boxesRaw].map((m) => m.product.setId));
     const named = <T extends { product: Product; gameName?: string | null }>(m: T): T => ({ ...m, gameName: m.product.setId ? (brands.get(m.product.setId) ?? null) : null });
-    return { trending: trendingRaw.map(named), today: todayRaw.map(named), drops: dropsRaw.map(named), hotSealed: hotSealedRaw.map(named), boosterBoxes: boxesRaw.map(named) };
+    return {
+      trending: trendingRaw.map(named),
+      today: todayRaw.map(named),
+      eras: { modern: erasRaw.modern.map(named), midEra: erasRaw.midEra.map(named), vintage: erasRaw.vintage.map(named) },
+      drops: dropsRaw.map(named), hotSealed: hotSealedRaw.map(named), boosterBoxes: boxesRaw.map(named) };
   } catch (e) {
     console.error("explore market", e);
     return EMPTY_MARKET;

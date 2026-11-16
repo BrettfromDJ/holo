@@ -239,13 +239,21 @@ enum DemoData {
         }
         let singles = hits.filter { !$0.product.isSealed && ($0.market ?? 0) >= 5 }
         let trending = singles.filter { ($0.change7dPct ?? 0) > 0 }.sorted { ($0.change7dPct ?? 0) > ($1.change7dPct ?? 0) }
+        // Rising by era, from each demo card's set date.
+        let dates = Dictionary(demoSets.map { ($0.0, $0.2) }, uniquingKeysWith: { a, _ in a })
+        let setOf = Dictionary(items.map { (product($0).id, $0.set) }, uniquingKeysWith: { a, _ in a })
+        let rising = trending
+        func inEra(_ era: String) -> [SearchHit] {
+            Array(rising.filter { MarketEras.era(of: setOf[$0.product.id].flatMap { dates[$0] }) == era }.prefix(10))
+        }
+        let eras = MarketEras(modern: inEra("modern"), midEra: inEra("midEra"), vintage: inEra("vintage"))
         let today = singles.filter { ($0.change24hPct ?? 0) > 0 && ($0.market ?? 0) >= 10 }.sorted { ($0.change24hPct ?? 0) > ($1.change24hPct ?? 0) }
         let drops = singles.filter { ($0.change7dPct ?? 0) < 0 }.sorted { ($0.change7dPct ?? 0) < ($1.change7dPct ?? 0) }
         let boxes = hits.filter { $0.product.productType == "Booster Box" }.sorted { ($0.market ?? 0) > ($1.market ?? 0) }
         let hotSealed = hits.filter { $0.product.isSealed && ($0.market ?? 0) >= 20 && ($0.change7dPct ?? 0) > 0 }
             .sorted { ($0.change7dPct ?? 0) > ($1.change7dPct ?? 0) }
         return ExploreIndex(games: [game], sets: upcoming + sets, trending: Array(trending.prefix(12)),
-                            today: Array(today.prefix(5)), drops: Array(drops.prefix(12)), hotSealed: Array(hotSealed.prefix(12)), boosterBoxes: Array(boxes.prefix(15)))
+                            today: Array(today.prefix(5)), eras: eras, drops: Array(drops.prefix(12)), hotSealed: Array(hotSealed.prefix(12)), boosterBoxes: Array(boxes.prefix(15)))
     }
 
     static func exploreSet(_ slug: String) -> ExploreSetDetail? {

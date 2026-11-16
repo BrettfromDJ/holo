@@ -517,6 +517,20 @@ struct ExploreSet: Codable, Identifiable, Hashable {
     var release: Date? { releaseDate.flatMap { Format.isoDay.date(from: String($0.prefix(10))) } }
 }
 
+/// Singles rising most this week, split by their set's era: vintage before EX Ruby & Sapphire
+/// (mid-2003), mid-era through Sun & Moon, modern from Sword & Shield (2020). Same split as the
+/// website's `eraOf`.
+struct MarketEras: Codable, Hashable {
+    var modern: [SearchHit] = []
+    var midEra: [SearchHit] = []
+    var vintage: [SearchHit] = []
+
+    static func era(of releaseDate: String?) -> String? {
+        guard let d = releaseDate.map({ String($0.prefix(10)) }), !d.isEmpty else { return nil }
+        return d < "2003-06-01" ? "vintage" : d < "2020-01-01" ? "midEra" : "modern"
+    }
+}
+
 struct ExploreIndex: Codable {
     var games: [ExploreGame]
     var sets: [ExploreSet]
@@ -525,6 +539,8 @@ struct ExploreIndex: Codable {
     var trending: [SearchHit]? = nil
     /// Today's biggest rises (24 hours), for Home's Card of the day.
     var today: [SearchHit]? = nil
+    /// The week's biggest rises among singles, by era of their set (Home's Rising by era).
+    var eras: MarketEras? = nil
     var drops: [SearchHit]? = nil
     /// Sealed products with the biggest 7-day rise.
     var hotSealed: [SearchHit]? = nil

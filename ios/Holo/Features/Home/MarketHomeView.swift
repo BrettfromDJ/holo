@@ -12,6 +12,8 @@ struct MarketHomeView: View {
     /// The newest set's most valuable singles.
     @State private var chase: (set: ExploreSet, hits: [SearchHit])?
     @State private var path = NavigationPath()
+    /// Rising by era: which era's row is showing.
+    @State private var era = "modern"
 
     private var today: String { Format.day() }
     private var upcoming: [ExploreSet] {
@@ -91,14 +93,33 @@ struct MarketHomeView: View {
             }
             if !trending.isEmpty || !drops.isEmpty {
                 HStack(spacing: 10) {
-                    if let hot = index.today?.first == nil ? (trending.count > 1 ? trending[1] : nil) : trending.first { HotColdTile(hit: hot, hot: true) }
-                    if let cold = drops.first { HotColdTile(hit: cold, hot: false) }
+                    // The week's top risers (after Card of the day's, when that's the week's too) and
+                    // the biggest fallers, five each, cycling.
+                    let risers = Array((index.today?.first == nil ? Array(trending.dropFirst()) : trending).prefix(5))
+                    if !risers.isEmpty { HotColdTile(hits: risers, hot: true) }
+                    if !drops.isEmpty { HotColdTile(hits: Array(drops.prefix(5)), hot: false) }
                 }
             }
         }
         .padding(.horizontal, 16)
         if trending.count > 2 {
             section("Top 10 this week", "Singles rising most in 7 days") { TopTenRow(hits: Array(trending.prefix(10))) }
+        }
+        if let eras = index.eras {
+            // Only the eras with risers get a chip.
+            let options = [("modern", "Modern", eras.modern), ("midEra", "Mid-era", eras.midEra), ("vintage", "Vintage", eras.vintage)].filter { !$0.2.isEmpty }
+            if let first = options.first {
+                let pick = options.contains { $0.0 == era } ? era : first.0
+                section("Rising by era", "This week's risers, from modern to vintage") {
+                    VStack(alignment: .leading, spacing: 14) {
+                        ChipPicker(options: options.map { ($0.0, $0.1) }, selection: Binding(get: { pick }, set: { era = $0 }))
+                            .fixedSize()
+                            .padding(.horizontal, 16)
+                        MoverCarousel(hits: options.first { $0.0 == pick }?.2 ?? [])
+                            .id(pick)
+                    }
+                }
+            }
         }
         if let next = upcoming.first {
             // The next set out, with its countdown and reminder (Explore's top card).
@@ -123,8 +144,8 @@ struct MarketHomeView: View {
                 NavigationLink(value: ExploreRoute.calendar) { seeAll("Calendar") }
             }
         }
-        if drops.count > 1 {
-            section("Cooling off", "Singles down most in 7 days") { MoverCarousel(hits: Array(drops.dropFirst().prefix(10))) }
+        if drops.count > 5 {
+            section("Cooling off", "Singles down most in 7 days") { MoverCarousel(hits: Array(drops.dropFirst(5).prefix(10))) }
         }
     }
 
@@ -323,31 +344,50 @@ private struct TileParticles: View {
 /// Hot (the week's top riser, in fire) or cold (the biggest faller, in ice): the card tilted on
 /// a glow of its color with embers or snow around it, the change big underneath.
 private struct HotColdTile: View {
-    var hit: SearchHit
+    /// The cards it cycles through, about four seconds each (one stays still).
+    var hits: [SearchHit]
     var hot: Bool
+    @State private var index = 0
+    @State private var onScreen = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let glow = hot ? Color(hex: 0xFF7A1A) : Color(hex: 0x7DD3FC)
         let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
+        let hit = hits[index % max(hits.count, 1)]
         MarketLink(hit: hit) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 5) {
                     Image(systemName: hot ? "flame.fill" : "snowflake").font(.system(size: 11, weight: .bold)).foregroundStyle(glow)
                     Text(hot ? "HEATING UP" : "COOLING OFF").font(.mono(10)).tracking(1.2).foregroundStyle(.white.opacity(0.8))
-                }
-                ProductImage(product: hit.pictured, cornerRadius: 6)
-                    .frame(width: 84, height: 117)
-                    .rotationEffect(.degrees(hot ? -6 : 6))
-                    .shadow(color: glow.opacity(0.55), radius: 16)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 4)
-                Text(hit.product.name).font(.geist(13, .medium)).lineLimit(1)
-                HStack(alignment: .firstTextBaseline) {
-                    Text(Format.money(hit.market)).font(.display(17)).tracking(-0.4).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
                     Spacer(minLength: 4)
-                    Text(pctText(hit.change7dPct)).font(.display(17)).tracking(-0.4).monospacedDigit().foregroundStyle(pctTint(hit.change7dPct))
-                        .lineLimit(1).fixedSize()
+                    // Which card of the set is showing.
+                    if hits.count > 1 {
+                        HStack(spacing: 3) {
+                            ForEach(0 ..< hits.count, id: \.self) { i in
+                                Circle().fill(i == index % hits.count ? glow : Color.white.opacity(0.25)).frame(width: 4, height: 4)
+                            }
+                        }
+                    }
                 }
+                // The card and its figures change together, fading through.
+                VStack(alignment: .leading, spacing: 10) {
+                    ProductImage(product: hit.pictured, cornerRadius: 6)
+                        .frame(width: 84, height: 117)
+                        .rotationEffect(.degrees(hot ? -6 : 6))
+                        .shadow(color: glow.opacity(0.55), radius: 16)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 4)
+                    Text(hit.product.name).font(.geist(13, .medium)).lineLimit(1)
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(Format.money(hit.market)).font(.display(17)).tracking(-0.4).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
+                        Spacer(minLength: 4)
+                        Text(pctText(hit.change7dPct)).font(.display(17)).tracking(-0.4).monospacedDigit().foregroundStyle(pctTint(hit.change7dPct))
+                            .lineLimit(1).fixedSize()
+                    }
+                }
+                .id(hit.id)
+                .transition(.opacity)
             }
             .foregroundStyle(.white)
             .padding(14)
@@ -361,6 +401,17 @@ private struct HotColdTile: View {
                 .clipShape(shape)
             }
             .overlay(shape.strokeBorder(glow.opacity(0.35), lineWidth: 1))
+        }
+        .onVisibilityChange { visible in if visible != onScreen { onScreen = visible } }
+        // Cycles only while on screen; the cold tile starts half a beat later so the two
+        // don't change at the same moment.
+        .task(id: onScreen && hits.count > 1) {
+            guard onScreen, hits.count > 1 else { return }
+            try? await Task.sleep(for: .seconds(hot ? 4 : 6))
+            while !Task.isCancelled {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.45)) { index += 1 }
+                try? await Task.sleep(for: .seconds(4))
+            }
         }
     }
 }

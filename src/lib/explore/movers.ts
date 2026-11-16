@@ -15,13 +15,30 @@ export interface ExploreMarket {
   trending: ExploreMover[];
   /** Today's biggest rises among raw singles (the app's Card of the day). */
   today: ExploreMover[];
+  /** The biggest weekly rises among singles by era of their set (see `eraOf`). */
+  eras: Record<Era, ExploreMover[]>;
   drops: ExploreMover[];
   /** Hot sealed: the biggest weekly rises among sealed products (any kind, never code cards). */
   hotSealed: ExploreMover[];
   boosterBoxes: ExploreMover[];
 }
 
-export const EMPTY_MARKET: ExploreMarket = { trending: [], today: [], drops: [], hotSealed: [], boosterBoxes: [] };
+export const EMPTY_MARKET: ExploreMarket = { trending: [], today: [], eras: { modern: [], midEra: [], vintage: [] }, drops: [], hotSealed: [], boosterBoxes: [] };
+
+export type Era = "modern" | "midEra" | "vintage";
+
+/**
+ * A set's era by its release date, as collectors split them: vintage before EX Ruby & Sapphire
+ * (mid-2003, the end of the Wizards of the Coast years), mid-era from then through Sun & Moon,
+ * modern from Sword & Shield (2020) on. Null without a date.
+ */
+export function eraOf(releaseDate: string | null | undefined): Era | null {
+  if (!releaseDate) return null;
+  const day = releaseDate.slice(0, 10);
+  if (day < "2003-06-01") return "vintage";
+  if (day < "2020-01-01") return "midEra";
+  return "modern";
+}
 
 /** Sealed starts higher: a $6 pack moving 30% isn't "hot". */
 export const HOT_SEALED_MIN_PRICE = 20;
