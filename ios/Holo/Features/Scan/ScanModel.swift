@@ -248,6 +248,13 @@ final class ScanModel {
     func setDraft(_ id: UUID, _ draft: ScanDraft?) {
         guard let i = entries.firstIndex(where: { $0.id == id }) else { return }
         entries[i].draft = draft
+        // The row shows what was picked in the purchase details: its condition and printing
+        // (and the price for them).
+        if let p = draft?.purchase {
+            if p.gradeCompany == nil, p.condition != "Sealed", CardCondition(rawValue: p.condition) != nil { entries[i].condition = p.condition }
+            if let printing = p.printing { entries[i].printing = printing }
+            reprice(i)
+        }
     }
 
     func remove(_ id: UUID) {
