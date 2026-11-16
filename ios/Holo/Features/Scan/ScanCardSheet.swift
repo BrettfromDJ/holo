@@ -45,18 +45,7 @@ struct ScanCardSheet: View {
         .sheet(isPresented: $changing) { ChangeCardSheet(model: model, id: id) }
         // Every detail, as when adding from search: kept with this card and added with the rest
         // of the scan (reopened just as it was left).
-        .sheet(isPresented: $detailing) {
-            if let entry, let c = entry.picked {
-                AddPurchaseSheet(
-                    hit: SearchHit(product: c.product, printing: entry.printing ?? c.printing, market: entry.value ?? c.market),
-                    prefill: entry.draft?.prefill ?? AddPrefill(printing: entry.printing ?? c.printing, condition: entry.condition,
-                                                                gradeCompany: entry.isSlab ? entry.result?.read?.grade?.company : nil,
-                                                                grade: entry.isSlab ? entry.result?.read?.grade?.grade : nil,
-                                                                price: entry.paid),
-                    onCollect: { model.setDraft(id, $0) }
-                )
-            }
-        }
+        .sheet(isPresented: $detailing) { ScanPurchaseSheet(model: model, id: id) }
         // The right card, picked from search, takes this scan over.
         .sheet(isPresented: $searching) {
             SearchScreen(mode: .add, onPick: { hit in model.replace(id, with: hit) })
@@ -141,7 +130,7 @@ private struct ScanPanel: View {
                             Button("Clear") { model.setDraft(id, nil) }.font(.geist(13, .semibold)).foregroundStyle(Theme.muted)
                         }
                     }
-                    action(entry.draft == nil ? "Edit this card's details" : "Change details", icon: "slider.horizontal.3", iconColor: Theme.lime, fill: Theme.lime.opacity(0.12), run: onDetails)
+                    action("Edit purchase details", icon: "slider.horizontal.3", iconColor: Theme.lime, fill: Theme.lime.opacity(0.12), run: onDetails)
                 }
                 // Two equal ways out: search for the right card, or drop this scan.
                 HStack(spacing: 10) {
@@ -515,5 +504,26 @@ enum ScanDraftSummary {
         if let s = p.source, !s.isEmpty, s != "ios", s != Txn.pulledSource { parts.append(s) }
         if let day = Format.isoDay.date(from: p.date), !Calendar.current.isDateInToday(day) { parts.append(day.formatted(.dateTime.month(.abbreviated).day())) }
         return parts.joined(separator: " · ")
+    }
+}
+
+/// A scanned card's purchase details (what you paid, bought or pulled, graded, shipping, where,
+/// when, portfolio): the add-from-search sheet, started from the scan and the scan's defaults,
+/// and kept with the card until the scan is added.
+struct ScanPurchaseSheet: View {
+    let model: ScanModel
+    let id: UUID
+
+    var body: some View {
+        if let entry = model.entries.first(where: { $0.id == id }), let c = entry.picked {
+            AddPurchaseSheet(
+                hit: SearchHit(product: c.product, printing: entry.printing ?? c.printing, market: entry.value ?? c.market),
+                prefill: entry.draft?.prefill ?? AddPrefill(printing: entry.printing ?? c.printing, condition: entry.condition,
+                                                            gradeCompany: entry.isSlab ? entry.result?.read?.grade?.company : nil,
+                                                            grade: entry.isSlab ? entry.result?.read?.grade?.grade : nil,
+                                                            price: entry.paid, pulled: model.defaultPulled),
+                onCollect: { model.setDraft(id, $0) }
+            )
+        }
     }
 }

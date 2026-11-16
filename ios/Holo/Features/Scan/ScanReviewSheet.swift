@@ -11,7 +11,10 @@ struct ScanReviewSheet: View {
     @Environment(CollectionStore.self) private var store
     @Environment(GroupsStore.self) private var groups
     @Environment(GradingStore.self) private var grading
-    @State private var pulled = false
+    /// The scan's default, bought at market or pulled (kept on the model, so a card's purchase sheet starts from it).
+    private var pulled: Bool { model.defaultPulled }
+    /// The card whose purchase details are open (from its row's Edit link).
+    @State private var purchaseFor: EditingScan?
     /// The details for the whole batch: portfolio, date, where, and shipping, tax and fees.
     @State private var details = ScanBatchDetails()
     @State private var editingDetails = false
@@ -53,7 +56,7 @@ struct ScanReviewSheet: View {
                 }
                 ForEach(model.entries) { entry in
                     // Rows are compared by value: a change to one scan redraws that row alone.
-                    ReviewRow(entry: entry, owned: owned(entry))
+                    ReviewRow(entry: entry, owned: owned(entry), pulled: pulled, onPurchase: { purchaseFor = EditingScan(id: entry.id) })
                         .equatable()
                         .contentShape(Rectangle())
                         .onTapGesture {
@@ -85,7 +88,8 @@ struct ScanReviewSheet: View {
                 Button("Done") { dismiss() }.buttonStyle(LimeButtonStyle()).padding(16)
             }
         }
-        .sheet(isPresented: $editingDetails) { ScanBatchDetailsSheet(details: $details, pulled: pulled) }
+        .sheet(isPresented: $editingDetails) { ScanBatchDetailsSheet(details: $details, pulled: $model.defaultPulled) }
+        .sheet(item: $purchaseFor) { e in ScanPurchaseSheet(model: model, id: e.id) }
         .sheet(item: $editing) { e in
             ScanCardSheet(model: model, id: e.id, onRemove: { withAnimation(.snappy) { model.remove(e.id) } })
         }
@@ -97,21 +101,17 @@ struct ScanReviewSheet: View {
         return Int(store.allHoldings.filter { $0.identity.productId == id }.reduce(0) { $0 + $1.quantity })
     }
 
-    /// What a blank price means (bought at market, or pulled for $0) as a chip pair in the
-    /// app's own style, then the Add button. Sits on the sheet's glass under a hairline.
+    /// The scan's defaults in one line (tap to change), then the Add button. Sits on the sheet's
+    /// glass under a hairline.
     private var footer: some View {
         VStack(spacing: 12) {
-            HStack(spacing: 12) {
-                Text("Blank price means").font(.geist(13, .medium)).foregroundStyle(.white)
-                Spacer()
-                ChipPicker(options: [(false, "Paid market"), (true, "Pulled, $0")], selection: $pulled)
-            }
-            // Portfolio, date, where, shipping, tax and fees for all of them at once (a card's
-            // own details, graded and the rest, are on its page: tap it, then Edit this card's details).
+            // The defaults every card starts from: bought at market or pulled, portfolio, date,
+            // where, shipping. A card's own purchase details (its row's Edit) override them.
             Button { editingDetails = true } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "slider.horizontal.3").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.lime)
-                    Text(details.summary(groups: groups, pulled: pulled)).font(.geist(13, .medium)).foregroundStyle(.white).lineLimit(1)
+                    (Text("Defaults: ").foregroundStyle(Theme.muted) + Text(details.summary(groups: groups, pulled: pulled)).foregroundStyle(.white))
+                        .font(.geist(13, .medium)).lineLimit(1)
                     Spacer(minLength: 6)
                     Text("Edit").font(.geist(13, .semibold)).foregroundStyle(Theme.lime)
                 }
@@ -184,6 +184,20 @@ struct ScanReviewSheet: View {
 private struct ReviewRow: View, Equatable {
     var entry: ScanModel.Entry
     var owned = 0
+    /// The scan's default (bought at market or pulled), for what the line under the card says.
+    var pulled = false
+    /// Its purchase details (the Edit link on the row).
+    var onPurchase: () -> Void = {}
+
+    static func == (a: Self, b: Self) -> Bool { a.entry == b.entry && a.owned == b.owned && a.pulled == b.pulled }
+
+    /// What this card will be saved as: its own details, a typed price, or the scan's default.
+    private var purchaseLine: (text: String, own: Bool) {
+        if let d = entry.draft { return (ScanDraftSummary.text(d), true) }
+        if !entry.paid.isEmpty { return ("Paid \(entry.paid)", true) }
+        if pulled { return ("Pulled", false) }
+        return ("Market \(Format.money(entry.value))", false)
+    }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -210,8 +224,21 @@ private struct ReviewRow: View, Equatable {
                     if let line = detail { Text(line).font(.geist(13)).foregroundStyle(.white).monospacedDigit().lineLimit(1) }
                     if owned > 0 { Tag(text: "Owned ×\(owned)", tint: Theme.lime) }
                 }
-                if let d = entry.draft {
-                    Text(ScanDraftSummary.text(d)).font(.geist(12, .medium)).foregroundStyle(Theme.lime).lineLimit(1)
+                if entry.picked != nil {
+                    // A quick way to the purchase details, without opening the card's page.
+                    Button(action: onPurchase) {
+                        HStack(spacing: 6) {
+                            Text(purchaseLine.text).foregroundStyle(purchaseLine.own ? .white : Theme.muted).lineLimit(1)
+                            Text("Edit").foregroundStyle(Theme.lime)
+                        }
+                        .font(.geist(12, .medium))
+                        .padding(.horizontal, 10).frame(height: 26)
+                        .background(Color.white.opacity(0.08), in: Capsule())
+                        .contentShape(Capsule())
+                    }
+                    .buttonStyle(.borderless)
+                    .padding(.top, 3)
+                    .accessibilityLabel("Purchase details: \(purchaseLine.text). Edit")
                 }
                 if let note = entry.note {
                     Text(note).font(.geist(12, .medium)).foregroundStyle(entry.rejected ? Theme.down : .white)
@@ -221,7 +248,6 @@ private struct ReviewRow: View, Equatable {
             VStack(alignment: .trailing, spacing: 3) {
                 if entry.picked != nil {
                     Text(Format.money(entry.value)).font(.geist(15, .semibold)).foregroundStyle(.white).monospacedDigit()
-                    if entry.draft == nil, !entry.paid.isEmpty { Text("Paid \(entry.paid)").font(.geist(12)).foregroundStyle(.white).monospacedDigit() }
                 } else if entry.state == .queued || entry.state == .reading {
                     ProgressView().tint(.white)
                 }
@@ -268,14 +294,14 @@ struct ScanBatchDetails {
     var fees = ""
 
     func summary(groups: GroupsStore, pulled: Bool) -> String {
-        var parts: [String] = []
+        var parts: [String] = [pulled ? "Pulled" : "Bought at market"]
         if let portfolio { parts.append(groups.portfolios.first { $0.id == portfolio }?.name ?? "Main") }
         parts.append(Calendar.current.isDateInToday(date) ? "Today" : date.formatted(.dateTime.month(.abbreviated).day()))
         let place = source.trimmingCharacters(in: .whitespaces)
         if !pulled, !place.isEmpty { parts.append(place) }
         let extra = (MoneyField.value(shipping) ?? 0) + (MoneyField.value(tax) ?? 0) + (MoneyField.value(fees) ?? 0)
         if !pulled, extra > 0 { parts.append("+\(Format.money(extra))") }
-        return parts.count == 1 && portfolio == nil ? "Portfolio, date, where, shipping" : parts.joined(separator: " · ")
+        return parts.joined(separator: " · ")
     }
 
     /// The batch's details on each purchase: where, and its share of the extras (by price).
@@ -299,13 +325,22 @@ struct ScanBatchDetails {
 /// The batch details, as a small form on glass.
 private struct ScanBatchDetailsSheet: View {
     @Binding var details: ScanBatchDetails
-    var pulled: Bool
+    @Binding var pulled: Bool
     @Environment(\.dismiss) private var dismiss
     @Environment(GroupsStore.self) private var groups
 
     var body: some View {
         NavigationStack {
             GlassForm {
+                Section {
+                    ChipPicker(options: [(false, "Bought"), (true, "Pulled")], selection: $pulled, fills: true)
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets())
+                } header: {
+                    SectionTitle("How you got them")
+                } footer: {
+                    SectionNote(pulled ? "Pulled from packs: $0 each, marked as pulls." : "Bought: at market price unless you set a card's own price.")
+                }
                 if !groups.portfolios.isEmpty {
                     Section {
                         Picker("Add to", selection: $details.portfolio) {
@@ -335,12 +370,12 @@ private struct ScanBatchDetailsSheet: View {
                     SectionTitle(pulled ? "Pull" : "Purchase")
                 } footer: {
                     SectionNote(pulled
-                        ? "For every card in this scan."
-                        : "For every card in this scan. Shipping, tax and fees are totals for the lot, shared across the cards by price. Cards with their own details keep them: tap a card and pick Edit this card's details.")
+                        ? "For every card in this scan, unless you set its own purchase details."
+                        : "For every card in this scan, unless you set its own purchase details. Shipping, tax and fees are totals for the lot, shared across the cards by price.")
                 }
             }
             .scrollContentBackground(.hidden)
-            .navigationTitle("Details for all")
+            .navigationTitle("Defaults for this scan")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }

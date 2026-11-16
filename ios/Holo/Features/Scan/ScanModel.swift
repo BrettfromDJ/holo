@@ -41,6 +41,9 @@ final class ScanModel {
     }
 
     var entries: [Entry] = []
+    /// The scan's default: bought at market (false) or pulled from packs (true). A card's own
+    /// purchase details override it.
+    var defaultPulled = false
     /// Where the last scan's seconds went ("4.8s · camera 0.1 · request 4.2 · ..."), printed to
     /// the console (and kept here for a debugger); the server logs its own split on Vercel.
     @ObservationIgnored var lastTiming: String?
