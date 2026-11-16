@@ -7,7 +7,6 @@ struct SettingsView: View {
     @Environment(CollectionStore.self) private var store
     @Environment(GroupsStore.self) private var groups
     @State private var confirming = false
-    @State private var showingWelcome = false
     @State private var testing = false
     @State private var testResult: String?
     @State private var demo: DemoKind? = DemoKind.selected
@@ -141,14 +140,6 @@ struct SettingsView: View {
                 } header: {
                     SectionTitle("About")
                 }
-                // For showing the app to someone: last, after the everyday settings.
-                Section {
-                    Button("Welcome pages") { showingWelcome = true }
-                } header: {
-                    SectionTitle("Try the app")
-                } footer: {
-                    SectionNote("What a new person sees before sign-in. A look only; nothing is saved.")
-                }
                 Section {
                     Picker("Show", selection: $demo) {
                         Text("My collection").tag(DemoKind?.none)
@@ -186,8 +177,6 @@ struct SettingsView: View {
             .alert("Sign out of Dexora?", isPresented: $confirming) {
                 Button("Cancel", role: .cancel) {}
                 Button("Sign out", role: .destructive) {
-                    // Signed out, the welcome pages show again (the ways in, demo included).
-                    Onboarding.shared.welcomeSeen = false
                     Task { await session.signOut() }
                 }
             }
@@ -211,10 +200,6 @@ struct SettingsView: View {
                 Button("Delete everything", role: .destructive) { Task { await deleteAccount() } }
             } message: {
                 Text("This permanently removes your account and everything in it: your collection, lists, deals and settings, on the app and the website. It can't be undone. Export your data first if you want a\u{00A0}copy.")
-            }
-            .fullScreenCover(isPresented: $showingWelcome) {
-                // A look at the welcome pages; its buttons just close it here.
-                WelcomeView(preview: true, onEmail: { showingWelcome = false }, onDemo: { showingWelcome = false })
             }
         }
     }
@@ -248,7 +233,6 @@ struct SettingsView: View {
         deleteError = nil
         do {
             try await Backend.shared.api.deleteAccount()
-            Onboarding.shared.welcomeSeen = false
             await session.signOut()
         } catch {
             deleteError = error.localizedDescription

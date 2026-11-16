@@ -2,26 +2,20 @@ import Foundation
 import Observation
 import SwiftUI
 
-/// The first-run flags kept on this phone: whether the welcome pages were seen, whether the
+/// The first-run flags kept on this phone: whether the
 /// demo is being tried without an account, and the one-line notes before the camera and
 /// notification prompts. Nothing here is a secret or synced.
 @Observable
 final class Onboarding {
     static let shared = Onboarding()
 
-    /// The welcome pages show once; after that a signed-out app opens on the sign-in form.
-    var welcomeSeen: Bool {
-        didSet { UserDefaults.standard.set(welcomeSeen, forKey: "onboarding-welcome-seen") }
-    }
-
-    /// "Try the demo" on the welcome pages: the made-up collection, no account. Survives a
+    /// The made-up collection without an account (from the old welcome pages). Survives a
     /// relaunch; Account → My collection (or Sign in) switches back to the sign-in form.
     var tryingDemo: Bool {
         didSet { UserDefaults.standard.set(tryingDemo, forKey: "onboarding-trying-demo") }
     }
 
     private init() {
-        welcomeSeen = UserDefaults.standard.bool(forKey: "onboarding-welcome-seen")
         tryingDemo = UserDefaults.standard.bool(forKey: "onboarding-trying-demo")
     }
 

@@ -160,7 +160,7 @@ and say exactly what to run or click.
   unfiltered for deals), show deleted & edit records (card page). Grading state is in
   `user_state` `grading-submissions` / `grading-costs`; shelves and portfolios use the
   `shelves` / `portfolios` tables. Screenshot pages: `-HoloPage analytics|gains|grading|master-sets|activity` (plus `-HoloMasterSet`,
-  `-HoloBumper`, `-HoloPull`, `-HoloWhatIf`, `-HoloScan`, `-HoloDealCustomer`, `-HoloOnboarding`). Slab certs and bumpers: `user_state` `slab-certs`,
+  `-HoloBumper`, `-HoloPull`, `-HoloWhatIf`, `-HoloScan`, `-HoloDealCustomer`). Slab certs and bumpers: `user_state` `slab-certs`,
   `slab-bumpers`, `slab-pristine` (CGC Pristine 10 marks, a list of holding keys; in `GradingStore`).
 - Set art: our own art for Pokémon sets in `public/sets/pokemon/<slug>/` and `public/sets/pokemon-japan/<slug>/` (background,
   logo, symbol; lists in `src/lib/set-art-manifest.json` / `-ja.json`), matched in `src/lib/set-art.ts` (Japanese by set code first)
@@ -179,4 +179,4 @@ and say exactly what to run or click.
   pictures are 1st Edition scans; the owner supplies Unlimited photos per set in
   `public/cards/pokemon/<dir>/<number>.webp`, listed in `src/lib/unlimited-art-manifest.json`
   and the same list in `Editions.unlimitedArt` (keep both in step). Done: Base Set (no #8), Jungle, Fossil, Team Rocket, Gym Heroes, Gym Challenge, Neo Genesis, Neo Discovery, Neo Revelation, Neo Destiny.
-- Not in the app on purpose: the separate trade checker (the Deal tab covers trades).
+- Not in the app on purpose: the separate trade checker (the Deal tab covers trades), and the welcome pages (removed; signed out opens straight on Sign in, its card wall is `Features/Auth/CardWall.swift`).

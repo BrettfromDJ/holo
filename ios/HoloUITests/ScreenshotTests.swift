@@ -86,18 +86,8 @@ final class ScreenshotTests: XCTestCase {
     func testScanList() { capture("scan-list", args: ["-HoloScan", "-HoloScanSample", "tray", "-HoloScanList"], pages: 1) }
     func testScanMatched() { capture("scan-matched", args: ["-HoloScan", "-HoloScanSample", "matched"], pages: 2) }
     func testScanRetake() { capture("scan-retake", args: ["-HoloScan", "-HoloScanSample", "retake"], pages: 1) }
-    // Onboarding: the welcome pages (swiped sideways).
+    // The sign-in screen.
     func testSignIn() { capture("sign-in", args: ["-HoloSignIn"], pages: 1) }
-    func testOnboarding() { capture("onboarding", args: ["-HoloOnboarding"], pages: 6, swipe: .left) }
-    // The first welcome page again after a longer wait: shows whether the grid's card pictures
-    // arrive at all, or only slowly.
-    func testOnboardingLate() {
-        let app = XCUIApplication()
-        app.launchArguments = ["-HoloDemo", "-HoloOnboarding"]
-        app.launch()
-        sleep(12)
-        save(app.screenshot(), "onboarding-late-0")
-    }
     func testDeal() { capture("deal", args: ["-HoloTab", "deal"], pages: 1) }
     func testDealFilled() { capture("deal-filled", args: ["-HoloTab", "deal", "-HoloDealDemo"], pages: 3) }
     func testDealCollector() { capture("deal-collector", args: ["-HoloTab", "deal", "-HoloDealDemo", "-HoloDealRole", "collector"], pages: 2) }

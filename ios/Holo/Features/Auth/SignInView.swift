@@ -56,7 +56,7 @@ struct SignInView: View {
                 // The heading and its line sit close together, as one block.
                 VStack(alignment: .leading, spacing: 6) {
                     DisplayText(text: sent ? "Check your email" : "Sign in", size: 34, lineGap: -0.07)
-                    Text(sent ? "Enter the code we sent to \(email)." : "Prices, grades and your whole collection, in one place. Use the same email as the website.")
+                    Text(sent ? "Enter the code we sent to \(email)." : "Sign in with your email or Apple. It's the same account as the website.")
                         .font(.geist(15)).foregroundStyle(Theme.muted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -226,7 +226,7 @@ private struct SignInBackdrop: View, Equatable {
         ZStack(alignment: .top) {
             WelcomeBackdrop().ignoresSafeArea()
             GeometryReader { geo in
-                WelcomeGrid(showsWorth: false)
+                WelcomeGrid()
                     .frame(height: geo.size.height * 0.62)
                     .frame(maxWidth: .infinity)
             }

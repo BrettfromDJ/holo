@@ -49,10 +49,7 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            if Demo.isOn, ProcessInfo.processInfo.arguments.contains("-HoloOnboarding") {
-                // Screenshots: the welcome pages.
-                WelcomeView(onEmail: {}, onDemo: {})
-            } else if Demo.isOn, ProcessInfo.processInfo.arguments.contains("-HoloSignIn") {
+            if Demo.isOn, ProcessInfo.processInfo.arguments.contains("-HoloSignIn") {
                 // Screenshots: the sign-in screen.
                 SignInView()
             } else if Demo.isOn {
@@ -81,7 +78,7 @@ struct RootView: View {
             } else if !AppConfig.isConfigured {
                 NotConfiguredView()
             } else if onboarding.tryingDemo, !signedIn {
-                // "Try the demo" from the welcome pages: the made-up collection without an
+                // "Try the demo" (from before the welcome pages were removed): the made-up collection without an
                 // account, until Account → My collection or Sign in.
                 MainTabView()
                     .task {
@@ -95,12 +92,7 @@ struct RootView: View {
                     // Restoring the session takes a moment: blank, no spinner.
                     Theme.background.ignoresSafeArea()
                 case .signedOut:
-                    if onboarding.welcomeSeen {
-                        SignInView()
-                    } else {
-                        // The first time only: what the app does, then the ways in.
-                        WelcomeView(onEmail: {}, onDemo: { onboarding.tryingDemo = true })
-                    }
+                    SignInView()
                 case let .signedIn(userId, _):
                     MainTabView()
                         .task(id: userId) {
@@ -138,7 +130,6 @@ struct RootView: View {
                 }
             } else if case .signedIn = state {
                 onboarding.tryingDemo = false
-                onboarding.welcomeSeen = true
             }
         }
     }
