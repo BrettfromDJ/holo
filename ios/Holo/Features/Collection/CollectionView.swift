@@ -160,9 +160,8 @@ struct CollectionView: View {
                         HStack(spacing: 8) {
                             portfolioSwitcher
                             Spacer(minLength: 0)
-                            // Select mode starts from a card's long-press menu ("Select"); while it's on,
-                            // the lime Done here ends it.
-                            if selecting { selectPill }
+                            // Select mode starts from a card's long-press menu ("Select"); the bottom
+                            // bar's Done ends it.
                         }
                         // Drawn above the header's backdrop: that backdrop reaches up behind this
                         // row, and coming later it was painted over the pills, grid and all, so
@@ -601,29 +600,6 @@ struct CollectionView: View {
         guard selecting else { opened = h; return }
         let key = h.identity.key
         if picked.contains(key) { picked.remove(key) } else { picked.insert(key) }
-    }
-
-    /// "Done" leaves select mode (a card's long-press "Select" starts it).
-    private var selectPill: some View {
-        Button {
-            if selecting {
-                leaveSelecting()
-            } else {
-                // Nothing picked to start: tap cards, or Select all.
-                picked = []
-                selecting = true
-            }
-        } label: {
-            // Quiet text like the portfolio picker; a lime pill only while selecting ("Done").
-            Text(selecting ? "Done" : "Select")
-                .font(.geist(14, selecting ? .semibold : .medium))
-                .foregroundStyle(selecting ? Theme.ink : .white)
-                .padding(.horizontal, selecting ? 16 : 0).frame(height: 32)
-                .background { if selecting { Capsule().fill(Theme.lime) } }
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("collection-select")
     }
 
     private func leaveSelecting() {
