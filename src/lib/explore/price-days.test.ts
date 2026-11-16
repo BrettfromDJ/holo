@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { daysBefore, withOwnChanges, type PriceDay } from "./price-days";
+import { backedBySales, daysBefore, moveHeld, withOwnChanges, type PriceDay } from "./price-days";
 
 const row = (market: number | null, c24: number | null = null, c7: number | null = null) => ({ product_id: "p", printing: "Holofoil", market_price: market, change_24h_pct: c24, change_7d_pct: c7 });
 const day = (d: string, market: number): PriceDay => ({ product_id: "p", printing: "Holofoil", day: d, market });
@@ -23,5 +23,30 @@ describe("withOwnChanges", () => {
   });
   it("counts days back across months", () => {
     expect(daysBefore("2026-12-03", 7)).toBe("2026-11-26");
+  });
+});
+
+describe("moveHeld", () => {
+  const today = "2026-11-16";
+  const d = (day: string, market: number) => ({ product_id: "p", printing: "", day, market });
+  it("counts a weekly rise only when yesterday was already up on the week", () => {
+    expect(moveHeld([d("2026-11-15", 120), d("2026-11-09", 100)], today, "up")).toBe(true);
+    expect(moveHeld([d("2026-11-15", 98), d("2026-11-09", 100)], today, "up")).toBe(false);
+    expect(moveHeld([d("2026-11-15", 90), d("2026-11-09", 100)], today, "down")).toBe(true);
+  });
+  it("can't judge without the days, so lets it through", () => {
+    expect(moveHeld([], today, "up")).toBe(true);
+  });
+});
+
+describe("backedBySales", () => {
+  it("trusts a price near eBay's median, not one far off it", () => {
+    expect(backedBySales(110, { median: 100, count: 5 })).toBe(true);
+    expect(backedBySales(190, { median: 100, count: 5 })).toBe(false);
+    expect(backedBySales(50, { median: 100, count: 5 })).toBe(false);
+  });
+  it("trusts it when there aren't enough sales to judge", () => {
+    expect(backedBySales(190, { median: 100, count: 2 })).toBe(true);
+    expect(backedBySales(190, null)).toBe(true);
   });
 });

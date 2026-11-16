@@ -71,3 +71,33 @@ export function withOwnChanges<T extends ChangeRow>(rows: T[], history: PriceDay
     return out;
   });
 }
+
+/**
+ * Whether a weekly move held: yesterday's price was already past the week-ago price in the same
+ * direction, so the move isn't one odd sale today. Unknown (no days kept for the card) counts as
+ * held: there's nothing to judge it by.
+ */
+export function moveHeld(days: PriceDay[], today: string, direction: "up" | "down"): boolean {
+  const byDay = new Map(days.map((d) => [d.day, Number(d.market)]));
+  const pick = (offsets: number[]) => {
+    for (const o of offsets) {
+      const v = byDay.get(daysBefore(today, o));
+      if (v !== undefined && v > 0) return v;
+    }
+    return undefined;
+  };
+  const yesterday = pick([1, 2]);
+  const weekAgo = pick([7, 6, 8]);
+  if (yesterday === undefined || weekAgo === undefined) return true;
+  return direction === "up" ? yesterday > weekAgo : yesterday < weekAgo;
+}
+
+/**
+ * Whether eBay's recent sales back a card's market price: with at least 3 sold copies, a price
+ * more than 40% off their median (either way) isn't trusted for the risers. Without enough sales,
+ * there's nothing to check against: trusted.
+ */
+export function backedBySales(market: number | null, ebay: { median: number | null; count: number } | null | undefined): boolean {
+  if (market === null || !ebay || ebay.median === null || ebay.count < 3 || ebay.median <= 0) return true;
+  return Math.abs(market / ebay.median - 1) <= 0.4;
+}

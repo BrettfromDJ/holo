@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { EMPTY_MARKET, eraOf, HOT_SEALED_MIN_PRICE, MOVER_MIN_PRICE, isBoosterBox, pickBoosterBoxes, pickMovers, type Era, type ExploreMarket, type MoverPriceRow } from "../explore/movers";
+import { EMPTY_MARKET, eraOf, HOT_SEALED_MIN_PRICE, MOVER_MIN_PRICE, MOVERS_LIMIT, isBoosterBox, pickBoosterBoxes, pickMovers, type Era, type ExploreMarket, type MoverPriceRow } from "../explore/movers";
 import type { ExploreProduct, ExploreSet } from "../explore/types";
 import type { Product } from "../types";
 import type { CatalogSetRow, Database, ProductRow } from "../supabase/database.types";
@@ -8,6 +8,9 @@ import { productFromRow } from "../supabase/mappers";
 import { selectAll } from "./paging";
 import { setArtFor } from "../set-art";
 import { editionArtName, editionName, editionSlug, EDITIONS, isEditionSet, isFirstEditionPrinting, type Edition } from "../editions";
+import { backedBySales, daysBefore, moveHeld, type PriceDay } from "../explore/price-days";
+import { ebaySales } from "../pricing/ebay";
+import { dbCached } from "./api-cache";
 
 /**
  * The site's public address, for links to our own files (set art) that the app downloads. Vercel
@@ -120,6 +123,48 @@ export async function withPrices(admin: SupabaseClient<Database>, rows: ProductR
   });
 }
 
+/** Our kept daily prices for these movers, by "product|printing" (empty if the table isn't there). */
+async function priceDaysFor(admin: SupabaseClient<Database>, movers: { product: Product; printing: string | null }[]): Promise<Map<string, PriceDay[]>> {
+  const out = new Map<string, PriceDay[]>();
+  const ids = [...new Set(movers.map((m) => m.product.id))];
+  if (!ids.length) return out;
+  const since = daysBefore(new Date().toISOString().slice(0, 10), 8);
+  try {
+    for (let i = 0; i < ids.length; i += 150) {
+      const { data, error } = await admin.from("catalog_price_days").select("product_id, printing, day, market").in("product_id", ids.slice(i, i + 150)).gte("day", since);
+      if (error) return out;
+      for (const d of (data ?? []) as PriceDay[]) {
+        const key = `${d.product_id}|${d.printing}`;
+        out.set(key, [...(out.get(key) ?? []), d]);
+      }
+    }
+  } catch {
+    // No daily prices: every move counts as held.
+  }
+  return out;
+}
+
+/**
+ * The movers whose price eBay's recent sales back (see `backedBySales`), checking at most `max`
+ * of them (each a paid lookup, shared for a day). Any that can't be checked are kept.
+ */
+async function backedBySalesFirst<T extends { product: Product; printing: string | null; market: number | null }>(movers: T[], max: number): Promise<T[]> {
+  const out: T[] = [];
+  for (const [i, m] of movers.entries()) {
+    if (i >= max || !m.product.id.startsWith("tcgapi:")) {
+      out.push(m);
+      continue;
+    }
+    try {
+      const ebay = await dbCached(`ebay:${m.product.id}:${m.printing ?? ""}`, () => ebaySales(m.product.id.slice("tcgapi:".length), m.printing));
+      if (backedBySales(m.market, ebay?.ungraded)) out.push(m);
+    } catch {
+      out.push(m);
+    }
+  }
+  return out;
+}
+
 /** Release dates ("YYYY-MM-DD"), by set slug. */
 async function releaseDates(admin: SupabaseClient<Database>, setIdList: (string | null)[]): Promise<Map<string, string>> {
   const setIds = [...new Set(setIdList.filter((x): x is string => Boolean(x)))];
@@ -214,21 +259,39 @@ export async function exploreMarket(admin: SupabaseClient<Database>): Promise<Ex
     }
 
     const products = await productsById(admin, [...up, ...down, ...sealedUp, ...dayUp, ...eraUp].map((r) => r.product_id));
-    const trendingRaw = pickMovers(up, products, "up");
-    const dropsRaw = pickMovers(down, products, "down");
+    // A few extra each, so the lists stay full after the checks below drop the doubtful ones.
+    const trendingPicked = pickMovers(up, products, "up", { limit: 20 });
+    const dropsPicked = pickMovers(down, products, "down", { limit: 20 });
     const hotSealedRaw = pickMovers(sealedUp, products, "up", { kind: "sealed", minPrice: HOT_SEALED_MIN_PRICE });
-    const todayRaw = pickMovers(dayUp, products, "up", { by: "24h", limit: 5 });
+    const todayPicked = pickMovers(dayUp, products, "up", { by: "24h", limit: 10 });
     // Each era's top risers, by its set's release date.
     const released = await releaseDates(admin, eraUp.map((r) => products.get(r.product_id)?.setId ?? null));
     const eraFor = (r: MoverPriceRow): Era | null => {
       const setId = products.get(r.product_id)?.setId;
       return setId ? eraOf(released.get(setId)) : null;
     };
-    const erasRaw: Record<Era, ReturnType<typeof pickMovers>> = {
-      modern: pickMovers(eraUp.filter((r) => eraFor(r) === "modern"), products, "up", { limit: 10 }),
-      midEra: pickMovers(eraUp.filter((r) => eraFor(r) === "midEra"), products, "up", { limit: 10 }),
-      vintage: pickMovers(eraUp.filter((r) => eraFor(r) === "vintage"), products, "up", { limit: 10 }),
+    const erasPicked: Record<Era, ReturnType<typeof pickMovers>> = {
+      modern: pickMovers(eraUp.filter((r) => eraFor(r) === "modern"), products, "up", { limit: 16 }),
+      midEra: pickMovers(eraUp.filter((r) => eraFor(r) === "midEra"), products, "up", { limit: 16 }),
+      vintage: pickMovers(eraUp.filter((r) => eraFor(r) === "vintage"), products, "up", { limit: 16 }),
     };
+
+    // Steadier risers: a weekly move counts only if it had already shown by yesterday (not one
+    // odd sale today), judged from our own daily prices.
+    const days = await priceDaysFor(admin, [...trendingPicked, ...dropsPicked, ...erasPicked.modern, ...erasPicked.midEra, ...erasPicked.vintage]);
+    const today = new Date().toISOString().slice(0, 10);
+    const held = (direction: "up" | "down") => (m: ReturnType<typeof pickMovers>[number]) => moveHeld(days.get(`${m.product.id}|${m.printing ?? ""}`) ?? [], today, direction);
+    const trendingHeld = trendingPicked.filter(held("up"));
+    const erasRaw: Record<Era, ReturnType<typeof pickMovers>> = {
+      modern: erasPicked.modern.filter(held("up")).slice(0, 10),
+      midEra: erasPicked.midEra.filter(held("up")).slice(0, 10),
+      vintage: erasPicked.vintage.filter(held("up")).slice(0, 10),
+    };
+    const dropsRaw = dropsPicked.filter(held("down")).slice(0, MOVERS_LIMIT);
+    // The top spots (Card of the day, Heating up's first cards) also have to agree with eBay's
+    // recent sales, checked for the first few only (a paid lookup, kept a day per card).
+    const todayRaw = (await backedBySalesFirst(todayPicked, 6)).slice(0, 5);
+    const trendingRaw = [...(await backedBySalesFirst(trendingHeld.slice(0, 6), 6)), ...trendingHeld.slice(6)].slice(0, MOVERS_LIMIT);
     const boxesRaw = pickBoosterBoxes(boxes, boxPrices);
     const brands = await brandNames(admin, [...trendingRaw, ...todayRaw, ...erasRaw.modern, ...erasRaw.midEra, ...erasRaw.vintage, ...dropsRaw, ...hotSealedRaw, ...boxesRaw].map((m) => m.product.setId));
     const named = <T extends { product: Product; gameName?: string | null }>(m: T): T => ({ ...m, gameName: m.product.setId ? (brands.get(m.product.setId) ?? null) : null });
