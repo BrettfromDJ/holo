@@ -9,7 +9,11 @@ struct ScanReviewSheet: View {
     var onAdded: () -> Void
     @Environment(\.dismiss) private var dismiss
     @Environment(CollectionStore.self) private var store
+    @Environment(GroupsStore.self) private var groups
     @State private var pulled = false
+    /// The details for the whole batch: portfolio, date, where, and shipping, tax and fees.
+    @State private var details = ScanBatchDetails()
+    @State private var editingDetails = false
     @State private var saving = false
     @State private var error: String?
     /// The scan open close up.
@@ -80,6 +84,7 @@ struct ScanReviewSheet: View {
                 Button("Done") { dismiss() }.buttonStyle(LimeButtonStyle()).padding(16)
             }
         }
+        .sheet(isPresented: $editingDetails) { ScanBatchDetailsSheet(details: $details, pulled: pulled) }
         .sheet(item: $editing) { e in
             ScanCardSheet(model: model, id: e.id, onRemove: { withAnimation(.snappy) { model.remove(e.id) } })
         }
@@ -100,6 +105,20 @@ struct ScanReviewSheet: View {
                 Spacer()
                 ChipPicker(options: [(false, "Paid market"), (true, "Pulled, $0")], selection: $pulled)
             }
+            // Portfolio, date, where, shipping, tax and fees for all of them at once (a card's
+            // own details, graded and the rest, are on its page: tap it, then Add with all details).
+            Button { editingDetails = true } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "slider.horizontal.3").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.lime)
+                    Text(details.summary(groups: groups, pulled: pulled)).font(.geist(13, .medium)).foregroundStyle(.white).lineLimit(1)
+                    Spacer(minLength: 6)
+                    Text("Edit").font(.geist(13, .semibold)).foregroundStyle(Theme.lime)
+                }
+                .padding(.horizontal, 14).frame(height: 40)
+                .background(Color.white.opacity(0.07), in: Capsule())
+                .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
             Button {
                 Task { await add() }
             } label: {
@@ -119,8 +138,20 @@ struct ScanReviewSheet: View {
         defer { saving = false }
         do {
             let before = store.allHoldings.reduce(0) { $0 + ($1.value ?? 0) }
-            let purchases = model.purchases(pulled: pulled, date: Format.day())
+            let purchases = details.apply(to: model.purchases(pulled: pulled, date: Format.day(details.date)), pulled: pulled)
+            let ownedBefore = Set(store.allHoldings.map(\.identity.key))
             try await store.add(purchases)
+            // Into the picked portfolio: more of a copy you own is also shown there (a Copy); a new one goes only there.
+            if !groups.portfolios.isEmpty, let target = details.portfolio {
+                for p in purchases {
+                    let key = HoldingIdentity(productId: p.product.id, printing: p.printing, condition: p.condition, gradeCompany: p.gradeCompany, grade: p.grade).key
+                    if ownedBefore.contains(key) {
+                        try? await groups.copyMany([key], to: target, store: store)
+                    } else if groups.portfoliosOf(key) != [target] {
+                        try? await groups.moveMany([key], to: target, store: store)
+                    }
+                }
+            }
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             dismiss()
             onAdded()
@@ -204,5 +235,98 @@ private struct ReviewRow: View, Equatable {
             default: return "No match found"
             }
         }
+    }
+}
+
+/// What a whole scan shares: the portfolio, the day, where from, and the shipping, tax and fees
+/// (totals for the lot, shared across the cards by price).
+struct ScanBatchDetails {
+    /// Nil: where each would go anyway (Main, or the copy's own portfolio).
+    var portfolio: String?
+    var date = Date()
+    var source = ""
+    var shipping = ""
+    var tax = ""
+    var fees = ""
+
+    func summary(groups: GroupsStore, pulled: Bool) -> String {
+        var parts: [String] = []
+        if let portfolio { parts.append(groups.portfolios.first { $0.id == portfolio }?.name ?? "Main") }
+        parts.append(Calendar.current.isDateInToday(date) ? "Today" : date.formatted(.dateTime.month(.abbreviated).day()))
+        let place = source.trimmingCharacters(in: .whitespaces)
+        if !pulled, !place.isEmpty { parts.append(place) }
+        let extra = (MoneyField.value(shipping) ?? 0) + (MoneyField.value(tax) ?? 0) + (MoneyField.value(fees) ?? 0)
+        if !pulled, extra > 0 { parts.append("+\(Format.money(extra))") }
+        return parts.count == 1 && portfolio == nil ? "Portfolio, date, where, shipping" : parts.joined(separator: " · ")
+    }
+
+    /// The batch's details on each purchase: where, and its share of the extras (by price).
+    func apply(to purchases: [CollectionStore.Purchase], pulled: Bool) -> [CollectionStore.Purchase] {
+        guard !pulled else { return purchases }
+        let place = source.trimmingCharacters(in: .whitespaces)
+        let total = purchases.reduce(0) { $0 + $1.unitPrice * $1.quantity }
+        let ship = MoneyField.value(shipping) ?? 0, tx = MoneyField.value(tax) ?? 0, fee = MoneyField.value(fees) ?? 0
+        return purchases.map { p in
+            var p = p
+            if !place.isEmpty { p.source = place }
+            let share = total > 0 ? p.unitPrice * p.quantity / total : 1 / Double(max(purchases.count, 1))
+            p.shipping = (ship * share * 100).rounded() / 100
+            p.tax = (tx * share * 100).rounded() / 100
+            p.fees = (fee * share * 100).rounded() / 100
+            return p
+        }
+    }
+}
+
+/// The batch details, as a small form on glass.
+private struct ScanBatchDetailsSheet: View {
+    @Binding var details: ScanBatchDetails
+    var pulled: Bool
+    @Environment(\.dismiss) private var dismiss
+    @Environment(GroupsStore.self) private var groups
+
+    var body: some View {
+        NavigationStack {
+            GlassForm {
+                if !groups.portfolios.isEmpty {
+                    Section {
+                        Picker("Add to", selection: $details.portfolio) {
+                            Text("Where they'd go anyway").tag(String?.none)
+                            Text("Main").tag(Optional(GroupsStore.main))
+                            ForEach(groups.portfolios) { Text($0.name).tag(Optional($0.id)) }
+                        }
+                    } header: {
+                        SectionTitle("Portfolio")
+                    }
+                }
+                Section {
+                    DatePicker(pulled ? "Pulled on" : "Date", selection: $details.date, in: ...Date(), displayedComponents: .date)
+                    if !pulled {
+                        HStack {
+                            Text("Where")
+                            Spacer()
+                            TextField("Card show, eBay, store…", text: $details.source)
+                                .multilineTextAlignment(.trailing)
+                                .textInputAutocapitalization(.words)
+                        }
+                        MoneyField(title: "Shipping", text: $details.shipping)
+                        MoneyField(title: "Tax", text: $details.tax)
+                        MoneyField(title: "Fees", text: $details.fees)
+                    }
+                } header: {
+                    SectionTitle(pulled ? "Pull" : "Purchase")
+                } footer: {
+                    SectionNote(pulled
+                        ? "For every card in this scan."
+                        : "For every card in this scan. Shipping, tax and fees are totals for the lot, shared across the cards by price. To grade a card or set its own details, tap it and pick Add with all details.")
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .navigationTitle("Details for all")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+        }
+        .presentationDetents([.large])
+        .glassSheet()
     }
 }

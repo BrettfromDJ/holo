@@ -1,9 +1,22 @@
 import SwiftUI
 
+/// What a scan already knows about a card, to start the add sheet from.
+struct AddPrefill {
+    var printing: String?
+    var condition: String?
+    /// Read off a slab's label.
+    var gradeCompany: String?
+    var grade: String?
+    /// What you typed as paid, if anything.
+    var price = ""
+}
+
 /// Log a purchase: which printing, condition or grade, how many, and what you paid.
 struct AddPurchaseSheet: View {
     var hit: SearchHit
     var onDone: (() -> Void)?
+    /// From a scan: its printing, condition, slab grade and price, over the remembered defaults.
+    var prefill: AddPrefill? = nil
     @Environment(\.dismiss) private var dismiss
     @Environment(CollectionStore.self) private var store
     @Environment(GradingStore.self) private var grading
@@ -243,6 +256,20 @@ struct AddPurchaseSheet: View {
                 // Logging several buys (a card show): keep the date you picked for a few hours.
                 if lastDate > 0, Date().timeIntervalSince1970 - lastSavedAt < 6 * 3600 {
                     date = min(Date(timeIntervalSince1970: lastDate), Date())
+                }
+                if let prefill {
+                    if let p = prefill.printing { printing = p }
+                    if !product.isSealed {
+                        if let c = prefill.condition, CardCondition(rawValue: c) != nil { condition = c }
+                        if let co = prefill.gradeCompany, let g = prefill.grade {
+                            graded = true
+                            if gradingCompanies.contains(co) { company = co }
+                            grade = grades.contains(g) ? g : "10"
+                        } else {
+                            graded = false
+                        }
+                    }
+                    if !prefill.price.isEmpty { price = prefill.price }
                 }
             }
         }

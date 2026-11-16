@@ -13,6 +13,8 @@ struct ScanCardSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var searching = false
     @State private var changing = false
+    /// The full add sheet for this card (portfolio, grading, bought or pulled, shipping…).
+    @State private var detailing = false
 
     private var entry: ScanModel.Entry? { model.entries.first { $0.id == id } }
 
@@ -20,7 +22,7 @@ struct ScanCardSheet: View {
         Group {
             if let entry, let product = entry.picked?.product {
                 NavigationStack {
-                    ProductDetailView(productId: product.id, extra: AnyView(ScanPanel(model: model, id: id, onWrong: { changing = true }, onRemove: {
+                    ProductDetailView(productId: product.id, extra: AnyView(ScanPanel(model: model, id: id, onWrong: { changing = true }, onDetails: { detailing = true }, onRemove: {
                         dismiss()
                         onRemove()
                     })))
@@ -41,6 +43,20 @@ struct ScanCardSheet: View {
         .glassSheet()
         // Wrong card?: the next best matches, or search (Change card).
         .sheet(isPresented: $changing) { ChangeCardSheet(model: model, id: id) }
+        // Every detail, as when adding from search. Once it's added, it leaves this scan (and
+        // this sheet closes itself, the scan being gone).
+        .sheet(isPresented: $detailing) {
+            if let entry, let c = entry.picked {
+                AddPurchaseSheet(
+                    hit: SearchHit(product: c.product, printing: entry.printing ?? c.printing, market: entry.value ?? c.market),
+                    onDone: { model.remove(id) },
+                    prefill: AddPrefill(printing: entry.printing ?? c.printing, condition: entry.condition,
+                                        gradeCompany: entry.isSlab ? entry.result?.read?.grade?.company : nil,
+                                        grade: entry.isSlab ? entry.result?.read?.grade?.grade : nil,
+                                        price: entry.paid)
+                )
+            }
+        }
         // The right card, picked from search, takes this scan over.
         .sheet(isPresented: $searching) {
             SearchScreen(mode: .add, onPick: { hit in model.replace(id, with: hit) })
@@ -54,6 +70,7 @@ private struct ScanPanel: View {
     let model: ScanModel
     let id: UUID
     var onWrong: () -> Void
+    var onDetails: () -> Void
     var onRemove: () -> Void
     @Environment(CollectionStore.self) private var store
 
@@ -112,6 +129,11 @@ private struct ScanPanel: View {
                                        fills: true)
                         }
                     }
+                }
+                if !inDeal {
+                    // The same sheet as adding from search: portfolio, graded, condition, bought
+                    // or pulled, price, shipping, tax, date and where. Adds this card on its own.
+                    action("Add with all details", icon: "slider.horizontal.3", iconColor: Theme.lime, fill: Theme.lime.opacity(0.12), run: onDetails)
                 }
                 // Two equal ways out: search for the right card, or drop this scan.
                 HStack(spacing: 10) {
