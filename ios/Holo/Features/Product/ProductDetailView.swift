@@ -825,14 +825,26 @@ private struct PriceHistoryCard: View {
             }
             .font(.geist(13)).monospacedDigit()
             .padding(.top, 4)
-            // Free sees a month; the longer ranges open the Pro page (marked with a lock).
-            ChipPicker(options: [(30, "1M"), (90, pro.unlocked ? "3M" : "3M 🔒"), (365, pro.unlocked ? "1Y" : "1Y 🔒"), (0, pro.unlocked ? "ALL" : "ALL 🔒")],
-                       selection: Binding(get: { range }, set: { new in
-                           if new == 30 || pro.unlocked { range = new } else { paywall = .history }
-                       }))
-                .scaleEffect(0.86, anchor: .leading)
-                .padding(.top, 12)
-                .proPaywall($paywall)
+            // Free sees a month; the longer ranges open the Pro page (a lime lock beside them, as
+            // on the eBay sales panel).
+            HStack(spacing: 8) {
+                ChipPicker(options: [(30, "1M"), (90, "3M"), (365, "1Y"), (0, "ALL")],
+                           selection: Binding(get: { range }, set: { new in
+                               if new == 30 || pro.unlocked { range = new } else { paywall = .history }
+                           }))
+                if !pro.unlocked {
+                    Button { paywall = .history } label: {
+                        Image(systemName: "lock.fill").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.lime)
+                            .frame(width: 32, height: 32)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Longer price history with Pro")
+                }
+            }
+            .scaleEffect(0.86, anchor: .leading)
+            .padding(.top, 12)
+            .proPaywall($paywall)
             if points.count > 1 {
                 let domain = ChartTicks.domain(points.map(\.price) + buys.map(\.unitPrice))
                 Chart {
