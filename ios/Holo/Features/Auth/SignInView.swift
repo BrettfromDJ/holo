@@ -57,8 +57,8 @@ struct SignInView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     DisplayText(text: sent ? "Check your email" : "Sign in", size: 34, lineGap: -0.07)
                     // Lines of even length (no long line over a short one).
-                    BalancedText(text: sent ? "Enter the code we sent to \(email)." : "Sign in with your email or Apple. It's the same account as the website.",
-                                 font: .geist(15), color: Theme.muted, alignment: .leading)
+                    BalancedText(text: sent ? "Enter the code we sent to \(email)." : "Make an account to track your collection, see what it's worth and follow prices.",
+                                 font: .geist(15), lineGap: 0, color: Theme.muted, alignment: .leading)
                 }
                 .padding(.bottom, 6)
 
