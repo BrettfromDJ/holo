@@ -26,6 +26,8 @@ import { useSlabBumpers, useSlabCerts, useSlabPristine } from "@/lib/store/gradi
 import { holdingKey, priceKey, type Transaction } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { holdingHref, holdingLabel } from "./holding-items";
+import { PriceInfoDialog, type PriceInfoData } from "@/components/product/price-info";
+import { isStalePrice, priceAge } from "@/lib/price-info";
 
 /**
  * Your copy of a card, opened from Collection: what it's worth and what you made, its price line
@@ -236,12 +238,41 @@ function Value({ h }: { h: HoldingView }) {
   const gain = h.unrealized;
   const up = (gain ?? 0) >= 0;
   const since = h.firstAcquired ? new Date(`${h.firstAcquired}T00:00:00`).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : null;
+  const [info, setInfo] = useState<PriceInfoData | null>(null);
+  const manual = h.priceStatus === "manual";
+  const stale = !manual && isStalePrice(h.priceUpdatedAt);
+  // How this copy's worth was worked out (same as the app's Owned sheet).
+  const open = () => {
+    const graded = Boolean(h.identity.grade);
+    const source = manual ? "Your own value" : graded ? "Graded price" : h.conditionEstimate ? "Estimated for its condition" : "TCGplayer market price";
+    const note = manual
+      ? null
+      : graded
+        ? "Recent eBay sales of this exact grade when there are enough, else PriceCharting, else the usual grade curve from the Near Mint price."
+        : h.conditionEstimate
+          ? "TCGplayer's price for this condition when it has one, else the Near Mint price adjusted for condition."
+          : null;
+    const rows: [string, string][] = [["Source", source]];
+    if (h.quantity > 1) rows.push(["Each", money(h.price)]);
+    const age = manual ? null : priceAge(h.priceUpdatedAt);
+    if (age) rows.push(["Updated", age]);
+    setInfo({
+      title: h.identity.grade ? `Your ${h.identity.grade.company} ${h.identity.grade.grade}` : h.quantity > 1 ? `Your ${h.quantity} copies` : "Your copy",
+      value: h.value,
+      rows,
+      ebay: manual || h.product?.kind === "sealed" ? null : { productId: h.identity.productId, printing: h.identity.printing, grade: h.identity.grade ? `${h.identity.grade.company} ${h.identity.grade.grade}` : null },
+      note,
+      stale,
+      each: h.price,
+    });
+  };
   return (
     <div className="mt-6">
       <MonoLabel>{h.quantity > 1 ? `Your ${h.quantity} are worth` : "Yours is worth"}</MonoLabel>
-      <p className="tabular mt-2 font-display text-[35px] leading-[0.95]">
+      <button type="button" onClick={open} className={cn("tabular mt-2 block cursor-pointer text-left font-display text-[35px] leading-[0.95]", stale && "opacity-60")}>
         {h.value !== null ? <AnimatedNumber value={h.value} format={(n) => (h.conditionEstimate ? "≈ " : "") + money(n)} /> : <span className="text-muted">No price</span>}
-      </p>
+      </button>
+      <PriceInfoDialog info={info} onOpenChange={(o) => !o && setInfo(null)} />
       <p className="mt-2.5 flex flex-wrap items-center gap-2 text-[14px]">
         <DeltaPill ratio={h.unrealizedPct} className="text-[13px]" />
         {gain !== null && (

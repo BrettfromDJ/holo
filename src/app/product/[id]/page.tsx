@@ -38,6 +38,9 @@ import { formatDate, money, relativeTime, tone } from "@/lib/format";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
 import { priceKey, type Product, type Transaction } from "@/lib/types";
 import { withEditionArt } from "@/lib/editions";
+import { PriceInfoDialog, type PriceInfoData } from "@/components/product/price-info";
+import { cn } from "@/lib/utils";
+import { isStalePrice, priceAge } from "@/lib/price-info";
 
 type HistRange = "1M" | "3M" | "1Y" | "ALL";
 const HIST_DAYS: Record<HistRange, number | null> = { "1M": 30, "3M": 91, "1Y": 365, ALL: null };
@@ -68,6 +71,8 @@ export default function ProductPage() {
   // The printing on show: one picked here or passed in the link (?printing=, from search and
   // set grids), else the one you own, else the first priced one.
   const [chosenPrinting, setChosenPrinting] = useState<string | null>(null);
+  // The headline price's "where it comes from" dialog.
+  const [priceInfo, setPriceInfo] = useState<PriceInfoData | null>(null);
   useEffect(() => {
     setChosenPrinting(new URLSearchParams(window.location.search).get("printing"));
   }, [productId]);
@@ -155,9 +160,28 @@ export default function ProductPage() {
           )}
 
           <div className="mt-6">
-            <p className="tabular font-display text-[42px] leading-none sm:text-[48px]">
+            {/* Click the price: where it comes from and what eBay's recent sales say. Over 3 days old: dimmed. */}
+            <button
+              type="button"
+              onClick={() =>
+                setPriceInfo({
+                  title: product.kind === "sealed" ? "Market price" : "Near Mint · ungraded",
+                  value: headline,
+                  rows: [
+                    ["Source", price?.source === "pricecharting" ? "PriceCharting (TCGplayer has no price)" : price ? "TCGplayer market price" : "Last stored price"],
+                    ...(priceAge(price?.updatedAt) ? ([["Updated", priceAge(price?.updatedAt)!]] as [string, string][]) : []),
+                    ...(printing ? ([["Printing", printing]] as [string, string][]) : []),
+                  ],
+                  ebay: { productId, printing, grade: null },
+                  note: isStalePrice(price?.updatedAt) ? "This price is more than 3 days old; it refreshes with the daily sync." : null,
+                  stale: isStalePrice(price?.updatedAt),
+                })
+              }
+              className={cn("tabular block cursor-pointer text-left font-display text-[42px] leading-none sm:text-[48px]", isStalePrice(price?.updatedAt) && "opacity-60")}
+            >
               {headline != null ? <AnimatedNumber key={productId} value={headline} format={money} from={headline * 0.85} /> : <span className="text-muted">No price</span>}
-            </p>
+            </button>
+            <PriceInfoDialog info={priceInfo} onOpenChange={(o) => !o && setPriceInfo(null)} />
             {product.kind === "sealed" ? <PerPack product={product} price={headline} /> : <p className="mt-2 text-[13px] text-muted">Near Mint · ungraded</p>}
             {/* The headline is the card's Near Mint price; copies you own that differ get their own figure here. */}
             {yourCopies.length > 0 && (

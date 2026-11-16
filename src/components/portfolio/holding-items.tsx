@@ -11,6 +11,7 @@ import { categoryOf } from "@/lib/catalog";
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { money } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { isStalePrice } from "@/lib/price-info";
 
 export function holdingHref(h: HoldingView) {
   return `/product/${encodeURIComponent(h.identity.productId)}`;
@@ -154,7 +155,8 @@ export function HoldingTile({ h, onOpen }: { h: HoldingView; onOpen?: (h: Holdin
         <p className="truncate text-[12px] text-muted">{[h.product?.setName, h.product ? categoryOf(h.product) : null].filter(Boolean).join(" · ")}</p>
         <div className="mt-2 flex items-end justify-between gap-2">
           <div>
-            <p className="hype-num tabular text-[20px] leading-none">{money(h.value)}</p>
+            {/* A price more than 3 days old shows dimmed (your own values never do). Same as the app. */}
+            <p className={cn("hype-num tabular text-[20px] leading-none", h.priceStatus !== "manual" && isStalePrice(h.priceUpdatedAt) && "opacity-60")}>{money(h.value)}</p>
             <p className="tabular flex items-center gap-1 text-[12px] text-muted">
               {unitPrice(h)} ea
               <PriceStatus holding={h} />

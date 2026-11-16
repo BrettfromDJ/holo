@@ -10,6 +10,8 @@ import { useHeroLink } from "@/lib/motion/hero";
 import { useStore } from "@/lib/store/collection-store";
 import { cn } from "@/lib/utils";
 import { looksSealed } from "@/lib/catalog";
+import { useState } from "react";
+import { PriceInfoDialog, type PriceInfoData } from "@/components/product/price-info";
 
 /** Positions for up to five fanned cards, center first. */
 const FAN = [
@@ -34,6 +36,29 @@ export function HypeHero({
 }) {
   const { openAdd } = useStore();
   const hero = useHeroLink();
+  // A click on the worth: what it's made of (same as the app's Summary).
+  const [info, setInfo] = useState<PriceInfoData | null>(null);
+  const showBreakdown = () => {
+    let market = 0, graded = 0, condition = 0, own = 0;
+    for (const h of holdings) {
+      const v = h.value ?? 0;
+      if (h.priceStatus === "manual") own += v;
+      else if (h.identity.grade) graded += v;
+      else if (h.conditionEstimate) condition += v;
+      else market += v;
+    }
+    const rows: [string, string][] = [["Market prices", money(market)]];
+    if (graded > 0) rows.push(["Graded prices", money(graded)]);
+    if (condition > 0) rows.push(["Estimated for condition", money(condition)]);
+    if (own > 0) rows.push(["Your own values", money(own)]);
+    if (summary.unpricedCount > 0) rows.push(["Without a price", `${summary.unpricedCount} not counted`]);
+    setInfo({
+      title: "Your collection",
+      value: summary.marketValue,
+      rows,
+      note: "Market prices are TCGplayer's (PriceCharting where TCGplayer has none). Graded prices come from recent eBay sales of that grade, else PriceCharting, else the usual grade curve. Click any card's price for its own source.",
+    });
+  };
   const top = [...holdings]
     // Raw and graded cards only: sealed products stay out of the hero fan.
     .filter((h) => h.product?.imageUrl && (h.value ?? 0) > 0 && h.product.kind !== "sealed" && !looksSealed(h.product.name) && h.identity.condition !== "Sealed")
@@ -114,14 +139,17 @@ export function HypeHero({
               <span className="hidden sm:inline"> is</span> worth
             </span>
             <span className="tabular mt-1 block text-[clamp(40px,11vw,52px)] text-lime drop-shadow-[0_0_28px_color-mix(in_srgb,var(--lime)_45%,transparent)] sm:mt-0 sm:text-[56px] lg:mt-2 lg:text-[46px] xl:text-[52px]">
-              <AnimatedNumber
-                value={summary.marketValue}
-                format={money}
-                duration={1300}
-                from={summary.marketValue * 0.85}
-              />
+              <button type="button" onClick={showBreakdown} className="tabular cursor-pointer">
+                <AnimatedNumber
+                  value={summary.marketValue}
+                  format={money}
+                  duration={1300}
+                  from={summary.marketValue * 0.85}
+                />
+              </button>
             </span>
           </h1>
+          <PriceInfoDialog info={info} onOpenChange={(o) => !o && setInfo(null)} />
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-[13px] lg:justify-start">
             <Chip label="Today">
               <Num value={summary.dayChange} />{" "}
