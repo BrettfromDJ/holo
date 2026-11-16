@@ -21,8 +21,34 @@ struct SignInView: View {
                     .frame(maxWidth: .infinity)
             }
             .ignoresSafeArea()
-            VStack(alignment: .leading, spacing: 16) {
+            // While typing (the keyboard pushes the form up over the cards), the wall dims way down.
+            .opacity(focused ? 0.18 : 1)
+            .animation(.easeOut(duration: 0.25), value: focused)
+            VStack(alignment: .leading, spacing: 0) {
                 Spacer(minLength: 0)
+                form
+                    .padding(.horizontal, 24)
+                    .padding(.top, 70)
+                    .padding(.bottom, 16)
+                    // The form's own dark backing: clear at the top, solid page color from the
+                    // heading down, so text always reads, wherever the keyboard pushes it.
+                    .background {
+                        LinearGradient(stops: [
+                            .init(color: Theme.background.opacity(0), location: 0),
+                            .init(color: Theme.background.opacity(0.92), location: 0.22),
+                            .init(color: Theme.background, location: 0.4),
+                        ], startPoint: .top, endPoint: .bottom)
+                        .ignoresSafeArea(edges: .bottom)
+                    }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        }
+        .background(Theme.background)
+        // The keyboard comes up when you tap the field, not over the cards on arrival.
+    }
+
+    private var form: some View {
+            VStack(alignment: .leading, spacing: 16) {
                 // The name, then a big balanced line.
                 HStack(spacing: 8) {
                     Circle().fill(Theme.lime).frame(width: 8, height: 8).shadow(color: Theme.lime.opacity(0.8), radius: 6)
@@ -81,12 +107,6 @@ struct SignInView: View {
                     Text(error).font(.geist(14)).foregroundStyle(Theme.down)
                 }
             }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 16)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-        }
-        .background(Theme.background)
-        // The keyboard comes up when you tap the field, not over the cards on arrival.
     }
 
     private func send() async {
