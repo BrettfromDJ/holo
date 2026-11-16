@@ -61,11 +61,14 @@ struct SignInView: View {
                     Circle().fill(Theme.lime).frame(width: 8, height: 8).shadow(color: Theme.lime.opacity(0.8), radius: 6)
                     Text("DEXORA").font(.mono(12)).tracking(2.4).foregroundStyle(.white.opacity(0.85))
                 }
-                DisplayText(text: sent ? "Check your email" : "Know what every card is worth", size: 34, lineGap: -0.07)
-                Text(sent ? "Enter the code we sent to \(email)." : "Prices, grades and your whole collection, in one place. Use the same email as the website.")
-                    .font(.geist(15)).foregroundStyle(Theme.muted)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.bottom, 6)
+                // The heading and its line sit close together, as one block.
+                VStack(alignment: .leading, spacing: 6) {
+                    DisplayText(text: sent ? "Check your email" : "Know what every card is worth", size: 34, lineGap: -0.07)
+                    Text(sent ? "Enter the code we sent to \(email)." : "Prices, grades and your whole collection, in one place. Use the same email as the website.")
+                        .font(.geist(15)).foregroundStyle(Theme.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.bottom, 6)
 
                 if !sent {
                     TextField("you@email.com", text: $email)
