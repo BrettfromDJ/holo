@@ -1334,6 +1334,11 @@ private struct NextRelease: View {
                     .disabled(busy)
                 }
                 Spacer(minLength: 0)
+                if let release = set.release, release.timeIntervalSinceNow > 0, release.timeIntervalSinceNow < 86400 {
+                    // Under a day to go: the hours, minutes and seconds ticking, the digits rolling,
+                    // over a slow lime pulse.
+                    LastDayCountdown(release: release)
+                } else {
                 VStack(spacing: 6) {
                     // The days, plain (no split-flap tiles).
                     Text("\(days)").displayTrim(60)
@@ -1342,6 +1347,7 @@ private struct NextRelease: View {
                     MonoLabel(text: days == 0 ? "today" : (days == 1 ? "day" : "days"))
                 }
                 .frame(minWidth: 70)
+                }
                 .padding(.trailing, 6)
             }
             .padding(.vertical, 18)
@@ -1369,6 +1375,49 @@ private struct NextRelease: View {
             .overlay(ElectricBorder(radius: 22))
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// The last day before a set comes out: "05:42:17" ticking once a second (the digits roll), with
+/// a soft lime glow behind it breathing in and out. Paused off screen; still under Reduce Motion.
+private struct LastDayCountdown: View {
+    var release: Date
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var onScreen = true
+    @State private var now = Date()
+    @State private var glow = false
+
+    var body: some View {
+        let left = max(0, Int(release.timeIntervalSince(now)))
+        let text = String(format: "%02d:%02d:%02d", left / 3600, (left % 3600) / 60, left % 60)
+        VStack(spacing: 6) {
+            Text(text)
+                .font(.display(30)).monospacedDigit().foregroundStyle(Theme.lime)
+                .contentTransition(.numericText(countsDown: true))
+                .fixedSize()
+            MonoLabel(text: "to go")
+        }
+        .background {
+            RadialGradient(colors: [Theme.lime.opacity(0.32), .clear], center: .center, startRadius: 0, endRadius: 80)
+                .scaleEffect(glow ? 1.15 : 0.8)
+                .opacity(glow ? 1 : 0.45)
+                .allowsHitTesting(false)
+        }
+        .frame(minWidth: 70)
+        .onVisibilityChange { on in if on != onScreen { onScreen = on } }
+        .task(id: onScreen) {
+            guard onScreen else { return }
+            if !reduceMotion {
+                withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) { glow = true }
+            }
+            while !Task.isCancelled {
+                withAnimation(reduceMotion ? nil : .snappy(duration: 0.3)) { now = Date() }
+                try? await Task.sleep(for: .seconds(1))
+            }
+        }
+        .onChange(of: onScreen) { _, on in if !on { var t = Transaction(); t.disablesAnimations = true; withTransaction(t) { glow = false } } }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(left / 3600) hours \((left % 3600) / 60) minutes to go")
     }
 }
 

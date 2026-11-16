@@ -67,7 +67,7 @@ struct MarketHomeView: View {
             .tabTopReset("home", path: $path)
             .tabBarClearance()
             .imageMaxPixel(480)
-            .refreshable { fresh = false; await load() }
+            .sparkRefresh { fresh = false; await load() }
             // Inline: a large-title bar left a tall empty band under "Home".
             .navigationBarTitleDisplayMode(.inline)
             .pageTitle("Home")
@@ -543,6 +543,9 @@ private struct HotColdTile: View {
 /// The top 10 risers, each card standing in front of its rank in huge numerals.
 private struct TopTenRow: View {
     var hits: [SearchHit]
+    /// The big rank numbers rise in, one after another, the first time the row is seen.
+    @State private var revealed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -554,11 +557,31 @@ private struct TopTenRow: View {
                                 Text("\(i + 1)")
                                     .font(.display(130)).tracking(-8)
                                     .foregroundStyle(LinearGradient(colors: [.white.opacity(0.22), .white.opacity(0.04)], startPoint: .top, endPoint: .bottom))
-                                    .offset(x: -6, y: 22)
-                                ProductImage(product: hit.pictured, cornerRadius: 6)
-                                    .frame(width: 100, height: 140)
-                                    .shadow(color: .black.opacity(0.6), radius: 10, y: 6)
-                                    .padding(.leading, i + 1 >= 10 ? 70 : 46)
+                                    .offset(x: -6, y: revealed ? 22 : 60)
+                                    .opacity(revealed ? 1 : 0)
+                                    .animation(.spring(response: 0.55, dampingFraction: 0.8).delay(Double(i) * 0.07), value: revealed)
+                                ZStack(alignment: .topLeading) {
+                                    if i == 0 {
+                                        // No. 1: lime sparks rising behind it.
+                                        MoteParticles(style: .sparks, color: Theme.lime, count: 12)
+                                            .frame(width: 130, height: 170)
+                                            .offset(x: -15, y: -20)
+                                    }
+                                    ProductImage(product: hit.pictured, cornerRadius: 6)
+                                        .frame(width: 100, height: 140)
+                                        .shadow(color: .black.opacity(0.6), radius: 10, y: 6)
+                                    if i == 0 {
+                                        // And a small lime crown on its corner.
+                                        Image(systemName: "crown.fill")
+                                            .font(.system(size: 15, weight: .bold))
+                                            .foregroundStyle(Theme.ink)
+                                            .frame(width: 28, height: 28)
+                                            .background(Circle().fill(Theme.lime))
+                                            .rotationEffect(.degrees(-14))
+                                            .offset(x: -9, y: -10)
+                                    }
+                                }
+                                .padding(.leading, i + 1 >= 10 ? 70 : 46)
                             }
                             .frame(height: 150, alignment: .bottomLeading)
                             // One line each, never wrapping: name, price, then the rise.
@@ -578,6 +601,11 @@ private struct TopTenRow: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 4)
+            .padding(.top, 10)
+        }
+        .onVisibilityChange { on in
+            guard on, !revealed else { return }
+            if reduceMotion { var t = Transaction(); t.disablesAnimations = true; withTransaction(t) { revealed = true } } else { revealed = true }
         }
     }
 }
@@ -786,6 +814,14 @@ private struct EraCard: View, Equatable {
                 .padding(14)
                 .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.background.opacity(0.55)))
             }
+        }
+        // The era's own particles behind everything: lime sparks rising (modern), blue motes
+        // drifting (mid-era), pink dust falling and twinkling (vintage).
+        .background {
+            MoteParticles(style: era == .modern ? .sparks : (era == .midEra ? .motes : .dust), color: era.color, count: 18)
+                .opacity(0.8)
+                .padding(-16)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
         .tinted(era.color)
         // Most of the screen, so the next era peeks in.

@@ -270,7 +270,7 @@ struct CollectionView: View {
             .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: selecting ? 0 : HoloTabBar<Int>.clearance) }
             .onChange(of: selecting) { _, on in Router.shared.tabBarHidden = on }
             .onDisappear { if selecting { leaveSelecting() }; Router.shared.tabBarHidden = false }
-            .refreshable { await reload() }
+            .sparkRefresh { await reload() }
             .navigationBarTitleDisplayMode(.inline)
             .collectionPageTitle()
             // The portfolio menu: a frosted panel under the pill, the page dimmed behind; tap

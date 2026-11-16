@@ -28,6 +28,13 @@ struct Slab: View {
                     ZStack {
                         if let bumper { BumperFrame(bumper: bumper, u: u) }
                         SlabDrawing(product: product, company: company, grade: grade, cert: cert, pristine: isPristine, u: bumper == nil ? u : u * 0.9)
+                            .overlay {
+                                // A slow band of light across the case, on big slabs only (a card
+                                // page, Owned): not on every tile of a grid.
+                                if u >= 1.2 {
+                                    SlabSweep(bright: grade == "10" || isPristine, cornerRadius: 7 * (bumper == nil ? u : u * 0.9))
+                                }
+                            }
                             .padding(bumper == nil ? 0 : 5 * u)
                     }
                     .frame(width: geo.size.width, height: geo.size.height)

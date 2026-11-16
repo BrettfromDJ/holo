@@ -17,6 +17,8 @@ struct HoloTabBar<Tab: Hashable>: View {
     var onPlus: () -> Void
     /// Every tap on a tab, including the one already showing.
     var onTap: (Tab) -> Void = { _ in }
+    /// Taps on the tab already showing (back to the top), each one a little lime spark.
+    @State private var sparks: [Int: Int] = [:]
 
     var body: some View {
         HStack(spacing: 0) {
@@ -56,7 +58,9 @@ struct HoloTabBar<Tab: Hashable>: View {
 
     private func button(_ item: Item) -> some View {
         let on = selection == item.tab
+        let key = item.tab.hashValue
         return Button {
+            if on { sparks[key, default: 0] += 1 }
             selection = item.tab
             onTap(item.tab)
         } label: {
@@ -64,6 +68,10 @@ struct HoloTabBar<Tab: Hashable>: View {
                 Image(systemName: item.icon).font(.system(size: item.iconSize, weight: on ? .semibold : .regular))
                     .foregroundStyle(on ? Theme.lime : Theme.muted)
                     .frame(height: 26)
+                    .overlay {
+                        SparkBurst(trigger: sparks[key] ?? 0, count: 10, spread: 22)
+                            .frame(width: 70, height: 70)
+                    }
                 Text(item.title).font(.geist(11, .medium)).foregroundStyle(on ? .white : Theme.muted)
             }
             .frame(maxWidth: .infinity)

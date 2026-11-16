@@ -59,7 +59,7 @@ struct HomeView: View {
             .imageMaxPixel(720)
             .replaysAnimations()
             .tabBarClearance()
-            .refreshable { await pullToRefresh() }
+            .sparkRefresh { await pullToRefresh() }
             .overlay(alignment: .topTrailing) {
                 if menuOpen {
                     ZStack(alignment: .topTrailing) {
