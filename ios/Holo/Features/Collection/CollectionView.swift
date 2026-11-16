@@ -388,15 +388,16 @@ struct CollectionView: View {
         Button {
             withAnimation(.snappy(duration: 0.2)) { portfolioMenu.toggle() }
         } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "folder").font(.system(size: 13, weight: .semibold))
-                Text(groups.name(of: groups.selected)).font(.geist(14, .semibold)).lineLimit(1)
-                Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold))
+            // Quiet text, no pill: the Summary | Cards switch above is the one pill at the top.
+            HStack(spacing: 5) {
+                Image(systemName: "folder").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.muted)
+                Text(groups.name(of: groups.selected)).font(.geist(14, .medium)).lineLimit(1)
+                Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.muted)
                     .rotationEffect(.degrees(portfolioMenu ? 180 : 0))
             }
             .foregroundStyle(.white)
-            .padding(.horizontal, 14).frame(height: 36)
-            .frostedPill()
+            .frame(height: 32)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .anchorPreference(key: PortfolioPillAnchor.self, value: .bounds) { $0 }
@@ -602,12 +603,13 @@ struct CollectionView: View {
                 selecting = true
             }
         } label: {
+            // Quiet text like the portfolio picker; a lime pill only while selecting ("Done").
             Text(selecting ? "Done" : "Select")
-                .font(.geist(14, .semibold))
+                .font(.geist(14, selecting ? .semibold : .medium))
                 .foregroundStyle(selecting ? Theme.ink : .white)
-                .padding(.horizontal, 16).frame(height: 36)
+                .padding(.horizontal, selecting ? 16 : 0).frame(height: 32)
                 .background { if selecting { Capsule().fill(Theme.lime) } }
-                .frostedPill(on: !selecting)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("collection-select")
