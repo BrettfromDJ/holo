@@ -21,7 +21,9 @@ struct SignInView: View {
                     .frame(maxWidth: .infinity)
             }
             .ignoresSafeArea()
-            // While typing (the keyboard pushes the form up over the cards), the wall dims way down.
+            // While typing the drift stops (no redraws while the keyboard slides up) and the
+            // wall dims way down under the form.
+            .environment(\.welcomeActive, !focused)
             .opacity(focused ? 0.18 : 1)
             .animation(.easeOut(duration: 0.25), value: focused)
             VStack(alignment: .leading, spacing: 0) {
@@ -66,7 +68,7 @@ struct SignInView: View {
                         .keyboardType(.emailAddress)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                        .glassField()
+                        .field()
                         .focused($focused)
                     Button(busy ? "Sending…" : "Email me a code") { Task { await send() } }
                         .buttonStyle(LimeButtonStyle())
@@ -82,7 +84,7 @@ struct SignInView: View {
                         .textContentType(.oneTimeCode)
                         .keyboardType(.numberPad)
                         .font(.system(size: 28, weight: .semibold, design: .monospaced))
-                        .glassField()
+                        .field()
                         .focused($focused)
                         // Digits only; codes are 6 to 8 digits depending on the account's settings:
                         // the field takes up to 8 and signs in by itself once 8 are in (or tap Sign in at 6).
@@ -135,13 +137,6 @@ struct SignInView: View {
 }
 
 extension View {
-    /// An input on glass, so the cards and glows behind show through softly.
-    func glassField() -> some View {
-        padding(.horizontal, 16)
-            .frame(minHeight: 54)
-            .liquidGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-    }
-
     /// A filled input like the web app's.
     func field() -> some View {
         padding(.horizontal, 16)
