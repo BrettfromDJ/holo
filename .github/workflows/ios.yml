@@ -114,7 +114,7 @@ jobs:
             -only-testing:HoloUITests/PerformanceTests \
             -parallel-testing-enabled NO \
             CODE_SIGNING_ALLOWED=NO \
-            | tee perf.log | grep --line-buffered -E "error:|Test Case|measured|\*\* TEST" || true
+            | tee perf.log | grep --line-buffered -E "error|Error|failed|Test Case|measured|\*\* TEST" || true
           grep "measured \[" perf.log | sed -E "s/.*PerformanceTests (test[A-Za-z]+)\]' measured \[([^]]+)\] average: ([0-9.]+), relative standard deviation: ([0-9.]+%).*/\1  \2  avg \3  (±\4)/" > perf.txt || true
           cat perf.txt
       - name: Upload screenshots
@@ -150,8 +150,10 @@ jobs:
           git add -A
           git commit -qm "Screenshots for ${GITHUB_SHA::7}"
           git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" ci-screenshots
+      # Always: a failing speed test (continue-on-error) doesn't fail the job, and its reason is
+      # only in perf.log (the step's own output is cut down to a few kinds of lines).
       - name: Upload log
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: xcodebuild-log
@@ -159,3 +161,4 @@ jobs:
             ios/build.log
             ios/test.log
             ios/ui.log
+            ios/perf.log
