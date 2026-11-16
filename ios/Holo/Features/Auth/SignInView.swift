@@ -55,7 +55,7 @@ struct SignInView: View {
                 }
                 // The heading and its line sit close together, as one block.
                 VStack(alignment: .leading, spacing: 6) {
-                    DisplayText(text: sent ? "Check your email" : "Know what every card is worth", size: 34, lineGap: -0.07)
+                    DisplayText(text: sent ? "Check your email" : "Sign in", size: 34, lineGap: -0.07)
                     Text(sent ? "Enter the code we sent to \(email)." : "Prices, grades and your whole collection, in one place. Use the same email as the website.")
                         .font(.geist(15)).foregroundStyle(Theme.muted)
                         .fixedSize(horizontal: false, vertical: true)
