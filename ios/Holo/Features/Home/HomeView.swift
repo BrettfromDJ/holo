@@ -29,6 +29,8 @@ struct HomeView: View {
     @State private var bannerTick = 0
     /// True while pull to refresh runs: the hero fan spreads open, then snaps shut.
     @State private var refreshing = false
+    /// The worth's make-up, for a tap on it.
+    @State private var priceInfo: PriceInfo?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -175,6 +177,7 @@ struct HomeView: View {
                 }
             }
             .sheet(isPresented: $account) { SettingsView() }
+            .sheet(item: $priceInfo) { PriceInfoSheet(info: $0) }
             .fullScreenCover(isPresented: $search) { SearchScreen() }
             .fullScreenCover(isPresented: $addSearch) { SearchScreen(mode: .add) }
             .fullScreenCover(isPresented: $recap) { WeeklyRecap(store: store) }
@@ -234,6 +237,7 @@ struct HomeView: View {
                 }
                 Hero(store: store, spread: refreshing, onAdd: { Router.shared.addMenu = true },
                      onToday: { todayOpen = true },
+                     onWorth: { priceInfo = worthBreakdown },
                      onPinned: { _ in })
             }
             // Closer to the hero's Add button than the page's usual section gap (44 + the hero's 12).
@@ -319,6 +323,23 @@ struct HomeView: View {
             try? await Task.sleep(for: .seconds(b.isMilestone ? 5 : 2.5))
             if banner?.id == id { withAnimation(reduceMotion ? nil : .easeOut) { banner = nil } }
         }
+    }
+
+    /// Your collection's worth split by where each part's price comes from.
+    private var worthBreakdown: PriceInfo {
+        var market = 0.0, graded = 0.0, condition = 0.0, own = 0.0
+        for h in store.holdings {
+            let v = h.value ?? 0
+            if h.isManual { own += v } else if h.identity.isGraded { graded += v } else if h.isConditionEstimate { condition += v } else { market += v }
+        }
+        var rows: [(String, String)] = [("Market prices", Format.money(market))]
+        if graded > 0 { rows.append(("Graded prices", Format.money(graded))) }
+        if condition > 0 { rows.append(("Estimated for condition", Format.money(condition))) }
+        if own > 0 { rows.append(("Your own values", Format.money(own))) }
+        let unpriced = store.summary.unpriced
+        if unpriced > 0 { rows.append(("Without a price", "\(unpriced) not counted")) }
+        return PriceInfo(title: "Your collection", value: store.summary.value, rows: rows,
+                         note: "Market prices are TCGplayer's (PriceCharting where TCGplayer has none). Graded prices come from recent eBay sales of that grade, else PriceCharting, else the usual grade curve. Tap any card's price for its own source.")
     }
 
     /// What the milestone check runs on: nil (no check) in a demo, while one portfolio is shown,
@@ -422,6 +443,8 @@ private struct Hero: View {
     var onAdd: () -> Void
     /// The Today column was tapped: show what moved today.
     var onToday: () -> Void = {}
+    /// A tap on the worth: what it's made of.
+    var onWorth: () -> Void = {}
     /// The figures crossed under the top bar (true) or came back (false).
     var onPinned: (Bool) -> Void = { _ in }
 
@@ -442,6 +465,8 @@ private struct Hero: View {
                     .displayTrim(66)
                     .shadow(color: Theme.lime.opacity(0.45), radius: 24)
                     .padding(.horizontal, 16)
+                    .contentShape(Rectangle())
+                    .onTapGesture { onWorth() }
             }
             .padding(.vertical, 8)
             // Today, all time and invested on one line: three columns in one glass strip.

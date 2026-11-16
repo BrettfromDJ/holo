@@ -15,6 +15,8 @@ struct ProductDetailView: View {
     @Environment(DealStore.self) private var deals
     /// The art full screen (tap the card).
     @State private var viewingArt = false
+    /// The headline price's "where it comes from" sheet.
+    @State private var priceInfo: PriceInfo?
     /// The card grows from its place on the page into the full-screen view, and back.
     @Namespace private var artZoom
     @State private var certFor: HoldingView?
@@ -120,6 +122,7 @@ struct ProductDetailView: View {
             ToolbarItem(placement: .topBarTrailing) { moreMenu }
         }
         .sheet(item: $managing) { h in HoldingSheet(identity: h.identity) }
+        .sheet(item: $priceInfo) { PriceInfoSheet(info: $0) }
         .fullScreenCover(isPresented: $viewingArt) {
             ArtViewer(product: artProduct, slab: heroSlab?.identity)
                 .zoomTransition(id: "art", in: artZoom)
@@ -331,6 +334,11 @@ struct ProductDetailView: View {
                 }
             }
             .font(.display(52)).tracking(-2.1).monospacedDigit().displayTrim(52).padding(.top, 12)
+            // More than 3 days old: dimmed (the sheet says when it's from).
+            .opacity(PriceInfo.isStale(price?.updatedAt) ? 0.6 : 1)
+            // Tap the price: where it comes from, and what eBay's recent sales say.
+            .contentShape(Rectangle())
+            .onTapGesture { priceInfo = headlineInfo }
             // The headline is a single's Near Mint, ungraded price: say so.
             if product?.isSealed == false {
                 Text("Near Mint · ungraded").font(.geist(13)).foregroundStyle(Theme.muted).padding(.top, 4)
@@ -367,6 +375,19 @@ struct ProductDetailView: View {
                 .font(.geist(12)).foregroundStyle(Theme.subtle)
                 .padding(.top, 12)
         }
+    }
+
+    /// What the headline price is and where it's from, for its tap.
+    private var headlineInfo: PriceInfo {
+        var rows: [(String, String)] = [
+            ("Source", price?.source == "pricecharting" ? "PriceCharting (TCGplayer has no price)" : price == nil ? "Last stored price" : "TCGplayer market price"),
+        ]
+        if let age = PriceInfo.age(price?.updatedAt) { rows.append(("Updated", age)) }
+        if let printing, !printing.isEmpty { rows.append(("Printing", printing)) }
+        return PriceInfo(title: product?.isSealed == false ? "Near Mint · ungraded" : "Market price", value: headline, rows: rows,
+                         ebay: (productId, printing, nil),
+                         note: PriceInfo.isStale(price?.updatedAt) ? "This price is more than 3 days old; it refreshes with the daily sync." : nil,
+                         stale: PriceInfo.isStale(price?.updatedAt))
     }
 
     /// The price's source, ending in a "TCGplayer ↗" link to check it there (when the card has

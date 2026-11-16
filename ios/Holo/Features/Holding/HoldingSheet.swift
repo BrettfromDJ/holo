@@ -32,6 +32,8 @@ struct HoldingSheet: View {
     @State private var editing: Txn?
     @State private var deleting: Txn?
     @State private var error: String?
+    /// The worth's "where it comes from" sheet.
+    @State private var priceInfo: PriceInfo?
 
     var body: some View {
         // The copy now (it follows a demo card that switched to its real catalog card, or a copy
@@ -52,7 +54,7 @@ struct HoldingSheet: View {
                 titleRow
                 header(identity, holding, product)
                 if let h = holding {
-                    HoldingWorth(holding: h, points: worthPoints(h))
+                    HoldingWorth(holding: h, points: worthPoints(h)) { priceInfo = worthInfo(h) }
                     tiles(h)
                     // How easily this exact copy sells (its grade, else ungraded), from the shared
                     // eBay cache; only cards with eBay data show it.
@@ -135,6 +137,7 @@ struct HoldingSheet: View {
         } message: {
             Text("Your totals update as if it never happened. The original stays in the\u{00A0}record.")
         }
+        .sheet(item: $priceInfo) { PriceInfoSheet(info: $0) }
         // Just short of full height: iOS 26 keeps a sheet glass only while it isn't full screen.
         .presentationDetents([.fraction(0.93)])
         .presentationDragIndicator(.visible)
@@ -248,6 +251,30 @@ struct HoldingSheet: View {
         do { error = nil; try await work() } catch { self.error = error.localizedDescription }
     }
 
+    /// What your copy's worth is and how it was worked out, for a tap on it.
+    private func worthInfo(_ h: HoldingView) -> PriceInfo {
+        let market = store.marketPrice(h.identity.productId, printing: h.identity.printing)
+        var rows: [(String, String)] = []
+        var note: String?
+        if h.isManual {
+            rows.append(("Source", "Your own value"))
+        } else if h.identity.isGraded {
+            rows.append(("Source", "Graded price"))
+            note = "Recent eBay sales of this exact grade when there are enough, else PriceCharting, else the usual grade curve from the Near Mint price."
+        } else if h.isConditionEstimate {
+            rows.append(("Source", "Estimated for its condition"))
+            note = "TCGplayer's price for this condition when it has one, else the Near Mint price adjusted for condition."
+        } else {
+            rows.append(("Source", market?.source == "pricecharting" ? "PriceCharting" : "TCGplayer market price"))
+        }
+        if h.quantity > 1 { rows.append(("Each", Format.money(h.price))) }
+        if let age = PriceInfo.age(market?.updatedAt), !h.isManual { rows.append(("Updated", age)) }
+        return PriceInfo(title: h.label.map { "Your \($0)" } ?? (h.quantity > 1 ? "Your \(Int(h.quantity)) copies" : "Your copy"),
+                         value: h.value, rows: rows,
+                         ebay: h.isManual || h.product?.isSealed == true ? nil : (h.identity.productId, h.identity.printing, h.identity.gradeLabel),
+                         note: note, stale: !h.isManual && PriceInfo.isStale(market?.updatedAt), each: h.price)
+    }
+
     /// Since you first bought it (cached in the store, so this is a lookup).
     private func worthPoints(_ h: HoldingView) -> [TimelinePoint] {
         let held = h.firstAcquired.map { Timeline.daysBetween($0, Format.day()) } ?? 90
@@ -334,6 +361,8 @@ private struct HoldingWorth: View {
     var holding: HoldingView
     /// The price line since you first bought it, colored by whether you're up overall.
     var points: [TimelinePoint]
+    /// A tap on the worth: where that figure comes from.
+    var onTapValue: () -> Void = {}
 
     var body: some View {
         let h = holding
@@ -347,6 +376,8 @@ private struct HoldingWorth: View {
             // Everything sits in place; only the figures count and the chart draws.
             CountingText(value: h.value ?? 0, format: { (h.isConditionEstimate ? "≈ " : "") + Format.money($0) }, duration: 0.9, delay: 0.15)
                 .font(.display(44)).tracking(-1.8).monospacedDigit().displayTrim(44)
+                .contentShape(Rectangle())
+                .onTapGesture { onTapValue() }
             HStack(spacing: 8) {
                 DeltaPill(ratio: h.gainRatio, size: 13)
                 CountingText(value: h.gain ?? 0, format: { Format.signedMoney($0) }, duration: 0.9, delay: 0.15)

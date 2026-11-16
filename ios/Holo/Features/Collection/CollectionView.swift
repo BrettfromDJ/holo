@@ -878,6 +878,12 @@ struct CollectionView: View {
 /// The website's collection tile: the piece on a dark stage, then name, Anton value and gain.
 struct HoldingTile: View {
     var holding: HoldingView
+    @Environment(CollectionStore.self) private var store
+
+    /// A market price more than 3 days old shows dimmed (your own values never do).
+    private var stale: Bool {
+        !holding.isManual && PriceInfo.isStale(store.marketPrice(holding.identity.productId, printing: holding.identity.printing)?.updatedAt)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -909,6 +915,7 @@ struct HoldingTile: View {
                 HStack(alignment: .center, spacing: 4) {
                     Text((holding.isConditionEstimate ? "≈" : "") + Format.money(holding.value))
                         .font(.display(22)).tracking(-0.6).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
+                        .opacity(stale ? 0.6 : 1)
                     Spacer(minLength: 4)
                     DeltaPill(ratio: holding.gainRatio, size: 12)
                 }
