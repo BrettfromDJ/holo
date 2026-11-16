@@ -285,21 +285,48 @@ private struct YourCollectionStrip: View {
 
     var body: some View {
         let s = store.summary
+        // The last 30 days (as Collection's header): its line, colored by whether it's up.
+        let month = Array(store.timeline.suffix(31))
+        let monthChange = (month.last?.value ?? 0) - (month.first?.value ?? 0)
         Button { Router.shared.tabRequest = "collection-summary" } label: {
-            HStack(spacing: 10) {
-                VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
                     MonoLabel(text: "Your collection")
-                    Text(Format.money(s.value)).font(.display(22)).tracking(-0.6).monospacedDigit().foregroundStyle(.white)
+                    Spacer(minLength: 8)
+                    Text("\(Int(s.items)) items").font(.mono(10)).tracking(0.8).foregroundStyle(Theme.subtle)
+                    Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.muted)
                 }
-                Spacer(minLength: 8)
-                VStack(alignment: .trailing, spacing: 2) {
-                    MonoLabel(text: "Today")
-                    Text(Format.signedMoney(s.dayChange)).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(s.dayChange))
+                HStack(alignment: .bottom, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(Format.money(s.value)).font(.display(28)).tracking(-0.9).monospacedDigit().foregroundStyle(.white)
+                            .lineLimit(1).minimumScaleFactor(0.7)
+                        // Today, then the month, each in its own color.
+                        HStack(spacing: 6) {
+                            DeltaPill(ratio: s.dayRatio, size: 11)
+                            Text(Format.signedMoney(s.dayChange)).font(.geist(12, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(s.dayChange))
+                            Text("today").font(.geist(12)).foregroundStyle(Theme.muted)
+                        }
+                        .lineLimit(1)
+                    }
+                    .layoutPriority(1)
+                    Spacer(minLength: 0)
+                    if month.count > 1 {
+                        VStack(alignment: .trailing, spacing: 4) {
+                            Sparkline(points: month, color: monthChange < 0 ? Theme.planPink : Theme.lime)
+                                .frame(width: 110, height: 40)
+                            Text("\(Format.signedMoney(monthChange)) · 30d").font(.geist(11, .medium)).monospacedDigit().foregroundStyle(Theme.tone(monthChange))
+                                .lineLimit(1)
+                        }
+                    }
                 }
-                Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.muted)
             }
-            .padding(.horizontal, 16).padding(.vertical, 12)
-            .liquidGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .padding(.horizontal, 16).padding(.vertical, 14)
+            .background {
+                // A faint glow of the month's color behind the line, inside the rounded strip.
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(RadialGradient(colors: [(monthChange < 0 ? Theme.planPink : Theme.lime).opacity(0.14), .clear], center: .trailing, startRadius: 0, endRadius: 180))
+            }
+            .liquidGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
         .buttonStyle(.plain)
     }
