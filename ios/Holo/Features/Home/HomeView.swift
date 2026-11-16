@@ -178,7 +178,7 @@ struct HomeView: View {
             .fullScreenCover(isPresented: $search) { SearchScreen() }
             .fullScreenCover(isPresented: $addSearch) { SearchScreen(mode: .add) }
             .fullScreenCover(isPresented: $recap) { WeeklyRecap(store: store) }
-            // From a tapped notification: Master Sets (the weekly recap opens from the tab view).
+            // Tapped notifications open from the tab view (recap) and Home (Master Sets).
             .confirmationDialog("Add to your collection", isPresented: $adding) {
                 Button("Scan cards") { onScan() }
                 Button("Search and add") { addSearch = true }
