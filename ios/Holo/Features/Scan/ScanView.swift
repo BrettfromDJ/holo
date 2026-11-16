@@ -712,51 +712,62 @@ struct ScanListRow: View {
                     Text(Format.money(entry.value)).font(.geist(16, .semibold)).monospacedDigit().foregroundStyle(.white)
                         .contentTransition(.numericText())
                 }
-                HStack(spacing: 6) {
-                    Text([p.number.map { "#\($0)" }, p.setName].compactMap { $0 }.joined(separator: " · "))
-                        .font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
-                    if owned > 0 { Spacer(minLength: 4); SkewTag(text: "Owned ×\(owned)", icon: "checkmark") }
-                }
-                if entry.isBestGuess { BestGuessLabel() }
-                if !inDeal {
-                    ScanEditMenus(entry: entry, setPrinting: setPrinting, setCondition: setCondition).padding(.top, 4)
-                }
-                if !inDeal, let onPurchase {
-                    let p = purchase
-                    Button(action: onPurchase) {
-                        HStack(spacing: 6) {
-                            Text(p.word).foregroundStyle(Theme.muted)
-                            if let price = p.price { Text(price).foregroundStyle(.white).monospacedDigit() }
-                            if let d = entry.draft, let co = d.purchase.gradeCompany, let g = d.purchase.grade {
-                                Text("· \(co) \(d.pristine ? "Pristine 10" : g)").foregroundStyle(.white)
-                            }
-                            Image(systemName: "pencil").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.lime)
-                        }
-                        .font(.geist(13, .semibold))
-                        .lineLimit(1)
-                        .padding(.horizontal, 10).frame(height: 32)
-                        .background(Capsule().fill(Color.white.opacity(p.own ? 0.14 : 0.1)))
-                        .contentShape(Capsule())
+                Text([p.number.map { "#\($0)" }, p.setName].compactMap { $0 }.joined(separator: " · "))
+                    .font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
+                if entry.isBestGuess || owned > 0 {
+                    HStack(spacing: 8) {
+                        if entry.isBestGuess { BestGuessLabel() }
+                        if owned > 0 { SkewTag(text: "Owned ×\(owned)", icon: "checkmark") }
                     }
-                    .buttonStyle(.borderless)
                     .padding(.top, 2)
-                    .accessibilityLabel("\(p.word) \(p.price ?? ""). Edit purchase details")
+                }
+                // Printing, condition and how you got it, side by side in one row.
+                if !inDeal {
+                    HStack(spacing: 6) {
+                        ScanEditMenus(entry: entry, setPrinting: setPrinting, setCondition: setCondition)
+                        if let onPurchase { purchasePill(onPurchase) }
+                    }
+                    .padding(.top, 6)
                 }
             }
         }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 4)
+        .padding(.vertical, 12)
         .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1) }
         .contentShape(Rectangle())
+    }
+
+    /// "Bought $X" (or "Pulled") with a lime pencil: the purchase details.
+    private func purchasePill(_ action: @escaping () -> Void) -> some View {
+        let p = purchase
+        return Button(action: action) {
+            HStack(spacing: 5) {
+                Text(p.word).foregroundStyle(Theme.muted)
+                if let price = p.price { Text(price).foregroundStyle(.white).monospacedDigit() }
+                if let d = entry.draft, let co = d.purchase.gradeCompany, let g = d.purchase.grade {
+                    Text("· \(co) \(d.pristine ? "Pristine 10" : g)").foregroundStyle(.white)
+                }
+                Image(systemName: "pencil").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.lime)
+            }
+            .font(.geist(13, .semibold))
+            .lineLimit(1)
+            .padding(.horizontal, 10).frame(height: 32)
+            .background(Capsule().fill(Color.white.opacity(p.own ? 0.14 : 0.1)))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.borderless)
+        .fixedSize()
+        .accessibilityLabel("\(p.word) \(p.price ?? ""). Edit purchase details")
     }
 }
 
 /// "Best guess": the scan picked the closest of several matches. Check it (Wrong card? lists the others).
 private struct BestGuessLabel: View {
     var body: some View {
-        Label("Best guess", systemImage: "questionmark.circle")
+        HStack(spacing: 4) {
+            Image(systemName: "questionmark.circle").font(.system(size: 11, weight: .semibold))
+            Text("Best guess")
+        }
             .font(.geist(12, .medium)).foregroundStyle(Theme.muted)
-            .labelStyle(.titleAndIcon)
             .accessibilityLabel("Best guess: check it's the right card")
     }
 }
@@ -818,7 +829,6 @@ private struct ScanEditMenus: View {
         }
         .foregroundStyle(.white)
         .padding(.horizontal, 10).frame(height: 32)
-        .frame(maxWidth: .infinity, alignment: .leading)
         .background(Capsule().fill(Color.white.opacity(0.1)))
         .contentShape(Capsule())
     }

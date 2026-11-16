@@ -1571,7 +1571,7 @@ private struct CustomerCardSheet: View {
             }
         }
         .rotationEffect(.degrees(flipped ? 180 : 0))
-        .presentationDetents([.fraction(0.93)])
+        .presentationDetents([.large])
         .presentationDragIndicator(.hidden)
         .glassSheet()
     }
@@ -1695,7 +1695,7 @@ private struct ParkedDealsSheet: View {
             }
             .toolbar(.hidden, for: .navigationBar)
         }
-        .presentationDetents([.medium, .fraction(0.93)])
+        .presentationDetents([.medium, .large])
         .glassSheet()
     }
 }

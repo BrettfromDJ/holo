@@ -84,11 +84,11 @@ and say exactly what to run or click.
 - Inactive tabs and chips have no background; only the selected one is filled. Chip tracks never
   bleed off the screen: the track stays inside the margins and the chips scroll inside it
   (`ChipPicker(..., scrolls: true)`).
-- Bottom sheets: `.glassSheet()` (Apple's glass under a dark wash; panels, forms and dark buttons
-  turn into a faint white fill on it). Stop short of full height (`.fraction(0.93)`) so iOS 26
-  keeps it glass. No navigation bar in display sheets like Your copy: the bar resizes while the
-  sheet rises and slides the content; put the title and Done in the content. Content sits still;
-  only figures count and charts draw.
+- Bottom sheets: `.glassSheet()`: pure black, full width (`.large`; iOS 26 floats shorter
+  detents in from the edges), pull handle centred at the top; panels, forms and dark buttons
+  turn into a faint white fill on it. No navigation bar in display sheets like Your copy: the bar
+  resizes while the sheet rises and slides the content; put the title and Done in the content.
+  Content sits still; only figures count and charts draw.
 - No black bar behind the navigation: content scrolls up under the status bar.
 - Animations must be cheap: no per-frame layout on many views, no animated shadow radius, no
   per-frame blur. Looping motion uses a `TimelineView` or a single offset animation. Respect

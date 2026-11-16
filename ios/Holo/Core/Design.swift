@@ -261,8 +261,8 @@ extension EnvironmentValues {
 }
 
 extension View {
-    /// The app's bottom sheet look: Apple's glass (frosted on older iOS) under a dark wash, with
-    /// see-through scroll and form backgrounds and glass-friendly panels and buttons.
+    /// The app's bottom sheet look: pure black, full width, the pull handle at the top, with
+    /// see-through scroll and form backgrounds and panels and buttons as faint white fills.
     func glassSheet() -> some View {
         environment(\.onGlassSheet, true)
             .scrollContentBackground(.hidden)
@@ -319,18 +319,11 @@ extension View {
     /// Apple's own Liquid Glass sheet background on iOS 26 (see-through, blurring the page
     /// behind); frosted material on older iOS and older Xcode.
     /// A dark wash over the glass keeps the blur and see-through but lets what's on it pop.
-    @ViewBuilder func nativeGlassSheet() -> some View {
-        #if compiler(>=6.2)
-        if #available(iOS 26, *) {
-            background(Color.black.opacity(0.65).ignoresSafeArea())
-        } else {
-            presentationBackground(.ultraThinMaterial)
-                .background(Color.black.opacity(0.65).ignoresSafeArea())
-        }
-        #else
-        presentationBackground(.ultraThinMaterial)
-            .background(Color.black.opacity(0.65).ignoresSafeArea())
-        #endif
+    /// Every bottom sheet: pure black, the full width of the screen (iOS 26 floats a shorter sheet
+    /// in from the edges; at full height it meets them), with its pull handle centred at the top.
+    func nativeGlassSheet() -> some View {
+        presentationBackground(Color.black)
+            .presentationDragIndicator(.visible)
     }
 }
 

@@ -38,7 +38,7 @@ struct ScanCardSheet: View {
                 Color.clear.onAppear { dismiss() }
             }
         }
-        .presentationDetents([.fraction(0.93)])
+        .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .glassSheet()
         // Wrong card?: the next best matches, or search (Change card).
@@ -453,7 +453,7 @@ struct ChangeCardSheet: View {
             .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 16)
         }
         .foregroundStyle(.white)
-        .presentationDetents([.fraction(0.75), .fraction(0.93)])
+        .presentationDetents([.fraction(0.75), .large])
         .presentationDragIndicator(.visible)
         .glassSheet()
         .sheet(isPresented: $searching) {

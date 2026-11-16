@@ -758,7 +758,7 @@ struct ListAddSheet: View {
         }
     }
 
-    var body: some View { sheetBody.presentationDetents([.fraction(0.93)]).glassSheet() }
+    var body: some View { sheetBody.presentationDetents([.large]).glassSheet() }
 
     @ViewBuilder private var sheetBody: some View {
         let owned = self.owned
@@ -865,7 +865,7 @@ struct ListShareSheet: View {
     @State private var error: String?
     @State private var copied = false
 
-    var body: some View { sheetBody.presentationDetents([.fraction(0.93)]).glassSheet() }
+    var body: some View { sheetBody.presentationDetents([.large]).glassSheet() }
 
     private var sheetBody: some View {
         ScrollView {
