@@ -179,7 +179,6 @@ struct HomeView: View {
             .fullScreenCover(isPresented: $addSearch) { SearchScreen(mode: .add) }
             .fullScreenCover(isPresented: $recap) { WeeklyRecap(store: store) }
             // From a tapped notification: Master Sets (the weekly recap opens from the tab view).
-            .onChange(of: Router.shared.masterSetsRequest) { _, _ in path.append(MorePage.masterSets) }
             .confirmationDialog("Add to your collection", isPresented: $adding) {
                 Button("Scan cards") { onScan() }
                 Button("Search and add") { addSearch = true }
@@ -1723,7 +1722,7 @@ private struct ShineUnlessSealed: ViewModifier {
 }
 
 /// The top-right menu's panel: every main place in the app, in three groups, on one glass card.
-private struct PlacesMenu: View {
+struct PlacesMenu: View {
     enum Place { case collection, explore, deal, recap, analytics, grading, masterSets, activity, sales, lists, account }
     var go: (Place) -> Void
 

@@ -12,6 +12,11 @@ struct MarketHomeView: View {
     /// The newest set's most valuable singles.
     @State private var chase: (set: ExploreSet, hits: [SearchHit])?
     @State private var path = NavigationPath()
+    /// The top-right menu of every main place in the app (as Overview had), and what it opens.
+    @State private var menuOpen = false
+    @State private var account = false
+    @State private var recap = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Rising by era: which era's row is showing ("" until picked: the first with risers).
     @State private var era = ""
 
@@ -67,6 +72,51 @@ struct MarketHomeView: View {
             .navigationBarTitleDisplayMode(.inline)
             .pageTitle("Home")
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
+            // The menu's pages, pushed here (links inside them push on top).
+            .navigationDestination(for: MorePage.self) { p in
+                switch p {
+                case .analytics, .gains: AnalyticsView()
+                case .grading: GradingView()
+                case .masterSets: MasterSetsView()
+                case .activity: ActivityView()
+                case .sales: SalesView()
+                case .lists: ListsHomeView()
+                }
+            }
+            .navigationDestination(for: MasterSetRoute.self) { MasterSetDetailView(setId: $0.id, setName: $0.name) }
+            .navigationDestination(for: ListRoute.self) { route in
+                switch route {
+                case let .list(id): ListDetailView(listId: id)
+                case .watchlist: ListsView(which: .watchlist, embedded: true)
+                case .wishlist: ListsView(which: .wishlist, embedded: true)
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { setMenu(!menuOpen) } label: { Image(systemName: menuOpen ? "xmark" : "line.3.horizontal") }
+                        .accessibilityLabel(menuOpen ? "Close menu" : "Menu")
+                }
+            }
+            .overlay(alignment: .topTrailing) {
+                if menuOpen {
+                    ZStack(alignment: .topTrailing) {
+                        // Tap anywhere else to close.
+                        Color.black.opacity(0.35).ignoresSafeArea()
+                            .contentShape(Rectangle())
+                            .onTapGesture { setMenu(false) }
+                        PlacesMenu(go: go)
+                            .padding(.trailing, 12)
+                            .padding(.top, 4)
+                            .transition(.scale(scale: 0.92, anchor: .topTrailing).combined(with: .opacity))
+                    }
+                    .transition(.opacity)
+                }
+            }
+            .onDisappear { if menuOpen { setMenu(false, animated: false) } }
+            .sheet(isPresented: $account) { SettingsView() }
+            // From a tapped notification ("sets nearly done"): Master Sets, on Home.
+            .onChange(of: Router.shared.masterSetsRequest) { _, _ in path.append(MorePage.masterSets) }
+            .fullScreenCover(isPresented: $recap) { WeeklyRecap(store: store) }
             .navigationDestination(for: ExploreSet.self) { SetView(set: $0) }
             .navigationDestination(for: ExploreRoute.self) { _ in ReleaseCalendarView(sets: index?.sets ?? []) }
             .task { await load() }
@@ -176,6 +226,36 @@ struct MarketHomeView: View {
     private func seeAll(_ title: String) -> some View {
         HStack(spacing: 4) { Text(title); Image(systemName: "arrow.right").font(.system(size: 12, weight: .semibold)) }
             .font(.geist(13, .medium)).foregroundStyle(Theme.muted)
+    }
+
+    private func setMenu(_ open: Bool, animated: Bool = true) {
+        guard open != menuOpen else { return }
+        if open { SheetCover.shared.opened() } else { SheetCover.shared.closed() }
+        if animated, !reduceMotion {
+            withAnimation(.snappy(duration: 0.22)) { menuOpen = open }
+        } else {
+            var t = Transaction()
+            t.disablesAnimations = true
+            withTransaction(t) { menuOpen = open }
+        }
+    }
+
+    /// A place picked in the menu: the menu goes at once, then the page opens.
+    private func go(_ place: PlacesMenu.Place) {
+        setMenu(false, animated: false)
+        switch place {
+        case .collection: Router.shared.tabRequest = "collection"
+        case .explore: Router.shared.tabRequest = "explore"
+        case .deal: Router.shared.tabRequest = "deal"
+        case .recap: DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { recap = true }
+        case .analytics: path.append(MorePage.analytics)
+        case .grading: path.append(MorePage.grading)
+        case .masterSets: path.append(MorePage.masterSets)
+        case .activity: path.append(MorePage.activity)
+        case .sales: path.append(MorePage.sales)
+        case .lists: path.append(MorePage.lists)
+        case .account: account = true
+        }
     }
 
     private func load() async {
