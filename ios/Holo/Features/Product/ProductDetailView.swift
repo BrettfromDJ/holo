@@ -745,8 +745,22 @@ private struct PriceHistoryCard: View {
     @State private var range = 90
     /// The parsed, thinned series, kept between redraws (see `HistoryMemo`).
     @State private var memo = HistoryMemo()
+    /// Where your finger is on the chart while you hold and drag (nil when you're not).
+    @State private var scrubbed: Date?
 
     private var all: [PricePoint] { store.history[priceKey(productId, printing)] ?? [] }
+
+    /// The day nearest the finger: a quick halving search over the sorted days.
+    private func nearest(_ points: [DayPrice]) -> DayPrice? {
+        guard let scrubbed, !points.isEmpty else { return nil }
+        var lo = 0, hi = points.count - 1
+        while lo < hi {
+            let mid = (lo + hi) / 2
+            if points[mid].day < scrubbed { lo = mid + 1 } else { hi = mid }
+        }
+        if lo > 0, abs(points[lo - 1].day.timeIntervalSince(scrubbed)) < abs(points[lo].day.timeIntervalSince(scrubbed)) { lo -= 1 }
+        return points[lo]
+    }
 
     private func purchases(since first: String?) -> [Txn] {
         guard let first else { return [] }
@@ -759,16 +773,22 @@ private struct PriceHistoryCard: View {
         let all = self.all
         let points = memo.points(all, range: range)
         let buys = purchases(since: points.first?.date)
+        let shown = nearest(points)
         VStack(alignment: .leading, spacing: 0) {
             Text("Market price history").font(.geist(15, .semibold))
             Group {
-                if let first = points.first, let last = points.last {
+                // While you hold the chart: that day's price and its change since the range began.
+                if let first = points.first, let last = shown ?? points.last {
                     let diff = last.price - first.price
                     HStack(spacing: 4) {
                         Text(Format.money(last.price)).fontWeight(.medium)
                         Text(Format.signedMoney(diff)).foregroundStyle(Theme.tone(diff))
                         DeltaPill(ratio: first.price > 0 ? diff / first.price : nil, size: 12)
-                        Text("since \(first.day.formatted(date: .abbreviated, time: .omitted))").foregroundStyle(Theme.muted)
+                        if shown != nil {
+                            Text("on \(last.day.formatted(date: .abbreviated, time: .omitted))").foregroundStyle(.white)
+                        } else {
+                            Text("since \(first.day.formatted(date: .abbreviated, time: .omitted))").foregroundStyle(Theme.muted)
+                        }
                     }
                     .lineLimit(1).minimumScaleFactor(0.7)
                 } else {
@@ -797,10 +817,17 @@ private struct PriceHistoryCard: View {
                             .foregroundStyle(.white)
                             .symbolSize(50)
                     }
+                    if let shown {
+                        RuleMark(x: .value("Day", shown.day)).foregroundStyle(.white.opacity(0.3))
+                        PointMark(x: .value("Day", shown.day), y: .value("Price", shown.price)).foregroundStyle(Theme.lime).symbolSize(70)
+                    }
                 }
                 .chartXAxis(.hidden)
                 .insideYAxis()
                 .chartYScale(domain: domain)
+                // Hold and drag to read any day (like Overview's Performance chart).
+                .chartXSelection(value: $scrubbed)
+                .sensoryFeedback(.selection, trigger: shown?.id)
                 .drawIn(replay: range)
                 .frame(height: 220)
                 .padding(.top, 12)
@@ -837,7 +864,7 @@ private struct PriceHistoryCard: View {
                     Circle().fill(.white).frame(width: 8, height: 8)
                     Text("Your purchases").foregroundStyle(Theme.muted).padding(.trailing, 6)
                 }
-                Text("\(all.count) daily observation\(all.count == 1 ? "" : "s") · gaps are shown as-is, never interpolated").foregroundStyle(Theme.subtle)
+                Text(shown == nil ? "Hold and drag to see any day · \(all.count) daily observation\(all.count == 1 ? "" : "s")" : "\(all.count) daily observation\(all.count == 1 ? "" : "s") · gaps are shown as-is, never interpolated").foregroundStyle(Theme.subtle)
             }
             .font(.geist(11))
             .padding(.top, 8)
