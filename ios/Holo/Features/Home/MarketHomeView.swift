@@ -200,9 +200,9 @@ private struct YourCollectionStrip: View {
 private func pctText(_ pct: Double?) -> String { pct.map { Format.signedPercent($0 / 100) } ?? "—" }
 private func pctTint(_ pct: Double?) -> Color { (pct ?? 0) >= 0 ? Theme.lime : Theme.planPink }
 
-/// The top of Home: today's biggest riser on a stage. Light rays turn slowly behind it, sparks
-/// rise, the card drifts and shines, and its rise sits on a lime ribbon; all inside the electric
-/// border of the set page's No. 1 chase. Without today's movers the week's top riser stands in,
+/// The top of Home: today's biggest riser, as a wide tile matching Heating up / Cooling off
+/// under it. Light rays turn slowly behind the card, sparks rise, the card drifts and shines,
+/// and its rise sits on a lime ribbon; inside the electric border of the set page's No. 1 chase. Without today's movers the week's top riser stands in,
 /// and without any market moves the newest set's top pull.
 private struct CardOfTheDay: View {
     enum Kind { case day, week, topPull(String) }
@@ -214,70 +214,66 @@ private struct CardOfTheDay: View {
         let p = hit.pictured
         let pct: Double? = switch kind { case .day: hit.change24hPct; case .week: hit.change7dPct; case .topPull: nil }
         let tag: String = switch kind { case .day: "Card of the day"; case .week: "Card of the week"; case .topPull: "Top pull" }
-        let note: String = switch kind { case .day: "NEW EVERY DAY"; case .week: "THIS WEEK"; case let .topPull(set): set.uppercased() }
-        let shape = RoundedRectangle(cornerRadius: 30, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
+        // A wide tile in the style of Heating up / Cooling off under it: the card on the left with
+        // its rays, glow and sparks, the details on the right; the electric border round it all.
         MarketLink(hit: hit) {
-            VStack(spacing: 0) {
-                HStack {
-                    SkewTag(text: tag, icon: "flame.fill")
-                    Spacer(minLength: 8)
-                    Text(note).font(.mono(10)).tracking(1.2).foregroundStyle(.white.opacity(0.6)).lineLimit(1)
-                }
+            HStack(alignment: .center, spacing: 16) {
                 ZStack {
                     // A soft floor of light under the card.
-                    Ellipse().fill(RadialGradient(colors: [Theme.lime.opacity(0.45), .clear], center: .center, startRadius: 0, endRadius: 120))
-                        .frame(width: 260, height: 60).offset(y: 165)
-                    HoloCard(foil: p.isFoil, textured: false, cornerRadius: 12) {
-                        ProductImage(product: p, cornerRadius: 12, large: true).frame(width: 220, height: 307)
+                    Ellipse().fill(RadialGradient(colors: [Theme.lime.opacity(0.45), .clear], center: .center, startRadius: 0, endRadius: 70))
+                        .frame(width: 150, height: 34).offset(y: 86)
+                    HoloCard(foil: p.isFoil, textured: false, cornerRadius: 8) {
+                        ProductImage(product: p, cornerRadius: 8, large: true).frame(width: 118, height: 165)
                     }
                     .drifting()
                     .notTiltable()
-                    .frame(width: 220, height: 307)
+                    .frame(width: 118, height: 165)
                 }
-                .frame(maxWidth: .infinity)
-                .frame(height: 360)
-                // The rays behind, as a background: wider than the panel, they must never widen the
-                // page (they did, pushing everything off the left edge). The panel clips them.
-                .background { LightRays().frame(width: 420, height: 420) }
-                // The rise on a lime ribbon, ink on lime.
-                // The rise (or, for a top pull, its price) on the ribbon.
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Image(systemName: pct == nil ? "crown.fill" : "arrow.up.right").font(.system(size: 20, weight: .heavy))
-                    Text(pct == nil ? Format.money(hit.market) : pctText(pct)).font(.display(34)).tracking(-1).monospacedDigit()
-                    Text(pct == nil ? "TOP PULL" : daily ? "TODAY" : "THIS WEEK").font(.mono(11)).tracking(1.2)
-                }
-                .foregroundStyle(Theme.ink)
-                .padding(.horizontal, 18).padding(.vertical, 6)
-                .background(Theme.lime, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-                .rotationEffect(.degrees(-3))
-                .shadow(color: Theme.lime.opacity(0.5), radius: 16)
-                .padding(.top, 6)
-                VStack(spacing: 4) {
-                    Text(p.name.noWidow).font(.display(26)).tracking(-0.7).multilineTextAlignment(.center).lineLimit(2)
-                    Text([p.setName, p.rarity].compactMap { $0 }.joined(separator: " · ")).font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
+                .frame(width: 130, height: 190)
+                // The rays behind the card, as a background so they never widen the page.
+                .background { LightRays().frame(width: 300, height: 300) }
+                VStack(alignment: .leading, spacing: 8) {
+                    SkewTag(text: tag, icon: "flame.fill")
+                    Text(p.name).font(.display(20)).tracking(-0.5).lineLimit(2).minimumScaleFactor(0.85)
+                    Text([p.setName, p.rarity].compactMap { $0 }.joined(separator: " · ")).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
+                    Spacer(minLength: 0)
                     if pct != nil {
-                        Text(Format.money(hit.market)).font(.display(30)).tracking(-1).monospacedDigit().padding(.top, 6)
+                        Text(Format.money(hit.market)).font(.display(22)).tracking(-0.6).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
                     }
+                    // The rise (or, for a top pull, its price) on the lime ribbon, ink on lime.
+                    HStack(alignment: .firstTextBaseline, spacing: 5) {
+                        Image(systemName: pct == nil ? "crown.fill" : "arrow.up.right").font(.system(size: 13, weight: .heavy))
+                        Text(pct == nil ? Format.money(hit.market) : pctText(pct)).font(.display(20)).tracking(-0.5).monospacedDigit().lineLimit(1)
+                        Text(pct == nil ? "TOP PULL" : daily ? "TODAY" : "WEEK").font(.mono(9)).tracking(1)
+                    }
+                    .foregroundStyle(Theme.ink)
+                    .padding(.horizontal, 10).padding(.vertical, 4)
+                    .background(Theme.lime, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                    .rotationEffect(.degrees(-3))
+                    .shadow(color: Theme.lime.opacity(0.5), radius: 12)
+                    .fixedSize()
                 }
-                .padding(.top, 18)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 4)
             }
             .foregroundStyle(.white)
-            .padding(.vertical, 20).padding(.horizontal, 18)
-            .frame(maxWidth: .infinity)
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .background {
                 ZStack {
                     shape.fill(Color(hex: 0x060606))
-                    GridPattern(step: 26, opacity: 0.07)
-                    RadialGradient(colors: [Theme.lime.opacity(0.3), .clear], center: UnitPoint(x: 0.5, y: 0.34), startRadius: 0, endRadius: 280)
-                    RadialGradient(colors: [Theme.planPink.opacity(0.18), .clear], center: .topTrailing, startRadius: 0, endRadius: 240)
-                    RadialGradient(colors: [Theme.planBlue.opacity(0.2), .clear], center: .bottomLeading, startRadius: 0, endRadius: 240)
+                    GridPattern(step: 24, opacity: 0.07)
+                    RadialGradient(colors: [Theme.lime.opacity(0.3), .clear], center: UnitPoint(x: 0.22, y: 0.5), startRadius: 0, endRadius: 190)
+                    RadialGradient(colors: [Theme.planPink.opacity(0.16), .clear], center: .topTrailing, startRadius: 0, endRadius: 200)
+                    RadialGradient(colors: [Theme.planBlue.opacity(0.18), .clear], center: .bottomTrailing, startRadius: 0, endRadius: 200)
                     ChaseSparks()
                 }
             }
-            // Everything inside (the rays too) stays within the rounded panel.
+            // Everything inside (the rays too) stays within the rounded tile.
             .clipShape(shape)
-            .shadow(color: Theme.lime.opacity(0.22), radius: 26)
-            .overlay(ElectricBorder(radius: 30))
+            .shadow(color: Theme.lime.opacity(0.2), radius: 20)
+            .overlay(ElectricBorder(radius: 22))
         }
     }
 }
