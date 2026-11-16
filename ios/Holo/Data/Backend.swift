@@ -135,6 +135,16 @@ final class HoloAPI {
     func exploreIndex() async throws -> ExploreIndex {
         var index = try await send(try await request("api/explore"), as: ExploreIndex.self)
         index.sets = index.sets.map { $0.withOwnArtOnPublicHost() }
+        // The market lists come back empty when the server's read of them is slow or fails: keep
+        // the last good ones instead of blanking Home (they change once a day anyway).
+        let empty = (index.trending ?? []).isEmpty && (index.today ?? []).isEmpty && (index.drops ?? []).isEmpty && (index.hotSealed ?? []).isEmpty
+        if empty, let saved = SavedExplore.load() {
+            index.trending = saved.trending
+            index.today = saved.today
+            index.drops = saved.drops
+            index.hotSealed = saved.hotSealed
+            index.boosterBoxes = saved.boosterBoxes
+        }
         SavedSets.save(index.sets)
         SavedExplore.save(index)
         return index

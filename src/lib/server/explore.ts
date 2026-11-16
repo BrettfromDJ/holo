@@ -162,7 +162,7 @@ export async function exploreMarket(admin: SupabaseClient<Database>): Promise<Ex
     // Today's biggest rises (24 hours), for Card of the day. From $10, so a cheap card's jump doesn't win.
     const dayQuery = () =>
       admin.from("product_prices").select(MOVER_COLUMNS).gte("market_price", 10).gt("change_24h_pct", 0).order("change_24h_pct", { ascending: false }).limit(MOVER_SCAN);
-    const [upRes, downRes, sealedUpRes, boxRows, dayRes] = await Promise.all([
+    const [upRes, downRes, sealedUpRes, boxRows] = await Promise.all([
       moversQuery(false),
       moversQuery(true),
       moversQuery(false, HOT_SEALED_MIN_PRICE, SEALED_SCAN),
@@ -179,8 +179,9 @@ export async function exploreMarket(admin: SupabaseClient<Database>): Promise<Ex
             .range(from, to),
         5000,
       ),
-      dayQuery(),
     ]);
+    // After the others, so its read never slows them into failing; any failure just leaves it empty.
+    const dayRes = await dayQuery();
     if (upRes.error) throw new Error(upRes.error.message);
     if (downRes.error) throw new Error(downRes.error.message);
     const up = (upRes.data ?? []) as MoverPriceRow[];

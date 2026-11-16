@@ -24,13 +24,12 @@ struct MarketHomeView: View {
     var body: some View {
         NavigationStack(path: $path) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 40) {
-                    VStack(alignment: .leading, spacing: 16) {
-                        PageHeader(title: "What's happening", subtitle: "Prices and sets across the hobby this\u{00A0}week", size: 34)
-                        if store.status == .ready, !store.holdings.isEmpty { YourCollectionStrip() }
+                VStack(alignment: .leading, spacing: 32) {
+                    // Straight in: your collection in one line, then the card of the day (no big
+                    // heading taking the top of the screen).
+                    if store.status == .ready, !store.holdings.isEmpty {
+                        YourCollectionStrip().padding(.horizontal, 16)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
                     if let index {
                         sections(index)
                     } else {
@@ -78,9 +77,12 @@ struct MarketHomeView: View {
         // Today's top riser gets the big stage (the week's, until today's movers arrive); the
         // week's top riser and the biggest faller face off under it.
         if let star = index.today?.first {
-            CardOfTheDay(hit: star, daily: true).padding(.horizontal, 16)
+            CardOfTheDay(hit: star, kind: .day).padding(.horizontal, 16)
         } else if let star = trending.first {
-            CardOfTheDay(hit: star, daily: false).padding(.horizontal, 16)
+            CardOfTheDay(hit: star, kind: .week).padding(.horizontal, 16)
+        } else if let chase, let top = chase.hits.first {
+            // No market moves to show: the newest set's top pull takes the stage instead.
+            CardOfTheDay(hit: top, kind: .topPull(chase.set.name)).padding(.horizontal, 16)
         }
         if !trending.isEmpty || !drops.isEmpty {
             HStack(spacing: 10) {
@@ -198,21 +200,26 @@ private func pctTint(_ pct: Double?) -> Color { (pct ?? 0) >= 0 ? Theme.lime : T
 
 /// The top of Home: today's biggest riser on a stage. Light rays turn slowly behind it, sparks
 /// rise, the card drifts and shines, and its rise sits on a lime ribbon; all inside the electric
-/// border of the set page's No. 1 chase. `daily` false: the week's top riser stands in.
+/// border of the set page's No. 1 chase. Without today's movers the week's top riser stands in,
+/// and without any market moves the newest set's top pull.
 private struct CardOfTheDay: View {
+    enum Kind { case day, week, topPull(String) }
     var hit: SearchHit
-    var daily: Bool
+    var kind: Kind
+    private var daily: Bool { if case .day = kind { return true } else { return false } }
 
     var body: some View {
         let p = hit.pictured
-        let pct = daily ? hit.change24hPct : hit.change7dPct
+        let pct: Double? = switch kind { case .day: hit.change24hPct; case .week: hit.change7dPct; case .topPull: nil }
+        let tag: String = switch kind { case .day: "Card of the day"; case .week: "Card of the week"; case .topPull: "Top pull" }
+        let note: String = switch kind { case .day: "NEW EVERY DAY"; case .week: "THIS WEEK"; case let .topPull(set): set.uppercased() }
         let shape = RoundedRectangle(cornerRadius: 30, style: .continuous)
         MarketLink(hit: hit) {
             VStack(spacing: 0) {
                 HStack {
-                    SkewTag(text: daily ? "Card of the day" : "Card of the week", icon: "flame.fill")
-                    Spacer()
-                    Text(daily ? "NEW EVERY DAY" : "THIS WEEK").font(.mono(10)).tracking(1.2).foregroundStyle(.white.opacity(0.6))
+                    SkewTag(text: tag, icon: "flame.fill")
+                    Spacer(minLength: 8)
+                    Text(note).font(.mono(10)).tracking(1.2).foregroundStyle(.white.opacity(0.6)).lineLimit(1)
                 }
                 ZStack {
                     // A soft floor of light under the card.
@@ -231,10 +238,11 @@ private struct CardOfTheDay: View {
                 // page (they did, pushing everything off the left edge). The panel clips them.
                 .background { LightRays().frame(width: 420, height: 420) }
                 // The rise on a lime ribbon, ink on lime.
+                // The rise (or, for a top pull, its price) on the ribbon.
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Image(systemName: "arrow.up.right").font(.system(size: 20, weight: .heavy))
-                    Text(pctText(pct)).font(.display(34)).tracking(-1).monospacedDigit()
-                    Text(daily ? "TODAY" : "THIS WEEK").font(.mono(11)).tracking(1.2)
+                    Image(systemName: pct == nil ? "crown.fill" : "arrow.up.right").font(.system(size: 20, weight: .heavy))
+                    Text(pct == nil ? Format.money(hit.market) : pctText(pct)).font(.display(34)).tracking(-1).monospacedDigit()
+                    Text(pct == nil ? "TOP PULL" : daily ? "TODAY" : "THIS WEEK").font(.mono(11)).tracking(1.2)
                 }
                 .foregroundStyle(Theme.ink)
                 .padding(.horizontal, 18).padding(.vertical, 6)
@@ -245,7 +253,9 @@ private struct CardOfTheDay: View {
                 VStack(spacing: 4) {
                     Text(p.name.noWidow).font(.display(26)).tracking(-0.7).multilineTextAlignment(.center).lineLimit(2)
                     Text([p.setName, p.rarity].compactMap { $0 }.joined(separator: " · ")).font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
-                    Text(Format.money(hit.market)).font(.display(30)).tracking(-1).monospacedDigit().padding(.top, 6)
+                    if pct != nil {
+                        Text(Format.money(hit.market)).font(.display(30)).tracking(-1).monospacedDigit().padding(.top, 6)
+                    }
                 }
                 .padding(.top, 18)
             }
