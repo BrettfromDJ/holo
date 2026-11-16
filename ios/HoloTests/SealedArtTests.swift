@@ -20,7 +20,8 @@ final class SealedArtTests: XCTestCase {
     }
 
     func testMatchesWithoutBracketedNotes() {
-        XCTAssertEqual(s("Surging Sparks Booster Bundle", "SV08: Surging Sparks"), "/products/pokemon/surging-sparks/surging-sparks-booster-bundle-retail.webp")
+        XCTAssertEqual(s("Surging Sparks Booster Bundle", "SV08: Surging Sparks"), "/products/pokemon/surging-sparks/surging-sparks-booster-bundle.webp")
+        XCTAssertEqual(s("Delta Reign Pokemon Center Elite Trainer Box", "Delta Reign"), "/products/pokemon/delta-reign/delta-reign-pokemon-center-elite-trainer-box-exclusive.webp")
     }
 
     func testPicksTheSetNamedLast() {

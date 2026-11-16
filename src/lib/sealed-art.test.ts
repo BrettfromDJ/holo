@@ -15,7 +15,8 @@ describe("sealedArt", () => {
     expect(s("Surging Sparks Booster Box Case", "SV08: Surging Sparks")).toBe("/products/pokemon/surging-sparks/surging-sparks-booster-box-case.webp");
   });
   it("matches without bracketed notes", () => {
-    expect(s("Surging Sparks Booster Bundle", "SV08: Surging Sparks")).toBe("/products/pokemon/surging-sparks/surging-sparks-booster-bundle-retail.webp");
+    expect(s("Surging Sparks Booster Bundle", "SV08: Surging Sparks")).toBe("/products/pokemon/surging-sparks/surging-sparks-booster-bundle.webp");
+    expect(s("Delta Reign Pokemon Center Elite Trainer Box", "Delta Reign")).toBe("/products/pokemon/delta-reign/delta-reign-pokemon-center-elite-trainer-box-exclusive.webp");
   });
   it("picks the set named last, not the series before it", () => {
     expect(s("Mega Evolution: Delta Reign Booster Box", "Mega Evolution—Delta Reign")).toBe("/products/pokemon/delta-reign/delta-reign-booster-box.webp");

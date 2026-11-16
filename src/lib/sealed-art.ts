@@ -38,10 +38,11 @@ function without(s: string, names: string[]): string {
 const ENTRIES = (manifest as unknown as { sets: Entry[] }).sets.map((e) => {
   const names = [e.set, ...(e.aliases ?? [])].map(sealedWords).sort((a, b) => b.length - a.length);
   const strip = (k: string) => without(without(sealedWords(k), names), ["mega evolution", "pokemon"]);
-  const keys = Object.keys(e.products).flatMap((k) => [
-    { k, w: strip(k) },
-    { k, w: strip(k.replace(/\([^)]*\)|\[[^\]]*\]/g, " ")) },
-  ]).filter((x) => x.w);
+  // In a fixed order (by name), so ties always go the same way, here and in the app.
+  const labels = Object.keys(e.products).sort();
+  const keys = labels.map((k) => ({ k, w: strip(k), full: true })).concat(
+    labels.map((k) => ({ k, w: strip(k.replace(/\([^)]*\)|\[[^\]]*\]/g, " ")), full: false })),
+  ).filter((x) => x.w);
   return { e, names, keys };
 });
 
@@ -77,8 +78,10 @@ export function sealedArt(p: { name: string; setName?: string | null; kind?: str
   if (set) {
     // The product part: its name without the set's names, the series or a code ("ME03", "SV08").
     const rest = without(name, [...set.names, "mega evolution", "pokemon"]).replace(/\b(me|sv|swsh)\d+[a-z]?\b/g, " ").trim().replace(/\s+/g, " ");
-    const exact = set.keys.find((x) => x.w === rest);
-    const inside = exact ?? set.keys.filter((x) => has(rest, x.w)).sort((a, b) => b.w.length - a.w.length)[0];
+    // An exact name first (as listed, then without bracketed notes), else the longest listed
+    // name inside it (as listed before without notes when they're the same length).
+    const exact = set.keys.find((x) => x.full && x.w === rest) ?? set.keys.find((x) => !x.full && x.w === rest);
+    const inside = exact ?? set.keys.filter((x) => has(rest, x.w)).sort((a, b) => b.w.length - a.w.length || Number(b.full) - Number(a.full))[0];
     if (inside) found = `/products/${set.e.dir}/${set.e.products[inside.k]}.webp`;
   }
   cache.set(id, found);

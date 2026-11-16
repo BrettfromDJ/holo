@@ -21,8 +21,9 @@ enum SealedArt {
         var entry: Entry
         /// The set's names as words, longest first.
         var names: [String]
-        /// Each listed product as words (without the set's names), twice: as listed and without bracketed notes.
-        var keys: [(label: String, words: String)]
+        /// Each listed product as words (without the set's names), twice: as listed and without
+        /// bracketed notes. In a fixed order (by name), so ties always go the same way.
+        var keys: [(label: String, words: String, full: Bool)]
     }
 
     /// Lowercase words only: "Build & Battle Box" → "build and battle box".
@@ -49,10 +50,10 @@ enum SealedArt {
     private static let prepared: [Prepared] = entries.map { e in
         let names = ([e.set] + e.aliases).map(words).sorted { $0.count > $1.count }
         func strip(_ k: String) -> String { without(without(words(k), names), ["mega evolution", "pokemon"]) }
-        let keys = e.products.keys.flatMap { k in
-            [(label: k, words: strip(k)),
-             (label: k, words: strip(k.replacingOccurrences(of: #"\([^)]*\)|\[[^\]]*\]"#, with: " ", options: .regularExpression)))]
-        }.filter { !$0.words.isEmpty }
+        let labels = e.products.keys.sorted()
+        let keys = (labels.map { (label: $0, words: strip($0), full: true) }
+            + labels.map { (label: $0, words: strip($0.replacingOccurrences(of: #"\([^)]*\)|\[[^\]]*\]"#, with: " ", options: .regularExpression)), full: false) })
+            .filter { !$0.words.isEmpty }
         return Prepared(entry: e, names: names, keys: keys)
     }
 
@@ -96,8 +97,12 @@ enum SealedArt {
         let rest = without(name, set.names + ["mega evolution", "pokemon"])
             .replacingOccurrences(of: #"\b(me|sv|swsh)\d+[a-z]?\b"#, with: " ", options: .regularExpression)
             .split(separator: " ").joined(separator: " ")
-        let pick = set.keys.first { $0.words == rest }
-            ?? set.keys.filter { at(rest, $0.words) != nil }.max { $0.words.count < $1.words.count }
+        // An exact name first (as listed, then without bracketed notes), else the longest listed
+        // name inside it (as listed before without notes when they're the same length).
+        let exact = set.keys.first { $0.full && $0.words == rest } ?? set.keys.first { !$0.full && $0.words == rest }
+        let pick = exact ?? set.keys.filter { at(rest, $0.words) != nil }.min { a, b in
+            a.words.count != b.words.count ? a.words.count > b.words.count : (a.full && !b.full)
+        }
         guard let pick, let file = set.entry.products[pick.label] else { return nil }
         return "/products/\(set.entry.dir)/\(file).webp"
     }
