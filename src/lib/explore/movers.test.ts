@@ -91,7 +91,7 @@ describe("pickMovers", () => {
     const rows: MoverPriceRow[] = [];
     for (let i = 0; i < 20; i++) {
       many.set(`p${i}`, product(`p${i}`, `Card ${i}`));
-      rows.push(price(`p${i}`, 10, 100 - i));
+      rows.push(price(`p${i}`, 25, 100 - i));
     }
     const up = pickMovers(rows, many, "up", { gameName: () => "Pokemon" });
     expect(up).toHaveLength(12);

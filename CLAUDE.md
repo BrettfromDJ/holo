@@ -56,6 +56,11 @@ and say exactly what to run or click.
   top 10, newest set showcase, hot sealed, sets), Collection (a Summary | Cards switch in the top
   bar: Summary is `HomeView`, Cards is `CollectionView`; `CollectionMode`), Search, Explore, Deal.
   `Router.tabRequest` "collection" opens Cards, "collection-summary" opens Summary.
+- **Home's risers** (card of the day, hot/cold, top 10, eras, hot sealed) read stored 24-hour and
+  7-day changes from `product_prices`, from $20 (`MOVER_MIN_PRICE`). The catalog sync's set pages
+  have no changes from TCG API, so it keeps each Pokémon card's daily price in `catalog_price_days`
+  (from $5, 9 days) and fills the changes itself (`src/lib/explore/price-days.ts`); TCG API's own
+  changes win when it sends them.
 - **Eras** (Home's Rising by era): vintage before Diamond & Pearl (WotC and EX, to early 2007),
   mid-era Diamond & Pearl through XY (2007–2016), modern Sun & Moon on (2017–). `eraOf` in
   `src/lib/explore/movers.ts` and `MarketEras.era` in the app (same cut-off dates).

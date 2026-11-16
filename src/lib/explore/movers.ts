@@ -48,8 +48,8 @@ export function eraOf(releaseDate: string | null | undefined): Era | null {
 /** Sealed starts higher: a $6 pack moving 30% isn't "hot". */
 export const HOT_SEALED_MIN_PRICE = 20;
 
-/** Cheap cards swing by big percentages on pennies, so movers start at $5. */
-export const MOVER_MIN_PRICE = 5;
+/** Cheap cards swing by big percentages on one odd sale, so movers start at $20. */
+export const MOVER_MIN_PRICE = 20;
 export const MOVERS_LIMIT = 12;
 export const BOOSTER_BOX_LIMIT = 15;
 

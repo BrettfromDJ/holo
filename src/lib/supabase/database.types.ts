@@ -239,6 +239,7 @@ export type Database = {
       user_preferences: Table<PreferencesRow>;
       products: Table<ProductRow>;
       product_prices: Table<ProductPriceRow>;
+      catalog_price_days: Table<{ product_id: string; printing: string; day: string; market: number }>;
       price_snapshots: Table<PriceSnapshotRow>;
       holdings: Table<HoldingRow>;
       transactions: Table<TransactionRow>;

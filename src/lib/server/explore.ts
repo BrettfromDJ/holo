@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { EMPTY_MARKET, eraOf, HOT_SEALED_MIN_PRICE, isBoosterBox, pickBoosterBoxes, pickMovers, type Era, type ExploreMarket, type MoverPriceRow } from "../explore/movers";
+import { EMPTY_MARKET, eraOf, HOT_SEALED_MIN_PRICE, MOVER_MIN_PRICE, isBoosterBox, pickBoosterBoxes, pickMovers, type Era, type ExploreMarket, type MoverPriceRow } from "../explore/movers";
 import type { ExploreProduct, ExploreSet } from "../explore/types";
 import type { Product } from "../types";
 import type { CatalogSetRow, Database, ProductRow } from "../supabase/database.types";
@@ -166,13 +166,13 @@ async function productsById(admin: SupabaseClient<Database>, ids: string[]): Pro
  */
 export async function exploreMarket(admin: SupabaseClient<Database>): Promise<ExploreMarket> {
   try {
-    const moversQuery = (ascending: boolean, minPrice = 5, scan = MOVER_SCAN) => {
+    const moversQuery = (ascending: boolean, minPrice = MOVER_MIN_PRICE, scan = MOVER_SCAN) => {
       const q = admin.from("product_prices").select(MOVER_COLUMNS).gte("market_price", minPrice).not("change_7d_pct", "is", null);
       return (ascending ? q.lt("change_7d_pct", 0) : q.gt("change_7d_pct", 0)).order("change_7d_pct", { ascending }).limit(scan);
     };
-    // Today's biggest rises (24 hours), for Card of the day. From $10, so a cheap card's jump doesn't win.
+    // Today's biggest rises (24 hours), for Card of the day. From $20, so a cheap card's jump doesn't win.
     const dayQuery = () =>
-      admin.from("product_prices").select(MOVER_COLUMNS).gte("market_price", 10).gt("change_24h_pct", 0).order("change_24h_pct", { ascending: false }).limit(MOVER_SCAN);
+      admin.from("product_prices").select(MOVER_COLUMNS).gte("market_price", MOVER_MIN_PRICE).gt("change_24h_pct", 0).order("change_24h_pct", { ascending: false }).limit(MOVER_SCAN);
     const [upRes, downRes, sealedUpRes, boxRows] = await Promise.all([
       moversQuery(false),
       moversQuery(true),
@@ -195,7 +195,7 @@ export async function exploreMarket(admin: SupabaseClient<Database>): Promise<Ex
     const dayRes = await dayQuery();
     // A deeper read of weekly risers for the era rows (modern fills the top of the list, so older
     // sets need a longer look). Also after the others, and also allowed to fail.
-    const eraRes = await moversQuery(false, 5, 800);
+    const eraRes = await moversQuery(false, MOVER_MIN_PRICE, 800);
     if (upRes.error) throw new Error(upRes.error.message);
     if (downRes.error) throw new Error(downRes.error.message);
     const up = (upRes.data ?? []) as MoverPriceRow[];
@@ -217,7 +217,7 @@ export async function exploreMarket(admin: SupabaseClient<Database>): Promise<Ex
     const trendingRaw = pickMovers(up, products, "up");
     const dropsRaw = pickMovers(down, products, "down");
     const hotSealedRaw = pickMovers(sealedUp, products, "up", { kind: "sealed", minPrice: HOT_SEALED_MIN_PRICE });
-    const todayRaw = pickMovers(dayUp, products, "up", { by: "24h", minPrice: 10, limit: 5 });
+    const todayRaw = pickMovers(dayUp, products, "up", { by: "24h", limit: 5 });
     // Each era's top risers, by its set's release date.
     const released = await releaseDates(admin, eraUp.map((r) => products.get(r.product_id)?.setId ?? null));
     const eraFor = (r: MoverPriceRow): Era | null => {

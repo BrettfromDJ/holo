@@ -6,6 +6,8 @@ import { PricingUnavailableError } from "../pricing/types";
 import type { CatalogSetRow, Database } from "../supabase/database.types";
 import { priceToRow, productToRow } from "../supabase/mappers";
 import type { NormalizedPrice } from "../types";
+import type { ProductPriceRow } from "../supabase/database.types";
+import { daysBefore, PRICE_DAYS_KEPT, PRICE_DAYS_MIN, withOwnChanges, type PriceDay } from "../explore/price-days";
 
 const DAY = 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
@@ -79,7 +81,8 @@ export async function refreshSet(
       } catch {
         // Not needed for the set to count as loaded.
       }
-      const stored = await storePrices(admin, prices);
+      // Pokémon cards also keep a daily price, for our own 24-hour and 7-day changes.
+      const stored = await storePrices(admin, prices, /pokemon/i.test(set.game_slug ?? ""));
       if (result) result.pricesStored += stored;
     }
     if (!hasMore || page === 25) break;
@@ -136,8 +139,9 @@ async function runCatalogSync(admin: SupabaseClient<Database>, opts: CatalogSync
   };
 
   try {
-    // --- 0. Brands (weekly; never blocks the rest) -------------------------
+    // --- 0. Brands (weekly; never blocks the rest), and old daily prices out -
     await syncGames(admin);
+    await trimPriceDays(admin);
     // --- 1. Set lists (weekly per brand; a newly added brand right away) --
     for (const game of await catalogGameList()) {
       const { data: newest } = await admin.from("catalog_sets").select("listed_at").eq("game_slug", game.slug).order("listed_at", { ascending: false }).limit(1);
@@ -210,9 +214,14 @@ async function runCatalogSync(admin: SupabaseClient<Database>, opts: CatalogSync
   }
 }
 
-/** Store prices, skipping products priced in the last 20 hours (by the daily price sync). */
-async function storePrices(admin: SupabaseClient<Database>, prices: NormalizedPrice[]): Promise<number> {
-  const rows = prices.map(priceToRow);
+/**
+ * Store prices, skipping products priced in the last 20 hours (by the daily price sync). With
+ * `history`, also keep today's price in `catalog_price_days` and fill changes TCG API didn't send
+ * from the days before (see `withOwnChanges`); that part never stops the sync if it fails.
+ */
+async function storePrices(admin: SupabaseClient<Database>, prices: NormalizedPrice[], history = false): Promise<number> {
+  let rows = prices.map(priceToRow);
+  if (history) rows = await withHistory(admin, rows);
   const ids = [...new Set(rows.map((r) => r.product_id))];
   const { data: existing } = await admin.from("product_prices").select("product_id, printing, fetched_at, market_price").in("product_id", ids);
   // Fresh per printing: a card priced today at one printing still takes its other printings.
@@ -227,6 +236,43 @@ async function storePrices(admin: SupabaseClient<Database>, prices: NormalizedPr
   // thousands of rows per pass. History comes from the daily price sync for
   // owned/watched products and from "Load full price history" on demand.
   return toWrite.length;
+}
+
+/** Today's prices into `catalog_price_days`, and changes filled from the days before. */
+async function withHistory(admin: SupabaseClient<Database>, rows: ProductPriceRow[]): Promise<ProductPriceRow[]> {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const priced = rows.filter((r) => r.market_price !== null && Number(r.market_price) >= PRICE_DAYS_MIN);
+    if (!priced.length) return rows;
+    const ids = [...new Set(priced.map((r) => r.product_id))];
+    const history: PriceDay[] = [];
+    for (let i = 0; i < ids.length; i += 150) {
+      const { data, error } = await admin
+        .from("catalog_price_days")
+        .select("product_id, printing, day, market")
+        .in("product_id", ids.slice(i, i + 150))
+        .gte("day", daysBefore(today, 8))
+        .lt("day", today);
+      if (error) return rows; // Table not there yet (the migration): carry on without.
+      history.push(...((data ?? []) as PriceDay[]));
+    }
+    const { error } = await admin
+      .from("catalog_price_days")
+      .upsert(priced.map((r) => ({ product_id: r.product_id, printing: r.printing, day: today, market: Number(r.market_price) })));
+    if (error) return rows;
+    return withOwnChanges(rows, history, today);
+  } catch {
+    return rows;
+  }
+}
+
+/** Drop daily prices older than we keep (once a run; ignored if the table isn't there). */
+async function trimPriceDays(admin: SupabaseClient<Database>) {
+  try {
+    await admin.from("catalog_price_days").delete().lt("day", daysBefore(new Date().toISOString().slice(0, 10), PRICE_DAYS_KEPT));
+  } catch {
+    // Housekeeping only.
+  }
 }
 
 /** Store the catalogs (brands) with their logos for Explore. Missing table or errors are ignored. */
