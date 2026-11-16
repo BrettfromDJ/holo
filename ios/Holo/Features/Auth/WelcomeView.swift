@@ -275,7 +275,7 @@ private struct WelcomePage<Picture: View>: View {
 
 /// The app's lit grid (like Explore's) behind every page: lime, blue and pink glows over the
 /// faint grid, full bleed and unfaded (a fade behind the heading read as a dark band).
-private struct WelcomeBackdrop: View {
+struct WelcomeBackdrop: View {
     var body: some View {
         ZStack {
             GridPattern(step: 36, opacity: 0.05)
@@ -295,7 +295,7 @@ private struct WelcomeBackdrop: View {
 /// list's height, so there's never a gap. The drift is read off the clock (like the scanner
 /// page), so each frame only moves three offsets; nothing is laid out again. The bottom fades
 /// into the page, and a glass pill over it counts up the worth.
-private struct WelcomeGrid: View {
+struct WelcomeGrid: View {
     private static let gap: CGFloat = 8
     /// How long one column takes to travel one list's height, per column.
     private static let durations: [Double] = [22, 26, 24]
@@ -307,6 +307,8 @@ private struct WelcomeGrid: View {
     /// The grid's lean, in degrees, and how much it's enlarged to still fill the screen.
     private static let tilt: Double = -8
     private static let tiltScale: CGFloat = 1.3
+    /// The glass pill counting up the worth over the bottom (off on the sign-in screen).
+    var showsWorth = true
     /// The card pictures, held by the grid itself and handed to the tiles.
     @State private var images: [String: UIImage] = Self.cachedImages()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -356,7 +358,7 @@ private struct WelcomeGrid: View {
                 .frame(height: 150)
                 .allowsHitTesting(false)
         }
-        .overlay(alignment: .bottom) { WelcomeWorthPill().padding(.bottom, 10) }
+        .overlay(alignment: .bottom) { if showsWorth { WelcomeWorthPill().padding(.bottom, 10) } }
         .task {
             await withTaskGroup(of: (String, UIImage?).self) { group in
                 for item in Self.columns.joined() where images[item.slug] == nil {

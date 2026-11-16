@@ -87,6 +87,7 @@ final class ScreenshotTests: XCTestCase {
     func testScanMatched() { capture("scan-matched", args: ["-HoloScan", "-HoloScanSample", "matched"], pages: 2) }
     func testScanRetake() { capture("scan-retake", args: ["-HoloScan", "-HoloScanSample", "retake"], pages: 1) }
     // Onboarding: the welcome pages (swiped sideways).
+    func testSignIn() { capture("sign-in", args: ["-HoloSignIn"], pages: 1) }
     func testOnboarding() { capture("onboarding", args: ["-HoloOnboarding"], pages: 6, swipe: .left) }
     // The first welcome page again after a longer wait: shows whether the grid's card pictures
     // arrive at all, or only slowly.

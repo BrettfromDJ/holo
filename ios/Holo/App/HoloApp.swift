@@ -52,6 +52,9 @@ struct RootView: View {
             if Demo.isOn, ProcessInfo.processInfo.arguments.contains("-HoloOnboarding") {
                 // Screenshots: the welcome pages.
                 WelcomeView(onEmail: {}, onDemo: {})
+            } else if Demo.isOn, ProcessInfo.processInfo.arguments.contains("-HoloSignIn") {
+                // Screenshots: the sign-in screen.
+                SignInView()
             } else if Demo.isOn {
                 // Screenshots and tryouts: the made-up collection, no account needed.
                 MainTabView()
