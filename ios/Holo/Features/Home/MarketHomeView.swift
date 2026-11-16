@@ -256,7 +256,7 @@ private struct CardOfTheDay: View {
                 }
                 .frame(width: 130, height: 190)
                 // The rays behind the card, as a background so they never widen the page.
-                .background { LightRays().frame(width: 300, height: 300) }
+                .background { LightRays().frame(width: 420, height: 420) }
                 VStack(alignment: .leading, spacing: 8) {
                     SkewTag(text: tag, icon: "flame.fill")
                     Text(p.name).font(.display(20)).tracking(-0.5).lineLimit(2).minimumScaleFactor(0.85)
@@ -312,7 +312,11 @@ private struct LightRays: View {
         AngularGradient(gradient: Gradient(stops: (0 ..< 24).map { i in
             .init(color: i % 2 == 0 ? Theme.lime.opacity(0.16) : .clear, location: Double(i) / 23)
         }), center: .center)
-        .mask(RadialGradient(colors: [.black, .clear], center: .center, startRadius: 30, endRadius: 210))
+        // Fades out in a circle inside its square (whatever size it's given), so turning never
+        // shows the square's edges or corners.
+        .mask(GeometryReader { geo in
+            RadialGradient(colors: [.black, .clear], center: .center, startRadius: 20, endRadius: min(geo.size.width, geo.size.height) / 2)
+        })
         .rotationEffect(.degrees(turned ? 360 : 0))
         .allowsHitTesting(false)
         .onVisibilityChange { on in
