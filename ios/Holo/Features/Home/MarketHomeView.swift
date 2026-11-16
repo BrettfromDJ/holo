@@ -17,8 +17,6 @@ struct MarketHomeView: View {
     @State private var account = false
     @State private var recap = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    /// Rising by era: which era's row is showing ("" until picked: the first with risers).
-    @State private var era = ""
 
     private var today: String { Format.day() }
     private var upcoming: [ExploreSet] {
@@ -158,26 +156,15 @@ struct MarketHomeView: View {
             section(icon: "trophy.fill", "Top 10 this week", "Singles rising most in 7 days") { TopTenRow(hits: Array(trending.prefix(10))) }
         }
         if let eras = index.eras, !(eras.modern.isEmpty && eras.midEra.isEmpty && eras.vintage.isEmpty) {
-            // All three chips, always; an era with no risers this week says so.
-            let options = [("modern", "Modern", eras.modern), ("midEra", "Mid-era", eras.midEra), ("vintage", "Vintage", eras.vintage)]
-            // Open on the first era that has risers.
-            let pick = era.isEmpty ? (options.first { !$0.2.isEmpty }?.0 ?? "modern") : era
-            let hits = options.first { $0.0 == pick }?.2 ?? []
+            // One color card per era, like Collection's sealed and singles boxes: modern in lime,
+            // mid-era in blue, vintage in pink. An era with no risers this week says so.
             section(icon: "hourglass", "Rising by era", "This week's risers, from modern to vintage") {
-                VStack(alignment: .leading, spacing: 14) {
-                    ChipPicker(options: options.map { ($0.0, $0.1) }, selection: Binding(get: { pick }, set: { era = $0 }))
-                        .fixedSize()
-                        .padding(.horizontal, 16)
-                    if hits.isEmpty {
-                        Text("No big movers in this era this\u{00A0}week.")
-                            .font(.geist(14)).foregroundStyle(Theme.muted)
-                            .frame(maxWidth: .infinity, minHeight: 120)
-                            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [4, 4])))
-                            .padding(.horizontal, 16)
-                    } else {
-                        MoverCarousel(hits: hits).id(pick)
-                    }
+                VStack(spacing: 12) {
+                    EraCard(era: .modern, hits: eras.modern)
+                    EraCard(era: .midEra, hits: eras.midEra)
+                    EraCard(era: .vintage, hits: eras.vintage)
                 }
+                .padding(.horizontal, 16)
             }
         }
         if let next = upcoming.first {
@@ -682,5 +669,121 @@ private struct HotSealedRow: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 4)
         }
+    }
+}
+
+// MARK: - Rising by era
+
+/// One era's card on Home, in the style of Collection's sealed / singles / graded boxes: the era's
+/// name and its average rise on a tag, the years it covers, its three biggest risers fanned out,
+/// then its top five as rows (each opens its card page). Eras as in `eraOf` / `MarketEras.era`.
+private struct EraCard: View, Equatable {
+    enum Era {
+        case modern, midEra, vintage
+
+        var title: String {
+            switch self {
+            case .modern: return "Modern"
+            case .midEra: return "Mid-era"
+            case .vintage: return "Vintage"
+            }
+        }
+
+        var blurb: String {
+            switch self {
+            case .modern: return "Sun & Moon on, 2017 to now"
+            case .midEra: return "Diamond & Pearl to XY, 2007 to 2016"
+            case .vintage: return "WotC and EX, before 2007"
+            }
+        }
+
+        var color: Color {
+            switch self {
+            case .modern: return Theme.lime
+            case .midEra: return Theme.planBlue
+            case .vintage: return Theme.planPink
+            }
+        }
+
+        var tagText: Color { self == .modern ? Theme.ink : .white }
+    }
+
+    var era: Era
+    var hits: [SearchHit]
+
+    static func == (a: Self, b: Self) -> Bool { a.era == b.era && a.hits == b.hits }
+
+    var body: some View {
+        let top = Array(hits.prefix(5))
+        let rises = top.compactMap(\.change7dPct)
+        let average = rises.isEmpty ? nil : rises.reduce(0, +) / Double(rises.count)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Text(era.title).font(.display(30)).tracking(-0.8).displayTrim(30)
+                if let average {
+                    SkewTag(text: String(format: "%+.1f%% avg", average), color: era.color, textColor: era.tagText)
+                }
+            }
+            Text(era.blurb).font(.geist(14)).foregroundStyle(Theme.muted)
+            if top.isEmpty {
+                Text("No big movers in this era this\u{00A0}week.")
+                    .font(.geist(14)).foregroundStyle(Theme.muted)
+                    .frame(maxWidth: .infinity, minHeight: 80)
+            } else {
+                VStack(spacing: 0) {
+                    fan(Array(top.prefix(3)))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                    ForEach(Array(top.enumerated()), id: \.element.id) { i, hit in
+                        if i > 0 { Divider().overlay(Color.white.opacity(0.06)) }
+                        MarketLink(hit: hit) { row(i + 1, hit) }
+                    }
+                }
+                .padding(14)
+                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.background.opacity(0.55)))
+            }
+        }
+        .tinted(era.color)
+    }
+
+    /// The three biggest risers fanned out from the middle (the first in front), each opening its page.
+    private func fan(_ shown: [SearchHit]) -> some View {
+        let mid = Double(shown.count - 1) / 2
+        let order = shown.count == 3 ? [1, 0, 2] : Array(0 ..< shown.count)
+        return HStack(spacing: -26) {
+            ForEach(order, id: \.self) { k in
+                let hit = shown[k]
+                let i = Double(order.firstIndex(of: k) ?? 0)
+                MarketLink(hit: hit) {
+                    ProductImage(product: hit.pictured, cornerRadius: 4)
+                        .frame(width: 84, height: 117)
+                        .shadow(color: .black.opacity(0.4), radius: 8, y: 5)
+                }
+                .rotationEffect(.degrees((i - mid) * 9), anchor: .bottom)
+                .offset(y: abs(i - mid) * 6)
+                .zIndex(k == 0 ? 2 : 0)
+            }
+        }
+    }
+
+    /// One riser: its place, small art, name and set, then price and its week's rise.
+    private func row(_ place: Int, _ hit: SearchHit) -> some View {
+        HStack(spacing: 10) {
+            Text("\(place)").font(.mono(11)).foregroundStyle(Theme.subtle).frame(width: 14, alignment: .leading)
+            ProductImage(product: hit.pictured, cornerRadius: 2).frame(width: 30, height: 42)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(hit.product.name).font(.geist(14, .medium)).foregroundStyle(.white).lineLimit(1)
+                if let set = hit.product.setName {
+                    Text(set).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
+                }
+            }
+            Spacer(minLength: 8)
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(Format.money(hit.market)).font(.display(15)).tracking(-0.3).monospacedDigit().foregroundStyle(.white)
+                ChangeText(pct: hit.change7dPct)
+            }
+        }
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
     }
 }
