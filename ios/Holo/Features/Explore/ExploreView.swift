@@ -1287,20 +1287,15 @@ enum Packs {
 
 // MARK: - Explore landing pieces
 
-/// The top of Explore: the catalog's size counting up over a lit grid, and the next release as
-/// a big card with a countdown and its reminder bell.
+/// The top of Explore (and the new Home): the next release as a big card with a countdown and
+/// its reminder bell.
 struct CatalogHero: View {
     var index: ExploreIndex
     var next: ExploreSet?
 
     var body: some View {
-        let cards = index.games.compactMap(\.cardCount).reduce(0, +)
+        // Just the next release (the brands, sets and cards counts were removed).
         VStack(alignment: .leading, spacing: 22) {
-            HStack(spacing: 8) {
-                StatTile(label: "Brands", value: Double(index.games.count))
-                StatTile(label: "Sets", value: Double(index.sets.count))
-                StatTile(label: "Cards", value: Double(cards))
-            }
             if let next { NextRelease(set: next) }
         }
         .padding(.horizontal, 16)

@@ -27,28 +27,10 @@ export function ExploreBackdrop() {
   );
 }
 
-function StatTile({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="flex-1 rounded-2xl border border-border bg-white/[0.05] px-4 py-3 backdrop-blur-xl">
-      <p className="font-mono text-[11px] uppercase tracking-[0.1em] text-muted">{label}</p>
-      <p className="tabular mt-1 font-display text-[24px] leading-none">{value.toLocaleString()}</p>
-    </div>
-  );
-}
-
-/** The catalog's size, then the next release (the app's CatalogHero). */
-export function CatalogHero({ index, next }: { index: { games: ExploreGame[]; sets: ExploreSet[] }; next?: ExploreSet }) {
-  const cards = index.games.reduce((n, g) => n + (g.cardCount ?? 0), 0);
-  return (
-    <div className="space-y-5">
-      <div className="flex gap-2 sm:max-w-xl">
-        <StatTile label="Brands" value={index.games.length} />
-        <StatTile label="Sets" value={index.sets.length} />
-        <StatTile label="Cards" value={cards} />
-      </div>
-      {next && <NextRelease set={next} />}
-    </div>
-  );
+/** The next release (the app's CatalogHero). */
+export function CatalogHero({ next }: { index?: { games: ExploreGame[]; sets: ExploreSet[] }; next?: ExploreSet }) {
+  // Just the next release (the brands, sets and cards counts were removed). Same as the app.
+  return <div className="space-y-5">{next && <NextRelease set={next} />}</div>;
 }
 
 /** The next set to come out: its name and date, a big lime day count and a reminder (the app's NextRelease). */
