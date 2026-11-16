@@ -9,6 +9,30 @@ struct AddPrefill {
     var grade: String?
     /// What you typed as paid, if anything.
     var price = ""
+    // Reopening a scanned card's details: everything as it was left.
+    var quantity: Int?
+    var pulled: Bool?
+    var date: Date?
+    var source: String?
+    var shipping: String?
+    var tax: String?
+    var fees: String?
+    var portfolio: String?
+    var bumper: String?
+}
+
+/// One scanned card's own details, kept with the scan until the batch is added.
+struct ScanDraft: Equatable {
+    let id = UUID()
+    /// To reopen the sheet as it was left.
+    var prefill: AddPrefill
+    var purchase: CollectionStore.Purchase
+    var portfolio: String
+    var bumper: String?
+    var pristine: Bool
+    var pulled: Bool
+
+    static func == (a: Self, b: Self) -> Bool { a.id == b.id }
 }
 
 /// Log a purchase: which printing, condition or grade, how many, and what you paid.
@@ -17,6 +41,8 @@ struct AddPurchaseSheet: View {
     var onDone: (() -> Void)?
     /// From a scan: its printing, condition, slab grade and price, over the remembered defaults.
     var prefill: AddPrefill? = nil
+    /// From a scan: Save hands the details back to the scan (added with the rest) instead of adding now.
+    var onCollect: ((ScanDraft) -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
     @Environment(CollectionStore.self) private var store
     @Environment(GradingStore.self) private var grading
@@ -235,12 +261,12 @@ struct AddPurchaseSheet: View {
             } message: {
                 Text("This card goes into it.")
             }
-            .navigationTitle("Add to collection")
+            .navigationTitle(onCollect == nil ? "Add to collection" : "This card's details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(saving ? "Saving…" : "Add") { Task { await save() } }.disabled(saving)
+                    Button(saving ? "Saving…" : (onCollect == nil ? "Add" : "Save")) { Task { await save() } }.disabled(saving)
                 }
             }
             .onAppear {
@@ -270,6 +296,15 @@ struct AddPurchaseSheet: View {
                         }
                     }
                     if !prefill.price.isEmpty { price = prefill.price }
+                    if let q = prefill.quantity { quantity = q }
+                    if let p = prefill.pulled { pulled = p }
+                    if let d = prefill.date { date = d }
+                    if let s = prefill.source { source = s }
+                    if let s = prefill.shipping { shipping = s; if !s.isEmpty { extras = true } }
+                    if let t = prefill.tax { tax = t; if !t.isEmpty { extras = true } }
+                    if let f = prefill.fees { fees = f; if !f.isEmpty { extras = true } }
+                    if let p = prefill.portfolio { pickedPortfolio = p }
+                    if let b = prefill.bumper { bumper = b }
                 }
             }
         }
@@ -299,6 +334,19 @@ struct AddPurchaseSheet: View {
             tax: pulled ? 0 : (MoneyField.value(tax) ?? 0),
             fees: pulled ? 0 : (MoneyField.value(fees) ?? 0)
         )
+        if let onCollect {
+            // From a scan: kept with the scan, added with the rest.
+            let isGraded = graded && !product.isSealed
+            onCollect(ScanDraft(
+                prefill: AddPrefill(printing: printing, condition: condition, gradeCompany: isGraded ? company : nil, grade: isGraded ? grade : nil,
+                                    price: price, quantity: quantity, pulled: pulled, date: date, source: source,
+                                    shipping: shipping, tax: tax, fees: fees, portfolio: portfolioId, bumper: bumper),
+                purchase: purchase, portfolio: portfolioId, bumper: isGraded ? bumper : nil,
+                pristine: isGraded && company == "CGC" && grade == Self.pristine, pulled: pulled))
+            if !pulled { lastSource = source.trimmingCharacters(in: .whitespaces) }
+            dismiss()
+            return
+        }
         do {
             let before = store.allHoldings.reduce(0) { $0 + ($1.value ?? 0) }
             let key = identity.key

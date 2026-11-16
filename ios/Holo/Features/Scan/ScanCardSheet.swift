@@ -43,17 +43,17 @@ struct ScanCardSheet: View {
         .glassSheet()
         // Wrong card?: the next best matches, or search (Change card).
         .sheet(isPresented: $changing) { ChangeCardSheet(model: model, id: id) }
-        // Every detail, as when adding from search. Once it's added, it leaves this scan (and
-        // this sheet closes itself, the scan being gone).
+        // Every detail, as when adding from search: kept with this card and added with the rest
+        // of the scan (reopened just as it was left).
         .sheet(isPresented: $detailing) {
             if let entry, let c = entry.picked {
                 AddPurchaseSheet(
                     hit: SearchHit(product: c.product, printing: entry.printing ?? c.printing, market: entry.value ?? c.market),
-                    onDone: { model.remove(id) },
-                    prefill: AddPrefill(printing: entry.printing ?? c.printing, condition: entry.condition,
-                                        gradeCompany: entry.isSlab ? entry.result?.read?.grade?.company : nil,
-                                        grade: entry.isSlab ? entry.result?.read?.grade?.grade : nil,
-                                        price: entry.paid)
+                    prefill: entry.draft?.prefill ?? AddPrefill(printing: entry.printing ?? c.printing, condition: entry.condition,
+                                                                gradeCompany: entry.isSlab ? entry.result?.read?.grade?.company : nil,
+                                                                grade: entry.isSlab ? entry.result?.read?.grade?.grade : nil,
+                                                                price: entry.paid),
+                    onCollect: { model.setDraft(id, $0) }
                 )
             }
         }
@@ -132,8 +132,16 @@ private struct ScanPanel: View {
                 }
                 if !inDeal {
                     // The same sheet as adding from search: portfolio, graded, condition, bought
-                    // or pulled, price, shipping, tax, date and where. Adds this card on its own.
-                    action("Add with all details", icon: "slider.horizontal.3", iconColor: Theme.lime, fill: Theme.lime.opacity(0.12), run: onDetails)
+                    // or pulled, price, shipping, tax, date and where, for this card alone.
+                    if let d = entry.draft {
+                        HStack(spacing: 8) {
+                            Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.lime)
+                            Text(ScanDraftSummary.text(d)).font(.geist(13, .medium)).foregroundStyle(.white).lineLimit(2)
+                            Spacer(minLength: 4)
+                            Button("Clear") { model.setDraft(id, nil) }.font(.geist(13, .semibold)).foregroundStyle(Theme.muted)
+                        }
+                    }
+                    action(entry.draft == nil ? "Edit this card's details" : "Change details", icon: "slider.horizontal.3", iconColor: Theme.lime, fill: Theme.lime.opacity(0.12), run: onDetails)
                 }
                 // Two equal ways out: search for the right card, or drop this scan.
                 HStack(spacing: 10) {
@@ -492,5 +500,20 @@ struct ChangeCardSheet: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// A scanned card's own details in a line: graded or condition, paid or pulled, where and when.
+enum ScanDraftSummary {
+    static func text(_ d: ScanDraft) -> String {
+        let p = d.purchase
+        var parts: [String] = []
+        if let co = p.gradeCompany, let g = p.grade { parts.append("\(co) \(d.pristine ? "Pristine 10" : g)") } else if p.condition != "Sealed" { parts.append(p.condition) }
+        parts.append(d.pulled ? "Pulled" : "Paid \(Format.money(p.unitPrice))")
+        let extra = p.shipping + p.tax + p.fees
+        if extra > 0 { parts.append("+\(Format.money(extra))") }
+        if let s = p.source, !s.isEmpty, s != "ios", s != Txn.pulledSource { parts.append(s) }
+        if let day = Format.isoDay.date(from: p.date), !Calendar.current.isDateInToday(day) { parts.append(day.formatted(.dateTime.month(.abbreviated).day())) }
+        return parts.joined(separator: " · ")
     }
 }

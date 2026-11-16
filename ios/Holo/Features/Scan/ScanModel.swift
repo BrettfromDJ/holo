@@ -32,6 +32,8 @@ final class ScanModel {
         /// In a deal: what happened when it was added ("Added to coming in", "Not in your inventory").
         var note: String?
         var rejected = false
+        /// Its own details (portfolio, graded, bought or pulled, price, shipping…), set from its page.
+        var draft: ScanDraft?
 
         var isSlab: Bool { result?.read?.kind == "slab" }
         /// Picked as the best of several close matches, not a clear match: worth a glance.
@@ -232,6 +234,11 @@ final class ScanModel {
     }
 
     @MainActor
+    func setDraft(_ id: UUID, _ draft: ScanDraft?) {
+        guard let i = entries.firstIndex(where: { $0.id == id }) else { return }
+        entries[i].draft = draft
+    }
+
     func remove(_ id: UUID) {
         entries.removeAll { $0.id == id }
     }
@@ -346,7 +353,11 @@ final class ScanModel {
 
     /// Everything picked, as purchases. A blank price uses market, or $0 for cards you pulled.
     func purchases(pulled: Bool, date: String) -> [CollectionStore.Purchase] {
-        picks.compactMap { e -> CollectionStore.Purchase? in
+        picks.compactMap { purchase(for: $0, pulled: pulled, date: date) }
+    }
+
+    /// One scan as a purchase from the batch's defaults (its own details, if set, are used instead by the review).
+    func purchase(for e: Entry, pulled: Bool, date: String) -> CollectionStore.Purchase? {
             guard let c = e.picked else { return nil }
             let typed = Double(e.paid.replacingOccurrences(of: "$", with: "").replacingOccurrences(of: ",", with: ""))
             let slab = e.result?.read?.kind == "slab" ? e.result?.read?.grade : nil
@@ -362,6 +373,5 @@ final class ScanModel {
                 // Pulled cards are marked as pulls (the Pulled badge, the pull reveal, Pulls).
                 source: pulled ? Txn.pulledSource : "ios-scan"
             )
-        }
     }
 }

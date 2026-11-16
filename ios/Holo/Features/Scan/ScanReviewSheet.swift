@@ -10,6 +10,7 @@ struct ScanReviewSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(CollectionStore.self) private var store
     @Environment(GroupsStore.self) private var groups
+    @Environment(GradingStore.self) private var grading
     @State private var pulled = false
     /// The details for the whole batch: portfolio, date, where, and shipping, tax and fees.
     @State private var details = ScanBatchDetails()
@@ -106,7 +107,7 @@ struct ScanReviewSheet: View {
                 ChipPicker(options: [(false, "Paid market"), (true, "Pulled, $0")], selection: $pulled)
             }
             // Portfolio, date, where, shipping, tax and fees for all of them at once (a card's
-            // own details, graded and the rest, are on its page: tap it, then Add with all details).
+            // own details, graded and the rest, are on its page: tap it, then Edit this card's details).
             Button { editingDetails = true } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "slider.horizontal.3").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.lime)
@@ -138,12 +139,26 @@ struct ScanReviewSheet: View {
         defer { saving = false }
         do {
             let before = store.allHoldings.reduce(0) { $0 + ($1.value ?? 0) }
-            let purchases = details.apply(to: model.purchases(pulled: pulled, date: Format.day(details.date)), pulled: pulled)
+            // Cards with their own details use them; the rest share the batch's.
+            let picks = model.picks
+            let drafted = picks.compactMap(\.draft)
+            let shared = details.apply(to: picks.filter { $0.draft == nil }.compactMap { model.purchase(for: $0, pulled: pulled, date: Format.day(details.date)) }, pulled: pulled)
+            let purchases = drafted.map(\.purchase) + shared
+            // Where each goes: a card's own pick, else the batch's (nil: where it would go anyway).
+            let targets: [String?] = drafted.map { Optional($0.portfolio) } + shared.map { _ in details.portfolio }
             let ownedBefore = Set(store.allHoldings.map(\.identity.key))
             try await store.add(purchases)
+            for d in drafted {
+                let p = d.purchase
+                let key = HoldingIdentity(productId: p.product.id, printing: p.printing, condition: p.condition, gradeCompany: p.gradeCompany, grade: p.grade).key
+                if let bumper = d.bumper { grading.setBumper(key, bumper) }
+                if d.pristine { grading.setPristine(key, true) }
+            }
+            if drafted.contains(where: \.pristine) { Task { await store.loadSlabPrices() } }
             // Into the picked portfolio: more of a copy you own is also shown there (a Copy); a new one goes only there.
-            if !groups.portfolios.isEmpty, let target = details.portfolio {
-                for p in purchases {
+            if !groups.portfolios.isEmpty {
+                for (p, target) in zip(purchases, targets) {
+                    guard let target else { continue }
                     let key = HoldingIdentity(productId: p.product.id, printing: p.printing, condition: p.condition, gradeCompany: p.gradeCompany, grade: p.grade).key
                     if ownedBefore.contains(key) {
                         try? await groups.copyMany([key], to: target, store: store)
@@ -195,6 +210,9 @@ private struct ReviewRow: View, Equatable {
                     if let line = detail { Text(line).font(.geist(13)).foregroundStyle(.white).monospacedDigit().lineLimit(1) }
                     if owned > 0 { Tag(text: "Owned ×\(owned)", tint: Theme.lime) }
                 }
+                if let d = entry.draft {
+                    Text(ScanDraftSummary.text(d)).font(.geist(12, .medium)).foregroundStyle(Theme.lime).lineLimit(1)
+                }
                 if let note = entry.note {
                     Text(note).font(.geist(12, .medium)).foregroundStyle(entry.rejected ? Theme.down : .white)
                 }
@@ -203,7 +221,7 @@ private struct ReviewRow: View, Equatable {
             VStack(alignment: .trailing, spacing: 3) {
                 if entry.picked != nil {
                     Text(Format.money(entry.value)).font(.geist(15, .semibold)).foregroundStyle(.white).monospacedDigit()
-                    if !entry.paid.isEmpty { Text("Paid \(entry.paid)").font(.geist(12)).foregroundStyle(.white).monospacedDigit() }
+                    if entry.draft == nil, !entry.paid.isEmpty { Text("Paid \(entry.paid)").font(.geist(12)).foregroundStyle(.white).monospacedDigit() }
                 } else if entry.state == .queued || entry.state == .reading {
                     ProgressView().tint(.white)
                 }
@@ -318,7 +336,7 @@ private struct ScanBatchDetailsSheet: View {
                 } footer: {
                     SectionNote(pulled
                         ? "For every card in this scan."
-                        : "For every card in this scan. Shipping, tax and fees are totals for the lot, shared across the cards by price. To grade a card or set its own details, tap it and pick Add with all details.")
+                        : "For every card in this scan. Shipping, tax and fees are totals for the lot, shared across the cards by price. Cards with their own details keep them: tap a card and pick Edit this card's details.")
                 }
             }
             .scrollContentBackground(.hidden)
