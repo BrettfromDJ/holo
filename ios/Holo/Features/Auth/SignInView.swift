@@ -17,20 +17,9 @@ struct SignInView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            // The welcome screens' lit grid and drifting, tilted columns of cards, filling the
-            // top and fading into the page behind the form.
-            WelcomeBackdrop().ignoresSafeArea()
-            GeometryReader { geo in
-                WelcomeGrid(showsWorth: false)
-                    .frame(height: geo.size.height * 0.62)
-                    .frame(maxWidth: .infinity)
-            }
-            .ignoresSafeArea()
-            // While typing the drift stops (no redraws while the keyboard slides up) and the
-            // wall dims way down under the form.
-            .environment(\.welcomeActive, !focused)
-            .opacity(focused ? 0.18 : 1)
-            .animation(.easeOut(duration: 0.25), value: focused)
+            // The welcome screens' lit grid and drifting card wall, as its own piece: tapping the
+            // field only changes `typing`, so nothing else on the page is worked out again.
+            SignInBackdrop(typing: focused).equatable()
             VStack(alignment: .leading, spacing: 0) {
                 Spacer(minLength: 0)
                 form
@@ -220,5 +209,31 @@ struct CodeBoxes: View {
         .onTapGesture { focused.wrappedValue = true }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Sign-in code, \(code.count) of \(Self.length) digits")
+    }
+}
+
+/// The sign-in page's background: the lit grid and the drifting, tilted wall of cards over the
+/// top of the screen. While you type, the drift stops (no redraws while the keyboard slides up)
+/// and a dark layer dims it: a plain layer on top, not a fade of the wall itself (fading the wall
+/// made the phone redraw all of it off-screen through the fade). Equatable on `typing` alone.
+private struct SignInBackdrop: View, Equatable {
+    var typing: Bool
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            WelcomeBackdrop().ignoresSafeArea()
+            GeometryReader { geo in
+                WelcomeGrid(showsWorth: false)
+                    .frame(height: geo.size.height * 0.62)
+                    .frame(maxWidth: .infinity)
+            }
+            .ignoresSafeArea()
+            .environment(\.welcomeActive, !typing)
+            Theme.background
+                .opacity(typing ? 0.82 : 0)
+                .ignoresSafeArea()
+                .animation(.easeOut(duration: 0.2), value: typing)
+        }
+        .allowsHitTesting(false)
     }
 }

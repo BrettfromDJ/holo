@@ -338,7 +338,7 @@ struct WelcomeGrid: View {
                 if reduceMotion {
                     columns(at: 0, tileW: tileW, tileH: tileH)
                 } else {
-                    TimelineView(.animation(minimumInterval: nil, paused: !active)) { context in
+                    TimelineView(.animation(minimumInterval: 1.0 / 60, paused: !active)) { context in
                         columns(at: context.date.timeIntervalSince(Self.start), tileW: tileW, tileH: tileH)
                     }
                 }
@@ -627,7 +627,7 @@ private struct WelcomeScanLoop: View {
                         if reduceMotion {
                             ScanStage(now: ScanPhase.still.u, card: card, size: geo.size)
                         } else {
-                            TimelineView(.animation(minimumInterval: nil, paused: !active)) { context in
+                            TimelineView(.animation(minimumInterval: 1.0 / 60, paused: !active)) { context in
                                 ScanStage(now: context.date.timeIntervalSinceReferenceDate, card: card, size: geo.size)
                             }
                         }
@@ -1074,7 +1074,7 @@ private struct WelcomeDeal: View {
                     if reduceMotion {
                         DealScene(spec: DealSpec.all[0], t: 6, clock: 0)
                     } else {
-                        TimelineView(.animation(minimumInterval: nil, paused: !active)) { context in
+                        TimelineView(.animation(minimumInterval: 1.0 / 60, paused: !active)) { context in
                             let s = context.date.timeIntervalSince(Self.start)
                             let n = Int(s / Self.cycle)
                             DealScene(spec: DealSpec.all[n % DealSpec.all.count], t: s - Double(n) * Self.cycle, clock: s)
@@ -1328,7 +1328,7 @@ private struct WelcomeGrading: View {
                 if reduceMotion {
                     GradingScene(show: GradeShow.all[0], t: 6.5, clock: 0)
                 } else {
-                    TimelineView(.animation(minimumInterval: nil, paused: !active)) { context in
+                    TimelineView(.animation(minimumInterval: 1.0 / 60, paused: !active)) { context in
                         let s = context.date.timeIntervalSince(Self.start)
                         let n = Int(s / Self.cycle)
                         GradingScene(show: GradeShow.all[n % GradeShow.all.count], t: s - Double(n) * Self.cycle, clock: s)
@@ -1637,7 +1637,7 @@ private struct WelcomeMasterSet: View {
             if reduceMotion {
                 TiltGrid(set: set, p: p, clock: 0)
             } else {
-                TimelineView(.animation(minimumInterval: nil, paused: !active)) { context in
+                TimelineView(.animation(minimumInterval: 1.0 / 60, paused: !active)) { context in
                     TiltGrid(set: set, p: p, clock: context.date.timeIntervalSince(Self.start))
                 }
             }
@@ -1816,7 +1816,7 @@ private struct WelcomeAlerts: View {
                     if reduceMotion {
                         AlertScene(show: AlertShow.all[0], t: 5)
                     } else {
-                        TimelineView(.animation(minimumInterval: nil, paused: !active)) { context in
+                        TimelineView(.animation(minimumInterval: 1.0 / 60, paused: !active)) { context in
                             let s = context.date.timeIntervalSince(Self.start)
                             let n = Int(s / Self.cycle)
                             AlertScene(show: AlertShow.all[n % AlertShow.all.count], t: s - Double(n) * Self.cycle)
