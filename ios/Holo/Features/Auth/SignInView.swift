@@ -17,7 +17,7 @@ struct SignInView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            // The welcome screens' lit grid and card wall, held still and drawn once: tapping the
+            // The welcome screens' lit grid and drifting card wall, as its own piece: tapping the
             // field only changes `typing`, so nothing else on the page is worked out again.
             SignInBackdrop(typing: focused).equatable()
             VStack(alignment: .leading, spacing: 0) {
@@ -40,6 +40,9 @@ struct SignInView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         }
         .background(Theme.background)
+        // iPhone loads its keyboard the first time an app asks for one, which made the first tap
+        // on the field pause. Load it out of sight while the screen is being read.
+        .background(KeyboardWarmer().frame(width: 0, height: 0))
         // The keyboard comes up when you tap the field, not over the cards on arrival.
     }
 
@@ -60,8 +63,8 @@ struct SignInView: View {
                 .padding(.bottom, 6)
 
                 if !sent {
-                    // No email AutoFill: asking iOS for suggestions held the keyboard back.
                     TextField("you@email.com", text: $email)
+                        .textContentType(.emailAddress)
                         .keyboardType(.emailAddress)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
@@ -221,13 +224,55 @@ private struct SignInBackdrop: View, Equatable {
 
     var body: some View {
         ZStack(alignment: .top) {
-            // Just the lit grid and glows for now: the card wall is off while we find the lag.
             WelcomeBackdrop().ignoresSafeArea()
+            GeometryReader { geo in
+                WelcomeGrid(showsWorth: false)
+                    .frame(height: geo.size.height * 0.62)
+                    .frame(maxWidth: .infinity)
+            }
+            .ignoresSafeArea()
+            // The drift stops while you type.
+            .environment(\.welcomeActive, !typing)
             Theme.background
                 .opacity(typing ? 0.82 : 0)
                 .ignoresSafeArea()
                 .animation(.easeOut(duration: 0.2), value: typing)
         }
         .allowsHitTesting(false)
+    }
+}
+
+/// An invisible text field that, once per launch, asks for the keyboard and lets it go straight
+/// away (before it can show), so iPhone has it loaded by the time the real field is tapped.
+private struct KeyboardWarmer: UIViewRepresentable {
+    func makeUIView(context: Context) -> WarmField {
+        let field = WarmField()
+        field.keyboardType = .emailAddress
+        field.textContentType = .emailAddress
+        field.autocorrectionType = .no
+        field.autocapitalizationType = .none
+        field.alpha = 0
+        field.isAccessibilityElement = false
+        return field
+    }
+
+    func updateUIView(_ uiView: WarmField, context: Context) {}
+
+    final class WarmField: UITextField {
+        private static var warmed = false
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            guard window != nil, !Self.warmed else { return }
+            Self.warmed = true
+            // A moment after the screen appears, so its first frame isn't held up.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+                guard let self, self.window != nil else { return }
+                UIView.performWithoutAnimation {
+                    self.becomeFirstResponder()
+                    self.resignFirstResponder()
+                }
+            }
+        }
     }
 }
