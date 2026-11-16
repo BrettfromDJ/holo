@@ -322,13 +322,10 @@ private struct YourCollectionStrip: View {
                     }
                 }
             }
-            .padding(.horizontal, 16).padding(.vertical, 14)
-            .background {
-                // A faint glow of the month's color behind the line, inside the rounded strip.
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(RadialGradient(colors: [(monthChange < 0 ? Theme.planPink : Theme.lime).opacity(0.14), .clear], center: .trailing, startRadius: 0, endRadius: 180))
-            }
-            .liquidGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            // No box: straight on the page, lined up with the tiles' edges, so it reads as the
+            // page's opening line rather than one more card.
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
