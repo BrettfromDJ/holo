@@ -215,7 +215,6 @@ private struct CardOfTheDay: View {
                     Text(daily ? "NEW EVERY DAY" : "THIS WEEK").font(.mono(10)).tracking(1.2).foregroundStyle(.white.opacity(0.6))
                 }
                 ZStack {
-                    LightRays().frame(width: 420, height: 420)
                     // A soft floor of light under the card.
                     Ellipse().fill(RadialGradient(colors: [Theme.lime.opacity(0.45), .clear], center: .center, startRadius: 0, endRadius: 120))
                         .frame(width: 260, height: 60).offset(y: 165)
@@ -226,7 +225,11 @@ private struct CardOfTheDay: View {
                     .notTiltable()
                     .frame(width: 220, height: 307)
                 }
+                .frame(maxWidth: .infinity)
                 .frame(height: 360)
+                // The rays behind, as a background: wider than the panel, they must never widen the
+                // page (they did, pushing everything off the left edge). The panel clips them.
+                .background { LightRays().frame(width: 420, height: 420) }
                 // The rise on a lime ribbon, ink on lime.
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Image(systemName: "arrow.up.right").font(.system(size: 20, weight: .heavy))
