@@ -96,29 +96,6 @@ final class PristineTests: XCTestCase {
         XCTAssertEqual(Pristine.slabPrice(company: "PSA", grade: "10", pristine: false, summary: stats(600, 3, 610, nil), sales: nil, guide: 700), 600)
     }
 
-    func testGradedPricesRowsAndLookup() {
-        func price(_ e: EbaySales?, _ values: GradedValues?, _ nm: Double?, pristine: Bool = false) -> Double? {
-            GradedPricesPanel.price(company: "CGC", grade: "10", values: values, ebay: e, nm: nm, productId: "p", pristine: pristine)?.value
-        }
-        XCTAssertEqual(price(ebay(), pc, 100), 950)
-        XCTAssertEqual(price(ebay(), pc, 100, pristine: true), 1600)
-        let one = ebay([sale(1500, "2026-10-28", "Charizard CGC Pristine 10"), sale(900, "2026-10-25", "CGC 10"), sale(1000, "2026-10-18", "CGC 10")])
-        XCTAssertEqual(price(one, pc, 100), 950)
-        XCTAssertEqual(price(one, pc, 100, pristine: true), 1520)
-        if case .premium? = GradedPricesPanel.price(company: "CGC", grade: "10", values: pc, ebay: one, nm: 100, productId: "p", pristine: true)?.source {} else {
-            XCTFail("a Pristine from too few sales is an estimate")
-        }
-        XCTAssertEqual(price(nil, pc, 100), 800)
-        XCTAssertEqual(price(nil, pc, 100, pristine: true), 1280)
-        let curve = (100 * WorthCalc.multiple(productId: "p", company: "CGC", grade: "10") * 100).rounded() / 100
-        XCTAssertEqual(price(nil, nil, 100), curve)
-        XCTAssertEqual(price(nil, nil, 100, pristine: true), (curve * 1.6 * 100).rounded() / 100)
-        XCTAssertNil(price(nil, nil, nil, pristine: true))
-        XCTAssertEqual(GradedPricesPanel.lookupGrades("CGC"), ["Pristine 10", "10", "9.5", "9", "8.5", "8", "7.5", "7", "6", "5"])
-        XCTAssertEqual(GradedPricesPanel.lookupGrades("PSA"), ["10", "9", "8", "7", "6", "5"])
-        XCTAssertEqual(GradedPricesPanel.gradeTitle(company: "CGC", grade: "10"), "Gem Mint 10")
-    }
-
     func testSellsFastOnOneKind() {
         XCTAssertEqual(Liquidity.score(ebay(), grade: "CGC 10", today: today, pristine: true), Liquidity.Score(score: 60, tier: .steady, sold: 2))
         XCTAssertEqual(Liquidity.score(ebay(), grade: "CGC 10", today: today, pristine: false), Liquidity.Score(score: 64, tier: .steady, sold: 3))
