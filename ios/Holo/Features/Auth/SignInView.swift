@@ -221,13 +221,8 @@ private struct SignInBackdrop: View, Equatable {
 
     var body: some View {
         ZStack(alignment: .top) {
+            // Just the lit grid and glows for now: the card wall is off while we find the lag.
             WelcomeBackdrop().ignoresSafeArea()
-            GeometryReader { geo in
-                WelcomeGrid(showsWorth: false, still: true)
-                    .frame(height: geo.size.height * 0.62)
-                    .frame(maxWidth: .infinity)
-            }
-            .ignoresSafeArea()
             Theme.background
                 .opacity(typing ? 0.82 : 0)
                 .ignoresSafeArea()
