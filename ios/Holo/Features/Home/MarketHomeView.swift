@@ -78,22 +78,25 @@ struct MarketHomeView: View {
         let drops = index.drops ?? []
         // Today's top riser gets the big stage (the week's, until today's movers arrive); the
         // week's top riser and the biggest faller face off under it.
-        if let star = index.today?.first {
-            CardOfTheDay(hit: star, kind: .day).padding(.horizontal, 16)
-        } else if let star = trending.first {
-            CardOfTheDay(hit: star, kind: .week).padding(.horizontal, 16)
-        } else if let chase, let top = chase.hits.first {
-            // No market moves to show: the newest set's top pull takes the stage instead.
-            CardOfTheDay(hit: top, kind: .topPull(chase.set.name)).padding(.horizontal, 16)
-        }
-        if !trending.isEmpty || !drops.isEmpty {
-            HStack(spacing: 10) {
-                if let hot = index.today?.first == nil ? (trending.count > 1 ? trending[1] : nil) : trending.first { HotColdTile(hit: hot, hot: true) }
-                if let cold = drops.first { HotColdTile(hit: cold, hot: false) }
+        // The three highlights as one group, 10pt apart every way (the same gap as between the
+        // two small tiles), not the page's wider section spacing.
+        VStack(spacing: 10) {
+            if let star = index.today?.first {
+                CardOfTheDay(hit: star, kind: .day)
+            } else if let star = trending.first {
+                CardOfTheDay(hit: star, kind: .week)
+            } else if let chase, let top = chase.hits.first {
+                // No market moves to show: the newest set's top pull takes the stage instead.
+                CardOfTheDay(hit: top, kind: .topPull(chase.set.name))
             }
-            .padding(.horizontal, 16)
-            .reveal()
+            if !trending.isEmpty || !drops.isEmpty {
+                HStack(spacing: 10) {
+                    if let hot = index.today?.first == nil ? (trending.count > 1 ? trending[1] : nil) : trending.first { HotColdTile(hit: hot, hot: true) }
+                    if let cold = drops.first { HotColdTile(hit: cold, hot: false) }
+                }
+            }
         }
+        .padding(.horizontal, 16)
         if trending.count > 2 {
             section("Top 10 this week", "Singles rising most in 7 days") { TopTenRow(hits: Array(trending.prefix(10))) }
         }
