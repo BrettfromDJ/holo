@@ -310,18 +310,13 @@ struct SetBannerRow: View {
             }
         }
         .clipShape(shape)
-        // A glowing edge in the set's own color, bright at the top left and fading round the card
-        // (lime when finished); the glow is the edge's still shadow.
+        // A fine edge in the set's own color, brightest at the top left and fading round the card
+        // (lime when finished). No wide inner band: it read as a thick stroke.
         .overlay {
             let accent = isComplete ? Theme.lime : SetGlow.accent(for: row.id)
-            ZStack {
-                // The glow as a wide faint band inside the edge (no shadow, cheap while scrolling).
-                shape.strokeBorder(LinearGradient(colors: [accent.opacity(0.28), accent.opacity(0.08), .clear, accent.opacity(0.08)],
-                                                  startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 8)
-                shape.strokeBorder(LinearGradient(colors: [accent.opacity(0.95), accent.opacity(0.35), .white.opacity(0.08), accent.opacity(0.3)],
-                                                  startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1.5)
-            }
-            .allowsHitTesting(false)
+            shape.strokeBorder(LinearGradient(colors: [accent.opacity(0.6), accent.opacity(0.18), .white.opacity(0.06), accent.opacity(0.14)],
+                                              startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
+                .allowsHitTesting(false)
         }
         .contentShape(shape)
     }
