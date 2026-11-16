@@ -261,8 +261,9 @@ private struct CardOfTheDay: View {
                     RadialGradient(colors: [Theme.planBlue.opacity(0.2), .clear], center: .bottomLeading, startRadius: 0, endRadius: 240)
                     ChaseSparks()
                 }
-                .clipShape(shape)
             }
+            // Everything inside (the rays too) stays within the rounded panel.
+            .clipShape(shape)
             .shadow(color: Theme.lime.opacity(0.22), radius: 26)
             .overlay(ElectricBorder(radius: 30))
         }
