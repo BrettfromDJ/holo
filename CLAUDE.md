@@ -155,10 +155,13 @@ and say exactly what to run or click.
   and sent by `/api/explore` as `iconUrl` (banner) + `logoUrl`; TCG API's art is the fallback.
   New sets: add a folder and a manifest entry.
 - Sealed photos: our own pictures of sealed products (backgrounds removed) in
-  `public/products/<dir>/<file>.webp`, listed in `src/lib/sealed-art-manifest.json` and the same list
-  in `Domain/SealedArt.swift` (keep both in step), matched by set and product name
-  (`src/lib/sealed-art.ts`; the web `ProductImage` and the app's `Product.imageURL` use them).
-  Done: Delta Reign.
+  `public/products/pokemon/<set>/<product>.webp`. The owner drops one folder per set in `art-inbox/`
+  (folder = set, file = product name) and `python3 scripts/sealed-art.py` converts them and rebuilds
+  `src/lib/sealed-art-manifest.json` and the app's generated `Domain/SealedArtList.swift` (never
+  edit that by hand); then delete `art-inbox/`. Matching (set named last in the set name, then the
+  product name without the set) is in `src/lib/sealed-art.ts` and `Domain/SealedArt.swift`, same
+  tests on both. The web `ProductImage` and the app's `Product.imageURL` use them. Done: 33
+  modern sets (Sword & Shield era onward).
 - Old sets split by edition (Base Set, Jungle, Fossil, Team Rocket, Gym, Neo): `src/lib/editions.ts`
   and `Domain/Editions.swift` (slugs `<set>--1st-edition` / `--unlimited`). The catalog's card
   pictures are 1st Edition scans; the owner supplies Unlimited photos per set in
