@@ -35,11 +35,12 @@ describe("ebaySetWords", () => {
 });
 
 describe("ebayListingsUrl", () => {
-  it("searches the same words for live listings, cheapest first", () => {
+  it("searches the same words for Buy It Now listings, cheapest first", () => {
     const p = { name: "Charizard ex - 199/165", number: "199/165", kind: "single", setName: "SV: Scarlet & Violet 151" };
     const url = new URL(ebayListingsUrl(p, "PSA 10"));
     expect(url.searchParams.get("_nkw")).toBe(new URL(ebaySoldUrl(p, "PSA 10")).searchParams.get("_nkw"));
     expect(url.searchParams.get("LH_Sold")).toBeNull();
     expect(url.searchParams.get("_sop")).toBe("15");
+    expect(url.searchParams.get("LH_BIN")).toBe("1");
   });
 });

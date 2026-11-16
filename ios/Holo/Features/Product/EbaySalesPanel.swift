@@ -262,6 +262,8 @@ struct EbaySalesPanel: View {
         ] : [
             URLQueryItem(name: "_nkw", value: q),
             URLQueryItem(name: "_sop", value: "15"),
+            // Buy It Now only: a price you can pay today, not an auction that may climb.
+            URLQueryItem(name: "LH_BIN", value: "1"),
             URLQueryItem(name: "_sacat", value: "0"),
         ]
         return c?.url
