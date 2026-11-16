@@ -155,7 +155,7 @@ struct MarketHomeView: View {
         }
         .padding(.horizontal, 16)
         if trending.count > 2 {
-            section("Top 10 this week", "Singles rising most in 7 days") { TopTenRow(hits: Array(trending.prefix(10))) }
+            section(icon: "trophy.fill", "Top 10 this week", "Singles rising most in 7 days") { TopTenRow(hits: Array(trending.prefix(10))) }
         }
         if let eras = index.eras, !(eras.modern.isEmpty && eras.midEra.isEmpty && eras.vintage.isEmpty) {
             // All three chips, always; an era with no risers this week says so.
@@ -163,7 +163,7 @@ struct MarketHomeView: View {
             // Open on the first era that has risers.
             let pick = era.isEmpty ? (options.first { !$0.2.isEmpty }?.0 ?? "modern") : era
             let hits = options.first { $0.0 == pick }?.2 ?? []
-            section("Rising by era", "This week's risers, from modern to vintage") {
+            section(icon: "hourglass", "Rising by era", "This week's risers, from modern to vintage") {
                 VStack(alignment: .leading, spacing: 14) {
                     ChipPicker(options: options.map { ($0.0, $0.1) }, selection: Binding(get: { pick }, set: { era = $0 }))
                         .fixedSize()
@@ -191,31 +191,38 @@ struct MarketHomeView: View {
                 .reveal()
         }
         if let hot = index.hotSealed, !hot.isEmpty {
-            section("Hot sealed", "Sealed rising most in 7 days") { HotSealedRow(hits: Array(hot.prefix(10))) }
+            section(icon: "shippingbox.fill", "Hot sealed", "Sealed rising most in 7 days") { HotSealedRow(hits: Array(hot.prefix(10))) }
         }
         if !recent.isEmpty {
-            section("Just released", "The newest sets") { SetCarousel(sets: Array(recent.prefix(10)), upcoming: false) }
+            section(icon: "calendar", "Just released", "The newest sets") { SetCarousel(sets: Array(recent.prefix(10)), upcoming: false) }
         }
         if upcoming.count > 1 {
-            section("Coming soon", "New sets on the way") {
+            section(icon: "calendar.badge.clock", "Coming soon", "New sets on the way") {
                 SetCarousel(sets: Array(upcoming.dropFirst().prefix(10)), upcoming: true)
             } link: {
                 NavigationLink(value: ExploreRoute.calendar) { seeAll("Calendar") }
             }
         }
         if drops.count > 5 {
-            section("Cooling off", "Singles down most in 7 days") { MoverCarousel(hits: Array(drops.dropFirst(5).prefix(10))) }
+            section(icon: "snowflake", "Cooling off", "Singles down most in 7 days") { MoverCarousel(hits: Array(drops.dropFirst(5).prefix(10))) }
         }
     }
 
-    private func section<C: View>(_ title: String, _ subtitle: String, @ViewBuilder content: () -> C) -> some View {
-        section(title, subtitle, content: content) { EmptyView() }
+    private func section<C: View>(icon: String, _ title: String, _ subtitle: String, @ViewBuilder content: () -> C) -> some View {
+        section(icon: icon, title, subtitle, content: content) { EmptyView() }
     }
 
-    private func section<C: View, L: View>(_ title: String, _ subtitle: String, @ViewBuilder content: () -> C, @ViewBuilder link: () -> L) -> some View {
+    private func section<C: View, L: View>(icon: String, _ title: String, _ subtitle: String, @ViewBuilder content: () -> C, @ViewBuilder link: () -> L) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .lastTextBaseline) {
-                PageHeader(title: title, subtitle: subtitle, size: 22)
+                // The title with a small lime icon beside it, then the line under it.
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Image(systemName: icon).font(.system(size: 17, weight: .semibold)).foregroundStyle(Theme.lime)
+                        Text(title).font(.display(22)).tracking(22 * -0.03).lineLimit(1).minimumScaleFactor(0.8).displayTrim(22)
+                    }
+                    Text(subtitle.noWidow).font(.geist(15)).foregroundStyle(Theme.muted)
+                }
                 Spacer(minLength: 8)
                 link()
             }
