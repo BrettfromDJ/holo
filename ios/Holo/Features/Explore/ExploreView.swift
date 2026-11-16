@@ -1338,17 +1338,18 @@ private struct NextRelease: View {
                     // Under a day to go: the hours, minutes and seconds ticking, the digits rolling,
                     // over a slow lime pulse.
                     LastDayCountdown(release: release)
+                        .padding(.trailing, 6)
                 } else {
-                VStack(spacing: 6) {
-                    // The days, plain (no split-flap tiles).
-                    Text("\(days)").displayTrim(60)
-                        .font(.display(60)).monospacedDigit().foregroundStyle(Theme.lime)
-                        .fixedSize()
-                    MonoLabel(text: days == 0 ? "today" : (days == 1 ? "day" : "days"))
+                    VStack(spacing: 6) {
+                        // The days, plain (no split-flap tiles).
+                        Text("\(days)").displayTrim(60)
+                            .font(.display(60)).monospacedDigit().foregroundStyle(Theme.lime)
+                            .fixedSize()
+                        MonoLabel(text: days == 0 ? "today" : (days == 1 ? "day" : "days"))
+                    }
+                    .frame(minWidth: 70)
+                    .padding(.trailing, 6)
                 }
-                .frame(minWidth: 70)
-                }
-                .padding(.trailing, 6)
             }
             .padding(.vertical, 18)
             .padding(.leading, 18)
