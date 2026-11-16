@@ -56,6 +56,9 @@ and say exactly what to run or click.
   top 10, newest set showcase, hot sealed, sets), Collection (a Summary | Cards switch in the top
   bar: Summary is `HomeView`, Cards is `CollectionView`; `CollectionMode`), Search, Explore, Deal.
   `Router.tabRequest` "collection" opens Cards, "collection-summary" opens Summary.
+- **Eras** (Home's Rising by era): vintage before Diamond & Pearl (WotC and EX, to early 2007),
+  mid-era Diamond & Pearl through XY (2007–2016), modern Sun & Moon on (2017–). `eraOf` in
+  `src/lib/explore/movers.ts` and `MarketEras.era` in the app (same cut-off dates).
 - **Loading:** no spinners. The app opens on the collection saved on the phone at the last load
   (`SnapshotFile`, per account, deleted on sign-out; never in a demo) and refreshes it in place;
   only a first launch with nothing saved shows dim, still placeholders (`LoadingPlaceholder`).

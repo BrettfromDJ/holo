@@ -517,9 +517,9 @@ struct ExploreSet: Codable, Identifiable, Hashable {
     var release: Date? { releaseDate.flatMap { Format.isoDay.date(from: String($0.prefix(10))) } }
 }
 
-/// Singles rising most this week, split by their set's era: vintage before EX Ruby & Sapphire
-/// (mid-2003), mid-era through Sun & Moon, modern from Sword & Shield (2020). Same split as the
-/// website's `eraOf`.
+/// Singles rising most this week, split by their set's era (Dexora's own split, by series):
+/// vintage before Diamond & Pearl (Wizards of the Coast and EX, to early 2007), mid-era Diamond &
+/// Pearl through XY (2007–2016), modern from Sun & Moon (2017). Same split as the website's `eraOf`.
 struct MarketEras: Codable, Hashable {
     var modern: [SearchHit] = []
     var midEra: [SearchHit] = []
@@ -527,7 +527,7 @@ struct MarketEras: Codable, Hashable {
 
     static func era(of releaseDate: String?) -> String? {
         guard let d = releaseDate.map({ String($0.prefix(10)) }), !d.isEmpty else { return nil }
-        return d < "2003-06-01" ? "vintage" : d < "2020-01-01" ? "midEra" : "modern"
+        return d < "2007-05-01" ? "vintage" : d < "2017-02-01" ? "midEra" : "modern"
     }
 }
 

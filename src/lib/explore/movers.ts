@@ -28,15 +28,20 @@ export const EMPTY_MARKET: ExploreMarket = { trending: [], today: [], eras: { mo
 export type Era = "modern" | "midEra" | "vintage";
 
 /**
- * A set's era by its release date, as collectors split them: vintage before EX Ruby & Sapphire
- * (mid-2003, the end of the Wizards of the Coast years), mid-era from then through Sun & Moon,
- * modern from Sword & Shield (2020) on. Null without a date.
+ * A set's era by its release date, Dexora's own split (by series):
+ * - vintage: everything before Diamond & Pearl (the Wizards of the Coast sets and the EX era, to early 2007);
+ * - mid-era: Diamond & Pearl through XY (Diamond & Pearl, Platinum, HeartGold SoulSilver, Black & White, XY; 2007–2016);
+ * - modern: Sun & Moon on (2017–now: Sun & Moon, Sword & Shield, Scarlet & Violet, Mega Evolution).
+ * Null without a date. Same split as the app's `MarketEras.era`.
  */
+export const MID_ERA_FROM = "2007-05-01"; // Diamond & Pearl
+export const MODERN_FROM = "2017-02-01"; // Sun & Moon
+
 export function eraOf(releaseDate: string | null | undefined): Era | null {
   if (!releaseDate) return null;
   const day = releaseDate.slice(0, 10);
-  if (day < "2003-06-01") return "vintage";
-  if (day < "2020-01-01") return "midEra";
+  if (day < MID_ERA_FROM) return "vintage";
+  if (day < MODERN_FROM) return "midEra";
   return "modern";
 }
 

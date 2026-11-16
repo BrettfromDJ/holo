@@ -123,10 +123,12 @@ describe("pickBoosterBoxes", () => {
 
 describe("eraOf", () => {
   it("splits sets into vintage, mid-era and modern by release date", () => {
-    expect(eraOf("1999-01-09")).toBe("vintage");
-    expect(eraOf("2003-03-18")).toBe("vintage"); // Skyridge
-    expect(eraOf("2003-07-01")).toBe("midEra"); // EX Ruby & Sapphire
-    expect(eraOf("2019-11-01")).toBe("midEra"); // Cosmic Eclipse
+    expect(eraOf("1999-01-09")).toBe("vintage"); // Base Set
+    expect(eraOf("2003-07-01")).toBe("vintage"); // EX Ruby & Sapphire
+    expect(eraOf("2007-02-14")).toBe("vintage"); // EX Power Keepers
+    expect(eraOf("2007-05-23")).toBe("midEra"); // Diamond & Pearl
+    expect(eraOf("2016-11-02")).toBe("midEra"); // Evolutions (XY)
+    expect(eraOf("2017-02-03")).toBe("modern"); // Sun & Moon
     expect(eraOf("2020-02-07")).toBe("modern"); // Sword & Shield
     expect(eraOf(null)).toBeNull();
   });
