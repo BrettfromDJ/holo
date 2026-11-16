@@ -878,11 +878,13 @@ struct CollectionView: View {
 /// The website's collection tile: the piece on a dark stage, then name, Anton value and gain.
 struct HoldingTile: View {
     var holding: HoldingView
-    @Environment(CollectionStore.self) private var store
+    /// Optional: the long-press preview draws this tile outside the page's environment.
+    @Environment(CollectionStore.self) private var store: CollectionStore?
 
     /// A market price more than 3 days old shows dimmed (your own values never do).
     private var stale: Bool {
-        !holding.isManual && PriceInfo.isStale(store.marketPrice(holding.identity.productId, printing: holding.identity.printing)?.updatedAt)
+        guard let store, !holding.isManual else { return false }
+        return PriceInfo.isStale(store.marketPrice(holding.identity.productId, printing: holding.identity.printing)?.updatedAt)
     }
 
     var body: some View {
