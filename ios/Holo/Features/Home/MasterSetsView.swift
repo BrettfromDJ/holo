@@ -64,6 +64,8 @@ struct MasterSetDetailView: View {
     /// The dial's fraction while it sweeps (nil: show the real one).
     @State private var sweep: Double?
     @State private var pulse = false
+    /// The set's own art (banner and logo), as on the Master Sets list.
+    @State private var art: ExploreSet?
 
     enum Show: String, CaseIterable { case all = "All", owned = "Owned", missing = "Missing" }
     enum Sort: String, CaseIterable {
@@ -117,6 +119,11 @@ struct MasterSetDetailView: View {
         let unpriced: Int = entries.reduce(0) { $0 + (!$1.owned && $1.hit.market == nil ? 1 : 0) }
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
+                // The set's banner and logo across the top, running up under the clear bar.
+                if let banner = art?.iconUrl.flatMap(URL.init(string:)) {
+                    MasterSetBanner(url: banner, logo: art?.logoUrl)
+                        .padding(.bottom, -18)
+                }
                 // The top, like Collection's: on the same lit backdrop. Its own equatable view, so
                 // a chip, the sort or the search doesn't redraw the dial and the strip.
                 SetProgressHeader(
@@ -132,7 +139,9 @@ struct MasterSetDetailView: View {
                 )
                 .equatable()
                 .background(alignment: .top) {
-                    DotBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
+                    if art?.iconUrl == nil {
+                        DotBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
+                    }
                 }
                 controls(entries)
                 grid(entries)
@@ -151,6 +160,14 @@ struct MasterSetDetailView: View {
         .onChange(of: complete, initial: true) { _, done in if done { celebrate() } }
         .sensoryFeedback(.success, trigger: celebrated) { _, now in now }
         .task(id: setId) {
+            // The set's art: from the set list saved on the phone, then the fresh one.
+            let saved = await Task.detached(priority: .userInitiated) { SavedSets.load() }.value
+            art = Self.art(for: setId, name: setName, in: saved)
+            if art == nil, let fresh = try? await Backend.shared.api.exploreIndex() {
+                art = Self.art(for: setId, name: setName, in: fresh.sets)
+            }
+        }
+        .task(id: setId) {
             await Self.load([current], store: store)
             // The catalog fetches a set's prices just after the first look: when the cards you're
             // missing came back without prices, ask again a little later (once a visit).
@@ -166,6 +183,11 @@ struct MasterSetDetailView: View {
     }
 
     // MARK: Loading
+
+    /// A set's catalog entry by its id, else by its name (as the Master Sets list matches them).
+    static func art(for id: String, name: String, in sets: [ExploreSet]) -> ExploreSet? {
+        sets.first { $0.slug == id } ?? sets.first { $0.name.lowercased() == name.lowercased() }
+    }
 
     /// These sets' card lists at once (a few small requests to Holo's own catalog), kept for the
     /// session so the list's progress and each set's page share them.
@@ -368,6 +390,33 @@ struct MasterSetDetailView: View {
                 }
             }
         }
+    }
+}
+
+/// A set's banner across the top of its page, with its logo, fading into the page at the bottom.
+private struct MasterSetBanner: View {
+    var url: URL
+    var logo: String?
+
+    var body: some View {
+        Color.clear
+            .frame(height: 250)
+            .overlay {
+                CachedImage(url: url) { img in img.resizable().scaledToFill() } placeholder: { Color.clear }
+                    .imageMaxPixel(1200)
+            }
+            .overlay {
+                // The logo in the lower, visible part (the top runs under the bar).
+                SetLogoOverlay(url: logo).padding(.top, 90).padding(.bottom, 30)
+            }
+            .clipped()
+            .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.62), .init(color: .clear, location: 1)],
+                                 startPoint: .top, endPoint: .bottom))
+            .environment(\.imageFadesIn, false)
+            .padding(.horizontal, -16)
+            .padding(.top, -100)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
     }
 }
 
