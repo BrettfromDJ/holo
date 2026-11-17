@@ -90,20 +90,7 @@ final class ScreenshotTests: XCTestCase {
     func testSignIn() { capture("sign-in", args: ["-HoloSignIn"], pages: 1) }
     func testDeal() { capture("deal", args: ["-HoloTab", "deal"], pages: 1) }
     func testDealFilled() { capture("deal-filled", args: ["-HoloTab", "deal", "-HoloDealDemo"], pages: 3) }
-    func testDealCollector() { capture("deal-collector", args: ["-HoloTab", "deal", "-HoloDealDemo", "-HoloDealRole", "collector", "-HoloDealDetailed"], pages: 2) }
-    // The simple Deal flow, page by page: each kind's cards step and its settle step with a price.
-    func testDealFlows() {
-        let d = ["-HoloTab", "deal", "-HoloDealDemo"]
-        capture("deal-buying-cards", args: d + ["-HoloDealFlow", "buying", "-HoloDealStep", "0"], pages: 1)
-        capture("deal-buying-settle", args: d + ["-HoloDealFlow", "buying", "-HoloDealStep", "1", "-HoloDealAmount", "900"], pages: 1)
-        capture("deal-selling-cards", args: d + ["-HoloDealFlow", "selling", "-HoloDealStep", "0"], pages: 1)
-        capture("deal-selling-settle", args: d + ["-HoloDealFlow", "selling", "-HoloDealStep", "1", "-HoloDealAmount", "250"], pages: 1)
-        capture("deal-trading-theirs", args: d + ["-HoloDealFlow", "trading", "-HoloDealStep", "1"], pages: 1)
-        capture("deal-trading-settle", args: d + ["-HoloDealFlow", "trading", "-HoloDealStep", "2", "-HoloDealAmount", "50"], pages: 1)
-        capture("deal-price-check", args: ["-HoloTab", "deal", "-HoloDealFlow", "check"], pages: 1)
-    }
-    // The detailed page with a deal in it (the simple flow is testDeal / testDealFilled).
-    func testDealDetailed() { capture("deal-detailed", args: ["-HoloTab", "deal", "-HoloDealDemo", "-HoloDealDetailed"], pages: 3) }
+    func testDealCollector() { capture("deal-collector", args: ["-HoloTab", "deal", "-HoloDealDemo", "-HoloDealRole", "collector"], pages: 2) }
     func testDealCustomer() {
         capture("deal-customer", args: ["-HoloTab", "deal", "-HoloDealDemo", "-HoloDealCustomer"], pages: 1)
         capture("deal-customer-many", args: ["-HoloTab", "deal", "-HoloDealDemo", "-HoloDealMany", "-HoloDealCustomer"], pages: 1)

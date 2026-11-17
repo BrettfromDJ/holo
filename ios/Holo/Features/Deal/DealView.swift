@@ -32,8 +32,6 @@ struct DealView: View {
     /// The tab bar brought back over a docked deal bar ("Show tabs"); off again once the deal empties
     /// or the Deal tab is tapped.
     @State private var showTabs = false
-    /// The simple Deal flow is a tap away (`DealTab`).
-    @AppStorage("deal-detailed") private var detailed = true
 
     private var rates: (in: Double, out: Double) { deals.rates }
     private var defaultRates: (in: Double, out: Double) {
@@ -156,8 +154,6 @@ struct DealView: View {
                             .disabled(deals.deal.kind == .empty)
                     }
                     Button { settings = true } label: { Image(systemName: "slider.horizontal.3") }.accessibilityLabel("Deal settings")
-                    // Back to the simple flow (Buying, Selling, Trading, Price check).
-                    Button("Simple") { detailed = false }.font(.geist(15, .semibold))
                 }
             }
             .toolbar(pinned ? .hidden : .visible, for: .navigationBar)
