@@ -873,7 +873,6 @@ private struct EraCard: View, Equatable {
                     Text("SAMPLE").font(.mono(10)).tracking(1.2).foregroundStyle(Theme.subtle)
                 }
             }
-            Text(era.blurb).font(.geist(14)).foregroundStyle(Theme.muted)
             if top.isEmpty {
                 Text("No big movers in this era this\u{00A0}week.")
                     .font(.geist(14)).foregroundStyle(Theme.muted)
