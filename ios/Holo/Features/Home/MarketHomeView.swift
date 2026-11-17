@@ -796,17 +796,40 @@ private struct EraCard: View, Equatable {
         }
     }
 
+    /// Sample cards' real catalog ids, looked up once (when the card first shows), so a tap
+    /// opens the page at once instead of searching first.
+    @MainActor private static var realIds: [String: String] = [:]
+
     @MainActor
     private static func openReal(_ p: Product) async {
+        Haptics.tap()
+        if let id = realIds[p.id] { Router.shared.product = id; return }
+        if let id = await resolve(p) { Router.shared.product = id }
+    }
+
+    @MainActor
+    private static func resolve(_ p: Product) async -> String? {
+        if let id = realIds[p.id] { return id }
         let base = p.name.components(separatedBy: " (").first ?? p.name
         let number = p.number?.components(separatedBy: "/").first
         let query = [base, p.setName].compactMap { $0 }.joined(separator: " ")
-        guard let hits = try? await Backend.shared.api.search(query), !hits.isEmpty else { return }
+        guard let hits = try? await Backend.shared.api.search(query), !hits.isEmpty else { return nil }
         let match = hits.first { h in
             guard let number, let n = h.product.number else { return false }
             return n.components(separatedBy: "/").first == number
         } ?? hits.first
-        if let match { Router.shared.product = match.product.id }
+        if let match { realIds[p.id] = match.product.id }
+        return match?.product.id
+    }
+
+    /// Looks up every sample card's real id in the background (all at once), ready for a tap.
+    @MainActor
+    static func prefetch(_ hits: [SearchHit]) async {
+        await withTaskGroup(of: Void.self) { group in
+            for h in hits where realIds[h.product.id] == nil {
+                group.addTask { @MainActor in _ = await resolve(h.product) }
+            }
+        }
     }
 
     var body: some View {
@@ -852,6 +875,8 @@ private struct EraCard: View, Equatable {
         }
         .tinted(era.color)
         .cardSequence(sample ? [] : top.map(\.product.id))
+        // Sample cards: their real pages looked up now, so tapping one opens at once.
+        .task(id: sample) { if sample { await Self.prefetch(top) } }
         // Most of the screen, so the next era peeks in.
         .containerRelativeFrame(.horizontal) { width, _ in width - 32 - 28 }
     }
