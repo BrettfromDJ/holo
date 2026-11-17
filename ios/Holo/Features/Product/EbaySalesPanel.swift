@@ -252,7 +252,8 @@ struct EbaySalesPanel: View {
                 q += " \(head)"
             }
         }
-        if let grade { q += " \(grade)" } else if !p.isSealed { q += " -psa -bgs -cgc -sgc" }
+        // Ungraded singles: sold searches leave slabs out; what's for sale asks for "NM" (near mint).
+        if let grade { q += " \(grade)" } else if !p.isSealed { q += sold ? " -psa -bgs -cgc -sgc" : " NM" }
         var c = URLComponents(string: "https://www.ebay.com/sch/i.html")
         c?.queryItems = sold ? [
             URLQueryItem(name: "_nkw", value: q),

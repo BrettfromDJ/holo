@@ -33,14 +33,17 @@ export function ebaySoldUrl(p: { name: string; number?: string | null; kind?: st
   return `https://www.ebay.com/sch/i.html?${params.toString()}`;
 }
 
-/** The same search for what's for sale right now: Buy It Now, cheapest first (price plus shipping). */
+/**
+ * The same search for what's for sale right now: Buy It Now, cheapest first (price plus
+ * shipping). An ungraded single asks for "NM" (near mint) instead of leaving slabs out.
+ */
 export function ebayListingsUrl(p: { name: string; number?: string | null; kind?: string | null; setName?: string | null }, grade?: string | null): string {
   // Buy It Now only (LH_BIN): a price you can pay today, not an auction that may climb.
-  const params = new URLSearchParams({ _nkw: ebayQuery(p, grade), _sop: "15", LH_BIN: "1", _sacat: "0" });
+  const params = new URLSearchParams({ _nkw: ebayQuery(p, grade, true), _sop: "15", LH_BIN: "1", _sacat: "0" });
   return `https://www.ebay.com/sch/i.html?${params.toString()}`;
 }
 
-function ebayQuery(p: { name: string; number?: string | null; kind?: string | null; setName?: string | null }, grade?: string | null): string {
+function ebayQuery(p: { name: string; number?: string | null; kind?: string | null; setName?: string | null }, grade?: string | null, forSale = false): string {
   let q = p.name.replace(/\([^)]*\)/g, " ").replace(/\s+-\s+\S*\d+\/\d+\S*/g, " ").replace(/\s+-\s+/g, " ").replace(/\s+/g, " ").trim();
   if (p.kind === "single") {
     const set = ebaySetWords(p.setName);
@@ -49,6 +52,6 @@ function ebayQuery(p: { name: string; number?: string | null; kind?: string | nu
     if (head) q += ` ${head}`;
   }
   if (grade) q += ` ${grade}`;
-  else if (p.kind === "single") q += " -psa -bgs -cgc -sgc";
+  else if (p.kind === "single") q += forSale ? " NM" : " -psa -bgs -cgc -sgc";
   return q;
 }

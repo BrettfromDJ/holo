@@ -30,7 +30,7 @@ describe("ebaySetWords", () => {
     expect(ebaySetWords("Jungle")).toBe("Jungle");
     expect(ebaySetWords("Base Set (1st Edition)")).toBe("Base Set 1st Edition");
     expect(ebaySetWords("Sword & Shield—Evolving Skies")).toBe("Evolving Skies");
-    expect(q(ebayListingsUrl({ name: "Charizard", number: "4/102", kind: "single", setName: "Base Set" }))).toBe("Charizard Base Set 4 -psa -bgs -cgc -sgc");
+    expect(q(ebayListingsUrl({ name: "Charizard", number: "4/102", kind: "single", setName: "Base Set" }))).toBe("Charizard Base Set 4 NM");
   });
 });
 
