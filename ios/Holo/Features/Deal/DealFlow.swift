@@ -281,6 +281,11 @@ struct DealFlowView: View {
                     Text(Format.money(market)).font(.display(36)).tracking(-1).monospacedDigit()
                         .contentTransition(.numericText()).lineLimit(1).minimumScaleFactor(0.6)
                     Text("Market value · \(count) card\(count == 1 ? "" : "s")").font(.geist(13)).foregroundStyle(Theme.muted)
+                    // While scanning: the price at your usual % (change it on Settle).
+                    if m != .trading, market > 0 {
+                        let r = theirs ? deals.rates.in : deals.rates.out
+                        Text("At \(Int((r * 100).rounded()))%: \(Format.money(market * r))").font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(Theme.lime)
+                    }
                 }
                 Spacer(minLength: 8)
                 Button {
@@ -399,6 +404,10 @@ private struct DealSettle: View {
     /// Trading: who pays the cash.
     @State private var theyPay = true
     @FocusState private var typing: Bool
+    /// The share of market you're working at (70 = 70%): set it and the price follows; type a
+    /// price and it shows the % that comes to. Buying: what you pay for their cards. Selling:
+    /// what you get for yours. Trading: the credit their cards count for.
+    @State private var pct: Double = 70
 
     private var inMarket: Double { deals.deal.incoming.reduce(0) { $0 + ($1.market ?? 0) * Double($1.qty) } }
     private var outMarket: Double { deals.deal.outgoing.reduce(0) { $0 + ($1.market ?? 0) * Double($1.qty) } }
@@ -412,6 +421,7 @@ private struct DealSettle: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
+                rateCard
                 Text(question).font(.display(28)).tracking(-0.7)
                 if mode == .trading {
                     ChipPicker(options: [(true, "They pay you"), (false, "You pay them")], selection: $theyPay, fills: true)
@@ -462,8 +472,86 @@ private struct DealSettle: View {
             .overlay(alignment: .top) { Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1) }
         }
         .onAppear(perform: load)
-        .onChange(of: amount) { _, _ in apply() }
+        .onChange(of: amount) { _, _ in
+            apply()
+            // A typed price shows the % of market it comes to.
+            if typing, let v = typed, let p = pctFor(v) { pct = p }
+        }
         .onChange(of: theyPay) { _, _ in apply() }
+    }
+
+    /// What the % is a share of: their cards when buying or trading, yours when selling.
+    private var base: Double { mode == .selling ? outMarket : inMarket }
+
+    /// The % a price comes to (trading: the credit that price implies for their cards).
+    private func pctFor(_ v: Double) -> Double? {
+        guard base > 0 else { return nil }
+        if mode == .trading {
+            let cash = v * (theyPay ? 1 : -1)
+            return ((outMarket - cash) / base * 100).rounded()
+        }
+        return (v / base * 100).rounded()
+    }
+
+    /// The % sets the price: buying and selling, market × %; trading, the cash that evens your
+    /// cards against their cards at that credit.
+    private func setPct(_ p: Double) {
+        pct = min(max(p, 0), 150)
+        let v: Double
+        if mode == .trading {
+            let net = outMarket - inMarket * pct / 100
+            theyPay = net >= 0
+            v = abs(net)
+        } else {
+            v = base * pct / 100
+        }
+        let r = v.rounded()
+        amount = String(Int(r))
+        apply()
+    }
+
+    /// The big % control: the figure, a slider, −5 / +5 and the usual stops.
+    private var rateCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(Int(pct))%").font(.display(52)).tracking(-1.6).monospacedDigit().foregroundStyle(Theme.lime)
+                        .contentTransition(.numericText())
+                    Text(mode == .selling ? "of market for your cards" : (mode == .trading ? "credit for their cards" : "of market for their cards"))
+                        .font(.geist(14)).foregroundStyle(Theme.muted)
+                }
+                Spacer()
+                HStack(spacing: 8) {
+                    stepButton("−5") { setPct(pct - 5) }
+                    stepButton("+5") { setPct(pct + 5) }
+                }
+            }
+            Slider(value: Binding(get: { pct }, set: { setPct($0.rounded()) }), in: 30 ... 120, step: 1)
+                .tint(Theme.lime)
+            HStack(spacing: 6) {
+                ForEach([60.0, 70, 80, 90, 100], id: \.self) { p in
+                    Button { Haptics.tap(); setPct(p) } label: {
+                        Text("\(Int(p))%").font(.geist(15, .semibold)).monospacedDigit()
+                            .foregroundStyle(pct == p ? Theme.ink : .white)
+                            .frame(maxWidth: .infinity).frame(height: 40)
+                            .background(Capsule().fill(pct == p ? Theme.lime : Color.white.opacity(0.08)))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(18)
+        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Theme.surface))
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Theme.border))
+    }
+
+    private func stepButton(_ title: String, _ action: @escaping () -> Void) -> some View {
+        Button { Haptics.tap(); action() } label: {
+            Text(title).font(.geist(18, .semibold)).monospacedDigit().foregroundStyle(.white)
+                .frame(width: 60, height: 52)
+                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white.opacity(0.1)))
+        }
+        .buttonStyle(.plain)
     }
 
     private var question: String {
@@ -528,6 +616,7 @@ private struct DealSettle: View {
         let base = typed ?? (mode == .buying ? inMarket : outMarket)
         let next = max(0, (base + d).rounded())
         amount = next == next.rounded() ? String(Int(next)) : String(format: "%.2f", next)
+        if let p = pctFor(next) { pct = p }
     }
 
     /// The typed price becomes the deal's agreed cash (signed: positive, they pay you).
@@ -542,10 +631,16 @@ private struct DealSettle: View {
 
     private func load() {
         // Screenshots: -HoloDealAmount 420 fills the price.
-        if Demo.isOn, let a = Demo.value("-HoloDealAmount") { amount = a; return }
-        guard let cash = deals.deal.agreedCash else { return }
-        let v = abs(cash)
-        amount = v == v.rounded() ? String(Int(v)) : String(format: "%.2f", v)
-        if mode == .trading { theyPay = cash >= 0 }
+        if Demo.isOn, let a = Demo.value("-HoloDealAmount") { amount = a; if let v = typed, let p = pctFor(v) { pct = p }; return }
+        if let cash = deals.deal.agreedCash {
+            let v = abs(cash)
+            amount = v == v.rounded() ? String(Int(v)) : String(format: "%.2f", v)
+            if mode == .trading { theyPay = cash >= 0 }
+            if let p = pctFor(v) { pct = p }
+        } else {
+            // No price yet: start at your usual rate, and the price from it.
+            let r = mode == .selling ? deals.rates.out : deals.rates.in
+            setPct((r * 100).rounded())
+        }
     }
 }
