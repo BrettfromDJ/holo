@@ -480,6 +480,8 @@ struct SearchScreen: View {
         } else if mode == .add {
             adding = hit
         } else {
+            // The card page's arrows step through these results.
+            CardSequence.shared.ids = results.map(\.product.id)
             path.append(hit.product.id)
         }
     }

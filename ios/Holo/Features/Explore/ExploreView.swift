@@ -343,10 +343,13 @@ struct SetView: View {
                             OwnedProgress(owned: ownedCount, total: products.count).padding(.horizontal, 16).reveal()
                         }
                         chase(derived, ownedIds: ownedIds)
+                            .cardSequence(derived.chase.map(\.product.id))
                     }
                     .padding(.bottom, 36)
                     Section {
+                        // The card page's arrows step through the grid as it's sorted.
                         grid(derived, ownedIds: ownedIds)
+                            .cardSequence(derived.list(tab, sort).map(\.product.id))
                     } header: {
                         controls
                     }

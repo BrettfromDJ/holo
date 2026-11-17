@@ -137,6 +137,7 @@ struct MasterSetDetailView: View {
                         }
                     }
                     chase(entries)
+                        .cardSequence(entries.filter { ($0.hit.market ?? 0) > 0 }.sorted { ($0.hit.market ?? 0) > ($1.hit.market ?? 0) }.prefix(6).map(\.hit.product.id))
                 } else {
                     // The top, like Collection's: on the same lit backdrop. Its own equatable view, so
                     // a chip, the sort or the search doesn't redraw the dial and the strip.
@@ -158,6 +159,8 @@ struct MasterSetDetailView: View {
                 }
                 controls(entries)
                 grid(entries)
+                    // The card page's arrows step through the cards as shown.
+                    .cardSequence(shown(entries).map(\.hit.product.id))
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 120)

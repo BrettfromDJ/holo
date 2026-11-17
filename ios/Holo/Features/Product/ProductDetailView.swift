@@ -5,10 +5,23 @@ import SwiftUI
 /// and price, changes, the action row, price history, eBay sales, what it's worth, your position,
 /// purchase history and notes.
 struct ProductDetailView: View {
-    var productId: String
+    /// The card it opened on; the arrows step to others in the list it came from (`paged`).
+    private let startId: String
     /// A panel shown under the title: the scanner puts this scan's condition, printing, paid
     /// and ways out here, so the full page (comps, history) is a tap away while scanning.
     var extra: AnyView? = nil
+    /// The card on show after stepping with the arrows.
+    @State private var paged: String?
+    private var productId: String { paged ?? startId }
+    @State private var sequence = CardSequence.shared
+    /// The card's set, found in the catalog's set list, so its name opens the set's page.
+    @State private var cardSet: ExploreSet?
+    @State private var openSet: ExploreSet?
+
+    init(productId: String, extra: AnyView? = nil) {
+        self.startId = productId
+        self.extra = extra
+    }
     @Environment(CollectionStore.self) private var store
     @Environment(GroupsStore.self) private var groups
     @Environment(GradingStore.self) private var grading
@@ -72,6 +85,7 @@ struct ProductDetailView: View {
             // price history card and 24 between the cards after it.
             VStack(alignment: .leading, spacing: 0) {
                 hero.padding(.top, 8)
+                    .overlay { if extra == nil { pager } }
                 titleBlock.padding(.top, 12)
                 if let extra { extra.padding(.top, 20) }
                 actions.padding(.top, 24)
@@ -104,7 +118,10 @@ struct ProductDetailView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 40)
         }
+        // Stepping to another card starts its page fresh, at the top.
+        .id(productId)
         .background(Theme.background)
+        .navigationDestination(item: $openSet) { SetView(set: $0) }
         // A card page shows its picture full size, even when opened from a list of thumbnails.
         .environment(\.imageMaxPixel, nil)
         .replaysAnimations()
@@ -164,11 +181,62 @@ struct ProductDetailView: View {
             Text("Your totals update as if it never happened. The original stays in the\u{00A0}record.")
         }
         // Cards you don't own aren't loaded with your collection: fetch them from the catalog.
+        .task(id: "\(productId)|\(product?.setName ?? "")") {
+            await findSet()
+        }
         .task(id: productId) {
             if chosenPrinting == nil { chosenPrinting = store.takeOpenPrinting(productId) }
             await store.showCatalogProduct(productId)
             // Then the full price history, if Holo doesn't have it yet (like the website).
             await store.loadFullHistory(productId, printing: printing)
+        }
+    }
+
+    // MARK: Next and previous
+
+    /// Arrows either side of the picture: the previous and next card in the list this page was
+    /// opened from (a set, search results, a row on Home…), with where you are under the next one.
+    @ViewBuilder private var pager: some View {
+        if let n = sequence.neighbours(of: productId) {
+            HStack {
+                arrow("chevron.left", to: n.previous, label: "Previous card")
+                Spacer()
+                VStack(spacing: 6) {
+                    arrow("chevron.right", to: n.next, label: "Next card")
+                    Text("\(n.place) of \(n.count)").font(.mono(10)).foregroundStyle(Theme.muted).monospacedDigit()
+                }
+            }
+            .padding(.horizontal, -4)
+        }
+    }
+
+    private func arrow(_ icon: String, to id: String?, label: String) -> some View {
+        Button {
+            guard let id else { return }
+            Haptics.tap()
+            chosenPrinting = nil
+            cardSet = nil
+            paged = id
+        } label: {
+            Image(systemName: icon).font(.system(size: 16, weight: .semibold)).foregroundStyle(.white)
+                .frame(width: 40, height: 40)
+                .liquidGlass(in: Circle())
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .opacity(id == nil ? 0 : 1)
+        .disabled(id == nil)
+        .accessibilityLabel(label)
+    }
+
+    /// The card's set in the catalog's set list (saved on the phone, else fetched): by name.
+    private func findSet() async {
+        guard let name = product?.setName ?? store.products[productId]?.setName else { return }
+        let saved = await Task.detached(priority: .utility) { SavedSets.load() }.value
+        let key = name.lowercased()
+        if let hit = saved.first(where: { $0.name.lowercased() == key }) { cardSet = hit; return }
+        if let fresh = try? await Backend.shared.api.exploreIndex() {
+            cardSet = fresh.sets.first { $0.name.lowercased() == key }
         }
     }
 
@@ -321,9 +389,27 @@ struct ProductDetailView: View {
         VStack(alignment: .leading, spacing: 0) {
             DisplayText(text: (product?.name ?? "Loading…"), size: 34)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Text([product?.setName, product?.number.map { "#\($0)" }, printings.count > 1 || printing == "Normal" ? nil : printing].compactMap { $0 }.joined(separator: " · "))
-                .font(.geist(15)).foregroundStyle(Theme.muted)
-                .padding(.top, 6)
+            // The set's name opens the set (when the catalog has it), then number and printing.
+            HStack(spacing: 6) {
+                if let cardSet, let name = product?.setName {
+                    Button { Haptics.tap(); openSet = cardSet } label: {
+                        HStack(spacing: 4) {
+                            Text(name).foregroundStyle(.white).underline(color: .white.opacity(0.35))
+                            Image(systemName: "chevron.right").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.muted)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Open the set \(name)")
+                    let rest = [product?.number.map { "#\($0)" }, printings.count > 1 || printing == "Normal" ? nil : printing].compactMap { $0 }.joined(separator: " · ")
+                    if !rest.isEmpty { Text("· " + rest).foregroundStyle(Theme.muted) }
+                } else {
+                    Text([product?.setName, product?.number.map { "#\($0)" }, printings.count > 1 || printing == "Normal" ? nil : printing].compactMap { $0 }.joined(separator: " · "))
+                        .foregroundStyle(Theme.muted)
+                }
+            }
+            .font(.geist(15))
+            .lineLimit(2)
+            .padding(.top, 6)
             // Different printings sell for different prices: switch between them.
             if printings.count > 1 {
                 ChipPicker(options: printings.map { ($0, $0) }, selection: Binding(get: { printing ?? "" }, set: { p in

@@ -155,7 +155,9 @@ struct MarketHomeView: View {
         }
         .padding(.horizontal, 16)
         if trending.count > 2 {
-            section(icon: "trophy.fill", "Top 10 this week", "Singles rising most in 7 days") { TopTenRow(hits: Array(trending.prefix(10))) }
+            section(icon: "trophy.fill", "Top 10 this week", "Singles rising most in 7 days") {
+                TopTenRow(hits: Array(trending.prefix(10))).cardSequence(trending.prefix(10).map(\.product.id))
+            }
         }
             let modern = index.eras?.modern ?? [], midEra = index.eras?.midEra ?? [], vintage = index.eras?.vintage ?? []
             // One color card per era, like Collection's sealed and singles boxes: modern in lime,
@@ -849,6 +851,7 @@ private struct EraCard: View, Equatable {
                 .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
         .tinted(era.color)
+        .cardSequence(sample ? [] : top.map(\.product.id))
         // Most of the screen, so the next era peeks in.
         .containerRelativeFrame(.horizontal) { width, _ in width - 32 - 28 }
     }

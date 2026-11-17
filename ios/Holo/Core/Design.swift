@@ -1232,14 +1232,22 @@ struct CardLink<Label: View>: View {
     var identity: HoldingIdentity? = nil
     @ViewBuilder var label: Label
     @Environment(CollectionStore.self) private var store
+    /// The cards of the list this link is in, in order (see `.cardSequence`).
+    @Environment(\.cardSequence) private var sequence
 
     var body: some View {
         if let owned = ownedIdentity {
-            Button { Router.shared.holding = owned } label: { label }
+            Button { remember(); Router.shared.holding = owned } label: { label }
                 .buttonStyle(.plain)
         } else {
             NavigationLink(value: productId) { label }
+                .simultaneousGesture(TapGesture().onEnded { remember() })
         }
+    }
+
+    /// The card page's arrows step through the list it was opened from.
+    private func remember() {
+        CardSequence.shared.ids = sequence ?? []
     }
 
     /// One pass over the holdings (this runs for every card on screen whenever they change):
@@ -1378,4 +1386,33 @@ enum Haptics {
     @MainActor private static let medium: UIImpactFeedbackGenerator = { let g = UIImpactFeedbackGenerator(style: .medium); g.prepare(); return g }()
     @MainActor static func tap() { light.impactOccurred(); light.prepare() }
     @MainActor static func remove() { medium.impactOccurred(); medium.prepare() }
+}
+
+// MARK: - Next and previous card
+
+/// The list a card page was opened from (a set, search results, Top 10…), in order: the page's
+/// arrows step through it. Set when a card in a list with `.cardSequence` is opened.
+@Observable
+final class CardSequence {
+    static let shared = CardSequence()
+    var ids: [String] = []
+
+    func neighbours(of id: String) -> (previous: String?, next: String?, place: Int, count: Int)? {
+        guard let i = ids.firstIndex(of: id), ids.count > 1 else { return nil }
+        return (i > 0 ? ids[i - 1] : nil, i + 1 < ids.count ? ids[i + 1] : nil, i + 1, ids.count)
+    }
+}
+
+private struct CardSequenceKey: EnvironmentKey { static let defaultValue: [String]? = nil }
+
+extension EnvironmentValues {
+    var cardSequence: [String]? {
+        get { self[CardSequenceKey.self] }
+        set { self[CardSequenceKey.self] = newValue }
+    }
+}
+
+extension View {
+    /// The cards this list shows, in order, so a card page opened from it can step to the next.
+    func cardSequence(_ ids: [String]) -> some View { environment(\.cardSequence, ids) }
 }
