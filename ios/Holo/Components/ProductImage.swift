@@ -68,16 +68,33 @@ extension EnvironmentValues {
 /// placeholder only shows when there's no picture or it couldn't be downloaded.
 /// True once a picture inside has loaded. Shine, glare and foil layers read it so they never show
 /// over an empty frame before the card's art arrives.
+/// Its value is the loaded picture's shape (width ÷ height), so the layer covers just the
+/// picture: a wide card shown in a tall frame gets a wide shine, not one over the empty frame.
 struct ArtLoadedKey: PreferenceKey {
-    static let defaultValue = false
-    static func reduce(value: inout Bool, nextValue: () -> Bool) { value = value || nextValue() }
+    static let defaultValue: CGFloat? = nil
+    static func reduce(value: inout CGFloat?, nextValue: () -> CGFloat?) { value = value ?? nextValue() }
 }
 
 extension View {
-    /// Lays `overlay` over this view only once a picture inside it has loaded.
+    /// Lays `overlay` over this view only once a picture inside it has loaded, sized to the
+    /// picture as it's shown (fitted inside the frame).
     func overlayOnceArtLoads<V: View>(@ViewBuilder _ overlay: @escaping () -> V) -> some View {
-        overlayPreferenceValue(ArtLoadedKey.self) { loaded in
-            if loaded { overlay() }
+        overlayPreferenceValue(ArtLoadedKey.self) { aspect in
+            if let aspect, aspect > 0 {
+                GeometryReader { geo in
+                    let frame = geo.size.width / max(geo.size.height, 1)
+                    if aspect > 1, frame < 1 {
+                        // A wide card in a tall frame: the layer covers just the picture, fitted
+                        // full width and centred (a slab or a tall card keeps the whole frame).
+                        overlay()
+                            .frame(width: geo.size.width, height: geo.size.width / aspect)
+                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                            .position(x: geo.size.width / 2, y: geo.size.height / 2)
+                    } else {
+                        overlay().frame(width: geo.size.width, height: geo.size.height)
+                    }
+                }
+            }
         }
     }
 }
@@ -119,7 +136,7 @@ struct CachedImage<Content: View, Placeholder: View>: View {
                 ?? ([fallback].compactMap { $0 } + fallbacks).lazy.compactMap({ ImageCache.shared.anyCached($0) }).first {
                 content(Image(uiImage: image)).transition(fadesIn ? .opacity : .identity)
                     // Tells a shine or foil layer over it that the picture is here (see ArtLoadedKey).
-                    .preference(key: ArtLoadedKey.self, value: true)
+                    .preference(key: ArtLoadedKey.self, value: image.size.height > 0 ? image.size.width / image.size.height : 0.716)
             } else if url == nil || failed {
                 placeholder()
             } else {
