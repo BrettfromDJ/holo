@@ -1240,8 +1240,13 @@ struct CardLink<Label: View>: View {
             Button { remember(); Router.shared.holding = owned } label: { label }
                 .buttonStyle(.plain)
         } else {
-            NavigationLink(value: productId) { label }
-                .simultaneousGesture(TapGesture().onEnded { remember() })
+            if sequence != nil {
+                NavigationLink(value: productId) { label }
+                    .simultaneousGesture(TapGesture().onEnded { remember() })
+            } else {
+                // Not in a stepped list: no extra gesture on every card (the arrows stay off).
+                NavigationLink(value: productId) { label }
+            }
         }
     }
 

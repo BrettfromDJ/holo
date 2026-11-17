@@ -80,7 +80,8 @@ extension View {
     /// picture as it's shown (fitted inside the frame).
     func overlayOnceArtLoads<V: View>(@ViewBuilder _ overlay: @escaping () -> V) -> some View {
         overlayPreferenceValue(ArtLoadedKey.self) { aspect in
-            if let aspect, aspect > 0 {
+            if let aspect, aspect > 1 {
+                // Only a wide picture is measured (most cards are tall: no extra layout for them).
                 GeometryReader { geo in
                     let frame = geo.size.width / max(geo.size.height, 1)
                     if aspect > 1, frame < 1 {
@@ -94,6 +95,8 @@ extension View {
                         overlay().frame(width: geo.size.width, height: geo.size.height)
                     }
                 }
+            } else if aspect != nil {
+                overlay()
             }
         }
     }
