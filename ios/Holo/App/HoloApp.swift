@@ -296,18 +296,15 @@ struct MainTabView: View {
         }
         .animation(.snappy(duration: 0.25), value: router.tabBarHidden)
         .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: tab == .deal && router.dealDocked)
-        // The "pack pull" reveal after a purchase is saved.
-        .overlay {
-            if let event = router.pull {
-                PullReveal(event: event) { router.pull = nil } onOpen: {
-                    router.pull = nil
-                    router.product = event.product.id
-                }
-                .transition(.opacity)
-                .zIndex(10)
+        // The "pack pull" reveal after a purchase is saved: in its own window above everything
+        // (search, the scanner, any sheet), the moment it's saved.
+        .onChange(of: router.pull, initial: true) { _, event in
+            if let event {
+                RevealWindow.shared.show(event, store: store) { router.product = event.product.id }
+            } else {
+                RevealWindow.shared.hide()
             }
         }
-        .animation(.easeOut(duration: 0.25), value: router.pull)
         .onChange(of: router.scanRequest) { _, _ in startScan() }
         // From a tapped notification: the weekly recap, whichever tab is open.
         .onChange(of: router.recapRequest) { _, _ in recapOpen = true }

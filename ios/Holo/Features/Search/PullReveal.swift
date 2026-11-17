@@ -499,3 +499,58 @@ private struct CountUp: View, Animatable {
 
     var body: some View { Text(Format.money(value)) }
 }
+
+/// Shows the pull reveal in its own window above everything (search, the scanner, any sheet),
+/// the moment a purchase is saved, instead of behind whatever is open.
+@MainActor
+final class RevealWindow {
+    static let shared = RevealWindow()
+    private var window: UIWindow?
+
+    func show(_ event: PullEvent, store: CollectionStore, onOpen: @escaping () -> Void) {
+        hide()
+        guard let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene })
+            .first(where: { $0.activationState == .foregroundActive }) ?? UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first
+        else { return }
+        let close: () -> Void = { [weak self] in
+            Router.shared.pull = nil
+            self?.hide()
+        }
+        let root = RevealHost(event: event, onClose: close, onOpen: { close(); onOpen() })
+            .environment(store)
+            .preferredColorScheme(.dark)
+            .tint(Theme.lime)
+            .font(.geist(15))
+        let host = UIHostingController(rootView: root)
+        host.view.backgroundColor = .clear
+        let w = UIWindow(windowScene: scene)
+        w.windowLevel = .alert + 1
+        w.backgroundColor = .clear
+        w.rootViewController = host
+        w.makeKeyAndVisible()
+        window = w
+    }
+
+    func hide() {
+        window?.isHidden = true
+        window = nil
+    }
+}
+
+/// The reveal, fading in over whatever is on screen.
+private struct RevealHost: View {
+    var event: PullEvent
+    var onClose: () -> Void
+    var onOpen: () -> Void
+    @State private var shown = false
+
+    var body: some View {
+        ZStack {
+            if shown {
+                PullReveal(event: event, onDone: onClose, onOpen: onOpen)
+                    .transition(.opacity)
+            }
+        }
+        .onAppear { withAnimation(.easeOut(duration: 0.25)) { shown = true } }
+    }
+}
