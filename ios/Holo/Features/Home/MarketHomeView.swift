@@ -746,7 +746,7 @@ private struct EraCard: View, Equatable {
 
     var era: Era
     var hits: [SearchHit]
-    /// Made-up risers until the real ones arrive: tagged Sample, and nothing opens.
+    /// Made-up risers until the real ones arrive: tagged Sample; tapping one opens the real card.
     var sample = false
 
     static func == (a: Self, b: Self) -> Bool { a.era == b.era && a.hits == b.hits && a.sample == b.sample }
@@ -783,9 +783,28 @@ private struct EraCard: View, Equatable {
         }
     }
 
-    /// A riser that opens its card page, or (sample) just sits there.
+    /// A riser that opens its card page. A sample card is looked up in Dexora's own catalog by
+    /// its name, number and set (free, no paid calls), and its real page opens.
     @ViewBuilder private func link<L: View>(_ hit: SearchHit, @ViewBuilder _ label: () -> L) -> some View {
-        if sample { label() } else { MarketLink(hit: hit, label: label) }
+        if sample {
+            Button { Task { await Self.openReal(hit.product) } } label: { label() }
+                .buttonStyle(.plain)
+        } else {
+            MarketLink(hit: hit, label: label)
+        }
+    }
+
+    @MainActor
+    private static func openReal(_ p: Product) async {
+        let base = p.name.components(separatedBy: " (").first ?? p.name
+        let number = p.number?.components(separatedBy: "/").first
+        let query = [base, p.setName].compactMap { $0 }.joined(separator: " ")
+        guard let hits = try? await Backend.shared.api.search(query), !hits.isEmpty else { return }
+        let match = hits.first { h in
+            guard let number, let n = h.product.number else { return false }
+            return n.components(separatedBy: "/").first == number
+        } ?? hits.first
+        if let match { Router.shared.product = match.product.id }
     }
 
     var body: some View {
