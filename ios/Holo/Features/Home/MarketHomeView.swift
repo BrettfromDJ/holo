@@ -294,41 +294,56 @@ private struct YourCollectionStrip: View {
         // The last 30 days (as Collection's header): its line, colored by whether it's up.
         let month = Array(store.timeline.suffix(31))
         let monthChange = (month.last?.value ?? 0) - (month.first?.value ?? 0)
+        let tint = monthChange < 0 ? Theme.planPink : Theme.lime
         Button { Router.shared.tabRequest = "collection-summary" } label: {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     MonoLabel(text: "Your collection")
                     Spacer(minLength: 8)
                     Text("\(Int(s.items)) items").font(.mono(10)).tracking(0.8).foregroundStyle(Theme.subtle)
                     Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.muted)
                 }
-                HStack(alignment: .bottom, spacing: 12) {
+                // The worth big, today under it; the month's change on the right.
+                HStack(alignment: .lastTextBaseline, spacing: 12) {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text(Format.money(s.value)).font(.display(28)).tracking(-0.9).monospacedDigit().foregroundStyle(.white)
+                        Text(Format.money(s.value)).font(.display(36)).tracking(-1.2).monospacedDigit().foregroundStyle(.white)
                             .lineLimit(1).minimumScaleFactor(0.7)
-                        // Today, then the month, each in its own color.
                         HStack(spacing: 6) {
                             DeltaPill(ratio: s.dayRatio, size: 11)
-                            Text(Format.signedMoney(s.dayChange)).font(.geist(12, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(s.dayChange))
-                            Text("today").font(.geist(12)).foregroundStyle(Theme.muted)
+                            Text(Format.signedMoney(s.dayChange)).font(.geist(13, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(s.dayChange))
+                            Text("today").font(.geist(13)).foregroundStyle(Theme.muted)
                         }
                         .lineLimit(1)
                     }
                     .layoutPriority(1)
                     Spacer(minLength: 0)
                     if month.count > 1 {
-                        VStack(alignment: .trailing, spacing: 4) {
-                            Sparkline(points: month, color: monthChange < 0 ? Theme.planPink : Theme.lime)
-                                .frame(width: 110, height: 40)
-                            Text("\(Format.signedMoney(monthChange)) · 30d").font(.geist(11, .medium)).monospacedDigit().foregroundStyle(Theme.tone(monthChange))
-                                .lineLimit(1)
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text(Format.signedMoney(monthChange)).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(monthChange))
+                            Text("past 30 days").font(.geist(12)).foregroundStyle(Theme.muted)
                         }
+                        .lineLimit(1)
                     }
                 }
+                // The month as a wide chart across the screen, fading out at both edges.
+                if month.count > 1 {
+                    Sparkline(points: month, color: tint)
+                        .frame(height: 70)
+                        .padding(.horizontal, -16)
+                        .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.08),
+                                                     .init(color: .black, location: 0.92), .init(color: .clear, location: 1)],
+                                             startPoint: .leading, endPoint: .trailing))
+                        .padding(.top, 4)
+                }
             }
-            // No box: straight on the page, lined up with the tiles' edges, so it reads as the
-            // page's opening line rather than one more card.
+            // No box: straight on the page, lined up with the tiles' edges, with a faint glow of
+            // the month's color behind the chart.
             .padding(.vertical, 6)
+            .background(alignment: .bottom) {
+                RadialGradient(colors: [tint.opacity(0.12), .clear], center: .bottom, startRadius: 0, endRadius: 220)
+                    .frame(height: 140).padding(.horizontal, -16)
+                    .allowsHitTesting(false)
+            }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
