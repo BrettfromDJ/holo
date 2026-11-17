@@ -810,7 +810,7 @@ struct EditDetailsSheet: View {
                 Section {
                     Text(product?.name ?? "This copy").font(.geist(15, .semibold))
                 }
-                if let printings = product?.printings, printings.count > 1 {
+                if let printings = product?.printings.map(Editions.ordered), printings.count > 1 {
                     Picker("Printing", selection: $printing) {
                         ForEach(printings, id: \.self) { Text($0).tag(Optional($0)) }
                     }
@@ -897,7 +897,7 @@ struct EditDetailsSheet: View {
             }
             .onAppear {
                 let i = holding.identity
-                printing = i.printing ?? product?.printings?.first
+                printing = i.printing ?? Editions.ordered(product?.printings ?? []).first
                 graded = i.isGraded
                 if let c = i.gradeCompany { company = c }
                 if let g = i.grade { grade = g }

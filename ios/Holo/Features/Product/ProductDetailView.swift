@@ -55,14 +55,15 @@ struct ProductDetailView: View {
     /// The printing on show: the one you picked (or tapped in search / a set), else the one you
     /// own, else the first priced one.
     @State private var chosenPrinting: String?
-    private var printing: String? { chosenPrinting ?? owned.first?.identity.printing ?? product?.printings?.first }
+    private var printing: String? { chosenPrinting ?? owned.first?.identity.printing ?? Editions.ordered(product?.printings ?? []).first }
     /// The card as pictured: an old set's Unlimited printing shows the Unlimited print's photo.
     private var artProduct: Product? { Editions.art(product, printing: printing) }
     /// Printings to switch between (only when there's more than one).
     private var printings: [String] {
         var list = product?.printings ?? []
         for h in owned { if let p = h.identity.printing, !list.contains(p) { list.append(p) } }
-        return list
+        // Unlimited first, then 1st Edition.
+        return Editions.ordered(list)
     }
     private var price: Price? { store.marketPrice(productId, printing: printing) }
     /// The price history, oldest first.

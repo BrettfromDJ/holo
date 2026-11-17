@@ -51,6 +51,7 @@ import { cn } from "@/lib/utils";
 import { Field, MoneyInput, Stepper, SummaryRow, parseMoney } from "./fields";
 import { ProductSearch } from "./product-search";
 import { ScanToCollection } from "@/components/scan/scan-to-collection";
+import { orderPrintings } from "@/lib/editions";
 
 export function AddProductDialog() {
   const { addTarget, closeAdd, data } = useStore();
@@ -67,7 +68,7 @@ export function AddProductDialog() {
     } else if (addTarget.productId) {
       const product = data.products[addTarget.productId];
       if (product) {
-        const printing = product.printings?.[0] ?? null;
+        const printing = orderPrintings(product.printings ?? [])[0] ?? null;
         setHit({
           product,
           printing,
@@ -283,7 +284,7 @@ function PurchaseForm({
       imported?.prices
         .map((p) => p.printing)
         .filter((p): p is string => Boolean(p)) ?? [];
-    return fromPrices.length ? fromPrices : hit.printing ? [hit.printing] : [];
+    return orderPrintings(fromPrices.length ? fromPrices : hit.printing ? [hit.printing] : []);
   }, [imported, hit.printing]);
 
   // Your usual details, remembered in this browser (like the app): where you buy, and the

@@ -825,7 +825,7 @@ private struct ScanEditMenus: View {
     }
 
     private func printingMenu(_ p: ScanCandidate) -> some View {
-        let options = p.printings.isEmpty ? (p.product.printings ?? []) : p.printings
+        let options = Editions.ordered(p.printings.isEmpty ? (p.product.printings ?? []) : p.printings)
         let current = entry.printing ?? p.printing ?? options.first ?? ""
         return Menu {
             Picker("Printing", selection: Binding(get: { current }, set: { setPrinting($0) })) {

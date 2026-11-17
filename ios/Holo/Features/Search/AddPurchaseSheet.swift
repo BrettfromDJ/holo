@@ -147,7 +147,7 @@ struct AddPurchaseSheet: View {
                     SectionNote("The portfolio this goes into. Main is everything not in another portfolio.")
                 }
 
-                if let printings = product.printings, printings.count > 1 {
+                if let printings = product.printings.map(Editions.ordered), printings.count > 1 {
                     Picker("Printing", selection: $printing) {
                         ForEach(printings, id: \.self) { Text($0).tag(Optional($0)) }
                     }
@@ -272,7 +272,7 @@ struct AddPurchaseSheet: View {
                 }
             }
             .onAppear {
-                if printing == nil { printing = hit.printing ?? product.printings?.first }
+                if printing == nil { printing = hit.printing ?? Editions.ordered(product.printings ?? []).first }
                 source = lastSource
                 if Demo.isOn, ProcessInfo.processInfo.arguments.contains("-HoloAddPulled") { pulled = true }
                 if !product.isSealed {

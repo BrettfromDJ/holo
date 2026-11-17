@@ -37,7 +37,7 @@ import type { HoldingView } from "@/lib/finance/portfolio";
 import { formatDate, money, relativeTime, tone } from "@/lib/format";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
 import { priceKey, type Product, type Transaction } from "@/lib/types";
-import { withEditionArt } from "@/lib/editions";
+import { orderPrintings, withEditionArt } from "@/lib/editions";
 import { PriceInfoDialog, type PriceInfoData } from "@/components/product/price-info";
 import { cn } from "@/lib/utils";
 import { isStalePrice, priceAge } from "@/lib/price-info";
@@ -90,10 +90,11 @@ export default function ProductPage() {
   const owned = holdings.filter((h) => h.identity.productId === productId);
   const yourCopies = owned.filter((h) => h.price !== null && (h.identity.grade || h.conditionEstimate));
   const realizedHere = realized.filter((r) => r.holdingKey.startsWith(`${productId}|`)).reduce((s, r) => s + r.gain, 0);
-  const printing = chosenPrinting ?? owned[0]?.identity.printing ?? product.printings?.[0] ?? null;
+  const printing = chosenPrinting ?? owned[0]?.identity.printing ?? orderPrintings(product.printings ?? [])[0] ?? null;
   // The Unlimited printing of an old set shows the Unlimited print's photo, not the 1st Edition scan.
   const art = withEditionArt(product, printing);
-  const printings = [...new Set([...(product.printings ?? []), ...owned.map((h) => h.identity.printing).filter((p): p is string => Boolean(p))])];
+  // Unlimited first, then 1st Edition.
+  const printings = orderPrintings([...new Set([...(product.printings ?? []), ...owned.map((h) => h.identity.printing).filter((p): p is string => Boolean(p))])]);
   const price = store.data.prices[priceKey(productId, printing)];
   // No current price (older or unsynced products): fall back to the latest point in its price
   // history, labelled with its date, and work the 24h/7d/30d changes out from the history.

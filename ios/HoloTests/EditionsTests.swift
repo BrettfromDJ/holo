@@ -3,6 +3,12 @@ import XCTest
 
 /// Old sets split by edition (the website's src/lib/editions.test.ts, kept in step).
 final class EditionsTests: XCTestCase {
+    func testOrderedPutsUnlimitedFirst() {
+        XCTAssertEqual(Editions.ordered(["1st Edition Holofoil", "Unlimited Holofoil"]), ["Unlimited Holofoil", "1st Edition Holofoil"])
+        XCTAssertEqual(Editions.ordered(["1st Edition", "Unlimited", "Reverse Holofoil"]), ["Unlimited", "Reverse Holofoil", "1st Edition"])
+        XCTAssertEqual(Editions.ordered(["Normal", "Holofoil"]), ["Normal", "Holofoil"])
+    }
+
     func testKnowsTheOldSets() {
         XCTAssertTrue(Editions.isEditionSet("Base Set"))
         XCTAssertTrue(Editions.isEditionSet("Neo Destiny"))

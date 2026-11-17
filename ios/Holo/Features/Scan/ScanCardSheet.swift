@@ -104,7 +104,7 @@ private struct ScanPanel: View {
                     }
                 }
                 if !inDeal {
-                    if let printings = c.product.printings, printings.count > 1 {
+                    if let printings = c.product.printings.map(Editions.ordered), printings.count > 1 {
                         labelled("Printing") {
                             ChipPicker(options: printings.map { ($0, $0) },
                                        selection: Binding(get: { entry.printing ?? c.printing ?? printings[0] }, set: { model.setPrinting(id, $0) }),

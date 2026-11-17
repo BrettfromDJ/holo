@@ -5,6 +5,15 @@ import Foundation
 /// "Base Set Unlimited"), each priced and tracked on its own. The halves share the catalog set's
 /// slug plus "--1st-edition" or "--unlimited". Same as the website's `src/lib/editions.ts`.
 enum Editions {
+    /// Printings in the order to offer them: Unlimited before 1st Edition (the common print first,
+    /// and the default), everything else as it was. Same as the website's `orderPrintings`.
+    static func ordered(_ printings: [String]) -> [String] {
+        func first(_ p: String) -> Int { p.range(of: "1st edition", options: .caseInsensitive) != nil ? 1 : 0 }
+        return printings.enumerated().sorted { a, b in
+            first(a.element) != first(b.element) ? first(a.element) < first(b.element) : a.offset < b.offset
+        }.map(\.element)
+    }
+
     enum Edition: String { case firstEdition = "1st-edition", unlimited }
 
     private static let sets: Set<String> = [

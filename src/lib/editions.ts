@@ -99,3 +99,12 @@ export function withEditionArt<P extends { kind?: string | null; source?: string
   const art = editionOf(printing) === "unlimited" ? unlimitedCardImage(product.setName, product.number) : firstEditionCardImage(product.setName, product.number);
   return art ? { ...product, imageUrl: art } : product;
 }
+
+/**
+ * Printings in the order to offer them: Unlimited before 1st Edition (the common print first,
+ * and the default), everything else as it was. Same as the app's `Editions.ordered`.
+ */
+export function orderPrintings<T extends string>(printings: readonly T[]): T[] {
+  const first = (p: string) => (/1st edition/i.test(p) ? 1 : 0);
+  return printings.map((p, i) => ({ p, i })).sort((a, b) => first(a.p) - first(b.p) || a.i - b.i).map((x) => x.p);
+}

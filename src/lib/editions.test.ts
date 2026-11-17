@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { editionArtName, editionName, editionOf, editionSlug, isEditionSet, parseEditionSlug, unlimitedCardImage, withEditionArt } from "./editions";
+import { orderPrintings, editionArtName, editionName, editionOf, editionSlug, isEditionSet, parseEditionSlug, unlimitedCardImage, withEditionArt } from "./editions";
 import { setArtFor } from "./set-art";
 import { ownedSets } from "./checklists";
 import type { HoldingView } from "./finance/portfolio";
@@ -52,5 +52,13 @@ describe("editions", () => {
     expect(withEditionArt(card, "1st Edition Holofoil").imageUrl).toBe("https://images.pokemontcg.io/base1/4_hires.png");
     expect(withEditionArt({ ...card, setName: "Jungle", number: "60/64" }, "1st Edition").imageUrl).toBe("tcg.jpg");
     expect(withEditionArt(card, null).imageUrl).toBe("tcg.jpg");
+  });
+});
+
+describe("orderPrintings", () => {
+  it("puts Unlimited before 1st Edition and keeps the rest in order", () => {
+    expect(orderPrintings(["1st Edition Holofoil", "Unlimited Holofoil"])).toEqual(["Unlimited Holofoil", "1st Edition Holofoil"]);
+    expect(orderPrintings(["1st Edition", "Unlimited", "Reverse Holofoil"])).toEqual(["Unlimited", "Reverse Holofoil", "1st Edition"]);
+    expect(orderPrintings(["Normal", "Holofoil"])).toEqual(["Normal", "Holofoil"]);
   });
 });

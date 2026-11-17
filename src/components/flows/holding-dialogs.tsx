@@ -17,6 +17,7 @@ import { useMoveSlab } from "@/lib/store/grading";
 import { holdingKey, type Condition } from "@/lib/types";
 import { Field, Stepper } from "./fields";
 import { FormShell } from "./transaction-dialogs";
+import { orderPrintings } from "@/lib/editions";
 
 type DialogProps = { holding: HoldingView; open: boolean; onOpenChange: (o: boolean) => void };
 
@@ -118,7 +119,7 @@ export function EditDetailsDialog({ holding, open, onOpenChange, onChanged }: Di
   const moveSlab = useMoveSlab();
   const product = holding.product;
   const sealed = product?.kind === "sealed";
-  const printings = product?.printings ?? [];
+  const printings = orderPrintings(product?.printings ?? []);
   const old = holding.identity;
   const [printing, setPrinting] = useState<string | null>(old.printing);
   const [graded, setGraded] = useState(false);
