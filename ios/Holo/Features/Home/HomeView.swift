@@ -484,9 +484,16 @@ private struct Hero: View {
             }
             // The website's floating action bar: the lime add button. (Your week moved to the
             // top-right menu and opens on its own once a week.)
-            Button(action: onAdd) { Label("Add to Collection", systemImage: "plus").lineLimit(1) }
-                .buttonStyle(Button3D(kind: .lime, height: 48))
-                .environment(\.inGlassBar, true)
+            // Your cards (Collection's Cards view) beside the lime add button, the same size.
+            HStack(spacing: 8) {
+                Button { Router.shared.tabRequest = "collection" } label: {
+                    Label("View cards", systemImage: "square.grid.2x2").lineLimit(1)
+                }
+                .buttonStyle(Button3D(kind: .dark, height: 48))
+                Button(action: onAdd) { Label("Add card", systemImage: "plus").lineLimit(1) }
+                    .buttonStyle(Button3D(kind: .lime, height: 48))
+            }
+            .environment(\.inGlassBar, true)
             .frame(height: 48)
             // The buttons rise 1pt and their 3D edge drops 3pt, so 9 above and 10 below
             // leaves the same 8pt visible gap at the top and the bottom.
