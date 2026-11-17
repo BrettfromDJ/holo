@@ -405,7 +405,7 @@ private struct DealSettle: View {
     private var typed: Double? { MoneyField.value(amount) }
     /// What you paid for the cards going out, where known.
     private var outCost: Double? {
-        let costs = deals.deal.outgoing.compactMap { deals.cost(of: $0, in: store).map { c in c * Double($0.qty) } }
+        let costs = deals.deal.outgoing.compactMap { item in deals.cost(of: item, in: store).map { c in c * Double(item.qty) } }
         return costs.count == deals.deal.outgoing.count && !costs.isEmpty ? costs.reduce(0, +) : nil
     }
 
