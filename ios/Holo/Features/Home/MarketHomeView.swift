@@ -881,13 +881,16 @@ private struct EraCard: View, Equatable {
                 VStack(spacing: 0) {
                     fan(Array(top.prefix(3)))
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
+                        .padding(.top, 10)
+                        .padding(.bottom, 22)
                     ForEach(Array(top.enumerated()), id: \.element.id) { i, hit in
                         if i > 0 { Divider().overlay(Color.white.opacity(0.06)) }
                         link(hit) { row(i + 1, hit) }
                     }
                 }
-                // Straight on the card's color (no dark panel behind the cards).
+                // Straight on the card's color (no dark panel behind the cards), with a little room
+                // under the list.
+                .padding(.bottom, 8)
             }
         }
         // The era's own particles behind everything: lime sparks rising (modern), blue motes
