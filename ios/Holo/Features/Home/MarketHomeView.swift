@@ -340,8 +340,11 @@ private struct YourCollectionStrip: View {
             // the month's color behind the chart.
             .padding(.vertical, 6)
             .background(alignment: .bottom) {
-                RadialGradient(colors: [tint.opacity(0.12), .clear], center: .bottom, startRadius: 0, endRadius: 220)
-                    .frame(height: 140).padding(.horizontal, -16)
+                // Fades to nothing inside its own frame (radius under the height), widened sideways:
+                // no edge at the top.
+                RadialGradient(colors: [tint.opacity(0.14), .clear], center: .bottom, startRadius: 0, endRadius: 150)
+                    .frame(height: 170)
+                    .scaleEffect(x: 1.8, y: 1, anchor: .bottom)
                     .allowsHitTesting(false)
             }
             .contentShape(Rectangle())
@@ -731,6 +734,7 @@ private struct HotSealedRow: View {
 /// name and its average rise on a tag, the years it covers, its three biggest risers fanned out,
 /// then its top five as rows (each opens its card page). Eras as in `eraOf` / `MarketEras.era`.
 private struct EraCard: View, Equatable {
+    @Environment(CollectionStore.self) private var store
     enum Era {
         case modern, midEra, vintage
 
@@ -804,7 +808,7 @@ private struct EraCard: View, Equatable {
     /// its name, number and set (free, no paid calls), and its real page opens.
     @ViewBuilder private func link<L: View>(_ hit: SearchHit, @ViewBuilder _ label: () -> L) -> some View {
         if sample {
-            Button { Task { await Self.openReal(hit.product) } } label: { label() }
+            Button { Task { await Self.openReal(hit.product, store: store) } } label: { label() }
                 .buttonStyle(.plain)
         } else {
             MarketLink(hit: hit, label: label)
@@ -814,12 +818,17 @@ private struct EraCard: View, Equatable {
     /// Sample cards' real catalog ids, looked up once (when the card first shows), so a tap
     /// opens the page at once instead of searching first.
     @MainActor private static var realIds: [String: String] = [:]
+    /// The real cards found, handed to the store before their page opens (so it shows at once,
+    /// with its price, instead of fetching the card first).
+    @MainActor private static var realHits: [String: SearchHit] = [:]
 
     @MainActor
-    private static func openReal(_ p: Product) async {
+    private static func openReal(_ p: Product, store: CollectionStore) async {
         Haptics.tap()
-        if let id = realIds[p.id] { Router.shared.product = id; return }
-        if let id = await resolve(p) { Router.shared.product = id }
+        if realIds[p.id] == nil { _ = await resolve(p) }
+        guard let id = realIds[p.id] else { return }
+        if let hit = realHits[p.id] { store.seed(hit) }
+        Router.shared.product = id
     }
 
     @MainActor
@@ -833,7 +842,10 @@ private struct EraCard: View, Equatable {
             guard let number, let n = h.product.number else { return false }
             return n.components(separatedBy: "/").first == number
         } ?? hits.first
-        if let match { realIds[p.id] = match.product.id }
+        if let match {
+            realIds[p.id] = match.product.id
+            realHits[p.id] = match
+        }
         return match?.product.id
     }
 
@@ -876,8 +888,7 @@ private struct EraCard: View, Equatable {
                         link(hit) { row(i + 1, hit) }
                     }
                 }
-                .padding(14)
-                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.background.opacity(0.55)))
+                // Straight on the card's color (no dark panel behind the cards).
             }
         }
         // The era's own particles behind everything: lime sparks rising (modern), blue motes
