@@ -47,7 +47,7 @@ struct DealView: View {
 
     /// The deal bar takes the tab bar's place while a deal has items (until "Show tabs"), on the
     /// Deal page itself, not a page pushed on it.
-    private var docked: Bool { deals.deal.kind != .empty && !showTabs && path.isEmpty }
+    private var docked: Bool { false }
     private var unpriced: Bool {
         deals.deal.incoming.contains { $0.unitPrice(side: rates.in) == nil } || deals.deal.outgoing.contains { $0.unitPrice(side: rates.out) == nil }
     }
@@ -104,15 +104,15 @@ struct DealView: View {
                         BalanceCard(totals: totals, role: role, read: read, roundTo: roundTarget(totals), onRound: roundCash,
                                     agreed: agreed.side != nil, share: agreed.share,
                                     onEditCash: { startEditingCash(totals) }, onClearAgreed: clearAgreed)
-                            // Reports only when it crosses the top, not on every scroll frame.
-                            .onGeometryChange(for: Bool.self) { $0.frame(in: .global).maxY < 150 } action: { gone in
-                                withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) { pinned = gone && deals.deal.kind != .empty }
-                            }
                     }
                     side(.incoming, totals: totals, settled: agreed.deal, accent: accent).reveal()
                     side(.outgoing, totals: totals, settled: agreed.deal, accent: accent).reveal()
                     photosSection(accent: accent).reveal()
                     notesSection(accent: accent).reveal()
+                    // The deal bar at the end of the page (not pinned: it took too much of the screen).
+                    if deals.deal.kind != .empty {
+                        closeBar(totals, warning: warning)
+                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
@@ -122,6 +122,16 @@ struct DealView: View {
             // A tap on this tab (from anywhere) closes pushed pages and scrolls back to the top.
             .tabTopReset("deal", path: $path)
             .scrollDismissesKeyboard(.interactively)
+            // The number pad has no return key: a Done above it puts the keyboard away.
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") {
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    }
+                    .font(.geist(16, .semibold))
+                }
+            }
             .background(Theme.background)
             .imageMaxPixel(360)
             .replaysAnimations()
@@ -169,17 +179,6 @@ struct DealView: View {
                         .padding(.top, 4)
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
-            }
-            // The deal bar: docked in the tab bar's place while a deal has items (the tab bar hides),
-            // floating above it again after "Show tabs" or on an empty deal.
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                VStack(spacing: 0) {
-                    if deals.deal.kind != .empty {
-                        closeBar(totals, warning: warning)
-                            .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
-                    }
-                }
-                .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: deals.deal.kind == .empty)
             }
             .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: docked ? 0 : HoloTabBar<Int>.clearance) }
             .sheet(isPresented: $confirming) { DealCloseSheet() }
@@ -752,37 +751,17 @@ private struct BalanceCard: View {
                 Spacer(minLength: 0)
                 if let roundTo {
                     // A quiet outlined chip on the card: one line, no figure (it's in the label read aloud).
-                    Button(action: onRound) {
-                        HStack(spacing: 5) {
-                            Image(systemName: "arrow.up").font(.system(size: 11, weight: .semibold))
-                            Text("Round up").font(.geist(13, .semibold))
-                        }
-                        .foregroundStyle(ink)
-                        .padding(.horizontal, 12).frame(height: 34)
-                        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(ink.opacity(0.08)))
-                        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(ink.opacity(0.35), lineWidth: 1))
-                        .lineLimit(1).fixedSize()
-                    }
-                    .buttonStyle(ShutterStyle())
-                    .accessibilityLabel("Round up to \(Format.money(abs(roundTo)))")
-                    .transition(.scale.combined(with: .opacity))
+                    chip("Round up", icon: "arrow.up", ink: ink, action: onRound)
+                        .accessibilityLabel("Round up to \(Format.money(abs(roundTo)))")
+                        .transition(.scale.combined(with: .opacity))
+                } else if agreed {
+                    // An agreed cash: Clear sits in the same place (the card keeps its size).
+                    chip("Clear", icon: "xmark", ink: ink, action: onClearAgreed)
+                        .accessibilityLabel("Clear the agreed cash")
+                        .transition(.scale.combined(with: .opacity))
                 }
             }
             .padding(.top, 8)
-
-            if agreed {
-                HStack(spacing: 10) {
-                    Spacer(minLength: 8)
-                    Button("Clear", action: onClearAgreed)
-                        .font(.geist(12, .semibold)).foregroundStyle(ink)
-                        .padding(.horizontal, 10).frame(height: 26)
-                        .background(Capsule().strokeBorder(ink.opacity(0.35), lineWidth: 1))
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Clear the agreed cash")
-                }
-                .padding(.top, 6)
-                .transition(.opacity)
-            }
 
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], alignment: .leading, spacing: 14) {
                 stat("Coming in", .comingIn, Format.money(t.inValue), ink)
@@ -819,6 +798,22 @@ private struct BalanceCard: View {
         .sensoryFeedback(trigger: down) { was, now in
             now && !was ? .warning : (was && !now ? .impact(weight: .light) : nil)
         }
+    }
+
+    /// A quiet outlined chip beside the big figure (Round up, or Clear once a cash is agreed).
+    private func chip(_ title: String, icon: String, ink: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: icon).font(.system(size: 11, weight: .semibold))
+                Text(title).font(.geist(13, .semibold))
+            }
+            .foregroundStyle(ink)
+            .padding(.horizontal, 12).frame(height: 34)
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(ink.opacity(0.08)))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(ink.opacity(0.35), lineWidth: 1))
+            .lineLimit(1).fixedSize()
+        }
+        .buttonStyle(ShutterStyle())
     }
 
     private func stat(_ label: String, _ term: DealTerm, _ value: String, _ ink: Color) -> some View {
