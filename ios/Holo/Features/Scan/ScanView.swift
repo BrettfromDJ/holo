@@ -17,6 +17,8 @@ struct ScanView: View {
     /// When scanning into a deal: which side, and where each match goes.
     var dealSide: DealSide?
     var onPick: (@MainActor (ScanCandidate, ScanRead?) -> (ok: Bool, note: String))?
+    /// The tray's title in place of "This scan" / "Coming in" (the simple Deal flow's "Their cards").
+    var trayTitle: String? = nil
 
     @Environment(\.dismiss) private var dismiss
     @Environment(CollectionStore.self) private var store
@@ -273,7 +275,7 @@ struct ScanView: View {
     // MARK: Bottom: the docked tray (its own view, so the scans redraw only it)
 
     private var bottom: some View {
-        ScanTray(model: model, dealSide: dealSide, expanded: $expanded, onOpen: { open($0) },
+        ScanTray(model: model, dealSide: dealSide, title: trayTitle, expanded: $expanded, onOpen: { open($0) },
                  onNext: { focused = nil; reviewing = true }, onDone: { dismiss() })
     }
 
@@ -372,6 +374,7 @@ struct EditingScan: Identifiable, Equatable {
 private struct ScanTray: View {
     let model: ScanModel
     var dealSide: DealSide?
+    var title: String?
     @Binding var expanded: Bool
     var onOpen: (ScanModel.Entry) -> Void
     var onNext: () -> Void
@@ -405,7 +408,7 @@ private struct ScanTray: View {
             HStack {
                 // What this scan is, and the running total.
                 HStack(spacing: 8) {
-                    Text(dealSide == nil ? "This scan" : (dealSide == .incoming ? "Coming in" : "Going out"))
+                    Text(title ?? (dealSide == nil ? "This scan" : (dealSide == .incoming ? "Coming in" : "Going out")))
                         .font(.geist(16, .semibold))
                     if !model.picks.isEmpty {
                         Text(Format.money(model.total)).font(.geist(16, .semibold)).monospacedDigit()

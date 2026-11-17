@@ -228,7 +228,7 @@ struct MainTabView: View {
             ExploreView()
                 .tag(HomeTab.explore)
                 .toolbar(.hidden, for: .tabBar)
-            DealView()
+            DealTab()
                 .tag(HomeTab.deal)
                 .toolbar(.hidden, for: .tabBar)
         }

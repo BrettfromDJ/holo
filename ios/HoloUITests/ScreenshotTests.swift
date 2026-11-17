@@ -90,7 +90,9 @@ final class ScreenshotTests: XCTestCase {
     func testSignIn() { capture("sign-in", args: ["-HoloSignIn"], pages: 1) }
     func testDeal() { capture("deal", args: ["-HoloTab", "deal"], pages: 1) }
     func testDealFilled() { capture("deal-filled", args: ["-HoloTab", "deal", "-HoloDealDemo"], pages: 3) }
-    func testDealCollector() { capture("deal-collector", args: ["-HoloTab", "deal", "-HoloDealDemo", "-HoloDealRole", "collector"], pages: 2) }
+    func testDealCollector() { capture("deal-collector", args: ["-HoloTab", "deal", "-HoloDealDemo", "-HoloDealRole", "collector", "-HoloDealDetailed"], pages: 2) }
+    // The detailed page with a deal in it (the simple flow is testDeal / testDealFilled).
+    func testDealDetailed() { capture("deal-detailed", args: ["-HoloTab", "deal", "-HoloDealDemo", "-HoloDealDetailed"], pages: 3) }
     func testDealCustomer() {
         capture("deal-customer", args: ["-HoloTab", "deal", "-HoloDealDemo", "-HoloDealCustomer"], pages: 1)
         capture("deal-customer-many", args: ["-HoloTab", "deal", "-HoloDealDemo", "-HoloDealMany", "-HoloDealCustomer"], pages: 1)
