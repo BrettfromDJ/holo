@@ -1,7 +1,7 @@
 import SwiftUI
 
 // Small, cheap bits of motion shared around the app, in the family of the week recap's embers
-// and snow: one Canvas each, 30 frames a second at most, paused while off screen or under a
+// and snow: one Canvas each, 20 frames a second at most (slow drift needs no more), paused while off screen or under a
 // sheet (onVisibilityChange), and still under Reduce Motion.
 
 /// Looping particles in one color: sparks rising, motes drifting, or dust falling and twinkling.
@@ -14,7 +14,7 @@ struct MoteParticles: View {
     @State private var onScreen = true
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion || !onScreen)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 20, paused: reduceMotion || !onScreen)) { context in
             let time = reduceMotion ? 3 : context.date.timeIntervalSinceReferenceDate
             Canvas { ctx, size in draw(ctx, size, time) }
         }
