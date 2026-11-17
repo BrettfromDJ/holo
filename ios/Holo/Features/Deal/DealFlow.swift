@@ -82,6 +82,13 @@ struct DealFlowView: View {
         // The simple flow has no deal bar in the tab bar's place.
         .onAppear {
             Router.shared.dealDocked = false
+            // Screenshots: -HoloDealFlow buying|selling|trading|check, -HoloDealStep 0|1|2.
+            if Demo.isOn, let m = Demo.value("-HoloDealFlow") {
+                modeRaw = m
+                step = Int(Demo.value("-HoloDealStep") ?? "0") ?? 0
+                return
+            }
+            if Demo.isOn { modeRaw = ""; step = 0 }
             // A deal already under way (from the detailed page, or parked): pick the matching flow.
             if mode == nil, deals.deal.kind != .empty { modeRaw = inferred.rawValue }
         }
@@ -534,6 +541,8 @@ private struct DealSettle: View {
     }
 
     private func load() {
+        // Screenshots: -HoloDealAmount 420 fills the price.
+        if Demo.isOn, let a = Demo.value("-HoloDealAmount") { amount = a; return }
         guard let cash = deals.deal.agreedCash else { return }
         let v = abs(cash)
         amount = v == v.rounded() ? String(Int(v)) : String(format: "%.2f", v)
