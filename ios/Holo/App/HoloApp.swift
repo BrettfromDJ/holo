@@ -16,6 +16,8 @@ struct HoloApp: App {
         // A bigger download cache, so pictures (set banners, cards) come back from the phone's
         // storage on the next launch instead of over the network.
         URLCache.shared = URLCache(memoryCapacity: 32 * 1024 * 1024, diskCapacity: 300 * 1024 * 1024)
+        // Home's lists saved last time, read now so Home opens filled (not on placeholders).
+        SavedExplore.preload()
     }
 
     var body: some Scene {

@@ -7,7 +7,8 @@ import SwiftUI
 /// One strip at the top for you: your collection's worth, tapping through to Collection.
 struct MarketHomeView: View {
     @Environment(CollectionStore.self) private var store
-    @State private var index: ExploreIndex?
+    /// Home's market lists: the copy saved last time (read as the app started), then fresh.
+    @State private var index: ExploreIndex? = SavedExplore.preloaded
     /// "Today in the hobby" and why the highlighted cards moved (written daily by Claude).
     @State private var insights: MarketInsights? = MarketInsights.saved
     /// For you: picks from your collection (Because you collect…, Finish your sets).
@@ -55,18 +56,9 @@ struct MarketHomeView: View {
                     if let index {
                         sections(index)
                     } else {
-                        // First visit only (later ones open on the saved copy): dim, still shapes.
-                        VStack(alignment: .leading, spacing: 14) {
-                            ForEach(0..<3, id: \.self) { _ in
-                                RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.06)).frame(width: 160, height: 20)
-                                HStack(spacing: 12) {
-                                    ForEach(0..<3, id: \.self) { _ in
-                                        RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.05)).frame(width: 96, height: 134)
-                                    }
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 16)
+                        // First visit only (later ones open on the saved copy): the name on the lit
+                        // grid, still. No spinner, no grey boxes.
+                        HomeLoading()
                     }
                 }
                 .padding(.bottom, 40)
@@ -456,6 +448,25 @@ private struct HobbyStories: View {
         } else {
             card
         }
+    }
+}
+
+/// Home before its lists arrive (a first launch): Dexora's name with a soft lime glow, still.
+private struct HomeLoading: View {
+    var body: some View {
+        VStack(spacing: 10) {
+            Text("Dexora").font(.display(44)).tracking(-1.6).foregroundStyle(.white)
+            Text("Getting today's market\u{00A0}ready").font(.geist(14)).foregroundStyle(Theme.muted)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 140)
+        .background {
+            RadialGradient(colors: [Theme.lime.opacity(0.18), .clear], center: .center, startRadius: 0, endRadius: 180)
+                .frame(width: 360, height: 360)
+                .padding(.top, 140)
+                .allowsHitTesting(false)
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 

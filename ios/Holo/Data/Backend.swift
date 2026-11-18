@@ -269,6 +269,12 @@ enum SavedSets {
 /// Explore as last loaded (sets, brands and market rows), kept on the phone so Explore opens on it
 /// at once and refreshes in place, instead of waiting for the whole catalog. Not account data.
 enum SavedExplore {
+    /// Read off the main thread as the app starts, so Home has it before it draws.
+    nonisolated(unsafe) static var preloaded: ExploreIndex?
+    static func preload() {
+        Task.detached(priority: .userInitiated) { preloaded = load() }
+    }
+
     private static var file: URL? {
         FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?.appendingPathComponent("explore-index.json")
     }
