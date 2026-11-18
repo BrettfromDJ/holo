@@ -127,9 +127,17 @@ export default function ExplorePage() {
         <EmptyCatalog title="The catalog is empty for now" body="It fills in automatically each day. To start it now, run the “sync-catalog” cron job." />
       ) : (
         <>
-          {/* The app's Explore: the catalog's size and the next release, sets coming soon and just
-              released as rows of art, then the brands. */}
-          <div className="mt-4">
+          {/* The app's Explore: the categories (brands) first, then the catalog's size and the next
+              release, sets coming soon and just released as rows of art. */}
+          <section aria-label="Categories" className="mt-4">
+            <LandingHeading title="Categories" subtitle="Every game in the catalog" />
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {games.map((g, i) => (
+                <BrandCard key={g.slug} game={g} i={i} />
+              ))}
+            </div>
+          </section>
+          <div className="mt-10">
             <CatalogHero index={index} next={upcoming[0]} />
           </div>
           {upcoming.length > 1 && (
@@ -144,14 +152,6 @@ export default function ExplorePage() {
               <SetCarousel sets={recent.slice(0, 12)} upcoming={false} />
             </section>
           )}
-          <section aria-label="Brands" className="mt-10">
-            <LandingHeading title="Brands" subtitle="Every game in the catalog" />
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {games.map((g, i) => (
-                <BrandCard key={g.slug} game={g} i={i} />
-              ))}
-            </div>
-          </section>
         </>
       )}
     </div>
