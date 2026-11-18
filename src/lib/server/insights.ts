@@ -39,7 +39,7 @@ You get today's figures from Dexora's own price data as JSON. Use only those fig
 Write for collectors in plain, warm, confident English. No hype words, no emojis, no investment advice; never tell anyone to buy or sell.
 "briefing": two or three short sentences (at most 60 words) on the day's clearest patterns across the lists, for example an era or kind of product moving together, or a standout card. Name cards and sets as given.
 "reasons": for each card listed under "highlights", one line of at most 14 words explaining its move from its own figures (for example its 24-hour and 7-day change and price). Use the card's id exactly as given.
-"stories": exactly three short stories for the day, each a different angle (for example a standout riser, a group or era moving together, a notable fall or sealed). Each has a "headline" of 3 to 8 words in sentence case with no figures in it, a "stat" that is one figure taken from the data (a percent like "+14%" or "−8%", or a price like "$1,420"), a "tone" ("up", "down" or "flat") matching the stat, and the "cardId" of the card it's about, copied exactly from the data.`;
+"stories": exactly three short stories for the day, each a different angle (for example a standout riser, a group or era moving together, a notable fall or sealed). Each has a "headline" of 3 to 8 words in sentence case (a capital first letter, capitals for names of Pokémon and sets) with no figures in it, a "stat" that is one figure taken from the data (a percent like "+14%" or "−8%", or a price like "$1,420"), a "tone" ("up", "down" or "flat") matching the stat, and the "cardId" of the card it's about, copied exactly from the data.`;
 
 const SCHEMA = {
   type: "object",
@@ -93,7 +93,7 @@ export async function marketInsights(admin: SupabaseClient<Database>): Promise<M
   const empty: MarketInsights = { day, briefing: null, reasons: {} };
   if (!aiEnabled()) return empty;
   return dbCached<MarketInsights>(
-    `insights-v2:${day}`,
+    `insights-v3:${day}`,
     async () => {
       const market = await exploreMarket(admin);
       // The cards Home highlights: Card of the day (today's top riser, else the week's), the
@@ -126,6 +126,8 @@ export async function marketInsights(admin: SupabaseClient<Database>): Promise<M
   );
 }
 
+const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
 async function write(day: string, data: unknown, ids: Set<string>, known: Set<string>): Promise<MarketInsights> {
   const parsed = await aiJson<{ briefing: string; reasons: { id: string; line: string }[]; stories: MarketStory[] }>("market_notes", SYSTEM, `Today's figures:\n${JSON.stringify(data)}`, SCHEMA);
   if (!parsed) return { day, briefing: null, reasons: {} };
@@ -137,7 +139,7 @@ async function write(day: string, data: unknown, ids: Set<string>, known: Set<st
     .filter((st) => st.headline?.trim() && st.stat?.trim())
     .slice(0, 3)
     .map((st) => ({
-      headline: st.headline.trim().slice(0, 60),
+      headline: capitalise(st.headline.trim().slice(0, 60)),
       stat: st.stat.trim().slice(0, 12),
       tone: (["up", "down", "flat"] as const).includes(st.tone) ? st.tone : "flat",
       cardId: st.cardId && known.has(st.cardId) ? st.cardId : null,

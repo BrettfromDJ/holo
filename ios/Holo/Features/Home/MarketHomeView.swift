@@ -360,15 +360,13 @@ extension MarketHomeView {
 }
 
 /// Today in the hobby as stories: three cards to swipe, each a short headline, one big figure
-/// and the card it's about. They step on by themselves once (a thin bar fills over each), then
-/// rest; swiping takes over. Tapping one opens its card.
+/// and the card it's about. They step on by themselves, round and round (a thin bar fills over
+/// each); swiping takes over. Tapping one opens its card.
 private struct HobbyStories: View {
     var stories: [MarketStory]
     var cards: [String: SearchHit]
     @State private var page = 0
     @State private var filled = false
-    /// Steps on by itself only on the first pass, so the page settles (and idles) after.
-    @State private var looped = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let dwell: Double = 6
 
@@ -385,7 +383,7 @@ private struct HobbyStories: View {
                     Capsule().fill(Color.white.opacity(0.15))
                         .overlay(alignment: .leading) {
                             Capsule().fill(.white)
-                                .scaleEffect(x: i < page || (i == page && (filled || looped || reduceMotion)) ? 1 : 0, anchor: .leading)
+                                .scaleEffect(x: i < page || (i == page && (filled || reduceMotion)) ? 1 : 0, anchor: .leading)
                         }
                         .frame(height: 3)
                         .clipShape(Capsule())
@@ -405,25 +403,25 @@ private struct HobbyStories: View {
 
     private func advance() async {
         filled = false
-        guard !reduceMotion, !looped, stories.count > 1 else { return }
+        guard !reduceMotion, stories.count > 1 else { return }
         // Fill this story's segment (one scale animation, no layout), then step on.
         try? await Task.sleep(for: .milliseconds(50))
         withAnimation(.linear(duration: dwell)) { filled = true }
         try? await Task.sleep(for: .seconds(dwell))
         guard !Task.isCancelled else { return }
-        if page == stories.count - 1 {
-            looped = true
-        } else {
-            withAnimation(.snappy) { page += 1 }
-        }
+        // Round and round: after the last, back to the first.
+        withAnimation(.snappy) { page = (page + 1) % stories.count }
     }
+
+    /// A capital first letter, whatever the AI sent.
+    static func sentenceCase(_ s: String) -> String { s.prefix(1).uppercased() + s.dropFirst() }
 
     @ViewBuilder private func storyCard(_ story: MarketStory) -> some View {
         let hit = story.cardId.flatMap { cards[$0] }
         let tone = story.tone == "down" ? Theme.planPink : story.tone == "up" ? Theme.lime : Color.white
         let card = HStack(alignment: .center, spacing: 14) {
             VStack(alignment: .leading, spacing: 10) {
-                Text(story.headline.noWidow).font(.display(24)).tracking(-0.8).foregroundStyle(.white)
+                Text(Self.sentenceCase(story.headline).noWidow).font(.display(24)).tracking(-0.8).foregroundStyle(.white)
                     .lineLimit(3).minimumScaleFactor(0.8)
                 Text(story.stat).font(.display(40)).tracking(-1.4).monospacedDigit().foregroundStyle(tone)
                     .lineLimit(1).minimumScaleFactor(0.6)
