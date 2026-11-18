@@ -285,17 +285,19 @@ private struct FanLook: View {
                     let d = Double(i) - mid
                     MarketLink(hit: hit) {
                         ProductImage(product: hit.pictured, cornerRadius: 7)
-                            .frame(width: 118, height: 165)
+                            .frame(width: 104, height: 145)
                             .shadow(color: .black.opacity(0.45), radius: 10, y: 6)
                     }
-                    .rotationEffect(.degrees(d * 9), anchor: .bottom)
-                    .offset(x: d * 58, y: abs(d) * 10)
+                    // Spread to stay inside the page's margins on the narrowest phone.
+                    .rotationEffect(.degrees(d * 7), anchor: .bottom)
+                    .offset(x: d * 44, y: abs(d) * 8)
                     // The middle card on top, the outer ones behind.
                     .zIndex(-abs(d))
                 }
             }
-            .frame(height: 200)
+            .frame(height: 178)
             .frame(maxWidth: .infinity)
+            .padding(.horizontal, 16)
             // What's in the hand, as one line of names and prices.
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
