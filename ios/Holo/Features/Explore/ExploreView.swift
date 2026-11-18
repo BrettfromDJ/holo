@@ -63,6 +63,17 @@ struct ExploreView: View {
             let upcoming = self.upcoming
             let recent = self.recent
             VStack(alignment: .leading, spacing: 40) {
+                // Categories first, then the next release, what's coming and what's just out.
+                VStack(alignment: .leading, spacing: 14) {
+                    PageHeader(title: "Categories", subtitle: "Every game in the catalog", size: 22)
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                        ForEach(Array(index.games.enumerated()), id: \.element.id) { i, g in
+                            NavigationLink(value: g) { BrandCard(game: g, tint: BrandCard.tints[i % BrandCard.tints.count]) }
+                                .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
                 CatalogHero(index: index, next: upcoming.first)
                 if upcoming.count > 1 {
                     VStack(alignment: .leading, spacing: 14) {
@@ -86,17 +97,6 @@ struct ExploreView: View {
                     }
                     .reveal()
                 }
-                VStack(alignment: .leading, spacing: 14) {
-                    PageHeader(title: "Brands", subtitle: "Every game in the catalog", size: 22)
-                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                        ForEach(Array(index.games.enumerated()), id: \.element.id) { i, g in
-                            NavigationLink(value: g) { BrandCard(game: g, tint: BrandCard.tints[i % BrandCard.tints.count]) }
-                                .buttonStyle(.plain)
-                        }
-                    }
-                }
-                .padding(.horizontal, 16)
-                .reveal()
             }
             .padding(.bottom, 40)
         } else {
