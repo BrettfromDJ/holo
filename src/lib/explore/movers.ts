@@ -75,6 +75,14 @@ export function isCodeCard(p: Pick<Product, "name" | "productType" | "rarity">):
   return /\bcode\s*card\b|\bonline code\b/i.test(`${p.name} ${p.productType ?? ""} ${p.rarity ?? ""}`);
 }
 
+/**
+ * Oversized (jumbo) cards: never shown anywhere people browse (the owner's rule). Caught by
+ * "oversize", "oversized" or "jumbo" in the name, set, rarity, type or number.
+ */
+export function isOversized(p: Pick<Product, "name" | "productType" | "rarity"> & { setName?: string | null; number?: string | null }): boolean {
+  return /over-?\s?sized?|\bjumbo\b/i.test(`${p.name} ${p.setName ?? ""} ${p.productType ?? ""} ${p.rarity ?? ""} ${p.number ?? ""}`);
+}
+
 /** A sealed booster box or display (not a bundle, ETB or UPC, which `categoryOf` sorts first). */
 export function isBoosterBox(p: Pick<Product, "name" | "productType" | "kind" | "rarity">): boolean {
   return p.kind === "sealed" && !isCodeCard(p) && categoryOf(p) === "Booster Box";
@@ -112,7 +120,7 @@ export function pickMovers(
   for (const row of rows) {
     if (seen.has(row.product_id)) continue;
     const product = products.get(row.product_id);
-    if (!product || product.kind !== kind || isCodeCard(product)) continue;
+    if (!product || product.kind !== kind || isCodeCard(product) || isOversized(product)) continue;
     const market = num(row.market_price);
     // By the 7-day change (default), or the 24-hour one (today's movers).
     const change = num(options.by === "24h" ? row.change_24h_pct : row.change_7d_pct);

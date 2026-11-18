@@ -121,7 +121,10 @@ final class ThemesModel {
     private static var file: URL { FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("market-themes.json") }
 
     static var saved: [MarketTheme] {
-        get { (try? Data(contentsOf: file)).flatMap { try? JSONDecoder().decode([MarketTheme].self, from: $0) } ?? [] }
+        get {
+            let list = (try? Data(contentsOf: file)).flatMap { try? JSONDecoder().decode([MarketTheme].self, from: $0) } ?? []
+            return list.map { t in var t = t; t.hits.removeAll { $0.product.isOversized }; return t }
+        }
         set { try? JSONEncoder().encode(newValue).write(to: file, options: .atomic) }
     }
 

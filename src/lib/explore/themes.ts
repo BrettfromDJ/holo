@@ -1,3 +1,4 @@
+import { isOversized } from "./movers";
 import type { ExploreProduct } from "./types";
 
 /**
@@ -169,7 +170,7 @@ const named = (value: string, any?: string[]) =>
 
 /** Whether a priced card fits the rule (the database read is looser; this is exact). */
 export function fits(rule: ThemeRule, p: ExploreProduct): boolean {
-  if (p.product.kind !== "single" || p.market === null) return false;
+  if (p.product.kind !== "single" || p.market === null || isOversized(p.product)) return false;
   if (!/pok/i.test(p.gameName ?? "pokemon")) return false;
   if (Boolean(rule.japanese) !== /japan/i.test(p.gameName ?? "")) return false;
   if (rule.notRarities?.length && rule.notRarities.some((r) => (p.product.rarity ?? "").toLowerCase().includes(r.toLowerCase()))) return false;

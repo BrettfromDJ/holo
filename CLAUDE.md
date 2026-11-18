@@ -70,6 +70,10 @@ and say exactly what to run or click.
   only a first launch with nothing saved shows dim, still placeholders (`LoadingPlaceholder`).
   The web keeps skeleton placeholders. No loading animations.
 - **Never red or pink text on lime.** If a card's figure is down, the whole card goes pink.
+- **Oversized (jumbo) cards are never shown** anywhere people browse: search, set pages, Home's
+  lists and collections. One rule on both sides: `isOversized` (`src/lib/explore/movers.ts`) and
+  `Product.isOversized` / `isHiddenFromBrowsing` (with code cards) in the app. Your own holdings
+  still show if you own one.
 - No confetti. No emojis. Toasts bottom-right on the web. The "Prices updated" banner is off
   in the app for now; milestone banners are back on (see Open threads).
 - No lime bar beside section headings (removed). No dots beside card titles (removed).

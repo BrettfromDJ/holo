@@ -1,5 +1,6 @@
 import { after, NextResponse } from "next/server";
 import { ensureEditionPrices, refreshSetIfStale } from "@/lib/server/catalog-sync";
+import { isOversized } from "@/lib/explore/movers";
 import { editionPreference, EXPLORE_CACHE, publicOrigin, setFromRow, withPrices } from "@/lib/server/explore";
 import { parseEditionSlug } from "@/lib/editions";
 import { selectAll } from "@/lib/server/paging";
@@ -39,6 +40,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   // Each card comes with the printing it's priced at (the half's own edition); the tiles pick
   // the picture from it (`withEditionArt`). The product itself is never changed, so a card seen
   // in one half isn't remembered with the other half's picture.
-  const products = await withPrices(admin, rows, half ? editionPreference(half.edition) : undefined);
+  // Oversized (jumbo) cards are never shown.
+  const products = (await withPrices(admin, rows, half ? editionPreference(half.edition) : undefined)).filter((p) => !isOversized(p.product));
   return NextResponse.json({ set: setFromRow(set, publicOrigin(req), half?.edition), products }, { headers: { "cache-control": rows.length ? cache : "no-store" } });
 }

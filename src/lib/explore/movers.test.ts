@@ -133,3 +133,13 @@ describe("eraOf", () => {
     expect(eraOf(null)).toBeNull();
   });
 });
+
+import { isOversized as oversized } from "./movers";
+describe("oversized cards", () => {
+  it("catches oversized and jumbo cards, nothing else", () => {
+    expect(oversized({ name: "Dark Blastoise (Oversized)", productType: null, rarity: null })).toBe(true);
+    expect(oversized({ name: "Charizard", productType: null, rarity: null, setName: "Jumbo Cards" })).toBe(true);
+    expect(oversized({ name: "Pikachu", productType: null, rarity: "Oversize" })).toBe(true);
+    expect(oversized({ name: "Dark Blastoise", productType: null, rarity: "Holo Rare", setName: "Team Rocket" })).toBe(false);
+  });
+});

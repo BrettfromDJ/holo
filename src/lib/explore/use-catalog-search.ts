@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { isOversized } from "./movers";
 import type { ExploreProduct } from "./types";
 
 export type SearchLoad = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; data: ExploreProduct[]; fuzzy?: boolean };
@@ -21,7 +22,8 @@ export function useCatalogSearch(query: string): SearchLoad | null {
         .then(async (res) => {
           const body = await res.json().catch(() => null);
           if (!res.ok) throw new Error(body?.error?.message ?? "Search failed.");
-          return { data: body.products as ExploreProduct[], fuzzy: body.fuzzy === true };
+          // Oversized (jumbo) cards are never shown.
+          return { data: (body.products as ExploreProduct[]).filter((p) => !isOversized(p.product)), fuzzy: body.fuzzy === true };
         })
         .then(
           ({ data, fuzzy }) => !cancelled && setResults({ status: "ready", data, fuzzy }),

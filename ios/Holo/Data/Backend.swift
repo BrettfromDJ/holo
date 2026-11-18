@@ -77,7 +77,7 @@ final class HoloAPI {
         struct Page: Decodable { var products: [SearchHit]; var total: Int?; var fuzzy: Bool? }
         let items = [URLQueryItem(name: "q", value: query), URLQueryItem(name: "offset", value: "\(offset)"), URLQueryItem(name: "limit", value: "\(limit)")]
         let page = try await send(try await request("api/explore/search", query: items), as: Page.self)
-        let hits = page.products.filter { !$0.product.isCodeCard }
+        let hits = page.products.filter { !$0.product.isHiddenFromBrowsing }
         return (hits, page.total ?? (offset + page.products.count), page.products.count, page.fuzzy ?? false)
     }
 
@@ -95,7 +95,7 @@ final class HoloAPI {
             try await request("api/tcg/search", query: [q, URLQueryItem(name: "type", value: "all"), URLQueryItem(name: "game", value: "all")]),
             as: Live.self
         )
-        return live.hits.filter { !$0.product.isCodeCard }
+        return live.hits.filter { !$0.product.isHiddenFromBrowsing }
     }
 
     /// Save a product to the shared catalog (needed before it can be added) and get its prices.
@@ -140,7 +140,12 @@ final class HoloAPI {
     /// Home's themed collections (see `MarketTheme`).
     func themes() async throws -> [MarketTheme] {
         struct Body: Decodable { var themes: [MarketTheme] }
-        return try await send(try await request("api/themes"), as: Body.self).themes
+        // Oversized (jumbo) cards are never shown.
+        return try await send(try await request("api/themes"), as: Body.self).themes.map { t in
+            var t = t
+            t.hits.removeAll { $0.product.isOversized }
+            return t
+        }
     }
 
     func exploreIndex() async throws -> ExploreIndex {
@@ -157,6 +162,8 @@ final class HoloAPI {
             index.hotSealed = saved.hotSealed
             index.boosterBoxes = saved.boosterBoxes
         }
+        // Oversized (jumbo) cards are never shown.
+        index = index.withoutOversized()
         SavedSets.save(index.sets)
         SavedExplore.save(index)
         return index
@@ -165,7 +172,7 @@ final class HoloAPI {
     func exploreSet(_ slug: String) async throws -> ExploreSetDetail {
         var detail = try await send(try await request("api/explore/sets/\(slug)"), as: ExploreSetDetail.self)
         detail.set = detail.set.withOwnArtOnPublicHost()
-        detail.products.removeAll { $0.product.isCodeCard }
+        detail.products.removeAll { $0.product.isHiddenFromBrowsing }
         return detail
     }
 
@@ -268,6 +275,21 @@ enum SavedSets {
 
 /// Explore as last loaded (sets, brands and market rows), kept on the phone so Explore opens on it
 /// at once and refreshes in place, instead of waiting for the whole catalog. Not account data.
+extension ExploreIndex {
+    /// The market lists without oversized (jumbo) cards.
+    func withoutOversized() -> ExploreIndex {
+        var i = self
+        let keep: (SearchHit) -> Bool = { !$0.product.isOversized }
+        i.trending = trending?.filter(keep)
+        i.today = today?.filter(keep)
+        i.drops = drops?.filter(keep)
+        i.hotSealed = hotSealed?.filter(keep)
+        i.boosterBoxes = boosterBoxes?.filter(keep)
+        if let e = eras { i.eras = MarketEras(modern: e.modern.filter(keep), midEra: e.midEra.filter(keep), vintage: e.vintage.filter(keep)) }
+        return i
+    }
+}
+
 enum SavedExplore {
     /// Read off the main thread as the app starts, so Home has it before it draws.
     nonisolated(unsafe) static var preloaded: ExploreIndex?
@@ -282,7 +304,7 @@ enum SavedExplore {
     static func load() -> ExploreIndex? {
         guard let file, let data = try? Data(contentsOf: file), var index = try? JSONDecoder().decode(ExploreIndex.self, from: data) else { return nil }
         index.sets = index.sets.map { $0.withOwnArtOnPublicHost() }
-        return index
+        return index.withoutOversized()
     }
 
     static func save(_ index: ExploreIndex) {

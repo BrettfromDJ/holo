@@ -48,6 +48,12 @@ struct Product: Codable, Identifiable, Hashable {
     var isCodeCard: Bool {
         "\(name) \(productType ?? "") \(rarity ?? "")".range(of: #"\bcode\s*card\b|\bonline code\b"#, options: [.regularExpression, .caseInsensitive]) != nil
     }
+    /// Oversized (jumbo) cards: never shown anywhere you browse (same rule as the website's `isOversized`).
+    var isOversized: Bool {
+        "\(name) \(setName ?? "") \(productType ?? "") \(rarity ?? "") \(number ?? "")".range(of: #"over-?\s?sized?|\bjumbo\b"#, options: [.regularExpression, .caseInsensitive]) != nil
+    }
+    /// Left out of search, sets and Home's lists.
+    var isHiddenFromBrowsing: Bool { isCodeCard || isOversized }
     /// Our own photo for a sealed product when we have one (`SealedArt`), else the catalog's.
     var imageURL: URL? { SealedArt.url(self) ?? imageUrl.flatMap(URL.init(string:)) }
 

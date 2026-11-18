@@ -1,6 +1,7 @@
 "use client";
 
 import { KeyRound, Loader2, Search, SearchX } from "lucide-react";
+import { isOversized } from "@/lib/explore/movers";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -126,7 +127,7 @@ export function ProductSearch({ onSelect, autoFocus = true }: { onSelect: (hit: 
               if (e.name === "AbortError") throw e;
               return null;
             });
-          const fromCatalog = ((stored?.products ?? []) as SearchHit[]).filter((h) => matchesType(h, type) && matchesGame(h, game));
+          const fromCatalog = ((stored?.products ?? []) as SearchHit[]).filter((h) => !isOversized(h.product) && matchesType(h, type) && matchesGame(h, game));
           if (fromCatalog.length) {
             setHits(fromCatalog);
             setRelaxed(null);
