@@ -7,6 +7,9 @@ import SwiftUI
 // - Finish your sets: the cheapest cards missing from the sets you're closest to finishing.
 // - In your range: this week's risers near what you usually pay for a single, from the era you
 //   collect most (when one stands out).
+// - Your week's budget: what's left of your monthly budget, split over the weeks left, and a mix
+//   of picks above that fits in it.
+// - Off your usual path: a few things you wouldn't normally look at, changing each day.
 // All of it is worked out on the phone from your own records: no Claude, nothing paid.
 // The lines under each are plain facts worked out here; Claude's written reasons can replace
 // them once the daily insights are switched on.
@@ -83,6 +86,19 @@ struct SetToFinish: Identifiable {
 
 /// For you's picks, worked out from your collection (held by Home, which shows the section only
 /// when there's something in it).
+/// The same shuffle all day, a new one tomorrow.
+private struct DaySeed: RandomNumberGenerator {
+    var state: UInt64
+    init(_ day: String) { state = day.unicodeScalars.reduce(1469598103934665603) { ($0 ^ UInt64($1.value)) &* 1099511628211 } }
+    mutating func next() -> UInt64 {
+        state &+= 0x9E3779B97F4A7C15
+        var z = state
+        z = (z ^ (z >> 30)) &* 0xBF58476D1CE4E5B9
+        z = (z ^ (z >> 27)) &* 0x94D049BB133111EB
+        return z ^ (z >> 31)
+    }
+}
+
 @Observable
 final class ForYouModel {
     var taste: (name: String, count: Int)?
@@ -93,7 +109,11 @@ final class ForYouModel {
     var era: String?
     /// This week's risers in your price range (and era).
     var inRange: [SearchHit] = []
-    var hasContent: Bool { !picks.isEmpty || !sets.isEmpty || !inRange.isEmpty }
+    /// What's yours to spend this week, and a mix of picks that fits in it.
+    var week: (amount: Double, basket: [SearchHit])?
+    /// Something different: away from your usual era and kind.
+    var wildcards: [SearchHit] = []
+    var hasContent: Bool { !picks.isEmpty || !sets.isEmpty || !inRange.isEmpty || !wildcards.isEmpty }
 
     @MainActor
     func load(store: CollectionStore, index: ExploreIndex?) async {
@@ -120,6 +140,17 @@ final class ForYouModel {
             }.prefix(10))
             // Without a usual price there's nothing personal about it.
             if range == nil { inRange = [] }
+
+            // Off your usual path: other eras' risers and sealed if you collect singles, mixed
+            // in a new order each day.
+            let ownsSealed = holdings.contains { $0.product?.isSealed == true }
+            let others = [("vintage", eras.vintage), ("midEra", eras.midEra), ("modern", eras.modern)].filter { $0.0 != era }.flatMap(\.1)
+            let away = others + (ownsSealed ? [] : (index.hotSealed ?? []))
+            let shown = Set(inRange.map(\.product.id))
+            var unique = Set<String>()
+            let fresh = away.filter { !owned.contains($0.product.id) && !shown.contains($0.product.id) && unique.insert($0.product.id).inserted }
+            var rng = DaySeed(Format.day())
+            wildcards = Array(fresh.shuffled(using: &rng).prefix(6))
         }
 
         // Because you collect…: cards of your favourite Pokémon you don't own, priced, best first.
@@ -143,6 +174,7 @@ final class ForYouModel {
         let mine = Array(MasterSetDetailView.ownedSets(holdings).prefix(4))
         await MasterSetDetailView.load(mine, store: store)
         let cache = MasterSetsCache.shared
+        defer { planWeek(store: store) }
         sets = Array(mine.compactMap { s -> SetToFinish? in
             guard let list = cache.checklists[s.id], !list.isEmpty else { return nil }
             let have = list.filter { owned.contains($0.product.id) }.count
@@ -154,6 +186,40 @@ final class ForYouModel {
         }
         .sorted { $0.share > $1.share }
         .prefix(2))
+    }
+
+    /// This week's share of what's left of your monthly budget (a demo pretends $400 a month), and
+    /// a mix that fits: a card toward a set first, then one of your Pokémon, then one in your range,
+    /// round and round while there's room.
+    @MainActor
+    private func planWeek(store: CollectionStore) {
+        guard let budget = store.monthlyBudget ?? (store.demo != nil ? 400 : nil), budget > 0 else { week = nil; return }
+        let cal = Calendar.current
+        let now = Date()
+        let daysInMonth = cal.range(of: .day, in: .month, for: now)?.count ?? 30
+        let daysLeft = daysInMonth - cal.component(.day, from: now) + 1
+        let weeksLeft = max(1, Int((Double(daysLeft) / 7).rounded(.up)))
+        let left = budget - (store.demo != nil ? budget * 0.35 : store.spentThisMonth)
+        guard left > 1 else { week = (0, []); return }
+        let amount = left / Double(weeksLeft)
+        let lanes: [[SearchHit]] = [sets.flatMap(\.cheapest), picks, inRange]
+        var basket: [SearchHit] = [], spent = 0.0, used = Set<String>()
+        var progressed = true
+        var cursors = [0, 0, 0]
+        while progressed && basket.count < 5 {
+            progressed = false
+            for lane in 0..<lanes.count {
+                while cursors[lane] < lanes[lane].count {
+                    let hit = lanes[lane][cursors[lane]]
+                    cursors[lane] += 1
+                    guard let m = hit.market, m > 0, !used.contains(hit.product.id), spent + m <= amount else { continue }
+                    basket.append(hit); spent += m; used.insert(hit.product.id); progressed = true
+                    break
+                }
+                if basket.count >= 5 { break }
+            }
+        }
+        week = (amount, basket)
     }
 }
 
@@ -175,6 +241,12 @@ struct ForYouSection: View {
             }
             if !model.sets.isEmpty {
                 finishYourSets(model.sets)
+            }
+            if let week = model.week {
+                WeekBudgetCard(amount: week.amount, basket: week.basket).padding(.horizontal, 16)
+            }
+            if !model.wildcards.isEmpty {
+                offYourPath(model.wildcards)
             }
         }
     }
@@ -208,6 +280,28 @@ struct ForYouSection: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(era.map { "Rising \(CollectorTaste.eraName($0)), in your range" } ?? "Rising in your range").font(.geist(17, .semibold))
                 Text("You usually pay about \(Format.money(usual)) a card. These are up this\u{00A0}week.").font(.geist(13)).foregroundStyle(Theme.muted)
+            }
+            .padding(.horizontal, 16)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(alignment: .top, spacing: 12) {
+                    ForEach(hits) { hit in
+                        MarketLink(hit: hit) { PickTile(hit: hit, showsChange: true) }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 4)
+            }
+            .cardSequence(hits.map(\.product.id))
+        }
+    }
+
+    // MARK: Off your usual path
+
+    private func offYourPath(_ hits: [SearchHit]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Off your usual path").font(.geist(17, .semibold))
+                Text("A few rising things you don't usually collect. New ones each\u{00A0}day.").font(.geist(13)).foregroundStyle(Theme.muted)
             }
             .padding(.horizontal, 16)
             ScrollView(.horizontal, showsIndicators: false) {
@@ -309,6 +403,66 @@ private struct SetToFinishCard: View {
                 Spacer(minLength: 0)
             }
             .cardSequence(set.cheapest.map(\.product.id))
+        }
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.surface))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Theme.border))
+    }
+}
+
+/// Your week's budget: how much is yours to spend, a bar of how a mix of picks would use it, and
+/// those picks. Nothing is bought or saved; it's an idea.
+private struct WeekBudgetCard: View {
+    var amount: Double
+    var basket: [SearchHit]
+
+    private var total: Double { basket.reduce(0) { $0 + ($1.market ?? 0) } }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Your week's budget").font(.geist(17, .semibold))
+                if amount <= 0 {
+                    Text("This month's budget is spent. Next month starts\u{00A0}fresh.").font(.geist(13)).foregroundStyle(Theme.muted)
+                } else {
+                    (Text(Format.money(amount)).foregroundColor(.white).fontWeight(.semibold)
+                     + Text(" left for this week. One way to use it:").foregroundColor(Theme.muted))
+                        .font(.geist(13)).monospacedDigit()
+                }
+            }
+            if amount > 0, !basket.isEmpty {
+                // How the mix splits the week: one lime piece per card, the rest left over.
+                GeometryReader { geo in
+                    HStack(spacing: 2) {
+                        ForEach(Array(basket.enumerated()), id: \.element.id) { i, hit in
+                            Capsule().fill(Theme.lime.opacity(1 - Double(i) * 0.15))
+                                .frame(width: max(4, (geo.size.width - CGFloat(basket.count) * 2) * (hit.market ?? 0) / amount))
+                        }
+                        Capsule().fill(Color.white.opacity(0.08))
+                    }
+                }
+                .frame(height: 6)
+                VStack(spacing: 8) {
+                    ForEach(basket) { hit in
+                        MarketLink(hit: hit) {
+                            HStack(spacing: 10) {
+                                ProductImage(product: hit.pictured, cornerRadius: 3).frame(width: 30, height: 42)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(hit.product.name).font(.geist(13, .medium)).foregroundStyle(.white).lineLimit(1)
+                                    Text(hit.product.setName ?? "").font(.geist(11)).foregroundStyle(Theme.muted).lineLimit(1)
+                                }
+                                Spacer(minLength: 8)
+                                Text(Format.money(hit.market)).font(.geist(13, .semibold)).monospacedDigit().foregroundStyle(.white)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                    }
+                }
+                .cardSequence(basket.map(\.product.id))
+                (Text(Format.money(total)).foregroundColor(.white).fontWeight(.semibold)
+                 + Text(" of \(Format.money(amount)), \(Format.money(max(0, amount - total))) to spare").foregroundColor(Theme.muted))
+                    .font(.geist(12)).monospacedDigit()
+            }
         }
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.surface))
