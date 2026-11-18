@@ -429,20 +429,24 @@ private struct HobbyStories: View {
                     Text(hit.product.name).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
                 }
             }
-            Spacer(minLength: 0)
+            Spacer(minLength: 8)
             if let hit {
+                // Set in from the edge, so the tilted card sits inside the panel with room around it.
                 ProductImage(product: hit.pictured, cornerRadius: 7)
-                    .frame(width: 104, height: 145)
-                    .rotationEffect(.degrees(4))
+                    .frame(width: 96, height: 134)
+                    .rotationEffect(.degrees(3))
                     .shadow(color: .black.opacity(0.45), radius: 10, y: 6)
+                    .padding(.trailing, 10)
             }
         }
-        .padding(18)
+        .padding(.vertical, 18)
+        .padding(.leading, 20)
+        .padding(.trailing, 18)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background {
             ZStack {
                 Theme.surface
-                RadialGradient(colors: [tone.opacity(0.2), .clear], center: UnitPoint(x: 0.85, y: 0.5), startRadius: 0, endRadius: 200)
+                RadialGradient(colors: [tone.opacity(0.2), .clear], center: UnitPoint(x: 0.78, y: 0.5), startRadius: 0, endRadius: 200)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
