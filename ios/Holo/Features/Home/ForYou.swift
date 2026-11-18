@@ -4,7 +4,7 @@ import SwiftUI
 // a look even on a quiet market day.
 // - Because you collect…: the Pokémon you own most of, and cards of it you don't have yet
 //   (Dexora's own catalog, free).
-// - Finish your sets: the cheapest cards missing from the sets you're closest to finishing.
+// - Finish your sets: the cheapest cards missing from sets you're at least halfway through.
 // - In your range: this week's risers near what you usually pay for a single, from the era you
 //   collect most (when one stands out).
 // - Your week's budget: what's left of your monthly budget, split over the weeks left, and a mix
@@ -113,6 +113,8 @@ final class ForYouModel {
     var week: (amount: Double, basket: [SearchHit])?
     /// Something different: away from your usual era and kind.
     var wildcards: [SearchHit] = []
+    /// The share of a set you need before Finish your sets suggests it.
+    static let setThreshold = 0.5
     var hasContent: Bool { !picks.isEmpty || !sets.isEmpty || !inRange.isEmpty || !wildcards.isEmpty }
 
     @MainActor
@@ -178,7 +180,8 @@ final class ForYouModel {
         sets = Array(mine.compactMap { s -> SetToFinish? in
             guard let list = cache.checklists[s.id], !list.isEmpty else { return nil }
             let have = list.filter { owned.contains($0.product.id) }.count
-            guard have < list.count else { return nil }
+            // Most people don't chase whole sets: only once you have half of one does it show.
+            guard have < list.count, Double(have) >= Double(list.count) * ForYouModel.setThreshold else { return nil }
             let missing = list.filter { !owned.contains($0.product.id) && ($0.market ?? 0) > 0 }
                 .sorted { ($0.market ?? 0) < ($1.market ?? 0) }
             guard !missing.isEmpty else { return nil }
@@ -323,7 +326,7 @@ struct ForYouSection: View {
         VStack(alignment: .leading, spacing: 10) {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Finish your sets").font(.geist(17, .semibold))
-                Text("The cheapest cards missing from the sets you're closest to\u{00A0}finishing.").font(.geist(13)).foregroundStyle(Theme.muted)
+                Text("You're over halfway there. The cheapest cards still\u{00A0}missing.").font(.geist(13)).foregroundStyle(Theme.muted)
             }
             .padding(.horizontal, 16)
             VStack(spacing: 10) {
