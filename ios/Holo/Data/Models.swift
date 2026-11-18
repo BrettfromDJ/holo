@@ -640,3 +640,22 @@ struct ConditionPrice: Codable, Hashable {
     var basis: String
     var samples: Int
 }
+
+/// Home's daily insights from /api/insights: "Today in the hobby" and a line on why each
+/// highlighted card moved (keyed by product id). Written once a day on the server by Claude.
+struct MarketInsights: Codable, Equatable {
+    var day: String?
+    var briefing: String?
+    var reasons: [String: String] = [:]
+
+    /// The last ones fetched, kept on the phone so Home shows them at once next time.
+    static var saved: MarketInsights? {
+        get { UserDefaults.standard.data(forKey: "market-insights").flatMap { try? JSONDecoder().decode(MarketInsights.self, from: $0) } }
+        set { UserDefaults.standard.set(newValue.flatMap { try? JSONEncoder().encode($0) }, forKey: "market-insights") }
+    }
+
+    /// For demos and screenshots.
+    static let demo = MarketInsights(day: nil,
+        briefing: "Modern alt arts led the week, with Umbreon VMAX up 14% and Pikachu ex close behind. Vintage held steady while sealed Evolving Skies kept climbing.",
+        reasons: ["sample:espeon-vmax-alt": "Up 1.3% today on top of a strong week, now at $512."])
+}

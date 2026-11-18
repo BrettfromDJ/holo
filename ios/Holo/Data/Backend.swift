@@ -132,6 +132,11 @@ final class HoloAPI {
 
     // MARK: Explore and market data (stored catalog; eBay and conditions are cached 12h at the CDN)
 
+    /// Home's daily insights (see MarketInsights).
+    func marketInsights() async throws -> MarketInsights {
+        try await send(try await request("api/insights"), as: MarketInsights.self)
+    }
+
     func exploreIndex() async throws -> ExploreIndex {
         var index = try await send(try await request("api/explore"), as: ExploreIndex.self)
         index.sets = index.sets.map { $0.withOwnArtOnPublicHost() }

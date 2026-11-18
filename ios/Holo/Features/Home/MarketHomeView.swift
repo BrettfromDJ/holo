@@ -8,6 +8,8 @@ import SwiftUI
 struct MarketHomeView: View {
     @Environment(CollectionStore.self) private var store
     @State private var index: ExploreIndex?
+    /// "Today in the hobby" and why the highlighted cards moved (written daily by Claude).
+    @State private var insights: MarketInsights? = MarketInsights.saved
     @State private var fresh = false
     /// The newest set's most valuable singles.
     @State private var chase: (set: ExploreSet, hits: [SearchHit])?
@@ -39,6 +41,9 @@ struct MarketHomeView: View {
                         // under it (the page's sections are 32 apart).
                         // A little room under its chart, so Card of the day doesn't cut the chart's bottom off.
                         YourCollectionStrip().padding(.horizontal, 16).padding(.bottom, -10)
+                    }
+                    if let briefing = insights?.briefing, index != nil {
+                        HobbyBriefing(text: briefing).padding(.horizontal, 16).padding(.bottom, -18)
                     }
                     if let index {
                         sections(index)
@@ -139,9 +144,9 @@ struct MarketHomeView: View {
         // two small tiles), not the page's wider section spacing.
         VStack(spacing: 10) {
             if let star = index.today?.first {
-                CardOfTheDay(hit: star, kind: .day)
+                CardOfTheDay(hit: star, kind: .day, reason: insights?.reasons[star.product.id])
             } else if let star = trending.first {
-                CardOfTheDay(hit: star, kind: .week)
+                CardOfTheDay(hit: star, kind: .week, reason: insights?.reasons[star.product.id])
             } else if let chase, let top = chase.hits.first {
                 // No market moves to show: the newest set's top pull takes the stage instead.
                 CardOfTheDay(hit: top, kind: .topPull(chase.set.name))
@@ -269,9 +274,14 @@ struct MarketHomeView: View {
         guard !fresh else { return }
         if Demo.isOn {
             if index == nil { index = DemoData.exploreIndex }
+            insights = .demo
         } else {
             if index == nil, let saved = await Task.detached(priority: .userInitiated, operation: { SavedExplore.load() }).value { index = saved }
             if let loaded = try? await Backend.shared.api.exploreIndex() { index = loaded; fresh = true }
+            // The day's insights (saved on the server, so this is quick); kept on the phone too.
+            if let fetched = try? await Backend.shared.api.marketInsights() {
+                if fetched.briefing != nil || insights?.day != fetched.day { insights = fetched; MarketInsights.saved = fetched }
+            }
         }
         await loadChase()
     }
@@ -283,6 +293,25 @@ struct MarketHomeView: View {
         guard let detail else { return }
         let singles = detail.products.filter { !$0.product.isSealed && $0.market != nil && !SetView.looksSealed($0.product) }
         chase = (detail.set, Array(singles.sorted { ($0.market ?? 0) > ($1.market ?? 0) }.prefix(10)))
+    }
+}
+
+/// "Today in the hobby": two or three sentences on what's moving, written daily by Claude from
+/// Dexora's own prices. Quiet: a small label with a spark, then the text; no box.
+private struct HobbyBriefing: View {
+    var text: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "sparkles").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.lime)
+                MonoLabel(text: "Today in the hobby")
+            }
+            Text(text.noWidow).font(.geist(15)).foregroundStyle(.white)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -367,6 +396,8 @@ private struct CardOfTheDay: View {
     enum Kind { case day, week, topPull(String) }
     var hit: SearchHit
     var kind: Kind
+    /// Why it moved, in a line (from the daily insights), when there is one.
+    var reason: String? = nil
     private var daily: Bool { if case .day = kind { return true } else { return false } }
 
     var body: some View {
@@ -401,6 +432,11 @@ private struct CardOfTheDay: View {
                     SkewTag(text: tag, icon: "flame.fill")
                     Text(p.name).font(.display(20)).tracking(-0.5).lineLimit(2).minimumScaleFactor(0.85)
                     Text([p.setName, p.rarity].compactMap { $0 }.joined(separator: " · ")).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
+                    if let reason {
+                        Text(reason.noWidow).font(.geist(12, .medium)).foregroundStyle(.white.opacity(0.85))
+                            .lineLimit(3).fixedSize(horizontal: false, vertical: true)
+                            .padding(.top, 2)
+                    }
                     Spacer(minLength: 0)
                     if pct != nil {
                         Text(Format.money(hit.market)).font(.display(22)).tracking(-0.6).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
