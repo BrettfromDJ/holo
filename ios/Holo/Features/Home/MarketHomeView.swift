@@ -194,9 +194,14 @@ struct MarketHomeView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(alignment: .top, spacing: 12) {
                         // Made-up risers stand in for an era with none yet (marked Sample).
-                        EraCard(era: .modern, hits: modern.isEmpty ? EraCard.sample(.modern) : modern, sample: modern.isEmpty)
-                        EraCard(era: .midEra, hits: midEra.isEmpty ? EraCard.sample(.midEra) : midEra, sample: midEra.isEmpty)
-                        EraCard(era: .vintage, hits: vintage)
+                        // An era the server sent no risers for is filled with real risers of that era from
+                        // Home's other lists (so every card opens its page); made-up samples only if none.
+                        let m = modern.isEmpty ? Self.risers(in: "modern", index) : modern
+                        let d = midEra.isEmpty ? Self.risers(in: "midEra", index) : midEra
+                        let v = vintage.isEmpty ? Self.risers(in: "vintage", index) : vintage
+                        EraCard(era: .modern, hits: m.isEmpty ? EraCard.sample(.modern) : m, sample: m.isEmpty)
+                        EraCard(era: .midEra, hits: d.isEmpty ? EraCard.sample(.midEra) : d, sample: d.isEmpty)
+                        EraCard(era: .vintage, hits: v)
                     }
                     .scrollTargetLayout()
                 }
@@ -320,6 +325,20 @@ struct MarketHomeView: View {
 /// "Today in the hobby": two or three sentences on what's moving, written daily by Claude from
 /// Dexora's own prices. Quiet: a small label with a spark, then the text; no box.
 extension MarketHomeView {
+    /// This week's risers from one era, out of Home's other lists (by each card's set date).
+    static func risers(in era: String, _ index: ExploreIndex) -> [SearchHit] {
+        var released: [String: String] = [:]
+        for s in index.sets { if let d = s.releaseDate { released[s.name] = d } }
+        var pool: [SearchHit] = index.trending ?? []
+        pool += index.today ?? []
+        var seen = Set<String>()
+        let fits = pool.filter { h in
+            guard (h.change7dPct ?? 0) > 0, !h.product.isSealed, seen.insert(h.product.id).inserted else { return false }
+            return MarketEras.era(of: h.releaseDate ?? h.product.setName.flatMap { released[$0] }) == era
+        }
+        return Array(fits.sorted { ($0.change7dPct ?? 0) > ($1.change7dPct ?? 0) }.prefix(5))
+    }
+
     /// Today's stories; a demo makes three from its own market lists.
     func storiesToShow(_ index: ExploreIndex) -> [MarketStory]? {
         if let stories = insights?.stories, !stories.isEmpty { return stories }
@@ -1022,7 +1041,11 @@ private struct EraCard: View, Equatable {
     private static func openReal(_ p: Product, store: CollectionStore) async {
         Haptics.tap()
         if realIds[p.id] == nil { _ = await resolve(p) }
-        guard let id = realIds[p.id] else { return }
+        // Never a dead tap: if the card can't be found, open search instead.
+        guard let id = realIds[p.id] else {
+            Router.shared.searchRequest += 1
+            return
+        }
         if let hit = realHits[p.id] { store.seed(hit) }
         Router.shared.product = id
     }
@@ -1032,12 +1055,22 @@ private struct EraCard: View, Equatable {
         if let id = realIds[p.id] { return id }
         let base = p.name.components(separatedBy: " (").first ?? p.name
         let number = p.number?.components(separatedBy: "/").first
-        let query = [base, p.setName].compactMap { $0 }.joined(separator: " ")
-        guard let hits = try? await Backend.shared.api.search(query), !hits.isEmpty else { return nil }
-        let match = hits.first { h in
+        // Name and set first, then the name alone (the catalog's set names carry codes like
+        // "SWSH07: Evolving Skies" that a plain set name may not match).
+        var hits: [SearchHit] = []
+        for query in [[base, p.setName].compactMap { $0 }.joined(separator: " "), base] {
+            if let found = try? await Backend.shared.api.search(query), !found.isEmpty { hits = found; break }
+        }
+        guard !hits.isEmpty else { return nil }
+        let sameNumber = { (h: SearchHit) -> Bool in
             guard let number, let n = h.product.number else { return false }
             return n.components(separatedBy: "/").first == number
-        } ?? hits.first
+        }
+        let sameSet = { (h: SearchHit) -> Bool in
+            guard let set = p.setName, let s = h.product.setName else { return false }
+            return s.localizedCaseInsensitiveContains(set)
+        }
+        let match = hits.first { sameNumber($0) && sameSet($0) } ?? hits.first(where: sameNumber) ?? hits.first(where: sameSet) ?? hits.first
         if let match {
             realIds[p.id] = match.product.id
             realHits[p.id] = match
