@@ -296,11 +296,12 @@ struct CollectionView: View {
                 }
             }
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
-            .sheet(item: $opened) { h in
-                HoldingSheet(identity: h.identity) {
-                    // After the sheet slides away, so the push animates.
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { path.append(h.identity.productId) }
-                }
+            // A card you own opens its page straight away (no Your copy sheet in between).
+            .onChange(of: opened?.identity.key) {
+                guard let identity = opened?.identity else { return }
+                opened = nil
+                store.setOpenPrinting(identity.printing, for: identity.productId)
+                path.append(identity.productId)
             }
             .sheet(isPresented: $filtering) {
                 let options = filterOptions

@@ -23,7 +23,8 @@ final class PerformanceTests: XCTestCase {
         return app
     }
 
-    /// Tap a card in Collection until Owned is up, then Done until it's gone.
+    /// Tap a card in Collection until its page is up (a card you own opens there now), then back
+    /// until Collection is there again. (Kept under its old name so the history carries on.)
     func testOwnedSheetOpenClose() { runOwnedSheetOpenClose([]) }
 
     private func runOwnedSheetOpenClose(_ extra: [String]) {
@@ -32,15 +33,16 @@ final class PerformanceTests: XCTestCase {
         XCTAssertTrue(tile.waitForExistence(timeout: 10))
         measure(metrics: [XCTClockMetric()], options: options()) {
             tile.tap()
-            XCTAssertTrue(app.buttons["Done"].firstMatch.waitForExistence(timeout: 5))
-            app.buttons["Done"].firstMatch.tap()
+            let row = app.buttons["copy-row"].firstMatch
+            XCTAssertTrue(row.waitForExistence(timeout: 5))
+            app.navigationBars.buttons.element(boundBy: 0).tap()
+            XCTAssertTrue(tile.waitForExistence(timeout: 5))
             let gone = NSPredicate(format: "exists == false")
-            let wait = XCTNSPredicateExpectation(predicate: gone, object: app.buttons["Done"].firstMatch)
-            XCTWaiter().wait(for: [wait], timeout: 5)
+            XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: gone, object: row)], timeout: 5)
         }
     }
 
-    /// Inside Owned: tap "What if I sell?" until its sheet is up, then close it.
+    /// Inside Owned (a copy's row on the card page): tap "What if I sell?" until its sheet is up, then close it.
     func testTapInsideSheet() { runTapInsideSheet([]) }
 
     private func runTapInsideSheet(_ extra: [String]) {
@@ -48,6 +50,9 @@ final class PerformanceTests: XCTestCase {
         let tile = app.buttons["holding-tile"].firstMatch
         XCTAssertTrue(tile.waitForExistence(timeout: 10))
         tile.tap()
+        let row = app.buttons["copy-row"].firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        row.tap()
         let whatIf = app.buttons["What if I sell?"].firstMatch
         XCTAssertTrue(whatIf.waitForExistence(timeout: 5))
         measure(metrics: [XCTClockMetric()], options: options()) {
@@ -66,6 +71,9 @@ final class PerformanceTests: XCTestCase {
         let tile = app.buttons["holding-tile"].firstMatch
         XCTAssertTrue(tile.waitForExistence(timeout: 10))
         tile.tap()
+        let row = app.buttons["copy-row"].firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        row.tap()
         XCTAssertTrue(app.buttons["Done"].firstMatch.waitForExistence(timeout: 5))
         sleep(2)
         measure(metrics: [XCTCPUMetric(application: app)], options: options(3)) { sleep(3) }

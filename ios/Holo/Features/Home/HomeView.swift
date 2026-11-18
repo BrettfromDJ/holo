@@ -125,11 +125,12 @@ struct HomeView: View {
             .collectionPageTitle()
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
             .environment(\.openHolding) { identity in opened = OpenedHolding(identity: identity) }
-            .sheet(item: $opened) { o in
-                HoldingSheet(identity: o.identity) {
-                    // After the sheet slides away, so the push animates.
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { path.append(o.identity.productId) }
-                }
+            // A card you own opens its page straight away (no Your copy sheet in between).
+            .onChange(of: opened?.identity.key) {
+                guard let identity = opened?.identity else { return }
+                opened = nil
+                store.setOpenPrinting(identity.printing, for: identity.productId)
+                path.append(identity.productId)
             }
             // Every page pushes by value, so links inside them (a card, Gains from Analytics) push
             // on top instead of jumping back.

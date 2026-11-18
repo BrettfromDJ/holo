@@ -1237,8 +1237,13 @@ struct CardLink<Label: View>: View {
 
     var body: some View {
         if let owned = ownedIdentity {
-            Button { remember(); Router.shared.holding = owned } label: { label }
-                .buttonStyle(.plain)
+            // A card you own opens its page too (Your position sits near the top), on the
+            // printing of the copy you tapped.
+            NavigationLink(value: productId) { label }
+                .simultaneousGesture(TapGesture().onEnded {
+                    remember()
+                    store.setOpenPrinting(owned.printing, for: productId)
+                })
         } else {
             if sequence != nil {
                 NavigationLink(value: productId) { label }

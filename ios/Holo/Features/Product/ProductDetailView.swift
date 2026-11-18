@@ -89,6 +89,8 @@ struct ProductDetailView: View {
                     .overlay { if extra == nil { pager } }
                 titleBlock.padding(.top, 12)
                 if let extra { extra.padding(.top, 20) }
+                // A card you own opens here straight away: how yours are doing comes first.
+                if !owned.isEmpty { position.padding(.top, 24) }
                 actions.padding(.top, 24)
                 PriceHistoryCard(productId: productId, printing: printing, owned: owned).padding(.top, 32)
                 // Catalog cards, and demo ones (sample sales made on the phone).
@@ -105,7 +107,6 @@ struct ProductDetailView: View {
                     WorthPanel(productId: productId, printing: printing, nm: nm, owned: owned).padding(.top, 24)
                 }
                 if !owned.isEmpty {
-                    position.padding(.top, 24)
                     slabTools
                     history.padding(.top, 24)
                     notes
@@ -283,8 +284,9 @@ struct ProductDetailView: View {
         .padding(.top, 20)
         .padding(.bottom, 36)
         .frame(maxWidth: .infinity)
-        .background { ProductStage(mood: mood).padding(.horizontal, -16) }
+        // Only the card rises in (each time the arrows step to another): the lit backdrop stays put.
         .modifier(Entrance())
+        .background { ProductStage(mood: mood).padding(.horizontal, -16) }
     }
 
     /// The art, keyed by printing so it slides across when the printing changes. With more than
@@ -460,10 +462,6 @@ struct ProductDetailView: View {
                 change("30d", price?.change30dPct ?? histChange(30)).modifier(PopIn(delay: 0.55))
             }
             .padding(.top, 12)
-            // When you own it: how many and how they're doing, tapping through to Owned.
-            if !owned.isEmpty {
-                YourCopyStrip(owned: owned) { managing = $0 }.padding(.top, 14)
-            }
             Text(sourceLine(price != nil
                  ? (price?.source == "pricecharting" ? "Ungraded price via PriceCharting (no TCGplayer price)" : "Market price via TCG API")
                     + (price?.updatedAt.flatMap(relative).map { " · updated \($0)" } ?? "")
@@ -670,6 +668,7 @@ struct ProductDetailView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("copy-row")
             }
         }
         .padding(4)

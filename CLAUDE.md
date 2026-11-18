@@ -48,8 +48,9 @@ and say exactly what to run or click.
   lime charts, the star card's electric border). Master Sets also uses the pieces in
   `Components/Glow.swift` (the set deck's `SetGlow`, the `GlowPie` dial, ring and ticks; no
   dot-matrix digits: numbers use `Font.display`). The iridescent and glow-card experiments were removed; don't bring them back.
-- **Tapping a card:** one you own opens Owned (`HoldingSheet`) everywhere; one you don't opens
-  its card page. Use `CardLink(productId:identity:)` in the app; it decides. Gains lives inside
+- **Tapping a card:** opens its card page everywhere (app: owned or not, no Owned sheet in
+  between; "Your position" sits right under the name, and a copy's row there opens `HoldingSheet`
+  for its actions). Use `CardLink(productId:identity:)` in the app; it opens on the tapped copy's printing. Gains lives inside
   Analytics; Analytics, Grading, Master sets and Activity open from the top-right menu of
   Collection's Summary (what Overview was; the shortcut tiles were removed).
 - **Tabs:** Home (`MarketHomeView`: the hobby, not your collection: card of the day, hot and cold,
