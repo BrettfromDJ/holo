@@ -16,6 +16,9 @@ struct Product: Codable, Identifiable, Hashable {
     /// "single" or "sealed".
     var kind: String
     var imageUrl: String?
+    /// The catalog's own picture, kept when another photo is shown in its place (an old set's
+    /// Unlimited print): tried if that photo doesn't load.
+    var originalImageUrl: String? = nil
     var tcgplayerId: Int?
     var tcgplayerUrl: String?
     var printings: [String]?

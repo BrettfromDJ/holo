@@ -22,8 +22,11 @@ struct ProductImage: View {
         // small one for thumbnails, the full one only if that small size isn't there.
         let usual = product?.imageURL ?? product?.smallTCGplayerURL
         let missingOwn = product?.imageURL == nil
+        // Last tries when a picture won't load: the catalog's own (when another photo stood in
+        // for it) and TCGplayer's.
+        let backups: [URL] = [product?.originalImageUrl.flatMap(URL.init(string:)), product?.smallTCGplayerURL].compactMap { $0 }.filter { $0 != usual }
         let steps: [URL] = Array(bigs.dropFirst()) + (bigs.isEmpty ? [] : [usual].compactMap { $0 })
-            + (bigs.isEmpty && missingOwn ? [product?.largeImageURL].compactMap { $0 } : [])
+            + (bigs.isEmpty && missingOwn ? [product?.largeImageURL].compactMap { $0 } : []) + backups
         CachedImage(url: bigs.first ?? usual, fallback: steps.first, fallbacks: Array(steps.dropFirst())) { image in
             image.resizable().aspectRatio(contentMode: .fit)
                 .scaleEffect(large ? 1.015 : 1)

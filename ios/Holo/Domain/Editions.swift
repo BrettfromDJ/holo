@@ -96,6 +96,7 @@ enum Editions {
             ? unlimitedImage(setName: p.setName, number: p.number)
             : firstEditionImage(setName: p.setName, number: p.number)
         guard let url else { return product }
+        p.originalImageUrl = p.imageUrl
         p.imageUrl = url
         return p
     }

@@ -888,14 +888,6 @@ private struct EraCard: View, Equatable {
                 .padding(.bottom, 8)
             }
         }
-        // The era's own particles behind everything: lime sparks rising (modern), blue motes
-        // drifting (mid-era), pink dust falling and twinkling (vintage).
-        .background {
-            MoteParticles(style: era == .modern ? .sparks : (era == .midEra ? .motes : .dust), color: era.color, count: 18)
-                .opacity(0.8)
-                .padding(-16)
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        }
         .tinted(era.color)
         .cardSequence(sample ? [] : top.map(\.product.id))
         // Sample cards: their real pages looked up now, so tapping one opens at once.
