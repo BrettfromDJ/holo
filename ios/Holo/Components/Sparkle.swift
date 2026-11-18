@@ -67,6 +67,8 @@ struct ParticleEmitter: UIViewRepresentable {
             super.init(frame: frame)
             isUserInteractionEnabled = false
             backgroundColor = .clear
+            // Particles stay inside their box (the card or tile they're behind).
+            clipsToBounds = true
             layer.addSublayer(emitter)
             NotificationCenter.default.addObserver(self, selector: #selector(refresh), name: .sheetCoverChanged, object: nil)
         }
@@ -95,53 +97,49 @@ struct ParticleEmitter: UIViewRepresentable {
             kind = k
             let cell = CAEmitterCell()
             cell.contents = Self.dot.cgImage
-            cell.scale = 0.5
-            cell.scaleRange = 0.35
+            cell.scale = 0.32
+            cell.scaleRange = 0.18
             switch k {
             case let .rise(c, count):
                 cell.color = c.cgColor
-                cell.lifetime = 4.5
-                cell.birthRate = Float(count) / 4.5
-                cell.velocity = 22; cell.velocityRange = 10
-                cell.emissionLongitude = -.pi / 2; cell.emissionRange = .pi / 10
-                cell.xAcceleration = 0
-                cell.alphaRange = 0.3; cell.alphaSpeed = -0.18
-                cell.scaleSpeed = -0.06
+                cell.lifetime = 6
+                cell.birthRate = Float(count) / 6
+                cell.emissionLongitude = -.pi / 2; cell.emissionRange = .pi / 24
+                cell.alphaRange = 0.3; cell.alphaSpeed = -0.14
+                cell.scaleSpeed = -0.03
             case let .drift(c, count):
                 cell.color = c.withAlphaComponent(0.8).cgColor
                 cell.lifetime = 9
                 cell.birthRate = Float(count) / 9
-                cell.velocity = 8; cell.velocityRange = 5
+                cell.velocity = 5; cell.velocityRange = 3
                 cell.emissionLongitude = -.pi / 3; cell.emissionRange = .pi / 2
                 cell.alphaRange = 0.4; cell.alphaSpeed = -0.08
             case let .fall(c, count):
                 cell.color = c.cgColor
                 cell.lifetime = 10
                 cell.birthRate = Float(count) / 10
-                cell.velocity = 10; cell.velocityRange = 5
-                cell.emissionLongitude = .pi / 2; cell.emissionRange = .pi / 8
+                cell.emissionLongitude = .pi / 2; cell.emissionRange = .pi / 24
                 cell.alphaRange = 0.5; cell.alphaSpeed = -0.07
-                cell.scale = 0.38
+                cell.scale = 0.24
                 // A slow spin of a glow-shaped dot reads as a gentle twinkle.
                 cell.spinRange = 2
             case .embers:
                 cell.color = UIColor(red: 1, green: 0.55, blue: 0.15, alpha: 1).cgColor
                 cell.greenRange = 0.25; cell.blueRange = 0.1
-                cell.lifetime = 4
-                cell.birthRate = 7
-                cell.velocity = 30; cell.velocityRange = 14
-                cell.emissionLongitude = -.pi / 2; cell.emissionRange = .pi / 8
-                cell.alphaSpeed = -0.22
-                cell.scaleSpeed = -0.08
+                cell.lifetime = 5
+                cell.birthRate = 5
+                cell.emissionLongitude = -.pi / 2; cell.emissionRange = .pi / 24
+                cell.alphaSpeed = -0.18
+                cell.scaleSpeed = -0.04
             case .snow:
                 cell.color = UIColor.white.withAlphaComponent(0.9).cgColor
                 cell.lifetime = 9
-                cell.birthRate = 4
-                cell.velocity = 14; cell.velocityRange = 6
-                cell.emissionLongitude = .pi / 2; cell.emissionRange = .pi / 6
-                cell.alphaRange = 0.4; cell.alphaSpeed = -0.06
-                cell.scale = 0.4
+                cell.birthRate = 3
+                cell.emissionLongitude = .pi / 2; cell.emissionRange = .pi / 24
+                cell.alphaRange = 0.4; cell.alphaSpeed = -0.05
+                cell.scale = 0.26
             }
+            cell.name = "dot"
             emitter.emitterCells = [cell]
             emitter.renderMode = .additive
             // Begun a lifetime ago, so the view starts full instead of filling up.
@@ -155,6 +153,17 @@ struct ParticleEmitter: UIViewRepresentable {
         private func place() {
             guard let kind else { return }
             let b = bounds
+            // Rising and falling ones cross the box once over their life: a gentle drift,
+            // whatever the box's height.
+            if let cell = emitter.emitterCells?.first, b.height > 0 {
+                switch kind {
+                case .rise, .embers, .fall, .snow:
+                    let v = b.height / CGFloat(max(cell.lifetime, 1))
+                    emitter.setValue(v, forKeyPath: "emitterCells.\(cell.name ?? "dot").velocity")
+                    emitter.setValue(v * 0.3, forKeyPath: "emitterCells.\(cell.name ?? "dot").velocityRange")
+                case .drift: break
+                }
+            }
             switch kind {
             case .rise, .embers:
                 emitter.emitterShape = .line
