@@ -29,13 +29,16 @@ struct MarketHomeView: View {
     var body: some View {
         NavigationStack(path: $path) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 32) {
+                // Lazy: sections further down (and their pictures) load as you reach them, so the
+                // Top 10 near the top isn't waiting in line behind pictures you can't see yet.
+                LazyVStack(alignment: .leading, spacing: 32) {
                     // Straight in: your collection in one line, then the card of the day (no big
                     // heading taking the top of the screen).
                     if store.status == .ready, !store.holdings.isEmpty {
                         // 10pt above Card of the day, the same gap as between the three tiles
                         // under it (the page's sections are 32 apart).
-                        YourCollectionStrip().padding(.horizontal, 16).padding(.bottom, -22)
+                        // A little room under its chart, so Card of the day doesn't cut the chart's bottom off.
+                        YourCollectionStrip().padding(.horizontal, 16).padding(.bottom, -10)
                     }
                     if let index {
                         sections(index)
@@ -298,7 +301,6 @@ private struct YourCollectionStrip: View {
                 HStack {
                     MonoLabel(text: "Your collection")
                     Spacer(minLength: 8)
-                    Text("\(Int(s.items)) items").font(.mono(10)).tracking(0.8).foregroundStyle(Theme.subtle)
                     Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.muted)
                 }
                 // The worth big, today under it; the month's change on the right.
@@ -578,15 +580,8 @@ private struct TopTenRow: View {
                                 ProductImage(product: hit.pictured, cornerRadius: 6)
                                     .frame(width: 100, height: 140)
                                     .shadow(color: .black.opacity(0.6), radius: 10, y: 6)
-                                    // No. 1: lime sparks rising behind it and a small lime crown on its
-                                    // corner, both outside its layout so it sits level with the rest.
-                                    .background {
-                                        if i == 0 {
-                                            MoteParticles(style: .sparks, color: Theme.lime, count: 12)
-                                                .frame(width: 130, height: 170)
-                                                .offset(y: -12)
-                                        }
-                                    }
+                                    // No. 1: a small lime crown on its corner, outside its layout so it
+                                    // sits level with the rest.
                                     .overlay(alignment: .topLeading) {
                                         if i == 0 {
                                             Image(systemName: "crown.fill")
