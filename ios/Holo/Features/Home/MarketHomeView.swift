@@ -143,6 +143,7 @@ struct MarketHomeView: View {
             }
             // Your favourite Pokémon and era steer the mix once your collection is in.
             .onChange(of: store.allHoldings.count) { themes.pick(store: store, index: index) }
+            .onChange(of: forYou.picks.map(\.id)) { themes.setNextFavorite(taste: forYou.taste, picks: forYou.picks) }
         }
     }
 
@@ -155,6 +156,8 @@ struct MarketHomeView: View {
         // week's top riser and the biggest faller face off under it.
         // The three highlights as one group, 10pt apart every way (the same gap as between the
         // two small tiles), not the page's wider section spacing.
+        // Collection of the Day leads Home.
+        if let daily = themes.daily { DailyDiscovery(theme: daily) }
         VStack(spacing: 10) {
             if let star = index.today?.first {
                 CardOfTheDay(hit: star, kind: .day, reason: insights?.reasons[star.product.id])

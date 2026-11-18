@@ -17,6 +17,10 @@ struct MarketTheme: Codable, Identifiable, Hashable {
     var era: String? = nil
     /// One of this week's new ideas (tagged New).
     var fresh: Bool? = nil
+    /// In the launch lineup: comes up more often.
+    var featured: Bool? = nil
+    /// Cards picked by AI (art themes).
+    var curated: Bool? = nil
     var hits: [SearchHit]
 }
 
@@ -25,6 +29,8 @@ final class ThemesModel {
     var all: [MarketTheme] = ThemesModel.saved
     /// The few on Home this time, in order.
     var shown: [MarketTheme] = []
+    /// Collection of the Day, at the top of Home: the same all day, a new one tomorrow.
+    var daily: MarketTheme?
 
     /// A new mix each time the app opens (the same while it stays open).
     private static let launchSeed = UInt64.random(in: 1...UInt64.max)
@@ -53,31 +59,61 @@ final class ThemesModel {
         var released: [String: String] = [:]
         for s in index?.sets ?? [] { if let d = s.releaseDate { released[s.name] = d } }
         let era = CollectorTaste.era(holdings, released: released)
-        var rng = SeededRandom(seed: Self.launchSeed)
         var pool = all.filter { $0.hits.count >= 3 }
+        // Collection of the Day: drawn by the date (launch lineup three times as likely).
+        var dayRng = SeededRandom(seed: UInt64(Self.dayNumber))
+        daily = Self.draw(from: pool, using: &dayRng) { $0.featured == true ? 3 : 1 }
+        pool.removeAll { $0.id == daily?.id }
+        var rng = SeededRandom(seed: Self.launchSeed)
         var out: [MarketTheme] = []
         var looks = Set<String>()
         while out.count < count, !pool.isEmpty {
             let fresh = pool.filter { !looks.contains($0.look) }
             let candidates = fresh.isEmpty ? pool : fresh
-            let weights = candidates.map { t -> Double in
+            guard let chosen = Self.draw(from: candidates, using: &rng, weight: { t in
                 var w = 1.0
                 if let favourite, t.pokemon?.contains(where: { $0.lowercased() == favourite }) == true { w += 3 }
                 if let era, t.era == era { w += 1 }
                 if t.fresh == true { w += 1 }
+                if t.featured == true { w += 1.5 }
                 return w
-            }
-            var roll = Double.random(in: 0..<weights.reduce(0, +), using: &rng)
-            var chosen = candidates[candidates.count - 1]
-            for (t, w) in zip(candidates, weights) {
-                if roll < w { chosen = t; break }
-                roll -= w
-            }
+            }) else { break }
             out.append(chosen)
             looks.insert(chosen.look)
             pool.removeAll { $0.id == chosen.id }
         }
+        // Your next favorite (cards of the Pokémon you collect most) takes the last slot.
+        if let mine = nextFavorite, out.count >= count { out[out.count - 1] = mine } else if let mine = nextFavorite { out.append(mine) }
         shown = out
+    }
+
+    /// Your next favorite: cards of the Pokémon you own most of that you don't have yet.
+    var nextFavorite: MarketTheme?
+
+    /// From For you's picks, once they're in (swapped into the last slot, not reshuffling the rest).
+    @MainActor
+    func setNextFavorite(taste: (name: String, count: Int)?, picks: [SearchHit]) {
+        guard let taste, picks.count >= 3 else { return }
+        let theme = MarketTheme(id: "your-next-favorite", title: "Your next favorite", blurb: "You collect \(taste.name). Here are some you don't have\u{00A0}yet.",
+                                look: "fan", pokemon: [taste.name], hits: picks)
+        guard nextFavorite?.hits.map(\.id) != theme.hits.map(\.id) else { return }
+        nextFavorite = theme
+        if let i = shown.firstIndex(where: { $0.id == theme.id }) { shown[i] = theme }
+        else if !shown.isEmpty { shown[shown.count - 1] = theme }
+    }
+
+    private static var dayNumber: Int { Int(Date().timeIntervalSince1970 / 86_400) + 1 }
+
+    /// One weighted pick.
+    private static func draw(from list: [MarketTheme], using rng: inout SeededRandom, weight: (MarketTheme) -> Double) -> MarketTheme? {
+        guard !list.isEmpty else { return nil }
+        let weights = list.map(weight)
+        var roll = Double.random(in: 0..<weights.reduce(0, +), using: &rng)
+        for (t, w) in zip(list, weights) {
+            if roll < w { return t }
+            roll -= w
+        }
+        return list.last
     }
 
     // MARK: Saved on the phone
@@ -109,7 +145,7 @@ final class ThemesModel {
         let ladder = unique.sorted { ($0.market ?? 0) < ($1.market ?? 0) }
         let ladderSteps = ladder.count <= 7 ? ladder : (0..<7).map { ladder[Int((Double($0) * Double(ladder.count - 1) / 6).rounded())] }
         return [
-            MarketTheme(id: "stand-grails", title: "Modern grails", blurb: "The priciest modern cards rising this week.", look: "billboard", era: "modern",
+            MarketTheme(id: "stand-grails", title: "Modern grails", blurb: "The priciest modern cards rising this week.", look: "billboard", era: "modern", featured: true,
                         hits: eras.modern.sorted { ($0.market ?? 0) > ($1.market ?? 0) }),
             MarketTheme(id: "stand-vintage", title: "Vintage on the move", blurb: "Wizards-era cards climbing this week.", look: "fan", era: "vintage", hits: eras.vintage),
             MarketTheme(id: "stand-years", title: "Through the years", blurb: "One standout from each set, oldest first.", look: "timeline", hits: timeline),
@@ -121,7 +157,7 @@ final class ThemesModel {
 }
 
 /// The same shuffle while the app stays open.
-private struct SeededRandom: RandomNumberGenerator {
+struct SeededRandom: RandomNumberGenerator {
     var state: UInt64
     init(seed: UInt64) { state = seed }
     mutating func next() -> UInt64 {
@@ -401,6 +437,47 @@ private struct SpotlightLook: View {
             }
             Spacer(minLength: 0)
         }
+        .padding(.horizontal, 16)
+    }
+}
+
+// MARK: Collection of the Day
+
+/// The top of Home: one collection a day, three of its cards and a way in.
+struct DailyDiscovery: View {
+    var theme: MarketTheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                MonoLabel(text: "Today's discovery").foregroundStyle(Theme.lime)
+                Text(theme.title.noWidow).font(.display(30)).tracking(-1).foregroundStyle(.white)
+                Text(theme.blurb.noWidow).font(.geist(14)).foregroundStyle(Theme.muted)
+            }
+            HStack(spacing: 10) {
+                ForEach(theme.hits.prefix(3)) { hit in
+                    MarketLink(hit: hit) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            ProductImage(product: hit.pictured, cornerRadius: 6)
+                                .aspectRatio(63 / 88, contentMode: .fit)
+                                .padding(8)
+                                .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.06)))
+                            Text(Format.money(hit.market)).font(.geist(12, .semibold)).monospacedDigit().foregroundStyle(.white)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            .cardSequence(theme.hits.map(\.product.id))
+            NavigationLink(value: theme) {
+                HStack(spacing: 6) { Text("Explore collection"); Image(systemName: "arrow.right").font(.system(size: 13, weight: .semibold)) }
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(Button3D(kind: .lime, height: 48))
+        }
+        .padding(18)
+        .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Theme.surface))
+        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(Theme.border))
         .padding(.horizontal, 16)
     }
 }

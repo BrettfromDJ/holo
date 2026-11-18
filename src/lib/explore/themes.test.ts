@@ -51,3 +51,25 @@ describe("themes", () => {
     expect(orList("number", ["TG"], true)).toBe("number.ilike.TG*");
   });
 });
+
+describe("themes: playbook rules", () => {
+  it("keeps Japanese cards to Japanese themes", () => {
+    const jp: ThemeRule = { id: "j", title: "", blurb: "", look: "fan", japanese: true };
+    const en: ThemeRule = { id: "e", title: "", blurb: "", look: "fan" };
+    const japanese = { ...card("1", "Pikachu", "Promo", 30, "2020-01-01"), gameName: "Pokemon Japan" };
+    expect(fits(jp, japanese)).toBe(true);
+    expect(fits(en, japanese)).toBe(false);
+  });
+
+  it("illustration rares leave out special illustration rares", () => {
+    const rule: ThemeRule = { id: "i", title: "", blurb: "", look: "fan", rarities: ["Illustration Rare"], notRarities: ["Special"] };
+    expect(fits(rule, card("1", "Pikachu", "151", 10, "2023-09-22", { rarity: "Illustration Rare" }))).toBe(true);
+    expect(fits(rule, card("2", "Pikachu", "151", 10, "2023-09-22", { rarity: "Special Illustration Rare" }))).toBe(false);
+  });
+
+  it("keeps the given order when asked (market and AI picks)", () => {
+    const rule: ThemeRule = { id: "o", title: "", blurb: "", look: "fan" };
+    const out = pickFor(rule, [card("a", "A", "X", 5, "2020-01-01"), card("b", "B", "X", 50, "2020-01-01")], 24, true);
+    expect(out.map((p) => p.product.id)).toEqual(["a", "b"]);
+  });
+});

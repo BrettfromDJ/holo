@@ -187,12 +187,16 @@ and say exactly what to run or click.
   the hobby" and a line per highlighted card once a day from `exploreMarket` (saved in `api_cache`
   as `insights:<day>`), served at `/api/insights`; the app shows them on Home (`HobbyBriefing`,
   Card of the day's line; `MarketInsights`, kept on the phone). Without the key Home shows none.
-- Home's themed collections (Netflix-style rows): rules in `src/lib/explore/themes.ts` (about 30:
-  Skyridge holos, Charizard through the years, Every price of Gengar…), filled from our own catalog
-  by `src/lib/server/themes.ts` (saved a day per theme in `api_cache`), served at `/api/themes`;
-  AI proposes 5 more each week (`theme-ideas:<monday>`, via `ai.ts`, needs `OPENAI_API_KEY`). The app
-  (`Features/Home/Themes.swift`) shows 4 per launch between Home's lists, a new mix each open,
-  weighted toward your favourite Pokémon and era, never two of one look (billboard, fan, timeline,
-  mosaic, ladder, spotlight); each opens `ThemePage`. New themes: add a rule. For you keeps only
-  Finish your sets (sets you're 50%+ through) and Your week's budget.
+- Home's themed collections (the owner's playbook "The Art of Card Discovery", ~70): rules in
+  `src/lib/explore/themes.ts` (price finds, grails, art, vintage, Pokémon, changing over time),
+  filled by `src/lib/server/themes.ts` by `source`: rule (name/set/rarity/number/price/era), price
+  (priciest down in a band), ai (art themes: the AI picks from our illustration cards weekly,
+  `theme-ai:<id>:<monday>`), market (trending/today/drops/rediscovered), fresh (sets out in 90
+  days), popular (kept or watched by 2+ collectors). Japanese cards only in `japanese` themes.
+  Saved a day per theme in `api_cache`; `/api/themes`. AI proposes 5 more weekly (via `ai.ts`).
+  The app (`Features/Home/Themes.swift`): Collection of the Day (`DailyDiscovery`) leads Home,
+  then 4 per launch between Home's lists (new mix each open, weighted to your Pokémon and era and
+  the `featured` launch lineup, never two of one look), plus "Your next favorite" (For you's
+  picks of your favourite Pokémon) in the last slot; each opens `ThemePage`. For you keeps only
+  Finish your sets (50%+) and Your week's budget.
 - Not in the app on purpose: the separate trade checker (the Deal tab covers trades), and the welcome pages (removed; signed out opens straight on Sign in, its card wall is `Features/Auth/CardWall.swift`).
