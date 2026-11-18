@@ -243,13 +243,15 @@ private struct BillboardLook: View {
                 .padding(18)
                 .frame(maxWidth: .infinity)
                 .background {
-                    // The card's own art, blown up and dimmed, behind it (drawn once, still).
-                    ProductImage(product: star.pictured, cornerRadius: 0)
-                        .scaleEffect(2.4)
-                        .blur(radius: 30)
-                        .opacity(0.45)
-                        .overlay(LinearGradient(colors: [.black.opacity(0.75), .black.opacity(0.2)], startPoint: .leading, endPoint: .trailing))
-                        .allowsHitTesting(false)
+                    // The lit grid with a soft lime glow behind the card (Dexora's panel look; the
+                    // blurred card art left hard bands where the picture ended).
+                    ZStack {
+                        Theme.surface
+                        GridPattern(step: 28, opacity: 0.05)
+                        RadialGradient(colors: [Theme.lime.opacity(0.22), .clear], center: UnitPoint(x: 0.78, y: 0.45), startRadius: 0, endRadius: 220)
+                        RadialGradient(colors: [Theme.planBlue.opacity(0.16), .clear], center: UnitPoint(x: 0.1, y: 0.9), startRadius: 0, endRadius: 200)
+                    }
+                    .allowsHitTesting(false)
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Theme.border))
