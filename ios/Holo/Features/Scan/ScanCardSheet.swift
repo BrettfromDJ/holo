@@ -431,7 +431,7 @@ struct ChangeCardSheet: View {
                             row(c)
                         }
                     } else {
-                        Text("No other close matches for this scan. Search for the right card.")
+                        Text("No other close matches for this scan. Search for the right card.".noWidow)
                             .font(.geist(14)).foregroundStyle(Theme.muted).padding(.top, 14)
                     }
                 }

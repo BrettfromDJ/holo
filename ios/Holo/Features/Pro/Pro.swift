@@ -117,7 +117,7 @@ struct ProSheet: View {
                     }
                     VStack(alignment: .leading, spacing: 8) {
                         DisplayText(text: reason.headline, size: 32, lineGap: -0.04)
-                        Text("Pro unlocks every tool in Dexora, in the app and on the website.")
+                        Text("Pro unlocks every tool in Dexora, in the app and on the website.".noWidow)
                             .font(.geist(15)).foregroundStyle(Theme.muted)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -139,7 +139,7 @@ struct ProSheet: View {
                              note: "\(Format.money(Pro.yearly / 12)) a month", tag: "Save 33%")
                         plan(yearly: false, title: "Monthly", price: Format.money(Pro.monthly) + " a month", note: "Cancel any time", tag: nil)
                     }
-                    Text("Free stays free: your whole collection, prices, Home and Explore, \(Pro.freeScansPerMonth) scans a month, \(Pro.freeHistoryDays) days of price history, \(Pro.freeShelves) lists, \(Pro.freeAlerts) price alerts and \(Pro.freeMasterSets) master sets.")
+                    Text("Free stays free: your whole collection, prices, Home and Explore, \(Pro.freeScansPerMonth) scans a month, \(Pro.freeHistoryDays) days of price history, \(Pro.freeShelves) lists, \(Pro.freeAlerts) price alerts and \(Pro.freeMasterSets) master sets.".noWidow)
                         .font(.geist(12)).foregroundStyle(Theme.subtle)
                         .fixedSize(horizontal: false, vertical: true)
                 }

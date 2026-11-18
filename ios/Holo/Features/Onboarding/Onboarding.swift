@@ -45,8 +45,9 @@ struct EmptyPage: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Text(title).font(.display(28)).tracking(-0.7).multilineTextAlignment(.center)
-            Text(line).font(.geist(15)).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
+            Text(title.noWidow).font(.display(28)).tracking(-0.7).multilineTextAlignment(.center)
+            // Even lines, centred (no long line over a short one).
+            BalancedText(text: line, font: .geist(15), color: Theme.muted, alignment: .center)
                 .fixedSize(horizontal: false, vertical: true)
             if let action {
                 Button(action: onAction) { Label(action, systemImage: icon) }

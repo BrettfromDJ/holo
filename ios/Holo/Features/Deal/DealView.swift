@@ -371,7 +371,7 @@ struct DealView: View {
                     Text("Photos").font(.display(24)).tracking(-0.6).displayTrim(24)
                     if !deals.deal.photos.isEmpty { MonoLabel(text: "\(deals.deal.photos.count)") }
                 }
-                Text("Document the deal: the cards on the table, a receipt, the \(deals.role.other)'s binder").font(.geist(12)).foregroundStyle(Theme.muted)
+                Text("Document the deal: the cards on the table, a receipt, the \(deals.role.other)'s binder".noWidow).font(.geist(12)).foregroundStyle(Theme.muted)
             }
             DealPhotosStrip(photos: deals.deal.photos, accountId: store.demo == nil ? deals.accountId : nil, accent: accent) { photos in
                 deals.update { $0.photos = photos }

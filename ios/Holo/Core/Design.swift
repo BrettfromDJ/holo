@@ -91,7 +91,7 @@ struct PageHeader<Trailing: View>: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(title).font(.display(size)).tracking(size * -0.03).lineLimit(2).minimumScaleFactor(0.7).displayTrim(size)
+                Text(title.noWidow).font(.display(size)).tracking(size * -0.03).lineLimit(2).minimumScaleFactor(0.7).displayTrim(size)
                 if let subtitle {
                     Text(subtitle.noWidow).font(.geist(15)).foregroundStyle(Theme.muted)
                 }
@@ -1344,7 +1344,7 @@ struct SectionTitle: View {
     var text: String
     init(_ text: String) { self.text = text }
     var body: some View {
-        Text(text).font(.display(20)).tracking(-0.5).foregroundStyle(.white).textCase(nil)
+        Text(text.noWidow).font(.display(20)).tracking(-0.5).foregroundStyle(.white).textCase(nil)
             .padding(.bottom, 2)
     }
 }
@@ -1353,7 +1353,7 @@ struct SectionTitle: View {
 struct SectionNote: View {
     var text: String
     init(_ text: String) { self.text = text }
-    var body: some View { Text(text).font(.geist(12)).foregroundStyle(Theme.subtle).textCase(nil) }
+    var body: some View { Text(text.noWidow).font(.geist(12)).foregroundStyle(Theme.subtle).textCase(nil) }
 }
 
 /// The app's switch: a white knob with a soft drop shadow so it stands off the track, on lime

@@ -40,30 +40,33 @@ struct GainsView: View {
     /// Where it comes from: each product, set or type's share of the gain, as a waterfall.
     private func breakdown(_ a: Gains.Attribution) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            // The title with its note under it (clear of the grouping menu), the menu beside the title.
-            VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .center) {
-                MoreHeading(title: "Where it comes from", subtitle: nil)
-                // Group by product, set or type: a menu, so there's one row of tabs on the page.
-                Menu {
-                    Picker("Group by", selection: Binding(get: { group }, set: { group = $0; expanded = false })) {
-                        Text("Products").tag(Gains.Group.product)
-                        Text("Sets").tag(Gains.Group.set)
-                        Text("Type").tag(Gains.Group.category)
+            // The title with its note tight under it (like every other heading); the grouping menu
+            // floats at the top right, so its height never pushes the note down.
+            VStack(alignment: .leading, spacing: 3) {
+                // Room on the right for the menu beside the title (the note runs full width).
+                DisplayText(text: "Where it comes from", size: 26).padding(.trailing, 120)
+                Text("Each bar starts where the last one ended, gains first, then losses".noWidow).font(.geist(14)).foregroundStyle(Theme.muted)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+                .overlay(alignment: .topTrailing) {
+                    // Group by product, set or type: a menu, so there's one row of tabs on the page.
+                    Menu {
+                        Picker("Group by", selection: Binding(get: { group }, set: { group = $0; expanded = false })) {
+                            Text("Products").tag(Gains.Group.product)
+                            Text("Sets").tag(Gains.Group.set)
+                            Text("Type").tag(Gains.Group.category)
+                        }
+                    } label: {
+                        HStack(spacing: 5) {
+                            Text(noun.many.capitalized).font(.geist(14, .semibold))
+                            Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold))
+                        }
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14).frame(height: 36)
+                        .liquidGlass(in: Capsule())
+                        .contentShape(Capsule())
                     }
-                } label: {
-                    HStack(spacing: 5) {
-                        Text(noun.many.capitalized).font(.geist(14, .semibold))
-                        Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold))
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 14).frame(height: 36)
-                    .liquidGlass(in: Capsule())
-                    .contentShape(Capsule())
                 }
-            }
-            Text("Each bar starts where the last one ended, gains first, then\u{00A0}losses").font(.geist(14)).foregroundStyle(Theme.muted)
-            }
             // Which gains: under the heading they belong to.
             ChipPicker(options: [(.unrealized, "Unrealized"), (.realized, "Realized"), (.all, "All-time")], selection: $mode)
             if a.steps.isEmpty {

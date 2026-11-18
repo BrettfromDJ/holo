@@ -159,7 +159,7 @@ private struct Slide {
                     .padding(.vertical, 28)
                 Text("Your collection \(gain >= 0 ? "grew" : "slipped")").font(.geist(18, .medium)).foregroundStyle(.white.opacity(0.8))
                 Big(value: gain, format: { Format.signedMoney($0) }, color: gain >= 0 ? Theme.lime : Theme.planPink)
-                Text("\(Format.signedPercent(ratio)) from market moves alone · now \(Format.money(s.value))")
+                Text("\(Format.signedPercent(ratio)) from market moves alone · now \(Format.money(s.value))".noWidow)
                     .font(.geist(15)).monospacedDigit().foregroundStyle(.white.opacity(0.7)).padding(.top, 8)
             }
         )))

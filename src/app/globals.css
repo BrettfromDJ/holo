@@ -144,6 +144,11 @@
      running text avoids a lone word on its last line. :where() keeps this
      at zero specificity, and the longhand never undoes nowrap or truncate.
      Opt out with data-text-wrap="off". */
+  /* Text in plain boxes too (captions, notes, card text, button labels): no lone last
+     word. Single-line text is unaffected; the rules below win for headings. */
+  :where(div, span, small, a, button) {
+    text-wrap-style: pretty;
+  }
   :where(h1, h2, h3, h4, h5, h6, [role="heading"], figcaption, caption,
          legend, dt, summary, th, .font-display, [data-title],
          [data-text-wrap="balance"]) {

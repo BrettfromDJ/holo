@@ -47,7 +47,7 @@ struct MoreHeading: View {
         // The note sits tight under the title.
         VStack(alignment: .leading, spacing: 3) {
             DisplayText(text: title, size: 26)
-            if let subtitle { Text(subtitle).font(.geist(14)).foregroundStyle(Theme.muted) }
+            if let subtitle { Text(subtitle.noWidow).font(.geist(14)).foregroundStyle(Theme.muted) }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
