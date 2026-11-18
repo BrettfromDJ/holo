@@ -377,21 +377,30 @@ private struct MosaicLook: View {
     }
 }
 
-/// Ladder: one Pokémon from cheapest to priciest, each step a little taller.
+/// Ladder: one Pokémon from cheapest to priciest. The cards stay one size; a bar under each
+/// steps up with its price (on a log scale, so $2 and $2,000 both read).
 private struct LadderLook: View {
     var hits: [SearchHit]
 
     var body: some View {
+        let prices = hits.map { max(1, $0.market ?? 1) }
+        let low = log(prices.min() ?? 1), high = log(prices.max() ?? 1)
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(alignment: .bottom, spacing: 10) {
                 ForEach(Array(hits.enumerated()), id: \.element.id) { i, hit in
-                    let scale = 0.62 + 0.38 * Double(i) / Double(max(1, hits.count - 1))
+                    let share = high > low ? (log(prices[i]) - low) / (high - low) : 1
+                    let top = i == hits.count - 1
                     MarketLink(hit: hit) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            ProductImage(product: hit.pictured, cornerRadius: 6).frame(width: 120 * scale, height: 168 * scale)
-                            Text(price(hit)).font(.display(15 + 5 * scale)).tracking(-0.4).monospacedDigit().foregroundStyle(i == hits.count - 1 ? Theme.lime : .white)
-                            Text(hit.product.setName ?? "").font(.geist(11)).foregroundStyle(Theme.muted).lineLimit(1).frame(width: 120 * scale, alignment: .leading)
+                        VStack(alignment: .leading, spacing: 8) {
+                            ProductImage(product: hit.pictured, cornerRadius: 6).frame(width: 96, height: 134)
+                            Text(hit.product.setName ?? "").font(.geist(11)).foregroundStyle(Theme.muted).lineLimit(1)
+                            Text(price(hit)).font(.display(17)).tracking(-0.4).monospacedDigit().foregroundStyle(top ? Theme.lime : .white)
+                            // The step: taller the pricier.
+                            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                .fill(Theme.lime.opacity(top ? 1 : 0.25 + 0.5 * share))
+                                .frame(height: 6 + 54 * share)
                         }
+                        .frame(width: 96, alignment: .leading)
                     }
                 }
             }
