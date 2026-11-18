@@ -346,8 +346,8 @@ final class SheetCover {
     static let shared = SheetCover()
     private(set) var count = 0
     var isOpen: Bool { count > 0 }
-    @MainActor func opened() { count += 1 }
-    @MainActor func closed() { count = max(0, count - 1) }
+    @MainActor func opened() { count += 1; NotificationCenter.default.post(name: .sheetCoverChanged, object: nil) }
+    @MainActor func closed() { count = max(0, count - 1); NotificationCenter.default.post(name: .sheetCoverChanged, object: nil) }
 }
 
 /// Stop a looping animation at once, without animating back.

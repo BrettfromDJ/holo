@@ -5,60 +5,189 @@ import SwiftUI
 // sheet (onVisibilityChange), and still under Reduce Motion.
 
 /// Looping particles in one color: sparks rising, motes drifting, or dust falling and twinkling.
+/// Drawn by iOS's own particle system (Core Animation), so they move at the screen's full rate
+/// (up to 120 a second) with no work on the app's side each frame: smooth, never steppy.
 struct MoteParticles: View {
     enum Style { case sparks, motes, dust }
     var style: Style
     var color: Color
     var count = 22
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var onScreen = true
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 20, paused: reduceMotion || !onScreen)) { context in
-            let time = reduceMotion ? 3 : context.date.timeIntervalSinceReferenceDate
-            Canvas { ctx, size in draw(ctx, size, time) }
-        }
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-        .onVisibilityChange { visible in if visible != onScreen { onScreen = visible } }
+        ParticleEmitter(kind: {
+            switch style {
+            case .sparks: return .rise(UIColor(color), count: count)
+            case .motes: return .drift(UIColor(color), count: count)
+            case .dust: return .fall(UIColor(color), count: count)
+            }
+        }())
+    }
+}
+
+/// iOS's particle system in a SwiftUI view: a few presets in the app's style (a soft dot with a
+/// glow), filling the view from the start, pausing off screen and under sheets, still under
+/// Reduce Motion.
+struct ParticleEmitter: UIViewRepresentable {
+    enum Kind: Equatable {
+        /// Sparks rising from the bottom, swaying.
+        case rise(UIColor, count: Int)
+        /// Motes floating slowly up and sideways.
+        case drift(UIColor, count: Int)
+        /// Dust falling slowly, twinkling.
+        case fall(UIColor, count: Int)
+        /// Fire embers (orange to yellow) rising.
+        case embers
+        /// Snow falling.
+        case snow
     }
 
-    private func draw(_ ctx: GraphicsContext, _ size: CGSize, _ time: Double) {
-        func r(_ i: Int, _ k: Double) -> Double {
-            let v = sin(Double(i) * 12.9898 + k * 78.233) * 43758.5453
-            return v - floor(v)
-        }
-        func frac(_ v: Double) -> Double { v - floor(v) }
-        for i in 0 ..< count {
-            let x0 = size.width * CGFloat(r(i, 1))
-            var x = x0, y: CGFloat, rad: CGFloat, a: Double
-            switch style {
-            case .sparks:
-                // Rising, quick, swaying a little; brightest mid-way.
-                let p = frac(time * (0.12 + 0.16 * r(i, 2)) + r(i, 3))
-                x += CGFloat(sin(time * 2 + Double(i)) * 8 * p)
-                y = size.height * CGFloat(1 - p)
-                rad = CGFloat(1 + 1.8 * r(i, 4)) * CGFloat(1 - p * 0.5)
-                a = sin(Double.pi * p)
-            case .motes:
-                // Floating slowly sideways and up, like dust in light.
-                let p = frac(time * (0.03 + 0.05 * r(i, 2)) + r(i, 3))
-                x = size.width * CGFloat(frac(r(i, 1) + p * 0.35)) + CGFloat(sin(time * 0.7 + Double(i)) * 6)
-                y = size.height * CGFloat(frac(r(i, 5) - p * 0.4))
-                rad = CGFloat(1.2 + 2.2 * r(i, 4))
-                a = 0.75 * sin(Double.pi * p)
-            case .dust:
-                // Drifting down, each twinkling on its own beat.
-                let p = frac(time * (0.04 + 0.05 * r(i, 2)) + r(i, 3))
-                x += CGFloat(sin(time * 0.9 + Double(i)) * 10)
-                y = size.height * CGFloat(p)
-                rad = CGFloat(0.8 + 1.6 * r(i, 4))
-                a = (0.35 + 0.65 * pow(max(0, sin(time * (1.5 + r(i, 6)) + Double(i))), 3)) * sin(Double.pi * p)
-            }
-            ctx.fill(Path(ellipseIn: CGRect(x: x - rad * 3, y: y - rad * 3, width: rad * 6, height: rad * 6)), with: .color(color.opacity(0.16 * a)))
-            ctx.fill(Path(ellipseIn: CGRect(x: x - rad, y: y - rad, width: rad * 2, height: rad * 2)), with: .color(color.opacity(a)))
-        }
+    var kind: Kind
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.pageHidden) private var pageHidden
+
+    func makeUIView(context: Context) -> EmitterHost {
+        let v = EmitterHost()
+        v.configure(kind)
+        return v
     }
+
+    func updateUIView(_ v: EmitterHost, context: Context) {
+        if v.kind != kind { v.configure(kind) }
+        v.still = reduceMotion
+        v.hiddenPage = pageHidden
+    }
+
+    final class EmitterHost: UIView {
+        private let emitter = CAEmitterLayer()
+        fileprivate var kind: Kind?
+        var still = false { didSet { refresh() } }
+        var hiddenPage = false { didSet { refresh() } }
+
+        override init(frame: CGRect) {
+            super.init(frame: frame)
+            isUserInteractionEnabled = false
+            backgroundColor = .clear
+            layer.addSublayer(emitter)
+            NotificationCenter.default.addObserver(self, selector: #selector(refresh), name: .sheetCoverChanged, object: nil)
+        }
+        required init?(coder: NSCoder) { fatalError() }
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            emitter.frame = bounds
+            place()
+        }
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            refresh()
+        }
+
+        /// Running only when on screen, not under a sheet and not on a page kept out of sight.
+        @objc func refresh() {
+            let run = window != nil && !hiddenPage && !SheetCover.shared.isOpen
+            // Reduce Motion: the particles hold still where they are.
+            emitter.speed = run && !still ? 1 : 0
+            emitter.birthRate = run || still ? 1 : 0
+        }
+
+        fileprivate func configure(_ k: Kind) {
+            kind = k
+            let cell = CAEmitterCell()
+            cell.contents = Self.dot.cgImage
+            cell.scale = 0.5
+            cell.scaleRange = 0.35
+            switch k {
+            case let .rise(c, count):
+                cell.color = c.cgColor
+                cell.lifetime = 4.5
+                cell.birthRate = Float(count) / 4.5
+                cell.velocity = 22; cell.velocityRange = 10
+                cell.emissionLongitude = -.pi / 2; cell.emissionRange = .pi / 10
+                cell.xAcceleration = 0
+                cell.alphaRange = 0.3; cell.alphaSpeed = -0.18
+                cell.scaleSpeed = -0.06
+            case let .drift(c, count):
+                cell.color = c.withAlphaComponent(0.8).cgColor
+                cell.lifetime = 9
+                cell.birthRate = Float(count) / 9
+                cell.velocity = 8; cell.velocityRange = 5
+                cell.emissionLongitude = -.pi / 3; cell.emissionRange = .pi / 2
+                cell.alphaRange = 0.4; cell.alphaSpeed = -0.08
+            case let .fall(c, count):
+                cell.color = c.cgColor
+                cell.lifetime = 10
+                cell.birthRate = Float(count) / 10
+                cell.velocity = 10; cell.velocityRange = 5
+                cell.emissionLongitude = .pi / 2; cell.emissionRange = .pi / 8
+                cell.alphaRange = 0.5; cell.alphaSpeed = -0.07
+                cell.scale = 0.38
+                // A slow spin of a glow-shaped dot reads as a gentle twinkle.
+                cell.spinRange = 2
+            case .embers:
+                cell.color = UIColor(red: 1, green: 0.55, blue: 0.15, alpha: 1).cgColor
+                cell.greenRange = 0.25; cell.blueRange = 0.1
+                cell.lifetime = 4
+                cell.birthRate = 7
+                cell.velocity = 30; cell.velocityRange = 14
+                cell.emissionLongitude = -.pi / 2; cell.emissionRange = .pi / 8
+                cell.alphaSpeed = -0.22
+                cell.scaleSpeed = -0.08
+            case .snow:
+                cell.color = UIColor.white.withAlphaComponent(0.9).cgColor
+                cell.lifetime = 9
+                cell.birthRate = 4
+                cell.velocity = 14; cell.velocityRange = 6
+                cell.emissionLongitude = .pi / 2; cell.emissionRange = .pi / 6
+                cell.alphaRange = 0.4; cell.alphaSpeed = -0.06
+                cell.scale = 0.4
+            }
+            emitter.emitterCells = [cell]
+            emitter.renderMode = .additive
+            // Begun a lifetime ago, so the view starts full instead of filling up.
+            emitter.beginTime = CACurrentMediaTime() - Double(cell.lifetime)
+            place()
+            refresh()
+        }
+
+        /// Where the particles start: a line along the bottom (rising) or the top (falling), the
+        /// whole area for drifting motes.
+        private func place() {
+            guard let kind else { return }
+            let b = bounds
+            switch kind {
+            case .rise, .embers:
+                emitter.emitterShape = .line
+                emitter.emitterPosition = CGPoint(x: b.midX, y: b.maxY + 4)
+                emitter.emitterSize = CGSize(width: b.width * 0.85, height: 1)
+            case .fall, .snow:
+                emitter.emitterShape = .line
+                emitter.emitterPosition = CGPoint(x: b.midX, y: b.minY - 4)
+                emitter.emitterSize = CGSize(width: b.width, height: 1)
+            case .drift:
+                emitter.emitterShape = .rectangle
+                emitter.emitterPosition = CGPoint(x: b.midX, y: b.midY)
+                emitter.emitterSize = b.size
+            }
+        }
+
+        /// One soft dot: a bright core and a glow around it, drawn once and shared.
+        static let dot: UIImage = {
+            let size = CGSize(width: 16, height: 16)
+            return UIGraphicsImageRenderer(size: size).image { ctx in
+                let c = ctx.cgContext
+                let colors = [UIColor.white.cgColor, UIColor.white.withAlphaComponent(0.35).cgColor, UIColor.white.withAlphaComponent(0).cgColor] as CFArray
+                if let g = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 0.25, 1]) {
+                    c.drawRadialGradient(g, startCenter: CGPoint(x: 8, y: 8), startRadius: 0, endCenter: CGPoint(x: 8, y: 8), endRadius: 8, options: [])
+                }
+            }
+        }()
+    }
+}
+
+extension Notification.Name {
+    /// A glass sheet went up or down (see SheetCover): particles pause under one.
+    static let sheetCoverChanged = Notification.Name("sheetCoverChanged")
 }
 
 /// A one-off burst of sparks from the middle, each time `trigger` changes (about 0.8s, then

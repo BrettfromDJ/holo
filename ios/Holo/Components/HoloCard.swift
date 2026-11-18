@@ -36,8 +36,8 @@ struct HoloCard<Content: View>: View {
             if drifts && !reduceMotion {
                 // One clock: the slow tilt and the light's sweep. Paused while you hold it (the
                 // same view throughout, so a drag is never interrupted).
-                // 30 a second is plenty for a slow drift (it was every frame, up to 120).
-                TimelineView(.animation(minimumInterval: 1.0 / 30, paused: touch != nil || !onScreen)) { context in
+                // 60 a second: smooth (30 looked steppy); not the 120 of the fastest screens.
+                TimelineView(.animation(minimumInterval: 1.0 / 60, paused: touch != nil || !onScreen)) { context in
                     let c = context.date.timeIntervalSinceReferenceDate
                     let idle = CGPoint(x: cos(c * 0.45) * 0.545, y: -sin(c * 0.6) * 0.5)
                     card(lean: touch ?? idle, sweep: touch == nil ? sin(c * 0.6) : nil)

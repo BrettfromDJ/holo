@@ -88,8 +88,8 @@ struct MarketPulse: View {
     }
 
     private func moving(_ ticks: [Tick], seconds: Double) -> some View {
-        // 30 frames a second is smooth for a slow crawl, and half the work of the screen's full rate.
-        TimelineView(.animation(minimumInterval: 1 / 30, paused: reduceMotion || rowWidth == 0 || !onScreen)) { context in
+        // 60 frames a second: a slow crawl at 30 looked steppy.
+        TimelineView(.animation(minimumInterval: 1 / 60, paused: reduceMotion || rowWidth == 0 || !onScreen)) { context in
             let t = context.date.timeIntervalSinceReferenceDate
             let shift = reduceMotion || rowWidth == 0 ? 0 : CGFloat(t.truncatingRemainder(dividingBy: seconds) / seconds) * rowWidth
             TickerRows(ticks: ticks)

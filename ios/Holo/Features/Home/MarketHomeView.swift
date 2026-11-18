@@ -475,15 +475,10 @@ private struct LightRays: View {
 /// Embers rising (fire) or snow falling (ice), the week recap's particles, only while on screen.
 private struct TileParticles: View {
     var hot: Bool
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var onScreen = true
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion || !onScreen)) { context in
-            RecapParticles(theme: hot ? .fire : .ice, time: reduceMotion ? 3 : context.date.timeIntervalSinceReferenceDate)
-        }
-        .allowsHitTesting(false)
-        .onVisibilityChange { visible in if visible != onScreen { onScreen = visible } }
+        // iOS's own particles: smooth at the screen's full rate, no work per frame here.
+        ParticleEmitter(kind: hot ? .embers : .snow)
     }
 }
 
