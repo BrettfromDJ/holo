@@ -188,6 +188,12 @@ struct ProductDetailView: View {
         .task(id: productId) {
             if chosenPrinting == nil { chosenPrinting = store.takeOpenPrinting(productId) }
             await store.showCatalogProduct(productId)
+            // The cards either side, fetched now so the arrows open them at once (one quick read
+            // of our own catalog each; already-loaded ones are skipped).
+            if let n = sequence.neighbours(of: productId) {
+                if let id = n.next { await store.showCatalogProduct(id) }
+                if let id = n.previous { await store.showCatalogProduct(id) }
+            }
             // Then the full price history, if Holo doesn't have it yet (like the website).
             await store.loadFullHistory(productId, printing: printing)
         }
@@ -196,16 +202,13 @@ struct ProductDetailView: View {
     // MARK: Next and previous
 
     /// Arrows either side of the picture: the previous and next card in the list this page was
-    /// opened from (a set, search results, a row on Home…), with where you are under the next one.
+    /// opened from (a set, search results, a row on Home…).
     @ViewBuilder private var pager: some View {
         if let n = sequence.neighbours(of: productId) {
             HStack {
                 arrow("chevron.left", to: n.previous, label: "Previous card")
                 Spacer()
-                VStack(spacing: 6) {
-                    arrow("chevron.right", to: n.next, label: "Next card")
-                    Text("\(n.place) of \(n.count)").font(.mono(10)).foregroundStyle(Theme.muted).monospacedDigit()
-                }
+                arrow("chevron.right", to: n.next, label: "Next card")
             }
             .padding(.horizontal, -4)
         }
@@ -388,7 +391,8 @@ struct ProductDetailView: View {
 
     private var titleBlock: some View {
         VStack(alignment: .leading, spacing: 0) {
-            DisplayText(text: (product?.name ?? "Loading…"), size: 34)
+            // Until the name arrives, the space it takes stays empty (no "Loading…" flashing by).
+            DisplayText(text: product?.name ?? " ", size: 34)
                 .frame(maxWidth: .infinity, alignment: .leading)
             // The set's name opens the set (when the catalog has it), then number and printing.
             HStack(spacing: 6) {
