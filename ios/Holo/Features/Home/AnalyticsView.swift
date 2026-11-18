@@ -136,28 +136,10 @@ struct AnalyticsView: View {
 
     private var activity: some View {
         let months = Array(Analytics.monthlyActivity(store.portfolioTransactions, today: today).suffix(12))
-        let biggest = months.max { $0.invested < $1.invested }
         return VStack(alignment: .leading, spacing: 16) {
             MoreHeading(title: "Investment activity", subtitle: "Money invested per month, incl. fees")
-            VStack(alignment: .leading, spacing: 12) {
-                if let biggest, biggest.invested > 0 {
-                    // A key for the bar colours: lime is the biggest month, blue the others.
-                    HStack(spacing: 6) {
-                        RoundedRectangle(cornerRadius: 2).fill(Theme.lime).frame(width: 10, height: 10)
-                        (Text("Biggest month: ").foregroundColor(Theme.muted)
-                         + Text(biggest.date.formatted(.dateTime.month(.wide).year())).foregroundColor(.white)
-                         + Text(" · ").foregroundColor(Theme.muted)
-                         + Text(Format.money(biggest.invested)).foregroundColor(.white))
-                            .font(.geist(13, .medium)).monospacedDigit()
-                    }
-                    HStack(spacing: 6) {
-                        RoundedRectangle(cornerRadius: 2).fill(Theme.planBlue).frame(width: 10, height: 10)
-                        Text("Other months").font(.geist(13, .medium)).foregroundStyle(Theme.muted)
-                    }
-                    .padding(.top, -6)
-                }
-                GrowingBars(months: months, highlight: biggest?.month)
-            }
+            // Every month the same color: no month singled out.
+            GrowingBars(months: months, highlight: nil)
             .surface(radius: 16, padding: 16)
         }
     }
@@ -465,7 +447,7 @@ private struct GrowingBars: View {
     var body: some View {
         Chart(months) { m in
             BarMark(x: .value("Month", m.date, unit: .month), y: .value("Invested", m.invested * (grown || reduceMotion ? 1 : 0.02)))
-                .foregroundStyle(m.month == highlight ? Theme.lime : Theme.planBlue)
+                .foregroundStyle(highlight == nil || m.month == highlight ? Theme.lime : Theme.planBlue)
                 .cornerRadius(4)
         }
         .chartYScale(domain: 0...max(1, (months.map(\.invested).max() ?? 1) * 1.1))
@@ -677,9 +659,9 @@ private struct TypeBreakdown: View {
 
     var body: some View {
         if !groups.isEmpty {
-            let top = max(groups.map(\.value).max() ?? 1, 1)
+            let total = max(groups.reduce(0) { $0 + $1.value }, 1)
             VStack(alignment: .leading, spacing: 16) {
-                MoreHeading(title: "By product type", subtitle: "Bar: what it's worth. Dashed outline: what you paid.")
+                MoreHeading(title: "By product type", subtitle: "What each kind is worth, its share of your collection, and what you paid")
                 VStack(alignment: .leading, spacing: 16) {
                     ForEach(Array(groups.enumerated()), id: \.element.id) { i, g in
                         VStack(alignment: .leading, spacing: 7) {
@@ -689,13 +671,15 @@ private struct TypeBreakdown: View {
                                 Text(Format.money(g.value)).font(.geist(14, .semibold)).monospacedDigit()
                                 DeltaPill(ratio: g.ret, size: 11)
                             }
-                            GrowBar(fraction: g.value / top, color: (g.ret ?? 0) < 0 ? Theme.planPink : Theme.planBlue, height: 9, delay: Double(i) * 0.06)
-                                .overlay(alignment: .leading) {
-                                    GeometryReader { geo in
-                                        Capsule().strokeBorder(Color.white.opacity(0.55), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
-                                            .frame(width: max(9, geo.size.width * min(g.cost, top) / top))
-                                    }
-                                }
+                            // The bar: its share of everything you own.
+                            GrowBar(fraction: g.value / total, color: Theme.planBlue, height: 8, delay: Double(i) * 0.06)
+                            HStack(spacing: 4) {
+                                Text("\(Int((g.value / total * 100).rounded()))% of your collection").foregroundStyle(Theme.muted)
+                                Spacer(minLength: 8)
+                                Text("Paid \(Format.money(g.cost))").foregroundStyle(Theme.muted)
+                                Text(Format.signedMoney(g.value - g.cost)).foregroundStyle(Theme.tone(g.value - g.cost)).fontWeight(.semibold)
+                            }
+                            .font(.geist(12)).monospacedDigit().lineLimit(1)
                         }
                     }
                 }

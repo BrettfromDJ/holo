@@ -20,6 +20,8 @@ struct MasterSetsView: View {
     /// The search, handed over by the field a moment after typing stops (so typing doesn't
     /// rebuild the deck on every key).
     @State private var query = ""
+    /// The search field, opened from the search icon at the top right.
+    @State private var searching = false
     /// The brand shown (a game's slug from the catalog); Pokémon to start, remembered after.
     @AppStorage("master-sets-brand") private var brand = "pokemon"
 
@@ -129,6 +131,15 @@ struct MasterSetsView: View {
         .navigationBarTitleDisplayMode(.inline)
         // The title is in the page (big, with the card fan), so the bar stays clear.
         .toolbarBackground(.hidden, for: .navigationBar)
+        // Search sits behind an icon at the top right; the field opens under the stats.
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { withAnimation(.snappy) { searching.toggle() }; if !searching { query = "" } } label: {
+                    Image(systemName: searching ? "xmark" : "magnifyingglass")
+                }
+                .accessibilityLabel(searching ? "Close search" : "Search sets")
+            }
+        }
         .clearTopEdge()
         .task {
             // The set list saved last time first (art starts loading at once), then the fresh one.
@@ -208,20 +219,26 @@ struct MasterSetsView: View {
 
     private var controls: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if searching {
+                HStack(spacing: 10) {
+                    SettledSearchField(prompt: "Search sets", settled: $query, delay: 0.3, autoFocus: true)
+                    Button("Cancel") { query = ""; withAnimation(.snappy) { searching = false } }
+                        .font(.geist(16, .medium)).foregroundStyle(Theme.lime)
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
             HStack(spacing: 10) {
-                SettledSearchField(prompt: "Search sets", settled: $query, delay: 0.3)
+                ChipPicker(options: Scope.allCases.map { ($0, $0.rawValue) }, selection: $scope)
+                Spacer(minLength: 0)
+                brandMenu
                 Menu {
                     Picker("Sort", selection: $sort) {
                         ForEach(Sort.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                     }
                 } label: { Image(systemName: "arrow.up.arrow.down") }
                     .menuStyle(.button)
-                    .buttonStyle(IconButton3D(size: 46))
-            }
-            HStack(spacing: 10) {
-                ChipPicker(options: Scope.allCases.map { ($0, $0.rawValue) }, selection: $scope)
-                Spacer(minLength: 0)
-                brandMenu
+                    .buttonStyle(IconButton3D(size: 44))
+                    .accessibilityLabel("Sort")
             }
         }
     }

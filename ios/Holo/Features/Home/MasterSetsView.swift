@@ -579,11 +579,14 @@ struct SettledSearchField: View {
     @Binding var settled: String
     /// How long to wait after the last key.
     var delay: Double = 0.25
+    /// Put the keyboard up as it appears (a field opened from a search icon).
+    var autoFocus = false
     @State private var text = ""
     @FocusState private var focused: Bool
 
     var body: some View {
         HoloSearchField(text: $text, prompt: prompt, focus: $focused)
+            .onAppear { if autoFocus { text = settled; focused = true } }
             .task(id: text) {
                 if !text.isEmpty, delay > 0 { try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000)) }
                 guard !Task.isCancelled, settled != text else { return }

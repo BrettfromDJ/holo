@@ -193,8 +193,6 @@ struct ActivityView: View {
             PageHeader(title: "Activity", subtitle: count == 1 ? "1 purchase or sale" : "\(count) purchases and sales", size: 40)
                 .padding(.top, 8)
             VStack(alignment: .leading, spacing: 10) {
-                ChipPicker(options: [(false, "All time"), (true, "This year")], selection: $thisYear)
-                    .fixedSize()
                 HStack(spacing: 8) {
                     GlassStat(label: "Bought", value: Format.money(thisYear ? m.base.yearBought : m.bought))
                     GlassStat(label: "Sold", value: Format.money(thisYear ? m.base.yearSold : m.sold))
