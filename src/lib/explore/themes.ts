@@ -4,7 +4,7 @@ import type { ExploreProduct } from "./types";
  * Home's themed collections ("Skyridge holos", "Charizard through the years"…): rules over our
  * own catalog, not hand-made lists, so they fill themselves and keep up with new sets. Home
  * picks a few each time the app opens, leaning toward what you collect. Each has a look, so no
- * two sections on Home look the same. New ones are added here, and Claude proposes a few more
+ * two sections on Home look the same. New ones are added here, and AI (OpenAI) proposes a few more
  * each week (`theme-ideas.ts`) in the same shape.
  */
 export type ThemeLook = "billboard" | "fan" | "timeline" | "mosaic" | "ladder" | "spotlight";
@@ -29,7 +29,7 @@ export interface ThemeRule {
   /** The Pokémon it's about, to lean it toward people who collect them. */
   pokemon?: string[];
   era?: "vintage" | "midEra" | "modern";
-  /** Claude's idea this week (shown with a New tag). */
+  /** AI's idea this week (shown with a New tag). */
   fresh?: boolean;
 }
 

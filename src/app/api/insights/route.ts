@@ -4,8 +4,8 @@ import { getAdminSupabase } from "@/lib/supabase/server";
 
 /**
  * GET /api/insights — Home's daily insights ("Today in the hobby" and a line on why each
- * highlighted card moved), written by Claude once a day and saved. Empty without
- * ANTHROPIC_API_KEY.
+ * highlighted card moved), written by AI (OpenAI) once a day and saved. Empty without
+ * OPENAI_API_KEY.
  */
 export async function GET() {
   const admin = getAdminSupabase();

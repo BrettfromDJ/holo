@@ -181,15 +181,16 @@ and say exactly what to run or click.
   `public/cards/pokemon/<dir>/<number>.webp`, listed in `src/lib/unlimited-art-manifest.json`
   and the same list in `Editions.unlimitedArt` (keep both in step). Done: Base Set (no #8), Jungle, Fossil, Team Rocket, Gym Heroes, Gym Challenge, Neo Genesis, Neo Discovery, Neo Revelation, Neo Destiny.
 - Dexora Pro (test mode, app only so far): `Features/Pro/Pro.swift`. Free: whole collection, 20 scans a month, 30 days of price history, 2 lists, 1 portfolio (Main), 3 alerts, 2 master sets; Pro unlocks the rest plus eBay comps, Grading and Analytics. Pro page `ProSheet`, locks `ProOnly` / `EbayLockedPanel` / `.proPaywall`. "Start free trial" only turns `Pro.shared.isPro` on for the phone; real purchases (Apple + Stripe, one Pro for app and website) come later. Demos count as Pro.
-- Home insights (Claude): `src/lib/server/insights.ts` writes "Today in the hobby" and a line per
-  highlighted card once a day from `exploreMarket` (model `claude-opus-5-5`, low effort, JSON
-  output, saved in `api_cache` as `insights:<day>`), served at `/api/insights`; the app shows them
-  on Home (`HobbyBriefing`, Card of the day's line; `MarketInsights`, kept on the phone). Needs
-  `ANTHROPIC_API_KEY` in Vercel (server only; never in the app); without it Home shows none.
+- Home insights (AI, OpenAI by the owner's choice): `src/lib/server/ai.ts` is the one place that
+  calls it (`aiJson`, Chat Completions with a strict JSON schema; `OPENAI_API_KEY` in Vercel only,
+  never in the app; `OPENAI_MODEL` optional, default `gpt-5-mini`). `insights.ts` writes "Today in
+  the hobby" and a line per highlighted card once a day from `exploreMarket` (saved in `api_cache`
+  as `insights:<day>`), served at `/api/insights`; the app shows them on Home (`HobbyBriefing`,
+  Card of the day's line; `MarketInsights`, kept on the phone). Without the key Home shows none.
 - Home's themed collections (Netflix-style rows): rules in `src/lib/explore/themes.ts` (about 30:
   Skyridge holos, Charizard through the years, Every price of Gengar…), filled from our own catalog
   by `src/lib/server/themes.ts` (saved a day per theme in `api_cache`), served at `/api/themes`;
-  Claude proposes 5 more each week (`theme-ideas:<monday>`, needs `ANTHROPIC_API_KEY`). The app
+  AI proposes 5 more each week (`theme-ideas:<monday>`, via `ai.ts`, needs `OPENAI_API_KEY`). The app
   (`Features/Home/Themes.swift`) shows 4 per launch between Home's lists, a new mix each open,
   weighted toward your favourite Pokémon and era, never two of one look (billboard, fan, timeline,
   mosaic, ladder, spotlight); each opens `ThemePage`. New themes: add a rule. For you keeps only

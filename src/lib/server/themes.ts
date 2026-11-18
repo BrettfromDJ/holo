@@ -1,7 +1,7 @@
-import Anthropic from "@anthropic-ai/sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { THEMES, THEME_LOOKS, orList, pickFor, type Theme, type ThemeRule } from "../explore/themes";
 import type { Database, ProductRow } from "../supabase/database.types";
+import { aiEnabled, aiJson } from "./ai";
 import { dbCached } from "./api-cache";
 import { withPrices } from "./explore";
 
@@ -38,7 +38,7 @@ async function themeCards(admin: SupabaseClient<Database>, rule: ThemeRule, day:
 }
 
 /**
- * Every theme with its cards (ours plus this week's ideas from Claude). Themes not saved yet are
+ * Every theme with its cards (ours plus this week's ideas from AI). Themes not saved yet are
  * filled a few at a time within a time budget; the rest fill on the next ask, so this never
  * keeps the app waiting long.
  */
@@ -55,9 +55,7 @@ export async function themes(admin: SupabaseClient<Database>): Promise<Theme[]> 
   return out;
 }
 
-// MARK: New themes from Claude, once a week
-
-const MODEL = "claude-opus-5-5";
+// MARK: New themes from AI (OpenAI, see ai.ts), once a week
 
 const SYSTEM = `You curate themed collections of Pokémon cards for Dexora, a collection app. Each theme is a rule over a card catalog (English and Japanese Pokémon TCG cards with their set names, card names, rarities, numbers and market prices).
 Propose new themes that collectors would find fun to browse: a Pokémon or group of Pokémon, an era, a set or subset, an art style shown by rarity, a price band. Make them different from the existing titles you're given. Prefer well-known Pokémon, sets and subsets that surely exist in the catalog.
@@ -97,27 +95,21 @@ function weekOf(d = new Date()): string {
   return m.toISOString().slice(0, 10);
 }
 
-/** This week's new themes from Claude (none without ANTHROPIC_API_KEY). One request a week. */
+/** This week's new themes from AI (none without OPENAI_API_KEY). One request a week. */
 export async function themeIdeas(): Promise<ThemeRule[]> {
-  if (!process.env.ANTHROPIC_API_KEY) return [];
+  if (!aiEnabled()) return [];
   const week = weekOf();
   return dbCached<ThemeRule[]>(
     `theme-ideas:${week}`,
     async () => {
       try {
-        const client = new Anthropic();
-        const response = await client.beta.messages.create({
-          model: MODEL,
-          max_tokens: 16000,
-          output_config: { effort: "low", format: { type: "json_schema", schema: SCHEMA } },
-          betas: ["server-side-fallback-2026-07-01"],
-          fallbacks: "default",
-          system: SYSTEM,
-          messages: [{ role: "user", content: `Existing themes:\n${THEMES.map((t) => `- ${t.title}`).join("\n")}\n\nPropose 5 new themes for the week of ${week}.` }],
-        });
-        if (response.stop_reason === "refusal") return [];
-        const text = response.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
-        const parsed = JSON.parse(text) as { themes: (Omit<ThemeRule, "id"> & { look: string })[] };
+        const parsed = await aiJson<{ themes: (Omit<ThemeRule, "id"> & { look: string })[] }>(
+          "new_themes",
+          SYSTEM,
+          `Existing themes:\n${THEMES.map((t) => `- ${t.title}`).join("\n")}\n\nPropose 5 new themes for the week of ${week}.`,
+          SCHEMA,
+        );
+        if (!parsed) return [];
         return (parsed.themes ?? [])
           .filter((t) => THEME_LOOKS.includes(t.look as never) && t.title.trim() && (t.names?.length || t.sets?.length || t.numbers?.length))
           .slice(0, 5)

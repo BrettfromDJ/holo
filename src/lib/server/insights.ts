@@ -1,18 +1,18 @@
-import Anthropic from "@anthropic-ai/sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ExploreMover } from "../explore/movers";
 import type { Database } from "../supabase/database.types";
+import { aiEnabled, aiJson } from "./ai";
 import { dbCached } from "./api-cache";
 import { exploreMarket } from "./explore";
 
 /**
- * Home's daily insights, written by Claude once a day from the prices Dexora stores and saved
+ * Home's daily insights, written by AI (OpenAI, see ai.ts) once a day from the prices Dexora stores and saved
  * (the same text for everyone, so it's cheap and never makes the app wait):
  * - `briefing`: "Today in the hobby", two or three plain sentences on what's moving;
  * - `reasons`: one short line per highlighted card (Card of the day, Heating up, Cooling off),
  *   keyed by product id, saying what the numbers show.
- * Claude only ever sees our own figures and is told not to invent any. Without
- * ANTHROPIC_API_KEY (set in Vercel) there are simply no insights.
+ * The AI only ever sees our own figures and is told not to invent any. Without
+ * OPENAI_API_KEY (set in Vercel) there are simply no insights.
  */
 export interface MarketInsights {
   day: string;
@@ -20,7 +20,6 @@ export interface MarketInsights {
   reasons: Record<string, string>;
 }
 
-const MODEL = "claude-opus-5-5";
 const HOUR = 60 * 60 * 1000;
 
 const SYSTEM = `You write the daily market notes for Dexora, a Pokémon card collection app.
@@ -65,7 +64,7 @@ function fact(m: ExploreMover) {
 export async function marketInsights(admin: SupabaseClient<Database>): Promise<MarketInsights> {
   const day = new Date().toISOString().slice(0, 10);
   const empty: MarketInsights = { day, briefing: null, reasons: {} };
-  if (!process.env.ANTHROPIC_API_KEY) return empty;
+  if (!aiEnabled()) return empty;
   return dbCached<MarketInsights>(
     `insights:${day}`,
     async () => {
@@ -100,21 +99,8 @@ export async function marketInsights(admin: SupabaseClient<Database>): Promise<M
 }
 
 async function write(day: string, data: unknown, ids: Set<string>): Promise<MarketInsights> {
-  const client = new Anthropic();
-  const response = await client.beta.messages.create({
-    model: MODEL,
-    max_tokens: 16000,
-    // Short summaries from given figures: low effort is plenty.
-    output_config: { effort: "low", format: { type: "json_schema", schema: SCHEMA } },
-    // If the request is ever declined, the API retries it on a fallback model.
-    betas: ["server-side-fallback-2026-07-01"],
-    fallbacks: "default",
-    system: SYSTEM,
-    messages: [{ role: "user", content: `Today's figures:\n${JSON.stringify(data)}` }],
-  });
-  if (response.stop_reason === "refusal") return { day, briefing: null, reasons: {} };
-  const text = response.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
-  const parsed = JSON.parse(text) as { briefing: string; reasons: { id: string; line: string }[] };
+  const parsed = await aiJson<{ briefing: string; reasons: { id: string; line: string }[] }>("market_notes", SYSTEM, `Today's figures:\n${JSON.stringify(data)}`, SCHEMA);
+  if (!parsed) return { day, briefing: null, reasons: {} };
   const reasons: Record<string, string> = {};
   // Only lines for cards we asked about, kept short.
   for (const r of parsed.reasons ?? []) if (ids.has(r.id) && r.line.trim()) reasons[r.id] = r.line.trim().slice(0, 140);
