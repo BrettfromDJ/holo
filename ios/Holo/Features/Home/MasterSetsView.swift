@@ -126,16 +126,14 @@ struct MasterSetDetailView: View {
                         .padding(.horizontal, -16)
                         .padding(.bottom, 6)
                     HStack(spacing: 8) {
-                        StatTile(label: "Owned", value: Double(ownedCount), tint: Theme.lime)
+                        // How far along sits in the Owned tile (count /total and a thin bar), not a
+                        // panel of its own, so the cards start higher.
+                        StatTile(label: "Owned", value: Double(ownedCount), tint: Theme.lime,
+                                 of: checklists[current.id] != nil && !entries.isEmpty ? entries.count : nil)
                         StatTile(label: "Your value", value: ownedValue, money: true)
                         StatTile(label: unpriced > 0 ? "To finish*" : "To finish", value: missingValue, money: true)
                     }
-                    if checklists[current.id] != nil, !entries.isEmpty {
-                        VStack(alignment: .leading, spacing: 10) {
-                            if complete { SkewTag(text: "Set complete", icon: "checkmark") }
-                            OwnedProgress(owned: ownedCount, total: entries.count, noun: "cards")
-                        }
-                    }
+                    if complete { SkewTag(text: "Set complete", icon: "checkmark") }
                     chase(entries)
                         .cardSequence(entries.filter { ($0.hit.market ?? 0) > 0 }.sorted { ($0.hit.market ?? 0) > ($1.hit.market ?? 0) }.prefix(6).map(\.hit.product.id))
                 } else {

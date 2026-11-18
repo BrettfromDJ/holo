@@ -1073,17 +1073,35 @@ struct StatTile: View {
     var value: Double
     var money = false
     var tint: Color = .white
+    /// Out of how many ("42 /120"), with a thin bar along the tile's foot (a master set's Owned).
+    var of: Int? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             MonoLabel(text: label).lineLimit(1).minimumScaleFactor(0.8)
-            CountingText(value: value, format: { money ? Self.money($0) : Self.count($0) })
-                .font(.display(28)).tracking(-0.7).monospacedDigit().foregroundStyle(tint)
-                .lineLimit(1).minimumScaleFactor(0.6).displayTrim(28)
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                CountingText(value: value, format: { money ? Self.money($0) : Self.count($0) })
+                    .font(.display(28)).tracking(-0.7).monospacedDigit().foregroundStyle(tint)
+                    .lineLimit(1).minimumScaleFactor(0.6).displayTrim(28)
+                if let of { Text("/\(of)").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted).lineLimit(1).fixedSize() }
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .bottom) {
+            if let of, of > 0 {
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.white.opacity(0.1))
+                        Capsule().fill(tint).frame(width: max(3, geo.size.width * min(1, value / Double(of))))
+                    }
+                }
+                .frame(height: 3)
+                .padding(.horizontal, 14)
+                .padding(.bottom, 6)
+            }
+        }
         .liquidGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
