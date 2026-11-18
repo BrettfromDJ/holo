@@ -560,11 +560,11 @@ private struct YourCollectionStrip: View {
             // the month's color behind the chart.
             .padding(.vertical, 6)
             .background(alignment: .bottom) {
-                // Fades to nothing inside its own frame (radius under the height), widened sideways:
-                // no edge at the top.
-                RadialGradient(colors: [tint.opacity(0.14), .clear], center: .bottom, startRadius: 0, endRadius: 150)
-                    .frame(height: 170)
-                    .scaleEffect(x: 1.8, y: 1, anchor: .bottom)
+                // Centred behind the chart and fading to nothing inside its own frame on every side
+                // (radius half the height), widened sideways: no hard edge at the top or bottom.
+                RadialGradient(colors: [tint.opacity(0.16), .clear], center: .center, startRadius: 0, endRadius: 80)
+                    .frame(height: 160)
+                    .scaleEffect(x: 2.2, y: 1, anchor: .center)
                     .allowsHitTesting(false)
             }
             .contentShape(Rectangle())
