@@ -110,8 +110,18 @@ final class ForYouModel {
             for s in index.sets { if let d = s.releaseDate { released[s.name] = d } }
             era = CollectorTaste.era(holdings, released: released)
             let eras = index.eras ?? MarketEras()
-            let byEra = era == "vintage" ? eras.vintage : era == "midEra" ? eras.midEra : era == "modern" ? eras.modern : []
-            let pool = byEra + (index.today ?? []) + (index.trending ?? []) + eras.modern + eras.midEra + eras.vintage
+            var pool: [SearchHit] = []
+            switch era {
+            case "vintage": pool = eras.vintage
+            case "midEra": pool = eras.midEra
+            case "modern": pool = eras.modern
+            default: break
+            }
+            pool += index.today ?? []
+            pool += index.trending ?? []
+            pool += eras.modern
+            pool += eras.midEra
+            pool += eras.vintage
             var seen = Set<String>()
             inRange = Array(pool.filter { hit in
                 guard !hit.product.isSealed, !owned.contains(hit.product.id), let m = hit.market, m > 0, seen.insert(hit.product.id).inserted else { return false }
@@ -131,8 +141,13 @@ final class ForYouModel {
                 let fresh = hits.filter { !$0.product.isSealed && !owned.contains($0.product.id) && ($0.market ?? 0) > 0
                     && CollectorTaste.pokemon(in: $0.product.name) == t.name }
                 // Closest to what you usually pay first; without that, the best first.
-                let sorted = usual.map { u in fresh.sorted { abs(log(($0.market ?? 1) / u)) < abs(log(($1.market ?? 1) / u)) } }
-                    ?? fresh.sorted { ($0.market ?? 0) > ($1.market ?? 0) }
+                func distance(_ hit: SearchHit, _ u: Double) -> Double { abs(log((hit.market ?? 1) / u)) }
+                let sorted: [SearchHit]
+                if let u = usual {
+                    sorted = fresh.sorted { distance($0, u) < distance($1, u) }
+                } else {
+                    sorted = fresh.sorted { ($0.market ?? 0) > ($1.market ?? 0) }
+                }
                 picks = Array(sorted.prefix(10))
             }
         } else {

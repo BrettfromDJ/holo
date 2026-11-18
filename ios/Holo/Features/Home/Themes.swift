@@ -93,7 +93,11 @@ final class ThemesModel {
     static func stand(in index: ExploreIndex?) -> [MarketTheme] {
         guard let index else { return [] }
         let trending = index.trending ?? [], eras = index.eras ?? MarketEras()
-        let everything = trending + (index.today ?? []) + eras.modern + eras.midEra + eras.vintage
+        var everything: [SearchHit] = trending
+        everything += index.today ?? []
+        everything += eras.modern
+        everything += eras.midEra
+        everything += eras.vintage
         var seen = Set<String>()
         let unique = everything.filter { $0.market != nil && seen.insert($0.product.id).inserted }
         var bySet: [String: SearchHit] = [:]
