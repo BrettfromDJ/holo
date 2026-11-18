@@ -46,7 +46,10 @@ struct MarketHomeView: View {
                         // A little room under its chart, so Card of the day doesn't cut the chart's bottom off.
                         YourCollectionStrip().padding(.horizontal, 16).padding(.bottom, -10)
                     }
-                    if let briefing = insights?.briefing, index != nil {
+                    // Today in the hobby: three stories to swipe (the paragraph when there are none).
+                    if let index, let stories = storiesToShow(index), !stories.isEmpty {
+                        HobbyStories(stories: stories, cards: Self.cardsById(index))
+                    } else if let briefing = insights?.briefing, index != nil {
                         HobbyBriefing(text: briefing).padding(.horizontal, 16).padding(.bottom, -18)
                     }
                     if let index {
@@ -324,6 +327,136 @@ struct MarketHomeView: View {
 
 /// "Today in the hobby": two or three sentences on what's moving, written daily by Claude from
 /// Dexora's own prices. Quiet: a small label with a spark, then the text; no box.
+extension MarketHomeView {
+    /// Today's stories; a demo makes three from its own market lists.
+    func storiesToShow(_ index: ExploreIndex) -> [MarketStory]? {
+        if let stories = insights?.stories, !stories.isEmpty { return stories }
+        guard Demo.isOn else { return nil }
+        var out: [MarketStory] = []
+        if let a = index.trending?.first { out.append(MarketStory(headline: "\(a.product.name) leads the week", stat: Self.percent(a.change7dPct), tone: "up", cardId: a.product.id)) }
+        if let b = index.eras?.vintage.first { out.append(MarketStory(headline: "Vintage is waking up", stat: Self.percent(b.change7dPct), tone: "up", cardId: b.product.id)) }
+        if let c = index.drops?.first { out.append(MarketStory(headline: "\(c.product.name) cools off", stat: Self.percent(c.change7dPct), tone: "down", cardId: c.product.id)) }
+        return out
+    }
+
+    static func percent(_ v: Double?) -> String {
+        guard let v else { return "—" }
+        return "\(v >= 0 ? "+" : "−")\(Int(abs(v).rounded()))%"
+    }
+
+    /// Every card in Home's market lists, by id (for the stories' pictures and links).
+    static func cardsById(_ index: ExploreIndex) -> [String: SearchHit] {
+        var out: [String: SearchHit] = [:]
+        var all: [SearchHit] = index.trending ?? []
+        all += index.today ?? []
+        all += index.drops ?? []
+        all += index.hotSealed ?? []
+        all += index.eras?.modern ?? []
+        all += index.eras?.midEra ?? []
+        all += index.eras?.vintage ?? []
+        for h in all where out[h.product.id] == nil { out[h.product.id] = h }
+        return out
+    }
+}
+
+/// Today in the hobby as stories: three cards to swipe, each a short headline, one big figure
+/// and the card it's about. They step on by themselves once (a thin bar fills over each), then
+/// rest; swiping takes over. Tapping one opens its card.
+private struct HobbyStories: View {
+    var stories: [MarketStory]
+    var cards: [String: SearchHit]
+    @State private var page = 0
+    @State private var filled = false
+    /// Steps on by itself only on the first pass, so the page settles (and idles) after.
+    @State private var looped = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private let dwell: Double = 6
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "sparkles").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.lime)
+                MonoLabel(text: "Today in the hobby")
+            }
+            .padding(.horizontal, 16)
+            // One segment per story: done ones full, the current one filling.
+            HStack(spacing: 4) {
+                ForEach(stories.indices, id: \.self) { i in
+                    Capsule().fill(Color.white.opacity(0.15))
+                        .overlay(alignment: .leading) {
+                            Capsule().fill(.white)
+                                .scaleEffect(x: i < page || (i == page && (filled || looped || reduceMotion)) ? 1 : 0, anchor: .leading)
+                        }
+                        .frame(height: 3)
+                        .clipShape(Capsule())
+                }
+            }
+            .padding(.horizontal, 16)
+            TabView(selection: $page) {
+                ForEach(Array(stories.enumerated()), id: \.offset) { i, story in
+                    storyCard(story).padding(.horizontal, 16).tag(i)
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .frame(height: 190)
+        }
+        .task(id: page) { await advance() }
+    }
+
+    private func advance() async {
+        filled = false
+        guard !reduceMotion, !looped, stories.count > 1 else { return }
+        // Fill this story's segment (one scale animation, no layout), then step on.
+        try? await Task.sleep(for: .milliseconds(50))
+        withAnimation(.linear(duration: dwell)) { filled = true }
+        try? await Task.sleep(for: .seconds(dwell))
+        guard !Task.isCancelled else { return }
+        if page == stories.count - 1 {
+            looped = true
+        } else {
+            withAnimation(.snappy) { page += 1 }
+        }
+    }
+
+    @ViewBuilder private func storyCard(_ story: MarketStory) -> some View {
+        let hit = story.cardId.flatMap { cards[$0] }
+        let tone = story.tone == "down" ? Theme.planPink : story.tone == "up" ? Theme.lime : Color.white
+        let card = HStack(alignment: .center, spacing: 14) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(story.headline.noWidow).font(.display(24)).tracking(-0.8).foregroundStyle(.white)
+                    .lineLimit(3).minimumScaleFactor(0.8)
+                Text(story.stat).font(.display(40)).tracking(-1.4).monospacedDigit().foregroundStyle(tone)
+                    .lineLimit(1).minimumScaleFactor(0.6)
+                if let hit {
+                    Text(hit.product.name).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
+                }
+            }
+            Spacer(minLength: 0)
+            if let hit {
+                ProductImage(product: hit.pictured, cornerRadius: 7)
+                    .frame(width: 104, height: 145)
+                    .rotationEffect(.degrees(4))
+                    .shadow(color: .black.opacity(0.45), radius: 10, y: 6)
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .background {
+            ZStack {
+                Theme.surface
+                RadialGradient(colors: [tone.opacity(0.2), .clear], center: UnitPoint(x: 0.85, y: 0.5), startRadius: 0, endRadius: 200)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Theme.border))
+        if let hit {
+            MarketLink(hit: hit) { card }
+        } else {
+            card
+        }
+    }
+}
+
 private struct HobbyBriefing: View {
     var text: String
 

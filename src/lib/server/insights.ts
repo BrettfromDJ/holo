@@ -14,10 +14,22 @@ import { exploreMarket } from "./explore";
  * The AI only ever sees our own figures and is told not to invent any. Without
  * OPENAI_API_KEY (set in Vercel) there are simply no insights.
  */
+export interface MarketStory {
+  /** Six to eight words, e.g. "Vintage is waking up". */
+  headline: string;
+  /** One figure, e.g. "+14%" or "$1,420". */
+  stat: string;
+  tone: "up" | "down" | "flat";
+  /** The card it's about (one of the given ids), for its picture and link. */
+  cardId: string | null;
+}
+
 export interface MarketInsights {
   day: string;
   briefing: string | null;
   reasons: Record<string, string>;
+  /** "Today in the hobby" as three swipeable stories. */
+  stories?: MarketStory[];
 }
 
 const HOUR = 60 * 60 * 1000;
@@ -26,14 +38,29 @@ const SYSTEM = `You write the daily market notes for Dexora, a Pokémon card col
 You get today's figures from Dexora's own price data as JSON. Use only those figures: never invent prices, sales, news, reasons or events that the data doesn't show. If the data doesn't say why something moved, describe the move (how far, over what time, at what price) rather than guessing a cause.
 Write for collectors in plain, warm, confident English. No hype words, no emojis, no investment advice; never tell anyone to buy or sell.
 "briefing": two or three short sentences (at most 60 words) on the day's clearest patterns across the lists, for example an era or kind of product moving together, or a standout card. Name cards and sets as given.
-"reasons": for each card listed under "highlights", one line of at most 14 words explaining its move from its own figures (for example its 24-hour and 7-day change and price). Use the card's id exactly as given.`;
+"reasons": for each card listed under "highlights", one line of at most 14 words explaining its move from its own figures (for example its 24-hour and 7-day change and price). Use the card's id exactly as given.
+"stories": exactly three short stories for the day, each a different angle (for example a standout riser, a group or era moving together, a notable fall or sealed). Each has a "headline" of 3 to 8 words in sentence case with no figures in it, a "stat" that is one figure taken from the data (a percent like "+14%" or "−8%", or a price like "$1,420"), a "tone" ("up", "down" or "flat") matching the stat, and the "cardId" of the card it's about, copied exactly from the data.`;
 
 const SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["briefing", "reasons"],
+  required: ["briefing", "reasons", "stories"],
   properties: {
     briefing: { type: "string" },
+    stories: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["headline", "stat", "tone", "cardId"],
+        properties: {
+          headline: { type: "string" },
+          stat: { type: "string" },
+          tone: { type: "string", enum: ["up", "down", "flat"] },
+          cardId: { type: "string" },
+        },
+      },
+    },
     reasons: {
       type: "array",
       items: {
@@ -66,7 +93,7 @@ export async function marketInsights(admin: SupabaseClient<Database>): Promise<M
   const empty: MarketInsights = { day, briefing: null, reasons: {} };
   if (!aiEnabled()) return empty;
   return dbCached<MarketInsights>(
-    `insights:${day}`,
+    `insights-v2:${day}`,
     async () => {
       const market = await exploreMarket(admin);
       // The cards Home highlights: Card of the day (today's top riser, else the week's), the
@@ -87,7 +114,8 @@ export async function marketInsights(admin: SupabaseClient<Database>): Promise<M
         hotSealed: market.hotSealed.slice(0, 5).map(fact),
       };
       try {
-        return await write(day, data, new Set(highlights.map((h) => h.product.id)));
+        const known = new Set([...highlights, ...market.today, ...market.trending, ...market.drops, ...market.eras.modern, ...market.eras.midEra, ...market.eras.vintage, ...market.hotSealed].map((h) => h.product.id));
+        return await write(day, data, new Set(highlights.map((h) => h.product.id)), known);
       } catch (e) {
         console.error("insights", e);
         return empty;
@@ -98,12 +126,21 @@ export async function marketInsights(admin: SupabaseClient<Database>): Promise<M
   );
 }
 
-async function write(day: string, data: unknown, ids: Set<string>): Promise<MarketInsights> {
-  const parsed = await aiJson<{ briefing: string; reasons: { id: string; line: string }[] }>("market_notes", SYSTEM, `Today's figures:\n${JSON.stringify(data)}`, SCHEMA);
+async function write(day: string, data: unknown, ids: Set<string>, known: Set<string>): Promise<MarketInsights> {
+  const parsed = await aiJson<{ briefing: string; reasons: { id: string; line: string }[]; stories: MarketStory[] }>("market_notes", SYSTEM, `Today's figures:\n${JSON.stringify(data)}`, SCHEMA);
   if (!parsed) return { day, briefing: null, reasons: {} };
   const reasons: Record<string, string> = {};
   // Only lines for cards we asked about, kept short.
   for (const r of parsed.reasons ?? []) if (ids.has(r.id) && r.line.trim()) reasons[r.id] = r.line.trim().slice(0, 140);
   const briefing = parsed.briefing?.trim() ? parsed.briefing.trim().slice(0, 500) : null;
-  return { day, briefing, reasons };
+  const stories = (parsed.stories ?? [])
+    .filter((st) => st.headline?.trim() && st.stat?.trim())
+    .slice(0, 3)
+    .map((st) => ({
+      headline: st.headline.trim().slice(0, 60),
+      stat: st.stat.trim().slice(0, 12),
+      tone: (["up", "down", "flat"] as const).includes(st.tone) ? st.tone : "flat",
+      cardId: st.cardId && known.has(st.cardId) ? st.cardId : null,
+    }));
+  return { day, briefing, reasons, stories };
 }

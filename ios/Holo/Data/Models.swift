@@ -641,12 +641,23 @@ struct ConditionPrice: Codable, Hashable {
     var samples: Int
 }
 
+/// One of Today in the hobby's stories.
+struct MarketStory: Codable, Equatable, Hashable {
+    var headline: String
+    var stat: String
+    /// up, down or flat (colors the figure).
+    var tone: String
+    var cardId: String?
+}
+
 /// Home's daily insights from /api/insights: "Today in the hobby" and a line on why each
 /// highlighted card moved (keyed by product id). Written once a day on the server by Claude.
 struct MarketInsights: Codable, Equatable {
     var day: String?
     var briefing: String?
     var reasons: [String: String] = [:]
+    /// "Today in the hobby" as three swipeable stories (a headline, one figure, the card).
+    var stories: [MarketStory]? = nil
 
     /// The last ones fetched, kept on the phone so Home shows them at once next time.
     static var saved: MarketInsights? {
