@@ -528,6 +528,10 @@ struct ThemePage: View {
             .padding(.horizontal, 16)
             .padding(.top, 8)
             .padding(.bottom, 40)
+            // The collection's top card, blown up and blurred behind the title, fading into the page.
+            .background(alignment: .top) {
+                if let url = theme.hits.first?.pictured.imageURL { ArtBackdrop(url: url, blur: 40) }
+            }
         }
         .background(Theme.background)
         .tabBarClearance()

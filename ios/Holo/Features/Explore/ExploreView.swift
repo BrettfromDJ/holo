@@ -638,8 +638,10 @@ struct SetHero: View {
 
 /// A set's background art across the top of its page, blurred, running up under the status bar
 /// and fading into the page. Still: the blur is drawn once, not each frame.
-private struct ArtBackdrop: View {
+struct ArtBackdrop: View {
     var url: URL
+    /// Card art (a collection's page) takes a heavier blur than a set's wide background.
+    var blur: CGFloat = 16
 
     var body: some View {
         CachedImage(url: url) { img in img.resizable().scaledToFill() } placeholder: { Color.clear }
@@ -647,7 +649,7 @@ private struct ArtBackdrop: View {
             .frame(height: 660)
             .frame(maxWidth: .infinity)
             .clipped()
-            .blur(radius: 16, opaque: true)
+            .blur(radius: blur, opaque: true)
             .overlay(Color.black.opacity(0.25))
             .drawingGroup()
             // A long, soft fade into the black page.
