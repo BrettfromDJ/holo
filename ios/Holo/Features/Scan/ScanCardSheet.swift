@@ -27,7 +27,8 @@ struct ScanCardSheet: View {
                         onRemove()
                     })))
                     .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
-                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } } }
+                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+                    .environment(\.cardPageInSheet, true)
                 }
             } else if let entry {
                 Unmatched(model: model, entry: entry, onWrong: { searching = true }, onRemove: {

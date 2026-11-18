@@ -375,6 +375,7 @@ struct MainTabView: View {
             NavigationStack {
                 ProductDetailView(productId: open.id)
                     .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { router.product = nil } } }
+                    .environment(\.cardPageInSheet, true)
                     .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
             }
         }

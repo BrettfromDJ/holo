@@ -14,6 +14,8 @@ struct ProductDetailView: View {
     @State private var paged: String?
     private var productId: String { paged ?? startId }
     @State private var sequence = CardSequence.shared
+    /// Shown in a sheet with Done on the right (the ⋯ menu then goes left).
+    @Environment(\.cardPageInSheet) private var inSheet
     /// The card's set, found in the catalog's set list, so its name opens the set's page.
     @State private var cardSet: ExploreSet?
     @State private var openSet: ExploreSet?
@@ -142,8 +144,9 @@ struct ProductDetailView: View {
                 }
                 .fixedSize()
             }
-            // Everything you can do with this card, in one ⋯ menu (share included).
-            ToolbarItem(placement: .topBarTrailing) { moreMenu }
+            // Everything you can do with this card, in one ⋯ menu (share included). In a sheet it
+            // sits on the left, apart from Done on the right (not one combined pill).
+            ToolbarItem(placement: inSheet ? .topBarLeading : .topBarTrailing) { moreMenu }
         }
         .sheet(item: $managing) { h in HoldingSheet(identity: h.identity) }
         .sheet(item: $priceInfo) { PriceInfoSheet(info: $0) }
@@ -1148,5 +1151,16 @@ private struct PopIn: ViewModifier {
                 shown = false
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.6).delay(delay)) { shown = true }
             }
+    }
+}
+
+
+private struct CardPageInSheetKey: EnvironmentKey { static let defaultValue = false }
+
+extension EnvironmentValues {
+    /// A card page shown in a sheet with its own Done: the ⋯ menu moves to the left.
+    var cardPageInSheet: Bool {
+        get { self[CardPageInSheetKey.self] }
+        set { self[CardPageInSheetKey.self] = newValue }
     }
 }

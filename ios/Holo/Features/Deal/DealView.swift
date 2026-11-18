@@ -231,8 +231,9 @@ struct DealView: View {
                     ProductDetailView(productId: item.product.id)
                         .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
                         .toolbar {
-                            ToolbarItem(placement: .cancellationAction) { Button("Done") { detailItem = nil } }
+                            ToolbarItem(placement: .confirmationAction) { Button("Done") { detailItem = nil } }
                         }
+                        .environment(\.cardPageInSheet, true)
                 }
                 .presentationDetents([.fraction(0.93)])
                 .presentationDragIndicator(.visible)
