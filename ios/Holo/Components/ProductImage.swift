@@ -220,18 +220,19 @@ final class ImageCache: @unchecked Sendable {
     /// server again (card and set pictures don't change; checking each one on every launch made
     /// pages fill in slowly).
     static func request(_ url: URL) -> URLRequest {
-        URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad, timeoutInterval: 30)
+        // 12 seconds: a picture that hangs gives its place in line to the next one sooner.
+        URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad, timeoutInterval: 12)
     }
 
     /// At most this many downloads at once. A page of set tiles asks for 40 or so pictures at
     /// once; sent all together, the last ones waited in line so long they timed out and those
     /// tiles stayed empty. Waiting here, a download's clock starts only when it's sent.
-    private static let gate = DownloadGate(limit: 6)
+    private static let gate = DownloadGate(limit: 10)
 
     /// A picture's bytes: from the phone's storage when it's there, else downloaded (in turn, see
     /// `gate`), tried up to three times. Nil only when every try failed or it isn't a picture.
     static func download(_ url: URL) async -> Data? {
-        for attempt in 0..<3 {
+        for attempt in 0..<2 {
             if attempt > 0 { try? await Task.sleep(nanoseconds: UInt64(attempt) * 800_000_000) }
             await gate.enter()
             let result = try? await URLSession.shared.data(for: request(url))
