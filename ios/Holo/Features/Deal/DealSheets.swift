@@ -227,46 +227,70 @@ struct DealRatesSheet: View {
                         : "At a vendor's table: what they offer for your cards and charge for theirs, against market, so you can tell a fair deal.")
                 }
                 Section {
-                    Toggle("Add what comes in to my collection", isOn: Binding(get: { rates.addsIncoming }, set: { rates.addIncoming = $0 }))
-                    Toggle("Ask what I paid for things not in Dexora", isOn: Binding(get: { rates.asksCost }, set: { rates.askCost = $0 }))
-                } footer: {
-                    Text("You can still switch any single item in or out on the deal. Items going out that aren't in Dexora are tracked when you add what you\u{00A0}paid.")
+                    Toggle(isOn: Binding(get: { rates.addsIncoming }, set: { rates.addIncoming = $0 })) {
+                        rowLabel("Add what comes in to my collection", "You can still switch any single item on the deal.")
+                    }
+                    Toggle(isOn: Binding(get: { rates.asksCost }, set: { rates.askCost = $0 })) {
+                        rowLabel("Ask what I paid", "For things going out that aren't in Dexora, so they're tracked.")
+                    }
+                } header: {
+                    SectionTitle("Your collection")
                 }
                 .tint(Theme.lime)
                 Section {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Round up to the nearest")
+                    VStack(alignment: .leading, spacing: 12) {
+                        rowLabel("Round the cash up to", "Used by Round up on the deal's cash.")
                         ChipPicker(options: DealRates.roundSteps.map { ($0, "$\(Int($0))") },
                                    selection: Binding(get: { rates.step }, set: { rates.roundStep = $0 }), scrolls: true)
                     }
-                    .padding(.vertical, 4)
-                } footer: {
-                    Text("What Round up on the cash rounds\u{00A0}to.")
+                    .padding(.vertical, 6)
+                } header: {
+                    SectionTitle("Rounding")
                 }
                 if role == .vendor {
-                    rate("Buying", "What you pay for cards you buy", \.buy)
-                    rate("Trade-in", "What you credit for cards taken in on trade", \.trade)
-                    rate("Selling", "What you charge for cards going out", \.sell)
+                    Section {
+                        rate("Buying", "What you pay for cards you buy", \.buy)
+                        rate("Trade-in", "What you credit on trade", \.trade)
+                        rate("Selling", "What you charge for cards going out", \.sell)
+                    } header: {
+                        SectionTitle("Your rates")
+                    } footer: {
+                        SectionNote("A share of market price. Each deal starts here.")
+                    }
                 } else {
-                    collectorRate("Their cash offer", "What you expect a vendor to pay in cash for your cards", \.offer)
-                    collectorRate("Their trade-in credit", "What you expect in trade credit for your cards", \.tradeOffer)
-                    collectorRate("Their prices", "What you expect a vendor to charge for theirs", \.charge)
+                    Section {
+                        collectorRate("Cash offer", "What a vendor pays in cash for yours", \.offer)
+                        collectorRate("Trade-in credit", "What you get in trade credit for yours", \.tradeOffer)
+                        collectorRate("Their prices", "What a vendor charges for theirs", \.charge)
+                    } header: {
+                        SectionTitle("What to expect")
+                    } footer: {
+                        SectionNote("A share of market price. Each deal starts here; drag it on the deal to match their offer.")
+                    }
                 }
             }
             .scrollContentBackground(.hidden)
-            .navigationTitle("Deal settings")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
+            // The title and its buttons sit on the sheet's black, above the form (nothing
+            // scrolls under them).
+            .safeAreaInset(edge: .top, spacing: 0) {
+                HStack {
+                    Button("Cancel") { dismiss() }.foregroundStyle(Theme.muted)
+                    Spacer()
+                    Text("Deal settings").font(.display(18)).tracking(-0.4)
+                    Spacer()
                     Button("Save") {
                         deals.setDefaults(rates)
                         deals.role = role
                         deals.collector = collector
                         dismiss()
                     }
+                    .fontWeight(.semibold).foregroundStyle(Theme.lime)
                 }
+                .font(.geist(16))
+                .padding(.horizontal, 20).padding(.top, 18).padding(.bottom, 10)
+                .background(Color.black)
             }
+            .toolbar(.hidden, for: .navigationBar)
             .onAppear {
                 rates = deals.defaults
                 role = deals.role
@@ -276,30 +300,33 @@ struct DealRatesSheet: View {
         .presentationDetents([.medium, .large])
     }
 
-    private func collectorRate(_ title: String, _ hint: String, _ key: WritableKeyPath<CollectorRates, Double>) -> some View {
-        Section {
-            HStack {
-                Text(title)
-                Spacer()
-                Text("\(Int((collector[keyPath: key] * 100).rounded()))%").monospacedDigit().bold()
-            }
-            Slider(value: Binding(get: { collector[keyPath: key] }, set: { collector[keyPath: key] = ($0 * 100).rounded() / 100 }), in: 0.3...1.5, step: 0.01)
-        } footer: {
-            Text("\(hint), as a share of market. Each deal starts here; drag it on the deal to match their\u{00A0}offer.")
+    /// A row's title and its one quiet line under it.
+    private func rowLabel(_ title: String, _ note: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title).font(.geist(16, .semibold)).foregroundStyle(.white)
+            Text(note.noWidow).font(.geist(13)).foregroundStyle(Theme.muted)
         }
     }
 
-    private func rate(_ title: String, _ hint: String, _ key: WritableKeyPath<DealRates, Double>) -> some View {
-        Section {
-            HStack {
-                Text(title)
-                Spacer()
-                Text("\(Int((rates[keyPath: key] * 100).rounded()))%").monospacedDigit().bold()
+    /// A rate: its name and line on the left, the percent big in lime, the slider under.
+    private func rateRow(_ title: String, _ hint: String, value: Binding<Double>) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
+                rowLabel(title, hint)
+                Spacer(minLength: 8)
+                Text("\(Int((value.wrappedValue * 100).rounded()))%").font(.display(28)).tracking(-0.8).monospacedDigit().foregroundStyle(Theme.lime)
             }
-            Slider(value: Binding(get: { rates[keyPath: key] }, set: { rates[keyPath: key] = ($0 * 100).rounded() / 100 }), in: 0.3...1.5, step: 0.01)
-        } footer: {
-            Text("\(hint), as a share of\u{00A0}market.")
+            Slider(value: Binding(get: { value.wrappedValue }, set: { value.wrappedValue = ($0 * 100).rounded() / 100 }), in: 0.3...1.5, step: 0.01)
         }
+        .padding(.vertical, 6)
+    }
+
+    private func collectorRate(_ title: String, _ hint: String, _ key: WritableKeyPath<CollectorRates, Double>) -> some View {
+        rateRow(title, hint, value: Binding(get: { collector[keyPath: key] }, set: { collector[keyPath: key] = $0 }))
+    }
+
+    private func rate(_ title: String, _ hint: String, _ key: WritableKeyPath<DealRates, Double>) -> some View {
+        rateRow(title, hint, value: Binding(get: { rates[keyPath: key] }, set: { rates[keyPath: key] = $0 }))
     }
 }
 
