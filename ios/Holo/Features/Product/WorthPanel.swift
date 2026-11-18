@@ -35,9 +35,17 @@ struct WorthPanel: View {
                     Spacer()
                     Text(condition.rawValue).font(.subheadline.weight(.semibold))
                 }
-                HStack(spacing: 8) {
-                    SourceTag(source: w.source)
-                    Text(w.detail).font(.caption).foregroundStyle(Theme.muted)
+                // Side by side when the note fits on one line; else the note sits under the tag at
+                // full width (not squeezed into a narrow column beside it).
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) {
+                        SourceTag(source: w.source)
+                        Text(w.detail).font(.caption).foregroundStyle(Theme.muted).lineLimit(1).fixedSize()
+                    }
+                    VStack(alignment: .leading, spacing: 6) {
+                        SourceTag(source: w.source)
+                        Text(w.detail.noWidow).font(.caption).foregroundStyle(Theme.muted)
+                    }
                 }
                 if condition != .nearMint {
                     let diff = w.price - nm
