@@ -391,31 +391,43 @@ struct ProductDetailView: View {
 
     // MARK: Title, price and changes
 
+    /// The set's name, opening the set when the catalog has it.
+    @ViewBuilder private var setLabel: some View {
+        if let cardSet, let name = product?.setName {
+            Button { Haptics.tap(); openSet = cardSet } label: {
+                (Text(name.noWidow).foregroundStyle(.white).underline(color: .white.opacity(0.35))
+                 + Text("\u{00A0}").foregroundStyle(.white)
+                 + Text(Image(systemName: "chevron.right")).font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.muted))
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Open the set \(name)")
+        } else if let name = product?.setName {
+            Text(name.noWidow).foregroundStyle(Theme.muted).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
     private var titleBlock: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Until the name arrives, the space it takes stays empty (no "Loading…" flashing by).
             DisplayText(text: product?.name ?? " ", size: 34)
                 .frame(maxWidth: .infinity, alignment: .leading)
             // The set's name opens the set (when the catalog has it), then number and printing.
-            HStack(spacing: 6) {
-                if let cardSet, let name = product?.setName {
-                    Button { Haptics.tap(); openSet = cardSet } label: {
-                        HStack(spacing: 4) {
-                            Text(name).foregroundStyle(.white).underline(color: .white.opacity(0.35))
-                            Image(systemName: "chevron.right").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.muted)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Open the set \(name)")
-                    let rest = [product?.number.map { "#\($0)" }, printings.count > 1 || printing == "Normal" ? nil : printing].compactMap { $0 }.joined(separator: " · ")
-                    if !rest.isEmpty { Text("· " + rest).foregroundStyle(Theme.muted) }
-                } else {
-                    Text([product?.setName, product?.number.map { "#\($0)" }, printings.count > 1 || printing == "Normal" ? nil : printing].compactMap { $0 }.joined(separator: " · "))
-                        .foregroundStyle(Theme.muted)
+            // One line when it fits; else the set on its own line(s) and the number under it,
+            // never squeezed into a narrow column beside it.
+            let rest = [product?.number.map { "#\($0)" }, printings.count > 1 || printing == "Normal" ? nil : printing].compactMap { $0 }.joined(separator: " · ")
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 6) {
+                    setLabel
+                    if !rest.isEmpty { Text("· " + rest).foregroundStyle(Theme.muted).fixedSize() }
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    setLabel
+                    if !rest.isEmpty { Text(rest).foregroundStyle(Theme.muted) }
                 }
             }
             .font(.geist(15))
-            .lineLimit(2)
             .padding(.top, 6)
             // Different printings sell for different prices: switch between them.
             if printings.count > 1 {
