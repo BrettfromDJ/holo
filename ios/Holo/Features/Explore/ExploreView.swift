@@ -339,9 +339,6 @@ struct SetView: View {
                             }
                         }
                         .padding(.horizontal, 16)
-                        if ownedCount > 0 {
-                            OwnedProgress(owned: ownedCount, total: products.count).padding(.horizontal, 16).reveal()
-                        }
                         chase(derived, ownedIds: ownedIds)
                             .cardSequence(derived.chase.map(\.product.id))
                     }
@@ -562,12 +559,20 @@ struct SetHero: View {
 
     private var upcoming: Bool { (set.releaseDate ?? "") >= Format.day() }
 
+    /// "5%", or "<1%" for a sliver.
+    static func share(_ owned: Int, of total: Int) -> String {
+        guard total > 0 else { return "0%" }
+        let r = Double(owned) / Double(total)
+        return r < 0.01 ? "<1%" : "\(Int((r * 100).rounded()))%"
+    }
+
     private var meta: String {
         let date = set.release?.formatted(date: .abbreviated, time: .omitted)
         return [
             date.map { upcoming ? "Out \($0)" : "Released \($0)" },
             productCount > 0 ? "\(productCount) product\(productCount == 1 ? "" : "s")" : nil,
-            ownedCount > 0 ? "\(ownedCount) owned" : nil,
+            // How much of the set you own sits here, in the line, not in a panel of its own.
+            ownedCount > 0 ? "\(ownedCount) owned (\(Self.share(ownedCount, of: productCount)))" : nil,
             agoText(updatedAt).map { "prices from \($0)" },
         ].compactMap { $0 }.joined(separator: " · ")
     }
