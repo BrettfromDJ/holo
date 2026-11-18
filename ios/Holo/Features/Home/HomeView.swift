@@ -217,7 +217,7 @@ struct HomeView: View {
                     }
                     .buttonStyle(.plain)
                 }
-                MarketPulse(store: store)
+                // (The Pulse ticker was here: market news belongs on Home, not over your own numbers.)
                 // Opens search with the keyboard already up.
                 SearchFieldButton(prompt: "Search any card or sealed product", scan: .collection) { search = true }
                     .padding(.horizontal, 16)
@@ -246,7 +246,7 @@ struct HomeView: View {
             MetricGrid(store: store, onReload: refresh).padding(.horizontal, 16).reveal()
             Spotlight(store: store).padding(.horizontal, 16).reveal()
             ShelfSection(holdings: store.holdings).reveal()
-            ValueSplit(store: store).padding(.horizontal, 16).reveal()
+            // (Where your value sits moved out: Analytics' By product type covers it.)
             RecentSection(items: store.recentPurchases()).padding(.horizontal, 16).reveal()
 
         }

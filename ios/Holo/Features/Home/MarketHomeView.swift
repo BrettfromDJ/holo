@@ -199,9 +199,7 @@ struct MarketHomeView: View {
                 NavigationLink(value: ExploreRoute.calendar) { seeAll("Calendar") }
             }
         }
-        if drops.count > 5 {
-            section(icon: "snowflake", "Cooling off", "Singles down most in 7 days") { MoverCarousel(hits: Array(drops.dropFirst(5).prefix(10))) }
-        }
+        // (A Cooling off row here repeated the Cooling off tile at the top: removed.)
     }
 
     private func section<C: View>(icon: String, _ title: String, _ subtitle: String, @ViewBuilder content: () -> C) -> some View {

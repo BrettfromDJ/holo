@@ -659,6 +659,9 @@ private struct BalanceCard: View {
     /// Tap the big figure to type the agreed cash.
     var onEditCash: () -> Void = {}
     var onClearAgreed: () -> Void = {}
+    /// The breakdown under the big figure (what comes in and goes out, the shares of market,
+    /// notes on the total), folded away until wanted: the figure and one verdict are enough.
+    @State private var details = false
 
     var body: some View {
         let t = totals
@@ -693,7 +696,7 @@ private struct BalanceCard: View {
                 .padding(.top, 16)
                 .contentTransition(.numericText())
                 .animation(.snappy, value: read.net)
-                if read.offerShare != nil {
+                if details, read.offerShare != nil {
                     Text("Vendors often pay 60 to 80% of market for cards they\u{00A0}buy.")
                         .font(.geist(12, .medium)).foregroundStyle(ink.opacity(0.7))
                         .padding(.top, 8)
@@ -712,12 +715,12 @@ private struct BalanceCard: View {
                 .contentTransition(.numericText())
                 .animation(.snappy, value: t.ahead ?? t.net)
             }
-            if read == nil, let paper = t.onPaper {
+            if details, read == nil, let paper = t.onPaper {
                 Text("Includes \(Format.money(paper)) on paper")
                     .font(.geist(12, .medium)).foregroundStyle(ink.opacity(0.7))
                     .padding(.top, 8)
             }
-            if read == nil, t.uncosted > 0 {
+            if details, read == nil, t.uncosted > 0 {
                 Text("Add what you paid for every item to see your\u{00A0}total")
                     .font(.geist(12, .medium)).foregroundStyle(ink.opacity(0.7))
                     .padding(.top, 8)
@@ -763,6 +766,7 @@ private struct BalanceCard: View {
             }
             .padding(.top, 8)
 
+            if details {
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], alignment: .leading, spacing: 14) {
                 stat("Coming in", .comingIn, Format.money(t.inValue), ink)
                 stat("Going out", .goingOut, Format.money(t.outValue), ink)
@@ -775,6 +779,25 @@ private struct BalanceCard: View {
                 }
             }
             .padding(.top, 18)
+            .transition(.opacity)
+            }
+            if !empty {
+                Button {
+                    Haptics.tap()
+                    withAnimation(.snappy(duration: 0.25)) { details.toggle() }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(details ? "Hide details" : "Details")
+                        Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold))
+                            .rotationEffect(.degrees(details ? 180 : 0))
+                    }
+                    .font(.geist(13, .semibold)).foregroundStyle(ink.opacity(0.75))
+                    .padding(.vertical, 6)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 12)
+            }
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -992,18 +1015,12 @@ private struct DealItemCard: View {
                     } else {
                         Text(subtitle).foregroundStyle(Theme.muted)
                     }
-                    if item.product.source == "tcgapi" || item.product.source == "sample" {
-                        Text("·").foregroundStyle(Theme.muted)
-                        Button("eBay sold", action: onEbay).foregroundStyle(.white.opacity(0.85)).buttonStyle(.plain)
-                    }
+                    // Just the price: where it came from, eBay sales and how fast it sells are on
+                    // the card's page (tap the card).
                 }
                 .font(.geist(12)).monospacedDigit().lineLimit(1)
                 .padding(.top, 2)
 
-                // How easily it sells, only when its eBay sales are already here (never fetched per line).
-                if let speed = sellSpeed(identity) {
-                    SellSpeedMeter(score: speed, compact: true).padding(.top, 4)
-                }
 
                 HStack(spacing: 6) {
                     stepper

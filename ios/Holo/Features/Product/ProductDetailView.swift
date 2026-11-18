@@ -638,14 +638,17 @@ struct ProductDetailView: View {
                 kind.tag()
             }
             .padding(.bottom, 16)
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 24, alignment: .leading), GridItem(.flexible(), alignment: .leading)], spacing: 20) {
-                stat("Quantity", qty.formatted(), .white)
-                stat("Holding value", Format.money(value), .white)
-                stat("Cost basis", Format.money(cost), .white)
-                stat("Average cost", Format.money(qty > 0 ? cost / qty : nil), .white)
-                stat("Unrealized", Format.signedMoney(gain) + (pricedCost > 0 ? " (\(Format.signedPercent(gain / pricedCost)))" : ""), Theme.tone(gain))
-                stat("Realized", Format.money(realized), realized == 0 ? Theme.muted : Theme.tone(realized))
+            // Three plain figures: how many, what you paid, and how far up or down (profit from
+            // sales only when you've sold some).
+            HStack(alignment: .top, spacing: 24) {
+                stat("You own", "×" + qty.formatted(), .white)
+                stat("Paid", Format.money(cost), .white)
+                stat(gain >= 0 ? "Up" : "Down", Format.money(abs(gain)) + (pricedCost > 0 ? " (\(Format.signedPercent(gain / pricedCost)))" : ""), Theme.tone(gain))
+                if realized != 0 {
+                    stat("From sales", Format.signedMoney(realized), Theme.tone(realized))
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             Rectangle().fill(Theme.border).frame(height: 1).padding(.top, 24)
             ForEach(Array(owned.enumerated()), id: \.element.id) { i, h in
                 if i > 0 { Rectangle().fill(Theme.border).frame(height: 1) }
