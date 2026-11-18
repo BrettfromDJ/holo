@@ -10,6 +10,8 @@ struct MarketHomeView: View {
     @State private var index: ExploreIndex?
     /// "Today in the hobby" and why the highlighted cards moved (written daily by Claude).
     @State private var insights: MarketInsights? = MarketInsights.saved
+    /// For you: picks from your collection (Because you collect…, Finish your sets).
+    @State private var forYou = ForYouModel()
     @State private var fresh = false
     /// The newest set's most valuable singles.
     @State private var chase: (set: ExploreSet, hits: [SearchHit])?
@@ -130,6 +132,8 @@ struct MarketHomeView: View {
             .navigationDestination(for: ExploreSet.self) { SetView(set: $0) }
             .navigationDestination(for: ExploreRoute.self) { _ in ReleaseCalendarView(sets: index?.sets ?? []) }
             .task { await load() }
+            // For you, worked out again when your collection changes.
+            .task(id: "\(store.allHoldings.count)|\(store.status == .ready)|\(index != nil)") { await forYou.load(store: store, index: index) }
         }
     }
 
@@ -162,6 +166,10 @@ struct MarketHomeView: View {
             }
         }
         .padding(.horizontal, 16)
+        // For you: picks from your own collection, before the market's lists.
+        if forYou.hasContent {
+            ForYouSection(model: forYou)
+        }
         if trending.count > 2 {
             section(icon: "trophy.fill", "Top 10 this week", "Singles rising most in 7 days") {
                 TopTenRow(hits: Array(trending.prefix(10))).cardSequence(trending.prefix(10).map(\.product.id))

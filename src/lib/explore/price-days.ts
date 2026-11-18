@@ -1,12 +1,12 @@
 /**
  * Our own 24-hour and 7-day price changes for catalog cards, from the daily prices we keep
- * (`catalog_price_days`, a rolling 8 days). The catalog sync's set pages come without TCG API's
+ * (`catalog_price_days`, about four months kept; the changes read the last 8 days). The catalog sync's set pages come without TCG API's
  * changes, so most cards had none and could never show as risers; now any card the sync prices
  * gets them after a day (24 hours) or a week (7 days). Changes TCG API did send are kept.
  */
 
 /** Days of daily prices kept (a 7-day change needs today and 7 days back, with a day's slack). */
-export const PRICE_DAYS_KEPT = 9;
+export const PRICE_DAYS_KEPT = 120;
 
 /** Prices from this up get a daily row: riser lists start higher ($10, $20), and this leaves room to cross them. */
 export const PRICE_DAYS_MIN = 5;
