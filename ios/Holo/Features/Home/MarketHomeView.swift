@@ -448,9 +448,19 @@ private struct CardOfTheDay: View {
 /// animation, only while on screen; still under Reduce Motion).
 private struct LightRays: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var turned = false
+    @State private var onScreen = true
 
     var body: some View {
+        // The turn is read off the clock (one turn a minute), so it never speeds up: a looping
+        // animation restarted as the page came and went could stack and spin fast for a moment.
+        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion || !onScreen)) { context in
+            rays.rotationEffect(.degrees(reduceMotion ? 0 : (context.date.timeIntervalSinceReferenceDate * 6).truncatingRemainder(dividingBy: 360)))
+        }
+        .allowsHitTesting(false)
+        .onVisibilityChange { on in if on != onScreen { onScreen = on } }
+    }
+
+    private var rays: some View {
         AngularGradient(gradient: Gradient(stops: (0 ..< 24).map { i in
             .init(color: i % 2 == 0 ? Theme.lime.opacity(0.16) : .clear, location: Double(i) / 23)
         }), center: .center)
@@ -459,16 +469,6 @@ private struct LightRays: View {
         .mask(GeometryReader { geo in
             RadialGradient(colors: [.black, .clear], center: .center, startRadius: 20, endRadius: min(geo.size.width, geo.size.height) / 2)
         })
-        .rotationEffect(.degrees(turned ? 360 : 0))
-        .allowsHitTesting(false)
-        .onVisibilityChange { on in
-            guard !reduceMotion else { return }
-            if on {
-                withAnimation(.linear(duration: 60).repeatForever(autoreverses: false)) { turned = true }
-            } else {
-                stopLoop { turned = false }
-            }
-        }
     }
 }
 

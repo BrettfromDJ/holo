@@ -87,10 +87,20 @@ struct ParticleEmitter: UIViewRepresentable {
 
         /// Running only when on screen, not under a sheet and not on a page kept out of sight.
         @objc func refresh() {
-            let run = window != nil && !hiddenPage && !SheetCover.shared.isOpen
-            // Reduce Motion: the particles hold still where they are.
-            emitter.speed = run && !still ? 1 : 0
-            emitter.birthRate = run || still ? 1 : 0
+            let run = window != nil && !hiddenPage && !SheetCover.shared.isOpen && !still
+            // Paused and resumed the way Core Animation expects (holding the time where it
+            // stopped), so coming back never replays the missed time as a fast burst.
+            if run, emitter.speed == 0 {
+                let paused = emitter.timeOffset
+                emitter.speed = 1
+                emitter.timeOffset = 0
+                emitter.beginTime = 0
+                emitter.beginTime = emitter.convertTime(CACurrentMediaTime(), from: nil) - paused
+            } else if !run, emitter.speed != 0 {
+                let now = emitter.convertTime(CACurrentMediaTime(), from: nil)
+                emitter.speed = 0
+                emitter.timeOffset = now
+            }
         }
 
         fileprivate func configure(_ k: Kind) {
@@ -143,6 +153,8 @@ struct ParticleEmitter: UIViewRepresentable {
             emitter.emitterCells = [cell]
             emitter.renderMode = .additive
             // Begun a lifetime ago, so the view starts full instead of filling up.
+            emitter.speed = 1
+            emitter.timeOffset = 0
             emitter.beginTime = CACurrentMediaTime() - Double(cell.lifetime)
             place()
             refresh()
