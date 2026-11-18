@@ -155,9 +155,10 @@ struct ProSheet: View {
                     pro.isPro = true
                     dismiss()
                 } label: {
-                    Text("Start \(Pro.trialDays)-day free trial")
+                    Label("Start \(Pro.trialDays)-day free trial", systemImage: "sparkles")
                 }
                 .buttonStyle(LimeButtonStyle())
+                .proShine(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 Text("Then \(yearly ? Format.money(Pro.yearly) + " a year" : Format.money(Pro.monthly) + " a month"). Test mode: nothing is charged.")
                     .font(.geist(12)).foregroundStyle(Theme.subtle)
             }
@@ -227,8 +228,9 @@ struct ProLockedPage: View {
                     Text(title).font(.display(28)).tracking(-0.7)
                     BalancedText(text: line, font: .geist(15), color: Theme.muted, alignment: .center)
                         .padding(.horizontal, 32)
-                    Button("See Dexora Pro") { paywall = reason }
+                    Button { paywall = reason } label: { Label("See Dexora Pro", systemImage: "sparkles") }
                         .buttonStyle(Button3D(kind: .lime, fullWidth: false))
+                        .proShine(RoundedRectangle(cornerRadius: 14, style: .continuous))
                         .padding(.top, 6)
                     Spacer()
                 }
@@ -285,6 +287,7 @@ struct EbayLockedPanel: View {
                     .foregroundStyle(Theme.ink)
                     .padding(.horizontal, 16).frame(height: 38)
                     .background(Capsule().fill(Theme.lime))
+                    .proShine(Capsule())
                 }
                 .buttonStyle(.plain)
             }
@@ -318,10 +321,66 @@ struct ProAccountCard: View {
                 Button("Turn Pro off (test)") { pro.isPro = false }
                     .font(.geist(14, .semibold)).foregroundStyle(Theme.lime)
             } else {
-                Button("See Dexora Pro") { paywall = .general }
+                Button { paywall = .general } label: { Label("See Dexora Pro", systemImage: "sparkles") }
                     .buttonStyle(Button3D(kind: .lime))
+                    .proShine(RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
         }
         .proPaywall($paywall)
+    }
+}
+
+
+// MARK: The Pro buttons' shine
+
+extension View {
+    /// Pro's buttons: a crisp bright edge and a sharp double glint sweeping across every few
+    /// seconds (only while on screen; still with Reduce Motion). Lime only, no rainbow foil.
+    func proShine<S: Shape>(_ shape: S) -> some View {
+        modifier(ProShine(shape: shape))
+    }
+}
+
+private struct ProShine<S: Shape>: ViewModifier {
+    var shape: S
+
+    func body(content: Content) -> some View {
+        content
+            .overlay { ProGlint().clipShape(shape).allowsHitTesting(false) }
+            // A sharp, bright rim: white at the top left fading to the lime's deep edge.
+            .overlay {
+                shape.stroke(LinearGradient(colors: [.white.opacity(0.95), .white.opacity(0.15), Theme.limeEdge.opacity(0.7)],
+                                            startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1.5)
+                    .allowsHitTesting(false)
+            }
+    }
+}
+
+/// Two bands of light, a soft wide one with a sharp thin one riding it, sliding across at an
+/// angle. One looping offset animation, set once: nothing is laid out per frame, and it rests
+/// off the button for most of each loop.
+private struct ProGlint: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var across = false
+
+    var body: some View {
+        if !reduceMotion {
+            HStack(spacing: 6) {
+                LinearGradient(colors: [.clear, .white.opacity(0.55), .clear], startPoint: .leading, endPoint: .trailing).frame(width: 34)
+                LinearGradient(colors: [.clear, .white.opacity(0.95), .clear], startPoint: .leading, endPoint: .trailing).frame(width: 8)
+            }
+            .scaleEffect(x: 1, y: 3)
+            .rotationEffect(.degrees(22))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .offset(x: across ? 420 : -420)
+            .blendMode(.plusLighter)
+            .onVisibilityChange { on in
+                if on {
+                    withAnimation(.easeInOut(duration: 2.8).repeatForever(autoreverses: false)) { across = true }
+                } else {
+                    stopLoop { across = false }
+                }
+            }
+        }
     }
 }
