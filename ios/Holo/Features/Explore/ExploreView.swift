@@ -235,15 +235,17 @@ private struct BrandView: View {
                         VStack(alignment: .leading, spacing: 14) {
                             SectionCount(title: group.year, count: group.sets.count, noun: "set")
                             LazyVGrid(columns: twoColumns, alignment: .leading, spacing: 20) {
-                                ForEach(group.sets) { s in
+                                ForEach(Array(group.sets.enumerated()), id: \.element.id) { i, s in
                                     NavigationLink(value: s) {
                                         SetTile(set: s, upcoming: (s.releaseDate ?? "") >= today, width: nil, showGame: false)
                                     }
                                     .buttonStyle(.plain)
+                                    // Whole tiles rise in one after another; the art inside never fades.
+                                    .modifier(StaggerIn(order: i))
                                 }
                             }
+                            .environment(\.imageFadesIn, false)
                         }
-                        .reveal()
                     }
                 }
                 .padding(.horizontal, 16)
@@ -633,6 +635,24 @@ struct SetHero: View {
             .frame(height: 180)
             .overlay(shape.strokeBorder(Theme.border))
         }
+    }
+}
+
+/// A tile rising into place once, a beat after the one before it (the first dozen; later ones
+/// as they scroll in). One opacity and offset animation per tile, nothing looping.
+struct StaggerIn: ViewModifier {
+    var order: Int
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shown = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(shown || reduceMotion ? 1 : 0)
+            .offset(y: shown || reduceMotion ? 0 : 16)
+            .onAppear {
+                guard !shown else { return }
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.9).delay(Double(min(order, 11)) * 0.05)) { shown = true }
+            }
     }
 }
 
