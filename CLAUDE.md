@@ -186,4 +186,12 @@ and say exactly what to run or click.
   output, saved in `api_cache` as `insights:<day>`), served at `/api/insights`; the app shows them
   on Home (`HobbyBriefing`, Card of the day's line; `MarketInsights`, kept on the phone). Needs
   `ANTHROPIC_API_KEY` in Vercel (server only; never in the app); without it Home shows none.
+- Home's themed collections (Netflix-style rows): rules in `src/lib/explore/themes.ts` (about 30:
+  Skyridge holos, Charizard through the years, Every price of Gengar…), filled from our own catalog
+  by `src/lib/server/themes.ts` (saved a day per theme in `api_cache`), served at `/api/themes`;
+  Claude proposes 5 more each week (`theme-ideas:<monday>`, needs `ANTHROPIC_API_KEY`). The app
+  (`Features/Home/Themes.swift`) shows 4 per launch between Home's lists, a new mix each open,
+  weighted toward your favourite Pokémon and era, never two of one look (billboard, fan, timeline,
+  mosaic, ladder, spotlight); each opens `ThemePage`. New themes: add a rule. For you keeps only
+  Finish your sets (sets you're 50%+ through) and Your week's budget.
 - Not in the app on purpose: the separate trade checker (the Deal tab covers trades), and the welcome pages (removed; signed out opens straight on Sign in, its card wall is `Features/Auth/CardWall.swift`).

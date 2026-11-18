@@ -137,6 +137,12 @@ final class HoloAPI {
         try await send(try await request("api/insights"), as: MarketInsights.self)
     }
 
+    /// Home's themed collections (see `MarketTheme`).
+    func themes() async throws -> [MarketTheme] {
+        struct Body: Decodable { var themes: [MarketTheme] }
+        return try await send(try await request("api/themes"), as: Body.self).themes
+    }
+
     func exploreIndex() async throws -> ExploreIndex {
         var index = try await send(try await request("api/explore"), as: ExploreIndex.self)
         index.sets = index.sets.map { $0.withOwnArtOnPublicHost() }

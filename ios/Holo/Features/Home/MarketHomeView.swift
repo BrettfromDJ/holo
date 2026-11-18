@@ -12,6 +12,8 @@ struct MarketHomeView: View {
     @State private var insights: MarketInsights? = MarketInsights.saved
     /// For you: picks from your collection (Because you collect…, Finish your sets).
     @State private var forYou = ForYouModel()
+    /// Themed collections: a new few each time the app opens.
+    @State private var themes = ThemesModel()
     @State private var fresh = false
     /// The newest set's most valuable singles.
     @State private var chase: (set: ExploreSet, hits: [SearchHit])?
@@ -95,6 +97,7 @@ struct MarketHomeView: View {
                 case .lists: ListsHomeView()
                 }
             }
+            .navigationDestination(for: MarketTheme.self) { ThemePage(theme: $0) }
             .navigationDestination(for: MasterSetRoute.self) { MasterSetDetailView(setId: $0.id, setName: $0.name) }
             .navigationDestination(for: ListRoute.self) { route in
                 switch route {
@@ -134,6 +137,12 @@ struct MarketHomeView: View {
             .task { await load() }
             // For you, worked out again when your collection changes.
             .task(id: "\(store.allHoldings.count)|\(store.status == .ready)|\(index != nil)") { await forYou.load(store: store, index: index) }
+            .task(id: index != nil) {
+                await themes.load(index: index)
+                themes.pick(store: store, index: index)
+            }
+            // Your favourite Pokémon and era steer the mix once your collection is in.
+            .onChange(of: store.allHoldings.count) { themes.pick(store: store, index: index) }
         }
     }
 
@@ -166,14 +175,18 @@ struct MarketHomeView: View {
             }
         }
         .padding(.horizontal, 16)
-        // For you: picks from your own collection, before the market's lists.
-        if forYou.hasContent {
-            ForYouSection(model: forYou)
-        }
+        // Themed collections between the market's own lists, each in its own look.
+        let shown = themes.shown
+        if let t = shown.first { ThemeSection(theme: t) }
         if trending.count > 2 {
             section(icon: "trophy.fill", "Top 10 this week", "Singles rising most in 7 days") {
                 TopTenRow(hits: Array(trending.prefix(10))).cardSequence(trending.prefix(10).map(\.product.id))
             }
+        }
+        if shown.count > 1 { ThemeSection(theme: shown[1]) }
+        // For you: your sets to finish and your week's budget.
+        if forYou.hasContent {
+            ForYouSection(model: forYou)
         }
             let modern = index.eras?.modern ?? [], midEra = index.eras?.midEra ?? [], vintage = index.eras?.vintage ?? []
             // One color card per era, like Collection's sealed and singles boxes: modern in lime,
@@ -192,6 +205,7 @@ struct MarketHomeView: View {
                 .contentMargins(.horizontal, 16, for: .scrollContent)
                 .scrollTargetBehavior(.viewAligned)
             }
+        if shown.count > 2 { ThemeSection(theme: shown[2]) }
         if let next = upcoming.first {
             // The next set out, with its countdown and reminder (Explore's top card).
             CatalogHero(index: index, next: next)
@@ -205,6 +219,7 @@ struct MarketHomeView: View {
         if let hot = index.hotSealed, !hot.isEmpty {
             section(icon: "shippingbox.fill", "Hot sealed", "Sealed rising most in 7 days") { HotSealedRow(hits: Array(hot.prefix(10))) }
         }
+        if shown.count > 3 { ThemeSection(theme: shown[3]) }
         if !recent.isEmpty {
             section(icon: "calendar", "Just released", "The newest sets") { SetCarousel(sets: Array(recent.prefix(10)), upcoming: false) }
         }

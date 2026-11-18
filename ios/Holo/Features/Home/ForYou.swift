@@ -1,18 +1,11 @@
 import SwiftUI
 
-// "For you" on Home: picks from what you own, refreshed each visit, so there's something worth
-// a look even on a quiet market day.
-// - Because you collect…: the Pokémon you own most of, and cards of it you don't have yet
-//   (Dexora's own catalog, free).
+// "For you" on Home: your own progress, worked out on the phone from your records (no Claude,
+// nothing paid).
 // - Finish your sets: the cheapest cards missing from sets you're at least halfway through.
-// - In your range: this week's risers near what you usually pay for a single, from the era you
-//   collect most (when one stands out).
 // - Your week's budget: what's left of your monthly budget, split over the weeks left, and a mix
-//   of picks above that fits in it.
-// - Off your usual path: a few things you wouldn't normally look at, changing each day.
-// All of it is worked out on the phone from your own records: no Claude, nothing paid.
-// The lines under each are plain facts worked out here; Claude's written reasons can replace
-// them once the daily insights are switched on.
+//   that fits: a card toward a set, one of the Pokémon you collect, one near what you usually pay.
+// The discovery rows (themed collections) are in Themes.swift; CollectorTaste here steers them.
 
 /// What you collect most, from your singles: the Pokémon's name without its card type and
 /// number ("Pikachu ex - 238/191" → Pikachu, "Dark Gengar" → Gengar, "Umbreon VMAX" → Umbreon).
@@ -86,19 +79,6 @@ struct SetToFinish: Identifiable {
 
 /// For you's picks, worked out from your collection (held by Home, which shows the section only
 /// when there's something in it).
-/// The same shuffle all day, a new one tomorrow.
-private struct DaySeed: RandomNumberGenerator {
-    var state: UInt64
-    init(_ day: String) { state = day.unicodeScalars.reduce(1469598103934665603) { ($0 ^ UInt64($1.value)) &* 1099511628211 } }
-    mutating func next() -> UInt64 {
-        state &+= 0x9E3779B97F4A7C15
-        var z = state
-        z = (z ^ (z >> 30)) &* 0xBF58476D1CE4E5B9
-        z = (z ^ (z >> 27)) &* 0x94D049BB133111EB
-        return z ^ (z >> 31)
-    }
-}
-
 @Observable
 final class ForYouModel {
     var taste: (name: String, count: Int)?
@@ -111,11 +91,10 @@ final class ForYouModel {
     var inRange: [SearchHit] = []
     /// What's yours to spend this week, and a mix of picks that fits in it.
     var week: (amount: Double, basket: [SearchHit])?
-    /// Something different: away from your usual era and kind.
-    var wildcards: [SearchHit] = []
     /// The share of a set you need before Finish your sets suggests it.
     static let setThreshold = 0.5
-    var hasContent: Bool { !picks.isEmpty || !sets.isEmpty || !inRange.isEmpty || !wildcards.isEmpty }
+    /// Shown: Finish your sets and Your week's budget (picks and in-range cards only fill the budget's mix).
+    var hasContent: Bool { !sets.isEmpty || week != nil }
 
     @MainActor
     func load(store: CollectionStore, index: ExploreIndex?) async {
@@ -143,16 +122,6 @@ final class ForYouModel {
             // Without a usual price there's nothing personal about it.
             if range == nil { inRange = [] }
 
-            // Off your usual path: other eras' risers and sealed if you collect singles, mixed
-            // in a new order each day.
-            let ownsSealed = holdings.contains { $0.product?.isSealed == true }
-            let others = [("vintage", eras.vintage), ("midEra", eras.midEra), ("modern", eras.modern)].filter { $0.0 != era }.flatMap(\.1)
-            let away = others + (ownsSealed ? [] : (index.hotSealed ?? []))
-            let shown = Set(inRange.map(\.product.id))
-            var unique = Set<String>()
-            let fresh = away.filter { !owned.contains($0.product.id) && !shown.contains($0.product.id) && unique.insert($0.product.id).inserted }
-            var rng = DaySeed(Format.day())
-            wildcards = Array(fresh.shuffled(using: &rng).prefix(6))
         }
 
         // Because you collect…: cards of your favourite Pokémon you don't own, priced, best first.
@@ -236,87 +205,12 @@ struct ForYouSection: View {
                 Text("For you").font(.display(24)).tracking(-0.6)
             }
             .padding(.horizontal, 16)
-            if let taste = model.taste, !model.picks.isEmpty {
-                becauseYouCollect(taste, picks: model.picks)
-            }
-            if !model.inRange.isEmpty, let usual = model.usual {
-                inYourRange(model.inRange, usual: usual, era: model.era)
-            }
             if !model.sets.isEmpty {
                 finishYourSets(model.sets)
             }
             if let week = model.week {
                 WeekBudgetCard(amount: week.amount, basket: week.basket).padding(.horizontal, 16)
             }
-            if !model.wildcards.isEmpty {
-                offYourPath(model.wildcards)
-            }
-        }
-    }
-
-    // MARK: Because you collect…
-
-    private func becauseYouCollect(_ t: (name: String, count: Int), picks: [SearchHit]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Because you collect \(t.name)").font(.geist(17, .semibold))
-                Text("You own \(t.count) \(t.name) cards. Here are some you don't have\u{00A0}yet.").font(.geist(13)).foregroundStyle(Theme.muted)
-            }
-            .padding(.horizontal, 16)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .top, spacing: 12) {
-                    ForEach(picks) { hit in
-                        MarketLink(hit: hit) { PickTile(hit: hit) }
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 4)
-            }
-            .cardSequence(picks.map(\.product.id))
-        }
-    }
-
-    // MARK: In your range
-
-    private func inYourRange(_ hits: [SearchHit], usual: Double, era: String?) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(era.map { "Rising \(CollectorTaste.eraName($0)), in your range" } ?? "Rising in your range").font(.geist(17, .semibold))
-                Text("You usually pay about \(Format.money(usual)) a card. These are up this\u{00A0}week.").font(.geist(13)).foregroundStyle(Theme.muted)
-            }
-            .padding(.horizontal, 16)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .top, spacing: 12) {
-                    ForEach(hits) { hit in
-                        MarketLink(hit: hit) { PickTile(hit: hit, showsChange: true) }
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 4)
-            }
-            .cardSequence(hits.map(\.product.id))
-        }
-    }
-
-    // MARK: Off your usual path
-
-    private func offYourPath(_ hits: [SearchHit]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Off your usual path").font(.geist(17, .semibold))
-                Text("A few rising things you don't usually collect. New ones each\u{00A0}day.").font(.geist(13)).foregroundStyle(Theme.muted)
-            }
-            .padding(.horizontal, 16)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .top, spacing: 12) {
-                    ForEach(hits) { hit in
-                        MarketLink(hit: hit) { PickTile(hit: hit, showsChange: true) }
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 4)
-            }
-            .cardSequence(hits.map(\.product.id))
         }
     }
 
@@ -336,31 +230,6 @@ struct ForYouSection: View {
         }
     }
 
-}
-
-/// A picked card: its picture, name and price.
-private struct PickTile: View {
-    var hit: SearchHit
-    var showsChange = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ProductImage(product: hit.pictured, cornerRadius: 5).frame(width: 96, height: 134)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(hit.product.name).font(.geist(13, .medium)).foregroundStyle(.white).lineLimit(1)
-                Text(hit.product.setName ?? "").font(.geist(11)).foregroundStyle(Theme.muted).lineLimit(1)
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text(Format.money(hit.market)).font(.display(16)).tracking(-0.4).monospacedDigit().foregroundStyle(.white)
-                    if showsChange, let c = hit.change7dPct ?? hit.change24hPct {
-                        Text("\(c >= 0 ? "+" : "")\(Int(c.rounded()))%").font(.geist(11, .semibold)).monospacedDigit()
-                            .foregroundStyle(c >= 0 ? Theme.lime : Theme.planPink)
-                    }
-                }
-            }
-        }
-        .frame(width: 96, alignment: .leading)
-        .contentShape(Rectangle())
-    }
 }
 
 /// A set to finish: its name, the progress now and with the cheapest few, and those cards.
