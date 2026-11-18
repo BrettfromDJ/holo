@@ -521,15 +521,12 @@ struct ProductDetailView: View {
 
     private var actions: some View {
         HStack(spacing: 8) {
-            // While a deal is open the row gains a button, so "Add to Collection" says just "Add".
-            let dealOpen = deals.deal.kind != .empty
-            // The same lime button as Overview's. Selling, What if, watching, the wishlist, lists
-            // and portfolios are all in the ⋯ menu at the top right.
-            Button { adding = true } label: { Label(owned.isEmpty ? (dealOpen ? "Add" : "Add to Collection") : "Add more", systemImage: "plus").lineLimit(1) }
+            // The same lime button as Overview's, on its own. Adding to a deal, selling, What if,
+            // watching, the wishlist, lists and portfolios are all in the ⋯ menu at the top right.
+            Button { adding = true } label: { Label(owned.isEmpty ? "Add to Collection" : "Add more", systemImage: "plus").lineLimit(1) }
                 .buttonStyle(Button3D(kind: .lime, height: 48))
                 // No looping sheen or glow (like Overview's): the page should rest when still.
                 .environment(\.inGlassBar, true)
-            DealAddButton(product: product, printing: printing, market: headline, owned: owned)
         }
         .alert("New list", isPresented: $naming) {
             TextField("Grails, For sale at the show…", text: $newShelf)
