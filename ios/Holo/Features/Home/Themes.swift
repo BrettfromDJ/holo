@@ -384,30 +384,19 @@ private struct MosaicLook: View {
     }
 }
 
-/// Ladder: one Pokémon from cheapest to priciest. The cards stay one size; a bar above each
-/// steps up with its price (on a log scale, so $2 and $2,000 both read).
+/// Ladder ("Every price of…"): one Pokémon from cheapest to priciest as a plain row of
+/// same-size cards, each with its price and set. No bars, no growing cards (the owner's rule).
 private struct LadderLook: View {
     var hits: [SearchHit]
 
     var body: some View {
-        let prices = hits.map { max(1, $0.market ?? 1) }
-        let low = log(prices.min() ?? 1), high = log(prices.max() ?? 1)
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .top, spacing: 10) {
-                ForEach(Array(hits.enumerated()), id: \.element.id) { i, hit in
-                    let share = high > low ? (log(prices[i]) - low) / (high - low) : 1
-                    let top = i == hits.count - 1
+            HStack(alignment: .top, spacing: 12) {
+                ForEach(hits) { hit in
                     MarketLink(hit: hit) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            // The step, rising from a shared floor: taller the pricier.
-                            ZStack(alignment: .bottom) {
-                                Color.clear.frame(height: 48)
-                                RoundedRectangle(cornerRadius: 3, style: .continuous)
-                                    .fill(Theme.lime.opacity(top ? 1 : 0.25 + 0.5 * share))
-                                    .frame(height: 4 + 44 * share)
-                            }
-                            Text(price(hit)).font(.display(17)).tracking(-0.4).monospacedDigit().foregroundStyle(top ? Theme.lime : .white)
+                        VStack(alignment: .leading, spacing: 6) {
                             ProductImage(product: hit.pictured, cornerRadius: 6).frame(width: 96, height: 134)
+                            Text(price(hit)).font(.display(17)).tracking(-0.4).monospacedDigit().foregroundStyle(.white)
                             Text(hit.product.setName ?? "").font(.geist(11)).foregroundStyle(Theme.muted).lineLimit(1)
                         }
                         .frame(width: 96, alignment: .leading)
