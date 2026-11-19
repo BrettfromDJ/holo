@@ -491,8 +491,8 @@ private struct Hero: View {
                     Label("View cards", systemImage: "square.grid.2x2").lineLimit(1)
                 }
                 .buttonStyle(Button3D(kind: .dark, height: 48))
-                Button(action: onAdd) { Label("Add card", systemImage: "plus").lineLimit(1) }
-                    .buttonStyle(Button3D(kind: .lime, height: 48))
+                // No add button here: cards are added from their own page (found through
+                // Search or Explore).
             }
             .environment(\.inGlassBar, true)
             .frame(height: 48)

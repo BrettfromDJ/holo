@@ -76,6 +76,9 @@ and say exactly what to run or click.
   still show if you own one.
 - **Cards never grow or step in size, and no price bars over cards** (the owner hated "Every
   price of Gengar" with growing cards, then with rising bars): rows of cards are one size.
+- **Adding cards happens on the card page** ("Add to Collection"), reached through Search or
+  Explore (or a scan). No add buttons on Summary, Collection or elsewhere; empty states may still
+  point to Scan / Search.
 - No confetti. No emojis. Toasts bottom-right on the web. The "Prices updated" banner is off
   in the app for now; milestone banners are back on (see Open threads).
 - No lime bar beside section headings (removed). No dots beside card titles (removed).
