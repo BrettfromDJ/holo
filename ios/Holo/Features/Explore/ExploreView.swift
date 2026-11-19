@@ -222,9 +222,9 @@ private struct BrandView: View {
     var body: some View {
         let today = Format.day()
         ScrollView {
-            VStack(alignment: .leading, spacing: 36) {
+            VStack(alignment: .leading, spacing: 20) {
                 hero
-                VStack(alignment: .leading, spacing: 30) {
+                VStack(alignment: .leading, spacing: 22) {
                     // Its own view: tapping it or typing doesn't redraw the page of sets.
                     SettlingSearchBox(query: $query, prompt: "Search \(game.name) sets")
                     let years = self.years
@@ -262,7 +262,7 @@ private struct BrandView: View {
     }
 
     private var hero: some View {
-        VStack(alignment: .leading, spacing: 22) {
+        VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 16) {
                 CachedImage(url: game.logoUrl.flatMap(URL.init(string:))) { img in
                     img.resizable().scaledToFit().whiteLogo(game.drawnInBlack).shadow(color: .black.opacity(0.5), radius: 9, y: 8)
@@ -282,7 +282,7 @@ private struct BrandView: View {
             if let next { NextRelease(set: next) }
         }
         .padding(.horizontal, 16)
-        .padding(.top, 8)
+        .padding(.top, 0)
         .background(alignment: .top) { ExploreBackdrop() }
     }
 }
