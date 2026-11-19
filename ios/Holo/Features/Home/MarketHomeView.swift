@@ -993,10 +993,13 @@ private struct EraSummaryCard: View, Equatable {
                     }
                 }
                 .frame(height: 6)
+                // In the bar's order: up on the left, steady in the middle, down on the right.
                 HStack(spacing: 10) {
                     (Text("\(summary.up.formatted())").foregroundColor(Theme.lime) + Text(" up").foregroundColor(Theme.muted))
-                    (Text("\(summary.down.formatted())").foregroundColor(Theme.planPink) + Text(" down").foregroundColor(Theme.muted))
+                    Spacer(minLength: 0)
                     (Text("\(summary.flat.formatted())").foregroundColor(.white) + Text(" steady").foregroundColor(Theme.muted))
+                    Spacer(minLength: 0)
+                    (Text("\(summary.down.formatted())").foregroundColor(Theme.planPink) + Text(" down").foregroundColor(Theme.muted))
                 }
                 .font(.geist(13)).monospacedDigit()
             }
