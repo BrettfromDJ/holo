@@ -13,6 +13,8 @@ struct MarketHomeView: View {
     @State private var insights: MarketInsights? = MarketInsights.saved
     /// For you: picks from your collection (Because you collect…, Finish your sets).
     @State private var forYou = ForYouModel()
+    /// How each era's market moved (Rising by era), kept on the phone between visits.
+    @State private var eraSummaries: [EraSummary] = (UserDefaults.standard.data(forKey: "era-summaries")).flatMap { try? JSONDecoder().decode([EraSummary].self, from: $0) } ?? []
     /// Themed collections: a new few each time the app opens.
     @State private var themes = ThemesModel()
     @State private var fresh = false
@@ -189,10 +191,17 @@ struct MarketHomeView: View {
             let modern = index.eras?.modern ?? [], midEra = index.eras?.midEra ?? [], vintage = index.eras?.vintage ?? []
             // One color card per era, like Collection's sealed and singles boxes: modern in lime,
             // mid-era in blue, vintage in pink. An era with no risers this week says so.
-            section(icon: "hourglass", "Rising by era", "This week's risers, from modern to vintage") {
+            let summaries = Demo.isOn ? EraSummaryCard.demo(index) : eraSummaries
+            section(icon: "hourglass", "By era", summaries.isEmpty ? "This week's risers, from modern to vintage" : "How each era's market moved, and its biggest moves") {
                 // Side by side, swiped one at a time; the next card peeks in at the edge.
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(alignment: .top, spacing: 12) {
+                      if !summaries.isEmpty {
+                        // Each era's whole market: its typical change, up and down, biggest moves.
+                        ForEach(["modern", "midEra", "vintage"], id: \.self) { key in
+                            if let sum = summaries.first(where: { $0.era == key }) { EraSummaryCard(summary: sum) }
+                        }
+                      } else {
                         // Made-up risers stand in for an era with none yet (marked Sample).
                         // An era the server sent no risers for is filled with real risers of that era from
                         // Home's other lists (so every card opens its page); made-up samples only if none.
@@ -202,6 +211,7 @@ struct MarketHomeView: View {
                         EraCard(era: .modern, hits: m.isEmpty ? EraCard.sample(.modern) : m, sample: m.isEmpty)
                         EraCard(era: .midEra, hits: d.isEmpty ? EraCard.sample(.midEra) : d, sample: d.isEmpty)
                         EraCard(era: .vintage, hits: v)
+                      }
                     }
                     .scrollTargetLayout()
                 }
@@ -307,6 +317,10 @@ struct MarketHomeView: View {
             // The day's insights (saved on the server, so this is quick); kept on the phone too.
             if let fetched = try? await Backend.shared.api.marketInsights() {
                 if fetched.briefing != nil || insights?.day != fetched.day { insights = fetched; MarketInsights.saved = fetched }
+            }
+            if let eras = try? await Backend.shared.api.eraSummaries(), eras.contains(where: { $0.tracked > 0 }) {
+                eraSummaries = eras
+                UserDefaults.standard.set(try? JSONEncoder().encode(eras), forKey: "era-summaries")
             }
         }
         await loadChase()
@@ -944,6 +958,91 @@ private struct HotSealedRow: View {
 }
 
 // MARK: - Rising by era
+
+/// One era's market at a glance: its typical change this week (or today, until a week of prices is
+/// kept), how many cards went up and down with a thin bar, then its biggest moves (shown only
+/// when there are some). Every era card is the same height. The card turns pink when the era is down.
+private struct EraSummaryCard: View, Equatable {
+    var summary: EraSummary
+
+    private var era: EraCard.Era { summary.era == "modern" ? .modern : summary.era == "midEra" ? .midEra : .vintage }
+
+    var body: some View {
+        let down = summary.median < 0
+        let tint = down ? Theme.planPink : era.color
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(era.title).font(.display(30)).tracking(-0.8).displayTrim(30)
+                Spacer(minLength: 8)
+                MonoLabel(text: summary.window == "7d" ? "This week" : "Today")
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(Format.signedPercent(summary.median / 100)).font(.display(48)).tracking(-1.6).monospacedDigit()
+                    .foregroundStyle(down ? Theme.planPink : summary.median > 0 ? Theme.lime : .white)
+                    .displayTrim(48)
+                Text("Typical change across \(summary.tracked.formatted()) cards").font(.geist(13)).foregroundStyle(Theme.muted)
+            }
+            // How widely it moved: up, unchanged and down as one thin bar.
+            VStack(alignment: .leading, spacing: 8) {
+                GeometryReader { geo in
+                    let total = max(1, summary.up + summary.flat + summary.down)
+                    HStack(spacing: 2) {
+                        Capsule().fill(Theme.lime).frame(width: max(summary.up > 0 ? 4 : 0, geo.size.width * Double(summary.up) / Double(total)))
+                        Capsule().fill(Color.white.opacity(0.15))
+                        Capsule().fill(Theme.planPink).frame(width: max(summary.down > 0 ? 4 : 0, geo.size.width * Double(summary.down) / Double(total)))
+                    }
+                }
+                .frame(height: 6)
+                HStack(spacing: 10) {
+                    (Text("\(summary.up.formatted())").foregroundColor(Theme.lime) + Text(" up").foregroundColor(Theme.muted))
+                    (Text("\(summary.down.formatted())").foregroundColor(Theme.planPink) + Text(" down").foregroundColor(Theme.muted))
+                    (Text("\(summary.flat.formatted())").foregroundColor(.white) + Text(" steady").foregroundColor(Theme.muted))
+                }
+                .font(.geist(13)).monospacedDigit()
+            }
+            if !summary.moves.isEmpty {
+                VStack(alignment: .leading, spacing: 0) {
+                    MonoLabel(text: "Biggest moves").padding(.bottom, 6)
+                    ForEach(Array(summary.moves.enumerated()), id: \.element.id) { i, move in
+                        if i > 0 { Divider().overlay(Color.white.opacity(0.06)) }
+                        MarketLink(hit: move.hit) {
+                            HStack(spacing: 10) {
+                                ProductImage(product: move.hit.pictured, cornerRadius: 2).frame(width: 30, height: 42)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(move.hit.product.name).font(.geist(14, .medium)).foregroundStyle(.white).lineLimit(1)
+                                    Text(move.hit.product.setName ?? "").font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
+                                }
+                                Spacer(minLength: 8)
+                                VStack(alignment: .trailing, spacing: 2) {
+                                    Text(Format.money(move.hit.market)).font(.display(15)).tracking(-0.3).monospacedDigit().foregroundStyle(.white)
+                                    ChangeText(pct: move.changePct)
+                                }
+                            }
+                            .padding(.vertical, 8)
+                            .contentShape(Rectangle())
+                        }
+                    }
+                }
+                .cardSequence(summary.moves.map(\.id))
+            }
+        }
+        // One height for every era, whatever it holds.
+        .frame(height: 420, alignment: .top)
+        .tinted(tint)
+        .containerRelativeFrame(.horizontal) { width, _ in width - 32 - 28 }
+    }
+
+    /// Made-up summaries from the demo's own lists (demos and screenshots).
+    static func demo(_ index: ExploreIndex) -> [EraSummary] {
+        let e = index.eras ?? MarketEras()
+        func make(_ key: String, _ hits: [SearchHit], _ median: Double, _ up: Int, _ down: Int, _ flat: Int) -> EraSummary {
+            EraSummary(era: key, window: "7d", median: median, up: up, down: down, flat: flat, tracked: up + down + flat,
+                       moves: hits.prefix(3).map { EraMove(hit: $0, changePct: $0.change7dPct ?? 0) })
+        }
+        return [make("modern", e.modern, 1.8, 1240, 610, 2210), make("midEra", e.midEra, -0.6, 310, 420, 1180), make("vintage", e.vintage, 2.4, 412, 188, 640)]
+    }
+}
+
 
 /// One era's card on Home, in the style of Collection's sealed / singles / graded boxes: the era's
 /// name and its average rise on a tag, the years it covers, its three biggest risers fanned out,

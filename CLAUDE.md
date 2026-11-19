@@ -62,6 +62,11 @@ and say exactly what to run or click.
   have no changes from TCG API, so it keeps each Pokémon card's daily price in `catalog_price_days`
   (from $5, 9 days) and fills the changes itself (`src/lib/explore/price-days.ts`); TCG API's own
   changes win when it sends them.
+- **By era on Home:** each era card sums up its whole market (`/api/eras`, `src/lib/server/era-summary.ts`,
+  saved ~6 hours): the typical (median) change across every tracked single from $5, up / down /
+  steady counts with a thin bar, and up to 3 biggest moves from $20 (hidden when none). Uses the
+  7-day change once 40+ cards in the era have one, else today's. App: `EraSummaryCard`, all one
+  height, pink when the era is down; the old risers cards (`EraCard`) only when there's no summary.
 - **Eras** (Home's Rising by era): vintage before Diamond & Pearl (WotC and EX, to early 2007),
   mid-era Diamond & Pearl through XY (2007–2016), modern Sun & Moon on (2017–). `eraOf` in
   `src/lib/explore/movers.ts` and `MarketEras.era` in the app (same cut-off dates).

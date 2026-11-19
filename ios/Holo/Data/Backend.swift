@@ -137,6 +137,12 @@ final class HoloAPI {
         try await send(try await request("api/insights"), as: MarketInsights.self)
     }
 
+    /// How the modern, mid-era and vintage markets moved (Home's Rising by era).
+    func eraSummaries() async throws -> [EraSummary] {
+        struct Body: Decodable { var eras: [EraSummary] }
+        return try await send(try await request("api/eras"), as: Body.self).eras
+    }
+
     /// Home's themed collections (see `MarketTheme`).
     func themes() async throws -> [MarketTheme] {
         struct Body: Decodable { var themes: [MarketTheme] }

@@ -647,6 +647,40 @@ struct ConditionPrice: Codable, Hashable {
     var samples: Int
 }
 
+/// How one era's market moved (from /api/eras): its typical change across every tracked single,
+/// how many went up and down, and its biggest moves.
+struct EraSummary: Codable, Hashable {
+    var era: String
+    /// "7d" (this week) or "24h" (today).
+    var window: String
+    /// The middle change, in percent (2.4 = +2.4%).
+    var median: Double
+    var up: Int
+    var down: Int
+    var flat: Int
+    var tracked: Int
+    var moves: [EraMove]
+}
+
+/// One of an era's biggest moves: the card and its change.
+struct EraMove: Codable, Hashable, Identifiable {
+    var hit: SearchHit
+    var changePct: Double
+    var id: String { hit.product.id }
+
+    private enum Key: String, CodingKey { case changePct }
+    init(from decoder: Decoder) throws {
+        hit = try SearchHit(from: decoder)
+        changePct = try decoder.container(keyedBy: Key.self).decode(Double.self, forKey: .changePct)
+    }
+    init(hit: SearchHit, changePct: Double) { self.hit = hit; self.changePct = changePct }
+    func encode(to encoder: Encoder) throws {
+        try hit.encode(to: encoder)
+        var c = encoder.container(keyedBy: Key.self)
+        try c.encode(changePct, forKey: .changePct)
+    }
+}
+
 /// One of Today in the hobby's stories.
 struct MarketStory: Codable, Equatable, Hashable {
     var headline: String
