@@ -230,13 +230,16 @@ private struct BillboardLook: View {
         let star = hits[0]
         VStack(alignment: .leading, spacing: 14) {
             MarketLink(hit: star) {
-                HStack(alignment: .bottom, spacing: 16) {
+                HStack(alignment: .top, spacing: 16) {
+                    // The name from the top, the price on the bottom: level with the card's edges.
                     VStack(alignment: .leading, spacing: 6) {
                         MonoLabel(text: "No. 1 in this collection")
-                        Text(star.product.name.noWidow).font(.display(26)).tracking(-0.8).foregroundStyle(.white).lineLimit(3)
+                        Text(star.product.name.noWidow).font(.display(24)).tracking(-0.8).foregroundStyle(.white).lineLimit(3)
                         Text(star.product.setName ?? "").font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
-                        Text(price(star)).font(.display(30)).tracking(-0.9).monospacedDigit().foregroundStyle(Theme.lime).padding(.top, 6)
+                        Spacer(minLength: 8)
+                        Text(price(star)).font(.display(30)).tracking(-0.9).monospacedDigit().foregroundStyle(Theme.lime)
                     }
+                    .frame(height: 196)
                     Spacer(minLength: 0)
                     ProductImage(product: star.pictured, cornerRadius: 8)
                         .frame(width: 140, height: 196)
