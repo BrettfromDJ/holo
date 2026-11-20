@@ -199,7 +199,9 @@ struct ProSheet: View {
                 Text(price).font(.geist(15, .semibold)).foregroundStyle(.white).monospacedDigit()
             }
             .padding(16)
-            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(on ? Theme.lime.opacity(0.08) : Color.white.opacity(0.06)))
+            // Glass: blurs what's behind (the sparks and glow), with a lime wash when chosen.
+            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(on ? Theme.lime.opacity(0.08) : Color.clear))
+            .liquidGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(on ? Theme.lime : Color.white.opacity(0.08), lineWidth: on ? 1.5 : 1))
             .contentShape(RoundedRectangle(cornerRadius: 18))
         }
