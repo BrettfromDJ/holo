@@ -698,6 +698,8 @@ struct MarketInsights: Codable, Equatable {
     var reasons: [String: String] = [:]
     /// "Today in the hobby" as three swipeable stories (a headline, one figure, the card).
     var stories: [MarketStory]? = nil
+    /// "Did you know?" about Card of the day, by its id.
+    var facts: [String: String]? = nil
 
     /// The last ones fetched, kept on the phone so Home shows them at once next time.
     static var saved: MarketInsights? {

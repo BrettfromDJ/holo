@@ -159,9 +159,9 @@ struct MarketHomeView: View {
         // Card of the day leads Home, big and on its own.
         Group {
             if let star = index.today?.first {
-                CardOfTheDay(hit: star, kind: .day, reason: insights?.reasons[star.product.id])
+                CardOfTheDay(hit: star, kind: .day, reason: insights?.reasons[star.product.id], fact: Self.fact(for: star, insights))
             } else if let star = trending.first {
-                CardOfTheDay(hit: star, kind: .week, reason: insights?.reasons[star.product.id])
+                CardOfTheDay(hit: star, kind: .week, reason: insights?.reasons[star.product.id], fact: Self.fact(for: star, insights))
             } else if let chase, let top = chase.hits.first {
                 // No market moves to show: the newest set's top pull takes the stage instead.
                 CardOfTheDay(hit: top, kind: .topPull(chase.set.name))
@@ -344,6 +344,12 @@ struct MarketHomeView: View {
 /// "Today in the hobby": two or three sentences on what's moving, written daily by Claude from
 /// Dexora's own prices. Quiet: a small label with a spark, then the text; no box.
 extension MarketHomeView {
+    /// Card of the day's "Did you know?" (a made-up one in demos and screenshots).
+    static func fact(for star: SearchHit, _ insights: MarketInsights?) -> String? {
+        if let f = insights?.facts?[star.product.id], !f.isEmpty { return f }
+        return Demo.isOn ? "Ken Sugimori, who drew many of the earliest cards, also designed most of the original 151 Pokémon." : nil
+    }
+
     /// This week's risers from one era, out of Home's other lists (by each card's set date).
     static func risers(in era: String, _ index: ExploreIndex) -> [SearchHit] {
         var released: [String: String] = [:]
@@ -613,6 +619,8 @@ private struct CardOfTheDay: View {
     var kind: Kind
     /// Why it moved, in a line (from the daily insights), when there is one.
     var reason: String? = nil
+    /// "Did you know?": one fun fact about the card (from the daily insights), when there is one.
+    var fact: String? = nil
     @Environment(CollectionStore.self) private var store
     private var daily: Bool { if case .day = kind { return true } else { return false } }
 
@@ -673,6 +681,7 @@ private struct CardOfTheDay: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if let points = chartPoints { WeekLine(points: points, tone: tone) }
+                if let fact, !fact.isEmpty, !fact.contains("tcgapi:") { DidYouKnow(text: fact) }
             }
             .foregroundStyle(.white)
             .padding(18)
@@ -734,6 +743,25 @@ private struct CardOfTheDay: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
         .liquidGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+}
+
+/// Card of the day's fun fact: a small glass box with a lime spark and "Did you know?".
+private struct DidYouKnow: View {
+    var text: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: "sparkle").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.lime)
+                MonoLabel(text: "Did you know?")
+            }
+            Text(text.noWidow).font(.geist(14)).foregroundStyle(.white.opacity(0.9))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 
