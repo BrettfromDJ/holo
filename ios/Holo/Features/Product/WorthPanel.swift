@@ -25,12 +25,15 @@ struct WorthPanel: View {
         // and the card's TCGplayer page at the bottom.
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .firstTextBaseline) {
+                // Laid out like the eBay panel: the title on the left, the source's wordmark on the right.
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("What's it worth raw?").font(.geist(15, .semibold))
+                        Text("TCGplayer prices by condition").font(.geist(12)).foregroundStyle(Theme.muted)
+                    }
+                    Spacer(minLength: 0)
                     TCGplayerMark()
-                    Spacer()
-                    MonoLabel(text: "Raw prices")
                 }
-                CardLabel(text: "What's it worth raw?")
                 let w = worth
                 HStack(alignment: .lastTextBaseline) {
                     // Rolls digit by digit to the new worth when you pick a condition.
@@ -140,16 +143,16 @@ extension CardCondition {
 }
 
 
-/// TCGplayer's name as a small wordmark (text, not their logo file) with a blue mark beside it.
+/// TCGplayer's wordmark (drawn in text, like the eBay panel's), marking where these prices come from.
 private struct TCGplayerMark: View {
     var body: some View {
-        HStack(spacing: 7) {
-            Text("TCG").font(.geist(10, .bold)).tracking(0.4).foregroundStyle(.white)
-                .padding(.horizontal, 5).padding(.vertical, 3)
-                .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Theme.planBlue))
-            Text("TCGplayer").font(.geist(15, .semibold)).foregroundStyle(.white)
+        HStack(spacing: 0) {
+            Text("TCG").foregroundStyle(Color(hex: 0x6E93FF))
+            Text("player").foregroundStyle(.white)
         }
-        .accessibilityElement(children: .combine)
+        .font(.geist(22, .bold))
+        .tracking(-0.6)
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel("TCGplayer")
     }
 }
