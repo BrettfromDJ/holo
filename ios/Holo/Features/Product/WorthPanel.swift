@@ -1,9 +1,8 @@
 import SwiftUI
 
-/// TCGplayer's market price for the card (what Near Mint copies actually sold for) and a link
-/// to its TCGplayer page. Per-condition prices were dropped on purpose: our source only has
-/// asking prices for played copies, too often wrong or out of order. Same as the website's
-/// `WhatsItWorth`.
+/// A link to the card on TCGplayer, with its logo. No prices: our source can't say which
+/// condition TCGplayer's figures are for, so TCGplayer shows them itself. Same as the
+/// website's `WhatsItWorth`.
 struct WorthPanel: View {
     var productId: String
     var printing: String?
@@ -20,19 +19,18 @@ struct WorthPanel: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Laid out like the eBay panel: the title on the left, the source's logo on the right.
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("TCGplayer market price").font(.geist(15, .semibold))
-                    Text("Near Mint, from recent sales").font(.geist(12)).foregroundStyle(Theme.muted)
+        // No figures here: our source can't say which condition TCGplayer's numbers come from,
+        // so the panel just links out, where TCGplayer shows every condition itself.
+        if let url = tcgplayerURL {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .center, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Prices by condition").font(.geist(15, .semibold))
+                        Text("Near Mint to Damaged, straight from TCGplayer").font(.geist(12)).foregroundStyle(Theme.muted)
+                    }
+                    Spacer(minLength: 0)
+                    TCGplayerMark()
                 }
-                Spacer(minLength: 0)
-                TCGplayerMark()
-            }
-            Text(Format.money(nm)).font(.display(52)).tracking(-2.1).monospacedDigit()
-                .lineLimit(1).minimumScaleFactor(0.6)
-            if let url = tcgplayerURL {
                 Link(destination: url) {
                     HStack(spacing: 8) {
                         Text("View on TCGplayer")
@@ -42,10 +40,9 @@ struct WorthPanel: View {
                 }
                 .buttonStyle(Button3D(kind: .blue, height: 46))
             }
+            .padding(4)
+            .tinted(Theme.planBlue)
         }
-        // The tint adds 16 of its own: 4 more makes the 20 the other panels have.
-        .padding(4)
-        .tinted(Theme.planBlue)
     }
 }
 
