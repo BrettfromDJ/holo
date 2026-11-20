@@ -542,11 +542,7 @@ private struct YourCollectionStrip: View {
         let tint = monthChange < 0 ? Theme.planPink : Theme.lime
         Button { Router.shared.tabRequest = "collection-summary" } label: {
             VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    MonoLabel(text: "Your collection")
-                    Spacer(minLength: 8)
-                    Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.muted)
-                }
+                MonoLabel(text: "Your collection")
                 // The worth big, today under it; the month's change on the right.
                 HStack(alignment: .lastTextBaseline, spacing: 12) {
                     VStack(alignment: .leading, spacing: 6) {
