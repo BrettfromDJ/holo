@@ -84,7 +84,8 @@ struct WorthPanel: View {
                 }
             }
         }
-        .padding(18)
+        // The tint adds 16 of its own: 4 more makes the 20 the other panels have.
+        .padding(4)
         .tinted(Theme.planBlue)
         .task(id: "\(productId)|\(printing ?? "")") { await load() }
         .onAppear {
