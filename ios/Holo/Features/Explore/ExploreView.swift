@@ -1112,11 +1112,7 @@ struct StatTile: View {
                     .lineLimit(1).minimumScaleFactor(0.6).displayTrim(28)
                 if let of { Text("/\(of)").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted).lineLimit(1).fixedSize() }
             }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .overlay(alignment: .bottom) {
+            // Out of how many, as a thin bar under the figure, in the tile's own spacing.
             if let of, of > 0 {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
@@ -1124,11 +1120,14 @@ struct StatTile: View {
                         Capsule().fill(tint).frame(width: max(3, geo.size.width * min(1, value / Double(of))))
                     }
                 }
-                .frame(height: 3)
-                .padding(.horizontal, 14)
-                .padding(.bottom, 6)
+                .frame(height: 4)
+                .padding(.top, 6)
             }
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        // Tiles in a row match the tallest one.
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .liquidGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 

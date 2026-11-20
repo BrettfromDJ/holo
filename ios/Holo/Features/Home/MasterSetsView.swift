@@ -133,6 +133,8 @@ struct MasterSetDetailView: View {
                         StatTile(label: "Your value", value: ownedValue, money: true)
                         StatTile(label: unpriced > 0 ? "To finish*" : "To finish", value: missingValue, money: true)
                     }
+                    // All three as tall as the Owned tile with its bar.
+                    .fixedSize(horizontal: false, vertical: true)
                     if complete { SkewTag(text: "Set complete", icon: "checkmark") }
                     // No chase cards here: a master set goes straight from your progress to its cards.
                 } else {
