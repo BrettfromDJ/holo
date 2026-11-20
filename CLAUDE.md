@@ -212,6 +212,6 @@ and say exactly what to run or click.
   The app (`Features/Home/Themes.swift`): Collection of the Day (`DailyDiscovery`) leads Home,
   then 4 per launch between Home's lists (new mix each open, weighted to your Pokémon and era and
   the `featured` launch lineup, never two of one look), plus "Your next favorite" (For you's
-  picks of your favourite Pokémon) in the last slot; each opens `ThemePage`. For you keeps only
+  picks of your favourite Pokémon) in the last slot on about one open in three; each opens `ThemePage`. For you keeps only
   Finish your sets (50%+) and Your week's budget.
 - Not in the app on purpose: the separate trade checker (the Deal tab covers trades), and the welcome pages (removed; signed out opens straight on Sign in, its card wall is `Features/Auth/CardWall.swift`).

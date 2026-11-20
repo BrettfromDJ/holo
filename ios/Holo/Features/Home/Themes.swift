@@ -34,6 +34,8 @@ final class ThemesModel {
 
     /// A new mix each time the app opens (the same while it stays open).
     private static let launchSeed = UInt64.random(in: 1...UInt64.max)
+    /// Whether Your next favorite joins this open's mix (about one in three).
+    private static let showsNextFavorite = launchSeed % 3 == 0
 
     @MainActor
     func load(index: ExploreIndex?) async {
@@ -82,8 +84,11 @@ final class ThemesModel {
             looks.insert(chosen.look)
             pool.removeAll { $0.id == chosen.id }
         }
-        // Your next favorite (cards of the Pokémon you collect most) takes the last slot.
-        if let mine = nextFavorite, out.count >= count { out[out.count - 1] = mine } else if let mine = nextFavorite { out.append(mine) }
+        // Your next favorite (cards of the Pokémon you collect most) takes the last slot, but only
+        // on about one open in three, so it isn't always there.
+        if Self.showsNextFavorite, let mine = nextFavorite {
+            if out.count >= count { out[out.count - 1] = mine } else { out.append(mine) }
+        }
         shown = out
     }
 
@@ -98,6 +103,7 @@ final class ThemesModel {
                                 look: "fan", pokemon: [taste.name], hits: picks)
         guard nextFavorite?.hits.map(\.id) != theme.hits.map(\.id) else { return }
         nextFavorite = theme
+        guard Self.showsNextFavorite else { return }
         if let i = shown.firstIndex(where: { $0.id == theme.id }) { shown[i] = theme }
         else if !shown.isEmpty { shown[shown.count - 1] = theme }
     }
