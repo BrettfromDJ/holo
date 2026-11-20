@@ -65,9 +65,10 @@ struct WorthPanel: View {
                         Button(c.short) { condition = c }
                             .font(.footnote.weight(.semibold))
                             .frame(maxWidth: .infinity, minHeight: 38)
-                            .background(condition == c ? c.tint.opacity(0.22) : Theme.surface2, in: RoundedRectangle(cornerRadius: 10))
+                            // Unpicked ones a faint white, so they stand off the blue panel.
+                            .background(condition == c ? c.tint.opacity(0.22) : Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
                             .overlay(RoundedRectangle(cornerRadius: 10).stroke(condition == c ? c.tint : .clear, lineWidth: 1.5))
-                            .foregroundStyle(condition == c ? c.tint : Theme.muted)
+                            .foregroundStyle(condition == c ? c.tint : Color.white.opacity(0.8))
                     }
                 }
                 .sensoryFeedback(.selection, trigger: condition)
@@ -144,16 +145,14 @@ extension CardCondition {
 }
 
 
-/// TCGplayer's wordmark (drawn in text, like the eBay panel's), marking where these prices come from.
+/// TCGplayer's logo (the owner's file, in the asset catalog as a vector), marking where these
+/// prices come from, sized like the eBay panel's wordmark.
 private struct TCGplayerMark: View {
     var body: some View {
-        HStack(spacing: 0) {
-            Text("TCG").foregroundStyle(Color(hex: 0x6E93FF))
-            Text("player").foregroundStyle(.white)
-        }
-        .font(.geist(22, .bold))
-        .tracking(-0.6)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("TCGplayer")
+        Image("TCGplayerLogo")
+            .resizable()
+            .scaledToFit()
+            .frame(height: 26)
+            .accessibilityLabel("TCGplayer")
     }
 }
