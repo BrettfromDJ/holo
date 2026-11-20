@@ -137,7 +137,14 @@ struct ProSheet: View {
                         ForEach(proFeatures, id: \.title) { f in
                             HStack(alignment: .top, spacing: 12) {
                                 Image(systemName: f.icon).font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.ink)
-                                    .frame(width: 34, height: 34).background(Circle().fill(Theme.lime))
+                                    .frame(width: 34, height: 34)
+                                    // A lime gradient, bright at the top-left to deep at the bottom-right,
+                                    // with a soft rim of light.
+                                    .background(
+                                        Circle().fill(LinearGradient(colors: [Color(hex: 0xF2FFB8), Theme.lime, Color(hex: 0x8FCB00)],
+                                                                     startPoint: .topLeading, endPoint: .bottomTrailing))
+                                            .overlay(Circle().strokeBorder(LinearGradient(colors: [.white.opacity(0.7), .clear], startPoint: .top, endPoint: .bottom), lineWidth: 1))
+                                    )
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(f.title).font(.geist(15, .semibold)).foregroundStyle(.white)
                                     Text(f.line).font(.geist(13)).foregroundStyle(Theme.muted)
