@@ -134,8 +134,7 @@ struct MasterSetDetailView: View {
                         StatTile(label: unpriced > 0 ? "To finish*" : "To finish", value: missingValue, money: true)
                     }
                     if complete { SkewTag(text: "Set complete", icon: "checkmark") }
-                    chase(entries)
-                        .cardSequence(entries.filter { ($0.hit.market ?? 0) > 0 }.sorted { ($0.hit.market ?? 0) > ($1.hit.market ?? 0) }.prefix(6).map(\.hit.product.id))
+                    // No chase cards here: a master set goes straight from your progress to its cards.
                 } else {
                     // The top, like Collection's: on the same lit backdrop. Its own equatable view, so
                     // a chip, the sort or the search doesn't redraw the dial and the strip.
