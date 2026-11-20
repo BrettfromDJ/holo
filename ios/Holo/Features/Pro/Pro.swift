@@ -125,7 +125,9 @@ struct ProSheet: View {
                         Spacer()
                         Button { dismiss() } label: {
                             Image(systemName: "xmark").font(.system(size: 14, weight: .bold)).foregroundStyle(.white)
-                                .frame(width: 36, height: 36).background(Circle().fill(Color.white.opacity(0.1)))
+                                .frame(width: 40, height: 40)
+                                // Glass: blurs the glow and sparks behind it.
+                                .liquidGlass(in: Circle())
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Close")
@@ -423,8 +425,12 @@ private struct ProHero: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: 210)
             VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                // The tag centred on the word's letters (its box trimmed to them), and the word
+                // nudged left so its D lines up with the text under it.
+                HStack(alignment: .center, spacing: 10) {
                     Text("Dexora").font(.display(44)).tracking(-1.6).foregroundStyle(.white)
+                        .displayTrim(44)
+                        .padding(.leading, -3)
                     SkewTag(text: "Pro", icon: "sparkles")
                 }
                 DisplayText(text: reason.headline, size: 24, lineGap: -0.04)
