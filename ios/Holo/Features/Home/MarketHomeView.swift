@@ -924,7 +924,7 @@ private struct TopTenRow: View {
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .top, spacing: 18) {
+            HStack(alignment: .top, spacing: 10) {
                 ForEach(Array(hits.enumerated()), id: \.element.id) { i, hit in
                     MarketLink(hit: hit) {
                         VStack(alignment: .leading, spacing: 8) {
@@ -953,6 +953,13 @@ private struct TopTenRow: View {
                             .frame(width: (i + 1 >= 10 ? 70 : 46) + 100, alignment: .leading)
                         }
                         .foregroundStyle(.white)
+                        // Each in its own black box with a faint edge; the big number stays inside it.
+                        .padding(.horizontal, 14)
+                        .padding(.top, 14)
+                        .padding(.bottom, 14)
+                        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.black))
+                        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color.white.opacity(0.07)))
                     }
                 }
             }
