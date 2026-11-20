@@ -401,14 +401,7 @@ private struct HobbyStories: View {
                 .padding(.horizontal, 16)
             ZStack(alignment: .top) {
                 ForEach(Array(stories.enumerated()), id: \.offset) { i, story in
-                    let depth = (i - page + stories.count) % stories.count
-                    notification(story, front: depth == 0)
-                        // Behind the front one: a step smaller, lower and dimmer each.
-                        .scaleEffect(1 - CGFloat(depth) * 0.05, anchor: .top)
-                        .offset(x: depth == 0 ? drag : 0, y: CGFloat(depth) * 11)
-                        .opacity(depth == 0 ? 1 : depth == 1 ? 0.7 : depth == 2 ? 0.4 : 0)
-                        .zIndex(Double(-depth))
-                        .allowsHitTesting(depth == 0)
+                    layered(story, depth: depth(of: i))
                 }
             }
             .padding(.bottom, CGFloat(min(stories.count, 3) - 1) * 11)
@@ -433,6 +426,22 @@ private struct HobbyStories: View {
         .task(id: page) { await advance() }
     }
 
+    /// How far behind the front a story sits (0 is the front).
+    private func depth(of i: Int) -> Int { (i - page + stories.count) % stories.count }
+
+    /// Behind the front one: a step smaller, lower and dimmer each.
+    private func layered(_ story: MarketStory, depth: Int) -> some View {
+        let d = CGFloat(depth)
+        let fade: Double = depth == 0 ? 1 : (depth == 1 ? 0.7 : (depth == 2 ? 0.4 : 0))
+        let x: CGFloat = depth == 0 ? drag : 0
+        return notification(story, front: depth == 0)
+            .scaleEffect(1 - d * 0.05, anchor: .top)
+            .offset(x: x, y: d * 11)
+            .opacity(fade)
+            .zIndex(-Double(depth))
+            .allowsHitTesting(depth == 0)
+    }
+
     private func advance() async {
         guard !reduceMotion, stories.count > 1 else { return }
         try? await Task.sleep(for: .seconds(dwell))
@@ -445,8 +454,17 @@ private struct HobbyStories: View {
 
     @ViewBuilder private func notification(_ story: MarketStory, front: Bool) -> some View {
         let hit = story.cardId.flatMap { cards[$0] }
-        let tone = story.tone == "down" ? Theme.planPink : story.tone == "up" ? Theme.lime : Color.white
-        let card = HStack(alignment: .center, spacing: 12) {
+        let tone: Color = story.tone == "down" ? Theme.planPink : (story.tone == "up" ? Theme.lime : Color.white)
+        let card = notificationBody(story, hit: hit, tone: tone)
+        if let hit, front {
+            MarketLink(hit: hit) { card }
+        } else {
+            card
+        }
+    }
+
+    private func notificationBody(_ story: MarketStory, hit: SearchHit?, tone: Color) -> some View {
+        HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
                 // Like a notification's top line: the app, and when.
                 HStack(spacing: 6) {
@@ -469,11 +487,25 @@ private struct HobbyStories: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: 118)
         .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        if let hit, front {
-            MarketLink(hit: hit) { card }
-        } else {
-            card
+    }
+}
+
+/// Home before its lists arrive (a first launch): Dexora's name with a soft lime glow, still.
+private struct HomeLoading: View {
+    var body: some View {
+        VStack(spacing: 10) {
+            Text("Dexora").font(.display(44)).tracking(-1.6).foregroundStyle(.white)
+            Text("Getting today's market\u{00A0}ready").font(.geist(14)).foregroundStyle(Theme.muted)
         }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 140)
+        .background {
+            RadialGradient(colors: [Theme.lime.opacity(0.18), .clear], center: .center, startRadius: 0, endRadius: 180)
+                .frame(width: 360, height: 360)
+                .padding(.top, 140)
+                .allowsHitTesting(false)
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 
