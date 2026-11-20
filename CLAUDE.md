@@ -198,8 +198,8 @@ and say exactly what to run or click.
 - Home insights (AI, OpenAI by the owner's choice): `src/lib/server/ai.ts` is the one place that
   calls it (`aiJson`, Chat Completions with a strict JSON schema; `OPENAI_API_KEY` in Vercel only,
   never in the app; `OPENAI_MODEL` optional, default `gpt-5-mini`). `insights.ts` writes "Today in
-  the hobby" (three stories: headline, one figure, a card id; shown as swipeable `HobbyStories`
-  that cycle round and round) and a line per highlighted card once a day from `exploreMarket`
+  the hobby" (three stories: headline, one figure, a card id; shown as `HobbyStories`, a stack of
+  notification-style glass cards that cycle round and round, swipe to step) and a line per highlighted card once a day from `exploreMarket`
   (saved in `api_cache` as `insights-v3:<day>`), served at `/api/insights`; the app shows them on Home (`HobbyBriefing`,
   Card of the day's line; `MarketInsights`, kept on the phone). Without the key Home shows none.
 - Home's themed collections (the owner's playbook "The Art of Card Discovery", ~70): rules in

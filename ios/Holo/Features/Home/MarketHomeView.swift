@@ -387,16 +387,17 @@ extension MarketHomeView {
     }
 }
 
-/// Today in the hobby as stories: three cards to swipe, each a short headline, one big figure
-/// and the card it's about. They step on by themselves, round and round (a thin bar fills over
-/// each); swiping takes over. Tapping one opens its card.
+/// Today in the hobby as a stack of notifications: the front one in full, the next two peeking
+/// out under it, a little smaller. Every few seconds the front one slides back behind the others
+/// and the next comes forward, round and round; a swipe steps it by hand. Each is a short
+/// headline, one figure and the card it's about (tapping the front one opens that card).
 private struct HobbyStories: View {
     var stories: [MarketStory]
     var cards: [String: SearchHit]
     @State private var page = 0
-    @State private var filled = false
+    @State private var drag: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    private let dwell: Double = 6
+    private let dwell: Double = 5
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -405,104 +406,81 @@ private struct HobbyStories: View {
                 MonoLabel(text: "Today in the hobby")
             }
             .padding(.horizontal, 16)
-            // One segment per story: done ones full, the current one filling.
-            HStack(spacing: 4) {
-                ForEach(stories.indices, id: \.self) { i in
-                    Capsule().fill(Color.white.opacity(0.15))
-                        .overlay(alignment: .leading) {
-                            Capsule().fill(.white)
-                                .scaleEffect(x: i < page || (i == page && (filled || reduceMotion)) ? 1 : 0, anchor: .leading)
-                        }
-                        .frame(height: 3)
-                        .clipShape(Capsule())
-                }
-            }
-            .padding(.horizontal, 16)
-            TabView(selection: $page) {
+            ZStack(alignment: .top) {
                 ForEach(Array(stories.enumerated()), id: \.offset) { i, story in
-                    storyCard(story).padding(.horizontal, 16).tag(i)
+                    let depth = (i - page + stories.count) % stories.count
+                    notification(story, front: depth == 0)
+                        // Behind the front one: a step smaller, lower and dimmer each.
+                        .scaleEffect(1 - CGFloat(depth) * 0.05, anchor: .top)
+                        .offset(x: depth == 0 ? drag : 0, y: CGFloat(depth) * 11)
+                        .opacity(depth == 0 ? 1 : depth == 1 ? 0.7 : depth == 2 ? 0.4 : 0)
+                        .zIndex(Double(-depth))
+                        .allowsHitTesting(depth == 0)
                 }
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 190)
+            .padding(.bottom, CGFloat(min(stories.count, 3) - 1) * 11)
+            .padding(.horizontal, 16)
+            // Alongside the page's scrolling: only a sideways swipe moves the stack.
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 14)
+                    .onChanged { g in
+                        guard abs(g.translation.width) > abs(g.translation.height) else { return }
+                        drag = g.translation.width * 0.6
+                    }
+                    .onEnded { g in
+                        let sideways = abs(g.translation.width) > abs(g.translation.height) * 1.4
+                        let step = !sideways ? 0 : g.translation.width < -50 ? 1 : g.translation.width > 50 ? -1 : 0
+                        withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+                            drag = 0
+                            page = (page + step + stories.count) % stories.count
+                        }
+                    }
+            )
         }
         .task(id: page) { await advance() }
     }
 
     private func advance() async {
-        filled = false
         guard !reduceMotion, stories.count > 1 else { return }
-        // Fill this story's segment (one scale animation, no layout), then step on.
-        try? await Task.sleep(for: .milliseconds(50))
-        withAnimation(.linear(duration: dwell)) { filled = true }
         try? await Task.sleep(for: .seconds(dwell))
         guard !Task.isCancelled else { return }
-        // Round and round: after the last, back to the first.
-        withAnimation(.snappy) { page = (page + 1) % stories.count }
+        withAnimation(.spring(response: 0.55, dampingFraction: 0.86)) { page = (page + 1) % stories.count }
     }
 
     /// A capital first letter, whatever the AI sent.
     static func sentenceCase(_ s: String) -> String { s.prefix(1).uppercased() + s.dropFirst() }
 
-    @ViewBuilder private func storyCard(_ story: MarketStory) -> some View {
+    @ViewBuilder private func notification(_ story: MarketStory, front: Bool) -> some View {
         let hit = story.cardId.flatMap { cards[$0] }
         let tone = story.tone == "down" ? Theme.planPink : story.tone == "up" ? Theme.lime : Color.white
-        let card = HStack(alignment: .center, spacing: 14) {
-            VStack(alignment: .leading, spacing: 10) {
-                Text(Self.sentenceCase(story.headline).noWidow).font(.display(24)).tracking(-0.8).foregroundStyle(.white)
-                    .lineLimit(3).minimumScaleFactor(0.8)
-                Text(story.stat).font(.display(40)).tracking(-1.4).monospacedDigit().foregroundStyle(tone)
-                    .lineLimit(1).minimumScaleFactor(0.6)
-                if let hit {
-                    Text(hit.product.name).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
+        let card = HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                // Like a notification's top line: the app, and when.
+                HStack(spacing: 6) {
+                    Image(systemName: "sparkles").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.ink)
+                        .frame(width: 18, height: 18)
+                        .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Theme.lime))
+                    Text("Dexora").font(.geist(12, .semibold)).foregroundStyle(.white)
+                    Text("Today").font(.geist(12)).foregroundStyle(Theme.subtle)
                 }
+                Text(Self.sentenceCase(story.headline).noWidow).font(.geist(16, .semibold)).foregroundStyle(.white)
+                    .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                Text(story.stat).font(.display(22)).tracking(-0.6).monospacedDigit().foregroundStyle(tone).lineLimit(1)
             }
-            Spacer(minLength: 8)
+            Spacer(minLength: 0)
             if let hit {
-                // Set in from the edge, so the tilted card sits inside the panel with room around it.
-                ProductImage(product: hit.pictured, cornerRadius: 7)
-                    .frame(width: 96, height: 134)
-                    .rotationEffect(.degrees(3))
-                    .shadow(color: .black.opacity(0.45), radius: 10, y: 6)
-                    .padding(.trailing, 10)
+                ProductImage(product: hit.pictured, cornerRadius: 5).frame(width: 52, height: 72)
             }
         }
-        .padding(.vertical, 18)
-        .padding(.leading, 20)
-        .padding(.trailing, 18)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .background {
-            ZStack {
-                Theme.surface
-                RadialGradient(colors: [tone.opacity(0.2), .clear], center: UnitPoint(x: 0.78, y: 0.5), startRadius: 0, endRadius: 200)
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Theme.border))
-        if let hit {
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: 118)
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        if let hit, front {
             MarketLink(hit: hit) { card }
         } else {
             card
         }
-    }
-}
-
-/// Home before its lists arrive (a first launch): Dexora's name with a soft lime glow, still.
-private struct HomeLoading: View {
-    var body: some View {
-        VStack(spacing: 10) {
-            Text("Dexora").font(.display(44)).tracking(-1.6).foregroundStyle(.white)
-            Text("Getting today's market\u{00A0}ready").font(.geist(14)).foregroundStyle(Theme.muted)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 140)
-        .background {
-            RadialGradient(colors: [Theme.lime.opacity(0.18), .clear], center: .center, startRadius: 0, endRadius: 180)
-                .frame(width: 360, height: 360)
-                .padding(.top, 140)
-                .allowsHitTesting(false)
-        }
-        .accessibilityElement(children: .combine)
     }
 }
 
