@@ -193,22 +193,7 @@ struct EbaySalesPanel: View {
                 .buttonStyle(.plain)
                 .padding(.top, 10)
             }
-            // The same card on TCGplayer, where the market price comes from.
-            if let tcg = product.tcgplayerUrl.flatMap(URL.init(string:)) {
-                Link(destination: tcg) {
-                    HStack(spacing: 8) {
-                        Text("Buy on TCGplayer")
-                        Image(systemName: "arrow.up.right").font(.system(size: 12, weight: .semibold))
-                    }
-                    .font(.geist(15, .semibold)).foregroundStyle(.white)
-                    .frame(maxWidth: .infinity).frame(height: 46)
-                    .background(Capsule().fill(Color.white.opacity(0.08)))
-                    .overlay(Capsule().strokeBorder(Theme.borderStrong, lineWidth: 1))
-                    .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .padding(.top, 10)
-            }
+            // (TCGplayer's page is on the What's it worth raw? panel now.)
         }
     }
 

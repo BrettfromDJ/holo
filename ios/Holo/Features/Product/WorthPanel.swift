@@ -13,19 +13,23 @@ struct WorthPanel: View {
     @State private var ebay: EbaySales?
     @State private var conditions: [ConditionPrice] = []
     @State private var loaded = false
+    @Environment(CollectionStore.self) private var store
 
     private var worth: Worth {
         WorthCalc.raw(nm: nm, condition: condition, ebay: ebay, conditions: conditions, printing: printing)
     }
 
     var body: some View {
-        Panel {
+        // Themed around TCGplayer, where these prices come from: its name on top, a blue tint,
+        // and the card's TCGplayer page at the bottom.
+        VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 14) {
-                HStack {
-                    CardLabel(text: "What's it worth raw?")
+                HStack(alignment: .firstTextBaseline) {
+                    TCGplayerMark()
                     Spacer()
-                    if !loaded { ProgressView().controlSize(.small) }
+                    MonoLabel(text: "Raw prices")
                 }
+                CardLabel(text: "What's it worth raw?")
                 let w = worth
                 HStack(alignment: .lastTextBaseline) {
                     // Rolls digit by digit to the new worth when you pick a condition.
@@ -63,8 +67,21 @@ struct WorthPanel: View {
                     }
                 }
                 .sensoryFeedback(.selection, trigger: condition)
+                if let url = store.products[productId]?.tcgplayerUrl.flatMap(URL.init(string:)) {
+                    Link(destination: url) {
+                        HStack(spacing: 8) {
+                            Text("View on TCGplayer")
+                            Image(systemName: "arrow.up.right").font(.system(size: 13, weight: .semibold))
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(Button3D(kind: .blue, height: 46))
+                    .padding(.top, 4)
+                }
             }
         }
+        .padding(18)
+        .tinted(Theme.planBlue)
         .task(id: "\(productId)|\(printing ?? "")") { await load() }
         .onAppear {
             // Open on the condition you own.
@@ -119,4 +136,19 @@ extension CardCondition {
 
     /// A condition named in an eBay title ("Lightly Played"), if it's one of ours.
     static func from(label: String?) -> CardCondition? { label.flatMap(CardCondition.init(rawValue:)) }
+}
+
+
+/// TCGplayer's name as a small wordmark (text, not their logo file) with a blue mark beside it.
+private struct TCGplayerMark: View {
+    var body: some View {
+        HStack(spacing: 7) {
+            Text("TCG").font(.geist(10, .bold)).tracking(0.4).foregroundStyle(.white)
+                .padding(.horizontal, 5).padding(.vertical, 3)
+                .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Theme.planBlue))
+            Text("TCGplayer").font(.geist(15, .semibold)).foregroundStyle(.white)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("TCGplayer")
+    }
 }
