@@ -201,6 +201,7 @@ struct MarketHomeView: View {
                         ForEach(["modern", "midEra", "vintage"], id: \.self) { key in
                             if let sum = summaries.first(where: { $0.era == key }) { EraSummaryCard(summary: sum) }
                         }
+                        // (The row below sizes to its tallest card; the others stretch to match.)
                       } else {
                         // Made-up risers stand in for an era with none yet (marked Sample).
                         // An era the server sent no risers for is filled with real risers of that era from
@@ -213,6 +214,8 @@ struct MarketHomeView: View {
                         EraCard(era: .vintage, hits: v)
                       }
                     }
+                    // Every era card as tall as the fullest one, and no taller.
+                    .fixedSize(horizontal: false, vertical: true)
                     .scrollTargetLayout()
                 }
                 .contentMargins(.horizontal, 16, for: .scrollContent)
@@ -1029,8 +1032,8 @@ private struct EraSummaryCard: View, Equatable {
                 .cardSequence(summary.moves.map(\.id))
             }
         }
-        // One height for every era, whatever it holds.
-        .frame(height: 420, alignment: .top)
+        // As tall as the fullest era (the row lines them up), never a fixed height with dead space.
+        .frame(maxHeight: .infinity, alignment: .top)
         .tinted(tint)
         .containerRelativeFrame(.horizontal) { width, _ in width - 32 - 28 }
     }
