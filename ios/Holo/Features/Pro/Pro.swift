@@ -156,7 +156,8 @@ struct ProSheet: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(20)
-                .padding(.bottom, 140)
+                // The trial button sits in its own bar below (a safe-area inset), so only a little room.
+                .padding(.bottom, 8)
             }
         }
         .safeAreaInset(edge: .bottom) {
