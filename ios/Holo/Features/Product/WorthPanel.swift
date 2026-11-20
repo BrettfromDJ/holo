@@ -51,17 +51,12 @@ struct WorthPanel: View {
                     Spacer()
                     Text(condition.rawValue).font(.subheadline.weight(.semibold))
                 }
-                // Side by side when the note fits on one line; else the note sits under the tag at
-                // full width (not squeezed into a narrow column beside it).
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 8) {
-                        SourceTag(source: w.source)
-                        Text(w.detail).font(.caption).foregroundStyle(Theme.muted).lineLimit(1).fixedSize()
-                    }
-                    VStack(alignment: .leading, spacing: 6) {
-                        SourceTag(source: w.source)
-                        Text(w.detail.noWidow).font(.caption).foregroundStyle(Theme.muted)
-                    }
+                // The tag, then its note under it with room for two lines kept whatever its
+                // length, so the box doesn't change height from one condition to the next.
+                VStack(alignment: .leading, spacing: 6) {
+                    SourceTag(source: w.source)
+                    Text(w.detail.noWidow).font(.caption).foregroundStyle(Theme.muted)
+                        .lineLimit(2, reservesSpace: true)
                 }
                 // (No "vs Near Mint" line: the box keeps one height whatever condition is picked.)
                 HStack(spacing: 6) {
