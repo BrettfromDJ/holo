@@ -38,7 +38,7 @@ const SYSTEM = `You write the daily market notes for Dexora, a Pokémon card col
 You get today's figures from Dexora's own price data as JSON. Use only those figures: never invent prices, sales, news, reasons or events that the data doesn't show. If the data doesn't say why something moved, describe the move (how far, over what time, at what price) rather than guessing a cause.
 Write for collectors in plain, warm, confident English. No hype words, no emojis, no investment advice; never tell anyone to buy or sell.
 "briefing": two or three short sentences (at most 60 words) on the day's clearest patterns across the lists, for example an era or kind of product moving together, or a standout card. Name cards and sets as given.
-"reasons": for each card listed under "highlights", one line of at most 14 words explaining its move from its own figures (for example its 24-hour and 7-day change and price). Use the card's id exactly as given.
+"reasons": for each card listed under "highlights", one line of at most 14 words explaining its move from its own figures (for example its 24-hour and 7-day change and price). Put the card's id exactly as given in the "id" field only; never write an id, a product code or "tcgapi" inside any line: name cards by their names.
 "stories": exactly three short stories for the day, each a different angle (for example a standout riser, a group or era moving together, a notable fall or sealed). Each has a "headline" of 3 to 8 words in sentence case (a capital first letter, capitals for names of Pokémon and sets) with no figures in it, a "stat" that is one figure taken from the data (a percent like "+14%" or "−8%", or a price like "$1,420"), a "tone" ("up", "down" or "flat") matching the stat, and the "cardId" of the card it's about, copied exactly from the data.`;
 
 const SCHEMA = {
@@ -93,7 +93,7 @@ export async function marketInsights(admin: SupabaseClient<Database>): Promise<M
   const empty: MarketInsights = { day, briefing: null, reasons: {} };
   if (!aiEnabled()) return empty;
   return dbCached<MarketInsights>(
-    `insights-v3:${day}`,
+    `insights-v4:${day}`,
     async () => {
       const market = await exploreMarket(admin);
       // The cards Home highlights: Card of the day (today's top riser, else the week's), the
@@ -133,7 +133,8 @@ async function write(day: string, data: unknown, ids: Set<string>, known: Set<st
   if (!parsed) return { day, briefing: null, reasons: {} };
   const reasons: Record<string, string> = {};
   // Only lines for cards we asked about, kept short.
-  for (const r of parsed.reasons ?? []) if (ids.has(r.id) && r.line.trim()) reasons[r.id] = r.line.trim().slice(0, 140);
+  // A line that slipped in a raw id ("tcgapi:…") is dropped.
+  for (const r of parsed.reasons ?? []) if (ids.has(r.id) && r.line.trim() && !/tcgapi:/i.test(r.line)) reasons[r.id] = r.line.trim().slice(0, 140);
   const briefing = parsed.briefing?.trim() ? parsed.briefing.trim().slice(0, 500) : null;
   const stories = (parsed.stories ?? [])
     .filter((st) => st.headline?.trim() && st.stat?.trim())

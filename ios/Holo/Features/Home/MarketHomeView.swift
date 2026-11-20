@@ -623,90 +623,139 @@ private struct CardOfTheDay: View {
         return all.filter { $0.day >= start }
     }
 
+    /// The AI's line, unless it slipped in a raw card id (then nothing).
+    private var line: String? {
+        guard let reason, !reason.contains("tcgapi:"), !reason.contains(hit.product.id) else { return nil }
+        return reason
+    }
+
+    /// The week's chart only when it really moved (a flat line or a single day says nothing).
+    private var chartPoints: [PricePoint]? {
+        let w = week
+        guard w.count >= 3, let lo = w.map(\.price).min(), let hi = w.map(\.price).max(), lo > 0, (hi - lo) / lo > 0.01 else { return nil }
+        return w
+    }
+
     var body: some View {
         let p = hit.pictured
         let pct: Double? = switch kind { case .day: hit.change24hPct; case .week: hit.change7dPct; case .topPull: nil }
         let tag: String = switch kind { case .day: "Card of the day"; case .week: "Card of the week"; case .topPull: "Top pull" }
         let down = (pct ?? 0) < 0
         let tone = down ? Theme.planPink : Theme.lime
-        let shape = RoundedRectangle(cornerRadius: 26, style: .continuous)
-        // The hero of Home: the tag and tomorrow's countdown, the card big with its rays and
-        // shine, then its name, the price and move, the AI's line and its week as a small chart.
+        let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
         MarketLink(hit: hit) {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(spacing: 18) {
                 HStack {
                     SkewTag(text: tag, icon: "flame.fill")
                     Spacer(minLength: 8)
                     if daily { NextCardCountdown() }
                 }
-                ZStack {
-                    // A soft floor of light under the card, fading to nothing (no edge).
-                    RadialGradient(colors: [tone.opacity(0.5), tone.opacity(0.12), .clear], center: .center, startRadius: 0, endRadius: 120)
-                        .frame(width: 240, height: 240)
-                        .scaleEffect(x: 1, y: 0.22)
-                        .offset(y: 140)
-                        .allowsHitTesting(false)
-                    HoloCard(foil: p.isFoil, textured: false, cornerRadius: 10) {
-                        ProductImage(product: p, cornerRadius: 10, large: true).frame(width: 196, height: 274)
-                    }
-                    .drifting()
-                    .notTiltable()
-                    .frame(width: 196, height: 274)
-                    .shadow(color: .black.opacity(0.55), radius: 22, y: 14)
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 300)
-                // The rays behind the card, as a background so they never widen the page.
-                .background { LightRays().frame(width: 560, height: 560) }
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(p.name.noWidow).font(.display(28)).tracking(-0.9).lineLimit(2).minimumScaleFactor(0.8)
+                hero(p, tone: tone)
+                // The name and set, centred under the card.
+                VStack(spacing: 6) {
+                    Text(p.name.noWidow).font(.display(30)).tracking(-1).multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.8)
                     Text([p.setName, p.rarity].compactMap { $0 }.joined(separator: " · ")).font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
                 }
+                // The price big, the move on its ribbon beside it.
                 HStack(alignment: .center, spacing: 12) {
-                    Text(Format.money(hit.market)).font(.display(36)).tracking(-1.2).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
-                    if let pct {
-                        // The move on its ribbon: ink on lime up, white on pink down (never pink on lime).
-                        HStack(alignment: .firstTextBaseline, spacing: 5) {
-                            Image(systemName: down ? "arrow.down.right" : "arrow.up.right").font(.system(size: 13, weight: .heavy))
-                            Text(pctText(pct)).font(.display(20)).tracking(-0.5).monospacedDigit().lineLimit(1)
-                            Text(daily ? "TODAY" : "WEEK").font(.mono(9)).tracking(1)
-                        }
-                        .foregroundStyle(down ? Color.white : Theme.ink)
-                        .padding(.horizontal, 10).padding(.vertical, 5)
-                        .background(tone, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-                        .rotationEffect(.degrees(-3))
-                        .shadow(color: tone.opacity(0.5), radius: 12)
-                        .fixedSize()
-                    }
-                    Spacer(minLength: 0)
+                    Text(Format.money(hit.market)).font(.display(44)).tracking(-1.6).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
+                    if let pct { MoveRibbon(pct: pct, label: daily ? "TODAY" : "WEEK", tone: tone, down: down) }
                 }
-                if let reason {
-                    Text(reason.noWidow).font(.geist(14, .medium)).foregroundStyle(.white.opacity(0.85))
+                // Today, the week and the month as three glass tiles.
+                HStack(spacing: 8) {
+                    stat("Today", hit.change24hPct)
+                    stat("7 days", hit.change7dPct)
+                    stat("30 days", hit.change30dPct)
+                }
+                if let line {
+                    Text(line.noWidow).font(.geist(14, .medium)).foregroundStyle(.white.opacity(0.85))
+                        .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                if week.count > 1 {
-                    WeekLine(points: week, tone: tone)
-                }
+                if let points = chartPoints { WeekLine(points: points, tone: tone) }
             }
             .foregroundStyle(.white)
             .padding(18)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background {
-                ZStack {
-                    shape.fill(Color(hex: 0x060606))
-                    GridPattern(step: 24, opacity: 0.07)
-                    RadialGradient(colors: [tone.opacity(0.3), .clear], center: UnitPoint(x: 0.5, y: 0.3), startRadius: 0, endRadius: 260)
-                    RadialGradient(colors: [Theme.planPink.opacity(0.14), .clear], center: .topTrailing, startRadius: 0, endRadius: 220)
-                    RadialGradient(colors: [Theme.planBlue.opacity(0.16), .clear], center: .bottomLeading, startRadius: 0, endRadius: 240)
-                    ChaseSparks()
-                }
-            }
+            .frame(maxWidth: .infinity)
+            .background { backdrop(p, tone: tone, shape: shape) }
             .clipShape(shape)
-            .shadow(color: tone.opacity(0.2), radius: 24)
-            .overlay(ElectricBorder(radius: 26, color: tone))
+            .shadow(color: tone.opacity(0.25), radius: 28)
+            .overlay(ElectricBorder(radius: 28, color: tone))
         }
         // Its week of prices for the chart (free: our own catalog, once per card).
         .task(id: hit.product.id) { await store.showCatalogProduct(hit.product.id) }
+    }
+
+    /// The card big in the middle: its rays behind, a pool of light under it, the holo shine on it.
+    private func hero(_ p: Product, tone: Color) -> some View {
+        ZStack {
+            RadialGradient(colors: [tone.opacity(0.55), tone.opacity(0.12), .clear], center: .center, startRadius: 0, endRadius: 130)
+                .frame(width: 260, height: 260)
+                .scaleEffect(x: 1, y: 0.2)
+                .offset(y: 152)
+                .allowsHitTesting(false)
+            HoloCard(foil: true, textured: false, cornerRadius: 12) {
+                ProductImage(product: p, cornerRadius: 12, large: true).frame(width: 214, height: 299)
+            }
+            .drifting()
+            .notTiltable()
+            .frame(width: 214, height: 299)
+            .shadow(color: .black.opacity(0.6), radius: 24, y: 16)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 320)
+        .background { LightRays().frame(width: 600, height: 600) }
+    }
+
+    /// The card's own art, blown up and blurred, filling the panel, darkened toward the bottom
+    /// so the text reads; the grid and a glow of the move's color over it.
+    private func backdrop(_ p: Product, tone: Color, shape: RoundedRectangle) -> some View {
+        ZStack {
+            shape.fill(Color(hex: 0x060606))
+            CachedImage(url: p.imageURL) { img in img.resizable().scaledToFill() } placeholder: { Color.clear }
+                .environment(\.imageFadesIn, false)
+                .scaleEffect(1.4)
+                .blur(radius: 40, opaque: true)
+                .opacity(0.5)
+                .drawingGroup()
+            LinearGradient(colors: [.black.opacity(0.1), .black.opacity(0.55), .black.opacity(0.9)], startPoint: .top, endPoint: .bottom)
+            GridPattern(step: 24, opacity: 0.06)
+            RadialGradient(colors: [tone.opacity(0.28), .clear], center: UnitPoint(x: 0.5, y: 0.3), startRadius: 0, endRadius: 260)
+        }
+        .allowsHitTesting(false)
+    }
+
+    private func stat(_ label: String, _ pct: Double?) -> some View {
+        VStack(spacing: 3) {
+            MonoLabel(text: label)
+            Text(pctText(pct)).font(.display(17)).tracking(-0.4).monospacedDigit()
+                .foregroundStyle(pct == nil ? Theme.subtle : pctTint(pct))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+}
+
+/// The move on a tilted ribbon: ink on lime up, white on pink down (never pink on lime).
+private struct MoveRibbon: View {
+    var pct: Double
+    var label: String
+    var tone: Color
+    var down: Bool
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 5) {
+            Image(systemName: down ? "arrow.down.right" : "arrow.up.right").font(.system(size: 13, weight: .heavy))
+            Text(pctText(pct)).font(.display(20)).tracking(-0.5).monospacedDigit().lineLimit(1)
+            Text(label).font(.mono(9)).tracking(1)
+        }
+        .foregroundStyle(down ? Color.white : Theme.ink)
+        .padding(.horizontal, 10).padding(.vertical, 5)
+        .background(tone, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .rotationEffect(.degrees(-3))
+        .shadow(color: tone.opacity(0.5), radius: 12)
+        .fixedSize()
     }
 }
 
