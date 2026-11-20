@@ -19,29 +19,19 @@ struct WorthPanel: View {
     }
 
     var body: some View {
-        // No figures here: our source can't say which condition TCGplayer's numbers come from,
-        // so the panel just links out, where TCGplayer shows every condition itself.
+        // Just the button: "View on" and TCGplayer's logo, opening the card's TCGplayer page.
+        // No figures (our source can't say which condition TCGplayer's are for).
         if let url = tcgplayerURL {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .center, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Prices by condition").font(.geist(15, .semibold))
-                        Text("Near Mint to Damaged, straight from TCGplayer").font(.geist(12)).foregroundStyle(Theme.muted)
-                    }
-                    Spacer(minLength: 0)
-                    TCGplayerMark()
+            Link(destination: url) {
+                HStack(spacing: 8) {
+                    Text("View on")
+                    Image("TCGplayerLogo").resizable().scaledToFit().frame(height: 18)
+                        .accessibilityLabel("TCGplayer")
+                    Image(systemName: "arrow.up.right").font(.system(size: 13, weight: .semibold))
                 }
-                Link(destination: url) {
-                    HStack(spacing: 8) {
-                        Text("View on TCGplayer")
-                        Image(systemName: "arrow.up.right").font(.system(size: 13, weight: .semibold))
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(Button3D(kind: .blue, height: 46))
+                .frame(maxWidth: .infinity)
             }
-            .padding(4)
-            .tinted(Theme.planBlue)
+            .buttonStyle(Button3D(kind: .blue, height: 50))
         }
     }
 }
@@ -83,14 +73,3 @@ extension CardCondition {
 }
 
 
-/// TCGplayer's logo (the owner's file, in the asset catalog as a vector), marking where these
-/// prices come from, sized like the eBay panel's wordmark.
-private struct TCGplayerMark: View {
-    var body: some View {
-        Image("TCGplayerLogo")
-            .resizable()
-            .scaledToFit()
-            .frame(height: 26)
-            .accessibilityLabel("TCGplayer")
-    }
-}
