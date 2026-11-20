@@ -483,26 +483,11 @@ private struct Hero: View {
             .onGeometryChange(for: Bool.self) { $0.frame(in: .global).maxY < 120 } action: { gone in
                 onPinned(gone)
             }
-            // The website's floating action bar: the lime add button. (Your week moved to the
-            // top-right menu and opens on its own once a week.)
-            // Your cards (Collection's Cards view) beside the lime add button, the same size.
-            HStack(spacing: 8) {
-                Button { Router.shared.tabRequest = "collection" } label: {
-                    Label("View cards", systemImage: "square.grid.2x2").lineLimit(1)
-                }
-                .buttonStyle(Button3D(kind: .dark, height: 48))
-                // No add button here: cards are added from their own page (found through
-                // Search or Explore).
+            // View cards on its own, straight on the page (no glass bar around it).
+            Button { Router.shared.tabRequest = "collection" } label: {
+                Label("View cards", systemImage: "square.grid.2x2").lineLimit(1)
             }
-            .environment(\.inGlassBar, true)
-            .frame(height: 48)
-            // The buttons rise 1pt and their 3D edge drops 3pt, so 9 above and 10 below
-            // leaves the same 8pt visible gap at the top and the bottom.
-            .padding(.horizontal, 8)
-            .padding(.top, 9)
-            .padding(.bottom, 10)
-            .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .shadow(color: .black.opacity(0.5), radius: 24, y: 12)
+            .buttonStyle(Button3D(kind: .dark, height: 48))
             .padding(.horizontal, 16)
             .padding(.top, 2)
         }
