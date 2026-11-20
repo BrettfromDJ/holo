@@ -222,6 +222,11 @@ private struct ThemeHeader: View {
 
 private func price(_ hit: SearchHit) -> String { Format.money(hit.market) }
 
+/// A card's name without the " - 175/165" number on the end.
+private func shortName(_ name: String) -> String {
+    name.range(of: " - ").map { String(name[..<$0.lowerBound]) } ?? name
+}
+
 /// Billboard: one big card on its own art, the title beside it, a few more under it.
 private struct BillboardLook: View {
     var hits: [SearchHit]
@@ -285,7 +290,7 @@ private struct FanLook: View {
     var body: some View {
         let hand = Array(hits.prefix(5))
         let mid = Double(hand.count - 1) / 2
-        VStack(spacing: 14) {
+        VStack(spacing: 12) {
             ZStack {
                 ForEach(Array(hand.enumerated()), id: \.element.id) { i, hit in
                     let d = Double(i) - mid
@@ -301,7 +306,9 @@ private struct FanLook: View {
                     .zIndex(-abs(d))
                 }
             }
-            .frame(height: 178)
+            // Just tall enough for the hand (the outer cards dip a little), so it sits close under
+            // the heading.
+            .frame(height: 160)
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 16)
             // What's in the hand, as one line of names and prices.
@@ -309,11 +316,12 @@ private struct FanLook: View {
                 HStack(spacing: 8) {
                     ForEach(hits.prefix(10)) { hit in
                         MarketLink(hit: hit) {
+                            // The name without its number ("Psyduck", not "Psyduck - 175/165").
                             HStack(spacing: 6) {
-                                Text(hit.product.name).font(.geist(12, .medium)).foregroundStyle(.white).lineLimit(1)
+                                Text(shortName(hit.product.name)).font(.geist(12, .medium)).foregroundStyle(.white).lineLimit(1)
                                 Text(price(hit)).font(.geist(12, .semibold)).monospacedDigit().foregroundStyle(Theme.lime)
                             }
-                            .padding(.horizontal, 12).padding(.vertical, 8)
+                            .padding(.horizontal, 10).padding(.vertical, 6)
                             .background(Capsule().fill(Color.white.opacity(0.06)))
                         }
                     }
@@ -415,38 +423,47 @@ private struct LadderLook: View {
 private struct SpotlightLook: View {
     var hits: [SearchHit]
 
+    /// One card big on the left; on the right its name, set, price and week, then the next three
+    /// cards in a row filling the space under them.
     var body: some View {
         let star = hits[0]
-        HStack(alignment: .center, spacing: 18) {
+        HStack(alignment: .top, spacing: 16) {
             MarketLink(hit: star) {
                 ProductImage(product: star.pictured, cornerRadius: 9)
-                    .frame(width: 150, height: 210)
+                    .frame(width: 136, height: 190)
                     .background(
-                        RadialGradient(colors: [Theme.lime.opacity(0.35), .clear], center: .center, startRadius: 0, endRadius: 150)
-                            .frame(width: 300, height: 300)
+                        RadialGradient(colors: [Theme.lime.opacity(0.3), .clear], center: .center, startRadius: 0, endRadius: 140)
+                            .frame(width: 280, height: 280)
                             .allowsHitTesting(false)
                     )
             }
-            VStack(alignment: .leading, spacing: 8) {
-                Text(star.product.name.noWidow).font(.display(22)).tracking(-0.6).foregroundStyle(.white).lineLimit(3)
-                Text(star.product.setName ?? "").font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(2)
-                Text(price(star)).font(.display(28)).tracking(-0.8).monospacedDigit().foregroundStyle(Theme.lime)
-                if let c = star.change7dPct {
-                    Text("\(c >= 0 ? "+" : "")\(Int(c.rounded()))% this week").font(.geist(12, .semibold)).monospacedDigit()
-                        .foregroundStyle(c >= 0 ? Theme.lime : Theme.planPink)
-                }
-                // The others, overlapping like a small stack.
-                HStack(spacing: -18) {
-                    ForEach(hits.dropFirst().prefix(4)) { hit in
-                        MarketLink(hit: hit) {
-                            ProductImage(product: hit.pictured, cornerRadius: 4).frame(width: 40, height: 56)
-                                .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Theme.background, lineWidth: 2))
-                        }
+            VStack(alignment: .leading, spacing: 0) {
+                Text(shortName(star.product.name).noWidow).font(.display(22)).tracking(-0.6).foregroundStyle(.white).lineLimit(2)
+                Text(star.product.setName ?? "").font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1).padding(.top, 4)
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(price(star)).font(.display(24)).tracking(-0.7).monospacedDigit().foregroundStyle(Theme.lime)
+                    if let c = star.change7dPct {
+                        Text("\(c >= 0 ? "+" : "")\(Int(c.rounded()))% this week").font(.geist(12, .semibold)).monospacedDigit()
+                            .foregroundStyle(c >= 0 ? Theme.lime : Theme.planPink)
                     }
                 }
-                .padding(.top, 4)
+                .padding(.top, 10)
+                Spacer(minLength: 10)
+                // The next three, side by side across the rest of the width.
+                HStack(spacing: 8) {
+                    ForEach(hits.dropFirst().prefix(3)) { hit in
+                        MarketLink(hit: hit) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                ProductImage(product: hit.pictured, cornerRadius: 4).aspectRatio(63 / 88, contentMode: .fit)
+                                Text(price(hit)).font(.geist(11, .semibold)).monospacedDigit().foregroundStyle(.white).lineLimit(1)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                }
             }
-            Spacer(minLength: 0)
+            .frame(height: 190)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, 16)
     }
