@@ -316,6 +316,9 @@ private struct FanLook: View {
             // the heading.
             .frame(height: 160)
             .frame(maxWidth: .infinity)
+            // The outer cards tilt and dip below the hand's frame: room for them, so they never
+            // sit on the name pills.
+            .padding(.bottom, 28)
             .padding(.horizontal, 16)
             // What's in the hand, as one line of names and prices.
             ScrollView(.horizontal, showsIndicators: false) {
