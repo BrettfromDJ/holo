@@ -63,11 +63,7 @@ struct WorthPanel: View {
                         Text(w.detail.noWidow).font(.caption).foregroundStyle(Theme.muted)
                     }
                 }
-                if condition != .nearMint {
-                    let diff = w.price - nm
-                    (Text(Format.signedMoney(diff)).foregroundStyle(Theme.tone(diff)) + Text(" vs Near Mint (\(Format.money(nm)))").foregroundStyle(Theme.muted))
-                        .font(.caption).monospacedDigit()
-                }
+                // (No "vs Near Mint" line: the box keeps one height whatever condition is picked.)
                 HStack(spacing: 6) {
                     ForEach(CardCondition.allCases) { c in
                         Button(c.short) { condition = c }
