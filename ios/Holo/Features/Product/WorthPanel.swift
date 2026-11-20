@@ -75,3 +75,40 @@ private struct TCGGlint: View {
         }
     }
 }
+struct SourceTag: View {
+    var source: Worth.Source
+
+    var body: some View {
+        if source == .estimate {
+            EstimatePill()
+        } else {
+            let label = ["market": "Market price", "sales": "eBay sales", "guide": "Price guide"][source.rawValue] ?? ""
+            let icon = ["market": "chart.line.uptrend.xyaxis", "sales": "checkmark.seal.fill", "guide": "book.closed.fill"][source.rawValue] ?? "circle"
+            HStack(spacing: 4) {
+                Image(systemName: icon).font(.system(size: 9, weight: .bold))
+                Text(label).font(.geist(11, .semibold))
+            }
+            .padding(.horizontal, 8).padding(.vertical, 3)
+            .foregroundStyle(source == .sales ? Theme.up : Color.white.opacity(0.85))
+            .background(source == .sales ? Theme.lime.opacity(0.16) : Color.white.opacity(0.08), in: Capsule())
+        }
+    }
+}
+
+extension CardCondition {
+    /// The color each condition is tagged with, as on the web.
+    var tint: Color {
+        switch self {
+        case .nearMint: return Theme.lime
+        case .lightlyPlayed: return Color(hex: 0x5AC8FA)
+        case .moderatelyPlayed: return Theme.warn
+        case .heavilyPlayed: return Color(hex: 0xFF9F0A)
+        case .damaged: return Theme.down
+        }
+    }
+
+    /// A condition named in an eBay title ("Lightly Played"), if it's one of ours.
+    static func from(label: String?) -> CardCondition? { label.flatMap(CardCondition.init(rawValue:)) }
+}
+
+
