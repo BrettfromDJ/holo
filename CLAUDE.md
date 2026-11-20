@@ -62,6 +62,9 @@ and say exactly what to run or click.
   have no changes from TCG API, so it keeps each Pokémon card's daily price in `catalog_price_days`
   (from $5, 9 days) and fills the changes itself (`src/lib/explore/price-days.ts`); TCG API's own
   changes win when it sends them.
+- **Card of the day** leads Home as a big hero (`CardOfTheDay`): the card large with rays and its
+  electric border (pink when down), name, price and move, the AI's line, a small 7-day chart, and
+  "Next card in …" (to midnight UTC). Collection of the Day follows, then Heating up / Cooling off.
 - **By era on Home:** each era card sums up its whole market (`/api/eras`, `src/lib/server/era-summary.ts`,
   saved ~6 hours): the typical (median) change across every tracked single from $5, up / down /
   steady counts with a thin bar, and up to 3 biggest moves from $20 (hidden when none). Uses the

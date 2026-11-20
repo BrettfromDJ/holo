@@ -1,3 +1,4 @@
+import Charts
 import SwiftUI
 
 /// Home: what's happening across the hobby, not your collection (that's on Collection).
@@ -155,9 +156,8 @@ struct MarketHomeView: View {
         // week's top riser and the biggest faller face off under it.
         // The three highlights as one group, 10pt apart every way (the same gap as between the
         // two small tiles), not the page's wider section spacing.
-        // Collection of the Day leads Home.
-        if let daily = themes.daily { DailyDiscovery(theme: daily) }
-        VStack(spacing: 10) {
+        // Card of the day leads Home, big and on its own.
+        Group {
             if let star = index.today?.first {
                 CardOfTheDay(hit: star, kind: .day, reason: insights?.reasons[star.product.id])
             } else if let star = trending.first {
@@ -166,17 +166,21 @@ struct MarketHomeView: View {
                 // No market moves to show: the newest set's top pull takes the stage instead.
                 CardOfTheDay(hit: top, kind: .topPull(chase.set.name))
             }
-            if !trending.isEmpty || !drops.isEmpty {
-                HStack(spacing: 10) {
-                    // The week's top risers (after Card of the day's, when that's the week's too) and
-                    // the biggest fallers, five each, cycling.
-                    let risers = Array((index.today?.first == nil ? Array(trending.dropFirst()) : trending).prefix(5))
-                    if !risers.isEmpty { HotColdTile(hits: risers, hot: true) }
-                    if !drops.isEmpty { HotColdTile(hits: Array(drops.prefix(5)), hot: false) }
-                }
-            }
         }
         .padding(.horizontal, 16)
+        // Then Collection of the Day.
+        if let daily = themes.daily { DailyDiscovery(theme: daily) }
+        // Heating up and Cooling off, side by side.
+        if !trending.isEmpty || !drops.isEmpty {
+            HStack(spacing: 10) {
+                // The week's top risers (after Card of the day's, when that's the week's too) and
+                // the biggest fallers, five each, cycling.
+                let risers = Array((index.today?.first == nil ? Array(trending.dropFirst()) : trending).prefix(5))
+                if !risers.isEmpty { HotColdTile(hits: risers, hot: true) }
+                if !drops.isEmpty { HotColdTile(hits: Array(drops.prefix(5)), hot: false) }
+            }
+            .padding(.horizontal, 16)
+        }
         // Themed collections between the market's own lists, each in its own look.
         let shown = themes.shown
         if let t = shown.first { ThemeSection(theme: t) }
@@ -609,84 +613,138 @@ private struct CardOfTheDay: View {
     var kind: Kind
     /// Why it moved, in a line (from the daily insights), when there is one.
     var reason: String? = nil
+    @Environment(CollectionStore.self) private var store
     private var daily: Bool { if case .day = kind { return true } else { return false } }
+
+    /// The card's last week of prices, for the small chart (loaded from our own server).
+    private var week: [PricePoint] {
+        let all = store.sortedHistory(priceKey(hit.product.id, hit.printing))
+        guard let last = all.last?.day, let start = Calendar.current.date(byAdding: .day, value: -7, to: last) else { return [] }
+        return all.filter { $0.day >= start }
+    }
 
     var body: some View {
         let p = hit.pictured
         let pct: Double? = switch kind { case .day: hit.change24hPct; case .week: hit.change7dPct; case .topPull: nil }
         let tag: String = switch kind { case .day: "Card of the day"; case .week: "Card of the week"; case .topPull: "Top pull" }
-        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
-        // A wide tile in the style of Heating up / Cooling off under it: the card on the left with
-        // its rays, glow and sparks, the details on the right; the electric border round it all.
+        let down = (pct ?? 0) < 0
+        let tone = down ? Theme.planPink : Theme.lime
+        let shape = RoundedRectangle(cornerRadius: 26, style: .continuous)
+        // The hero of Home: the tag and tomorrow's countdown, the card big with its rays and
+        // shine, then its name, the price and move, the AI's line and its week as a small chart.
         MarketLink(hit: hit) {
-            HStack(alignment: .center, spacing: 16) {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    SkewTag(text: tag, icon: "flame.fill")
+                    Spacer(minLength: 8)
+                    if daily { NextCardCountdown() }
+                }
                 ZStack {
-                    // A soft floor of light under the card.
-                    // A gradient that fades to nothing inside its own square, squashed flat: no
-                    // edge to cut it off (a filled oval showed its rim).
-                    RadialGradient(colors: [Theme.lime.opacity(0.45), Theme.lime.opacity(0.12), .clear], center: .center, startRadius: 0, endRadius: 80)
-                        .frame(width: 160, height: 160)
+                    // A soft floor of light under the card, fading to nothing (no edge).
+                    RadialGradient(colors: [tone.opacity(0.5), tone.opacity(0.12), .clear], center: .center, startRadius: 0, endRadius: 120)
+                        .frame(width: 240, height: 240)
                         .scaleEffect(x: 1, y: 0.22)
-                        .offset(y: 86)
+                        .offset(y: 140)
                         .allowsHitTesting(false)
-                    HoloCard(foil: p.isFoil, textured: false, cornerRadius: 8) {
-                        ProductImage(product: p, cornerRadius: 8, large: true).frame(width: 118, height: 165)
+                    HoloCard(foil: p.isFoil, textured: false, cornerRadius: 10) {
+                        ProductImage(product: p, cornerRadius: 10, large: true).frame(width: 196, height: 274)
                     }
                     .drifting()
                     .notTiltable()
-                    .frame(width: 118, height: 165)
+                    .frame(width: 196, height: 274)
+                    .shadow(color: .black.opacity(0.55), radius: 22, y: 14)
                 }
-                .frame(width: 130, height: 190)
+                .frame(maxWidth: .infinity)
+                .frame(height: 300)
                 // The rays behind the card, as a background so they never widen the page.
-                .background { LightRays().frame(width: 420, height: 420) }
-                VStack(alignment: .leading, spacing: 8) {
-                    SkewTag(text: tag, icon: "flame.fill")
-                    Text(p.name).font(.display(20)).tracking(-0.5).lineLimit(2).minimumScaleFactor(0.85)
-                    Text([p.setName, p.rarity].compactMap { $0 }.joined(separator: " · ")).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
-                    if let reason {
-                        Text(reason.noWidow).font(.geist(12, .medium)).foregroundStyle(.white.opacity(0.85))
-                            .lineLimit(3).fixedSize(horizontal: false, vertical: true)
-                            .padding(.top, 2)
+                .background { LightRays().frame(width: 560, height: 560) }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(p.name.noWidow).font(.display(28)).tracking(-0.9).lineLimit(2).minimumScaleFactor(0.8)
+                    Text([p.setName, p.rarity].compactMap { $0 }.joined(separator: " · ")).font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
+                }
+                HStack(alignment: .center, spacing: 12) {
+                    Text(Format.money(hit.market)).font(.display(36)).tracking(-1.2).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
+                    if let pct {
+                        // The move on its ribbon: ink on lime up, white on pink down (never pink on lime).
+                        HStack(alignment: .firstTextBaseline, spacing: 5) {
+                            Image(systemName: down ? "arrow.down.right" : "arrow.up.right").font(.system(size: 13, weight: .heavy))
+                            Text(pctText(pct)).font(.display(20)).tracking(-0.5).monospacedDigit().lineLimit(1)
+                            Text(daily ? "TODAY" : "WEEK").font(.mono(9)).tracking(1)
+                        }
+                        .foregroundStyle(down ? Color.white : Theme.ink)
+                        .padding(.horizontal, 10).padding(.vertical, 5)
+                        .background(tone, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .rotationEffect(.degrees(-3))
+                        .shadow(color: tone.opacity(0.5), radius: 12)
+                        .fixedSize()
                     }
                     Spacer(minLength: 0)
-                    if pct != nil {
-                        Text(Format.money(hit.market)).font(.display(22)).tracking(-0.6).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
-                    }
-                    // The rise (or, for a top pull, its price) on the lime ribbon, ink on lime.
-                    HStack(alignment: .firstTextBaseline, spacing: 5) {
-                        Image(systemName: pct == nil ? "crown.fill" : "arrow.up.right").font(.system(size: 13, weight: .heavy))
-                        Text(pct == nil ? Format.money(hit.market) : pctText(pct)).font(.display(20)).tracking(-0.5).monospacedDigit().lineLimit(1)
-                        Text(pct == nil ? "TOP PULL" : daily ? "TODAY" : "WEEK").font(.mono(9)).tracking(1)
-                    }
-                    .foregroundStyle(Theme.ink)
-                    .padding(.horizontal, 10).padding(.vertical, 4)
-                    .background(Theme.lime, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
-                    .rotationEffect(.degrees(-3))
-                    .shadow(color: Theme.lime.opacity(0.5), radius: 12)
-                    .fixedSize()
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                // The price and ribbon sit a little up from the bottom border.
-                .padding(.top, 4)
-                .padding(.bottom, 14)
+                if let reason {
+                    Text(reason.noWidow).font(.geist(14, .medium)).foregroundStyle(.white.opacity(0.85))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if week.count > 1 {
+                    WeekLine(points: week, tone: tone)
+                }
             }
             .foregroundStyle(.white)
-            .padding(14)
+            .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background {
                 ZStack {
                     shape.fill(Color(hex: 0x060606))
                     GridPattern(step: 24, opacity: 0.07)
-                    RadialGradient(colors: [Theme.lime.opacity(0.3), .clear], center: UnitPoint(x: 0.22, y: 0.5), startRadius: 0, endRadius: 190)
-                    RadialGradient(colors: [Theme.planPink.opacity(0.16), .clear], center: .topTrailing, startRadius: 0, endRadius: 200)
-                    RadialGradient(colors: [Theme.planBlue.opacity(0.18), .clear], center: .bottomTrailing, startRadius: 0, endRadius: 200)
+                    RadialGradient(colors: [tone.opacity(0.3), .clear], center: UnitPoint(x: 0.5, y: 0.3), startRadius: 0, endRadius: 260)
+                    RadialGradient(colors: [Theme.planPink.opacity(0.14), .clear], center: .topTrailing, startRadius: 0, endRadius: 220)
+                    RadialGradient(colors: [Theme.planBlue.opacity(0.16), .clear], center: .bottomLeading, startRadius: 0, endRadius: 240)
                     ChaseSparks()
                 }
             }
-            // Everything inside (the rays too) stays within the rounded tile.
             .clipShape(shape)
-            .shadow(color: Theme.lime.opacity(0.2), radius: 20)
-            .overlay(ElectricBorder(radius: 22))
+            .shadow(color: tone.opacity(0.2), radius: 24)
+            .overlay(ElectricBorder(radius: 26, color: tone))
+        }
+        // Its week of prices for the chart (free: our own catalog, once per card).
+        .task(id: hit.product.id) { await store.showCatalogProduct(hit.product.id) }
+    }
+}
+
+/// Tomorrow's card in hours and minutes, read off the clock once a minute (no animation).
+private struct NextCardCountdown: View {
+    var body: some View {
+        TimelineView(.everyMinute) { context in
+            let cal = Calendar(identifier: .gregorian)
+            var utc = cal
+            utc.timeZone = TimeZone(identifier: "UTC") ?? .current
+            let tomorrow = utc.startOfDay(for: utc.date(byAdding: .day, value: 1, to: context.date) ?? context.date)
+            let mins = max(0, Int(tomorrow.timeIntervalSince(context.date) / 60))
+            Text("Next card in \(mins / 60)h \(mins % 60)m").font(.mono(10)).tracking(1).foregroundStyle(Theme.muted).monospacedDigit()
+        }
+    }
+}
+
+/// The card's last week as a small line in its move's color, its first and last price under it.
+private struct WeekLine: View {
+    var points: [PricePoint]
+    var tone: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            MonoLabel(text: "Past 7 days")
+            Chart(points) { pt in
+                AreaMark(x: .value("Day", pt.day), y: .value("Price", pt.price))
+                    .foregroundStyle(LinearGradient(colors: [tone.opacity(0.25), .clear], startPoint: .top, endPoint: .bottom))
+                    .interpolationMethod(.monotone)
+                LineMark(x: .value("Day", pt.day), y: .value("Price", pt.price))
+                    .foregroundStyle(tone)
+                    .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round))
+                    .interpolationMethod(.monotone)
+            }
+            .chartXAxis(.hidden)
+            .chartYAxis(.hidden)
+            .chartYScale(domain: .automatic(includesZero: false))
+            .frame(height: 56)
         }
     }
 }
