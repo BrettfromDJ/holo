@@ -115,12 +115,7 @@ struct ProSheet: View {
                         .buttonStyle(.plain)
                         .accessibilityLabel("Close")
                     }
-                    VStack(alignment: .leading, spacing: 8) {
-                        DisplayText(text: reason.headline, size: 32, lineGap: -0.04)
-                        Text("Pro unlocks every tool in Dexora, in the app and on the website.".noWidow)
-                            .font(.geist(15)).foregroundStyle(Theme.muted)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+                    ProHero(reason: reason)
                     VStack(alignment: .leading, spacing: 16) {
                         ForEach(proFeatures, id: \.title) { f in
                             HStack(alignment: .top, spacing: 12) {
@@ -380,6 +375,97 @@ private struct ProGlint: View {
                 } else {
                     stopLoop { across = false }
                 }
+            }
+        }
+    }
+}
+
+
+// MARK: The Pro page's hero
+
+/// The top of the Pro page: your three most valuable cards fanned on a lime glow over the grid
+/// (the market's top risers if you have none), a glint sweeping the front one, then "Dexora Pro"
+/// big, the reason's headline and three quick highlights.
+private struct ProHero: View {
+    var reason: ProReason
+    @Environment(CollectionStore.self) private var store
+
+    /// Pictures for the fan: your priciest singles, else the week's top risers.
+    private var cards: [Product] {
+        let mine = store.allHoldings
+            .filter { $0.product?.isSealed == false }
+            .sorted { ($0.value ?? 0) > ($1.value ?? 0) }
+            .compactMap(\.product)
+        if mine.count >= 3 { return Array(mine.prefix(3)) }
+        let market = (SavedExplore.preloaded ?? DemoData.exploreIndex).trending ?? []
+        return Array((mine + market.map(\.pictured)).prefix(3))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            fan
+                .frame(maxWidth: .infinity)
+                .frame(height: 210)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Text("Dexora").font(.display(44)).tracking(-1.6).foregroundStyle(.white)
+                    SkewTag(text: "Pro", icon: "sparkles")
+                }
+                DisplayText(text: reason.headline, size: 24, lineGap: -0.04)
+                Text("Every tool in Dexora, in the app and on the\u{00A0}website.")
+                    .font(.geist(15)).foregroundStyle(Theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            // Three quick wins, as glass pills.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) { highlights }
+                VStack(alignment: .leading, spacing: 8) { highlights }
+            }
+        }
+        .background(alignment: .top) {
+            ZStack {
+                GridPattern(step: 28, opacity: 0.06)
+                RadialGradient(colors: [Theme.lime.opacity(0.32), .clear], center: UnitPoint(x: 0.5, y: 0.35), startRadius: 0, endRadius: 230)
+                RadialGradient(colors: [Theme.planBlue.opacity(0.22), .clear], center: UnitPoint(x: 0.1, y: 0.1), startRadius: 0, endRadius: 200)
+            }
+            .frame(height: 420)
+            .padding(.horizontal, -20)
+            .padding(.top, -80)
+            .mask(LinearGradient(colors: [.black, .black, .clear], startPoint: .top, endPoint: .bottom))
+            .allowsHitTesting(false)
+        }
+    }
+
+    @ViewBuilder private var highlights: some View {
+        pill("infinity", "Unlimited scans")
+        pill("dollarsign.circle", "eBay sold prices")
+        pill("chart.xyaxis.line", "Full history")
+    }
+
+    private func pill(_ icon: String, _ text: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon).font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.lime)
+            Text(text).font(.geist(12, .semibold)).foregroundStyle(.white).lineLimit(1)
+        }
+        .padding(.horizontal, 10).padding(.vertical, 7)
+        .liquidGlass(in: Capsule())
+        .fixedSize()
+    }
+
+    /// Three cards fanned from the bottom, each with a bright rim and a sweeping glint.
+    private var fan: some View {
+        let shown = cards
+        return ZStack {
+            ForEach(Array(shown.enumerated()), id: \.offset) { i, product in
+                let d = Double(i) - 1
+                ProductImage(product: product, cornerRadius: 8)
+                    .frame(width: 118, height: 165)
+                    // A bright rim and a glint sweeping across, like Pro's buttons.
+                    .proShine(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .shadow(color: .black.opacity(0.5), radius: 14, y: 10)
+                    .rotationEffect(.degrees(d * 12), anchor: .bottom)
+                    .offset(x: d * 70, y: abs(d) * 14)
+                    .zIndex(i == 1 ? 1 : 0)
             }
         }
     }
