@@ -111,10 +111,13 @@ struct ProSheet: View {
                                          .init(color: .black, location: 0.55), .init(color: .clear, location: 1)],
                                  startPoint: .top, endPoint: .bottom))
             .allowsHitTesting(false)
+            // Full screen: the glow runs up under the status bar.
+            .ignoresSafeArea(edges: .top)
             // Lime sparks rising behind the top.
             MoteParticles(style: .sparks, color: Theme.lime, count: 26)
                 .frame(height: 320)
                 .mask(LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom))
+                .ignoresSafeArea(edges: .top)
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     HStack {
@@ -173,9 +176,7 @@ struct ProSheet: View {
             .background(Color.black)
         }
         .background(Color.black)
-        .presentationDetents([.fraction(0.93)])
         .presentationBackground(Color.black)
-        .presentationDragIndicator(.visible)
     }
 
     private func plan(yearly isYearly: Bool, title: String, price: String, note: String, tag: String?) -> some View {
@@ -209,7 +210,8 @@ struct ProSheet: View {
 extension View {
     /// Shows the Pro page whenever `reason` is set.
     func proPaywall(_ reason: Binding<ProReason?>) -> some View {
-        sheet(item: reason) { ProSheet(reason: $0) }
+        // A full-screen takeover, closed with the X at the top right.
+        fullScreenCover(item: reason) { ProSheet(reason: $0) }
     }
 }
 

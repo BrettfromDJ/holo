@@ -194,7 +194,7 @@ and say exactly what to run or click.
   pictures are 1st Edition scans; the owner supplies Unlimited photos per set in
   `public/cards/pokemon/<dir>/<number>.webp`, listed in `src/lib/unlimited-art-manifest.json`
   and the same list in `Editions.unlimitedArt` (keep both in step). Done: Base Set (no #8), Jungle, Fossil, Team Rocket, Gym Heroes, Gym Challenge, Neo Genesis, Neo Discovery, Neo Revelation, Neo Destiny.
-- Dexora Pro (test mode, app only so far): `Features/Pro/Pro.swift`. Free: whole collection, 20 scans a month, 30 days of price history, 2 lists, 1 portfolio (Main), 3 alerts, 2 master sets; Pro unlocks the rest plus eBay comps, Grading and Analytics. Pro page `ProSheet`, locks `ProOnly` / `EbayLockedPanel` / `.proPaywall`. "Start free trial" only turns `Pro.shared.isPro` on for the phone; real purchases (Apple + Stripe, one Pro for app and website) come later. Demos count as Pro.
+- Dexora Pro (test mode, app only so far): `Features/Pro/Pro.swift`. Free: whole collection, 20 scans a month, 30 days of price history, 2 lists, 1 portfolio (Main), 3 alerts, 2 master sets; Pro unlocks the rest plus eBay comps, Grading and Analytics. Pro page `ProSheet` (a full-screen takeover, X at the top right), locks `ProOnly` / `EbayLockedPanel` / `.proPaywall`. "Start free trial" only turns `Pro.shared.isPro` on for the phone; real purchases (Apple + Stripe, one Pro for app and website) come later. Demos count as Pro.
 - Home insights (AI, OpenAI by the owner's choice): `src/lib/server/ai.ts` is the one place that
   calls it (`aiJson`, Chat Completions with a strict JSON schema; `OPENAI_API_KEY` in Vercel only,
   never in the app; `OPENAI_MODEL` optional, default `gpt-5-mini`). `insights.ts` writes "Today in
