@@ -247,7 +247,7 @@ export default function ProductPage() {
           {/* What it's worth raw, in the condition you pick. */}
           {product.kind === "single" && (
             <Reveal>
-              <WhatsItWorth productId={productId} printing={printing} name={product.name} nm={price?.market ?? null} owned={owned} />
+              <WhatsItWorth nm={price?.market ?? null} tcgplayerUrl={product.tcgplayerUrl} tcgplayerId={product.tcgplayerId} />
             </Reveal>
           )}
 

@@ -1,18 +1,14 @@
 import SwiftUI
 
-/// One question, one number: what is this card worth raw, in the condition you pick? Real
-/// TCGplayer's prices only (per condition, else a marked estimate from its Near Mint price).
-/// Grades are in the Graded prices panel above.
+/// TCGplayer's market price for the card (what Near Mint copies actually sold for) and a link
+/// to its TCGplayer page. Per-condition prices were dropped on purpose: our source only has
+/// asking prices for played copies, too often wrong or out of order. Same as the website's
+/// `WhatsItWorth`.
 struct WorthPanel: View {
     var productId: String
     var printing: String?
     var nm: Double
     var owned: [HoldingView]
-
-    @State private var condition = CardCondition.nearMint
-    @State private var ebay: EbaySales?
-    @State private var conditions: [ConditionPrice] = []
-    @State private var loaded = false
     @Environment(CollectionStore.self) private var store
 
     /// The card's TCGplayer page: its stored link, else one built from its TCGplayer number.
@@ -23,87 +19,33 @@ struct WorthPanel: View {
         return nil
     }
 
-    private var worth: Worth {
-        // TCGplayer prices only (eBay's are in their own panel above).
-        WorthCalc.raw(nm: nm, condition: condition, ebay: ebay, conditions: conditions, printing: printing, tcgplayerOnly: true)
-    }
-
     var body: some View {
-        // Themed around TCGplayer, where these prices come from: its name on top, a blue tint,
-        // and the card's TCGplayer page at the bottom.
-        VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 14) {
-                // Laid out like the eBay panel: the title on the left, the source's wordmark on the right.
-                HStack(alignment: .top, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("What's it worth raw?").font(.geist(15, .semibold))
-                        Text("TCGplayer prices by condition").font(.geist(12)).foregroundStyle(Theme.muted)
+        VStack(alignment: .leading, spacing: 16) {
+            // Laid out like the eBay panel: the title on the left, the source's logo on the right.
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("TCGplayer market price").font(.geist(15, .semibold))
+                    Text("Near Mint, from recent sales").font(.geist(12)).foregroundStyle(Theme.muted)
+                }
+                Spacer(minLength: 0)
+                TCGplayerMark()
+            }
+            Text(Format.money(nm)).font(.display(52)).tracking(-2.1).monospacedDigit()
+                .lineLimit(1).minimumScaleFactor(0.6)
+            if let url = tcgplayerURL {
+                Link(destination: url) {
+                    HStack(spacing: 8) {
+                        Text("View on TCGplayer")
+                        Image(systemName: "arrow.up.right").font(.system(size: 13, weight: .semibold))
                     }
-                    Spacer(minLength: 0)
-                    TCGplayerMark()
+                    .frame(maxWidth: .infinity)
                 }
-                let w = worth
-                HStack(alignment: .lastTextBaseline) {
-                    // Rolls digit by digit to the new worth when you pick a condition.
-                    OdometerText(value: w.price, format: { Format.money($0) })
-                        .font(.display(52)).tracking(-2.1).monospacedDigit()
-                        .foregroundStyle(Color.primary.opacity(w.isEstimate ? 0.85 : 1))
-                    Spacer()
-                    Text(condition.rawValue).font(.subheadline.weight(.semibold))
-                }
-                // The tag, then its note under it with room for two lines kept whatever its
-                // length, so the box doesn't change height from one condition to the next.
-                VStack(alignment: .leading, spacing: 6) {
-                    SourceTag(source: w.source)
-                    Text(w.detail.noWidow).font(.caption).foregroundStyle(Theme.muted)
-                        .lineLimit(2, reservesSpace: true)
-                }
-                // (No "vs Near Mint" line: the box keeps one height whatever condition is picked.)
-                HStack(spacing: 6) {
-                    ForEach(CardCondition.allCases) { c in
-                        Button(c.short) { condition = c }
-                            .font(.footnote.weight(.semibold))
-                            .frame(maxWidth: .infinity, minHeight: 38)
-                            // Unpicked ones a faint white, so they stand off the blue panel.
-                            .background(condition == c ? c.tint.opacity(0.22) : Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
-                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(condition == c ? c.tint : .clear, lineWidth: 1.5))
-                            .foregroundStyle(condition == c ? c.tint : Color.white.opacity(0.8))
-                    }
-                }
-                .sensoryFeedback(.selection, trigger: condition)
-                if let url = tcgplayerURL {
-                    Link(destination: url) {
-                        HStack(spacing: 8) {
-                            Text("View on TCGplayer")
-                            Image(systemName: "arrow.up.right").font(.system(size: 13, weight: .semibold))
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(Button3D(kind: .blue, height: 46))
-                    .padding(.top, 4)
-                }
+                .buttonStyle(Button3D(kind: .blue, height: 46))
             }
         }
         // The tint adds 16 of its own: 4 more makes the 20 the other panels have.
         .padding(4)
         .tinted(Theme.planBlue)
-        .task(id: "\(productId)|\(printing ?? "")") { await load() }
-        .onAppear {
-            // Open on the condition you own.
-            if let raw = owned.first(where: { !$0.identity.isGraded }), let c = CardCondition(rawValue: raw.identity.condition) {
-                condition = c
-            }
-        }
-    }
-
-    private func load() async {
-        guard productId.hasPrefix("tcgapi:") else { return loaded = true }
-        async let sales = try? EbaySalesCache.sales(productId, printing: printing)
-        async let conds = try? Backend.shared.api.conditionPrices(productId, printing: printing)
-        let (s, c) = await (sales, conds)
-        ebay = s ?? nil
-        conditions = c ?? []
-        loaded = true
     }
 }
 

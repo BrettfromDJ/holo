@@ -1,110 +1,38 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { AnimatedNumber } from "@/components/motion/animated-number";
-import { Badge } from "@/components/ui/badge";
-import { EstimatePill } from "@/components/ui/estimate-pill";
-import { loadConditions } from "@/lib/ebay-client";
-import type { ConditionPrice } from "@/lib/ebay-types";
-import type { HoldingView } from "@/lib/finance/portfolio";
-import { money, signedMoney } from "@/lib/format";
-import { rawWorth, RAW_CONDITIONS, type RawCondition, type Worth } from "@/lib/worth";
-import { cn } from "@/lib/utils";
-import { conditionHue, useEbayData } from "./ebay-sales";
-
-const CONDITION_BY_LABEL: Record<string, RawCondition> = Object.fromEntries(RAW_CONDITIONS.map((c) => [c.label, c.id]));
+import { ArrowUpRight } from "lucide-react";
+import { money } from "@/lib/format";
 
 /**
- * One question, one number: what is this card worth raw, in the condition you pick? Real
- * prices first (TCGplayer per condition, then eBay sales); estimates are always marked.
- * Grades are in the Graded prices panel above. Opens on the condition you own.
+ * TCGplayer's market price for the card (what Near Mint copies actually sold for) and a link
+ * to its TCGplayer page. Per-condition prices were dropped on purpose: our source only has
+ * asking prices for played copies, which were too often wrong or out of order. Same as the
+ * app's `WorthPanel`.
  */
-export function WhatsItWorth({ productId, printing, name, nm, owned }: { productId: string; printing: string | null; name: string; nm: number | null; owned: HoldingView[] }) {
-  const rawHeld = owned.find((h) => !h.identity.grade);
-  const [condition, setCondition] = useState<RawCondition>(CONDITION_BY_LABEL[rawHeld?.identity.condition ?? ""] ?? "NM");
-  const { load, sampleMode } = useEbayData(productId, printing, { name, market: nm, active: true });
-  const ebay = load.state === "ready" ? load.data : null;
-  // TCGplayer prices per condition, for real cards (Pro plan).
-  const [conditions, setConditions] = useState<ConditionPrice[] | null>(null);
-  useEffect(() => {
-    if (sampleMode || !productId.startsWith("tcgapi:")) return;
-    let cancelled = false;
-    loadConditions(productId, printing)
-      .then((rows) => !cancelled && setConditions(rows))
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [productId, printing, sampleMode]);
-
-  const worth: Worth | null = useMemo(() => (nm === null ? null : rawWorth(nm, condition, ebay, conditions, printing, true)), [nm, condition, ebay, conditions, printing]);
-
-  if (nm === null || !worth) return null;
-  const vsNm = worth.price - nm;
-  const label = RAW_CONDITIONS.find((c) => c.id === condition)!.label;
-  const yours = rawHeld && CONDITION_BY_LABEL[rawHeld.identity.condition] === condition;
-  const estimate = worth.source === "estimate";
-
+export function WhatsItWorth({ nm, tcgplayerUrl, tcgplayerId }: { nm: number | null; tcgplayerUrl?: string | null; tcgplayerId?: number | null }) {
+  if (nm === null) return null;
+  const url = tcgplayerUrl ?? (tcgplayerId ? `https://www.tcgplayer.com/product/${tcgplayerId}` : null);
   return (
-    <section className="mt-6 rounded-[var(--radius-card)] border border-border bg-surface p-5 sm:p-6">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="font-display text-[18px] leading-none sm:text-[19px]">What&apos;s it worth raw?</h2>
-        {sampleMode && <Badge variant="sample">Sample data</Badge>}
+    <section className="mt-6 rounded-[var(--radius-card)] border border-[#2F5BFF]/30 bg-surface bg-[radial-gradient(ellipse_at_top,rgba(47,91,255,0.25),transparent_70%)] p-5 sm:p-6">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-[15px] font-semibold">TCGplayer market price</h2>
+          <p className="mt-0.5 text-[12px] text-muted">Near Mint, from recent sales</p>
+        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brands/tcgplayer.svg" alt="TCGplayer" className="h-[26px] w-auto" />
       </div>
-
-      {/* The answer */}
-      <div className="mt-5 flex items-end justify-between gap-3">
-        <p className={cn("hype-num tabular text-[clamp(40px,12vw,56px)] leading-none", estimate && "text-foreground/85")}>
-          <AnimatedNumber value={worth.price} from={worth.price} duration={500} format={money} />
-        </p>
-        <span className="mb-1 shrink-0 text-right">
-          <span className="block text-[14px] font-semibold">{label}</span>
-          {yours && <span className="block text-[11px] text-muted">Yours</span>}
-        </span>
-      </div>
-      <SourceLine worth={worth} />
-      {condition !== "NM" && (
-        <p className="tabular mt-1 text-[12px] text-muted">
-          <span className={vsNm >= 0 ? "text-up" : "text-down"}>{signedMoney(vsNm)}</span> vs Near Mint ({money(nm)})
-        </p>
+      <p className="hype-num tabular mt-5 text-[clamp(40px,12vw,56px)] leading-none">{money(nm)}</p>
+      {url && (
+        <a
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-5 flex h-11 items-center justify-center gap-2 rounded-full bg-[#2F5BFF] text-[15px] font-semibold text-white hover:opacity-90"
+        >
+          View on TCGplayer <ArrowUpRight className="size-4" />
+        </a>
       )}
-
-      {/* The picker */}
-      <div className="mt-5 grid grid-cols-5 gap-1.5" role="radiogroup" aria-label="Condition">
-        {RAW_CONDITIONS.map((c) => {
-          const on = condition === c.id;
-          const hue = conditionHue(c.label);
-          return (
-            <button
-              key={c.id}
-              type="button"
-              role="radio"
-              aria-checked={on}
-              aria-label={c.label}
-              onClick={() => setCondition(c.id)}
-              className={cn("h-11 rounded-xl text-[14px] font-semibold transition-colors", on ? "ring-2" : "bg-surface-2 text-muted hover:text-foreground")}
-              style={on && hue ? { background: `color-mix(in srgb, ${hue} 18%, transparent)`, color: `color-mix(in srgb, ${hue} 85%, var(--foreground))`, ["--tw-ring-color" as string]: hue } : undefined}
-            >
-              {c.id}
-            </button>
-          );
-        })}
-      </div>
     </section>
-  );
-}
-
-/** Where the number came from, with estimates set apart so they're never mistaken for sales. */
-function SourceLine({ worth }: { worth: Worth }) {
-  const tag = { market: "Market price", sales: "eBay sales", guide: "Price guide", estimate: "Estimate" }[worth.source];
-  return (
-    <p className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-muted">
-      {worth.source === "estimate" ? (
-        <EstimatePill />
-      ) : (
-        <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", worth.source === "sales" ? "bg-[color-mix(in_srgb,var(--lime)_16%,transparent)] text-up" : "bg-surface-2 text-foreground/80")}>{tag}</span>
-      )}
-      {worth.detail}
-    </p>
   );
 }
