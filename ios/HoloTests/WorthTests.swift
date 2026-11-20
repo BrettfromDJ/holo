@@ -36,4 +36,10 @@ final class WorthTests: XCTestCase {
         XCTAssertEqual(lp.source, .estimate)
         XCTAssertEqual(lp.detail, "Estimated at 85% of Near Mint · listings ran above Near Mint")
     }
+
+    func testTCGplayerOnlySkipsEbaySales() {
+        let lp = WorthCalc.raw(nm: 100, condition: .lightlyPlayed, ebay: nil, conditions: [], printing: nil, tcgplayerOnly: true)
+        XCTAssertEqual(lp.price, 85)
+        XCTAssertEqual(lp.detail, "Estimated at 85% of TCGplayer Near Mint")
+    }
 }

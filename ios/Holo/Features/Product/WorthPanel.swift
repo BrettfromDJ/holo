@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// One question, one number: what is this card worth raw, in the condition you pick? Real
-/// prices first (TCGplayer per condition, then eBay sales); estimates are always marked.
+/// TCGplayer's prices only (per condition, else a marked estimate from its Near Mint price).
 /// Grades are in the Graded prices panel above.
 struct WorthPanel: View {
     var productId: String
@@ -16,7 +16,8 @@ struct WorthPanel: View {
     @Environment(CollectionStore.self) private var store
 
     private var worth: Worth {
-        WorthCalc.raw(nm: nm, condition: condition, ebay: ebay, conditions: conditions, printing: printing)
+        // TCGplayer prices only (eBay's are in their own panel above).
+        WorthCalc.raw(nm: nm, condition: condition, ebay: ebay, conditions: conditions, printing: printing, tcgplayerOnly: true)
     }
 
     var body: some View {

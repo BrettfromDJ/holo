@@ -37,7 +37,7 @@ export function WhatsItWorth({ productId, printing, name, nm, owned }: { product
     };
   }, [productId, printing, sampleMode]);
 
-  const worth: Worth | null = useMemo(() => (nm === null ? null : rawWorth(nm, condition, ebay, conditions, printing)), [nm, condition, ebay, conditions, printing]);
+  const worth: Worth | null = useMemo(() => (nm === null ? null : rawWorth(nm, condition, ebay, conditions, printing, true)), [nm, condition, ebay, conditions, printing]);
 
   if (nm === null || !worth) return null;
   const vsNm = worth.price - nm;

@@ -20,7 +20,8 @@ enum WorthCalc {
 
     /// A raw copy: Near Mint is the market price; other conditions use TCGplayer's price
     /// for that condition, then eBay sales in it, then a share of Near Mint.
-    static func raw(nm: Double, condition: CardCondition, ebay: EbaySales?, conditions: [ConditionPrice], printing: String?) -> Worth {
+    /// `tcgplayerOnly` (the card page's TCGplayer panel) skips the eBay sales step.
+    static func raw(nm: Double, condition: CardCondition, ebay: EbaySales?, conditions: [ConditionPrice], printing: String?, tcgplayerOnly: Bool = false) -> Worth {
         if condition == .nearMint { return Worth(price: nm, source: .market, detail: "TCGplayer market price, Near Mint") }
         // A played copy is never worth more than Near Mint. Near Mint is what copies sold for;
         // the condition figures are what sellers ask (or a few sales), which on older cards can
@@ -36,7 +37,7 @@ enum WorthCalc {
             }
             above = true
         }
-        let sales = (ebay?.sales ?? []).filter { $0.grade == nil && $0.condition == condition.rawValue }.map(\.price).sorted()
+        let sales = tcgplayerOnly ? [] : (ebay?.sales ?? []).filter { $0.grade == nil && $0.condition == condition.rawValue }.map(\.price).sorted()
         if sales.count >= minSales + 1 {
             let m = sales.count / 2
             let median = sales.count % 2 == 1 ? sales[m] : (sales[m - 1] + sales[m]) / 2
@@ -46,7 +47,8 @@ enum WorthCalc {
             above = true
         }
         let why = above ? " · listings ran above Near Mint" : ""
-        return Worth(price: round2(nm * condition.share), source: .estimate, detail: "Estimated at \(Int(condition.share * 100))% of Near Mint\(why)")
+        let base = tcgplayerOnly ? "TCGplayer Near Mint" : "Near Mint"
+        return Worth(price: round2(nm * condition.share), source: .estimate, detail: "Estimated at \(Int(condition.share * 100))% of \(base)\(why)")
     }
 
     /// A graded copy: recent eBay sales for that exact grade, else the usual grade curve (always labeled an estimate).

@@ -62,7 +62,7 @@ export const MIN_SALES = 2;
  * TCGplayer's price for that condition, then eBay sales in it, then a share
  * of Near Mint.
  */
-export function rawWorth(nm: number, condition: RawCondition, ebay: EbaySales | null, conditions?: ConditionPrice[] | null, printing?: string | null): Worth {
+export function rawWorth(nm: number, condition: RawCondition, ebay: EbaySales | null, conditions?: ConditionPrice[] | null, printing?: string | null, tcgplayerOnly = false): Worth {
   const c = RAW_CONDITIONS.find((x) => x.id === condition)!;
   if (condition === "NM") return { price: nm, source: "market", detail: "TCGplayer market price, Near Mint", sold: null };
   // A played copy is never worth more than Near Mint. Near Mint is what copies sold for; the
@@ -77,7 +77,8 @@ export function rawWorth(nm: number, condition: RawCondition, ebay: EbaySales | 
     }
     above = true;
   }
-  const sales = (ebay?.sales ?? []).filter((s) => s.grade === null && s.condition === c.label).map((s) => s.price);
+  // `tcgplayerOnly` (the TCGplayer-only worth panel) skips eBay sales.
+  const sales = tcgplayerOnly ? [] : (ebay?.sales ?? []).filter((s) => s.grade === null && s.condition === c.label).map((s) => s.price);
   if (sales.length >= MIN_SALES + 1) {
     const sorted = [...sales].sort((a, b) => a - b);
     const m = Math.floor(sorted.length / 2);
@@ -86,7 +87,7 @@ export function rawWorth(nm: number, condition: RawCondition, ebay: EbaySales | 
     above = true;
   }
   const why = above ? " · listings ran above Near Mint" : "";
-  return { price: round(nm * c.share), source: "estimate", detail: `Estimated at ${Math.round(c.share * 100)}% of Near Mint${why}`, sold: null };
+  return { price: round(nm * c.share), source: "estimate", detail: `Estimated at ${Math.round(c.share * 100)}% of ${tcgplayerOnly ? "TCGplayer Near Mint" : "Near Mint"}${why}`, sold: null };
 }
 
 /**

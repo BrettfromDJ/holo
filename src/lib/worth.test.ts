@@ -30,6 +30,8 @@ describe("what's it worth", () => {
   it("prefers real condition sales when there are enough", () => {
     const e = ebay({ sales: [sale(70, "Lightly Played"), sale(80, "Lightly Played"), sale(90, "Lightly Played")] });
     expect(rawWorth(100, "LP", e)).toMatchObject({ price: 80, source: "sales", sold: 3 });
+    // TCGplayer only: no eBay step, the estimate from TCGplayer's Near Mint.
+    expect(rawWorth(100, "LP", e, null, null, true)).toMatchObject({ price: 85, source: "estimate", detail: "Estimated at 85% of TCGplayer Near Mint" });
   });
 
   it("uses graded sales, then the guide, then the curve", () => {
