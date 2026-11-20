@@ -31,7 +31,45 @@ struct WorthPanel: View {
                 }
                 .frame(maxWidth: .infinity)
             }
-            .buttonStyle(Button3D(kind: .blue, height: 50))
+            .buttonStyle(Button3D(kind: .blue, height: 50, sheen: false))
+            .overlay {
+                TCGGlint()
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .offset(y: -1)
+                    .allowsHitTesting(false)
+            }
+        }
+    }
+}
+
+/// The TCGplayer button's shine: a soft wide band with a crisp thin one riding it, at an angle,
+/// added light (so the blue brightens instead of washing grey). It glides across quickly, easing
+/// in and out, then rests off the button for most of each loop. One looping offset animation set
+/// once, only while on screen; still with Reduce Motion.
+private struct TCGGlint: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var across = false
+
+    var body: some View {
+        if !reduceMotion {
+            HStack(spacing: 5) {
+                LinearGradient(colors: [.clear, .white.opacity(0.28), .clear], startPoint: .leading, endPoint: .trailing).frame(width: 40)
+                LinearGradient(colors: [.clear, .white.opacity(0.75), .clear], startPoint: .leading, endPoint: .trailing).frame(width: 6)
+            }
+            .scaleEffect(x: 1, y: 3)
+            .rotationEffect(.degrees(20))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .offset(x: across ? 800 : -800)
+            .blendMode(.plusLighter)
+            .onVisibilityChange { on in
+                if on {
+                    // A steep ease: slow far off either side, quick over the button, so it reads
+                    // as one clean pass every ~4.5s rather than a constant drift.
+                    withAnimation(.timingCurve(0.7, 0, 0.3, 1, duration: 4.5).repeatForever(autoreverses: false)) { across = true }
+                } else {
+                    stopLoop { across = false }
+                }
+            }
         }
     }
 }

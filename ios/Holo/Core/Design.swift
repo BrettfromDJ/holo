@@ -363,6 +363,8 @@ struct Button3D: ButtonStyle {
     var kind: Kind = .lime
     var fullWidth = true
     var height: CGFloat = 50
+    /// The sweeping sheen (off when a button brings its own, like the TCGplayer one).
+    var sheen = true
     @Environment(\.onGlassSheet) private var onGlassSheet
     @Environment(\.inGlassBar) private var inGlassBar
     /// On glass of any kind: dark buttons take a faint fill instead of glass on glass.
@@ -438,7 +440,7 @@ struct Button3D: ButtonStyle {
             // the sweeping sheen: a shadow on moving content is re-rendered every frame.
             .shadow(color: .black.opacity(0.5), radius: 9, y: 6)
             .background {
-                if shines {
+                if shines && sheen {
                     Sheen(strength: 0.5).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
             }
