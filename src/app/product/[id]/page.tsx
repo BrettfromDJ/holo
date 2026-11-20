@@ -166,7 +166,7 @@ export default function ProductPage() {
               type="button"
               onClick={() =>
                 setPriceInfo({
-                  title: product.kind === "sealed" ? "Market price" : "Near Mint · ungraded",
+                  title: product.kind === "sealed" ? "Market price" : "TCGplayer market price · ungraded",
                   value: headline,
                   rows: [
                     ["Source", price?.source === "pricecharting" ? "PriceCharting (TCGplayer has no price)" : price ? "TCGplayer market price" : "Last stored price"],
@@ -183,7 +183,7 @@ export default function ProductPage() {
               {headline != null ? <AnimatedNumber key={productId} value={headline} format={money} from={headline * 0.85} /> : <span className="text-muted">No price</span>}
             </button>
             <PriceInfoDialog info={priceInfo} onOpenChange={(o) => !o && setPriceInfo(null)} />
-            {product.kind === "sealed" ? <PerPack product={product} price={headline} /> : <p className="mt-2 text-[13px] text-muted">Near Mint · ungraded</p>}
+            {product.kind === "sealed" ? <PerPack product={product} price={headline} /> : <p className="mt-2 text-[13px] text-muted">TCGplayer market price · ungraded</p>}
             {/* The headline is the card's Near Mint price; copies you own that differ get their own figure here. */}
             {yourCopies.length > 0 && (
               <div className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] text-muted">

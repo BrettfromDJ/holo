@@ -454,7 +454,7 @@ struct ProductDetailView: View {
             .onTapGesture { priceInfo = headlineInfo }
             // The headline is a single's Near Mint, ungraded price: say so.
             if product?.isSealed == false {
-                Text("Near Mint · ungraded").font(.geist(13)).foregroundStyle(Theme.muted).padding(.top, 4)
+                Text("TCGplayer market price · ungraded").font(.geist(13)).foregroundStyle(Theme.muted).padding(.top, 4)
             }
             // The headline is the Near Mint (ungraded) price; copies you own that differ are listed here.
             let differing = owned.filter { $0.identity.isGraded || $0.isConditionEstimate }
@@ -493,7 +493,7 @@ struct ProductDetailView: View {
         ]
         if let age = PriceInfo.age(price?.updatedAt) { rows.append(("Updated", age)) }
         if let printing, !printing.isEmpty { rows.append(("Printing", printing)) }
-        return PriceInfo(title: product?.isSealed == false ? "Near Mint · ungraded" : "Market price", value: headline, rows: rows,
+        return PriceInfo(title: product?.isSealed == false ? "TCGplayer market price · ungraded" : "Market price", value: headline, rows: rows,
                          ebay: (productId, printing, nil),
                          note: PriceInfo.isStale(price?.updatedAt) ? "This price is more than 3 days old; it refreshes with the daily sync." : nil,
                          stale: PriceInfo.isStale(price?.updatedAt))
