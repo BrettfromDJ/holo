@@ -52,6 +52,8 @@ struct MarketHomeView: View {
                     // Today in the hobby: three stories to swipe (the paragraph when there are none).
                     if let index, let stories = storiesToShow(index), !stories.isEmpty {
                         HobbyStories(stories: stories, cards: Self.cardsById(index))
+                            // Closer to what follows than the page's usual section gap.
+                            .padding(.bottom, -14)
                     } else if let briefing = insights?.briefing, index != nil {
                         HobbyBriefing(text: briefing).padding(.horizontal, 16).padding(.bottom, -18)
                     }
@@ -486,7 +488,9 @@ private struct HobbyStories: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: 118)
-        .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        // Dark like the page's other panels (glass read too light here), with a faint edge.
+        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Theme.surface))
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Theme.border))
     }
 }
 

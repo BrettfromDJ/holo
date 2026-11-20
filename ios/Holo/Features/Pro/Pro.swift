@@ -99,6 +99,18 @@ struct ProSheet: View {
 
     var body: some View {
         ZStack(alignment: .top) {
+            // The lit grid and glows behind the hero: across the whole sheet, fading out on every
+            // side (it sat inside the scroll before and was cut off at the top and sides).
+            ZStack {
+                GridPattern(step: 28, opacity: 0.06)
+                RadialGradient(colors: [Theme.lime.opacity(0.32), .clear], center: UnitPoint(x: 0.5, y: 0.42), startRadius: 0, endRadius: 240)
+                RadialGradient(colors: [Theme.planBlue.opacity(0.22), .clear], center: UnitPoint(x: 0.08, y: 0.12), startRadius: 0, endRadius: 220)
+            }
+            .frame(height: 560)
+            .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.12),
+                                         .init(color: .black, location: 0.55), .init(color: .clear, location: 1)],
+                                 startPoint: .top, endPoint: .bottom))
+            .allowsHitTesting(false)
             // Lime sparks rising behind the top.
             MoteParticles(style: .sparks, color: Theme.lime, count: 26)
                 .frame(height: 320)
@@ -422,18 +434,6 @@ private struct ProHero: View {
                 VStack(alignment: .leading, spacing: 8) { highlights }
             }
         }
-        .background(alignment: .top) {
-            ZStack {
-                GridPattern(step: 28, opacity: 0.06)
-                RadialGradient(colors: [Theme.lime.opacity(0.32), .clear], center: UnitPoint(x: 0.5, y: 0.35), startRadius: 0, endRadius: 230)
-                RadialGradient(colors: [Theme.planBlue.opacity(0.22), .clear], center: UnitPoint(x: 0.1, y: 0.1), startRadius: 0, endRadius: 200)
-            }
-            .frame(height: 420)
-            .padding(.horizontal, -20)
-            .padding(.top, -80)
-            .mask(LinearGradient(colors: [.black, .black, .clear], startPoint: .top, endPoint: .bottom))
-            .allowsHitTesting(false)
-        }
     }
 
     @ViewBuilder private var highlights: some View {
@@ -460,13 +460,61 @@ private struct ProHero: View {
                 let d = Double(i) - 1
                 ProductImage(product: product, cornerRadius: 8)
                     .frame(width: 118, height: 165)
-                    // A bright rim and a glint sweeping across, like Pro's buttons.
-                    .proShine(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    // Foil light: a soft gloss, a bright rim and a wide band of light sweeping across,
+                    // each card a beat after the one before.
+                    .modifier(CardShine(delay: Double(i) * 0.35))
                     .shadow(color: .black.opacity(0.5), radius: 14, y: 10)
                     .rotationEffect(.degrees(d * 12), anchor: .bottom)
                     .offset(x: d * 70, y: abs(d) * 14)
                     .zIndex(i == 1 ? 1 : 0)
             }
         }
+    }
+}
+
+
+/// Light over a card on the Pro page: a still gloss from the top-left, a bright rim, and a wide
+/// soft band with a sharp core sliding across every few seconds (one offset animation, only while
+/// on screen; still with Reduce Motion).
+private struct CardShine: ViewModifier {
+    var delay: Double
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var across = false
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
+        content
+            .overlay {
+                // The gloss: brighter at the top-left corner, a touch at the bottom-right.
+                LinearGradient(stops: [.init(color: .white.opacity(0.22), location: 0), .init(color: .clear, location: 0.35),
+                                       .init(color: .clear, location: 0.8), .init(color: .white.opacity(0.08), location: 1)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                    .blendMode(.plusLighter)
+                    .clipShape(shape)
+                    .allowsHitTesting(false)
+            }
+            .overlay {
+                if !reduceMotion {
+                    ZStack {
+                        LinearGradient(colors: [.clear, .white.opacity(0.35), .clear], startPoint: .leading, endPoint: .trailing).frame(width: 90)
+                        LinearGradient(colors: [.clear, .white.opacity(0.85), .clear], startPoint: .leading, endPoint: .trailing).frame(width: 10)
+                    }
+                    .scaleEffect(x: 1, y: 2.4)
+                    .rotationEffect(.degrees(24))
+                    .offset(x: across ? 220 : -220)
+                    .blendMode(.plusLighter)
+                    .clipShape(shape)
+                    .allowsHitTesting(false)
+                    .onVisibilityChange { on in
+                        if on {
+                            withAnimation(.easeInOut(duration: 2.2).delay(delay).repeatForever(autoreverses: false)) { across = true }
+                        } else {
+                            stopLoop { across = false }
+                        }
+                    }
+                }
+            }
+            .overlay(shape.stroke(LinearGradient(colors: [.white.opacity(0.8), .white.opacity(0.1), Theme.lime.opacity(0.5)],
+                                                 startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1).allowsHitTesting(false))
     }
 }
