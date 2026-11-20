@@ -15,6 +15,14 @@ struct WorthPanel: View {
     @State private var loaded = false
     @Environment(CollectionStore.self) private var store
 
+    /// The card's TCGplayer page: its stored link, else one built from its TCGplayer number.
+    private var tcgplayerURL: URL? {
+        let p = store.products[productId]
+        if let u = p?.tcgplayerUrl.flatMap(URL.init(string:)) { return u }
+        if let id = p?.tcgplayerId { return URL(string: "https://www.tcgplayer.com/product/\(id)") }
+        return nil
+    }
+
     private var worth: Worth {
         // TCGplayer prices only (eBay's are in their own panel above).
         WorthCalc.raw(nm: nm, condition: condition, ebay: ebay, conditions: conditions, printing: printing, tcgplayerOnly: true)
@@ -72,7 +80,7 @@ struct WorthPanel: View {
                     }
                 }
                 .sensoryFeedback(.selection, trigger: condition)
-                if let url = store.products[productId]?.tcgplayerUrl.flatMap(URL.init(string:)) {
+                if let url = tcgplayerURL {
                     Link(destination: url) {
                         HStack(spacing: 8) {
                             Text("View on TCGplayer")
