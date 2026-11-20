@@ -631,12 +631,6 @@ private struct CardOfTheDay: View {
         return all.filter { $0.day >= start }
     }
 
-    /// The AI's line, unless it slipped in a raw card id (then nothing).
-    private var line: String? {
-        guard let reason, !reason.contains("tcgapi:"), !reason.contains(hit.product.id) else { return nil }
-        return reason
-    }
-
     /// The week's chart only when it really moved (a flat line or a single day says nothing).
     private var chartPoints: [PricePoint]? {
         let w = week
@@ -669,16 +663,11 @@ private struct CardOfTheDay: View {
                     Text(Format.money(hit.market)).font(.display(44)).tracking(-1.6).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
                     if let pct { MoveRibbon(pct: pct, label: daily ? "TODAY" : "WEEK", tone: tone, down: down) }
                 }
-                // Today, the week and the month as three glass tiles.
-                HStack(spacing: 8) {
+                // Today, the week and the month as three glass tiles, as far apart as the rows.
+                HStack(spacing: 18) {
                     stat("Today", hit.change24hPct)
                     stat("7 days", hit.change7dPct)
                     stat("30 days", hit.change30dPct)
-                }
-                if let line {
-                    Text(line.noWidow).font(.geist(14, .medium)).foregroundStyle(.white.opacity(0.85))
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
                 if let points = chartPoints { WeekLine(points: points, tone: tone) }
                 if let fact, !fact.isEmpty, !fact.contains("tcgapi:") { DidYouKnow(text: fact) }

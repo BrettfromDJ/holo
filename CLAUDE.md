@@ -63,7 +63,7 @@ and say exactly what to run or click.
   (from $5, 9 days) and fills the changes itself (`src/lib/explore/price-days.ts`); TCG API's own
   changes win when it sends them.
 - **Card of the day** leads Home as a big hero (`CardOfTheDay`): the card large with rays and its
-  electric border (pink when down), name, price and move, the AI's line, a small 7-day chart, a "Did you know?" fun fact
+  electric border (pink when down), name, price and move, Today / 7 days / 30 days tiles, a small 7-day chart, a "Did you know?" fun fact
   (`facts` in the daily insights, from the AI's general knowledge, skipped when unsure), and
   "Next card in …" (to midnight UTC). Collection of the Day follows, then Heating up / Cooling off.
 - **By era on Home:** each era card sums up its whole market (`/api/eras`, `src/lib/server/era-summary.ts`,
