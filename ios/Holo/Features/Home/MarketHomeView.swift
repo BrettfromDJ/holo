@@ -53,7 +53,7 @@ struct MarketHomeView: View {
                     if let index, let stories = storiesToShow(index), !stories.isEmpty {
                         HobbyStories(stories: stories, cards: Self.cardsById(index))
                             // Closer to what follows than the page's usual section gap.
-                            .padding(.bottom, -14)
+                            .padding(.bottom, -20)
                     } else if let briefing = insights?.briefing, index != nil {
                         HobbyBriefing(text: briefing).padding(.horizontal, 16).padding(.bottom, -18)
                     }
