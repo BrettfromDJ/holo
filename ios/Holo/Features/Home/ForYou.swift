@@ -215,11 +215,8 @@ struct ForYouSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            HStack(spacing: 8) {
-                Image(systemName: "sparkles").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.subtle)
-                Text("For you").font(.display(24)).tracking(-0.6)
-            }
-            .padding(.horizontal, 16)
+            Text("For you").font(.display(24)).tracking(-0.6)
+                .padding(.horizontal, 16)
             if !model.sets.isEmpty {
                 finishYourSets(model.sets)
             }

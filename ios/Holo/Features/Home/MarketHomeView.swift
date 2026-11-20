@@ -256,13 +256,9 @@ struct MarketHomeView: View {
     private func section<C: View, L: View>(icon: String, _ title: String, _ subtitle: String, @ViewBuilder content: () -> C, @ViewBuilder link: () -> L) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .lastTextBaseline) {
-                // The title with a small, quiet icon beside it, then the line under it.
+                // The title (no icon beside it), then the line under it.
                 VStack(alignment: .leading, spacing: 6) {
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        // Quiet: white made see-through (Theme.subtle), never lime or a grey color.
-                        Image(systemName: icon).font(.system(size: 16, weight: .medium)).foregroundStyle(Theme.subtle)
-                        Text(title).font(.display(22)).tracking(22 * -0.03).lineLimit(1).minimumScaleFactor(0.8).displayTrim(22)
-                    }
+                    Text(title).font(.display(22)).tracking(22 * -0.03).lineLimit(1).minimumScaleFactor(0.8).displayTrim(22)
                     Text(subtitle.noWidow).font(.geist(15)).foregroundStyle(Theme.muted)
                 }
                 Spacer(minLength: 8)
@@ -401,11 +397,8 @@ private struct HobbyStories: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 6) {
-                Image(systemName: "sparkles").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.lime)
-                MonoLabel(text: "Today in the hobby")
-            }
-            .padding(.horizontal, 16)
+            MonoLabel(text: "Today in the hobby")
+                .padding(.horizontal, 16)
             ZStack(alignment: .top) {
                 ForEach(Array(stories.enumerated()), id: \.offset) { i, story in
                     let depth = (i - page + stories.count) % stories.count
@@ -802,19 +795,6 @@ private struct TopTenRow: View {
                                 ProductImage(product: hit.pictured, cornerRadius: 6)
                                     .frame(width: 100, height: 140)
                                     .shadow(color: .black.opacity(0.6), radius: 10, y: 6)
-                                    // No. 1: a small lime crown on its corner, outside its layout so it
-                                    // sits level with the rest.
-                                    .overlay(alignment: .topLeading) {
-                                        if i == 0 {
-                                            Image(systemName: "crown.fill")
-                                                .font(.system(size: 15, weight: .bold))
-                                                .foregroundStyle(Theme.ink)
-                                                .frame(width: 28, height: 28)
-                                                .background(Circle().fill(Theme.lime))
-                                                .rotationEffect(.degrees(-14))
-                                                .offset(x: -9, y: -10)
-                                        }
-                                    }
                                 .padding(.leading, i + 1 >= 10 ? 70 : 46)
                             }
                             .frame(height: 150, alignment: .bottomLeading)

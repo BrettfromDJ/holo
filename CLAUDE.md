@@ -86,7 +86,7 @@ and say exactly what to run or click.
   point to Scan / Search.
 - No confetti. No emojis. Toasts bottom-right on the web. The "Prices updated" banner is off
   in the app for now; milestone banners are back on (see Open threads).
-- No lime bar beside section headings (removed). No dots beside card titles (removed).
+- No icons beside Home's section headings, and no crown on Top 10's No. 1 (removed). No lime bar beside section headings (removed). No dots beside card titles (removed).
 - Headings wrap balanced (no lone word on the last line): use `DisplayText` for Anton headings.
 - Sealed products sit in a dark rounded well shaped like their space (card-shaped in the hero
   fan and collection tiles, square on the star card and card page). On the shelf they stand bare.
