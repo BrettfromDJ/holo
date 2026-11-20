@@ -714,13 +714,17 @@ private struct CardOfTheDay: View {
 private struct NextCardCountdown: View {
     var body: some View {
         TimelineView(.everyMinute) { context in
-            let cal = Calendar(identifier: .gregorian)
-            var utc = cal
-            utc.timeZone = TimeZone(identifier: "UTC") ?? .current
-            let tomorrow = utc.startOfDay(for: utc.date(byAdding: .day, value: 1, to: context.date) ?? context.date)
-            let mins = max(0, Int(tomorrow.timeIntervalSince(context.date) / 60))
+            let mins = Self.minutesToNextCard(from: context.date)
             Text("Next card in \(mins / 60)h \(mins % 60)m").font(.mono(10)).tracking(1).foregroundStyle(Theme.muted).monospacedDigit()
         }
+    }
+
+    /// Minutes until midnight UTC, when the next card of the day is picked.
+    static func minutesToNextCard(from now: Date) -> Int {
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = TimeZone(identifier: "UTC") ?? .current
+        let tomorrow = utc.startOfDay(for: utc.date(byAdding: .day, value: 1, to: now) ?? now)
+        return max(0, Int(tomorrow.timeIntervalSince(now) / 60))
     }
 }
 
