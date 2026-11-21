@@ -141,8 +141,6 @@ export const THEMES: ThemeRule[] = [
   { id: "dragons-den", title: "Dragon's den", blurb: "Dragonite, Rayquaza and more.", look: "spotlight", names: DRAGONS, rarities: ["Illustration", "Holo", "Secret", "Ultra"], pokemon: DRAGONS, minPrice: 25 },
   { id: "starter-pack", title: "Starter pack", blurb: "The most collectible starter Pokémon.", look: "fan", names: STARTERS, rarities: ["Illustration", "Holo", "Secret"], pokemon: STARTERS, minPrice: 8 },
   { id: "trainer-gallery-favorites", title: "Trainer Gallery favorites", blurb: "Standout Pokémon and trainer artwork.", look: "mosaic", numbers: ["TG"], minPrice: 3 },
-  { id: "gengar-ladder", title: "Every price of Gengar", blurb: "From pocket money to grail, one step at a time.", look: "ladder", names: ["Gengar"], pokemon: ["Gengar"], minPrice: 1 },
-  { id: "snorlax-ladder", title: "Every price of Snorlax", blurb: "A big Pokémon for any size of wallet.", look: "ladder", names: ["Snorlax"], pokemon: ["Snorlax"], minPrice: 1 },
 
   // 06 Collections that change over time
   { id: "trending-this-week", title: "Trending this week", blurb: "Cards gaining attention.", look: "mosaic", source: "market", market: "trending" },

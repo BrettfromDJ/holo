@@ -215,7 +215,7 @@ and say exactly what to run or click.
   (priciest down in a band), ai (art themes: the AI picks from our illustration cards weekly,
   `theme-ai:<id>:<monday>`), market (trending/today/drops/rediscovered), fresh (sets out in 90
   days), popular (kept or watched by 2+ collectors). Japanese cards only in `japanese` themes.
-  Saved a day per theme in `api_cache`; `/api/themes`. AI proposes 5 more weekly (via `ai.ts`).
+  Saved a day per theme in `api_cache`; `/api/themes`. AI proposes 5 more weekly (via `ai.ts`). No "Every price of <Pokémon>" collections (removed; the AI can't propose them).
   The app (`Features/Home/Themes.swift`): Collection of the Day (`DailyDiscovery`) leads Home,
   then 4 per launch between Home's lists (new mix each open, weighted to your Pokémon and era and
   the `featured` launch lineup, never two of one look), plus "Your next favorite" (For you's
