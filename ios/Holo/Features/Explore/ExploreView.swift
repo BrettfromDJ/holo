@@ -1205,7 +1205,10 @@ struct SetArt: View {
     /// Only when the banner couldn't be loaded: a sample product from the set instead.
     @ViewBuilder private var failedBanner: some View {
         if isPokemon {
-            ZStack { Theme.well; pokemonMark }
+            ZStack {
+                Theme.well
+                pokemonMark
+            }
         } else if let sample = set.imageUrl.flatMap(URL.init(string:)) {
             ZStack {
                 Theme.well
