@@ -253,7 +253,7 @@ struct MarketHomeView: View {
                 NavigationLink(value: ExploreRoute.calendar) { seeAll("Calendar") }
             }
         }
-        themeRows(shown, 11..<shown.count)
+        themeRows(shown, 11..<max(11, shown.count))
         // Your lists last, as rows like the collections.
         if !Demo.isOn { HomeListRows() }
         // (A Cooling off row here repeated the Cooling off tile at the top: removed.)
