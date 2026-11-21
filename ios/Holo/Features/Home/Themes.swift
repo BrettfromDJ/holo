@@ -235,7 +235,8 @@ private struct PosterRow: View {
     }
 }
 
-/// One card in a row: big art with its price tagged at the bottom.
+/// One card in a row: big art with its price on a small Liquid Glass pill at the bottom, the
+/// card's art blurred behind it (frosted on older iOS).
 struct Poster: View {
     var product: Product
     var price: Double?
@@ -247,10 +248,11 @@ struct Poster: View {
             .frame(width: Self.width, height: Self.height)
             .overlay(alignment: .bottomLeading) {
                 if let price {
-                    Text(Format.money(price)).font(.geist(12, .semibold)).monospacedDigit().foregroundStyle(.white)
-                        .padding(.horizontal, 7).padding(.vertical, 3)
-                        .background(Capsule().fill(.black.opacity(0.7)))
-                        .padding(7)
+                    Text(Format.money(price)).font(.geist(13, .semibold)).monospacedDigit().foregroundStyle(.white)
+                        .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
+                        .padding(.horizontal, 9).padding(.vertical, 5)
+                        .liquidGlass(in: Capsule(), tint: .black.opacity(0.25))
+                        .padding(8)
                 }
             }
     }
