@@ -1114,8 +1114,8 @@ private struct ProductStage: View {
             // They breathe by fading the finished layers (cheap), not by changing the gradient's
             // colors, which redrew the blurred core every frame. Same values: at rest the core
             // is 0.8 × 0.75 = 0.6 and the wash 0.75 × 0.32 = 0.24, as before.
-            RadialGradient(colors: [mood.opacity(0.75), mood.opacity(0.3125), .clear], center: UnitPoint(x: 0.5, y: 0.5), startRadius: 0, endRadius: 190)
-                .blur(radius: 20)
+            // Already soft: no blur (it was redrawn behind the drifting card).
+            RadialGradient(colors: [mood.opacity(0.75), mood.opacity(0.3125), .clear], center: UnitPoint(x: 0.5, y: 0.5), startRadius: 0, endRadius: 210)
                 .opacity(breathe ? 1 : 0.8)
             RadialGradient(colors: [mood.opacity(0.32), .clear], center: UnitPoint(x: 0.5, y: 0.5), startRadius: 0, endRadius: 320)
                 .opacity(breathe ? 1 : 0.75)

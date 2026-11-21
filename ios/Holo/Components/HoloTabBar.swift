@@ -43,7 +43,9 @@ struct HoloTabBar<Tab: Hashable>: View {
         .padding(.horizontal, 6)
         .frame(height: 64)
         .liquidGlass(in: Capsule(), tint: Theme.background.opacity(0.4))
-        .shadow(color: .black.opacity(0.45), radius: 18, y: 8)
+        // The shadow comes from a plain capsule behind the glass, not from the glass itself (a
+        // shadow over glass is redrawn whenever what's under the glass moves, on every scroll).
+        .background(Capsule().fill(Color.black.opacity(0.01)).shadow(color: .black.opacity(0.45), radius: 18, y: 8))
         // A faint hairline edge (no glow).
         .overlay {
             Capsule().strokeBorder(Color.white.opacity(0.1), lineWidth: 1).allowsHitTesting(false)

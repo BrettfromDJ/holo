@@ -64,7 +64,7 @@ struct HoldingView: Identifiable, Hashable {
     }
 }
 
-struct PortfolioSummary {
+struct PortfolioSummary: Equatable {
     var value: Double = 0
     /// Cost of the holdings that have a price (pairs with `value`).
     var pricedCost: Double = 0

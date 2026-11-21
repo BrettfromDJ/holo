@@ -922,11 +922,8 @@ private struct SkeletonGrid: View {
             }
         }
         .padding(.horizontal, 16)
-        .opacity(dim ? 0.45 : 1)
-        .onAppear {
-            guard !reduceMotion else { return }
-            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) { dim = true }
-        }
+        // Still placeholders (no loading animation).
+        .opacity(0.6)
     }
 }
 

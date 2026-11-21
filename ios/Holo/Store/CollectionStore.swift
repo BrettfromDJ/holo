@@ -388,10 +388,15 @@ final class CollectionStore {
 
     private func recompute(timelineNow: Bool = false, timelineSoon: Bool = false) {
         clearCaches()
-        allHoldings = Portfolio.holdings(transactions: transactions, products: products, prices: prices, manualValues: manualValues, ebayGraded: ebayGraded, conditionShares: conditionShares)
-        holdings = holdingFilter.map { f in allHoldings.filter { f($0.identity.key) } } ?? allHoldings
+        // Assigned only when something changed: every card link on screen reads these, so an
+        // identical result (a load that brought nothing new) would redraw them all for nothing.
+        let newAll = Portfolio.holdings(transactions: transactions, products: products, prices: prices, manualValues: manualValues, ebayGraded: ebayGraded, conditionShares: conditionShares)
+        if newAll != allHoldings { allHoldings = newAll }
+        let newShown = holdingFilter.map { f in allHoldings.filter { f($0.identity.key) } } ?? allHoldings
+        if newShown != holdings { holdings = newShown }
         let realized = Ledger(portfolioTransactions).positions.values.reduce(0) { $0 + $1.realizedGain }
-        summary = Portfolio.summary(holdings, realized: realized)
+        let newSummary = Portfolio.summary(holdings, realized: realized)
+        if newSummary != summary { summary = newSummary }
         if timelineNow {
             timelineGeneration += 1
             timeline = Timeline.compute(transactions: portfolioTransactions, prices: prices, history: history, manualValues: manualValues, ebayGraded: ebayGraded, conditionShares: conditionShares, today: today)

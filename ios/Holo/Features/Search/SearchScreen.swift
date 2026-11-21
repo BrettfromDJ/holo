@@ -647,11 +647,8 @@ private struct SkeletonRow: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .opacity(dim ? 0.5 : 1)
-        .onAppear {
-            guard !reduceMotion else { return }
-            withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) { dim = true }
-        }
+        // Still placeholders (no loading animation).
+        .opacity(0.6)
     }
 }
 

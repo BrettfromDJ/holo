@@ -524,7 +524,9 @@ private struct CardFan: View {
         // One clock drives every piece's bob, computed fresh each frame, so a picture that
         // finishes loading mid-animation moves with its frame instead of lagging behind it
         // (a looping withAnimation only animates what existed when it started).
-        TimelineView(.animation(minimumInterval: 1 / 60, paused: reduceMotion || !onScreen)) { context in
+        // 30 a second: the bob is 9 pt over 5.5 s, so each step is a fraction of a point (60 a
+        // second kept Summary busy at idle).
+        TimelineView(.animation(minimumInterval: 1 / 30, paused: reduceMotion || !onScreen)) { context in
             let t = context.date.timeIntervalSinceReferenceDate
             fan(t: reduceMotion ? 0 : t)
         }

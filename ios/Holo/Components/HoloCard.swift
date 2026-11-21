@@ -30,6 +30,20 @@ struct HoloCard<Content: View>: View {
     /// On screen and not under a sheet: the drift only runs then (otherwise the page never rests
     /// and every tap on it waits).
     @State private var onScreen = true
+    /// The drift runs for a while after the card comes into view, then rests (so a page you stay
+    /// on goes idle); touching it or coming back starts it again.
+    @State private var settled = false
+    @State private var settleTask: Task<Void, Never>?
+
+    /// Drift again for 12 seconds, then rest.
+    private func restartDrift() {
+        settleTask?.cancel()
+        settled = false
+        settleTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(12))
+            if !Task.isCancelled { settled = true }
+        }
+    }
 
     var body: some View {
         Group {
@@ -37,7 +51,7 @@ struct HoloCard<Content: View>: View {
                 // One clock: the slow tilt and the light's sweep. Paused while you hold it (the
                 // same view throughout, so a drag is never interrupted).
                 // 60 a second: smooth (30 looked steppy); not the 120 of the fastest screens.
-                TimelineView(.animation(minimumInterval: 1.0 / 60, paused: touch != nil || !onScreen)) { context in
+                TimelineView(.animation(minimumInterval: 1.0 / 60, paused: touch != nil || !onScreen || settled)) { context in
                     let c = context.date.timeIntervalSinceReferenceDate
                     let idle = CGPoint(x: cos(c * 0.45) * 0.545, y: -sin(c * 0.6) * 0.5)
                     card(lean: touch ?? idle, sweep: touch == nil ? sin(c * 0.6) : nil)
@@ -48,7 +62,11 @@ struct HoloCard<Content: View>: View {
             }
         }
         .sensoryFeedback(.impact(weight: .light), trigger: touch != nil) { _, touching in touching }
-        .onVisibilityChange { visible in if visible != onScreen { onScreen = visible } }
+        .onVisibilityChange { visible in
+            if visible != onScreen { onScreen = visible }
+            if visible { restartDrift() } else { settleTask?.cancel() }
+        }
+        .onChange(of: touch == nil) { _, released in if released { restartDrift() } }
     }
 
     /// No press-and-tilt: taps go to the link around it (it still drifts).

@@ -13,7 +13,7 @@ struct MarketHomeView: View {
     /// Home's market lists: the copy saved last time (read as the app started), then fresh.
     @State private var index: ExploreIndex? = SavedExplore.preloaded
     /// "Today in the hobby" and why the highlighted cards moved (written daily by Claude).
-    @State private var insights: MarketInsights? = MarketInsights.saved
+    @State private var insights: MarketInsights? = MarketInsights.launchSaved
     /// For you: picks from your collection (Because you collect…, Finish your sets).
     @State private var forYou = ForYouModel()
     /// How each era's market moved (Rising by era), kept on the phone between visits.
@@ -786,7 +786,8 @@ private struct TopTenRow: View {
                         HStack(alignment: .bottom, spacing: i + 1 >= 10 ? -34 : -26) {
                             RankNumeral(rank: i + 1)
                             Poster(product: hit.pictured, price: hit.market, change: hit.change7dPct)
-                                .shadow(color: .black.opacity(0.6), radius: 10, x: -4, y: 4)
+                                // The shadow from a plain card shape behind it, not over the glass pill.
+                                .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(.black).shadow(color: .black.opacity(0.6), radius: 10, x: -4, y: 4))
                         }
                     }
                     .buttonStyle(.plain)
@@ -865,7 +866,7 @@ private struct SetShowcase: View {
         .background {
             ZStack {
                 shape.fill(Color(hex: 0x070707))
-                SetArt(set: set).opacity(0.45).blur(radius: 14)
+                SetArt(set: set).opacity(0.45).blur(radius: 14).drawingGroup()
                 LinearGradient(colors: [Color.black.opacity(0.75), Color.black.opacity(0.35), Color.black.opacity(0.8)], startPoint: .top, endPoint: .bottom)
                 RadialGradient(colors: [Theme.planBlue.opacity(0.28), .clear], center: UnitPoint(x: 0.5, y: 0.7), startRadius: 0, endRadius: 220)
             }

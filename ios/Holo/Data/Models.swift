@@ -48,12 +48,17 @@ struct Product: Codable, Identifiable, Hashable {
     private static let sealedName = #"\b(booster (box|bundle|pack|display|case)|elite trainer box|etb|ultra[- ]premium collection|premium collection|illustration collection|special collection|collection box|binder collection|poster collection|figure collection|pin collection|sticker collection|tech sticker|(mini |stacking )?tins?|blister|build (&|and) battle|trainer box|gift (set|box)|deck box|theme deck|starter deck|battle deck|league battle deck|display box|sleeved booster|surprise box|collector chest|booster bundle|bundle)\b"#
     /// Online game code cards ("Code Card - Surging Sparks Booster Pack"): kept out of the app.
     var isCodeCard: Bool {
-        "\(name) \(productType ?? "") \(rarity ?? "")".range(of: #"\bcode\s*card\b|\bonline code\b"#, options: [.regularExpression, .caseInsensitive]) != nil
+        let text = "\(name) \(productType ?? "") \(rarity ?? "")"
+        return Product.codeCardRule.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
     }
     /// Oversized (jumbo) cards: never shown anywhere you browse (same rule as the website's `isOversized`).
     var isOversized: Bool {
-        "\(name) \(setName ?? "") \(productType ?? "") \(rarity ?? "") \(number ?? "")".range(of: #"over-?\s?sized?|\bjumbo\b"#, options: [.regularExpression, .caseInsensitive]) != nil
+        let text = "\(name) \(setName ?? "") \(productType ?? "") \(rarity ?? "") \(number ?? "")"
+        return Product.oversizedRule.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
     }
+    // Compiled once (these run for every card in every list).
+    private static let codeCardRule = try! NSRegularExpression(pattern: #"\bcode\s*card\b|\bonline code\b"#, options: [.caseInsensitive])
+    private static let oversizedRule = try! NSRegularExpression(pattern: #"over-?\s?sized?|\bjumbo\b"#, options: [.caseInsensitive])
     /// Left out of search, sets and Home's lists.
     var isHiddenFromBrowsing: Bool { isCodeCard || isOversized }
     /// Our own photo for a sealed product when we have one (`SealedArt`), else the catalog's.
@@ -705,6 +710,8 @@ struct MarketInsights: Codable, Equatable {
     var facts: [String: String]? = nil
 
     /// The last ones fetched, kept on the phone so Home shows them at once next time.
+    /// Read once per launch (see `saved`).
+    static let launchSaved: MarketInsights? = saved
     static var saved: MarketInsights? {
         get { UserDefaults.standard.data(forKey: "market-insights").flatMap { try? JSONDecoder().decode(MarketInsights.self, from: $0) } }
         set { UserDefaults.standard.set(newValue.flatMap { try? JSONEncoder().encode($0) }, forKey: "market-insights") }

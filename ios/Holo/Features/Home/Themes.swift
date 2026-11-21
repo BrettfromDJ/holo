@@ -24,7 +24,8 @@ struct MarketTheme: Codable, Identifiable, Hashable {
 
 @Observable
 final class ThemesModel {
-    var all: [MarketTheme] = ThemesModel.saved
+    // Read once per launch (the view's init runs on every tab switch; @State keeps only the first).
+    var all: [MarketTheme] = ThemesModel.launchSaved
     /// The few on Home this time, in order.
     var shown: [MarketTheme] = []
     /// Collection of the Day, at the top of Home: the same all day, a new one tomorrow.
@@ -43,7 +44,8 @@ final class ThemesModel {
         }
         if let fresh = try? await Backend.shared.api.themes(), !fresh.isEmpty {
             all = fresh
-            Self.saved = fresh
+            // Written off the main thread (it's a big file).
+            Task.detached(priority: .utility) { Self.saved = fresh }
         } else if all.isEmpty {
             // Nothing from the server yet: themes made from the market lists stand in.
             all = Self.stand(in: index)
@@ -130,6 +132,8 @@ final class ThemesModel {
     }
 
     // MARK: Saved on the phone
+
+    private static let launchSaved: [MarketTheme] = saved
 
     private static var file: URL { FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("market-themes.json") }
 

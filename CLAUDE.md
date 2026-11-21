@@ -114,6 +114,12 @@ and say exactly what to run or click.
   resizes while the sheet rises and slides the content; put the title and Done in the content.
   Content sits still; only figures count and charts draw.
 - No black bar behind the navigation: content scrolls up under the status bar.
+- Smoothness rules (from the Nov 2026 audit): read saved files once per launch, not in a view's
+  `@State` default (views re-init on every tab switch: `ThemesModel.launchSaved`,
+  `MarketInsights.launchSaved`); compile regexes once (`Product.oversizedRule`); the drifting
+  `HoloCard` rests after 12 s (touch or reappearing restarts it); Summary's fan runs at 30 fps;
+  never put a shadow over Liquid Glass (shadow a plain shape behind it); the image cache is capped
+  at 150 MB; `CollectionStore.recompute` only assigns holdings/summary when they changed.
 - Animations must be cheap: no per-frame layout on many views, no animated shadow radius, no
   per-frame blur. Looping motion uses a `TimelineView` or a single offset animation. Respect
   Reduce Motion everywhere.

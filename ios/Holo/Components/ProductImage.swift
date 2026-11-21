@@ -200,7 +200,12 @@ final class ImageCache: @unchecked Sendable {
     private var inFlight: [URL: Task<UIImage?, Never>] = [:]
     private let lock = NSLock()
 
-    init() { memory.countLimit = 400 }
+    init() {
+        memory.countLimit = 400
+        // Also capped by size (a card page's picture alone is a few MB once decoded), so the
+        // phone isn't pushed into memory warnings that throw everything out.
+        memory.totalCostLimit = 150 * 1024 * 1024
+    }
 
     /// Thumbnails are cached apart from full-size pictures.
     private func key(_ url: URL, _ maxPixel: CGFloat?) -> URL {
@@ -274,7 +279,10 @@ final class ImageCache: @unchecked Sendable {
         lock.lock()
         inFlight[cacheKey] = nil
         lock.unlock()
-        if let image { memory.setObject(image, forKey: cacheKey as NSURL) }
+        if let image {
+            let cost = image.cgImage.map { $0.bytesPerRow * $0.height } ?? 0
+            memory.setObject(image, forKey: cacheKey as NSURL, cost: cost)
+        }
         return image
     }
 
