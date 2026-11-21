@@ -93,7 +93,9 @@ export function SetLogo({ url, className }: { url: string | null | undefined; cl
   );
 }
 
-export function SetArt({ set, className }: { set: Pick<ExploreSet, "iconUrl" | "imageUrl" | "logoUrl" | "name">; className?: string }) {
+export function SetArt({ set, className }: { set: Pick<ExploreSet, "iconUrl" | "imageUrl" | "logoUrl" | "name"> & { gameSlug?: string | null }; className?: string }) {
+  // No art of our own on a Pokémon set: the Pokémon logo (the owner's file), crisp, with room around it.
+  const pokemon = (set.gameSlug ?? "").toLowerCase().startsWith("pokemon");
   return (
     <div className={cn("relative flex items-center justify-center overflow-hidden bg-image-well", className)}>
       {set.iconUrl ? (
@@ -101,6 +103,8 @@ export function SetArt({ set, className }: { set: Pick<ExploreSet, "iconUrl" | "
           <img src={set.iconUrl} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-[var(--ease-apple)] group-hover:scale-[1.03]" />
           <SetLogo url={set.logoUrl} />
         </>
+      ) : pokemon ? (
+        <img src="/brands/pokemon.svg" alt="" className="absolute inset-x-9 inset-y-7 h-[calc(100%-3.5rem)] w-[calc(100%-4.5rem)] object-contain" />
       ) : set.imageUrl ? (
         <img src={set.imageUrl} alt="" loading="lazy" className="absolute inset-x-8 inset-y-6 h-[calc(100%-3rem)] w-[calc(100%-4rem)] object-contain transition-transform duration-500 ease-[var(--ease-apple)] group-hover:scale-[1.03]" />
       ) : (

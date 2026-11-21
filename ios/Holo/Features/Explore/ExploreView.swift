@@ -1193,9 +1193,20 @@ struct SetArt: View {
         }
     }
 
+    private var isPokemon: Bool { set.gameSlug.lowercased().hasPrefix("pokemon") }
+
+    /// The Pokémon logo (the owner's file, a vector), centred with generous room around it.
+    private var pokemonMark: some View {
+        Image("PokemonLogo").resizable().scaledToFit()
+            .padding(.horizontal, 34).padding(.vertical, 28)
+            .accessibilityHidden(true)
+    }
+
     /// Only when the banner couldn't be loaded: a sample product from the set instead.
     @ViewBuilder private var failedBanner: some View {
-        if let sample = set.imageUrl.flatMap(URL.init(string:)) {
+        if isPokemon {
+            ZStack { Theme.well; pokemonMark }
+        } else if let sample = set.imageUrl.flatMap(URL.init(string:)) {
             ZStack {
                 Theme.well
                 // The catalog's picture (often just a logo): small, with room around it.
@@ -1212,7 +1223,11 @@ struct SetArt: View {
             Theme.well
             // Underneath: the mark, for a moment while the banner loads (drawn, not downloaded).
             if set.iconUrl == nil {
-                if let sample = set.imageUrl.flatMap(URL.init(string:)) {
+                if isPokemon {
+                    // No art of our own: the Pokémon logo, crisp and small with room around it
+                    // (the catalog's own picture for these is a blurry copy of it).
+                    pokemonMark
+                } else if let sample = set.imageUrl.flatMap(URL.init(string:)) {
                     // The catalog's picture (often just a logo): small, with room around it.
                     CachedImage(url: sample) { img in img.resizable().scaledToFit() } placeholder: { icon }
                         .padding(.horizontal, 30).padding(.vertical, 24)
