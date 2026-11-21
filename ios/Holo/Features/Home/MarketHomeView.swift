@@ -664,11 +664,29 @@ private struct CardOfTheDay: View {
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                 HStack(spacing: 10) {
+                    // A navigation link can lose its button style inside Home's list, so the
+                    // light 3D button is drawn into the label itself.
                     MarketLink(hit: hit) {
-                        HStack(spacing: 8) { Image(systemName: "rectangle.portrait.on.rectangle.portrait.angled.fill").font(.system(size: 15, weight: .semibold)); Text("View card") }
-                            .frame(maxWidth: .infinity)
+                        HStack(spacing: 8) {
+                            Image(systemName: "rectangle.portrait.on.rectangle.portrait.angled.fill").font(.system(size: 15, weight: .semibold))
+                            Text("View card")
+                        }
+                        .font(.geist(16, .semibold))
+                        .foregroundStyle(Theme.ink)
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .background {
+                            let r = RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            ZStack {
+                                r.fill(Color(hex: 0x8A8A8E)).offset(y: 3)
+                                r.fill(Color(hex: 0xF5F5F7))
+                                r.fill(LinearGradient(colors: [.white.opacity(0.5), .clear], startPoint: .top, endPoint: .center))
+                            }
+                            .shadow(color: .black.opacity(0.5), radius: 9, y: 6)
+                        }
+                        .offset(y: -1)
+                        .contentShape(Rectangle())
                     }
-                    .buttonStyle(Button3D(kind: .light, height: 48))
+                    .buttonStyle(.plain)
                     wishButton(p)
                 }
                 .padding(.top, 8)
