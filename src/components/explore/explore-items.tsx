@@ -102,7 +102,7 @@ export function SetArt({ set, className }: { set: Pick<ExploreSet, "iconUrl" | "
           <SetLogo url={set.logoUrl} />
         </>
       ) : set.imageUrl ? (
-        <img src={set.imageUrl} alt="" loading="lazy" className="absolute inset-3 h-[calc(100%-1.5rem)] w-[calc(100%-1.5rem)] object-contain transition-transform duration-500 ease-[var(--ease-apple)] group-hover:scale-[1.03]" />
+        <img src={set.imageUrl} alt="" loading="lazy" className="absolute inset-x-8 inset-y-6 h-[calc(100%-3rem)] w-[calc(100%-4rem)] object-contain transition-transform duration-500 ease-[var(--ease-apple)] group-hover:scale-[1.03]" />
       ) : (
         // No art (often a set not out yet): its name, large on a faint glow, not an empty box. Same as the app.
         <>

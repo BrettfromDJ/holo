@@ -1198,7 +1198,9 @@ struct SetArt: View {
         if let sample = set.imageUrl.flatMap(URL.init(string:)) {
             ZStack {
                 Theme.well
-                CachedImage(url: sample) { img in img.resizable().scaledToFit() } placeholder: { icon }.padding(12)
+                // The catalog's picture (often just a logo): small, with room around it.
+                CachedImage(url: sample) { img in img.resizable().scaledToFit() } placeholder: { icon }
+                    .padding(.horizontal, 30).padding(.vertical, 24)
             }
         } else {
             nameMark
@@ -1211,8 +1213,9 @@ struct SetArt: View {
             // Underneath: the mark, for a moment while the banner loads (drawn, not downloaded).
             if set.iconUrl == nil {
                 if let sample = set.imageUrl.flatMap(URL.init(string:)) {
+                    // The catalog's picture (often just a logo): small, with room around it.
                     CachedImage(url: sample) { img in img.resizable().scaledToFit() } placeholder: { icon }
-                        .padding(12)
+                        .padding(.horizontal, 30).padding(.vertical, 24)
                 } else {
                     nameMark
                 }
