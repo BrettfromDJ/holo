@@ -618,34 +618,19 @@ private struct YourCollectionStrip: View {
 private func pctText(_ pct: Double?) -> String { pct.map { Format.signedPercent($0 / 100) } ?? "—" }
 private func pctTint(_ pct: Double?) -> Color { (pct ?? 0) >= 0 ? Theme.lime : Theme.planPink }
 
-/// The top of Home: today's biggest riser, as a wide tile matching Heating up / Cooling off
-/// under it. Light rays turn slowly behind the card, sparks rise, the card drifts and shines,
-/// and its rise sits on a lime ribbon; inside the electric border of the set page's No. 1 chase. Without today's movers the week's top riser stands in,
-/// and without any market moves the newest set's top pull.
+/// The top of Home: today's biggest riser as a clean poster, like a streaming app's featured
+/// title: the card big on its own blurred art, its name, one line (what it is, its set, its move)
+/// and two buttons. Without today's movers the week's top riser stands in, and without any market
+/// moves the newest set's top pull.
 private struct CardOfTheDay: View {
     enum Kind { case day, week, topPull(String) }
     var hit: SearchHit
     var kind: Kind
-    /// Why it moved, in a line (from the daily insights), when there is one.
+    /// (Kept for the call sites; the clean poster shows no AI line or fun fact.)
     var reason: String? = nil
-    /// "Did you know?": one fun fact about the card (from the daily insights), when there is one.
     var fact: String? = nil
     @Environment(CollectionStore.self) private var store
-    private var daily: Bool { if case .day = kind { return true } else { return false } }
-
-    /// The card's last week of prices, for the small chart (loaded from our own server).
-    private var week: [PricePoint] {
-        let all = store.sortedHistory(priceKey(hit.product.id, hit.printing))
-        guard let last = all.last?.day, let start = Calendar.current.date(byAdding: .day, value: -7, to: last) else { return [] }
-        return all.filter { $0.day >= start }
-    }
-
-    /// The week's chart only when it really moved (a flat line or a single day says nothing).
-    private var chartPoints: [PricePoint]? {
-        let w = week
-        guard w.count >= 3, let lo = w.map(\.price).min(), let hi = w.map(\.price).max(), lo > 0, (hi - lo) / lo > 0.01 else { return nil }
-        return w
-    }
+    @State private var saving = false
 
     var body: some View {
         let p = hit.pictured
@@ -653,206 +638,90 @@ private struct CardOfTheDay: View {
         let tag: String = switch kind { case .day: "Card of the day"; case .week: "Card of the week"; case .topPull: "Top pull" }
         let down = (pct ?? 0) < 0
         let tone = down ? Theme.planPink : Theme.lime
-        let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
-        MarketLink(hit: hit) {
-            VStack(spacing: 18) {
-                HStack {
-                    SkewTag(text: tag, icon: "flame.fill")
-                    Spacer(minLength: 8)
-                    if daily { NextCardCountdown() }
-                }
-                hero(p, tone: tone)
-                // The name and set, centred under the card.
-                VStack(spacing: 6) {
-                    Text(p.name.noWidow).font(.display(30)).tracking(-1).multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.8)
-                    Text([p.setName, p.rarity].compactMap { $0 }.joined(separator: " · ")).font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
-                }
-                // The price big, the move on its ribbon beside it.
-                HStack(alignment: .center, spacing: 12) {
-                    Text(Format.money(hit.market)).font(.display(44)).tracking(-1.6).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
-                    if let pct { MoveRibbon(pct: pct, label: daily ? "TODAY" : "WEEK", tone: tone, down: down) }
-                }
-                // Today, the week and the month as three glass tiles, as far apart as the rows.
-                HStack(spacing: 18) {
-                    stat("Today", hit.change24hPct)
-                    stat("7 days", hit.change7dPct)
-                    stat("30 days", hit.change30dPct)
-                }
-                if let points = chartPoints { WeekLine(points: points, tone: tone) }
-                if let fact, !fact.isEmpty, !fact.contains("tcgapi:") { DidYouKnow(text: fact) }
+        let shape = RoundedRectangle(cornerRadius: 24, style: .continuous)
+        VStack(spacing: 0) {
+            // The card, big, on a soft glow of its move's color.
+            MarketLink(hit: hit) {
+                ProductImage(product: p, cornerRadius: 12, large: true)
+                    .frame(width: 236, height: 330)
+                    .shadow(color: .black.opacity(0.6), radius: 24, y: 14)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 30)
+                    .padding(.bottom, 24)
+                    .background {
+                        RadialGradient(colors: [tone.opacity(0.3), .clear], center: .center, startRadius: 0, endRadius: 200)
+                            .allowsHitTesting(false)
+                    }
+                    .contentShape(Rectangle())
             }
-            .foregroundStyle(.white)
-            .padding(18)
-            .frame(maxWidth: .infinity)
-            .background { backdrop(p, tone: tone, shape: shape) }
-            .clipShape(shape)
-            .shadow(color: tone.opacity(0.25), radius: 28)
-            .overlay(ElectricBorder(radius: 28, color: tone))
-        }
-        // Its week of prices for the chart (free: our own catalog, once per card).
-        .task(id: hit.product.id) { await store.showCatalogProduct(hit.product.id) }
-    }
-
-    /// The card big in the middle: its rays behind, a pool of light under it, the holo shine on it.
-    private func hero(_ p: Product, tone: Color) -> some View {
-        ZStack {
-            RadialGradient(colors: [tone.opacity(0.55), tone.opacity(0.12), .clear], center: .center, startRadius: 0, endRadius: 130)
-                .frame(width: 260, height: 260)
-                .scaleEffect(x: 1, y: 0.2)
-                .offset(y: 152)
-                .allowsHitTesting(false)
-            HoloCard(foil: true, textured: false, cornerRadius: 12) {
-                ProductImage(product: p, cornerRadius: 12, large: true).frame(width: 214, height: 299)
+            VStack(spacing: 10) {
+                Text(p.name.noWidow).font(.display(30)).tracking(-1).foregroundStyle(.white)
+                    .multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.8)
+                // One quiet line, like a film's genres: what it is · its set · its move.
+                (Text(tag).font(.geist(14, .semibold)).foregroundStyle(.white)
+                 + Text(meta(p)).font(.geist(14)).foregroundStyle(Theme.muted)
+                 + Text(pct.map { "  \u{2022}  " + Format.signedPercent($0 / 100) } ?? "").font(.geist(14, .semibold)).foregroundStyle(tone))
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                HStack(spacing: 10) {
+                    MarketLink(hit: hit) {
+                        HStack(spacing: 8) { Image(systemName: "rectangle.portrait.on.rectangle.portrait.angled.fill").font(.system(size: 15, weight: .semibold)); Text("View card") }
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(Button3D(kind: .light, height: 48))
+                    wishButton(p)
+                }
+                .padding(.top, 8)
             }
-            .drifting()
-            .notTiltable()
-            .frame(width: 214, height: 299)
-            .shadow(color: .black.opacity(0.6), radius: 24, y: 16)
+            .padding(.horizontal, 18)
+            .padding(.bottom, 18)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 320)
-        .background { LightRays().frame(width: 600, height: 600) }
+        .background { backdrop(p, shape: shape) }
+        .clipShape(shape)
+        .overlay(shape.strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
     }
 
-    /// The card's own art, blown up and blurred, filling the panel, darkened toward the bottom
-    /// so the text reads; the grid and a glow of the move's color over it.
-    private func backdrop(_ p: Product, tone: Color, shape: RoundedRectangle) -> some View {
+    private func meta(_ p: Product) -> String {
+        guard let set = p.setName, !set.isEmpty else { return "" }
+        return "  \u{2022}  " + set
+    }
+
+    /// Wishlist: "+ Wishlist", or "On wishlist" once it's there (tap again to take it off).
+    private func wishButton(_ p: Product) -> some View {
+        let wish = store.wish(for: hit.product.id)
+        return Button {
+            guard !saving, !Demo.isOn else { return }
+            Haptics.tap()
+            saving = true
+            Task {
+                if let wish { try? await store.removeWish(wish.id) } else { try? await store.addWish(hit.product, printing: hit.printing, price: hit.market) }
+                saving = false
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: wish == nil ? "plus" : "checkmark").font(.system(size: 15, weight: .bold))
+                Text(wish == nil ? "Wishlist" : "On wishlist")
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(Button3D(kind: .dark, height: 48))
+    }
+
+    /// The card's own art, blown up and blurred, filling the panel, darker toward the bottom so
+    /// the text reads.
+    private func backdrop(_ p: Product, shape: RoundedRectangle) -> some View {
         ZStack {
-            shape.fill(Color(hex: 0x060606))
+            shape.fill(Color(hex: 0x080808))
             CachedImage(url: p.imageURL) { img in img.resizable().scaledToFill() } placeholder: { Color.clear }
                 .environment(\.imageFadesIn, false)
                 .scaleEffect(1.4)
                 .blur(radius: 40, opaque: true)
-                .opacity(0.5)
+                .opacity(0.45)
                 .drawingGroup()
-            LinearGradient(colors: [.black.opacity(0.1), .black.opacity(0.55), .black.opacity(0.9)], startPoint: .top, endPoint: .bottom)
-            GridPattern(step: 24, opacity: 0.06)
-            RadialGradient(colors: [tone.opacity(0.28), .clear], center: UnitPoint(x: 0.5, y: 0.3), startRadius: 0, endRadius: 260)
+            LinearGradient(colors: [.black.opacity(0.05), .black.opacity(0.5), .black.opacity(0.92)], startPoint: .top, endPoint: .bottom)
         }
         .allowsHitTesting(false)
-    }
-
-    private func stat(_ label: String, _ pct: Double?) -> some View {
-        VStack(spacing: 3) {
-            MonoLabel(text: label)
-            Text(pctText(pct)).font(.display(17)).tracking(-0.4).monospacedDigit()
-                .foregroundStyle(pct == nil ? Theme.subtle : pctTint(pct))
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
-        .liquidGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-    }
-}
-
-/// Card of the day's fun fact: a small glass box with a lime spark and "Did you know?".
-private struct DidYouKnow: View {
-    var text: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                Image(systemName: "sparkle").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.lime)
-                MonoLabel(text: "Did you know?")
-            }
-            Text(text.noWidow).font(.geist(14)).foregroundStyle(.white.opacity(0.9))
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .liquidGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-    }
-}
-
-/// The move on a tilted ribbon: ink on lime up, white on pink down (never pink on lime).
-private struct MoveRibbon: View {
-    var pct: Double
-    var label: String
-    var tone: Color
-    var down: Bool
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 5) {
-            Image(systemName: down ? "arrow.down.right" : "arrow.up.right").font(.system(size: 13, weight: .heavy))
-            Text(pctText(pct)).font(.display(20)).tracking(-0.5).monospacedDigit().lineLimit(1)
-            Text(label).font(.mono(9)).tracking(1)
-        }
-        .foregroundStyle(down ? Color.white : Theme.ink)
-        .padding(.horizontal, 10).padding(.vertical, 5)
-        .background(tone, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-        .rotationEffect(.degrees(-3))
-        .shadow(color: tone.opacity(0.5), radius: 12)
-        .fixedSize()
-    }
-}
-
-/// Tomorrow's card in hours and minutes, read off the clock once a minute (no animation).
-private struct NextCardCountdown: View {
-    var body: some View {
-        TimelineView(.everyMinute) { context in
-            let mins = Self.minutesToNextCard(from: context.date)
-            Text("Next card in \(mins / 60)h \(mins % 60)m").font(.mono(10)).tracking(1).foregroundStyle(Theme.muted).monospacedDigit()
-        }
-    }
-
-    /// Minutes until midnight UTC, when the next card of the day is picked.
-    static func minutesToNextCard(from now: Date) -> Int {
-        var utc = Calendar(identifier: .gregorian)
-        utc.timeZone = TimeZone(identifier: "UTC") ?? .current
-        let tomorrow = utc.startOfDay(for: utc.date(byAdding: .day, value: 1, to: now) ?? now)
-        return max(0, Int(tomorrow.timeIntervalSince(now) / 60))
-    }
-}
-
-/// The card's last week as a small line in its move's color, its first and last price under it.
-private struct WeekLine: View {
-    var points: [PricePoint]
-    var tone: Color
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            MonoLabel(text: "Past 7 days")
-            Chart(points) { pt in
-                AreaMark(x: .value("Day", pt.day), y: .value("Price", pt.price))
-                    .foregroundStyle(LinearGradient(colors: [tone.opacity(0.25), .clear], startPoint: .top, endPoint: .bottom))
-                    .interpolationMethod(.monotone)
-                LineMark(x: .value("Day", pt.day), y: .value("Price", pt.price))
-                    .foregroundStyle(tone)
-                    .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round))
-                    .interpolationMethod(.monotone)
-            }
-            .chartXAxis(.hidden)
-            .chartYAxis(.hidden)
-            .chartYScale(domain: .automatic(includesZero: false))
-            .frame(height: 56)
-        }
-    }
-}
-
-/// Slow light rays fanning out from behind the card: one turning gradient (a single rotation
-/// animation, only while on screen; still under Reduce Motion).
-private struct LightRays: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var onScreen = true
-
-    var body: some View {
-        // The turn is read off the clock (one turn a minute), so it never speeds up: a looping
-        // animation restarted as the page came and went could stack and spin fast for a moment.
-        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion || !onScreen)) { context in
-            rays.rotationEffect(.degrees(reduceMotion ? 0 : (context.date.timeIntervalSinceReferenceDate * 6).truncatingRemainder(dividingBy: 360)))
-        }
-        .allowsHitTesting(false)
-        .onVisibilityChange { on in if on != onScreen { onScreen = on } }
-    }
-
-    private var rays: some View {
-        AngularGradient(gradient: Gradient(stops: (0 ..< 24).map { i in
-            .init(color: i % 2 == 0 ? Theme.lime.opacity(0.16) : .clear, location: Double(i) / 23)
-        }), center: .center)
-        // Fades out in a circle inside its square (whatever size it's given), so turning never
-        // shows the square's edges or corners.
-        .mask(GeometryReader { geo in
-            RadialGradient(colors: [.black, .clear], center: .center, startRadius: 20, endRadius: min(geo.size.width, geo.size.height) / 2)
-        })
     }
 }
 

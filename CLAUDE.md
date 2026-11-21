@@ -45,7 +45,7 @@ and say exactly what to run or click.
 - **No grey text.** Quiet text is white made partly see-through (`Theme.muted` = white 60%,
   `Theme.subtle` = white 42%), never a grey color.
 - **Dexora (app):** named Dexora, original Holo look everywhere (lime, grid and dot backdrops, glows,
-  lime charts, the star card's electric border). Master Sets also uses the pieces in
+  lime charts). Master Sets also uses the pieces in
   `Components/Glow.swift` (the set deck's `SetGlow`, the `GlowPie` dial, ring and ticks; no
   dot-matrix digits: numbers use `Font.display`). The iridescent and glow-card experiments were removed; don't bring them back.
 - **Tapping a card:** opens its card page everywhere (app: owned or not, no Owned sheet in
@@ -62,10 +62,11 @@ and say exactly what to run or click.
   have no changes from TCG API, so it keeps each Pokémon card's daily price in `catalog_price_days`
   (from $5, 9 days) and fills the changes itself (`src/lib/explore/price-days.ts`); TCG API's own
   changes win when it sends them.
-- **Card of the day** leads Home as a big hero (`CardOfTheDay`): the card large with rays and its
-  electric border (pink when down), name, price and move, Today / 7 days / 30 days tiles, a small 7-day chart, a "Did you know?" fun fact
-  (`facts` in the daily insights, from the AI's general knowledge, skipped when unsure), and
-  "Next card in …" (to midnight UTC). Collection of the Day follows, then Heating up / Cooling off.
+- **Card of the day** leads Home as a clean poster like a streaming app's featured title
+  (`CardOfTheDay`): the card big on its own blurred art with a soft glow (pink when down), its
+  name, one line ("Card of the day • set • +12%", only the number colored), and two buttons:
+  View card (light) and + Wishlist (dark). No stats, chart, fun fact, countdown, rays or electric
+  border (the owner wanted it simple). Collection of the Day follows, then Heating up / Cooling off.
 - **By era on Home:** each era card sums up its whole market (`/api/eras`, `src/lib/server/era-summary.ts`,
   saved ~6 hours): the typical (median) change across every tracked single from $5, up / down /
   steady counts with a thin bar, and up to 3 biggest moves from $20 (hidden when none). Uses the
