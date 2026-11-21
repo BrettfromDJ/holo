@@ -166,7 +166,7 @@ export default function ProductPage() {
           )}
 
           <div className="mt-6">
-            {/* Click the price: where it comes from and what eBay's recent sales say. Over 3 days old: dimmed. */}
+            {/* Click the price: where it comes from and what eBay's recent sales say. An old price stays white; the line under it says when it's from. */}
             <button
               type="button"
               onClick={() =>
@@ -183,7 +183,7 @@ export default function ProductPage() {
                   stale: isStalePrice(price?.updatedAt),
                 })
               }
-              className={cn("tabular block cursor-pointer text-left font-display text-[42px] leading-none sm:text-[48px]", isStalePrice(price?.updatedAt) && "opacity-60")}
+              className="tabular block cursor-pointer text-left font-display text-[42px] leading-none sm:text-[48px]"
             >
               {headline != null ? <AnimatedNumber key={productId} value={headline} format={money} from={headline * 0.85} /> : <span className="text-muted">No price</span>}
             </button>

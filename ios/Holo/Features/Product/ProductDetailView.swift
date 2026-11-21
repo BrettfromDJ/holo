@@ -463,8 +463,7 @@ struct ProductDetailView: View {
                 }
             }
             .font(.display(52)).tracking(-2.1).monospacedDigit().displayTrim(52).padding(.top, 12)
-            // More than 3 days old: dimmed (the sheet says when it's from).
-            .opacity(PriceInfo.isStale(price?.updatedAt) ? 0.6 : 1)
+            // An old price stays white (no grey text); the line under it says when it's from.
             // Tap the price: where it comes from, and what eBay's recent sales say.
             .contentShape(Rectangle())
             .onTapGesture { priceInfo = headlineInfo }
