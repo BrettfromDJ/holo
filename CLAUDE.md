@@ -91,6 +91,8 @@ and say exactly what to run or click.
   which condition TCGplayer's market price is for, and its played-copy prices are asking prices.
 - No confetti. No emojis. Toasts bottom-right on the web. The "Prices updated" banner is off
   in the app for now; milestone banners are back on (see Open threads).
+- On Home, a tapped card grows into its card page (iOS 18+ zoom): `@Namespace cardZoom` in
+  `MarketHomeView`, pictures marked with `.cardZoomSource(productId)` (`Poster`, Card of the day).
 - Home's Top 10 (`TopTenRow`) is Netflix-style: each card the same size as other rows, in front of
   its rank as a huge outlined numeral, price and 7-day rise on the card's glass pill; no boxes or text under.
 - No icons beside Home's section headings, and no crown on Top 10's No. 1 (removed). No lime bar beside section headings (removed). No dots beside card titles (removed).
