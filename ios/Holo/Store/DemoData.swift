@@ -108,8 +108,15 @@ enum DemoData {
     static func product(_ i: Item) -> Product {
         Product(id: "sample:\(i.slug)", source: "sample", externalId: i.slug, name: i.name, setName: i.set,
                 setId: i.set.lowercased(), number: i.number, rarity: i.rarity, productType: i.type,
-                kind: i.sealed ? "sealed" : "single", imageUrl: i.image, tcgplayerId: nil, tcgplayerUrl: nil,
+                kind: i.sealed ? "sealed" : "single", imageUrl: i.image, tcgplayerId: nil, tcgplayerUrl: tcgplayerSearch(i.name),
                 printings: [i.sealed ? "Normal" : "Holofoil"])
+    }
+
+    /// Demo cards have no TCGplayer page of their own: link to a TCGplayer search for the name,
+    /// so the card page's "View on TCGplayer" button shows in demos and screenshots.
+    static func tcgplayerSearch(_ name: String) -> String? {
+        guard let q = name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else { return nil }
+        return "https://www.tcgplayer.com/search/pokemon/product?q=\(q)"
     }
 
     /// A repeatable wandering price path from `start` to `now` over `days`.
