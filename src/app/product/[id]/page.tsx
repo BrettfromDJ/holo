@@ -39,7 +39,6 @@ import { usePortfolio, useStore } from "@/lib/store/collection-store";
 import { priceKey, type Product, type Transaction } from "@/lib/types";
 import { orderPrintings, withEditionArt } from "@/lib/editions";
 import { PriceInfoDialog, type PriceInfoData } from "@/components/product/price-info";
-import { cn } from "@/lib/utils";
 import { isStalePrice, priceAge } from "@/lib/price-info";
 
 type HistRange = "1M" | "3M" | "1Y" | "ALL";
