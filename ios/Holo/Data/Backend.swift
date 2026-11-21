@@ -143,6 +143,12 @@ final class HoloAPI {
         return try await send(try await request("api/eras"), as: Body.self).eras
     }
 
+    /// Every card an artist drew, priciest first (oversized never shown).
+    func artistCards(_ name: String) async throws -> [SearchHit] {
+        struct Body: Decodable { var cards: [SearchHit] }
+        return try await send(try await request("api/artists/\(name)"), as: Body.self).cards.filter { !$0.product.isOversized }
+    }
+
     /// Home's themed collections (see `MarketTheme`).
     func themes() async throws -> [MarketTheme] {
         struct Body: Decodable { var themes: [MarketTheme] }

@@ -40,6 +40,16 @@ export async function GET(req: Request) {
       clearTimeout(timer);
     });
   }
+  // Once a night: card artists for any sets not done yet (free source, its own request).
+  if (hop === 0) {
+    const artists = new URL("/api/cron/sync-artists", url);
+    after(async () => {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 8000);
+      await fetch(artists, { headers: { authorization: `Bearer ${secret}` }, signal: ctrl.signal }).catch(() => {});
+      clearTimeout(timer);
+    });
+  }
   if (hop === 0) {
     const now = new Date();
     await admin.from("api_cache").delete().lt("expires_at", now.toISOString()).then(() => undefined, () => undefined);

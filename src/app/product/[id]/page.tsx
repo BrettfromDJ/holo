@@ -153,6 +153,11 @@ export default function ProductPage() {
           <p className="mt-1 text-[15px] text-muted">
             {[product.setName, product.number ? `#${product.number}` : null, printings.length < 2 && printing && printing !== "Normal" ? printing : null].filter(Boolean).join(" · ")}
           </p>
+          {product.artist && (
+            <Link href={`/artist/${encodeURIComponent(product.artist)}`} className="mt-1 inline-block text-[14px] text-muted hover:text-foreground">
+              Illustrated by <span className="font-medium text-foreground underline-offset-2 hover:underline">{product.artist}</span>
+            </Link>
+          )}
           {/* Different printings sell for different prices: switch between them. */}
           {printings.length > 1 && (
             <div className="-mx-1 mt-4 overflow-x-auto px-1">

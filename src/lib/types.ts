@@ -33,6 +33,8 @@ export interface Product {
   tcgplayerUrl: string | null;
   /** Printings the source knows about (e.g. "Normal", "Holofoil"). */
   printings?: string[];
+  /** Who drew the card, when known (singles; from pokemontcg.io). */
+  artist?: string | null;
 }
 
 export type Condition =

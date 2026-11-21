@@ -22,6 +22,8 @@ struct Product: Codable, Identifiable, Hashable {
     var tcgplayerId: Int?
     var tcgplayerUrl: String?
     var printings: [String]?
+    /// Who drew the card, when known (from pokemontcg.io; opens the artist's page).
+    var artist: String? = nil
 
     /// Sealed by the catalog, or by a name that only ever means sealed (a few sealed products,
     /// like sticker collections, were stored as cards). Same rule as the web's looksSealed.
@@ -240,12 +242,13 @@ struct ProductRow: Codable {
     var tcgplayer_id: Int?
     var tcgplayer_url: String?
     var printings: [String]?
+    var artist: String?
 
     var product: Product {
         Product(
             id: id, source: source, externalId: external_id, name: name, setName: set_name, setId: set_id,
             number: number, rarity: rarity, productType: product_type, kind: kind, imageUrl: image_url,
-            tcgplayerId: tcgplayer_id, tcgplayerUrl: tcgplayer_url, printings: printings
+            tcgplayerId: tcgplayer_id, tcgplayerUrl: tcgplayer_url, printings: printings, artist: artist
         )
     }
 }

@@ -225,4 +225,10 @@ and say exactly what to run or click.
   either. Plus "Your next favorite" (For you's
   picks of your favourite Pokémon) in the last slot on about one open in three; each opens `ThemePage`. For you keeps only
   Finish your sets (50%+) and Your week's budget.
+- Card artists: `products.artist` (migration `20261121000000_card_artists.sql`), filled from the
+  free pokemontcg.io API once per set (`src/lib/server/artists.ts`, matched by set name/code and
+  card number in `src/lib/artists.ts`; `catalog_sets.artists_synced_at`), run nightly from the
+  catalog cron via `/api/cron/sync-artists`. Card page: "Illustrated by <name>" (app
+  `ProductDetailView`, web product page) opens the artist's page (app `Features/Artist/ArtistPage.swift`,
+  web `/artist/<name>`), every card they drew, priciest first, from `/api/artists/<name>`.
 - Not in the app on purpose: the separate trade checker (the Deal tab covers trades), and the welcome pages (removed; signed out opens straight on Sign in, its card wall is `Features/Auth/CardWall.swift`).

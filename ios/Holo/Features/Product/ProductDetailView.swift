@@ -19,6 +19,7 @@ struct ProductDetailView: View {
     /// The card's set, found in the catalog's set list, so its name opens the set's page.
     @State private var cardSet: ExploreSet?
     @State private var openSet: ExploreSet?
+    @State private var openArtist: String?
 
     init(productId: String, extra: AnyView? = nil) {
         self.startId = productId
@@ -126,6 +127,7 @@ struct ProductDetailView: View {
         .id(productId)
         .background(Theme.background)
         .navigationDestination(item: $openSet) { SetView(set: $0) }
+        .navigationDestination(item: $openArtist) { ArtistPage(name: $0) }
         // A card page shows its picture full size, even when opened from a list of thumbnails.
         .environment(\.imageMaxPixel, nil)
         .replaysAnimations()
@@ -432,6 +434,20 @@ struct ProductDetailView: View {
             }
             .font(.geist(15))
             .padding(.top, 6)
+            // Who drew it: opens every card by the same artist.
+            if let artist = product?.artist, !artist.isEmpty {
+                Button { Haptics.tap(); openArtist = artist } label: {
+                    (Text("Illustrated by ").foregroundStyle(Theme.muted)
+                     + Text(artist).foregroundStyle(.white).underline(color: .white.opacity(0.35))
+                     + Text("\u{00A0}")
+                     + Text(Image(systemName: "chevron.right")).font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.muted))
+                        .font(.geist(14))
+                        .multilineTextAlignment(.leading)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 4)
+                .accessibilityLabel("Illustrated by \(artist). Open the artist's cards")
+            }
             // Different printings sell for different prices: switch between them.
             if printings.count > 1 {
                 ChipPicker(options: printings.map { ($0, $0) }, selection: Binding(get: { printing ?? "" }, set: { p in

@@ -27,6 +27,8 @@ export type ProductRow = {
   tcgplayer_url: string | null;
   printings: string[];
   updated_at: string;
+  /** Who drew the card (from pokemontcg.io), when known. */
+  artist?: string | null;
 };
 
 export type ProductPriceRow = {
@@ -161,6 +163,7 @@ export type CatalogSetRow = {
   product_count: number | null;
   listed_at: string;
   products_synced_at: string | null;
+  artists_synced_at?: string | null;
 };
 
 export type PriceChartingRow = {

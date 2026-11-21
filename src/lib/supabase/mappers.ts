@@ -21,6 +21,7 @@ export function productFromRow(r: ProductRow): Product {
     tcgplayerId: r.tcgplayer_id,
     tcgplayerUrl: r.tcgplayer_url,
     printings: r.printings ?? [],
+    artist: r.artist ?? null,
   };
 }
 
