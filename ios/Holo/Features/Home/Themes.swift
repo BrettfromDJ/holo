@@ -240,6 +240,8 @@ private struct PosterRow: View {
 struct Poster: View {
     var product: Product
     var price: Double?
+    /// A move to show beside the price (Top 10's rise), as a stored percent (12.5 = +12.5%).
+    var change: Double? = nil
     static let width: CGFloat = 150
     static let height: CGFloat = 209
 
@@ -248,8 +250,14 @@ struct Poster: View {
             .frame(width: Self.width, height: Self.height)
             .overlay(alignment: .bottomLeading) {
                 if let price {
-                    Text(Format.money(price)).font(.geist(13, .semibold)).monospacedDigit().foregroundStyle(.white)
-                        .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
+                    HStack(spacing: 6) {
+                        Text(Format.money(price)).foregroundStyle(.white)
+                        if let change {
+                            Text(Format.signedPercent(change / 100)).foregroundStyle(change >= 0 ? Theme.lime : Theme.planPink)
+                        }
+                    }
+                    .font(.geist(13, .semibold)).monospacedDigit().lineLimit(1)
+                    .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
                         .padding(.horizontal, 9).padding(.vertical, 5)
                         .liquidGlass(in: Capsule(), tint: .black.opacity(0.25))
                         .padding(8)

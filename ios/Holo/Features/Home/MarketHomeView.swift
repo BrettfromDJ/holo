@@ -768,64 +768,52 @@ private struct HotColdTile: View {
     }
 }
 
-/// The top 10 risers, each card standing in front of its rank in huge numerals.
+/// The top 10 risers like a streaming app's Top 10: each card, the same size as every other row's,
+/// standing in front of its rank in a huge outlined numeral; the price and the week's rise on its
+/// glass pill. No boxes, no text under the cards.
 private struct TopTenRow: View {
     var hits: [SearchHit]
-    /// The big rank numbers rise in, one after another, the first time the row is seen.
-    @State private var revealed = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .top, spacing: 10) {
+            LazyHStack(alignment: .bottom, spacing: 14) {
                 ForEach(Array(hits.enumerated()), id: \.element.id) { i, hit in
                     MarketLink(hit: hit) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            ZStack(alignment: .bottomLeading) {
-                                Text("\(i + 1)")
-                                    .font(.display(130)).tracking(-8)
-                                    .foregroundStyle(LinearGradient(colors: [.white.opacity(0.22), .white.opacity(0.04)], startPoint: .top, endPoint: .bottom))
-                                    .offset(x: -6, y: revealed ? 22 : 60)
-                                    .opacity(revealed ? 1 : 0)
-                                    .animation(.spring(response: 0.55, dampingFraction: 0.8).delay(Double(i) * 0.07), value: revealed)
-                                ProductImage(product: hit.pictured, cornerRadius: 6)
-                                    .frame(width: 100, height: 140)
-                                    .shadow(color: .black.opacity(0.6), radius: 10, y: 6)
-                                .padding(.leading, i + 1 >= 10 ? 70 : 46)
-                            }
-                            .frame(height: 150, alignment: .bottomLeading)
-                            // One line each, never wrapping: name, price, then the rise.
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(hit.product.name).font(.geist(13, .medium)).lineLimit(1)
-                                Text(Format.money(hit.market)).font(.display(16)).tracking(-0.3).monospacedDigit()
-                                    .lineLimit(1).minimumScaleFactor(0.7)
-                                Text(pctText(hit.change7dPct)).font(.geist(12, .semibold)).monospacedDigit().foregroundStyle(pctTint(hit.change7dPct))
-                                    .lineLimit(1)
-                            }
-                            .padding(.leading, i + 1 >= 10 ? 70 : 46)
-                            .frame(width: (i + 1 >= 10 ? 70 : 46) + 100, alignment: .leading)
+                        HStack(alignment: .bottom, spacing: i + 1 >= 10 ? -34 : -26) {
+                            RankNumeral(rank: i + 1)
+                            Poster(product: hit.pictured, price: hit.market, change: hit.change7dPct)
+                                .shadow(color: .black.opacity(0.6), radius: 10, x: -4, y: 4)
                         }
-                        .foregroundStyle(.white)
-                        // Each in its own black box with a faint edge; the big number stays inside it.
-                        .padding(.horizontal, 14)
-                        .padding(.top, 14)
-                        .padding(.bottom, 14)
-                        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.black))
-                        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color.white.opacity(0.07)))
                     }
+                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 4)
-            .padding(.top, 10)
         }
-        // The crown and No. 1's sparks reach above the row: not cut off at its top.
-        .scrollClipDisabled()
-        .onVisibilityChange { on in
-            guard on, !revealed else { return }
-            if reduceMotion { var t = Transaction(); t.disablesAnimations = true; withTransaction(t) { revealed = true } } else { revealed = true }
+        .frame(height: Poster.height + 4)
+    }
+}
+
+/// A rank in huge numerals: dark inside, a thin light outline (a few offset copies make the
+/// outline; drawn once, nothing animates).
+private struct RankNumeral: View {
+    var rank: Int
+
+    var body: some View {
+        let text = Text("\(rank)").font(.display(180)).tracking(-12)
+        ZStack {
+            ForEach(0..<8, id: \.self) { k in
+                let a = Double(k) * .pi / 4
+                text.foregroundStyle(Color.white.opacity(0.55)).offset(x: cos(a) * 1.5, y: sin(a) * 1.5)
+            }
+            text.foregroundStyle(Theme.background)
         }
+        .fixedSize()
+        // The numeral's empty space under its baseline drops below the row, flush with the card.
+        .offset(y: 20)
+        .frame(height: Poster.height, alignment: .bottom)
+        .clipped()
+        .accessibilityLabel("Number \(rank)")
     }
 }
 
