@@ -275,10 +275,6 @@ private struct BrandView: View {
                     DisplayText(text: game.name, size: 30).frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
-            HStack(spacing: 8) {
-                StatTile(label: "Sets", value: Double(game.sets))
-                StatTile(label: "Cards", value: Double(game.cardCount ?? 0))
-            }
             if let next { NextRelease(set: next) }
         }
         .padding(.horizontal, 16)
