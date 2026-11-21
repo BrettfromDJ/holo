@@ -8,6 +8,8 @@ import SwiftUI
 /// One strip at the top for you: your collection's worth, tapping through to Collection.
 struct MarketHomeView: View {
     @Environment(CollectionStore.self) private var store
+    /// Cards on Home grow into their card page when tapped (iOS 18 and later).
+    @Namespace private var cardZoom
     /// Home's market lists: the copy saved last time (read as the app started), then fresh.
     @State private var index: ExploreIndex? = SavedExplore.preloaded
     /// "Today in the hobby" and why the highlighted cards moved (written daily by Claude).
@@ -67,6 +69,7 @@ struct MarketHomeView: View {
                     .mask(LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom))
                     .ignoresSafeArea(edges: .top)
             }
+            .environment(\.cardZoom, cardZoom)
             .background(Theme.background)
             .tabTopReset("home", path: $path)
             .tabBarClearance()
@@ -75,7 +78,7 @@ struct MarketHomeView: View {
             // Inline: a large-title bar left a tall empty band under "Home".
             .navigationBarTitleDisplayMode(.inline)
             .pageTitle("Home")
-            .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
+            .navigationDestination(for: String.self) { ProductDetailView(productId: $0).zoomTransition(id: $0, in: cardZoom) }
             // The menu's pages, pushed here (links inside them push on top).
             .navigationDestination(for: MorePage.self) { p in
                 switch p {
@@ -583,6 +586,7 @@ private struct CardOfTheDay: View {
             // The card, big, on a soft glow of its move's color.
             MarketLink(hit: hit) {
                 ProductImage(product: p, cornerRadius: 12, large: true)
+                    .cardZoomSource(p.id)
                     .frame(width: 236, height: 330)
                     .shadow(color: .black.opacity(0.6), radius: 24, y: 14)
                     .frame(maxWidth: .infinity)

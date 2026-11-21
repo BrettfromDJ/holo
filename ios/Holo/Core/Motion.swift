@@ -402,6 +402,29 @@ extension View {
 
 // MARK: - Zoom between a picture and its full-screen view
 
+/// The page's zoom namespace for cards: a card picture marks itself as the source
+/// (`cardZoomSource`), and the card page that opens grows out of it (Home, iOS 18 and later).
+private struct CardZoomKey: EnvironmentKey { static let defaultValue: Namespace.ID? = nil }
+extension EnvironmentValues {
+    var cardZoom: Namespace.ID? {
+        get { self[CardZoomKey.self] }
+        set { self[CardZoomKey.self] = newValue }
+    }
+}
+
+/// Marks a card picture as where its card page grows from, when the page set a `cardZoom`.
+private struct CardZoomSource: ViewModifier {
+    var id: String
+    @Environment(\.cardZoom) private var zoom
+    func body(content: Content) -> some View {
+        if let zoom { content.zoomSource(id: id, in: zoom) } else { content }
+    }
+}
+
+extension View {
+    func cardZoomSource(_ productId: String) -> some View { modifier(CardZoomSource(id: productId)) }
+}
+
 extension View {
     /// The picture a full-screen view grows out of (iOS 18 and later; earlier, a plain cover).
     @ViewBuilder func zoomSource(id: String, in namespace: Namespace.ID) -> some View {

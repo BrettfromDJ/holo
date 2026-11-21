@@ -248,6 +248,8 @@ struct Poster: View {
     var body: some View {
         ProductImage(product: product, cornerRadius: 8)
             .frame(width: Self.width, height: Self.height)
+            // The card page grows out of this picture (on Home).
+            .cardZoomSource(product.id)
             .overlay(alignment: .bottomLeading) {
                 if let price {
                     HStack(spacing: 6) {
