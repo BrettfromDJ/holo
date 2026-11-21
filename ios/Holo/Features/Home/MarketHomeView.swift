@@ -49,14 +49,7 @@ struct MarketHomeView: View {
                         // A little room under its chart, so Card of the day doesn't cut the chart's bottom off.
                         YourCollectionStrip().padding(.horizontal, 16).padding(.bottom, -10)
                     }
-                    // Today in the hobby: three stories to swipe (the paragraph when there are none).
-                    if let index, let stories = storiesToShow(index), !stories.isEmpty {
-                        HobbyStories(stories: stories, cards: Self.cardsById(index))
-                            // Closer to what follows than the page's usual section gap.
-                            .padding(.bottom, -20)
-                    } else if let briefing = insights?.briefing, index != nil {
-                        HobbyBriefing(text: briefing).padding(.horizontal, 16).padding(.bottom, -18)
-                    }
+                    // (Today in the hobby was removed: the owner's call.)
                     if let index {
                         sections(index)
                     } else {
