@@ -965,37 +965,31 @@ private struct PriceHistoryCard: View {
             .scaleEffect(0.86, anchor: .leading)
             .padding(.top, 12)
             .proPaywall($paywall)
-            if points.count > 1 {
+            if points.count > 1, let firstDay = points.first?.day, let lastDay = points.last?.day {
                 let domain = ChartTicks.domain(points.map(\.price) + buys.map(\.unitPrice))
-                Chart {
-                    ForEach(points) { p in
-                        AreaMark(x: .value("Day", p.day), yStart: .value("Floor", domain.lowerBound), yEnd: .value("Price", p.price))
-                            .foregroundStyle(LinearGradient(colors: [Theme.lime.opacity(0.22), .clear], startPoint: .top, endPoint: .bottom))
-                            .interpolationMethod(.monotone)
-                        LineMark(x: .value("Day", p.day), y: .value("Price", p.price))
-                            .foregroundStyle(Theme.lime)
-                            .lineStyle(StrokeStyle(lineWidth: 2.2))
-                            .interpolationMethod(.monotone)
+                let buyMarks = buys.map { BuyMark(id: $0.id, day: Format.isoDay.date(from: $0.date) ?? Date(), price: $0.unitPrice) }
+                let xDomain = firstDay...max(lastDay, firstDay.addingTimeInterval(1))
+                // The series is its own unchanging layer (skipped while you drag); only the thin
+                // marker layer on top follows your finger, so scrubbing doesn't redraw every mark.
+                HistorySeries(points: points, buys: buyMarks, domain: domain, xDomain: xDomain, range: range)
+                    .equatable()
+                    .overlay {
+                        Chart {
+                            if let shown {
+                                RuleMark(x: .value("Day", shown.day)).foregroundStyle(.white.opacity(0.3))
+                                PointMark(x: .value("Day", shown.day), y: .value("Price", shown.price)).foregroundStyle(Theme.lime).symbolSize(70)
+                            }
+                        }
+                        .chartXAxis(.hidden)
+                        .chartYAxis(.hidden)
+                        .chartYScale(domain: domain)
+                        .chartXScale(domain: xDomain)
+                        // Hold and drag to read any day (like Overview's Performance chart).
+                        .chartXSelection(value: $scrubbed)
+                        .sensoryFeedback(.selection, trigger: shown?.id)
                     }
-                    ForEach(buys, id: \.id) { b in
-                        PointMark(x: .value("Day", Format.isoDay.date(from: b.date) ?? Date()), y: .value("Price", b.unitPrice))
-                            .foregroundStyle(.white)
-                            .symbolSize(50)
-                    }
-                    if let shown {
-                        RuleMark(x: .value("Day", shown.day)).foregroundStyle(.white.opacity(0.3))
-                        PointMark(x: .value("Day", shown.day), y: .value("Price", shown.price)).foregroundStyle(Theme.lime).symbolSize(70)
-                    }
-                }
-                .chartXAxis(.hidden)
-                .insideYAxis()
-                .chartYScale(domain: domain)
-                // Hold and drag to read any day (like Overview's Performance chart).
-                .chartXSelection(value: $scrubbed)
-                .sensoryFeedback(.selection, trigger: shown?.id)
-                .drawIn(replay: range)
-                .frame(height: 220)
-                .padding(.top, 12)
+                    .frame(height: 220)
+                    .padding(.top, 12)
             } else {
                 let load = store.historyLoad[priceKey(productId, printing)]
                 VStack(spacing: 8) {
@@ -1038,8 +1032,49 @@ private struct PriceHistoryCard: View {
     }
 }
 
+/// One of your purchases on the price chart.
+private struct BuyMark: Identifiable, Equatable {
+    var id: String
+    var day: Date
+    var price: Double
+}
+
+/// The price history's line and area (and your buys): drawn once per series and range, never
+/// while you drag (the marker is a separate layer above it).
+private struct HistorySeries: View, Equatable {
+    var points: [DayPrice]
+    var buys: [BuyMark]
+    var domain: ClosedRange<Double>
+    var xDomain: ClosedRange<Date>
+    var range: Int
+
+    var body: some View {
+        Chart {
+            ForEach(points) { p in
+                AreaMark(x: .value("Day", p.day), yStart: .value("Floor", domain.lowerBound), yEnd: .value("Price", p.price))
+                    .foregroundStyle(LinearGradient(colors: [Theme.lime.opacity(0.22), .clear], startPoint: .top, endPoint: .bottom))
+                    .interpolationMethod(.monotone)
+                LineMark(x: .value("Day", p.day), y: .value("Price", p.price))
+                    .foregroundStyle(Theme.lime)
+                    .lineStyle(StrokeStyle(lineWidth: 2.2))
+                    .interpolationMethod(.monotone)
+            }
+            ForEach(buys) { b in
+                PointMark(x: .value("Day", b.day), y: .value("Price", b.price))
+                    .foregroundStyle(.white)
+                    .symbolSize(50)
+            }
+        }
+        .chartXAxis(.hidden)
+        .insideYAxis()
+        .chartYScale(domain: domain)
+        .chartXScale(domain: xDomain)
+        .drawIn(replay: range)
+    }
+}
+
 /// A price point with its day already parsed.
-private struct DayPrice: Identifiable {
+private struct DayPrice: Identifiable, Equatable {
     var date: String
     var day: Date
     var price: Double

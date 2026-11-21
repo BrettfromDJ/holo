@@ -660,7 +660,7 @@ private struct PerformanceSection: View {
 
     /// One day on the chart, with its date read once (reading dates from text on every drag made
     /// scrubbing lag).
-    private struct Day: Identifiable {
+    struct Day: Identifiable, Equatable {
         var id: Int
         var date: Date
         var iso: String
@@ -732,25 +732,23 @@ private struct PerformanceSection: View {
             ChipPicker(options: Range.allCases.map { ($0, $0.rawValue) }, selection: $range)
             if days.count > 1 {
                 let domain = ChartTicks.domain([extremes.min, extremes.max])
-                Chart {
-                    ForEach(days) { p in
-                        AreaMark(x: .value("Day", p.date), yStart: .value("Floor", domain.lowerBound), yEnd: .value("Value", p.value))
-                            .foregroundStyle(LinearGradient(colors: [Theme.lime.opacity(0.25), Theme.lime.opacity(0)], startPoint: .top, endPoint: .bottom))
-                            .interpolationMethod(.monotone)
-                        LineMark(x: .value("Day", p.date), y: .value("Value", p.value), series: .value("Line", "Value"))
-                            .foregroundStyle(Theme.lime)
-                            .lineStyle(StrokeStyle(lineWidth: 2.5))
-                            .interpolationMethod(.monotone)
+                let xDomain = days[0].date...max(days[days.count - 1].date, days[0].date.addingTimeInterval(1))
+                // The line is its own layer, skipped while you drag; only the marker follows your finger.
+                PerformanceSeries(days: days, domain: domain, xDomain: xDomain)
+                    .equatable()
+                    .overlay {
+                        Chart {
+                            if let shown {
+                                RuleMark(x: .value("Day", shown.date)).foregroundStyle(.white.opacity(0.3))
+                                PointMark(x: .value("Day", shown.date), y: .value("Value", shown.value)).foregroundStyle(Theme.lime).symbolSize(70)
+                            }
+                        }
+                        .chartXAxis(.hidden)
+                        .chartYAxis(.hidden)
+                        .chartYScale(domain: domain)
+                        .chartXScale(domain: xDomain)
+                        .chartXSelection(value: $scrubbed)
                     }
-                    if let shown {
-                        RuleMark(x: .value("Day", shown.date)).foregroundStyle(.white.opacity(0.3))
-                        PointMark(x: .value("Day", shown.date), y: .value("Value", shown.value)).foregroundStyle(Theme.lime).symbolSize(70)
-                    }
-                }
-                .chartXAxis(.hidden)
-                .insideYAxis()
-                .chartYScale(domain: domain)
-                .chartXSelection(value: $scrubbed)
                 .frame(height: 230)
                 .drawIn(replay: range)
                 // A light tick for each day you scrub across, a soft knock on crossing into a new
@@ -772,6 +770,31 @@ private struct PerformanceSection: View {
         .task(id: key) { prepare() }
     }
 
+}
+
+/// Performance's line and area: drawn once per range and timeline, never while you drag.
+private struct PerformanceSeries: View, Equatable {
+    var days: [PerformanceSection.Day]
+    var domain: ClosedRange<Double>
+    var xDomain: ClosedRange<Date>
+
+    var body: some View {
+        Chart {
+            ForEach(days) { p in
+                AreaMark(x: .value("Day", p.date), yStart: .value("Floor", domain.lowerBound), yEnd: .value("Value", p.value))
+                    .foregroundStyle(LinearGradient(colors: [Theme.lime.opacity(0.25), Theme.lime.opacity(0)], startPoint: .top, endPoint: .bottom))
+                    .interpolationMethod(.monotone)
+                LineMark(x: .value("Day", p.date), y: .value("Value", p.value), series: .value("Line", "Value"))
+                    .foregroundStyle(Theme.lime)
+                    .lineStyle(StrokeStyle(lineWidth: 2.5))
+                    .interpolationMethod(.monotone)
+            }
+        }
+        .chartXAxis(.hidden)
+        .insideYAxis()
+        .chartYScale(domain: domain)
+        .chartXScale(domain: xDomain)
+    }
 }
 
 // MARK: - Metric cards

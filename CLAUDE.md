@@ -120,6 +120,9 @@ and say exactly what to run or click.
   `HoloCard` rests after 12 s (touch or reappearing restarts it); Summary's fan runs at 30 fps;
   never put a shadow over Liquid Glass (shadow a plain shape behind it); the image cache is capped
   at 150 MB; `CollectionStore.recompute` only assigns holdings/summary when they changed.
+  Scrubbable charts (`PriceHistoryCard`, `PerformanceSection`): the series is an Equatable child
+  (`HistorySeries`, `PerformanceSeries`) with explicit x/y scales; the finger's rule/point is a
+  separate empty-axis Chart overlaid on top that owns `chartXSelection`, so dragging redraws only it.
 - Animations must be cheap: no per-frame layout on many views, no animated shadow radius, no
   per-frame blur. Looping motion uses a `TimelineView` or a single offset animation. Respect
   Reduce Motion everywhere.
