@@ -1193,7 +1193,7 @@ struct SetArt: View {
         }
     }
 
-    private var isPokemon: Bool { set.gameSlug.lowercased().hasPrefix("pokemon") }
+    private var isPokemon: Bool { self.set.gameSlug.lowercased().hasPrefix("pokemon") }
 
     /// The Pokémon logo (the owner's file, a vector), centred with generous room around it.
     private var pokemonMark: some View {
