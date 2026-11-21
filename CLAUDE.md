@@ -86,8 +86,9 @@ and say exactly what to run or click.
 - **Adding cards happens on the card page** ("Add to Collection"), reached through Search or
   Explore (or a scan). No add buttons on Summary, Collection or elsewhere; empty states may still
   point to Scan / Search.
-- **The card page's TCGplayer panel** (app `WorthPanel`, web `WhatsItWorth`) is just one blue
-  button, "View on" + TCGplayer's logo, linking to the card's TCGplayer page. No figures: our source can't say
+- **The card page's TCGplayer panel** (app `WorthPanel`, web `WhatsItWorth`) is just one quiet
+  Liquid Glass button, text only ("View on TCGplayer ↗", no logo), right under Add to Collection,
+  linking to the card's TCGplayer page (printing + Near Mint). No figures: our source can't say
   which condition TCGplayer's market price is for, and its played-copy prices are asking prices.
 - No confetti. No emojis. Toasts bottom-right on the web. The "Prices updated" banner is off
   in the app for now; milestone banners are back on (see Open threads).

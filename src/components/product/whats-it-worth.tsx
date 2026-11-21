@@ -3,7 +3,7 @@
 import { ArrowUpRight } from "lucide-react";
 
 /**
- * One button: "View on" and TCGplayer's logo, opening the card's TCGplayer page. No figures:
+ * One quiet glass button, "View on TCGplayer" (text only), under the card's actions. No figures:
  * our source can't say which condition TCGplayer's market price is for. Same as the app's
  * `WorthPanel`.
  */
@@ -16,11 +16,9 @@ export function WhatsItWorth({ tcgplayerUrl, tcgplayerId, printing, sealed }: { 
       href={url}
       target="_blank"
       rel="noreferrer"
-      className="mt-6 flex h-12 items-center justify-center gap-2 rounded-full bg-[#2F5BFF] text-[15px] font-semibold text-white hover:opacity-90"
+      className="mt-3 flex h-11 items-center justify-center gap-1.5 rounded-[14px] border border-white/10 bg-white/[0.06] text-[15px] font-semibold text-white backdrop-blur-xl transition-colors hover:bg-white/[0.1]"
     >
-      View on
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/brands/tcgplayer.svg" alt="TCGplayer" className="h-[18px] w-auto" />
+      View on TCGplayer
       <ArrowUpRight className="size-4" />
     </a>
   );

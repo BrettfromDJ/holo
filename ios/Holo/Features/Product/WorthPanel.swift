@@ -32,62 +32,24 @@ struct WorthPanel: View {
     }
 
     var body: some View {
-        // Just the button: "View on" and TCGplayer's logo, opening the card's TCGplayer page.
-        // No figures (our source can't say which condition TCGplayer's are for).
+        // A quiet Liquid Glass button, text only, under Add to Collection.
         if let url = tcgplayerURL {
             Link(destination: url) {
-                HStack(spacing: 8) {
-                    Text("View on")
-                    Image("TCGplayerLogo").resizable().scaledToFit().frame(height: 18)
-                        .accessibilityLabel("TCGplayer")
-                    Image(systemName: "arrow.up.right").font(.system(size: 13, weight: .semibold))
+                HStack(spacing: 6) {
+                    Text("View on TCGplayer")
+                    Image(systemName: "arrow.up.right").font(.system(size: 12, weight: .semibold))
                 }
-                .frame(maxWidth: .infinity)
+                .font(.geist(15, .semibold))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity, minHeight: 46)
+                .contentShape(Rectangle())
+                .liquidGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous), interactive: true)
             }
-            .buttonStyle(Button3D(kind: .blue, height: 50, sheen: false))
-            .overlay {
-                TCGGlint()
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .offset(y: -1)
-                    .allowsHitTesting(false)
-            }
+            .buttonStyle(.plain)
         }
     }
 }
 
-/// The TCGplayer button's shine: one wide, soft glow (a gradient with long fades, so it reads as
-/// blurred without any per-frame blur), added light so the blue brightens instead of greying. It
-/// drifts across slowly, easing in and out, then rests off the button. One looping offset
-/// animation set once, only while on screen; still with Reduce Motion.
-private struct TCGGlint: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var across = false
-
-    var body: some View {
-        if !reduceMotion {
-            LinearGradient(stops: [
-                .init(color: .clear, location: 0),
-                .init(color: .white.opacity(0.06), location: 0.25),
-                .init(color: .white.opacity(0.22), location: 0.5),
-                .init(color: .white.opacity(0.06), location: 0.75),
-                .init(color: .clear, location: 1),
-            ], startPoint: .leading, endPoint: .trailing)
-            .frame(width: 140)
-            .scaleEffect(x: 1, y: 3)
-            .rotationEffect(.degrees(18))
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .offset(x: across ? 700 : -700)
-            .blendMode(.plusLighter)
-            .onVisibilityChange { on in
-                if on {
-                    withAnimation(.timingCurve(0.45, 0, 0.55, 1, duration: 8).repeatForever(autoreverses: false)) { across = true }
-                } else {
-                    stopLoop { across = false }
-                }
-            }
-        }
-    }
-}
 struct SourceTag: View {
     var source: Worth.Source
 

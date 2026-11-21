@@ -237,6 +237,10 @@ export default function ProductPage() {
             <WishButton product={product} price={price?.market ?? null} printing={printing} compact />
             <ShelfMenu productId={productId} compact />
           </div>
+          {/* Right under the actions: the card on TCGplayer, a quiet glass button. Same as the app. */}
+          {product.kind === "single" && (
+            <WhatsItWorth nm={price?.market ?? null} tcgplayerUrl={product.tcgplayerUrl} tcgplayerId={product.tcgplayerId} printing={printing} />
+          )}
 
           <Reveal delay={80}>
             <PriceHistory productId={productId} printing={printing} />
@@ -248,12 +252,6 @@ export default function ProductPage() {
             </Reveal>
           )}
 
-          {/* What it's worth raw, in the condition you pick. */}
-          {product.kind === "single" && (
-            <Reveal>
-              <WhatsItWorth nm={price?.market ?? null} tcgplayerUrl={product.tcgplayerUrl} tcgplayerId={product.tcgplayerId} printing={printing} />
-            </Reveal>
-          )}
 
           {owned.length > 0 && (
             <Reveal>
