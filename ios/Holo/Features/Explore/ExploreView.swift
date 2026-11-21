@@ -567,8 +567,6 @@ struct SetHero: View {
             date.map { upcoming ? "Out \($0)" : "Released \($0)" },
             productCount > 0 ? "\(productCount) product\(productCount == 1 ? "" : "s")" : nil,
             // How much of the set you own sits here, in the line, not in a panel of its own.
-            ownedCount > 0 ? "\(ownedCount) owned (\(Self.share(ownedCount, of: productCount)))" : nil,
-            agoText(updatedAt).map { "prices from \($0)" },
         ].compactMap { $0 }.joined(separator: " · ")
     }
 
