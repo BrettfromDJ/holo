@@ -181,15 +181,16 @@ struct MarketHomeView: View {
             }
             .padding(.horizontal, 16)
         }
-        // Themed collections between the market's own lists, each in its own look.
+        // Themed collections between the market's own lists: rows of big cards, a spotlight
+        // every fourth row.
         let shown = themes.shown
-        if let t = shown.first { ThemeSection(theme: t) }
+        themeRows(shown, 0..<3)
         if trending.count > 2 {
             section(icon: "trophy.fill", "Top 10 this week", "Singles rising most in 7 days") {
                 TopTenRow(hits: Array(trending.prefix(10))).cardSequence(trending.prefix(10).map(\.product.id))
             }
         }
-        if shown.count > 1 { ThemeSection(theme: shown[1]) }
+        themeRows(shown, 3..<5)
         // For you: your sets to finish and your week's budget.
         if forYou.hasContent {
             ForYouSection(model: forYou)
@@ -227,7 +228,7 @@ struct MarketHomeView: View {
                 .contentMargins(.horizontal, 16, for: .scrollContent)
                 .scrollTargetBehavior(.viewAligned)
             }
-        if shown.count > 2 { ThemeSection(theme: shown[2]) }
+        themeRows(shown, 5..<8)
         if let next = upcoming.first {
             // The next set out, with its countdown and reminder (Explore's top card).
             CatalogHero(index: index, next: next)
@@ -241,7 +242,7 @@ struct MarketHomeView: View {
         if let hot = index.hotSealed, !hot.isEmpty {
             section(icon: "shippingbox.fill", "Hot sealed", "Sealed rising most in 7 days") { HotSealedRow(hits: Array(hot.prefix(10))) }
         }
-        if shown.count > 3 { ThemeSection(theme: shown[3]) }
+        themeRows(shown, 8..<11)
         if !recent.isEmpty {
             section(icon: "calendar", "Just released", "The newest sets") { SetCarousel(sets: Array(recent.prefix(10)), upcoming: false) }
         }
@@ -252,7 +253,18 @@ struct MarketHomeView: View {
                 NavigationLink(value: ExploreRoute.calendar) { seeAll("Calendar") }
             }
         }
+        themeRows(shown, 11..<shown.count)
+        // Your lists last, as rows like the collections.
+        if !Demo.isOn { HomeListRows() }
         // (A Cooling off row here repeated the Cooling off tile at the top: removed.)
+    }
+
+    /// Some of this open's collections, by position (every fourth is a spotlight).
+    @ViewBuilder private func themeRows(_ shown: [MarketTheme], _ range: Range<Int>) -> some View {
+        let r = range.clamped(to: 0..<shown.count)
+        ForEach(Array(r), id: \.self) { i in
+            ThemeSection(theme: shown[i], spotlight: i % 4 == 3).id(shown[i].id)
+        }
     }
 
     private func section<C: View>(icon: String, _ title: String, _ subtitle: String, @ViewBuilder content: () -> C) -> some View {
@@ -262,11 +274,8 @@ struct MarketHomeView: View {
     private func section<C: View, L: View>(icon: String, _ title: String, _ subtitle: String, @ViewBuilder content: () -> C, @ViewBuilder link: () -> L) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .lastTextBaseline) {
-                // The title (no icon beside it), then the line under it.
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(title).font(.display(22)).tracking(22 * -0.03).lineLimit(1).minimumScaleFactor(0.8).displayTrim(22)
-                    Text(subtitle.noWidow).font(.geist(15)).foregroundStyle(Theme.muted)
-                }
+                // Just the title, like the collection rows (no icon, no line under it).
+                Text(title).font(.display(22)).tracking(22 * -0.03).lineLimit(1).minimumScaleFactor(0.8).displayTrim(22)
                 Spacer(minLength: 8)
                 link()
             }

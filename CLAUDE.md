@@ -217,8 +217,12 @@ and say exactly what to run or click.
   days), popular (kept or watched by 2+ collectors). Japanese cards only in `japanese` themes.
   Saved a day per theme in `api_cache`; `/api/themes`. AI proposes 5 more weekly (via `ai.ts`). No "Every price of <Pokémon>" collections (removed; the AI can't propose them).
   The app (`Features/Home/Themes.swift`): Collection of the Day (`DailyDiscovery`) leads Home,
-  then 4 per launch between Home's lists (new mix each open, weighted to your Pokémon and era and
-  the `featured` launch lineup, never two of one look), plus "Your next favorite" (For you's
+  then ~14 per launch between Home's lists, Netflix-style: one look for all (`PosterRow`: title
+  only with a chevron, no line under it, big 150×209 cards with a price tag), every fourth row a
+  `SpotlightLook`; new mix each open, weighted to your Pokémon, era and the `featured` lineup, and
+  collections shown on the last two opens are much less likely (`themes-recent` on the phone).
+  Your lists come last as the same rows (`HomeListRows`). Home's other sections have no subtitle
+  either. Plus "Your next favorite" (For you's
   picks of your favourite Pokémon) in the last slot on about one open in three; each opens `ThemePage`. For you keeps only
   Finish your sets (50%+) and Your week's budget.
 - Not in the app on purpose: the separate trade checker (the Deal tab covers trades), and the welcome pages (removed; signed out opens straight on Sign in, its card wall is `Features/Auth/CardWall.swift`).

@@ -1,17 +1,16 @@
 import SwiftUI
 
 // Home's themed collections, like a streaming app's rows: "Skyridge holos", "Charizard through
-// the years", "Every price of Gengar"… Rules over our own catalog, filled on the server
-// (`src/lib/explore/themes.ts`, `/api/themes`). Each time the app opens, Home shows a few, in a
-// new mix that leans toward what you collect, with something unexpected in it. Each has its own
-// look (billboard, fan, timeline, mosaic, ladder, spotlight), so no two rows look the same, and
-// each opens its own page with every card in it.
+// the years"… Rules over our own catalog, filled on the server (`src/lib/explore/themes.ts`,
+// `/api/themes`). Each time the app opens, Home shows many, in a new mix that leans toward what
+// you collect and away from what it showed last time. All one look (big cards in a row), with a
+// spotlight every few rows; each opens its own page with every card in it.
 
 struct MarketTheme: Codable, Identifiable, Hashable {
     var id: String
     var title: String
     var blurb: String
-    /// billboard, fan, timeline, mosaic, ladder or spotlight.
+    /// The server's look name (Home now shows every collection as one row style).
     var look: String
     var pokemon: [String]? = nil
     var era: String? = nil
@@ -52,10 +51,11 @@ final class ThemesModel {
         }
     }
 
-    /// Pick this visit's few: favourites first in the draw (your Pokémon count three times,
-    /// your era once more, new ones once more), never two of the same look while others remain.
+    /// Pick this visit's rows: favourites first in the draw (your Pokémon count three times, your
+    /// era once more, the launch lineup a little more), and ones shown on the last couple of opens
+    /// much less, so the mix keeps moving through every collection.
     @MainActor
-    func pick(store: CollectionStore, index: ExploreIndex?, count: Int = 4) {
+    func pick(store: CollectionStore, index: ExploreIndex?, count: Int = 14) {
         let holdings = store.allHoldings
         let favourite = CollectorTaste.favourite(holdings)?.name.lowercased()
         var released: [String: String] = [:]
@@ -67,21 +67,19 @@ final class ThemesModel {
         daily = Self.draw(from: pool, using: &dayRng) { $0.featured == true ? 3 : 1 }
         pool.removeAll { $0.id == daily?.id }
         var rng = SeededRandom(seed: Self.launchSeed)
+        let recent = Self.recentAtLaunch
         var out: [MarketTheme] = []
-        var looks = Set<String>()
         while out.count < count, !pool.isEmpty {
-            let fresh = pool.filter { !looks.contains($0.look) }
-            let candidates = fresh.isEmpty ? pool : fresh
-            guard let chosen = Self.draw(from: candidates, using: &rng, weight: { t in
+            guard let chosen = Self.draw(from: pool, using: &rng, weight: { t in
                 var w = 1.0
-                if let favourite, t.pokemon?.contains(where: { $0.lowercased() == favourite }) == true { w += 3 }
-                if let era, t.era == era { w += 1 }
+                if let favourite, t.pokemon?.contains(where: { $0.lowercased() == favourite }) == true { w += 2 }
+                if let era, t.era == era { w += 0.5 }
                 if t.fresh == true { w += 1 }
-                if t.featured == true { w += 1.5 }
+                if t.featured == true { w += 0.5 }
+                if recent.contains(t.id) { w *= 0.15 }
                 return w
             }) else { break }
             out.append(chosen)
-            looks.insert(chosen.look)
             pool.removeAll { $0.id == chosen.id }
         }
         // Your next favorite (cards of the Pokémon you collect most) takes the last slot, but only
@@ -90,6 +88,16 @@ final class ThemesModel {
             if out.count >= count { out[out.count - 1] = mine } else { out.append(mine) }
         }
         shown = out
+        Self.remember(out.map(\.id))
+    }
+
+    /// The collections shown on the last couple of opens (read once, when the app starts).
+    private static let recentAtLaunch = Set(UserDefaults.standard.stringArray(forKey: "themes-recent") ?? [])
+    /// Last open's alone, to carry into the next open's "recent".
+    private static let lastAtLaunch = UserDefaults.standard.stringArray(forKey: "themes-last") ?? []
+    private static func remember(_ ids: [String]) {
+        UserDefaults.standard.set(ids, forKey: "themes-last")
+        UserDefaults.standard.set(Array(Set(ids + lastAtLaunch)), forKey: "themes-recent")
     }
 
     /// Your next favorite: cards of the Pokémon you own most of that you don't have yet.
@@ -151,15 +159,12 @@ final class ThemesModel {
             if bySet[key] == nil { bySet[key] = h }
         }
         let timeline = bySet.values.sorted { ($0.releaseDate ?? "") < ($1.releaseDate ?? "") }
-        let ladder = unique.sorted { ($0.market ?? 0) < ($1.market ?? 0) }
-        let ladderSteps = ladder.count <= 7 ? ladder : (0..<7).map { ladder[Int((Double($0) * Double(ladder.count - 1) / 6).rounded())] }
         return [
             MarketTheme(id: "stand-grails", title: "Modern grails", blurb: "The priciest modern cards rising this week.", look: "billboard", era: "modern", featured: true,
                         hits: eras.modern.sorted { ($0.market ?? 0) > ($1.market ?? 0) }),
             MarketTheme(id: "stand-vintage", title: "Vintage on the move", blurb: "Wizards-era cards climbing this week.", look: "fan", era: "vintage", hits: eras.vintage),
             MarketTheme(id: "stand-years", title: "Through the years", blurb: "One standout from each set, oldest first.", look: "timeline", hits: timeline),
             MarketTheme(id: "stand-wall", title: "This week's wall", blurb: "Everything rising, side by side.", look: "mosaic", hits: trending),
-            MarketTheme(id: "stand-ladder", title: "At every price", blurb: "From pocket money to grail.", look: "ladder", hits: ladderSteps),
             MarketTheme(id: "stand-mid", title: "Mid-era spotlight", blurb: "Diamond & Pearl to XY's biggest riser.", look: "spotlight", era: "midEra", hits: eras.midEra),
         ].filter { $0.hits.count >= 3 }
     }
@@ -180,21 +185,19 @@ struct SeededRandom: RandomNumberGenerator {
 
 // MARK: A theme on Home
 
+/// One collection on Home, like a streaming app's row: its title (tap for the whole collection),
+/// then its cards big in a row you swipe. Every few rows one is a spotlight instead.
 struct ThemeSection: View {
     var theme: MarketTheme
+    var spotlight = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            ThemeHeader(theme: theme).padding(.horizontal, 16)
+        VStack(alignment: .leading, spacing: 12) {
+            NavigationLink(value: theme) { RowTitle(title: theme.title, fresh: theme.fresh == true) }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 16)
             Group {
-                switch theme.look {
-                case "billboard": BillboardLook(hits: theme.hits)
-                case "timeline": TimelineLook(hits: theme.hits)
-                case "mosaic": MosaicLook(hits: theme.hits)
-                case "ladder": LadderLook(hits: theme.hits)
-                case "spotlight": SpotlightLook(hits: theme.hits)
-                default: FanLook(hits: theme.hits)
-                }
+                if spotlight { SpotlightLook(hits: theme.hits) } else { PosterRow(hits: theme.hits) }
             }
             .cardSequence(theme.hits.map(\.product.id))
         }
@@ -202,27 +205,19 @@ struct ThemeSection: View {
     }
 }
 
-/// The theme's title and line; tapping it opens the whole collection.
-private struct ThemeHeader: View {
-    var theme: MarketTheme
+/// A row's title: no line under it, a small chevron after it.
+struct RowTitle: View {
+    var title: String
+    var fresh = false
 
     var body: some View {
-        NavigationLink(value: theme) {
-            HStack(alignment: .lastTextBaseline, spacing: 8) {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 8) {
-                        Text(theme.title).font(.display(22)).tracking(22 * -0.03).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.8).displayTrim(22)
-                        if theme.fresh == true { SkewTag(text: "New") }
-                    }
-                    Text(theme.blurb.noWidow).font(.geist(15)).foregroundStyle(Theme.muted).multilineTextAlignment(.leading)
-                }
-                Spacer(minLength: 8)
-                HStack(spacing: 4) { Text("See all"); Image(systemName: "arrow.right").font(.system(size: 12, weight: .semibold)) }
-                    .font(.geist(13, .medium)).foregroundStyle(Theme.muted).fixedSize()
-            }
-            .contentShape(Rectangle())
+        HStack(spacing: 8) {
+            Text(title).font(.display(22)).tracking(22 * -0.03).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.8).displayTrim(22)
+            if fresh { SkewTag(text: "New") }
+            Image(systemName: "chevron.right").font(.system(size: 13, weight: .bold)).foregroundStyle(Theme.subtle)
+            Spacer(minLength: 0)
         }
-        .buttonStyle(.plain)
+        .contentShape(Rectangle())
     }
 }
 
@@ -233,197 +228,78 @@ private func shortName(_ name: String) -> String {
     name.range(of: " - ").map { String(name[..<$0.lowerBound]) } ?? name
 }
 
-/// Billboard: one big card on its own art, the title beside it, a few more under it.
-private struct BillboardLook: View {
-    var hits: [SearchHit]
-
-    var body: some View {
-        let star = hits[0]
-        VStack(alignment: .leading, spacing: 14) {
-            MarketLink(hit: star) {
-                HStack(alignment: .top, spacing: 16) {
-                    // The name from the top, the price on the bottom: level with the card's edges.
-                    VStack(alignment: .leading, spacing: 6) {
-                        MonoLabel(text: "No. 1 in this collection")
-                        Text(star.product.name.noWidow).font(.display(24)).tracking(-0.8).foregroundStyle(.white).lineLimit(3)
-                        Text(star.product.setName ?? "").font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
-                        Spacer(minLength: 8)
-                        Text(price(star)).font(.display(30)).tracking(-0.9).monospacedDigit().foregroundStyle(Theme.lime)
-                    }
-                    .frame(height: 196)
-                    Spacer(minLength: 0)
-                    ProductImage(product: star.pictured, cornerRadius: 8)
-                        .frame(width: 140, height: 196)
-                        .rotationEffect(.degrees(4))
-                        .shadow(color: .black.opacity(0.5), radius: 16, y: 10)
-                }
-                .padding(18)
-                .frame(maxWidth: .infinity)
-                .background {
-                    // The lit grid with a soft lime glow behind the card (Dexora's panel look; the
-                    // blurred card art left hard bands where the picture ended).
-                    ZStack {
-                        Theme.surface
-                        GridPattern(step: 28, opacity: 0.05)
-                        RadialGradient(colors: [Theme.lime.opacity(0.22), .clear], center: UnitPoint(x: 0.78, y: 0.45), startRadius: 0, endRadius: 220)
-                        RadialGradient(colors: [Theme.planBlue.opacity(0.16), .clear], center: UnitPoint(x: 0.1, y: 0.9), startRadius: 0, endRadius: 200)
-                    }
-                    .allowsHitTesting(false)
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Theme.border))
-            }
-            HStack(spacing: 10) {
-                ForEach(hits.dropFirst().prefix(4)) { hit in
-                    MarketLink(hit: hit) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            ProductImage(product: hit.pictured, cornerRadius: 5).aspectRatio(63 / 88, contentMode: .fit)
-                            Text(price(hit)).font(.geist(12, .semibold)).monospacedDigit().foregroundStyle(.white)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-            }
-        }
-        .padding(.horizontal, 16)
-    }
-}
-
-/// Fan: five cards held like a hand, the middle one up front, names under it.
-private struct FanLook: View {
-    var hits: [SearchHit]
-
-    var body: some View {
-        let hand = Array(hits.prefix(5))
-        let mid = Double(hand.count - 1) / 2
-        VStack(spacing: 12) {
-            ZStack {
-                ForEach(Array(hand.enumerated()), id: \.element.id) { i, hit in
-                    let d = Double(i) - mid
-                    MarketLink(hit: hit) {
-                        ProductImage(product: hit.pictured, cornerRadius: 7)
-                            .frame(width: 104, height: 145)
-                            .shadow(color: .black.opacity(0.45), radius: 10, y: 6)
-                    }
-                    // Spread to stay inside the page's margins on the narrowest phone.
-                    .rotationEffect(.degrees(d * 7), anchor: .bottom)
-                    .offset(x: d * 44, y: abs(d) * 8)
-                    // The middle card on top, the outer ones behind.
-                    .zIndex(-abs(d))
-                }
-            }
-            // Just tall enough for the hand (the outer cards dip a little), so it sits close under
-            // the heading.
-            .frame(height: 160)
-            .frame(maxWidth: .infinity)
-            // The outer cards tilt and dip below the hand's frame: room for them, so they never
-            // sit on the name pills.
-            .padding(.bottom, 28)
-            .padding(.horizontal, 16)
-            // What's in the hand, as one line of names and prices.
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(hits.prefix(10)) { hit in
-                        MarketLink(hit: hit) {
-                            // The name without its number ("Psyduck", not "Psyduck - 175/165").
-                            HStack(spacing: 6) {
-                                Text(shortName(hit.product.name)).font(.geist(12, .medium)).foregroundStyle(.white).lineLimit(1)
-                                Text(price(hit)).font(.geist(12, .semibold)).monospacedDigit().foregroundStyle(Theme.lime)
-                            }
-                            .padding(.horizontal, 10).padding(.vertical, 6)
-                            .background(Capsule().fill(Color.white.opacity(0.06)))
-                        }
-                    }
-                }
-                .padding(.horizontal, 16)
-            }
-        }
-    }
-}
-
-/// Timeline: oldest first along a line, each card with its year.
-private struct TimelineLook: View {
+/// The cards big, all one size, in a row you swipe; each with its price on a small tag.
+private struct PosterRow: View {
     var hits: [SearchHit]
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .top, spacing: 0) {
-                ForEach(Array(hits.enumerated()), id: \.element.id) { i, hit in
-                    VStack(alignment: .leading, spacing: 10) {
-                        // The year on the line, with a dot.
-                        HStack(spacing: 6) {
-                            Circle().fill(Theme.lime).frame(width: 7, height: 7)
-                            Text(String((hit.releaseDate ?? "").prefix(4))).font(.mono(11)).foregroundStyle(.white)
-                            Rectangle().fill(Color.white.opacity(i == hits.count - 1 ? 0 : 0.15)).frame(height: 1)
-                        }
-                        MarketLink(hit: hit) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                ProductImage(product: hit.pictured, cornerRadius: 5).frame(width: 96, height: 134)
-                                Text(hit.product.setName ?? "").font(.geist(11)).foregroundStyle(Theme.muted).lineLimit(1)
-                                Text(price(hit)).font(.geist(13, .semibold)).monospacedDigit().foregroundStyle(.white)
+            LazyHStack(spacing: 10) {
+                ForEach(hits.prefix(20)) { hit in
+                    MarketLink(hit: hit) { Poster(product: hit.pictured, price: hit.market) }
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+        .frame(height: Poster.height)
+    }
+}
+
+/// One card in a row: big art with its price tagged at the bottom.
+struct Poster: View {
+    var product: Product
+    var price: Double?
+    static let width: CGFloat = 150
+    static let height: CGFloat = 209
+
+    var body: some View {
+        ProductImage(product: product, cornerRadius: 8)
+            .frame(width: Self.width, height: Self.height)
+            .overlay(alignment: .bottomLeading) {
+                if let price {
+                    Text(Format.money(price)).font(.geist(12, .semibold)).monospacedDigit().foregroundStyle(.white)
+                        .padding(.horizontal, 7).padding(.vertical, 3)
+                        .background(Capsule().fill(.black.opacity(0.7)))
+                        .padding(7)
+                }
+            }
+    }
+}
+
+// MARK: Your lists, at the bottom of Home
+
+/// Each of your lists as a row like the collections above (title opens the list).
+struct HomeListRows: View {
+    @Environment(CollectionStore.self) private var store
+    @Environment(GroupsStore.self) private var groups
+
+    var body: some View {
+        let lists = groups.shelves.filter { !$0.product_ids.isEmpty }
+        ForEach(lists) { list in
+            let ids = Array(list.product_ids.prefix(20))
+            VStack(alignment: .leading, spacing: 12) {
+                NavigationLink(value: ListRoute.list(list.id)) { RowTitle(title: list.name) }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 16)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: 10) {
+                        ForEach(ids, id: \.self) { id in
+                            if let product = store.products[id] ?? groups.extraProducts[id] {
+                                CardLink(productId: id) {
+                                    Poster(product: product, price: ListItemInfo(id, store: store, groups: groups).market)
+                                }
                             }
-                            .frame(width: 96, alignment: .leading)
                         }
                     }
-                    .frame(width: 112, alignment: .leading)
+                    .padding(.horizontal, 16)
                 }
+                .frame(height: Poster.height)
+                .cardSequence(ids)
             }
-            .padding(.horizontal, 16)
+            .reveal()
         }
-    }
-}
-
-/// Mosaic: a wall of art, two rows of three, the first one twice the size.
-private struct MosaicLook: View {
-    var hits: [SearchHit]
-
-    var body: some View {
-        let wall = Array(hits.prefix(5))
-        HStack(alignment: .top, spacing: 8) {
-            if let first = wall.first { tile(first, big: true) }
-            VStack(spacing: 8) {
-                HStack(spacing: 8) { ForEach(wall.dropFirst().prefix(2)) { tile($0, big: false) } }
-                HStack(spacing: 8) { ForEach(wall.dropFirst(3).prefix(2)) { tile($0, big: false) } }
-            }
-        }
-        .padding(.horizontal, 16)
-    }
-
-    private func tile(_ hit: SearchHit, big: Bool) -> some View {
-        MarketLink(hit: hit) {
-            ProductImage(product: hit.pictured, cornerRadius: big ? 10 : 6)
-                .aspectRatio(63 / 88, contentMode: .fit)
-                .overlay(alignment: .bottomLeading) {
-                    Text(price(hit)).font(.geist(big ? 13 : 10, .semibold)).monospacedDigit().foregroundStyle(.white)
-                        .padding(.horizontal, 6).padding(.vertical, 3)
-                        .background(Capsule().fill(.black.opacity(0.65)))
-                        .padding(6)
-                }
-        }
-        .frame(maxWidth: .infinity)
-    }
-}
-
-/// Ladder ("Every price of…"): one Pokémon from cheapest to priciest as a plain row of
-/// same-size cards, each with its price and set. No bars, no growing cards (the owner's rule).
-private struct LadderLook: View {
-    var hits: [SearchHit]
-
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .top, spacing: 12) {
-                ForEach(hits) { hit in
-                    MarketLink(hit: hit) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            ProductImage(product: hit.pictured, cornerRadius: 6).frame(width: 96, height: 134)
-                            Text(price(hit)).font(.display(17)).tracking(-0.4).monospacedDigit().foregroundStyle(.white)
-                            Text(hit.product.setName ?? "").font(.geist(11)).foregroundStyle(Theme.muted).lineLimit(1)
-                        }
-                        .frame(width: 96, alignment: .leading)
-                    }
-                }
-            }
-            .padding(.horizontal, 16)
+        .task(id: groups.shelves.count) {
+            await groups.loadExtras(groups.shelves.flatMap(\.product_ids), known: store.products)
         }
     }
 }
