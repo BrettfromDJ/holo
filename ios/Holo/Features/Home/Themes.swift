@@ -3,8 +3,7 @@ import SwiftUI
 // Home's themed collections, like a streaming app's rows: "Skyridge holos", "Charizard through
 // the years"… Rules over our own catalog, filled on the server (`src/lib/explore/themes.ts`,
 // `/api/themes`). Each time the app opens, Home shows many, in a new mix that leans toward what
-// you collect and away from what it showed last time. All one look (big cards in a row), with a
-// spotlight every few rows; each opens its own page with every card in it.
+// you collect and away from what it showed last time. All one look: every card big in a row.
 
 struct MarketTheme: Codable, Identifiable, Hashable {
     var id: String
@@ -186,26 +185,16 @@ struct SeededRandom: RandomNumberGenerator {
 // MARK: A theme on Home
 
 /// One collection on Home, like a streaming app's row: its title, then every card in it big in a
-/// row you swipe (no separate page). Every few rows one leads with a spotlight, the rest follow.
+/// row you swipe (no separate page). Every row looks the same.
 struct ThemeSection: View {
     var theme: MarketTheme
-    var spotlight = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             RowTitle(title: theme.title, fresh: theme.fresh == true)
                 .padding(.horizontal, 16)
-            Group {
-                if spotlight {
-                    VStack(alignment: .leading, spacing: 14) {
-                        SpotlightLook(hits: theme.hits)
-                        if theme.hits.count > 4 { PosterRow(hits: Array(theme.hits.dropFirst(4))) }
-                    }
-                } else {
-                    PosterRow(hits: theme.hits)
-                }
-            }
-            .cardSequence(theme.hits.map(\.product.id))
+            PosterRow(hits: theme.hits)
+                .cardSequence(theme.hits.map(\.product.id))
         }
         .reveal()
     }
@@ -228,10 +217,6 @@ struct RowTitle: View {
 
 private func price(_ hit: SearchHit) -> String { Format.money(hit.market) }
 
-/// A card's name without the " - 175/165" number on the end.
-private func shortName(_ name: String) -> String {
-    name.range(of: " - ").map { String(name[..<$0.lowerBound]) } ?? name
-}
 
 /// Every card, big, all one size, in a row you swipe; each with its price on a small tag.
 private struct PosterRow: View {
@@ -308,94 +293,23 @@ struct HomeListRows: View {
     }
 }
 
-/// Spotlight: one card, big, with its story in numbers, and the rest as a small stack.
-private struct SpotlightLook: View {
-    var hits: [SearchHit]
-
-    /// One card big on the left; on the right its name, set, price and week, then the next three
-    /// cards in a row filling the space under them.
-    var body: some View {
-        let star = hits[0]
-        HStack(alignment: .top, spacing: 16) {
-            MarketLink(hit: star) {
-                ProductImage(product: star.pictured, cornerRadius: 9)
-                    .frame(width: 136, height: 190)
-                    .background(
-                        RadialGradient(colors: [Theme.lime.opacity(0.3), .clear], center: .center, startRadius: 0, endRadius: 140)
-                            .frame(width: 280, height: 280)
-                            .allowsHitTesting(false)
-                    )
-            }
-            VStack(alignment: .leading, spacing: 0) {
-                Text(shortName(star.product.name).noWidow).font(.display(22)).tracking(-0.6).foregroundStyle(.white).lineLimit(2)
-                Text(star.product.setName ?? "").font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1).padding(.top, 4)
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(price(star)).font(.display(24)).tracking(-0.7).monospacedDigit().foregroundStyle(Theme.lime)
-                    if let c = star.change7dPct {
-                        Text("\(c >= 0 ? "+" : "")\(Int(c.rounded()))% this week").font(.geist(12, .semibold)).monospacedDigit()
-                            .foregroundStyle(c >= 0 ? Theme.lime : Theme.planPink)
-                    }
-                }
-                .padding(.top, 10)
-                Spacer(minLength: 10)
-                // The next three, side by side across the rest of the width.
-                HStack(spacing: 8) {
-                    ForEach(hits.dropFirst().prefix(3)) { hit in
-                        MarketLink(hit: hit) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                ProductImage(product: hit.pictured, cornerRadius: 4).aspectRatio(63 / 88, contentMode: .fit)
-                                Text(price(hit)).font(.geist(11, .semibold)).monospacedDigit().foregroundStyle(.white).lineLimit(1)
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                }
-            }
-            .frame(height: 190)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(.horizontal, 16)
-    }
-}
-
 // MARK: Collection of the Day
 
-/// The top of Home: one collection a day, three of its cards and a way in.
+/// Collection of the Day: the day's collection as the same row as the others, its title led by
+/// "Today's discovery".
 struct DailyDiscovery: View {
     var theme: MarketTheme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
                 MonoLabel(text: "Today's discovery").foregroundStyle(Theme.lime)
-                Text(theme.title.noWidow).font(.display(30)).tracking(-1).foregroundStyle(.white)
-                Text(theme.blurb.noWidow).font(.geist(14)).foregroundStyle(Theme.muted)
+                RowTitle(title: theme.title)
             }
-            HStack(spacing: 10) {
-                ForEach(theme.hits.prefix(3)) { hit in
-                    MarketLink(hit: hit) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            ProductImage(product: hit.pictured, cornerRadius: 6)
-                                .aspectRatio(63 / 88, contentMode: .fit)
-                                .padding(8)
-                                .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.06)))
-                            Text(Format.money(hit.market)).font(.geist(12, .semibold)).monospacedDigit().foregroundStyle(.white)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-            }
-            .cardSequence(theme.hits.map(\.product.id))
-            NavigationLink(value: theme) {
-                HStack(spacing: 6) { Text("Explore collection"); Image(systemName: "arrow.right").font(.system(size: 13, weight: .semibold)) }
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(Button3D(kind: .lime, height: 48))
+            .padding(.horizontal, 16)
+            PosterRow(hits: theme.hits)
+                .cardSequence(theme.hits.map(\.product.id))
         }
-        .padding(18)
-        .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Theme.surface))
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(Theme.border))
-        .padding(.horizontal, 16)
     }
 }
 

@@ -15,7 +15,6 @@ struct MarketHomeView: View {
     /// For you: picks from your collection (Because you collect…, Finish your sets).
     @State private var forYou = ForYouModel()
     /// How each era's market moved (Rising by era), kept on the phone between visits.
-    @State private var eraSummaries: [EraSummary] = (UserDefaults.standard.data(forKey: "era-summaries")).flatMap { try? JSONDecoder().decode([EraSummary].self, from: $0) } ?? []
     /// Themed collections: a new few each time the app opens.
     @State private var themes = ThemesModel()
     @State private var fresh = false
@@ -181,8 +180,7 @@ struct MarketHomeView: View {
             }
             .padding(.horizontal, 16)
         }
-        // Themed collections between the market's own lists: rows of big cards, a spotlight
-        // every fourth row.
+        // Themed collections between the market's own lists, each a plain row of big cards.
         let shown = themes.shown
         themeRows(shown, 0..<3)
         if trending.count > 2 {
@@ -195,39 +193,6 @@ struct MarketHomeView: View {
         if forYou.hasContent {
             ForYouSection(model: forYou)
         }
-            let modern = index.eras?.modern ?? [], midEra = index.eras?.midEra ?? [], vintage = index.eras?.vintage ?? []
-            // One color card per era, like Collection's sealed and singles boxes: modern in lime,
-            // mid-era in blue, vintage in pink. An era with no risers this week says so.
-            let summaries = Demo.isOn ? EraSummaryCard.demo(index) : eraSummaries
-            section(icon: "hourglass", "By era", summaries.isEmpty ? "This week's risers, from modern to vintage" : "How each era's market moved, and its biggest moves") {
-                // Side by side, swiped one at a time; the next card peeks in at the edge.
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(alignment: .top, spacing: 12) {
-                      if !summaries.isEmpty {
-                        // Each era's whole market: its typical change, up and down, biggest moves.
-                        ForEach(["modern", "midEra", "vintage"], id: \.self) { key in
-                            if let sum = summaries.first(where: { $0.era == key }) { EraSummaryCard(summary: sum) }
-                        }
-                        // (The row below sizes to its tallest card; the others stretch to match.)
-                      } else {
-                        // Made-up risers stand in for an era with none yet (marked Sample).
-                        // An era the server sent no risers for is filled with real risers of that era from
-                        // Home's other lists (so every card opens its page); made-up samples only if none.
-                        let m = modern.isEmpty ? Self.risers(in: "modern", index) : modern
-                        let d = midEra.isEmpty ? Self.risers(in: "midEra", index) : midEra
-                        let v = vintage.isEmpty ? Self.risers(in: "vintage", index) : vintage
-                        EraCard(era: .modern, hits: m.isEmpty ? EraCard.sample(.modern) : m, sample: m.isEmpty)
-                        EraCard(era: .midEra, hits: d.isEmpty ? EraCard.sample(.midEra) : d, sample: d.isEmpty)
-                        EraCard(era: .vintage, hits: v)
-                      }
-                    }
-                    // Every era card as tall as the fullest one, and no taller.
-                    .fixedSize(horizontal: false, vertical: true)
-                    .scrollTargetLayout()
-                }
-                .contentMargins(.horizontal, 16, for: .scrollContent)
-                .scrollTargetBehavior(.viewAligned)
-            }
         themeRows(shown, 5..<8)
         if let next = upcoming.first {
             // The next set out, with its countdown and reminder (Explore's top card).
@@ -259,11 +224,11 @@ struct MarketHomeView: View {
         // (A Cooling off row here repeated the Cooling off tile at the top: removed.)
     }
 
-    /// Some of this open's collections, by position (every fourth is a spotlight).
+    /// Some of this open's collections, by position.
     @ViewBuilder private func themeRows(_ shown: [MarketTheme], _ range: Range<Int>) -> some View {
         let r = range.clamped(to: 0..<shown.count)
         ForEach(Array(r), id: \.self) { i in
-            ThemeSection(theme: shown[i], spotlight: i % 4 == 3).id(shown[i].id)
+            ThemeSection(theme: shown[i]).id(shown[i].id)
         }
     }
 
@@ -332,10 +297,6 @@ struct MarketHomeView: View {
             if let fetched = try? await Backend.shared.api.marketInsights() {
                 if fetched.briefing != nil || insights?.day != fetched.day { insights = fetched; MarketInsights.saved = fetched }
             }
-            if let eras = try? await Backend.shared.api.eraSummaries(), eras.contains(where: { $0.tracked > 0 }) {
-                eraSummaries = eras
-                UserDefaults.standard.set(try? JSONEncoder().encode(eras), forKey: "era-summaries")
-            }
         }
         await loadChase()
     }
@@ -357,20 +318,6 @@ extension MarketHomeView {
     static func fact(for star: SearchHit, _ insights: MarketInsights?) -> String? {
         if let f = insights?.facts?[star.product.id], !f.isEmpty { return f }
         return Demo.isOn ? "Ken Sugimori, who drew many of the earliest cards, also designed most of the original 151 Pokémon." : nil
-    }
-
-    /// This week's risers from one era, out of Home's other lists (by each card's set date).
-    static func risers(in era: String, _ index: ExploreIndex) -> [SearchHit] {
-        var released: [String: String] = [:]
-        for s in index.sets { if let d = s.releaseDate { released[s.name] = d } }
-        var pool: [SearchHit] = index.trending ?? []
-        pool += index.today ?? []
-        var seen = Set<String>()
-        let fits = pool.filter { h in
-            guard (h.change7dPct ?? 0) > 0, !h.product.isSealed, seen.insert(h.product.id).inserted else { return false }
-            return MarketEras.era(of: h.releaseDate ?? h.product.setName.flatMap { released[$0] }) == era
-        }
-        return Array(fits.sorted { ($0.change7dPct ?? 0) > ($1.change7dPct ?? 0) }.prefix(5))
     }
 
     /// Today's stories; a demo makes three from its own market lists.
@@ -978,322 +925,5 @@ private struct HotSealedRow: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 4)
         }
-    }
-}
-
-// MARK: - Rising by era
-
-/// One era's market at a glance: its typical change this week (or today, until a week of prices is
-/// kept), how many cards went up and down with a thin bar, then its biggest moves (shown only
-/// when there are some). Every era card is the same height. The card turns pink when the era is down.
-private struct EraSummaryCard: View, Equatable {
-    var summary: EraSummary
-
-    private var era: EraCard.Era { summary.era == "modern" ? .modern : summary.era == "midEra" ? .midEra : .vintage }
-
-    var body: some View {
-        let down = summary.median < 0
-        let tint = down ? Theme.planPink : era.color
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(era.title).font(.display(30)).tracking(-0.8).displayTrim(30)
-                Spacer(minLength: 8)
-                MonoLabel(text: summary.window == "7d" ? "This week" : "Today")
-            }
-            VStack(alignment: .leading, spacing: 4) {
-                Text(Format.signedPercent(summary.median / 100)).font(.display(48)).tracking(-1.6).monospacedDigit()
-                    .foregroundStyle(down ? Theme.planPink : summary.median > 0 ? Theme.lime : .white)
-                    .displayTrim(48)
-                Text("Typical change across \(summary.tracked.formatted()) cards").font(.geist(13)).foregroundStyle(Theme.muted)
-            }
-            // How widely it moved: up, unchanged and down as one thin bar.
-            VStack(alignment: .leading, spacing: 8) {
-                GeometryReader { geo in
-                    let total = max(1, summary.up + summary.flat + summary.down)
-                    HStack(spacing: 2) {
-                        Capsule().fill(Theme.lime).frame(width: max(summary.up > 0 ? 4 : 0, geo.size.width * Double(summary.up) / Double(total)))
-                        Capsule().fill(Color.white.opacity(0.15))
-                        Capsule().fill(Theme.planPink).frame(width: max(summary.down > 0 ? 4 : 0, geo.size.width * Double(summary.down) / Double(total)))
-                    }
-                }
-                .frame(height: 6)
-                // In the bar's order: up on the left, steady in the middle, down on the right.
-                HStack(spacing: 10) {
-                    (Text("\(summary.up.formatted())").foregroundColor(Theme.lime) + Text(" up").foregroundColor(Theme.muted))
-                    Spacer(minLength: 0)
-                    (Text("\(summary.flat.formatted())").foregroundColor(.white) + Text(" steady").foregroundColor(Theme.muted))
-                    Spacer(minLength: 0)
-                    (Text("\(summary.down.formatted())").foregroundColor(Theme.planPink) + Text(" down").foregroundColor(Theme.muted))
-                }
-                .font(.geist(13)).monospacedDigit()
-            }
-            if !summary.moves.isEmpty {
-                VStack(alignment: .leading, spacing: 0) {
-                    MonoLabel(text: "Biggest moves").padding(.bottom, 6)
-                    ForEach(Array(summary.moves.enumerated()), id: \.element.id) { i, move in
-                        if i > 0 { Divider().overlay(Color.white.opacity(0.06)) }
-                        MarketLink(hit: move.hit) {
-                            HStack(spacing: 10) {
-                                ProductImage(product: move.hit.pictured, cornerRadius: 2).frame(width: 30, height: 42)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(move.hit.product.name).font(.geist(14, .medium)).foregroundStyle(.white).lineLimit(1)
-                                    Text(move.hit.product.setName ?? "").font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
-                                }
-                                Spacer(minLength: 8)
-                                VStack(alignment: .trailing, spacing: 2) {
-                                    Text(Format.money(move.hit.market)).font(.display(15)).tracking(-0.3).monospacedDigit().foregroundStyle(.white)
-                                    ChangeText(pct: move.changePct)
-                                }
-                            }
-                            .padding(.vertical, 8)
-                            .contentShape(Rectangle())
-                        }
-                    }
-                }
-                .cardSequence(summary.moves.map(\.id))
-            }
-        }
-        // As tall as the fullest era (the row lines them up), never a fixed height with dead space.
-        .frame(maxHeight: .infinity, alignment: .top)
-        .tinted(tint)
-        .containerRelativeFrame(.horizontal) { width, _ in width - 32 - 28 }
-    }
-
-    /// Made-up summaries from the demo's own lists (demos and screenshots).
-    static func demo(_ index: ExploreIndex) -> [EraSummary] {
-        let e = index.eras ?? MarketEras()
-        func make(_ key: String, _ hits: [SearchHit], _ median: Double, _ up: Int, _ down: Int, _ flat: Int) -> EraSummary {
-            EraSummary(era: key, window: "7d", median: median, up: up, down: down, flat: flat, tracked: up + down + flat,
-                       moves: hits.prefix(3).map { EraMove(hit: $0, changePct: $0.change7dPct ?? 0) })
-        }
-        return [make("modern", e.modern, 1.8, 1240, 610, 2210), make("midEra", e.midEra, -0.6, 310, 420, 1180), make("vintage", e.vintage, 2.4, 412, 188, 640)]
-    }
-}
-
-
-/// One era's card on Home, in the style of Collection's sealed / singles / graded boxes: the era's
-/// name and its average rise on a tag, the years it covers, its three biggest risers fanned out,
-/// then its top five as rows (each opens its card page). Eras as in `eraOf` / `MarketEras.era`.
-private struct EraCard: View, Equatable {
-    @Environment(CollectionStore.self) private var store
-    enum Era {
-        case modern, midEra, vintage
-
-        var title: String {
-            switch self {
-            case .modern: return "Modern"
-            case .midEra: return "Mid-era"
-            case .vintage: return "Vintage"
-            }
-        }
-
-        var blurb: String {
-            switch self {
-            case .modern: return "Sun & Moon on, 2017 to now"
-            case .midEra: return "Diamond & Pearl to XY, 2007 to 2016"
-            case .vintage: return "WotC and EX, before 2007"
-            }
-        }
-
-        var color: Color {
-            switch self {
-            case .modern: return Theme.lime
-            case .midEra: return Theme.planBlue
-            case .vintage: return Theme.planPink
-            }
-        }
-
-        var tagText: Color { self == .modern ? Theme.ink : .white }
-    }
-
-    var era: Era
-    var hits: [SearchHit]
-    /// Made-up risers until the real ones arrive: tagged Sample; tapping one opens the real card.
-    var sample = false
-
-    static func == (a: Self, b: Self) -> Bool { a.era == b.era && a.hits == b.hits && a.sample == b.sample }
-
-    /// Placeholder risers for an era (real cards and pictures, made-up prices and rises).
-    static func sample(_ era: Era) -> [SearchHit] {
-        let rows: [(String, String, String, String, String, Double, Double)]
-        switch era {
-        case .modern:
-            rows = [
-                ("swsh7", "215", "Umbreon VMAX (Alternate Full Art)", "Evolving Skies", "215/203", 1392, 14.2),
-                ("sv8", "238", "Pikachu ex - 238/191", "Surging Sparks", "238/191", 371.5, 11.8),
-                ("swsh7", "218", "Rayquaza VMAX (Alternate Full Art)", "Evolving Skies", "218/203", 548, 9.6),
-                ("swsh8", "270", "Espeon VMAX (Alternate Art Secret)", "Fusion Strike", "270/264", 512, 7.3),
-                ("swsh11", "186", "Giratina V (Alternate Full Art)", "Lost Origin", "186/196", 318.4, 5.9),
-            ]
-        case .midEra:
-            rows = [
-                ("xy2", "100", "Charizard EX (Full Art)", "Flashfire", "100/106", 286, 12.4),
-                ("xy12", "11", "Charizard", "Evolutions", "11/108", 64.5, 9.1),
-                ("g1", "11", "Charizard", "Generations", "11/83", 48.2, 7.7),
-                ("xy12", "13", "M Charizard EX", "Evolutions", "13/108", 41.9, 6.2),
-                ("xy2", "12", "Charizard EX", "Flashfire", "12/106", 38.6, 4.8),
-            ]
-        case .vintage:
-            rows = []
-        }
-        return rows.map { set, num, name, setName, number, price, rise in
-            let product = Product(id: "sample:era-\(set)-\(num)", source: "sample", externalId: "\(set)-\(num)", name: name, setName: setName,
-                                  setId: set, number: number, rarity: nil, productType: "Cards", kind: "single",
-                                  imageUrl: "https://images.pokemontcg.io/\(set)/\(num)_hires.png", tcgplayerId: nil, tcgplayerUrl: nil,
-                                  printings: ["Holofoil"])
-            return SearchHit(product: product, market: price, change7dPct: rise)
-        }
-    }
-
-    /// A riser that opens its card page. A sample card is looked up in Dexora's own catalog by
-    /// its name, number and set (free, no paid calls), and its real page opens.
-    @ViewBuilder private func link<L: View>(_ hit: SearchHit, @ViewBuilder _ label: () -> L) -> some View {
-        if sample {
-            Button { Task { await Self.openReal(hit.product, store: store) } } label: { label() }
-                .buttonStyle(.plain)
-        } else {
-            MarketLink(hit: hit, label: label)
-        }
-    }
-
-    /// Sample cards' real catalog ids, looked up once (when the card first shows), so a tap
-    /// opens the page at once instead of searching first.
-    @MainActor private static var realIds: [String: String] = [:]
-    /// The real cards found, handed to the store before their page opens (so it shows at once,
-    /// with its price, instead of fetching the card first).
-    @MainActor private static var realHits: [String: SearchHit] = [:]
-
-    @MainActor
-    private static func openReal(_ p: Product, store: CollectionStore) async {
-        Haptics.tap()
-        if realIds[p.id] == nil { _ = await resolve(p) }
-        // Never a dead tap: if the card can't be found, open search instead.
-        guard let id = realIds[p.id] else {
-            Router.shared.searchRequest += 1
-            return
-        }
-        if let hit = realHits[p.id] { store.seed(hit) }
-        Router.shared.product = id
-    }
-
-    @MainActor
-    private static func resolve(_ p: Product) async -> String? {
-        if let id = realIds[p.id] { return id }
-        let base = p.name.components(separatedBy: " (").first ?? p.name
-        let number = p.number?.components(separatedBy: "/").first
-        // Name and set first, then the name alone (the catalog's set names carry codes like
-        // "SWSH07: Evolving Skies" that a plain set name may not match).
-        var hits: [SearchHit] = []
-        for query in [[base, p.setName].compactMap { $0 }.joined(separator: " "), base] {
-            if let found = try? await Backend.shared.api.search(query), !found.isEmpty { hits = found; break }
-        }
-        guard !hits.isEmpty else { return nil }
-        let sameNumber = { (h: SearchHit) -> Bool in
-            guard let number, let n = h.product.number else { return false }
-            return n.components(separatedBy: "/").first == number
-        }
-        let sameSet = { (h: SearchHit) -> Bool in
-            guard let set = p.setName, let s = h.product.setName else { return false }
-            return s.localizedCaseInsensitiveContains(set)
-        }
-        let match = hits.first { sameNumber($0) && sameSet($0) } ?? hits.first(where: sameNumber) ?? hits.first(where: sameSet) ?? hits.first
-        if let match {
-            realIds[p.id] = match.product.id
-            realHits[p.id] = match
-        }
-        return match?.product.id
-    }
-
-    /// Looks up every sample card's real id in the background (all at once), ready for a tap.
-    @MainActor
-    static func prefetch(_ hits: [SearchHit]) async {
-        await withTaskGroup(of: Void.self) { group in
-            for h in hits where realIds[h.product.id] == nil {
-                group.addTask { @MainActor in _ = await resolve(h.product) }
-            }
-        }
-    }
-
-    var body: some View {
-        let top = Array(hits.prefix(5))
-        let rises = top.compactMap(\.change7dPct)
-        let average = rises.isEmpty ? nil : rises.reduce(0, +) / Double(rises.count)
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                Text(era.title).font(.display(30)).tracking(-0.8).displayTrim(30)
-                if let average {
-                    SkewTag(text: String(format: "%+.1f%% avg", average), color: era.color, textColor: era.tagText)
-                }
-                if sample {
-                    Text("SAMPLE").font(.mono(10)).tracking(1.2).foregroundStyle(Theme.subtle)
-                }
-            }
-            if top.isEmpty {
-                Text("No big movers in this era this\u{00A0}week.")
-                    .font(.geist(14)).foregroundStyle(Theme.muted)
-                    .frame(maxWidth: .infinity, minHeight: 80)
-            } else {
-                VStack(spacing: 0) {
-                    fan(Array(top.prefix(3)))
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 10)
-                        .padding(.bottom, 22)
-                    ForEach(Array(top.enumerated()), id: \.element.id) { i, hit in
-                        if i > 0 { Divider().overlay(Color.white.opacity(0.06)) }
-                        link(hit) { row(i + 1, hit) }
-                    }
-                }
-                // Straight on the card's color (no dark panel behind the cards), with a little room
-                // under the list.
-                .padding(.bottom, 8)
-            }
-        }
-        .tinted(era.color)
-        .cardSequence(sample ? [] : top.map(\.product.id))
-        // Sample cards: their real pages looked up now, so tapping one opens at once.
-        .task(id: sample) { if sample { await Self.prefetch(top) } }
-        // Most of the screen, so the next era peeks in.
-        .containerRelativeFrame(.horizontal) { width, _ in width - 32 - 28 }
-    }
-
-    /// The three biggest risers fanned out from the middle (the first in front), each opening its page.
-    private func fan(_ shown: [SearchHit]) -> some View {
-        let mid = Double(shown.count - 1) / 2
-        let order = shown.count == 3 ? [1, 0, 2] : Array(0 ..< shown.count)
-        return HStack(spacing: -26) {
-            ForEach(order, id: \.self) { k in
-                let hit = shown[k]
-                let i = Double(order.firstIndex(of: k) ?? 0)
-                link(hit) {
-                    ProductImage(product: hit.pictured, cornerRadius: 4)
-                        .frame(width: 84, height: 117)
-                        .shadow(color: .black.opacity(0.4), radius: 8, y: 5)
-                }
-                .rotationEffect(.degrees((i - mid) * 9), anchor: .bottom)
-                .offset(y: abs(i - mid) * 6)
-                .zIndex(k == 0 ? 2 : 0)
-            }
-        }
-    }
-
-    /// One riser: its place, small art, name and set, then price and its week's rise.
-    private func row(_ place: Int, _ hit: SearchHit) -> some View {
-        HStack(spacing: 10) {
-            Text("\(place)").font(.mono(11)).foregroundStyle(Theme.subtle).frame(width: 14, alignment: .leading)
-            ProductImage(product: hit.pictured, cornerRadius: 2).frame(width: 30, height: 42)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(hit.product.name).font(.geist(14, .medium)).foregroundStyle(.white).lineLimit(1)
-                if let set = hit.product.setName {
-                    Text(set).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
-                }
-            }
-            Spacer(minLength: 8)
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(Format.money(hit.market)).font(.display(15)).tracking(-0.3).monospacedDigit().foregroundStyle(.white)
-                ChangeText(pct: hit.change7dPct)
-            }
-        }
-        .padding(.vertical, 8)
-        .contentShape(Rectangle())
     }
 }

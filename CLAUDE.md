@@ -67,11 +67,8 @@ and say exactly what to run or click.
   name, one line ("Card of the day • set • +12%", only the number colored), and two buttons:
   View card (light) and + Wishlist (dark). No stats, chart, fun fact, countdown, rays or electric
   border (the owner wanted it simple). Collection of the Day follows, then Heating up / Cooling off.
-- **By era on Home:** each era card sums up its whole market (`/api/eras`, `src/lib/server/era-summary.ts`,
-  saved ~6 hours): the typical (median) change across every tracked single from $5, up / down /
-  steady counts with a thin bar, and up to 3 biggest moves from $20 (hidden when none). Uses the
-  7-day change once 40+ cards in the era have one, else today's. App: `EraSummaryCard`, all one
-  height, pink when the era is down; the old risers cards (`EraCard`) only when there's no summary.
+- **By era on Home:** removed (the owner's call). `/api/eras` and `src/lib/server/era-summary.ts` still exist
+  on the server but the app no longer shows or loads them.
 - **Eras** (Home's Rising by era): vintage before Diamond & Pearl (WotC and EX, to early 2007),
   mid-era Diamond & Pearl through XY (2007–2016), modern Sun & Moon on (2017–). `eraOf` in
   `src/lib/explore/movers.ts` and `MarketEras.era` in the app (same cut-off dates).
@@ -217,11 +214,10 @@ and say exactly what to run or click.
   `theme-ai:<id>:<monday>`), market (trending/today/drops/rediscovered), fresh (sets out in 90
   days), popular (kept or watched by 2+ collectors). Japanese cards only in `japanese` themes.
   Saved a day per theme in `api_cache`; `/api/themes`. AI proposes 5 more weekly (via `ai.ts`). No "Every price of <Pokémon>" collections (removed; the AI can't propose them).
-  The app (`Features/Home/Themes.swift`): Collection of the Day (`DailyDiscovery`) leads Home,
+  The app (`Features/Home/Themes.swift`): Collection of the Day (`DailyDiscovery`, the same row with a "Today's discovery" label) leads Home,
   then ~14 per launch between Home's lists, Netflix-style: one look for all (`PosterRow`: title
   only, no arrow, not tappable, no line under it; every card of the collection in the row, big
-  150×209 with a price tag; no separate page from Home's rows), every fourth row leads with a
-  `SpotlightLook` and the rest follow in a row; new mix each open, weighted to your Pokémon, era and the `featured` lineup, and
+  150×209 with a price tag; no separate page from Home's rows; no spotlight or other layouts, every row the same); new mix each open, weighted to your Pokémon, era and the `featured` lineup, and
   collections shown on the last two opens are much less likely (`themes-recent` on the phone).
   Your lists come last as the same rows (`HomeListRows`). Home's other sections have no subtitle
   either. Plus "Your next favorite" (For you's
