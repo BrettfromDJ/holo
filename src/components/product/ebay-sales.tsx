@@ -194,10 +194,14 @@ export function EbaySales({
                     <span className="w-14 shrink-0 text-[12px] text-muted">{formatShortDate(s.soldDate)}</span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[13px] text-foreground/85 group-hover:text-foreground">{s.title}</span>
-                      <span className="mt-0.5 flex flex-wrap gap-1.5 text-[11px] text-muted">
-                        {s.condition && <ConditionTag condition={s.condition} />}
-                        {s.bestOffer && <span className="whitespace-nowrap rounded-full bg-surface-2 px-1.5">Best offer</span>}
-                        {s.bestOffer && s.listPrice !== null && <span className="tabular whitespace-nowrap">listed {money(s.listPrice)}</span>}
+                      {/* One line: the condition tag, then "Best offer · listed $X" as plain text. Same as the app. */}
+                      <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] text-muted">
+                        {s.condition && <span className="shrink-0"><ConditionTag condition={s.condition} /></span>}
+                        {s.bestOffer && (
+                          <span className="tabular truncate">
+                            Best offer{s.listPrice !== null ? ` · listed ${money(s.listPrice)}` : ""}
+                          </span>
+                        )}
                       </span>
                     </span>
                     <span className="tabular shrink-0 text-[15px] font-semibold">{money(s.price)}</span>

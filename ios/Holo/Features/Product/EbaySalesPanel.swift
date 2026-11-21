@@ -347,11 +347,15 @@ private struct SaleRow: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(sale.title).font(.geist(13)).foregroundStyle(Color.white.opacity(0.85)).lineLimit(1)
                     if sale.condition != nil || sale.bestOffer {
+                        // One line: the condition tag, then "Best offer · listed $X" as plain quiet
+                        // text (no second pill), never wrapping.
                         HStack(spacing: 6) {
-                            if let c = sale.condition { ConditionTag(condition: c) }
+                            if let c = sale.condition { ConditionTag(condition: c).fixedSize() }
                             if sale.bestOffer {
-                                Text("Best offer").padding(.horizontal, 6).background(Capsule().fill(Theme.surface2))
-                                if let listed = sale.listPrice { Text("listed \(Format.money(listed))").monospacedDigit() }
+                                Text(["Best offer", sale.listPrice.map { "listed \(Format.money($0))" }].compactMap { $0 }.joined(separator: " · "))
+                                    .monospacedDigit()
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
                             }
                         }
                         .font(.geist(11)).foregroundStyle(Theme.muted)
