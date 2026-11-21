@@ -19,13 +19,16 @@ struct OtherVersionsRow: View {
                 Color.clear.frame(height: 0)
             } else {
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("Similar cards").font(.display(22)).tracking(22 * -0.03).displayTrim(22)
-                    Text("Cards with the same name, from other sets and\u{00A0}printings").font(.geist(13)).foregroundStyle(Theme.muted)
-                        .padding(.top, 6)
+                    // Like Home's rows: the title only, then the cards big with their price on glass.
+                    RowTitle(title: "Similar cards")
                     ScrollView(.horizontal, showsIndicators: false) {
-                        LazyHStack(alignment: .top, spacing: 12) {
+                        LazyHStack(alignment: .top, spacing: 10) {
                             ForEach(versions) { hit in
-                                CardLink(productId: hit.product.id) { tile(hit) }
+                                CardLink(productId: hit.product.id) {
+                                    Poster(product: hit.pictured, price: hit.market)
+                                        .accessibilityElement(children: .combine)
+                                        .accessibilityLabel("\(hit.product.name), \(Self.shortSet(hit.product.setName) ?? ""), \(Format.money(hit.market))")
+                                }
                                     .buttonStyle(.plain)
                                     .simultaneousGesture(TapGesture().onEnded { store.seed(hit) })
                             }
@@ -33,30 +36,16 @@ struct OtherVersionsRow: View {
                     }
                     .contentMargins(.horizontal, 16, for: .scrollContent)
                     .padding(.horizontal, -16)
-                    .padding(.top, 14)
-                    // Thumbnails, decoded off the main thread (the card page asks for full size).
-                    .imageMaxPixel(300)
+                    .frame(height: Poster.height)
+                    .padding(.top, 12)
+                    // Decoded off the main thread at row size (the card page asks for full size).
+                    .imageMaxPixel(480)
                 }
                 .padding(.top, 24)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .task(id: product.id) { await load() }
-    }
-
-    private func tile(_ hit: SearchHit) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            ProductImage(product: hit.pictured, cornerRadius: 5)
-                .frame(width: 84, height: 117)
-                .padding(.bottom, 5)
-            Text(Self.shortSet(hit.product.setName) ?? " ")
-                .font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
-            Text(Format.money(hit.market))
-                .font(.geist(13, .semibold)).monospacedDigit().foregroundStyle(.white).lineLimit(1)
-        }
-        .frame(width: 84, alignment: .leading)
-        .contentShape(Rectangle())
-        .accessibilityElement(children: .combine)
     }
 
     private func load() async {
