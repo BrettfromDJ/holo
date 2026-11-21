@@ -10,6 +10,7 @@ struct MarketHomeView: View {
     @Environment(CollectionStore.self) private var store
     /// Cards on Home grow into their card page when tapped (iOS 18 and later).
     @Namespace private var cardZoom
+    @State private var searchOpen = false
     /// Home's market lists: the copy saved last time (read as the app started), then fresh.
     @State private var index: ExploreIndex? = SavedExplore.preloaded
     /// "Today in the hobby" and why the highlighted cards moved (written daily by Claude).
@@ -43,14 +44,11 @@ struct MarketHomeView: View {
                 // Lazy: sections further down (and their pictures) load as you reach them, so the
                 // Top 10 near the top isn't waiting in line behind pictures you can't see yet.
                 LazyVStack(alignment: .leading, spacing: 32) {
-                    // Straight in: your collection in one line, then the card of the day (no big
-                    // heading taking the top of the screen).
-                    if store.status == .ready, !store.holdings.isEmpty {
-                        // 10pt above Card of the day, the same gap as between the three tiles
-                        // under it (the page's sections are 32 apart).
-                        // A little room under its chart, so Card of the day doesn't cut the chart's bottom off.
-                        YourCollectionStrip().padding(.horizontal, 16).padding(.bottom, -10)
-                    }
+                    // Straight in: the search box (opens search with the keyboard up), then the card
+                    // of the day. (The Your collection strip was here: it lives on Collection.)
+                    SearchFieldButton(prompt: "Search any card or sealed product", scan: .collection) { searchOpen = true }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, -12)
                     // (Today in the hobby was removed: the owner's call.)
                     if let index {
                         sections(index)
@@ -70,6 +68,7 @@ struct MarketHomeView: View {
                     .ignoresSafeArea(edges: .top)
             }
             .environment(\.cardZoom, cardZoom)
+            .fullScreenCover(isPresented: $searchOpen) { SearchScreen() }
             .background(Theme.background)
             .tabTopReset("home", path: $path)
             .tabBarClearance()
@@ -489,69 +488,6 @@ private struct HobbyBriefing: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
-    }
-}
-
-/// Your collection in one line on Home: its worth and today's move, tapping through to Collection.
-private struct YourCollectionStrip: View {
-    @Environment(CollectionStore.self) private var store
-
-    var body: some View {
-        let s = store.summary
-        // The last 30 days (as Collection's header): its line, colored by whether it's up.
-        let month = Array(store.timeline.suffix(31))
-        let monthChange = (month.last?.value ?? 0) - (month.first?.value ?? 0)
-        let tint = monthChange < 0 ? Theme.planPink : Theme.lime
-        Button { Router.shared.tabRequest = "collection-summary" } label: {
-            VStack(alignment: .leading, spacing: 10) {
-                MonoLabel(text: "Your collection")
-                // The worth big, today under it; the month's change on the right.
-                HStack(alignment: .lastTextBaseline, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(Format.money(s.value)).font(.display(36)).tracking(-1.2).monospacedDigit().foregroundStyle(.white)
-                            .lineLimit(1).minimumScaleFactor(0.7)
-                        HStack(spacing: 6) {
-                            DeltaPill(ratio: s.dayRatio, size: 11)
-                            Text(Format.signedMoney(s.dayChange)).font(.geist(13, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(s.dayChange))
-                            Text("today").font(.geist(13)).foregroundStyle(Theme.muted)
-                        }
-                        .lineLimit(1)
-                    }
-                    .layoutPriority(1)
-                    Spacer(minLength: 0)
-                    if month.count > 1 {
-                        VStack(alignment: .trailing, spacing: 2) {
-                            Text(Format.signedMoney(monthChange)).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(monthChange))
-                            Text("past 30 days").font(.geist(12)).foregroundStyle(Theme.muted)
-                        }
-                        .lineLimit(1)
-                    }
-                }
-                // The month as a wide chart across the screen, fading out at both edges.
-                if month.count > 1 {
-                    Sparkline(points: month, color: tint)
-                        .frame(height: 70)
-                        .padding(.horizontal, -16)
-                        .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.08),
-                                                     .init(color: .black, location: 0.92), .init(color: .clear, location: 1)],
-                                             startPoint: .leading, endPoint: .trailing))
-                        .padding(.top, 4)
-                }
-            }
-            // No box: straight on the page, lined up with the tiles' edges, with a faint glow of
-            // the month's color behind the chart.
-            .padding(.vertical, 6)
-            .background(alignment: .bottom) {
-                // Centred behind the chart and fading to nothing inside its own frame on every side
-                // (radius half the height), widened sideways: no hard edge at the top or bottom.
-                RadialGradient(colors: [tint.opacity(0.16), .clear], center: .center, startRadius: 0, endRadius: 80)
-                    .frame(height: 160)
-                    .scaleEffect(x: 2.2, y: 1, anchor: .center)
-                    .allowsHitTesting(false)
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
     }
 }
 

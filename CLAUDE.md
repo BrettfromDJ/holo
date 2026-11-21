@@ -62,6 +62,8 @@ and say exactly what to run or click.
   have no changes from TCG API, so it keeps each Pokémon card's daily price in `catalog_price_days`
   (from $5, 9 days) and fills the changes itself (`src/lib/explore/price-days.ts`); TCG API's own
   changes win when it sends them.
+- Home opens with a search box (`SearchFieldButton`, opens `SearchScreen`), not the old Your
+  collection strip (removed).
 - **Card of the day** leads Home as a clean poster like a streaming app's featured title
   (`CardOfTheDay`): the card big on its own blurred art with a soft glow (pink when down), its
   name, one line ("Card of the day • set • +12%", only the number colored), and two buttons:
