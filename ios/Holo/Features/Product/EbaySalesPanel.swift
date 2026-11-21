@@ -158,43 +158,35 @@ struct EbaySalesPanel: View {
                     .padding(.top, 8)
             }
         }
-        // eBay's own sold listings for this card (and the open grade): every recent sale.
-        if let product = store.products[productId], let url = Self.soldURL(product, grade: tab == Self.ungradedTab ? nil : tab) {
-            // A clear button, not a quiet link: it's the way to every recent sale.
-            Link(destination: url) {
-                HStack(spacing: 8) {
-                    Text("See all \(tab == Self.ungradedTab ? "" : "\(tab) ")sold on eBay")
-                    Image(systemName: "arrow.up.right").font(.system(size: 12, weight: .semibold))
+        // eBay's own listings for this card (and the open grade), side by side: every recent
+        // sale (lime) and what's for sale now (quiet). Short words: the panel already says eBay.
+        if let product = store.products[productId] {
+            let grade = tab == Self.ungradedTab ? nil : tab
+            let prefix = grade.map { "\($0) " } ?? ""
+            HStack(spacing: 8) {
+                if let sold = Self.soldURL(product, grade: grade) {
+                    Link(destination: sold) { ebayPill("\(prefix)sold", lime: true) }.buttonStyle(.plain)
                 }
-                .font(.geist(15, .semibold)).foregroundStyle(Theme.lime)
-                .frame(maxWidth: .infinity).frame(height: 46)
-                .background(Capsule().fill(Theme.lime.opacity(0.12)))
-                // Alive: a light sweeps across now and then, and a lime spark runs round the edge
-                // (both one cheap looping animation each, paused off screen, still with Reduce Motion).
-                .overlay(Sheen(strength: 0.22).clipShape(Capsule()))
-                .overlay(ElectricBorder(radius: 23, period: 4))
-                .contentShape(Capsule())
+                if let listings = Self.searchURL(product, grade: grade, sold: false) {
+                    Link(destination: listings) { ebayPill("\(prefix)for sale", lime: false) }.buttonStyle(.plain)
+                }
             }
-            .buttonStyle(.plain)
             .padding(.top, 16)
-            // What's for sale right now, cheapest first: a quieter second button.
-            if let listings = Self.searchURL(product, grade: tab == Self.ungradedTab ? nil : tab, sold: false) {
-                Link(destination: listings) {
-                    HStack(spacing: 8) {
-                        Text("See \(tab == Self.ungradedTab ? "" : "\(tab) ")for sale on eBay")
-                        Image(systemName: "arrow.up.right").font(.system(size: 12, weight: .semibold))
-                    }
-                    .font(.geist(15, .semibold)).foregroundStyle(.white)
-                    .frame(maxWidth: .infinity).frame(height: 46)
-                    .background(Capsule().fill(Color.white.opacity(0.08)))
-                    .overlay(Capsule().strokeBorder(Theme.borderStrong, lineWidth: 1))
-                    .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .padding(.top, 10)
-            }
-            // (TCGplayer's page is on the What's it worth raw? panel now.)
         }
+    }
+
+    /// One of the two eBay buttons: "See … ↗" in a capsule, lime for sold, quiet for for-sale.
+    private func ebayPill(_ what: String, lime: Bool) -> some View {
+        HStack(spacing: 6) {
+            Text("See \(what)").lineLimit(1).minimumScaleFactor(0.8)
+            Image(systemName: "arrow.up.right").font(.system(size: 11, weight: .semibold))
+        }
+        .font(.geist(14, .semibold))
+        .foregroundStyle(lime ? Theme.lime : .white)
+        .frame(maxWidth: .infinity).frame(height: 42)
+        .background(Capsule().fill(lime ? Theme.lime.opacity(0.12) : Color.white.opacity(0.08)))
+        .overlay(Capsule().strokeBorder(lime ? Theme.lime.opacity(0.25) : Theme.borderStrong, lineWidth: 1))
+        .contentShape(Capsule())
     }
 
     /// The words sellers use for a set in titles: the set's name without its code prefix

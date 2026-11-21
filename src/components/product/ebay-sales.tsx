@@ -216,25 +216,30 @@ export function EbaySales({
           )}
         </>
       )}
-      {soldUrl && (
-        <a
-          href={soldUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[var(--lime)]/12 text-[14px] font-semibold text-[var(--lime)] ring-1 ring-inset ring-[var(--lime)]/45 transition-colors hover:bg-[var(--lime)]/20"
-        >
-          See all {tab === UNGRADED ? "" : `${tab} `}sold on eBay <ExternalLink className="size-3.5" />
-        </a>
-      )}
-      {listingsUrl && (
-        <a
-          href={listingsUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-2.5 flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[var(--foreground)]/[0.07] text-[14px] font-semibold text-foreground ring-1 ring-inset ring-[var(--border-strong)] transition-colors hover:bg-[var(--foreground)]/[0.12]"
-        >
-          See {tab === UNGRADED ? "" : `${tab} `}for sale on eBay <ExternalLink className="size-3.5" />
-        </a>
+      {/* Side by side, short words (the panel already says eBay): sold in lime, for sale quiet. Same as the app. */}
+      {(soldUrl || listingsUrl) && (
+        <div className="mt-4 flex gap-2">
+          {soldUrl && (
+            <a
+              href={soldUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="flex h-10 min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[var(--lime)]/12 text-[14px] font-semibold text-[var(--lime)] ring-1 ring-inset ring-[var(--lime)]/25 transition-colors hover:bg-[var(--lime)]/20"
+            >
+              See {tab === UNGRADED ? "" : `${tab} `}sold <ExternalLink className="size-3.5" />
+            </a>
+          )}
+          {listingsUrl && (
+            <a
+              href={listingsUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="flex h-10 min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[var(--foreground)]/[0.07] text-[14px] font-semibold text-foreground ring-1 ring-inset ring-[var(--border-strong)] transition-colors hover:bg-[var(--foreground)]/[0.12]"
+            >
+              See {tab === UNGRADED ? "" : `${tab} `}for sale <ExternalLink className="size-3.5" />
+            </a>
+          )}
+        </div>
       )}
       {product?.tcgplayerUrl && (
         <a
