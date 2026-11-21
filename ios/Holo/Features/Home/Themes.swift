@@ -101,6 +101,23 @@ final class ThemesModel {
         UserDefaults.standard.set(Array(Set(ids + lastAtLaunch)), forKey: "themes-recent")
     }
 
+    /// For one of Home's tabs: every collection cut down to that kind of card, keeping those with
+    /// enough left (the day's mix first, then the rest), at most 14.
+    func filtered(_ f: HomeFilter) -> [MarketTheme] {
+        var ordered = shown
+        if let daily { ordered.insert(daily, at: 0) }
+        let seen = Set(ordered.map(\.id))
+        ordered += all.filter { !seen.contains($0.id) }
+        var out: [MarketTheme] = []
+        for t in ordered {
+            var t = t
+            t.hits = t.hits.filter(f.fits)
+            if t.hits.count >= 4 { out.append(t) }
+            if out.count >= 14 { break }
+        }
+        return out
+    }
+
     /// Your next favorite: cards of the Pokémon you own most of that you don't have yet.
     var nextFavorite: MarketTheme?
 
@@ -369,5 +386,27 @@ struct ThemePage: View {
         .background(Theme.background)
         .tabBarClearance()
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: Home's tabs
+
+/// Home's tabs: All, or only one kind of card in every row.
+enum HomeFilter: String, CaseIterable, Hashable {
+    case all = "All", singles = "Singles", sealed = "Sealed", japanese = "Japanese", vintage = "Vintage"
+
+    func fits(_ hit: SearchHit) -> Bool {
+        switch self {
+        case .all: return true
+        case .singles: return !hit.product.isSealed
+        case .sealed: return hit.product.isSealed
+        case .japanese: return Self.isJapanese(hit)
+        case .vintage: return MarketEras.era(of: hit.releaseDate) == "vintage"
+        }
+    }
+
+    private static func isJapanese(_ hit: SearchHit) -> Bool {
+        if let g = hit.gameName?.lowercased(), g.contains("japan") { return true }
+        return (hit.product.setName ?? "").range(of: "japanese", options: .caseInsensitive) != nil
     }
 }

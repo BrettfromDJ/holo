@@ -11,6 +11,8 @@ struct MarketHomeView: View {
     /// Cards on Home grow into their card page when tapped (iOS 18 and later).
     @Namespace private var cardZoom
     @State private var searchOpen = false
+    /// Home's tabs (All, Singles, Sealed, Japanese, Vintage): every row below shows only that kind.
+    @State private var filter = HomeFilter.all
     /// Home's market lists: the copy saved last time (read as the app started), then fresh.
     @State private var index: ExploreIndex? = SavedExplore.preloaded
     /// "Today in the hobby" and why the highlighted cards moved (written daily by Claude).
@@ -47,6 +49,10 @@ struct MarketHomeView: View {
                     // Straight in: the search box (opens search with the keyboard up), then the card
                     // of the day. (The Your collection strip was here: it lives on Collection.)
                     SearchFieldButton(prompt: "Search any card or sealed product", scan: .collection) { searchOpen = true }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, -18)
+                    // Tabs like a streaming app's: they reshape every row below.
+                    ChipPicker(options: HomeFilter.allCases.map { ($0, $0.rawValue) }, selection: $filter, scrolls: true)
                         .padding(.horizontal, 16)
                         .padding(.bottom, -12)
                     // (Today in the hobby was removed: the owner's call.)
@@ -142,6 +148,58 @@ struct MarketHomeView: View {
     }
 
     @ViewBuilder private func sections(_ index: ExploreIndex) -> some View {
+        if filter == .all {
+            allSections(index)
+        } else {
+            filteredSections(index)
+        }
+    }
+
+    /// One tab's Home: the same pieces, each showing only that kind (Singles, Sealed, Japanese or
+    /// Vintage); rows with too few cards of the kind drop out.
+    @ViewBuilder private func filteredSections(_ index: ExploreIndex) -> some View {
+        let f = filter
+        let today = (index.today ?? []).filter(f.fits)
+        let week = ((index.trending ?? []) + (index.hotSealed ?? [])).filter(f.fits)
+        let drops = (index.drops ?? []).filter(f.fits)
+        let top = Array(Self.unique(week).sorted { ($0.change7dPct ?? 0) > ($1.change7dPct ?? 0) }.prefix(10))
+        let rows = themes.filtered(f)
+        Group {
+            if let star = today.first {
+                CardOfTheDay(hit: star, kind: .day)
+            } else if let star = top.first {
+                CardOfTheDay(hit: star, kind: .week)
+            }
+        }
+        .padding(.horizontal, 16)
+        if !top.isEmpty || !drops.isEmpty {
+            HStack(spacing: 10) {
+                let risers = Array((today.isEmpty ? Array(top.dropFirst()) : top).prefix(5))
+                if !risers.isEmpty { HotColdTile(hits: risers, hot: true) }
+                if !drops.isEmpty { HotColdTile(hits: Array(drops.prefix(5)), hot: false) }
+            }
+            .padding(.horizontal, 16)
+        }
+        themeRows(rows, 0..<2)
+        if top.count > 2 {
+            section(icon: "", "Top 10 this week", "") {
+                TopTenRow(hits: top).cardSequence(top.map(\.product.id))
+            }
+        }
+        themeRows(rows, 2..<max(2, rows.count))
+        if today.isEmpty && top.isEmpty && rows.isEmpty {
+            Text("Nothing to show here yet.").font(.geist(15)).foregroundStyle(Theme.muted)
+                .frame(maxWidth: .infinity).padding(.top, 40)
+        }
+    }
+
+    /// Each product once (the market lists can overlap).
+    static func unique(_ hits: [SearchHit]) -> [SearchHit] {
+        var seen = Set<String>()
+        return hits.filter { seen.insert($0.product.id).inserted }
+    }
+
+    @ViewBuilder private func allSections(_ index: ExploreIndex) -> some View {
         let upcoming = self.upcoming
         let recent = self.recent
         let trending = index.trending ?? []
