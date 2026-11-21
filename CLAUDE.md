@@ -219,8 +219,9 @@ and say exactly what to run or click.
   Saved a day per theme in `api_cache`; `/api/themes`. AI proposes 5 more weekly (via `ai.ts`). No "Every price of <Pokémon>" collections (removed; the AI can't propose them).
   The app (`Features/Home/Themes.swift`): Collection of the Day (`DailyDiscovery`) leads Home,
   then ~14 per launch between Home's lists, Netflix-style: one look for all (`PosterRow`: title
-  only with a chevron, no line under it, big 150×209 cards with a price tag), every fourth row a
-  `SpotlightLook`; new mix each open, weighted to your Pokémon, era and the `featured` lineup, and
+  only, no arrow, not tappable, no line under it; every card of the collection in the row, big
+  150×209 with a price tag; no separate page from Home's rows), every fourth row leads with a
+  `SpotlightLook` and the rest follow in a row; new mix each open, weighted to your Pokémon, era and the `featured` lineup, and
   collections shown on the last two opens are much less likely (`themes-recent` on the phone).
   Your lists come last as the same rows (`HomeListRows`). Home's other sections have no subtitle
   either. Plus "Your next favorite" (For you's

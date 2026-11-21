@@ -185,19 +185,25 @@ struct SeededRandom: RandomNumberGenerator {
 
 // MARK: A theme on Home
 
-/// One collection on Home, like a streaming app's row: its title (tap for the whole collection),
-/// then its cards big in a row you swipe. Every few rows one is a spotlight instead.
+/// One collection on Home, like a streaming app's row: its title, then every card in it big in a
+/// row you swipe (no separate page). Every few rows one leads with a spotlight, the rest follow.
 struct ThemeSection: View {
     var theme: MarketTheme
     var spotlight = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            NavigationLink(value: theme) { RowTitle(title: theme.title, fresh: theme.fresh == true) }
-                .buttonStyle(.plain)
+            RowTitle(title: theme.title, fresh: theme.fresh == true)
                 .padding(.horizontal, 16)
             Group {
-                if spotlight { SpotlightLook(hits: theme.hits) } else { PosterRow(hits: theme.hits) }
+                if spotlight {
+                    VStack(alignment: .leading, spacing: 14) {
+                        SpotlightLook(hits: theme.hits)
+                        if theme.hits.count > 4 { PosterRow(hits: Array(theme.hits.dropFirst(4))) }
+                    }
+                } else {
+                    PosterRow(hits: theme.hits)
+                }
             }
             .cardSequence(theme.hits.map(\.product.id))
         }
@@ -205,7 +211,7 @@ struct ThemeSection: View {
     }
 }
 
-/// A row's title: no line under it, a small chevron after it.
+/// A row's title: no line under it, no arrow (the row itself holds every card).
 struct RowTitle: View {
     var title: String
     var fresh = false
@@ -214,7 +220,6 @@ struct RowTitle: View {
         HStack(spacing: 8) {
             Text(title).font(.display(22)).tracking(22 * -0.03).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.8).displayTrim(22)
             if fresh { SkewTag(text: "New") }
-            Image(systemName: "chevron.right").font(.system(size: 13, weight: .bold)).foregroundStyle(Theme.subtle)
             Spacer(minLength: 0)
         }
         .contentShape(Rectangle())
@@ -228,14 +233,14 @@ private func shortName(_ name: String) -> String {
     name.range(of: " - ").map { String(name[..<$0.lowerBound]) } ?? name
 }
 
-/// The cards big, all one size, in a row you swipe; each with its price on a small tag.
+/// Every card, big, all one size, in a row you swipe; each with its price on a small tag.
 private struct PosterRow: View {
     var hits: [SearchHit]
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             LazyHStack(spacing: 10) {
-                ForEach(hits.prefix(20)) { hit in
+                ForEach(hits) { hit in
                     MarketLink(hit: hit) { Poster(product: hit.pictured, price: hit.market) }
                 }
             }
@@ -268,7 +273,7 @@ struct Poster: View {
 
 // MARK: Your lists, at the bottom of Home
 
-/// Each of your lists as a row like the collections above (title opens the list).
+/// Each of your lists as a row like the collections above, every card in it.
 struct HomeListRows: View {
     @Environment(CollectionStore.self) private var store
     @Environment(GroupsStore.self) private var groups
@@ -276,10 +281,9 @@ struct HomeListRows: View {
     var body: some View {
         let lists = groups.shelves.filter { !$0.product_ids.isEmpty }
         ForEach(lists) { list in
-            let ids = Array(list.product_ids.prefix(20))
+            let ids = list.product_ids
             VStack(alignment: .leading, spacing: 12) {
-                NavigationLink(value: ListRoute.list(list.id)) { RowTitle(title: list.name) }
-                    .buttonStyle(.plain)
+                RowTitle(title: list.name)
                     .padding(.horizontal, 16)
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: 10) {
