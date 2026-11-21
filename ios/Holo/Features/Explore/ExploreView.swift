@@ -333,14 +333,7 @@ struct SetView: View {
                     emptyNote
                 } else if let derived {
                     VStack(alignment: .leading, spacing: 36) {
-                        HStack(spacing: 8) {
-                            StatTile(label: "Singles", value: Double(singles.count))
-                            StatTile(label: "Sealed", value: Double(sealed.count))
-                            if !singles.isEmpty {
-                                StatTile(label: "Set value", value: derived.setValue, money: true)
-                            }
-                        }
-                        .padding(.horizontal, 16)
+                        // (The Singles / Sealed / Set value tiles were removed: the owner's call.)
                         chase(derived, ownedIds: ownedIds)
                             .cardSequence(derived.chase.map(\.product.id))
                     }
