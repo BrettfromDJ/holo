@@ -96,9 +96,11 @@ export function SetLogo({ url, className }: { url: string | null | undefined; cl
 export function SetArt({ set, className }: { set: Pick<ExploreSet, "iconUrl" | "imageUrl" | "logoUrl" | "name"> & { gameSlug?: string | null }; className?: string }) {
   // No art of our own on a Pokémon set: the Pokémon logo (the owner's file), crisp, with room around it.
   const pokemon = (set.gameSlug ?? "").toLowerCase().startsWith("pokemon");
+  // TCG API's banner for these is a blurry copy of the logo: only our own art counts as art.
+  const ownArt = Boolean(set.iconUrl?.includes("/sets/pokemon"));
   return (
     <div className={cn("relative flex items-center justify-center overflow-hidden bg-image-well", className)}>
-      {set.iconUrl ? (
+      {set.iconUrl && (ownArt || !pokemon) ? (
         <>
           <img src={set.iconUrl} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-[var(--ease-apple)] group-hover:scale-[1.03]" />
           <SetLogo url={set.logoUrl} />

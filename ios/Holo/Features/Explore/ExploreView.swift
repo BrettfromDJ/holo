@@ -1194,6 +1194,9 @@ struct SetArt: View {
     }
 
     private var isPokemon: Bool { self.set.gameSlug.lowercased().hasPrefix("pokemon") }
+    /// A Pokémon set without our own art: TCG API's banner for these is a blurry copy of the
+    /// Pokémon logo, so the crisp logo stands in for it.
+    private var usesLogoMark: Bool { isPokemon && !(self.set.iconUrl ?? "").contains("/sets/pokemon") }
 
     /// The Pokémon logo (the owner's file, a vector), centred with generous room around it.
     private var pokemonMark: some View {
@@ -1225,7 +1228,9 @@ struct SetArt: View {
         ZStack {
             Theme.well
             // Underneath: the mark, for a moment while the banner loads (drawn, not downloaded).
-            if set.iconUrl == nil {
+            if usesLogoMark {
+                pokemonMark
+            } else if set.iconUrl == nil {
                 if isPokemon {
                     // No art of our own: the Pokémon logo, crisp and small with room around it
                     // (the catalog's own picture for these is a blurry copy of it).
@@ -1240,7 +1245,7 @@ struct SetArt: View {
             } else {
                 icon
             }
-            if let banner = set.iconUrl.flatMap(URL.init(string:)) {
+            if !usesLogoMark, let banner = set.iconUrl.flatMap(URL.init(string:)) {
                 Color.clear
                     .overlay {
                         if parallax {

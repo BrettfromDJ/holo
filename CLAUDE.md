@@ -199,7 +199,8 @@ and say exactly what to run or click.
   logo, symbol; lists in `src/lib/set-art-manifest.json` / `-ja.json`), matched in `src/lib/set-art.ts` (Japanese by set code first)
   and sent by `/api/explore` as `iconUrl` (banner) + `logoUrl`; TCG API's art is the fallback.
   New sets: add a folder and a manifest entry.
-  Pokémon sets with none of our own art show the Pokémon logo (the owner's SVG: app asset `PokemonLogo`,
+  Pokémon sets whose banner isn't our own (`/sets/pokemon` in `iconUrl`; TCG API's banner for these is
+  a blurry Pokémon logo) show the Pokémon logo (the owner's SVG: app asset `PokemonLogo`,
   web `/brands/pokemon.svg`) small with generous padding, instead of TCG API's blurry copy.
 - Sealed photos: our own pictures of sealed products (backgrounds removed) in
   `public/products/pokemon/<set>/<product>.webp`. The owner drops one folder per set in `art-inbox/`
