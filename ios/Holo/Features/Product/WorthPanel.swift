@@ -10,12 +10,25 @@ struct WorthPanel: View {
     var owned: [HoldingView]
     @Environment(CollectionStore.self) private var store
 
-    /// The card's TCGplayer page: its stored link, else one built from its TCGplayer number.
+    /// The card's TCGplayer page: its stored link, else one built from its TCGplayer number,
+    /// opened on the printing shown here and Near Mint (TCGplayer otherwise opens on whatever
+    /// it likes, often the cheaper printing in Lightly Played).
     private var tcgplayerURL: URL? {
         let p = store.products[productId]
-        if let u = p?.tcgplayerUrl.flatMap(URL.init(string:)) { return u }
-        if let id = p?.tcgplayerId { return URL(string: "https://www.tcgplayer.com/product/\(id)") }
-        return nil
+        let base = p?.tcgplayerUrl.flatMap(URL.init(string:)) ?? p?.tcgplayerId.flatMap { URL(string: "https://www.tcgplayer.com/product/\($0)") }
+        guard let base else { return nil }
+        return Self.withPrinting(base, printing: printing ?? p?.printings?.first, sealed: p?.isSealed == true)
+    }
+
+    /// Adds TCGplayer's own filters for printing and condition to a product page link.
+    static func withPrinting(_ url: URL, printing: String?, sealed: Bool) -> URL {
+        guard url.path.contains("/product/"), var c = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return url }
+        var items = (c.queryItems ?? []).filter { !["Printing", "Condition", "Language"].contains($0.name) }
+        items.append(URLQueryItem(name: "Language", value: "English"))
+        if let printing, !printing.isEmpty { items.append(URLQueryItem(name: "Printing", value: printing)) }
+        if !sealed { items.append(URLQueryItem(name: "Condition", value: "Near Mint")) }
+        c.queryItems = items
+        return c.url ?? url
     }
 
     var body: some View {
