@@ -54,6 +54,9 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         UIUserInterfaceStyle: Dark
+        # Test-photo mode's saved scans show in the Files app (On My iPhone → Corodex).
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
         # Geist and Anton, the website's typefaces (Resources/Fonts, SIL Open Font License).
         UIAppFonts:
           - Geist-Regular.ttf

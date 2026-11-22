@@ -13,6 +13,9 @@ final class ScanModel {
 
         let id = UUID()
         let photo: Data
+        /// The whole photo for the server scan when `photo` is a crop of one card (CardSight
+        /// finds every card in the whole photo); nil sends `photo`.
+        var upload: Data?
         /// When the shutter was tapped, for the timing line.
         var tappedAt = Date()
         var thumbnail: UIImage?
@@ -75,16 +78,15 @@ final class ScanModel {
         let info = await Backend.shared.api.scanInfo()
         await MainActor.run {
             scansLeft = info.left
-            if info.provider == "cardsight" {
-                cardSight = true
-                onDeviceFirst = false
-            }
+            // CardSight reads what the phone can't; the phone still goes first (instant, free).
+            if info.provider == "cardsight" { cardSight = true }
         }
     }
 
     @MainActor
-    func add(photo: Data, tappedAt: Date = Date()) {
+    func add(photo: Data, upload: Data? = nil, tappedAt: Date = Date()) {
         var e = Entry(photo: photo)
+        e.upload = upload
         e.tappedAt = tappedAt
         entries.insert(e, at: 0)
         pump()
@@ -272,7 +274,9 @@ final class ScanModel {
             entries[i].state = .reading
             let id = entry.id
             let photo = entry.photo
+            let upload = entry.upload ?? entry.photo
             let onDevice = onDeviceFirst
+            let testing = ScanTestLog.isOn && !Demo.isOn
             let tappedAt = entry.tappedAt
             let queuedAt = Date()
             Task {
@@ -280,18 +284,31 @@ final class ScanModel {
                 // catalog (instant and free). Only when that isn't a clear single match does the
                 // photo go to the paid server scan.
                 var phone: TimeInterval?
+                var quick: ScanResult?
+                var readText: String?
                 if onDevice {
                     let began = Date()
-                    let quick = await OnDeviceScan.identify(jpeg: photo)
+                    let found = await OnDeviceScan.identifyWithReading(jpeg: photo)
+                    quick = found.result
+                    readText = found.reading.map { [$0.name, $0.number].compactMap { $0 }.joined(separator: " · ") }
                     phone = Date().timeIntervalSince(began)
                     if let quick {
                         let line = ScanModel.timingLine(tappedAt: tappedAt, queuedAt: queuedAt, phone: phone, request: nil, server: nil, bytes: photo.count)
                         await MainActor.run { self.lastTiming = line; self.finish(id, result: quick) }
+                        // Test-photo mode: CardSight reads it too, so the two can be compared.
+                        if testing {
+                            let (server, request) = (try? await Backend.shared.api.scan(jpeg: upload)) ?? (nil, nil)
+                            ScanTestLog.save(photo: photo, phone: ScanTestLog.answer(quick, seconds: phone), phoneRead: readText,
+                                             cardSight: ScanTestLog.answer(server, seconds: request))
+                        }
                         return
                     }
                 }
                 do {
-                    let (result, request) = try await Backend.shared.api.scan(jpeg: photo)
+                    let (result, request) = try await Backend.shared.api.scan(jpeg: upload)
+                    if testing {
+                        ScanTestLog.save(photo: photo, phone: nil, phoneRead: readText, cardSight: ScanTestLog.answer(result, seconds: request))
+                    }
                     let line = ScanModel.timingLine(tappedAt: tappedAt, queuedAt: queuedAt, phone: phone, request: request, server: result.timing, bytes: photo.count)
                     await MainActor.run { self.lastTiming = line; self.finish(id, result: result) }
                 } catch {

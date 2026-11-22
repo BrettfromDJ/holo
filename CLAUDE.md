@@ -265,4 +265,11 @@ and say exactly what to run or click.
   catalog cron via `/api/cron/sync-artists`. Card page: "Illustrated by <name>" (app
   `ProductDetailView`, web product page) opens the artist's page (app `Features/Artist/ArtistPage.swift`,
   web `/artist/<name>`), every card they drew, priciest first, from `/api/artists/<name>`.
+- Scanner: the phone reads first (`OnDeviceScan`: Apple's text recognition for name + number, then
+  the free catalog search; one clear match or it falls back), live (`CardTracker`) and on the shutter
+  (a crop of the tracked card); CardSight (server) gets the whole photo only when the phone isn't sure,
+  or several cards are in it. Camera: combined camera (macro up close), 4K frames, a real photo per scan.
+  Test-photo mode (Settings → Scanner, `ScanTestLog`): saves each scan's photo + both scanners'
+  answers to Files → Corodex → Scan tests and keeps a running agree/disagree and speed summary;
+  both scanners run on every scan while it's on. Next: picture fingerprints (Core ML / Vision).
 - Not in the app on purpose: the separate trade checker (the Deal tab covers trades), and the welcome pages (removed; signed out opens straight on Sign in, its card wall is `Features/Auth/CardWall.swift`).

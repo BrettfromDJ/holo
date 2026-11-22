@@ -20,9 +20,14 @@ enum OnDeviceScan {
 
     /// Identify a raw card in a photo, or nil when not sure.
     static func identify(jpeg: Data) async -> ScanResult? {
-        guard let reading = await read(jpeg: jpeg) else { return nil }
-        guard let hit = await lookUp(reading) else { return nil }
-        return result(for: hit)
+        await identifyWithReading(jpeg: jpeg).result
+    }
+
+    /// The same, also returning what was read (for test-photo mode's log).
+    static func identifyWithReading(jpeg: Data) async -> (result: ScanResult?, reading: Reading?) {
+        guard let reading = await read(jpeg: jpeg) else { return (nil, nil) }
+        guard let hit = await lookUp(reading) else { return (nil, reading) }
+        return (result(for: hit), reading)
     }
 
     /// A catalog match as a matched raw-card scan result.
@@ -80,14 +85,15 @@ enum OnDeviceScan {
         if slabWords.contains(where: { all.contains($0) }) { return nil }
         // "215/203", "TG05/TG30", "GG12/GG70", allowing a space around the slash.
         let pattern = #"\b([A-Z]{0,3}\d{1,3})\s*/\s*([A-Z]{0,3}\d{2,3})\b"#
-        var number: String?
+        var numbers: [String] = []
         for (text, _) in lines {
             if let r = text.range(of: pattern, options: .regularExpression) {
-                number = text[r].replacingOccurrences(of: " ", with: "")
-                break
+                let n = text[r].replacingOccurrences(of: " ", with: "")
+                if !numbers.contains(n) { numbers.append(n) }
             }
         }
-        guard let number else { return nil }
+        // Several cards in one photo: leave it to the server, which reads them all.
+        guard numbers.count == 1, let number = numbers.first else { return nil }
         // The name: the topmost line with letters that isn't a stage/type word or an HP figure.
         let name = lines
             .sorted { $0.1.maxY > $1.1.maxY }

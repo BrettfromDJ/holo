@@ -1,4 +1,5 @@
 import AVFoundation
+import CoreImage
 import SwiftUI
 
 /// Full-screen scanner. Tap the card (or anywhere on the picture) to scan it; each lands in a
@@ -109,8 +110,7 @@ struct ScanView: View {
         .task {
             model.onPick = onPick
             await model.refreshBalance()
-            // CardSight does the identifying: the live border stays, the phone's own read doesn't run.
-            if model.cardSight { tracker.identifies = false }
+            // The phone's own read runs live too (instant, free); CardSight is the fallback.
             // Screenshots: -HoloScanSample ambiguous|retake|matched opens a made-up scan's sheet.
             if Demo.isOn, ["matched", "tray"].contains(Demo.value("-HoloScanSample") ?? ""), let p = store.products["sample:charizard-ex-151"] {
                 let hit = ScanCandidate(product: p, printing: nil, printings: p.printings ?? [], market: store.marketPrice(p.id, printing: p.printings?.first)?.market, score: 0.9)
@@ -340,17 +340,21 @@ struct ScanView: View {
         flashOnce()
         Task {
             do {
-                // CardSight reads a card fine from a smaller photo, which uploads in about half the time.
-                let small = model.cardSight
-                let jpeg = small ? try await camera.capture(maxEdge: 1000, quality: 0.75) : try await camera.capture()
-                // Crop to the tracked card (off the main thread); the whole photo if that fails.
+                // A sharp full photo; the phone reads a crop of the tracked card from it, and with
+                // CardSight the whole photo goes up (smaller, so it uploads fast) when the phone isn't sure.
+                let jpeg = try await camera.capture(maxEdge: 2000, quality: 0.85)
                 var photo = jpeg
-                // With CardSight the whole photo goes up: it finds every card in it.
-                if let quad, !model.cardSight {
-                    let crop = await Task.detached(priority: .userInitiated) { Camera.crop(photo: jpeg, to: quad)?.jpeg }.value
+                if let quad {
+                    let crop = await Task.detached(priority: .userInitiated) { Camera.crop(photo: jpeg, to: quad, maxEdge: 1400)?.jpeg }.value
                     if let crop { photo = crop }
                 }
-                await MainActor.run { model.add(photo: photo, tappedAt: tappedAt) }
+                var upload: Data?
+                if model.cardSight {
+                    upload = await Task.detached(priority: .userInitiated) {
+                        CIImage(data: jpeg, options: [.applyOrientationProperty: true]).flatMap { Camera.jpeg($0, maxEdge: 1000, quality: 0.75) }
+                    }.value ?? jpeg
+                }
+                await MainActor.run { model.add(photo: photo, upload: upload, tappedAt: tappedAt) }
             } catch {
                 UINotificationFeedbackGenerator().notificationOccurred(.error)
             }

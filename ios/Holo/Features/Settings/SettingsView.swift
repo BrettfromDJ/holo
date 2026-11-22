@@ -37,6 +37,9 @@ struct SettingsView: View {
         return false
     }
 
+    @State private var scanTests = ScanTestLog.isOn
+    @State private var testSummary = ScanTestLog.Summary()
+
     var body: some View {
         NavigationStack {
             List {
@@ -58,6 +61,32 @@ struct SettingsView: View {
                 } header: {
                     SectionTitle("Account")
                 }
+                // Test-photo mode: measure our own scanner against CardSight before it takes over.
+                Section {
+                    Toggle(isOn: Binding(get: { scanTests }, set: { on in scanTests = on; ScanTestLog.isOn = on })) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Save scan test photos")
+                            Text("Each scan is kept in Files → Corodex → Scan tests, read by both scanners").font(.geist(12)).foregroundStyle(Theme.muted)
+                        }
+                    }
+                    if scanTests || testSummary.scans > 0 {
+                        let s = testSummary
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("\(s.scans) test scans").font(.geist(15, .semibold))
+                            Text("Phone sure on \(s.phoneSure) · agreed with CardSight on \(s.agreed), disagreed on \(s.disagreed)")
+                                .font(.geist(13)).foregroundStyle(Theme.muted)
+                            if s.phoneSure > 0, s.cardSightCount > 0 {
+                                Text(String(format: "Phone %.2fs a scan · CardSight %.2fs", s.phoneSeconds / Double(s.phoneSure), s.cardSightSeconds / Double(s.cardSightCount)))
+                                    .font(.geist(13)).foregroundStyle(Theme.muted).monospacedDigit()
+                            }
+                        }
+                        .padding(.vertical, 2)
+                        Button("Delete test photos", role: .destructive) { ScanTestLog.clear(); testSummary = .init() }
+                    }
+                } header: {
+                    Text("Scanner")
+                }
+                .task { testSummary = await Task.detached { ScanTestLog.loadSummary() }.value }
                 Section {
                     if notifyStatus == .denied {
                         // The switches can't do anything until iOS allows Corodex's notifications.
