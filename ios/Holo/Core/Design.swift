@@ -1462,6 +1462,8 @@ struct QuickActionsSheet: View {
     @Environment(CollectionStore.self) private var store
     @Environment(GroupsStore.self) private var groups
     @Environment(\.dismiss) private var dismiss
+    /// "Add to list" turns the sheet into the list of your lists (no Apple menu).
+    @State private var pickingList = false
 
     var body: some View {
         let id = product.id
@@ -1476,6 +1478,9 @@ struct QuickActionsSheet: View {
                 }
                 Spacer(minLength: 0)
             }
+            if pickingList {
+                listPicker(id)
+            } else {
             VStack(spacing: 8) {
                 row("Add to collection…", "plus") {
                     if store.products[id] == nil { store.seed(SearchHit(product: product)) }
@@ -1491,37 +1496,66 @@ struct QuickActionsSheet: View {
                     dismiss()
                 }
                 if !groups.shelves.isEmpty {
-                    Menu {
-                        ForEach(groups.shelves) { list in
-                            Button(list.name) { Task { try? await groups.addMany(list.id, productIds: [id]) }; dismiss() }
-                                .disabled(list.product_ids.contains(id))
-                        }
-                    } label: { rowLabel("Add to list", "rectangle.stack.badge.plus") }
+                    row("Add to list", "rectangle.stack.badge.plus", chevron: true) {
+                        withAnimation(.snappy(duration: 0.22)) { pickingList = true }
+                    }
                 }
+            }
             }
         }
         .padding(20)
         .padding(.top, 8)
-        .presentationDetents([.height(groups.shelves.isEmpty ? 340 : 396)])
+        .presentationDetents([.height(sheetHeight)])
+        .animation(.snappy(duration: 0.22), value: pickingList)
         .presentationDragIndicator(.visible)
         .presentationBackground(.black)
         .glassSheet()
     }
 
-    private func row(_ title: String, _ icon: String, action: @escaping () -> Void) -> some View {
-        Button { Haptics.tap(); action() } label: { rowLabel(title, icon) }.buttonStyle(.plain)
+    /// Room for the card, then each row; the list picker grows with your lists (scrolls past 5).
+    private var sheetHeight: CGFloat {
+        let rows = pickingList ? min(groups.shelves.count, 5) + 1 : (groups.shelves.isEmpty ? 3 : 4)
+        return 150 + CGFloat(rows) * 58
     }
 
-    private func rowLabel(_ title: String, _ icon: String) -> some View {
+    /// Your lists as rows: tap one to add the card (one it's already on shows a check).
+    private func listPicker(_ id: String) -> some View {
+        VStack(spacing: 8) {
+            row("Back", "chevron.left") { withAnimation(.snappy(duration: 0.22)) { pickingList = false } }
+            ScrollView {
+                VStack(spacing: 8) {
+                    ForEach(groups.shelves) { list in
+                        let on = list.product_ids.contains(id)
+                        row(list.name, on ? "checkmark" : "rectangle.stack", dim: on) {
+                            guard !on else { return }
+                            Task { try? await groups.addMany(list.id, productIds: [id]) }
+                            dismiss()
+                        }
+                    }
+                }
+            }
+            .scrollBounceBehavior(.basedOnSize)
+        }
+    }
+
+    private func row(_ title: String, _ icon: String, chevron: Bool = false, dim: Bool = false, action: @escaping () -> Void) -> some View {
+        Button { Haptics.tap(); action() } label: { rowLabel(title, icon, chevron: chevron) }
+            .buttonStyle(.plain)
+            .opacity(dim ? 0.55 : 1)
+    }
+
+    private func rowLabel(_ title: String, _ icon: String, chevron: Bool = false) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon).font(.system(size: 16, weight: .semibold)).frame(width: 22)
-            Text(title).font(.geist(16, .semibold))
+            Text(title).font(.geist(16, .semibold)).lineLimit(1)
             Spacer(minLength: 0)
+            if chevron { Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.subtle) }
         }
         .foregroundStyle(.white)
         .padding(.horizontal, 16)
         .frame(height: 50)
-        .liquidGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous), tint: Color.white.opacity(0.04), interactive: true)
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous), tint: Color.white.opacity(0.08), interactive: true)
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
         .contentShape(Rectangle())
     }
 }
