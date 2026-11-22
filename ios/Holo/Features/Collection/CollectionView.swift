@@ -649,26 +649,21 @@ struct CollectionView: View {
         }
     }
 
-    /// One slim line before the search and the cards (the value, chart, tiles and mix are on
-    /// Summary): what's shown is worth, its all-time gain, and which portfolio when not All.
+    /// Nothing before the search and the cards (the value, chart, tiles and mix are on Summary),
+    /// except which portfolio is showing when it isn't All. Carries the page's sheets.
     private var header: some View {
-        let s = store.summary
-        return pageSheets(
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
+        pageSheets(
+            Group {
                 if groups.selected != GroupsStore.all {
-                    Image(systemName: "folder").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.muted)
-                    Text(groups.name(of: groups.selected)).font(.geist(13, .medium)).foregroundStyle(.white).lineLimit(1)
-                    Text("·").font(.geist(13)).foregroundStyle(Theme.subtle)
+                    HStack(spacing: 6) {
+                        Image(systemName: "folder").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.muted)
+                        Text(groups.name(of: groups.selected)).font(.geist(13, .medium)).foregroundStyle(.white).lineLimit(1)
+                    }
+                    .padding(.top, 4)
+                } else {
+                    Color.clear.frame(height: 0)
                 }
-                Text("Worth").font(.geist(13)).foregroundStyle(Theme.muted)
-                Text(Format.money(s.value)).font(.geist(13, .semibold)).monospacedDigit().foregroundStyle(.white)
-                Text(Format.signedMoney(s.gain)).font(.geist(13, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(s.gain))
-                Text("all time").font(.geist(13)).foregroundStyle(Theme.muted)
-                Spacer(minLength: 0)
             }
-            .lineLimit(1)
-            .minimumScaleFactor(0.8)
-            .padding(.top, 4)
         )
     }
 

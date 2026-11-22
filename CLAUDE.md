@@ -57,8 +57,8 @@ and say exactly what to run or click.
   top 10, newest set showcase, hot sealed, sets), Collection (a Summary | Cards switch in the top
   bar: Summary is `HomeView`, Cards is `CollectionView`; `CollectionMode`), Search, Explore, Deal.
   `Router.tabRequest` "collection" opens Cards, "collection-summary" opens Summary.
-  Cards gets to the cards fast: one slim line ("Worth $X +$Y all time", the portfolio's name when
-  not All), then search, chips and the cards; the value, chart, stat tiles and mix bar live only on
+  Cards gets to the cards fast: nothing above the search (only the portfolio's name when not
+  All; the "Worth" line was removed), then search, chips and the cards; the value, chart, stat tiles and mix bar live only on
   Summary. The portfolio switcher (`PortfolioSwitcher`, our action sheet) sits at the top of Summary
   above its search box; Cards follows the pick.
 - **Home's risers** (card of the day, hot/cold, top 10, eras, hot sealed) read stored 24-hour and
