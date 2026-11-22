@@ -1048,7 +1048,7 @@ struct DealRecordDetail: View {
                 }
                 VStack(spacing: 0) {
                     ForEach(Array(lines.enumerated()), id: \.offset) { i, line in
-                        CardLink(productId: line.product.id) {
+                        CardLink(productId: line.product.id, product: line.product.product) {
                             HStack(spacing: 12) {
                                 HoldingArt(product: line.product.product, identity: nil, cornerRadius: 4, caption: false)
                                     .frame(width: 40, height: 56)

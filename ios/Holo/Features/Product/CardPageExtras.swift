@@ -24,7 +24,7 @@ struct OtherVersionsRow: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         LazyHStack(alignment: .top, spacing: 10) {
                             ForEach(versions) { hit in
-                                CardLink(productId: hit.product.id) {
+                                CardLink(productId: hit.product.id, product: hit.product) {
                                     Poster(product: hit.pictured, price: hit.market)
                                         .accessibilityElement(children: .combine)
                                         .accessibilityLabel("\(hit.product.name), \(Self.shortSet(hit.product.setName) ?? ""), \(Format.money(hit.market))")

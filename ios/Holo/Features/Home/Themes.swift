@@ -307,7 +307,7 @@ struct HomeListRows: View {
                     LazyHStack(spacing: 10) {
                         ForEach(ids, id: \.self) { id in
                             if let product = store.products[id] ?? groups.extraProducts[id] {
-                                CardLink(productId: id) {
+                                CardLink(productId: id, product: product) {
                                     Poster(product: product, price: ListItemInfo(id, store: store, groups: groups).market)
                                 }
                             }

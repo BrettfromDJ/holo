@@ -125,7 +125,7 @@ private struct TickerRows: View, Equatable {
     private var row: some View {
         HStack(spacing: 0) {
             ForEach(ticks) { tick in
-                CardLink(productId: tick.product.id) {
+                CardLink(productId: tick.product.id, product: tick.product) {
                     HStack(spacing: 10) {
                         ProductImage(product: tick.product, cornerRadius: 5)
                             .frame(width: 24, height: 24)

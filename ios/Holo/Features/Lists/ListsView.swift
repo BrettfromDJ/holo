@@ -77,7 +77,7 @@ struct ListsView: View {
                 Section(priority.label) {
                     ForEach(items) { w in
                         let current = store.marketPrice(w.product.id, printing: w.printing)?.market ?? w.price
-                        CardLink(productId: w.product.id) {
+                        CardLink(productId: w.product.id, product: w.product) {
                             ListRow(product: w.product, price: current, target: w.target, change: nil)
                         }
                         .listRowBackground(Theme.surface)

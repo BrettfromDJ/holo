@@ -482,7 +482,7 @@ struct SetView: View {
     }
 
     private func link<Content: View>(_ hit: SearchHit, @ViewBuilder label: () -> Content) -> some View {
-        CardLink(productId: hit.product.id) { label() }
+        CardLink(productId: hit.product.id, product: hit.product) { label() }
             .buttonStyle(.plain)
             .simultaneousGesture(TapGesture().onEnded { store.seed(hit) })
     }
