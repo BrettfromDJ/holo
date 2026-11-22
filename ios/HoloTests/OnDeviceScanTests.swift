@@ -20,8 +20,15 @@ final class OnDeviceScanTests: XCTestCase {
         XCTAssertEqual(r?.number, "TG05/TG30")
     }
 
-    func testNoNumberMeansNotSure() {
-        XCTAssertNil(OnDeviceScan.parse([("Charizard", box(top: 0.95)), ("Fire Spin", box(top: 0.5))]))
+    func testNoNumberKeepsTheNameForPictures() {
+        // Only the name could be read: no number, so pictures decide between that Pokémon's cards.
+        let r = OnDeviceScan.parse([("Charizard", box(top: 0.95)), ("Fire Spin", box(top: 0.5))])
+        XCTAssertEqual(r?.name, "Charizard")
+        XCTAssertEqual(r?.number, "")
+    }
+
+    func testNothingReadMeansNotSure() {
+        XCTAssertNil(OnDeviceScan.parse([("Basic", box(top: 0.95))]))
     }
 
     func testSlabsGoToTheServer() {
