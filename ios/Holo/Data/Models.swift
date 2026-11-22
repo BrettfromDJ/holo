@@ -534,7 +534,7 @@ struct ExploreSet: Codable, Identifiable, Hashable {
     var release: Date? { releaseDate.flatMap { Format.isoDay.date(from: String($0.prefix(10))) } }
 }
 
-/// Singles rising most this week, split by their set's era (Dexora's own split, by series):
+/// Singles rising most this week, split by their set's era (Corodex's own split, by series):
 /// vintage before Diamond & Pearl (Wizards of the Coast and EX, to early 2007), mid-era Diamond &
 /// Pearl through XY (2007–2016), modern from Sun & Moon (2017). Same split as the website's `eraOf`.
 struct MarketEras: Codable, Hashable {

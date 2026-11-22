@@ -1,6 +1,6 @@
 import SwiftUI
 
-// Dexora Pro (test mode): what Free includes and what Pro unlocks, the Pro page, and the locks
+// Corodex Pro (test mode): what Free includes and what Pro unlocks, the Pro page, and the locks
 // shown where a Free account reaches a Pro feature. Nothing is charged yet: "Start free trial"
 // turns Pro on for this phone only, so the plan and the prompts can be tried. Real purchases
 // (Apple in the app, Stripe on the website, one Pro for both) come later and will replace
@@ -121,7 +121,7 @@ struct ProSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     HStack {
-                        SkewTag(text: "Dexora Pro", icon: "sparkles")
+                        SkewTag(text: "Corodex Pro", icon: "sparkles")
                         Spacer()
                         Button { dismiss() } label: {
                             Image(systemName: "xmark").font(.system(size: 14, weight: .bold)).foregroundStyle(.white)
@@ -249,7 +249,7 @@ struct ProLockedPage: View {
                     Text(title).font(.display(28)).tracking(-0.7)
                     BalancedText(text: line, font: .geist(15), color: Theme.muted, alignment: .center)
                         .padding(.horizontal, 32)
-                    Button { paywall = reason } label: { Label("See Dexora Pro", systemImage: "sparkles") }
+                    Button { paywall = reason } label: { Label("See Corodex Pro", systemImage: "sparkles") }
                         .buttonStyle(Button3D(kind: .lime, fullWidth: false))
                         .proShine(RoundedRectangle(cornerRadius: 14, style: .continuous))
                         .padding(.top, 6)
@@ -334,7 +334,7 @@ struct ProAccountCard: View {
                     Text("\(pro.scansLeft) of \(Pro.freeScansPerMonth) scans left").font(.geist(12)).foregroundStyle(Theme.muted).monospacedDigit()
                 }
             }
-            Text(pro.isPro ? "Dexora Pro is on" : "Go Pro").font(.display(24)).tracking(-0.6)
+            Text(pro.isPro ? "Corodex Pro is on" : "Go Pro").font(.display(24)).tracking(-0.6)
             Text(pro.isPro ? "Test mode: on this phone only, nothing charged." : "Unlimited scans, full price history, eBay comps, grading and analytics.")
                 .font(.geist(14)).foregroundStyle(Theme.muted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -342,7 +342,7 @@ struct ProAccountCard: View {
                 Button("Turn Pro off (test)") { pro.isPro = false }
                     .font(.geist(14, .semibold)).foregroundStyle(Theme.lime)
             } else {
-                Button { paywall = .general } label: { Label("See Dexora Pro", systemImage: "sparkles") }
+                Button { paywall = .general } label: { Label("See Corodex Pro", systemImage: "sparkles") }
                     .buttonStyle(Button3D(kind: .lime))
                     .proShine(RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
@@ -410,7 +410,7 @@ private struct ProGlint: View {
 // MARK: The Pro page's hero
 
 /// The top of the Pro page: your three most valuable cards fanned on a lime glow over the grid
-/// (the market's top risers if you have none), a glint sweeping the front one, then "Dexora Pro"
+/// (the market's top risers if you have none), a glint sweeping the front one, then "Corodex Pro"
 /// big, the reason's headline and three quick highlights.
 private struct ProHero: View {
     var reason: ProReason
@@ -436,13 +436,13 @@ private struct ProHero: View {
                 // The tag centred on the word's letters (its box trimmed to them), and the word
                 // nudged left so its D lines up with the text under it.
                 HStack(alignment: .center, spacing: 10) {
-                    Text("Dexora").font(.display(44)).tracking(-1.6).foregroundStyle(.white)
+                    Text("Corodex").font(.display(44)).tracking(-1.6).foregroundStyle(.white)
                         .displayTrim(44)
                         .padding(.leading, -3)
                     SkewTag(text: "Pro", icon: "sparkles")
                 }
                 DisplayText(text: reason.headline, size: 24, lineGap: -0.04)
-                Text("Every tool in Dexora, in the app and on the\u{00A0}website.")
+                Text("Every tool in Corodex, in the app and on the\u{00A0}website.")
                     .font(.geist(15)).foregroundStyle(Theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }

@@ -482,7 +482,7 @@ private struct SetProgressHeader: View, Equatable {
                         .displayTrim(34)
                     Text(owned == 1 ? "card owned" : "cards owned").font(.geist(15)).foregroundStyle(Theme.muted)
                     Spacer(minLength: 8)
-                    Text("Full list not in Dexora\u{00A0}yet").font(.geist(12)).foregroundStyle(Theme.subtle).lineLimit(1)
+                    Text("Full list not in Corodex\u{00A0}yet").font(.geist(12)).foregroundStyle(Theme.subtle).lineLimit(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }

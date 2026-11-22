@@ -1113,7 +1113,7 @@ private struct DealItemCard: View {
             .tint(accent)
         } else if item.holdingKey == nil {
             HStack(spacing: 8) {
-                tag(tracked ? "Not in Dexora · will be added" : "Not in Dexora · not tracked", icon: "exclamationmark.circle")
+                tag(tracked ? "Not in Corodex · will be added" : "Not in Corodex · not tracked", icon: "exclamationmark.circle")
                 Spacer(minLength: 0)
                 if asksCost || showCost || item.cost != nil {
                     HStack(spacing: 2) {
@@ -1344,11 +1344,11 @@ private struct CustomerViewSheet: View {
         .ignoresSafeArea()
     }
 
-    /// Dexora and the date, then what this deal is, like the top of a receipt.
+    /// Corodex and the date, then what this deal is, like the top of a receipt.
     private var header: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Dexora").font(.display(20)).tracking(-0.5).foregroundStyle(Theme.lime)
+                Text("Corodex").font(.display(20)).tracking(-0.5).foregroundStyle(Theme.lime)
                 Spacer()
                 MonoLabel(text: Date.now.formatted(.dateTime.month(.abbreviated).day().year()))
             }

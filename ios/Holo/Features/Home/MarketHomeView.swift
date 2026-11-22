@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Home: what's happening across the hobby, not your collection (that's on Collection).
 /// The card of the week, the hottest and coldest movers, the top 10 risers, the newest set's
-/// chase cards, hot sealed and sets just out and coming (from the prices Dexora stores, sent
+/// chase cards, hot sealed and sets just out and coming (from the prices Corodex stores, sent
 /// with Explore's index).
 /// One strip at the top for you: your collection's worth, tapping through to Collection.
 struct MarketHomeView: View {
@@ -386,7 +386,7 @@ struct MarketHomeView: View {
 }
 
 /// "Today in the hobby": two or three sentences on what's moving, written daily by Claude from
-/// Dexora's own prices. Quiet: a small label with a spark, then the text; no box.
+/// Corodex's own prices. Quiet: a small label with a spark, then the text; no box.
 extension MarketHomeView {
     /// Card of the day's "Did you know?" (a made-up one in demos and screenshots).
     static func fact(for star: SearchHit, _ insights: MarketInsights?) -> String? {
@@ -513,7 +513,7 @@ private struct HobbyStories: View {
                     Image(systemName: "sparkles").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.ink)
                         .frame(width: 18, height: 18)
                         .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Theme.lime))
-                    Text("Dexora").font(.geist(12, .semibold)).foregroundStyle(.white)
+                    Text("Corodex").font(.geist(12, .semibold)).foregroundStyle(.white)
                     Text("Today").font(.geist(12)).foregroundStyle(Theme.subtle)
                 }
                 Text(Self.sentenceCase(story.headline).noWidow).font(.geist(16, .semibold)).foregroundStyle(.white)
@@ -534,11 +534,11 @@ private struct HobbyStories: View {
     }
 }
 
-/// Home before its lists arrive (a first launch): Dexora's name with a soft lime glow, still.
+/// Home before its lists arrive (a first launch): Corodex's name with a soft lime glow, still.
 private struct HomeLoading: View {
     var body: some View {
         VStack(spacing: 10) {
-            Text("Dexora").font(.display(44)).tracking(-1.6).foregroundStyle(.white)
+            Text("Corodex").font(.display(44)).tracking(-1.6).foregroundStyle(.white)
             Text("Getting today's market\u{00A0}ready").font(.geist(14)).foregroundStyle(Theme.muted)
         }
         .frame(maxWidth: .infinity)

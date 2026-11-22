@@ -1,4 +1,4 @@
-# Holo (the app is now called Dexora)
+# Holo (the app is now called Corodex; it was Dexora before)
 
 A TCG collection tracker (Pokémon first): a Next.js 15 website (`src/`, Supabase, deployed on
 Vercel) and a native SwiftUI iPhone app (`ios/`) on the same account and data.
