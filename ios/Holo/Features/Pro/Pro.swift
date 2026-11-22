@@ -436,9 +436,14 @@ private struct ProHero: View {
                 // The tag centred on the word's letters (its box trimmed to them), and the word
                 // nudged left so its D lines up with the text under it.
                 HStack(alignment: .center, spacing: 10) {
+                    // The app's icon before the name.
+                    Image("AppMark").resizable().interpolation(.high)
+                        .frame(width: 42, height: 42)
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
+                        .accessibilityHidden(true)
                     Text("Corodex").font(.display(44)).tracking(-1.6).foregroundStyle(.white)
                         .displayTrim(44)
-                        .padding(.leading, -3)
                     SkewTag(text: "Pro", icon: "sparkles")
                 }
                 DisplayText(text: reason.headline, size: 24, lineGap: -0.04)
