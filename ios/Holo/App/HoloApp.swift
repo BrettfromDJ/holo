@@ -244,6 +244,8 @@ struct MainTabView: View {
                 .accessibilityHidden(tab != .collection)
         }
         }
+        // On iPad (and any wide window): the pages keep a phone-like readable column in the middle.
+        .readableWidth()
         .task {
             // After Home has drawn and settled.
             try? await Task.sleep(for: .seconds(1.2))

@@ -1470,3 +1470,27 @@ private struct CardQuickActions: ViewModifier {
         }
     }
 }
+
+// MARK: - iPad
+
+extension View {
+    /// On a wide screen (iPad, or a wide multitasking window), keep the page to a readable column
+    /// centred on black; on iPhone nothing changes.
+    func readableWidth(_ max: CGFloat = 760) -> some View { modifier(ReadableWidth(max: max)) }
+}
+
+private struct ReadableWidth: ViewModifier {
+    var max: CGFloat
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    func body(content: Content) -> some View {
+        if sizeClass == .regular {
+            content
+                .frame(maxWidth: max)
+                .frame(maxWidth: .infinity)
+                .background(Theme.background.ignoresSafeArea())
+        } else {
+            content
+        }
+    }
+}
