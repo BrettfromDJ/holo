@@ -1562,7 +1562,23 @@ struct QuickActionsSheet: View {
                         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.white.opacity(0.07), lineWidth: 1))
                         .onAppear { nameFocused = true }
                     } else if canAddList {
-                        row("New list", "plus") { withAnimation(.snappy(duration: 0.2)) { naming = true } }
+                        // Set apart from your lists: no glass, just a thin light outline.
+                        Button {
+                            Haptics.tap()
+                            withAnimation(.snappy(duration: 0.2)) { naming = true }
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "plus").font(.system(size: 16, weight: .semibold)).frame(width: 22)
+                                Text("New list").font(.geist(16, .semibold))
+                                Spacer(minLength: 0)
+                            }
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 16)
+                            .frame(height: 50)
+                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.white.opacity(0.22), lineWidth: 1))
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
                     } else {
                         Text("Free includes \(Pro.freeShelves) lists. Pro has as many as you like.")
                             .font(.geist(13)).foregroundStyle(Theme.muted)

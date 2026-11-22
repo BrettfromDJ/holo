@@ -14,6 +14,8 @@ struct SheetAction: Identifiable {
     var checked = false
     var destructive = false
     var disabled = false
+    /// A "make something new" row: no glass, just a thin light outline, so it stands apart.
+    var outlined = false
     /// Opens a second page with these rows.
     var children: [[SheetAction]]? = nil
     /// Shares this link (the system share sheet).
@@ -121,8 +123,16 @@ struct ActionRowLabel: View {
         .foregroundStyle(tint)
         .padding(.horizontal, 16)
         .frame(height: 50)
-        .liquidGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous), tint: Color.white.opacity(0.02), interactive: true)
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.white.opacity(0.07), lineWidth: 1))
+        .background {
+            let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+            if action.outlined {
+                shape.strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
+            } else {
+                Color.clear
+                    .liquidGlass(in: shape, tint: Color.white.opacity(0.02), interactive: true)
+                    .overlay(shape.strokeBorder(Color.white.opacity(0.07), lineWidth: 1))
+            }
+        }
         .contentShape(Rectangle())
     }
 }

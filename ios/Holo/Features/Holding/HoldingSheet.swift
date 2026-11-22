@@ -204,7 +204,7 @@ struct HoldingSheet: View {
                 Task { await groupRun { try await groups.toggle(shelf.id, productId: productId) } }
             }
         }
-        lists.append(SheetAction(title: "New list…", icon: "plus") { newShelf = ""; namingShelf = true })
+        lists.append(SheetAction(title: "New list…", icon: "plus", outlined: true) { newShelf = ""; namingShelf = true })
         var first: [SheetAction] = [
             SheetAction(title: "Edit details", subtitle: "Condition, grade or printing", icon: "pencil") { editingDetails = true },
             SheetAction(title: "Lists", subtitle: on.isEmpty ? "On no list" : on.joined(separator: ", "), icon: "square.stack", children: [lists]),

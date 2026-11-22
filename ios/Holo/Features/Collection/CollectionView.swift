@@ -544,7 +544,7 @@ struct CollectionView: View {
                 Task { await groupRun { try await groups.toggle(shelf.id, productId: productId) } }
             }
         }
-        lists.append(SheetAction(title: "New list…", icon: "plus") {
+        lists.append(SheetAction(title: "New list…", icon: "plus", outlined: true) {
             shelfProduct = productId
             if canAddShelf { naming = .shelf } else { proPaywall = .shelves }
         })
