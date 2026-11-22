@@ -57,7 +57,7 @@ struct CollectionFilterSheet: View {
                 } label: {
                     Text("Reset").font(.geist(16, .semibold)).foregroundStyle(filtersOn ? .white : Theme.subtle)
                         .frame(maxWidth: .infinity).frame(height: 52)
-                        .background(Capsule().fill(Color.white.opacity(0.1)))
+                        .liquidGlass(in: Capsule(), interactive: true)
                 }
                 .buttonStyle(.plain)
                 .disabled(!filtersOn)
@@ -94,7 +94,7 @@ struct CollectionFilterSheet: View {
                         .font(.geist(15)).foregroundStyle(.white)
                 }
                 .padding(.horizontal, 14).frame(height: 42)
-                .background(Capsule().fill(Color.white.opacity(0.08)))
+                .liquidGlass(in: Capsule())
             }
             VStack(spacing: 0) {
                 setRow(nil, "All sets", count: nil)
@@ -132,18 +132,10 @@ private struct FlowChips<T: Hashable>: View {
     var body: some View {
         Flow(spacing: 8) {
             ForEach(Array(options.enumerated()), id: \.offset) { _, option in
-                let on = selection == option.0
-                Button {
-                    Haptics.tap()
+                // The app's chips: rounded Liquid Glass tiles, the chosen one white.
+                Chip(title: option.1, selected: selection == option.0) {
                     withAnimation(.snappy(duration: 0.15)) { selection = option.0 }
-                } label: {
-                    Text(option.1).font(.geist(14, .medium))
-                        .foregroundStyle(on ? Theme.ink : .white)
-                        .padding(.horizontal, 14).frame(height: 38)
-                        .background(Capsule().fill(on ? Theme.lime : Color.white.opacity(0.08)))
-                        .contentShape(Capsule())
                 }
-                .buttonStyle(.plain)
             }
         }
     }

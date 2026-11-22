@@ -1521,7 +1521,7 @@ struct QuickActionsSheet: View {
         .foregroundStyle(.white)
         .padding(.horizontal, 16)
         .frame(height: 50)
-        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.white.opacity(0.07)))
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous), tint: Color.white.opacity(0.04), interactive: true)
         .contentShape(Rectangle())
     }
 }
