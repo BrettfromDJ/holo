@@ -1456,178 +1456,48 @@ private struct CardQuickActions: ViewModifier {
     }
 }
 
-/// A held card's actions: its picture and name, then Add to collection, wishlist, watch, lists.
+/// A held card's actions, in the app's action sheet: the card, then Add · Wishlist · Watch as
+/// tiles, then Add to list (your lists in one panel, New list… to name one right there).
 struct QuickActionsSheet: View {
     var product: Product
     @Environment(CollectionStore.self) private var store
     @Environment(GroupsStore.self) private var groups
-    @Environment(\.dismiss) private var dismiss
-    /// "Add to list" turns the sheet into the list of your lists (no Apple menu).
-    @State private var pickingList = false
-    /// Naming a new list right in the sheet (no Apple alert).
-    @State private var naming = false
-    @State private var newName = ""
-    @FocusState private var nameFocused: Bool
-    private var canAddList: Bool { Pro.shared.unlocked || groups.shelves.count < Pro.freeShelves }
 
     var body: some View {
+        ActionsSheet(title: nil, product: product, groups: actions)
+    }
+
+    private var actions: [[SheetAction]] {
         let id = product.id
+        let p = product
         let wish = store.wish(for: id)
         let watch = store.watch(for: id)
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 14) {
-                ProductImage(product: product, cornerRadius: 6).frame(width: 64, height: 89)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(product.name).font(.geist(17, .semibold)).foregroundStyle(.white).lineLimit(2)
-                    Text(product.setName ?? "").font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
-                }
-                Spacer(minLength: 0)
-            }
-            if pickingList {
-                listPicker(id)
-            } else {
-            VStack(spacing: 8) {
-                row("Add to collection…", "plus") {
-                    if store.products[id] == nil { store.seed(SearchHit(product: product)) }
-                    dismiss()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { Router.shared.product = id }
-                }
-                row(wish == nil ? "Add to wishlist" : "Remove from wishlist", wish == nil ? "heart" : "heart.slash") {
-                    Task { if let wish { try? await store.removeWish(wish.id) } else { try? await store.addWish(product, printing: product.printings?.first, price: store.marketPrice(id, printing: product.printings?.first)?.market) } }
-                    dismiss()
-                }
-                row(watch == nil ? "Watch price" : "Stop watching", watch == nil ? "eye" : "eye.slash") {
-                    Task { if let watch { try? await store.removeWatch(watch.id) } else { try? await store.addWatch(product, printing: product.printings?.first, target: nil) } }
-                    dismiss()
-                }
-                row("Add to list", "rectangle.stack.badge.plus", chevron: true) {
-                    withAnimation(.snappy(duration: 0.22)) { pickingList = true }
-                }
-            }
+        var lists: [SheetAction] = groups.shelves.map { list in
+            SheetAction(title: list.name, icon: "rectangle.stack", checked: list.product_ids.contains(id), disabled: list.product_ids.contains(id)) {
+                Task { try? await groups.addMany(list.id, productIds: [id]) }
             }
         }
-        .padding(20)
-        .padding(.top, 8)
-        .presentationDetents([.height(sheetHeight)])
-        .animation(.snappy(duration: 0.22), value: pickingList)
-        .presentationDragIndicator(.visible)
-        .presentationBackground(.black)
-        .glassSheet()
-    }
-
-    /// Room for the card, then each row; the list picker grows with your lists (scrolls past 5).
-    private var sheetHeight: CGFloat {
-        if pickingList { return 196 + CGFloat(min(groups.shelves.count, 4) + 1) * 58 }
-        return 150 + 4 * 58
-    }
-
-    /// Your lists as rows: tap one to add the card (one it's already on shows a check).
-    private func listPicker(_ id: String) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // A small heading with a round back button beside it (not a row of its own).
-            HStack(spacing: 10) {
-                Button {
-                    Haptics.tap()
-                    withAnimation(.snappy(duration: 0.22)) { pickingList = false }
-                } label: {
-                    Image(systemName: "chevron.left").font(.system(size: 14, weight: .semibold)).foregroundStyle(.white)
-                        .frame(width: 32, height: 32)
-                        .liquidGlass(in: Circle(), interactive: true)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Back")
-                Text("Add to a list").font(.display(18)).tracking(-0.4).foregroundStyle(.white)
-            }
-            ScrollView {
-                VStack(spacing: 8) {
-                    // A new list, named right here; the card goes straight onto it.
-                    if naming {
-                        HStack(spacing: 10) {
-                            TextField("", text: $newName, prompt: Text("List name").foregroundColor(Theme.subtle))
-                                .font(.geist(16, .semibold)).foregroundStyle(.white)
-                                .focused($nameFocused)
-                                .submitLabel(.done)
-                                .onSubmit { createList(id) }
-                            Button { createList(id) } label: {
-                                Text("Create").font(.geist(15, .semibold)).foregroundStyle(Theme.ink)
-                                    .padding(.horizontal, 14).frame(height: 34)
-                                    .background(Capsule().fill(Theme.lime))
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
-                        }
-                        .padding(.leading, 16).padding(.trailing, 8)
-                        .frame(height: 50)
-                        .liquidGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous), tint: Color.white.opacity(0.02))
-                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.white.opacity(0.07), lineWidth: 1))
-                        .onAppear { nameFocused = true }
-                    } else if canAddList {
-                        // Set apart from your lists: no glass, just a thin light outline.
-                        Button {
-                            Haptics.tap()
-                            withAnimation(.snappy(duration: 0.2)) { naming = true }
-                        } label: {
-                            HStack(spacing: 12) {
-                                Image(systemName: "plus").font(.system(size: 16, weight: .semibold)).frame(width: 22)
-                                Text("New list").font(.geist(16, .semibold))
-                                Spacer(minLength: 0)
-                            }
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 16)
-                            .frame(height: 50)
-                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.white.opacity(0.22), lineWidth: 1))
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                    } else {
-                        Text("Free includes \(Pro.freeShelves) lists. Pro has as many as you like.")
-                            .font(.geist(13)).foregroundStyle(Theme.muted)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.vertical, 6)
-                    }
-                    ForEach(groups.shelves) { list in
-                        let on = list.product_ids.contains(id)
-                        row(list.name, on ? "checkmark" : "rectangle.stack", dim: on) {
-                            guard !on else { return }
-                            Task { try? await groups.addMany(list.id, productIds: [id]) }
-                            dismiss()
-                        }
-                    }
-                }
-            }
-            .scrollBounceBehavior(.basedOnSize)
+        if Pro.shared.unlocked || groups.shelves.count < Pro.freeShelves {
+            lists.append(SheetAction(title: "New list…", icon: "plus", outlined: true, onCreate: { name in
+                Task { _ = try? await groups.createShelf(name, productIds: [id]) }
+            }))
         }
-    }
-
-    /// Make the named list with this card on it, then close.
-    private func createList(_ id: String) {
-        let name = String(newName.trimmingCharacters(in: .whitespaces).prefix(40))
-        guard !name.isEmpty else { return }
-        Haptics.tap()
-        Task { _ = try? await groups.createShelf(name, productIds: [id]) }
-        dismiss()
-    }
-
-    private func row(_ title: String, _ icon: String, chevron: Bool = false, dim: Bool = false, action: @escaping () -> Void) -> some View {
-        Button { Haptics.tap(); action() } label: { rowLabel(title, icon, chevron: chevron) }
-            .buttonStyle(.plain)
-            .opacity(dim ? 0.55 : 1)
-    }
-
-    private func rowLabel(_ title: String, _ icon: String, chevron: Bool = false) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon).font(.system(size: 16, weight: .semibold)).frame(width: 22)
-            Text(title).font(.geist(16, .semibold)).lineLimit(1)
-            Spacer(minLength: 0)
-            if chevron { Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.subtle) }
-        }
-        .foregroundStyle(.white)
-        .padding(.horizontal, 16)
-        .frame(height: 50)
-        // Quiet glass: a faint tint and a hairline edge, not a bright slab.
-        .liquidGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous), tint: Color.white.opacity(0.02), interactive: true)
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.white.opacity(0.07), lineWidth: 1))
-        .contentShape(Rectangle())
+        return [
+            [
+                SheetAction(title: "Add", icon: "plus") {
+                    // The card's page (where the purchase is filled in) needs the card on hand.
+                    if store.products[id] == nil { store.seed(SearchHit(product: p)) }
+                    Router.shared.product = id
+                },
+                SheetAction(title: wish == nil ? "Wishlist" : "Wished", icon: wish == nil ? "heart" : "heart.fill") {
+                    Task { if let wish { try? await store.removeWish(wish.id) } else { try? await store.addWish(p, printing: p.printings?.first, price: store.marketPrice(id, printing: p.printings?.first)?.market) } }
+                },
+                SheetAction(title: watch == nil ? "Watch" : "Watching", icon: watch == nil ? "eye" : "eye.fill") {
+                    Task { if let watch { try? await store.removeWatch(watch.id) } else { try? await store.addWatch(p, printing: p.printings?.first, target: nil) } }
+                },
+            ],
+            [SheetAction(title: "Add to list", icon: "square.stack", children: [lists])],
+        ]
     }
 }
 

@@ -21,6 +21,9 @@ struct SheetAction: Identifiable {
     var children: [[SheetAction]]? = nil
     /// Shares this link (the system share sheet).
     var share: URL? = nil
+    /// Names something new right in the sheet (a new list): tapping turns the row into a name
+    /// box with Create; this gets the name, then the sheet closes.
+    var onCreate: ((String) -> Void)? = nil
     /// What it does. Runs once the sheet has closed, so it may open another sheet.
     var run: (() -> Void)? = nil
 }
@@ -32,6 +35,10 @@ struct ActionsSheet: View {
     var groups: [[SheetAction]]
     @Environment(\.dismiss) private var dismiss
     @State private var page: (title: String, groups: [[SheetAction]])?
+    /// The "new …" row being named, and the name so far.
+    @State private var naming: UUID?
+    @State private var name = ""
+    @FocusState private var nameFocused: Bool
 
     var body: some View {
         let shown = page?.groups ?? groups
@@ -149,8 +156,14 @@ struct ActionsSheet: View {
                 .overlay(shape.strokeBorder(Color.white.opacity(0.07), lineWidth: 1))
             }
             ForEach(outlined) { action in
-                row(action)
-                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.white.opacity(0.22), lineWidth: 1))
+                Group {
+                    if naming == action.id, let create = action.onCreate {
+                        nameField(create)
+                    } else {
+                        row(action)
+                    }
+                }
+                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.white.opacity(0.22), lineWidth: 1))
             }
         }
     }
@@ -167,8 +180,41 @@ struct ActionsSheet: View {
         }
     }
 
+    /// The name box for a new list: type, then Create (or Return).
+    private func nameField(_ create: @escaping (String) -> Void) -> some View {
+        let done = {
+            let value = String(name.trimmingCharacters(in: .whitespaces).prefix(40))
+            guard !value.isEmpty else { return }
+            Haptics.tap()
+            create(value)
+            dismiss()
+        }
+        return HStack(spacing: 10) {
+            TextField("", text: $name, prompt: Text("List name").foregroundColor(Theme.subtle))
+                .font(.geist(16, .medium)).foregroundStyle(.white)
+                .focused($nameFocused)
+                .submitLabel(.done)
+                .onSubmit(done)
+            Button(action: done) {
+                Text("Create").font(.geist(15, .semibold)).foregroundStyle(Theme.ink)
+                    .padding(.horizontal, 14).frame(height: 34)
+                    .background(Capsule().fill(Theme.lime))
+            }
+            .buttonStyle(.plain)
+            .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+        }
+        .padding(.leading, 14).padding(.trailing, 8)
+        .frame(height: 52)
+        .onAppear { nameFocused = true }
+    }
+
     private func tap(_ action: SheetAction) {
         Haptics.tap()
+        if action.onCreate != nil {
+            name = ""
+            withAnimation(.snappy(duration: 0.2)) { naming = action.id }
+            return
+        }
         if let children = action.children {
             withAnimation(.snappy(duration: 0.22)) { page = (action.title, children) }
         } else {
