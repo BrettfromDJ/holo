@@ -275,7 +275,7 @@ and say exactly what to run or click.
   prints, on the phone): when text narrows it to several cards or only a name was read, the
   candidates' catalog pictures are fingerprinted (cached in Caches/card-prints) and the closest wins
   only if 20% nearer than the runner-up. Whole catalog: the "Card fingerprints" GitHub workflow
-  (nightly on a Mac, `ios/scripts/fingerprints.swift`, needs the repo secret `CRON_SECRET` and
+  (nightly on a Mac, `ios/scripts/fingerprints.swift`, needs `FINGERPRINTS_SECRET`, the same value in Vercel and as a GitHub Actions secret, and
   optionally the variable `SITE_URL`) fingerprints every Pokémon single (Vision revision 2) via
   `/api/fingerprints` into `card_prints` (pgvector; migration `20261122000000_card_prints.sql`);
   the app's last on-phone try sends the scan's fingerprint to `/api/scan/match` (nearest 5) before

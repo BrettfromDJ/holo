@@ -21,8 +21,8 @@ jobs:
       - name: Fingerprint new cards
         env:
           SITE_URL: ${{ vars.SITE_URL || 'https://holo-bay.vercel.app' }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          CRON_SECRET: ${{ secrets.FINGERPRINTS_SECRET }}
           MAX_MINUTES: "300"
         run: |
-          if [ -z "$CRON_SECRET" ]; then echo "Add CRON_SECRET in the repository's Actions secrets first."; exit 1; fi
+          if [ -z "$CRON_SECRET" ]; then echo "Add FINGERPRINTS_SECRET in the repository's Actions secrets first."; exit 1; fi
           swift ios/scripts/fingerprints.swift

@@ -9,11 +9,12 @@ export const maxDuration = 60;
  * The nightly fingerprint job (GitHub "Card fingerprints" workflow, on a Mac) talks to this:
  * GET  /api/fingerprints?limit=500 — cards still to fingerprint (id and picture);
  * POST /api/fingerprints — { prints: [{ productId, imageUrl, print: number[] }] } saved.
- * Both need the CRON_SECRET (the same one Vercel's cron uses), as a GitHub secret.
+ * Both need FINGERPRINTS_SECRET: any long random value, set in Vercel and as the same-named
+ * GitHub Actions secret (its own key, so the hidden CRON_SECRET never needs copying).
  */
 function authorized(req: Request): boolean {
-  const secret = process.env.CRON_SECRET;
-  return Boolean(secret) && req.headers.get("authorization") === `Bearer ${secret}`;
+  const auth = req.headers.get("authorization");
+  return [process.env.FINGERPRINTS_SECRET, process.env.CRON_SECRET].some((s) => Boolean(s) && auth === `Bearer ${s}`);
 }
 
 function db(): SupabaseClient | null {
