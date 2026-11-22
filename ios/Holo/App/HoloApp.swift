@@ -372,6 +372,10 @@ struct MainTabView: View {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { router.product = o.identity.productId }
             }
         }
+        // A card held down anywhere: its quick actions in a small glass sheet.
+        .sheet(item: Binding(get: { router.quickCard }, set: { router.quickCard = $0 })) { product in
+            QuickActionsSheet(product: product)
+        }
         // A tapped price alert opens its card.
         .sheet(item: Binding(get: { router.product.map(OpenProduct.init) }, set: { router.product = $0?.id })) { open in
             NavigationStack {

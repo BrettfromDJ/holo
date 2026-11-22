@@ -1442,47 +1442,87 @@ private struct CardQuickActions: ViewModifier {
     @Environment(CollectionStore.self) private var store
     @Environment(GroupsStore.self) private var groups
 
+    /// Our own press and hold (not Apple's menu, which photographed the tile and clipped it, and
+    /// waited before showing): hold a moment, a tick, and a small sheet of actions rises. It wins
+    /// over the tap only once the hold completes, so a quick tap still opens the card.
     func body(content: Content) -> some View {
-        if let product = known ?? store.products[productId] ?? groups.extraProducts[productId] {
-            content
-                // Lift just the card's rounded shape (not the row around it, not its price pill).
-                .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .contextMenu {
-                    menu(product)
-                } preview: {
-                    // A plain picture of the card for the preview: no glass, no zoom source, so the
-                    // lift is a clean, quick grow instead of a clipped snapshot of the tile.
-                    ProductImage(product: product, cornerRadius: 12)
-                        .frame(width: 240, height: 335)
-                        .background(Color.black)
+        content.highPriorityGesture(
+            LongPressGesture(minimumDuration: 0.35).onEnded { _ in
+                guard let product = known ?? store.products[productId] ?? groups.extraProducts[productId] else { return }
+                Haptics.remove()
+                Router.shared.quickCard = product
+            }
+        )
+    }
+}
+
+/// A held card's actions: its picture and name, then Add to collection, wishlist, watch, lists.
+struct QuickActionsSheet: View {
+    var product: Product
+    @Environment(CollectionStore.self) private var store
+    @Environment(GroupsStore.self) private var groups
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        let id = product.id
+        let wish = store.wish(for: id)
+        let watch = store.watch(for: id)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 14) {
+                ProductImage(product: product, cornerRadius: 6).frame(width: 64, height: 89)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(product.name).font(.geist(17, .semibold)).foregroundStyle(.white).lineLimit(2)
+                    Text(product.setName ?? "").font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
                 }
-        } else {
-            content
+                Spacer(minLength: 0)
+            }
+            VStack(spacing: 8) {
+                row("Add to collection…", "plus") {
+                    if store.products[id] == nil { store.seed(SearchHit(product: product)) }
+                    dismiss()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { Router.shared.product = id }
+                }
+                row(wish == nil ? "Add to wishlist" : "Remove from wishlist", wish == nil ? "heart" : "heart.slash") {
+                    Task { if let wish { try? await store.removeWish(wish.id) } else { try? await store.addWish(product, printing: product.printings?.first, price: store.marketPrice(id, printing: product.printings?.first)?.market) } }
+                    dismiss()
+                }
+                row(watch == nil ? "Watch price" : "Stop watching", watch == nil ? "eye" : "eye.slash") {
+                    Task { if let watch { try? await store.removeWatch(watch.id) } else { try? await store.addWatch(product, printing: product.printings?.first, target: nil) } }
+                    dismiss()
+                }
+                if !groups.shelves.isEmpty {
+                    Menu {
+                        ForEach(groups.shelves) { list in
+                            Button(list.name) { Task { try? await groups.addMany(list.id, productIds: [id]) }; dismiss() }
+                                .disabled(list.product_ids.contains(id))
+                        }
+                    } label: { rowLabel("Add to list", "rectangle.stack.badge.plus") }
+                }
+            }
         }
+        .padding(20)
+        .padding(.top, 8)
+        .presentationDetents([.height(groups.shelves.isEmpty ? 340 : 396)])
+        .presentationDragIndicator(.visible)
+        .presentationBackground(.black)
+        .glassSheet()
     }
 
-    @ViewBuilder private func menu(_ product: Product) -> some View {
-        Button {
-            // The card's page (where the purchase is filled in) needs the card on hand.
-            if store.products[productId] == nil { store.seed(SearchHit(product: product)) }
-            Router.shared.product = productId
-        } label: { Label("Add to collection…", systemImage: "plus") }
-        let wish = store.wish(for: productId)
-        Button {
-            Task { if let wish { try? await store.removeWish(wish.id) } else { try? await store.addWish(product, printing: product.printings?.first, price: store.marketPrice(productId, printing: product.printings?.first)?.market) } }
-        } label: { Label(wish == nil ? "Add to wishlist" : "Remove from wishlist", systemImage: wish == nil ? "heart" : "heart.slash") }
-        let watch = store.watch(for: productId)
-        Button {
-            Task { if let watch { try? await store.removeWatch(watch.id) } else { try? await store.addWatch(product, printing: product.printings?.first, target: nil) } }
-        } label: { Label(watch == nil ? "Watch price" : "Stop watching", systemImage: watch == nil ? "eye" : "eye.slash") }
-        if !groups.shelves.isEmpty {
-            Menu {
-                ForEach(groups.shelves) { list in
-                    Button(list.name) { Task { try? await groups.addMany(list.id, productIds: [productId]) } }
-                        .disabled(list.product_ids.contains(productId))
-                }
-            } label: { Label("Add to list", systemImage: "rectangle.stack.badge.plus") }
+    private func row(_ title: String, _ icon: String, action: @escaping () -> Void) -> some View {
+        Button { Haptics.tap(); action() } label: { rowLabel(title, icon) }.buttonStyle(.plain)
+    }
+
+    private func rowLabel(_ title: String, _ icon: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon).font(.system(size: 16, weight: .semibold)).frame(width: 22)
+            Text(title).font(.geist(16, .semibold))
+            Spacer(minLength: 0)
         }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 16)
+        .frame(height: 50)
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.white.opacity(0.07)))
+        .contentShape(Rectangle())
     }
 }
 

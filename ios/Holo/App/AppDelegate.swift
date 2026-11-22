@@ -49,6 +49,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 @Observable
 final class Router {
     static let shared = Router()
+    /// A card held down anywhere: its quick actions (MainTabView shows them in a small sheet).
+    var quickCard: Product?
     /// A card to open (from a tapped notification).
     var product: String?
     /// A tab another screen asked to switch to ("collection").
