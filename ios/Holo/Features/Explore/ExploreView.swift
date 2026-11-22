@@ -426,12 +426,10 @@ struct SetView: View {
 
     private var controls: some View {
         HStack(spacing: 10) {
-            HStack(spacing: 2) {
+            HStack(spacing: 8) {
                 Chip(title: "Singles", selected: tab == .singles, count: singles.count) { pick(.singles) }
                 Chip(title: "Sealed", selected: tab == .sealed, count: sealed.count) { pick(.sealed) }
             }
-            .padding(4)
-            .liquidGlass(in: Capsule())
             Spacer(minLength: 0)
             Menu {
                 Picker("Sort", selection: $sort) {

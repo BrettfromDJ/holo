@@ -380,13 +380,11 @@ struct MasterSetDetailView: View {
                 .menuStyle(.button)
                 .buttonStyle(IconButton3D(size: 46))
             }
-            HStack(spacing: 2) {
+            HStack(spacing: 8) {
                 Chip(title: "All", selected: show == .all, count: entries.count) { show = .all }
                 Chip(title: "Owned", selected: show == .owned, count: ownedCount) { show = .owned }
                 Chip(title: "Missing", selected: show == .missing, count: entries.count - ownedCount) { show = .missing }
             }
-            .padding(4)
-            .liquidGlass(in: Capsule())
             if sort != .number {
                 Text("Sorted by \(sort.rawValue.lowercased())").font(.geist(13)).foregroundStyle(Theme.muted)
             }

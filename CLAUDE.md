@@ -108,13 +108,14 @@ and say exactly what to run or click.
   fan and collection tiles, square on the star card and card page). On the shelf they stand bare.
 - Graded copies render as a `Slab` (port of the web `Slab` in
   `src/components/product/product-image.tsx`).
-- Liquid Glass (iOS 26) wherever it fits: tab bar, pills, chip tracks, search field. Use
+- Liquid Glass (iOS 26) wherever it fits: tab bar, pills, search field. Use
   `.liquidGlass(in:)`, which falls back to frosted material on older iOS and older Xcode.
   Glass cards always blur what's behind them: use `.liquidGlass(in:)` (never a flat translucent
   fill) for any card, panel or pill that reads as glass.
-- Inactive tabs and chips have no background; only the selected one is filled. Chip tracks never
-  bleed off the screen: the track stays inside the margins and the chips scroll inside it
-  (`ChipPicker(..., scrolls: true)`).
+- Chips and tabs (`Chip`, `ChipPicker`) look like a streaming app's category pills: separate capsules
+  with a thin light outline and white text, the selected one filled white with dark text; no track
+  or glass behind them. Rows never bleed off the screen: they scroll inside the margins with the right
+  edge fading (`ChipPicker(..., scrolls: true)`).
 - Bottom sheets: `.glassSheet()`: pure black, pull handle centred at the top, stopping short of
   full height (`.fraction(0.93)`; iOS 26 floats them in from the edges); panels, forms and dark buttons
   turn into a faint white fill on it. No navigation bar in display sheets like Your copy: the bar

@@ -631,36 +631,30 @@ struct Chip: View {
     var title: String
     var selected: Bool
     var count: Int?
-    /// Takes an equal share of the track's width (a full-width picker).
+    /// Takes an equal share of the row's width (a full-width picker).
     var fills = false
     var action: () -> Void
 
+    /// Like a streaming app's category pills: each its own capsule with a thin light outline,
+    /// white text; the chosen one filled white with dark text. No track behind them.
     var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Text(title).font(.geist(14, .semibold))
                 if let count { Text("\(count)").font(.geist(14, .medium)).opacity(0.6).monospacedDigit() }
             }
-            .padding(.horizontal, 14)
+            .padding(.horizontal, 16)
             .frame(maxWidth: fills ? .infinity : nil)
             .frame(height: 36)
-            .foregroundStyle(selected ? Theme.ink : Theme.muted)
-            .background(
-                ZStack {
-                    if selected {
-                        // Only the selected chip glows (a clear shadow on every other chip still
-                        // costs a render pass, on glass).
-                        ZStack {
-                            Capsule().fill(Theme.limeEdge).offset(y: 2)
-                            Capsule().fill(Theme.lime)
-                        }
-                        .shadow(color: Theme.lime.opacity(0.35), radius: 8)
-                    } else {
-                        // Unselected chips are just text; the track behind them shows through.
-                        Capsule().fill(Color.clear)
-                    }
+            .foregroundStyle(selected ? Theme.ink : Color.white)
+            .background {
+                if selected {
+                    Capsule().fill(Color.white)
+                } else {
+                    Capsule().strokeBorder(Color.white.opacity(0.35), lineWidth: 1)
                 }
-            )
+            }
+            .animation(.snappy(duration: 0.18), value: selected)
         }
         .buttonStyle(ChipPress())
     }
@@ -695,28 +689,25 @@ extension View {
 struct ChipPicker<T: Hashable>: View {
     var options: [(T, String)]
     @Binding var selection: T
-    /// When the chips may not fit: the track stays inside its space and the chips scroll in it.
+    /// When the chips may not fit: they scroll sideways inside the margins, the right edge fading.
     var scrolls = false
-    /// The track spans the full width, the chips sharing it equally.
+    /// The chips share the full width equally.
     var fills = false
 
     var body: some View {
         if scrolls {
-            // Fits: as is. Doesn't: the chips scroll inside the track and its right edge fades.
             ViewThatFits(in: .horizontal) {
-                chips.padding(4)
-                ScrollView(.horizontal, showsIndicators: false) { chips.padding(4) }
+                chips
+                ScrollView(.horizontal, showsIndicators: false) { chips.padding(.vertical, 1) }
                     .fadeTrailingEdge()
             }
-            .clipShape(Capsule())
-            .trackGlass(in: Capsule())
         } else {
-            chips.padding(4).trackGlass(in: Capsule())
+            chips
         }
     }
 
     private var chips: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: 8) {
             ForEach(options, id: \.0) { value, label in
                 Chip(title: label, selected: selection == value, fills: fills) { selection = value }
             }

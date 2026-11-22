@@ -359,7 +359,7 @@ struct CollectionView: View {
     /// Category and shelf chips for the track above the grid.
     private var categoryChips: some View {
         let counts = chipCounts
-        return HStack(spacing: 2) {
+        return HStack(spacing: 8) {
             Chip(title: "All", selected: category == nil && shelfId == nil && !pullsOnly, count: store.holdings.count) { reshuffle { category = nil; shelfId = nil; pullsOnly = false } }
             // The cards you pulled from packs.
             let pulledCount = store.pulledHoldings.count
@@ -824,13 +824,12 @@ struct CollectionView: View {
             }
             // The track stays inside the screen edges. When the chips don't all fit they scroll
             // inside it and the right edge fades out.
+            // Separate outlined pills (no track behind them); they scroll when they don't all fit.
             ViewThatFits(in: .horizontal) {
-                categoryChips.padding(4)
-                ScrollView(.horizontal, showsIndicators: false) { categoryChips.padding(4) }
+                categoryChips
+                ScrollView(.horizontal, showsIndicators: false) { categoryChips.padding(.vertical, 1) }
                     .fadeTrailingEdge()
             }
-            .clipShape(Capsule())
-            .liquidGlass(in: Capsule())
             if sort != .value || filtersOn {
                 HStack(spacing: 8) {
                     Text(filterSummary).font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
