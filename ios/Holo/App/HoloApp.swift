@@ -47,11 +47,19 @@ struct RootView: View {
     @State private var launchProgress: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// The bar fills, then the cover fades away.
+    @State private var launchStart = Date()
+    /// The bar runs its creep for at least this long, so a fast open still shows it (about a
+    /// second in all with the fill and fade), never longer than the app really needs.
+    private static let launchCreep: TimeInterval = 0.6
+
+    /// Once the creep has had its time: the bar fills, then the cover fades away.
     private func finishLaunch() {
-        withAnimation(.easeOut(duration: 0.18)) { launchProgress = 1 }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            withAnimation(.easeOut(duration: 0.25)) { launchCover = false }
+        let wait = max(0, Self.launchCreep - Date().timeIntervalSince(launchStart))
+        DispatchQueue.main.asyncAfter(deadline: .now() + wait) {
+            withAnimation(.easeOut(duration: 0.15)) { launchProgress = 1 }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+                withAnimation(.easeOut(duration: 0.25)) { launchCover = false }
+            }
         }
     }
 
@@ -137,9 +145,10 @@ struct RootView: View {
         .onAppear {
             if AppConfig.isConfigured, !Demo.isOn { session.start() } else { launchCover = false }
             guard launchCover else { return }
-            if session.state != .loading { finishLaunch() } else if !reduceMotion {
-                withAnimation(.easeOut(duration: 1.6)) { launchProgress = 0.8 }
-            }
+            launchStart = Date()
+            // The creep: most of the way in 0.6 s (then it waits there if the app is slower).
+            if !reduceMotion { withAnimation(.easeInOut(duration: Self.launchCreep)) { launchProgress = 0.85 } }
+            if session.state != .loading { finishLaunch() }
         }
         .onChange(of: session.state) { _, state in
             if state != .loading, launchCover { finishLaunch() }

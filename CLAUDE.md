@@ -80,7 +80,7 @@ and say exactly what to run or click.
 - **Eras** (Home's Rising by era): vintage before Diamond & Pearl (WotC and EX, to early 2007),
   mid-era Diamond & Pearl through XY (2007–2016), modern Sun & Moon on (2017–). `eraOf` in
   `src/lib/explore/movers.ts` and `MarketEras.era` in the app (same cut-off dates).
-- **Launch:** the Corodex mark (`LaunchLogo`, the icon's cards cut out of their black, 150pt) centred on `LaunchBackground` (= `Theme.background`); `RootView` covers the app with the same mark (`LaunchCover`, same size and place, so nothing jumps) and a thin lime loading bar under it (the owner asked for it: the one loading bar allowed) that creeps while the session restores, fills, then the cover fades. Not in demos.
+- **Launch:** the Corodex mark (`LaunchLogo`, the icon's cards cut out of their black, 150pt) centred on `LaunchBackground` (= `Theme.background`); `RootView` covers the app with the same mark (`LaunchCover`, same size and place, so nothing jumps) and a thin lime loading bar under it (the owner asked for it: the one loading bar allowed) that always runs about a second (creeps to 85% in 0.6 s even when the app is ready sooner, waits there if it is slower), fills, then the cover fades. Not in demos.
 - **Loading:** no spinners (the launch bar is the one exception). The app opens on the collection saved on the phone at the last load
   (`SnapshotFile`, per account, deleted on sign-out; never in a demo) and refreshes it in place;
   only a first launch with nothing saved shows dim, still placeholders (`LoadingPlaceholder`).
