@@ -91,8 +91,13 @@ struct RootView: View {
             } else {
                 switch session.state {
                 case .loading:
-                    // Restoring the session takes a moment: blank, no spinner.
-                    Theme.background.ignoresSafeArea()
+                    // Restoring the session takes a moment: the launch screen's mark stays put
+                    // (same size and place), no spinner.
+                    ZStack {
+                        Color("LaunchBackground")
+                        Image("LaunchLogo").resizable().interpolation(.high).frame(width: 150, height: 150)
+                    }
+                    .ignoresSafeArea()
                 case .signedOut:
                     SignInView()
                 case let .signedIn(userId, _):

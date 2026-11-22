@@ -45,6 +45,9 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen:
           UIColorName: LaunchBackground
+          # The Corodex mark, centred, while the app opens.
+          UIImageName: LaunchLogo
+          UIImageRespectsSafeAreaInsets: false
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         # iPad: every way round (the pages keep a readable column; see `readableWidth`).
