@@ -150,6 +150,13 @@ struct MarketHomeView: View {
     /// "Home" big on the left; on the right your watchlist (price alerts) and the menu.
     private var header: some View {
         HStack(alignment: .center, spacing: 4) {
+            // The app's icon beside the title, like a streaming app's mark.
+            Image("AppMark").resizable().interpolation(.high)
+                .frame(width: 34, height: 34)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
+                .padding(.trailing, 8)
+                .accessibilityHidden(true)
             Text("Home").font(.display(32)).tracking(32 * -0.03).foregroundStyle(.white).displayTrim(32)
             Spacer(minLength: 8)
             NavigationLink(value: ListRoute.watchlist) {
