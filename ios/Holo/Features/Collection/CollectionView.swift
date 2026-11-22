@@ -827,7 +827,8 @@ struct CollectionView: View {
             // Separate outlined pills (no track behind them); they scroll when they don't all fit.
             ViewThatFits(in: .horizontal) {
                 categoryChips
-                ScrollView(.horizontal, showsIndicators: false) { categoryChips.padding(.vertical, 1) }
+                // Room after the last chip as wide as the fade, so it scrolls fully into view.
+                ScrollView(.horizontal, showsIndicators: false) { categoryChips.padding(.vertical, 1).padding(.trailing, 44) }
                     .fadeTrailingEdge()
             }
             if sort != .value || filtersOn {

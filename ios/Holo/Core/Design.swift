@@ -701,7 +701,8 @@ struct ChipPicker<T: Hashable>: View {
         if scrolls {
             ViewThatFits(in: .horizontal) {
                 chips
-                ScrollView(.horizontal, showsIndicators: false) { chips.padding(.vertical, 1) }
+                // Room after the last chip as wide as the fade, so it scrolls fully into view.
+                ScrollView(.horizontal, showsIndicators: false) { chips.padding(.vertical, 1).padding(.trailing, 44) }
                     .fadeTrailingEdge()
             }
         } else {
