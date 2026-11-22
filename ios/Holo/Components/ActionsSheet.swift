@@ -105,15 +105,20 @@ struct ActionsSheet: View {
 
     /// Room for the header and every row, up to most of the screen (it scrolls past that).
     private func height(_ groups: [[SheetAction]]) -> CGFloat {
-        var h: CGFloat = 26 + 12 + 40   // top, bottom, the grabber's room
-        if page != nil { h += 48 } else if product != nil { h += 80 } else if title != nil { h += 44 }
+        // Exactly what's drawn: top and bottom padding, the heading and its gap, each section
+        // and the gaps between them (iOS adds the home-indicator room itself).
+        var h: CGFloat = 26 + 12
+        let heading: CGFloat = page != nil ? 32 : product != nil ? 64 : title != nil ? 26 : 0
+        if heading > 0 { h += heading + 16 }
         for (i, section) in groups.enumerated() {
-            if page == nil && i == 0 && Self.isTiles(section) { h += 84 } else {
+            if page == nil && i == 0 && Self.isTiles(section) { h += 76 } else {
                 h += section.reduce(0) { $0 + ($1.subtitle == nil ? 52 : 62) }
+                // An outlined row sits apart from the panel.
+                if section.contains(where: \.outlined) && section.contains(where: { !$0.outlined }) { h += 8 }
             }
-            h += 12
+            if i > 0 { h += 12 }
         }
-        return min(h, 660)
+        return min(h + 6, 660)
     }
 
     // MARK: Sections
