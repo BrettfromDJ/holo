@@ -149,6 +149,25 @@ final class HoloAPI {
         return try await send(try await request("api/artists/\(name)"), as: Body.self).cards.filter { !$0.product.isOversized }
     }
 
+    /// The cards whose catalog fingerprints are nearest a scan's (nearest first).
+    func matchPrint(_ print: [Float]) async throws -> [(hit: SearchHit, distance: Float)] {
+        struct Match: Decodable {
+            var distance: Float
+            var hit: SearchHit
+            init(from decoder: Decoder) throws {
+                hit = try SearchHit(from: decoder)
+                distance = try decoder.container(keyedBy: Key.self).decode(Float.self, forKey: .distance)
+            }
+            enum Key: String, CodingKey { case distance }
+        }
+        struct Body: Decodable { var matches: [Match] }
+        var req = try await request("api/scan/match")
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONSerialization.data(withJSONObject: ["print": print.map { Double($0) }, "k": 5])
+        return try await send(req, as: Body.self).matches.map { ($0.hit, $0.distance) }
+    }
+
     /// Home's themed collections (see `MarketTheme`).
     func themes() async throws -> [MarketTheme] {
         struct Body: Decodable { var themes: [MarketTheme] }

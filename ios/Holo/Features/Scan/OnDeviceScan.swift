@@ -28,15 +28,25 @@ enum OnDeviceScan {
     /// Text first; when the text narrows it to several cards (or only a name was read), picture
     /// matching (`CardFingerprint`) picks the one the photo looks most like, if one clearly is.
     static func identifyWithReading(jpeg: Data) async -> (result: ScanResult?, reading: Reading?, note: String?) {
-        guard let reading = await read(jpeg: jpeg) else { return (nil, nil, nil) }
-        if !reading.number.isEmpty, let hit = await lookUp(reading) { return (result(for: hit), reading, "text") }
-        let pool = await candidates(reading)
-        guard !pool.isEmpty else { return (nil, reading, "no candidates") }
-        guard let best = await CardFingerprint.best(scan: jpeg, among: pool) else {
-            return (nil, reading, "picture unsure among \(pool.count)")
+        let reading = await read(jpeg: jpeg)
+        var why = reading == nil ? "no text" : "text unsure"
+        if let reading {
+            if !reading.number.isEmpty, let hit = await lookUp(reading) { return (result(for: hit), reading, "text") }
+            let pool = await candidates(reading)
+            if !pool.isEmpty {
+                if let best = await CardFingerprint.best(scan: jpeg, among: pool) {
+                    let note = String(format: "picture %.2f vs %@ among %d", best.distance, best.next.map { String(format: "%.2f", $0) } ?? "none", pool.count)
+                    return (result(for: best.hit), reading, note)
+                }
+                why = "picture unsure among \(pool.count)"
+            }
         }
-        let note = String(format: "picture %.2f vs %@ among %d", best.distance, best.next.map { String(format: "%.2f", $0) } ?? "none", pool.count)
-        return (result(for: best.hit), reading, note)
+        // Last on the phone's side: the scan's picture against every card in the catalog.
+        if let best = await CardFingerprint.catalogMatch(scan: jpeg) {
+            let note = String(format: "catalog picture %.2f vs %@", best.distance, best.next.map { String(format: "%.2f", $0) } ?? "none")
+            return (result(for: best.hit), reading, note)
+        }
+        return (nil, reading, why + ", catalog picture unsure")
     }
 
     /// The cards the reading could be: ones with its number (and name, when read), else every

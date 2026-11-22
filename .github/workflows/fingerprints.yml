@@ -1,0 +1,28 @@
+name: Card fingerprints
+
+# Every night on a Mac (Apple's Vision only runs on Apple machines): fingerprints the pictures of
+# cards that don't have one yet and saves them to the website's database, for the scanner's
+# picture matching. Also runs by hand from the Actions tab.
+on:
+  schedule:
+    - cron: "37 10 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: fingerprints
+  cancel-in-progress: false
+
+jobs:
+  fingerprints:
+    runs-on: macos-15
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fingerprint new cards
+        env:
+          SITE_URL: ${{ vars.SITE_URL || 'https://holo-bay.vercel.app' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          MAX_MINUTES: "300"
+        run: |
+          if [ -z "$CRON_SECRET" ]; then echo "Add CRON_SECRET in the repository's Actions secrets first."; exit 1; fi
+          swift ios/scripts/fingerprints.swift

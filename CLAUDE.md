@@ -274,6 +274,10 @@ and say exactly what to run or click.
   both scanners run on every scan while it's on. Picture matching (`CardFingerprint`, Vision feature
   prints, on the phone): when text narrows it to several cards or only a name was read, the
   candidates' catalog pictures are fingerprinted (cached in Caches/card-prints) and the closest wins
-  only if 20% nearer than the runner-up. Vision prints can't be made on the Linux server, so there's
-  no whole-catalog index yet (a macOS CI job could build one later).
+  only if 20% nearer than the runner-up. Whole catalog: the "Card fingerprints" GitHub workflow
+  (nightly on a Mac, `ios/scripts/fingerprints.swift`, needs the repo secret `CRON_SECRET` and
+  optionally the variable `SITE_URL`) fingerprints every Pokémon single (Vision revision 2) via
+  `/api/fingerprints` into `card_prints` (pgvector; migration `20261122000000_card_prints.sql`);
+  the app's last on-phone try sends the scan's fingerprint to `/api/scan/match` (nearest 5) before
+  CardSight.
 - Not in the app on purpose: the separate trade checker (the Deal tab covers trades), and the welcome pages (removed; signed out opens straight on Sign in, its card wall is `Features/Auth/CardWall.swift`).

@@ -41,12 +41,33 @@ enum CardFingerprint {
         return (first.0, first.1, next)
     }
 
+    /// The whole catalog: the scan's fingerprint goes to the server, which finds the nearest of
+    /// every card's (made nightly on a Mac). Only a clear winner counts, as above.
+    static func catalogMatch(scan: Data) async -> (hit: SearchHit, distance: Float, next: Float?)? {
+        guard let mine = await fingerprint(of: scan), let vector = vector(mine) else { return nil }
+        guard let matches = try? await Backend.shared.api.matchPrint(vector), let first = matches.first else { return nil }
+        let next = matches.dropFirst().first?.distance
+        if let next {
+            guard first.distance < next * margin else { return nil }
+        }
+        guard first.distance < 1.0 else { return nil }
+        return (first.hit, first.distance, next)
+    }
+
+    /// A fingerprint's numbers, to send to the server.
+    static func vector(_ print: VNFeaturePrintObservation) -> [Float]? {
+        guard print.elementType == .float else { return nil }
+        return print.data.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
+    }
+
     // MARK: Fingerprints
 
     static func fingerprint(of image: Data) async -> VNFeaturePrintObservation? {
         await withCheckedContinuation { cont in
             DispatchQueue.global(qos: .userInitiated).async {
                 let request = VNGenerateImageFeaturePrintRequest()
+                // The same version the nightly catalog fingerprints use, so distances compare.
+                request.revision = VNGenerateImageFeaturePrintRequestRevision2
                 let handler = VNImageRequestHandler(data: image, options: [:])
                 do {
                     try handler.perform([request])
@@ -80,7 +101,7 @@ enum CardFingerprint {
     }
 
     private static var folder: URL {
-        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("card-prints", isDirectory: true)
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("card-prints-r2", isDirectory: true)
     }
 
     private static func safe(_ key: String) -> String {
