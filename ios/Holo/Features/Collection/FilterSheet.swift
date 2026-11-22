@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Collection's sort and filters in one bottom sheet: room for every choice, sets as a list you
-/// can search, and Reset and Done always in reach.
+/// Collection's sort and filters in one bottom sheet: sort, show and type, with Reset and Done
+/// always in reach.
 struct CollectionFilterSheet: View {
     @Binding var sort: CollectionView.Sort
     @Binding var perf: CollectionView.Perf
@@ -12,7 +12,6 @@ struct CollectionFilterSheet: View {
     /// How many of your holdings are in each set, for the set list.
     var setCounts: [String: Int]
     @Environment(\.dismiss) private var dismiss
-    @State private var setQuery = ""
 
     private var filtersOn: Bool { setFilter != nil || typeFilter != nil || perf != .all || sort != .value }
 
@@ -43,7 +42,7 @@ struct CollectionFilterSheet: View {
                             FlowChips(options: [(String?.none, "All types")] + types.map { (String?.some($0), $0) }, selection: $typeFilter)
                         }
                     }
-                    if !sets.isEmpty { setList }
+                    // (The set search and set list were removed: the owner's call.)
                 }
                 .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 24)
             }
@@ -81,50 +80,9 @@ struct CollectionFilterSheet: View {
             content()
         }
     }
-
-    /// Every set you hold cards from, with how many, searchable when there are lots.
-    private var setList: some View {
-        let q = setQuery.trimmingCharacters(in: .whitespaces).lowercased()
-        let shown = q.isEmpty ? sets : sets.filter { $0.lowercased().contains(q) }
-        return section("Set") {
-            if sets.count > 8 {
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass").font(.system(size: 14)).foregroundStyle(Theme.muted)
-                    TextField("", text: $setQuery, prompt: Text("Find a set").foregroundColor(Theme.subtle))
-                        .font(.geist(15)).foregroundStyle(.white)
-                }
-                .padding(.horizontal, 14).frame(height: 42)
-                .liquidGlass(in: Capsule())
-            }
-            VStack(spacing: 0) {
-                setRow(nil, "All sets", count: nil)
-                ForEach(shown, id: \.self) { s in setRow(s, s, count: setCounts[s]) }
-            }
-            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white.opacity(0.06)))
-        }
-    }
-
-    private func setRow(_ value: String?, _ label: String, count: Int?) -> some View {
-        let on = setFilter == value
-        return Button {
-            Haptics.tap()
-            withAnimation(.snappy(duration: 0.15)) { setFilter = value }
-        } label: {
-            HStack(spacing: 10) {
-                Text(label).font(.geist(15, on ? .semibold : .regular)).foregroundStyle(.white).lineLimit(2)
-                Spacer(minLength: 8)
-                if let count { Text("\(count)").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted) }
-                Image(systemName: on ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 18)).foregroundStyle(on ? Theme.lime : Color.white.opacity(0.25))
-            }
-            .padding(.horizontal, 14).frame(minHeight: 48)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
 }
 
-/// Chips that wrap onto as many lines as they need (the selected one filled lime).
+/// Chips that wrap onto as many lines as they need (the app's glass chips, the chosen one white).
 private struct FlowChips<T: Hashable>: View {
     var options: [(T, String)]
     @Binding var selection: T
