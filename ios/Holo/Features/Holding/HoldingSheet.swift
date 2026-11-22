@@ -31,9 +31,8 @@ struct HoldingSheet: View {
     @State private var bumpering = false
     @State private var editing: Txn?
     @State private var deleting: Txn?
-    /// The ⋯ action sheet, and one entry's Edit / Delete.
+    /// The ⋯ action sheet.
     @State private var showMore = false
-    @State private var entryMenu: EntryChoice?
     @State private var error: String?
     /// The worth's "where it comes from" sheet.
     @State private var priceInfo: PriceInfo?
@@ -99,12 +98,6 @@ struct HoldingSheet: View {
         }
         .sheet(isPresented: $selling) { if let h = holding { SellSheet(holding: h) } }
         .sheet(isPresented: $removing) { if let h = holding { RemoveSheet(holding: h) } }
-        .actionsSheet(item: $entryMenu, title: { _ in nil }) { choice in
-            [[
-                SheetAction(title: "Edit", icon: "pencil") { editing = choice.entry },
-                SheetAction(title: "Delete", icon: "trash", destructive: true) { deleting = choice.entry },
-            ]]
-        }
         .sheet(isPresented: $editingDetails) { if let h = holding { EditDetailsSheet(holding: h) } }
         .alert("New list", isPresented: $namingShelf) {
             TextField("Grails, For sale at the show…", text: $newShelf)
@@ -412,6 +405,8 @@ private struct HoldingHistory: View {
     var entries: [Txn]
     @Binding var editing: Txn?
     @Binding var deleting: Txn?
+    /// One entry's Edit / Delete, in our own action sheet.
+    @State private var entryMenu: EntryChoice?
 
     var body: some View {
         let lastId = entries.last?.id
@@ -434,6 +429,12 @@ private struct HoldingHistory: View {
             }
             .padding(14)
             .sheetPanel(radius: 16)
+        }
+        .actionsSheet(item: $entryMenu, title: { _ in nil }) { choice in
+            [[
+                SheetAction(title: "Edit", icon: "pencil") { editing = choice.entry },
+                SheetAction(title: "Delete", icon: "trash", destructive: true) { deleting = choice.entry },
+            ]]
         }
     }
 }
