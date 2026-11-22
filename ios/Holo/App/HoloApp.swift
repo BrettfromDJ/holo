@@ -43,6 +43,17 @@ struct RootView: View {
     @Environment(GradingStore.self) private var grading
     @Environment(GroupsStore.self) private var groups
     @State private var onboarding = Onboarding.shared
+    @State private var launchCover = true
+    @State private var launchProgress: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// The bar fills, then the cover fades away.
+    private func finishLaunch() {
+        withAnimation(.easeOut(duration: 0.18)) { launchProgress = 1 }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            withAnimation(.easeOut(duration: 0.25)) { launchCover = false }
+        }
+    }
 
     private var signedIn: Bool {
         if case .signedIn = session.state { return true }
@@ -91,13 +102,8 @@ struct RootView: View {
             } else {
                 switch session.state {
                 case .loading:
-                    // Restoring the session takes a moment: the launch screen's mark stays put
-                    // (same size and place), no spinner.
-                    ZStack {
-                        Color("LaunchBackground")
-                        Image("LaunchLogo").resizable().interpolation(.high).frame(width: 150, height: 150)
-                    }
-                    .ignoresSafeArea()
+                    // Restoring the session: the launch cover (on top) shows the mark and its bar.
+                    Theme.background.ignoresSafeArea()
                 case .signedOut:
                     SignInView()
                 case let .signedIn(userId, _):
@@ -123,7 +129,21 @@ struct RootView: View {
                 }
             }
         }
-        .onAppear { if AppConfig.isConfigured, !Demo.isOn { session.start() } }
+        .overlay {
+            // The launch screen's mark, held in place with a loading bar under it until the
+            // session is restored, then the bar fills and the cover fades to show the app.
+            if launchCover { LaunchCover(progress: launchProgress).transition(.opacity) }
+        }
+        .onAppear {
+            if AppConfig.isConfigured, !Demo.isOn { session.start() } else { launchCover = false }
+            guard launchCover else { return }
+            if session.state != .loading { finishLaunch() } else if !reduceMotion {
+                withAnimation(.easeOut(duration: 1.6)) { launchProgress = 0.8 }
+            }
+        }
+        .onChange(of: session.state) { _, state in
+            if state != .loading, launchCover { finishLaunch() }
+        }
         .onChange(of: session.state) { _, state in
             if state == .signedOut {
                 store.reset()
@@ -453,5 +473,26 @@ struct ScanTargetSheet: View {
             .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// What shows while the app opens: the launch screen's mark (same size and place, so nothing
+/// jumps from the system's launch screen) with a thin lime loading bar under it.
+struct LaunchCover: View {
+    var progress: CGFloat
+
+    var body: some View {
+        ZStack {
+            Color("LaunchBackground")
+            Image("LaunchLogo").resizable().interpolation(.high).frame(width: 150, height: 150)
+            Capsule().fill(Color.white.opacity(0.12))
+                .frame(width: 120, height: 3)
+                .overlay(alignment: .leading) {
+                    Capsule().fill(Theme.lime).frame(width: 120 * progress, height: 3)
+                }
+                .offset(y: 75 + 28)
+        }
+        .ignoresSafeArea()
+        .accessibilityLabel("Loading")
     }
 }
