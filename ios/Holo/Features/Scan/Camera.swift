@@ -5,11 +5,12 @@ import SwiftUI
 import UIKit
 import Vision
 
-/// The back camera, streaming 1080p frames for scanning.
+/// The back camera for scanning: the combined camera where there is one (macro up close), 4K
+/// live frames where available.
 ///
-/// One output only: a video data output feeds frames (upright, BGRA) to `captureOutput` on its
-/// own queue, and everything is taken from those frames. `capture()` returns the next frame as
-/// a JPEG (the "photo" for a scan); `snapshotCard()` returns a flattened crop of the card in the
+/// A video data output feeds frames (upright, BGRA) to `captureOutput` on its own queue for the
+/// card finder; a photo output takes a real photo for each scan. `capture()` returns that photo
+/// as a JPEG (a live frame if the photo fails); `snapshotCard()` returns a flattened crop of the card in the
 /// next frame (perspective-corrected) so it can be read before you tap. While `setTracking(true)`
 /// (the scanner is up and uncovered), about ten times a second Vision looks for one card-shaped
 /// rectangle; its four corners (0...1, Vision's space: origin bottom-left, in the upright frame)
@@ -72,6 +73,10 @@ final class Camera: NSObject, ObservableObject {
     }
     private var configured = false
     private var device: AVCaptureDevice?
+    private let photoOutput = AVCapturePhotoOutput()
+    private var hasPhotoOutput = false
+    /// Photos being taken, kept until each delivers.
+    private var photoDelegates: [Int64: PhotoGrab] = [:]
     /// Whether this camera has a light to turn on.
     var hasTorch: Bool { device?.hasTorch ?? false }
 
@@ -220,10 +225,18 @@ final class Camera: NSObject, ObservableObject {
     private func configure() -> Bool {
         session.beginConfiguration()
         defer { session.commitConfiguration() }
-        // 1080p: plenty for a card (scans are shrunk to 1000–1400px anyway) and a light pipeline.
-        session.sessionPreset = session.canSetSessionPreset(.hd1920x1080) ? .hd1920x1080 : .high
+        // 4K live frames where the phone has them: the card's crop (and its text) comes out much
+        // sharper than from 1080p; the card finder still reads only ~10 frames a second.
+        session.sessionPreset = session.canSetSessionPreset(.hd4K3840x2160) ? .hd4K3840x2160
+            : session.canSetSessionPreset(.hd1920x1080) ? .hd1920x1080 : .high
+        // The combined camera (wide + ultra wide) where there is one: up close it switches to the
+        // ultra wide's macro on its own (iPhone 13 Pro and later), like the Camera app. Else the
+        // main camera.
+        let discovery = AVCaptureDevice.DiscoverySession(
+            deviceTypes: [.builtInTripleCamera, .builtInDualWideCamera, .builtInWideAngleCamera],
+            mediaType: .video, position: .back)
         guard
-            let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
+            let device = discovery.devices.first,
             let input = try? AVCaptureDeviceInput(device: device),
             session.canAddInput(input)
         else { return false }
@@ -239,8 +252,23 @@ final class Camera: NSObject, ObservableObject {
             connection.videoRotationAngle = 90
         }
         videoOutput.setSampleBufferDelegate(self, queue: videoQueue)
+        // A real photo for each scan (full detail, Apple's sharpening), not a grab of the live video.
+        if session.canAddOutput(photoOutput) {
+            session.addOutput(photoOutput)
+            if let dims = device.activeFormat.supportedMaxPhotoDimensions.last { photoOutput.maxPhotoDimensions = dims }
+            photoOutput.maxPhotoQualityPrioritization = .balanced
+            if let connection = photoOutput.connection(with: .video), connection.isVideoRotationAngleSupported(90) {
+                connection.videoRotationAngle = 90
+            }
+            hasPhotoOutput = true
+        }
         // Cards are close up: keep focusing continuously.
         if (try? device.lockForConfiguration()) != nil {
+            // On the combined camera, 1× is the ultra wide; start on the main lens's framing (where
+            // it hands over), so it looks like before and switches to macro by itself up close.
+            if let first = device.virtualDeviceSwitchOverVideoZoomFactors.first {
+                device.videoZoomFactor = CGFloat(truncating: first)
+            }
             if device.isFocusModeSupported(.continuousAutoFocus) { device.focusMode = .continuousAutoFocus }
             if device.isAutoFocusRangeRestrictionSupported { device.autoFocusRangeRestriction = .near }
             device.unlockForConfiguration()
@@ -252,6 +280,36 @@ final class Camera: NSObject, ObservableObject {
     /// for a scan. Fails if no frame comes within a second (the camera is stopped or
     /// interrupted), so the shutter never hangs. One at a time.
     func capture(maxEdge: CGFloat = 1400, quality: CGFloat = 0.85) async throws -> Data {
+        // A real photo first (sharper); a frame of the live video if that fails.
+        if hasPhotoOutput, let photo = await takePhoto(), let image = CIImage(data: photo, options: [.applyOrientationProperty: true]),
+           let jpeg = Camera.jpeg(image, maxEdge: maxEdge, quality: quality) {
+            return jpeg
+        }
+        return try await captureFrame(maxEdge: maxEdge, quality: quality)
+    }
+
+    /// One photo from the photo output (nil if it fails or takes over two seconds).
+    private func takePhoto() async -> Data? {
+        await withCheckedContinuation { (cont: CheckedContinuation<Data?, Never>) in
+            queue.async { [weak self] in
+                guard let self, self.session.isRunning else { cont.resume(returning: nil); return }
+                let settings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.jpeg])
+                settings.maxPhotoDimensions = self.photoOutput.maxPhotoDimensions
+                settings.photoQualityPrioritization = .balanced
+                let id = settings.uniqueID
+                let grab = PhotoGrab { [weak self] data in
+                    self?.queue.async { self?.photoDelegates[id] = nil }
+                    cont.resume(returning: data)
+                }
+                self.photoDelegates[id] = grab
+                self.photoOutput.capturePhoto(with: settings, delegate: grab)
+                self.queue.asyncAfter(deadline: .now() + 2) { grab.finish(nil) }
+            }
+        }
+    }
+
+    /// The next live frame as a JPEG (the old way; the fallback when a photo can't be taken).
+    private func captureFrame(maxEdge: CGFloat, quality: CGFloat) async throws -> Data {
         let data: Data = try await withCheckedThrowingContinuation { cont in
             lock.lock()
             guard frameWaiter == nil else {
@@ -428,5 +486,25 @@ struct CameraPreview: UIViewRepresentable {
             uiView.previewLayer.session = session
             uiView.setNeedsLayout()
         }
+    }
+}
+
+/// Receives one photo and hands back its data once (whichever comes first: the photo or a timeout).
+private final class PhotoGrab: NSObject, AVCapturePhotoCaptureDelegate {
+    private var done: ((Data?) -> Void)?
+    private let lock = NSLock()
+
+    init(_ done: @escaping (Data?) -> Void) { self.done = done }
+
+    func finish(_ data: Data?) {
+        lock.lock()
+        let call = done
+        done = nil
+        lock.unlock()
+        call?(data)
+    }
+
+    func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
+        finish(error == nil ? photo.fileDataRepresentation() : nil)
     }
 }
