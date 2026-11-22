@@ -203,15 +203,10 @@ struct MainTabView: View {
 
     enum HomeTab { case home, collection, explore, deal }
 
-    /// The main scanner: straight to the collection, unless a deal is open, then it asks once
-    /// (per deal) whether cards go into the deal or the collection.
+    /// The main scanner: always straight to the camera, adding to your collection (no question
+    /// about a deal; the Deal tab has its own scan for coming in and going out).
     private func startScan() {
-        guard deals.deal.kind != .empty else { scanning = true; return }
-        switch scanChoice {
-        case .collection: scanning = true
-        case let .deal(side): dealScan = side
-        case nil: askScanTarget = true
-        }
+        scanning = true
     }
 
     var body: some View {
