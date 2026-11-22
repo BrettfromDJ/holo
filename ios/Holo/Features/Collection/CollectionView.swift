@@ -407,7 +407,7 @@ struct CollectionView: View {
         .anchorPreference(key: PortfolioPillAnchor.self, value: .bounds) { $0 }
         .accessibilityLabel("Portfolio: \(groups.name(of: groups.selected))")
         // A held tile's actions, and a held list chip's rename / delete (our own sheets).
-        .actionsSheet(item: $held, title: { $0.product?.name }) { quickActions($0) }
+        .actionsSheet(item: $held, title: { $0.product?.name }, product: { $0.product }) { quickActions($0) }
         .actionsSheet(item: $heldShelf, title: { $0.name }) { shelf in
             [[
                 SheetAction(title: "Rename list", icon: "pencil") { name = shelf.name; naming = .renameShelf(shelf.id) },
@@ -550,16 +550,16 @@ struct CollectionView: View {
         })
         return [
             [
-                // Select mode, starting with this card picked: tap others to add them.
+                // The main four as tiles: open, sell, what if, and select (this card picked first).
+                SheetAction(title: "Open", icon: "arrow.up.right") { path.append(productId) },
+                SheetAction(title: "Sell", icon: "dollarsign.circle") { selling = h },
+                SheetAction(title: "What if", icon: "questionmark.circle") { whatIf = h },
                 SheetAction(title: "Select", icon: "checkmark.circle") {
                     selecting = true
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { picked = [key] }
                 },
-                SheetAction(title: "Open card", icon: "arrow.up.right") { path.append(productId) },
             ],
             [
-                SheetAction(title: "Sell", icon: "dollarsign.circle") { selling = h },
-                SheetAction(title: "What if I sell?", icon: "questionmark.circle") { whatIf = h },
                 SheetAction(title: "Add to list", icon: "square.stack", children: [lists]),
             ],
             [

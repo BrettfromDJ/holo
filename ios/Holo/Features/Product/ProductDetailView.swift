@@ -581,7 +581,7 @@ struct ProductDetailView: View {
     private var moreMenu: some View {
         Button { Haptics.tap(); showMore = true } label: { Image(systemName: "ellipsis") }
             .accessibilityLabel("More")
-            .actionsSheet(isPresented: $showMore, title: product?.name) { moreActions }
+            .actionsSheet(isPresented: $showMore, title: product?.name, product: product) { moreActions }
     }
 
     private var moreActions: [[SheetAction]] {
