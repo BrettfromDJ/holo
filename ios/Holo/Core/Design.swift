@@ -1464,6 +1464,11 @@ struct QuickActionsSheet: View {
     @Environment(\.dismiss) private var dismiss
     /// "Add to list" turns the sheet into the list of your lists (no Apple menu).
     @State private var pickingList = false
+    /// Naming a new list right in the sheet (no Apple alert).
+    @State private var naming = false
+    @State private var newName = ""
+    @FocusState private var nameFocused: Bool
+    private var canAddList: Bool { Pro.shared.unlocked || groups.shelves.count < Pro.freeShelves }
 
     var body: some View {
         let id = product.id
@@ -1495,10 +1500,8 @@ struct QuickActionsSheet: View {
                     Task { if let watch { try? await store.removeWatch(watch.id) } else { try? await store.addWatch(product, printing: product.printings?.first, target: nil) } }
                     dismiss()
                 }
-                if !groups.shelves.isEmpty {
-                    row("Add to list", "rectangle.stack.badge.plus", chevron: true) {
-                        withAnimation(.snappy(duration: 0.22)) { pickingList = true }
-                    }
+                row("Add to list", "rectangle.stack.badge.plus", chevron: true) {
+                    withAnimation(.snappy(duration: 0.22)) { pickingList = true }
                 }
             }
             }
@@ -1514,8 +1517,8 @@ struct QuickActionsSheet: View {
 
     /// Room for the card, then each row; the list picker grows with your lists (scrolls past 5).
     private var sheetHeight: CGFloat {
-        if pickingList { return 196 + CGFloat(min(groups.shelves.count, 5)) * 58 }
-        return 150 + CGFloat(groups.shelves.isEmpty ? 3 : 4) * 58
+        if pickingList { return 196 + CGFloat(min(groups.shelves.count, 4) + 1) * 58 }
+        return 150 + 4 * 58
     }
 
     /// Your lists as rows: tap one to add the card (one it's already on shows a check).
@@ -1537,6 +1540,35 @@ struct QuickActionsSheet: View {
             }
             ScrollView {
                 VStack(spacing: 8) {
+                    // A new list, named right here; the card goes straight onto it.
+                    if naming {
+                        HStack(spacing: 10) {
+                            TextField("", text: $newName, prompt: Text("List name").foregroundColor(Theme.subtle))
+                                .font(.geist(16, .semibold)).foregroundStyle(.white)
+                                .focused($nameFocused)
+                                .submitLabel(.done)
+                                .onSubmit { createList(id) }
+                            Button { createList(id) } label: {
+                                Text("Create").font(.geist(15, .semibold)).foregroundStyle(Theme.ink)
+                                    .padding(.horizontal, 14).frame(height: 34)
+                                    .background(Capsule().fill(Theme.lime))
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
+                        }
+                        .padding(.leading, 16).padding(.trailing, 8)
+                        .frame(height: 50)
+                        .liquidGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous), tint: Color.white.opacity(0.02))
+                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.white.opacity(0.07), lineWidth: 1))
+                        .onAppear { nameFocused = true }
+                    } else if canAddList {
+                        row("New list", "plus") { withAnimation(.snappy(duration: 0.2)) { naming = true } }
+                    } else {
+                        Text("Free includes \(Pro.freeShelves) lists. Pro has as many as you like.")
+                            .font(.geist(13)).foregroundStyle(Theme.muted)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 6)
+                    }
                     ForEach(groups.shelves) { list in
                         let on = list.product_ids.contains(id)
                         row(list.name, on ? "checkmark" : "rectangle.stack", dim: on) {
@@ -1549,6 +1581,15 @@ struct QuickActionsSheet: View {
             }
             .scrollBounceBehavior(.basedOnSize)
         }
+    }
+
+    /// Make the named list with this card on it, then close.
+    private func createList(_ id: String) {
+        let name = String(newName.trimmingCharacters(in: .whitespaces).prefix(40))
+        guard !name.isEmpty else { return }
+        Haptics.tap()
+        Task { _ = try? await groups.createShelf(name, productIds: [id]) }
+        dismiss()
     }
 
     private func row(_ title: String, _ icon: String, chevron: Bool = false, dim: Bool = false, action: @escaping () -> Void) -> some View {
