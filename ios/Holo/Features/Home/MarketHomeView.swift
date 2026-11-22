@@ -46,6 +46,11 @@ struct MarketHomeView: View {
                 // Lazy: sections further down (and their pictures) load as you reach them, so the
                 // Top 10 near the top isn't waiting in line behind pictures you can't see yet.
                 LazyVStack(alignment: .leading, spacing: 32) {
+                    // The top, like a streaming app's: "Home" big on the left, its icons on the right
+                    // (no centred bar title).
+                    header
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, -16)
                     // Straight in: the search box (opens search with the keyboard up), then the card
                     // of the day. (The Your collection strip was here: it lives on Collection.)
                     SearchFieldButton(prompt: "Search any card or sealed product", scan: .collection) { searchOpen = true }
@@ -82,7 +87,8 @@ struct MarketHomeView: View {
             .sparkRefresh { fresh = false; await load() }
             // Inline: a large-title bar left a tall empty band under "Home".
             .navigationBarTitleDisplayMode(.inline)
-            .pageTitle("Home")
+            // The header is in the page itself; no bar above it.
+            .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0).zoomTransition(id: $0, in: cardZoom) }
             // The menu's pages, pushed here (links inside them push on top).
             .navigationDestination(for: MorePage.self) { p in
@@ -106,12 +112,6 @@ struct MarketHomeView: View {
                 case .wishlist: ListsView(which: .wishlist, embedded: true)
                 }
             }
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { setMenu(!menuOpen) } label: { Image(systemName: menuOpen ? "xmark" : "line.3.horizontal") }
-                        .accessibilityLabel(menuOpen ? "Close menu" : "Menu")
-                }
-            }
             .overlay(alignment: .topTrailing) {
                 if menuOpen {
                     ZStack(alignment: .topTrailing) {
@@ -121,7 +121,7 @@ struct MarketHomeView: View {
                             .onTapGesture { setMenu(false) }
                         PlacesMenu(go: go)
                             .padding(.trailing, 12)
-                            .padding(.top, 4)
+                            .padding(.top, 54)
                             .transition(.scale(scale: 0.92, anchor: .topTrailing).combined(with: .opacity))
                     }
                     .transition(.opacity)
@@ -145,6 +145,27 @@ struct MarketHomeView: View {
             .onChange(of: store.allHoldings.count) { themes.pick(store: store, index: index) }
             .onChange(of: forYou.picks.map(\.id)) { themes.setNextFavorite(taste: forYou.taste, picks: forYou.picks) }
         }
+    }
+
+    /// "Home" big on the left; on the right your watchlist (price alerts) and the menu.
+    private var header: some View {
+        HStack(alignment: .center, spacing: 4) {
+            Text("Home").font(.display(32)).tracking(32 * -0.03).foregroundStyle(.white).displayTrim(32)
+            Spacer(minLength: 8)
+            NavigationLink(value: ListRoute.watchlist) {
+                Image(systemName: "bell").font(.system(size: 20, weight: .medium)).foregroundStyle(.white)
+                    .frame(width: 44, height: 44).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Watchlist and price alerts")
+            Button { setMenu(!menuOpen) } label: {
+                Image(systemName: menuOpen ? "xmark" : "line.3.horizontal").font(.system(size: 20, weight: .medium)).foregroundStyle(.white)
+                    .frame(width: 44, height: 44).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(menuOpen ? "Close menu" : "Menu")
+        }
+        .padding(.top, 4)
     }
 
     @ViewBuilder private func sections(_ index: ExploreIndex) -> some View {

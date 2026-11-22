@@ -62,6 +62,8 @@ and say exactly what to run or click.
   have no changes from TCG API, so it keeps each Pokémon card's daily price in `catalog_price_days`
   (from $5, 9 days) and fills the changes itself (`src/lib/explore/price-days.ts`); TCG API's own
   changes win when it sends them.
+- Home's top is in the page (no bar): "Home" big on the left (`header` in `MarketHomeView`), a bell
+  (watchlist / price alerts) and the menu on the right; the places menu drops from there.
 - Home opens with a search box (`SearchFieldButton`, opens `SearchScreen`), not the old Your
   collection strip (removed).
 - Home's tabs under the search box (`HomeFilter` in `Themes.swift`: All · Modern · Mid era ·
