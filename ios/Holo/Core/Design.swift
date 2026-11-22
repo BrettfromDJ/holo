@@ -1514,14 +1514,27 @@ struct QuickActionsSheet: View {
 
     /// Room for the card, then each row; the list picker grows with your lists (scrolls past 5).
     private var sheetHeight: CGFloat {
-        let rows = pickingList ? min(groups.shelves.count, 5) + 1 : (groups.shelves.isEmpty ? 3 : 4)
-        return 150 + CGFloat(rows) * 58
+        if pickingList { return 196 + CGFloat(min(groups.shelves.count, 5)) * 58 }
+        return 150 + CGFloat(groups.shelves.isEmpty ? 3 : 4) * 58
     }
 
     /// Your lists as rows: tap one to add the card (one it's already on shows a check).
     private func listPicker(_ id: String) -> some View {
-        VStack(spacing: 8) {
-            row("Back", "chevron.left") { withAnimation(.snappy(duration: 0.22)) { pickingList = false } }
+        VStack(alignment: .leading, spacing: 12) {
+            // A small heading with a round back button beside it (not a row of its own).
+            HStack(spacing: 10) {
+                Button {
+                    Haptics.tap()
+                    withAnimation(.snappy(duration: 0.22)) { pickingList = false }
+                } label: {
+                    Image(systemName: "chevron.left").font(.system(size: 14, weight: .semibold)).foregroundStyle(.white)
+                        .frame(width: 32, height: 32)
+                        .liquidGlass(in: Circle(), interactive: true)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Back")
+                Text("Add to a list").font(.display(18)).tracking(-0.4).foregroundStyle(.white)
+            }
             ScrollView {
                 VStack(spacing: 8) {
                     ForEach(groups.shelves) { list in
@@ -1554,8 +1567,9 @@ struct QuickActionsSheet: View {
         .foregroundStyle(.white)
         .padding(.horizontal, 16)
         .frame(height: 50)
-        .liquidGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous), tint: Color.white.opacity(0.08), interactive: true)
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
+        // Quiet glass: a faint tint and a hairline edge, not a bright slab.
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous), tint: Color.white.opacity(0.02), interactive: true)
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.white.opacity(0.07), lineWidth: 1))
         .contentShape(Rectangle())
     }
 }
