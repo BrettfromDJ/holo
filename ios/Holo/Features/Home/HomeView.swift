@@ -207,17 +207,8 @@ struct HomeView: View {
                     }
                     .buttonStyle(.plain)
                 }
-                if groups.selected != GroupsStore.all {
-                    // The numbers below cover one portfolio (picked on Collection, or on the website).
-                    Button { groups.select(GroupsStore.all, store: store) } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "folder").font(.system(size: 11, weight: .semibold))
-                            Text("Showing \(groups.name(of: groups.selected)) · show\u{00A0}all").font(.geist(12))
-                        }
-                        .foregroundStyle(Theme.muted)
-                    }
-                    .buttonStyle(.plain)
-                }
+                // Which portfolio every number covers (All, Main or one of yours); Cards follows it.
+                HStack { PortfolioSwitcher(); Spacer(minLength: 0) }.padding(.horizontal, 16)
                 // (The Pulse ticker was here: market news belongs on Home, not over your own numbers.)
                 // Opens search with the keyboard already up.
                 SearchFieldButton(prompt: "Search any card or sealed product", scan: .collection) { search = true }

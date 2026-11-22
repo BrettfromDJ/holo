@@ -57,6 +57,10 @@ and say exactly what to run or click.
   top 10, newest set showcase, hot sealed, sets), Collection (a Summary | Cards switch in the top
   bar: Summary is `HomeView`, Cards is `CollectionView`; `CollectionMode`), Search, Explore, Deal.
   `Router.tabRequest` "collection" opens Cards, "collection-summary" opens Summary.
+  Cards gets to the cards fast: one slim line ("Worth $X +$Y all time", the portfolio's name when
+  not All), then search, chips and the cards; the value, chart, stat tiles and mix bar live only on
+  Summary. The portfolio switcher (`PortfolioSwitcher`, our action sheet) sits at the top of Summary
+  above its search box; Cards follows the pick.
 - **Home's risers** (card of the day, hot/cold, top 10, eras, hot sealed) read stored 24-hour and
   7-day changes from `product_prices`, from $20 (`MOVER_MIN_PRICE`). The catalog sync's set pages
   have no changes from TCG API, so it keeps each Pokémon card's daily price in `catalog_price_days`
@@ -210,7 +214,7 @@ and say exactly what to run or click.
   `gain:<holding key>:1`).
 - In the app since: Analytics (with Gains inside), Grading, Master Sets (was Binder), Activity —
   all from Overview's top-right menu, shelves (Collection chips, a card's ⋯ menu), portfolios (switcher on
-  Collection; `store.holdingFilter` filters holdings, summary and timeline, `allHoldings` is
+  Summary; `store.holdingFilter` filters holdings, summary and timeline, `allHoldings` is
   unfiltered for deals), show deleted & edit records (card page). Grading state is in
   `user_state` `grading-submissions` / `grading-costs`; shelves and portfolios use the
   `shelves` / `portfolios` tables. Screenshot pages: `-HoloPage analytics|gains|grading|master-sets|activity` (plus `-HoloMasterSet`,

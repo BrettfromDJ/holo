@@ -24,6 +24,8 @@ struct SheetAction: Identifiable {
     /// Names something new right in the sheet (a new list): tapping turns the row into a name
     /// box with Create; this gets the name, then the sheet closes.
     var onCreate: ((String) -> Void)? = nil
+    /// The name box's hint for `onCreate`.
+    var namePrompt = "List name"
     /// What it does. Runs once the sheet has closed, so it may open another sheet.
     var run: (() -> Void)? = nil
 }
@@ -163,7 +165,7 @@ struct ActionsSheet: View {
             ForEach(outlined) { action in
                 Group {
                     if naming == action.id, let create = action.onCreate {
-                        nameField(create)
+                        nameField(create, prompt: action.namePrompt)
                     } else {
                         row(action)
                     }
@@ -186,7 +188,7 @@ struct ActionsSheet: View {
     }
 
     /// The name box for a new list: type, then Create (or Return).
-    private func nameField(_ create: @escaping (String) -> Void) -> some View {
+    private func nameField(_ create: @escaping (String) -> Void, prompt: String) -> some View {
         let done = {
             let value = String(name.trimmingCharacters(in: .whitespaces).prefix(40))
             guard !value.isEmpty else { return }
@@ -195,7 +197,7 @@ struct ActionsSheet: View {
             dismiss()
         }
         return HStack(spacing: 10) {
-            TextField("", text: $name, prompt: Text("List name").foregroundColor(Theme.subtle))
+            TextField("", text: $name, prompt: Text(prompt).foregroundColor(Theme.subtle))
                 .font(.geist(16, .medium)).foregroundStyle(.white)
                 .focused($nameFocused)
                 .submitLabel(.done)

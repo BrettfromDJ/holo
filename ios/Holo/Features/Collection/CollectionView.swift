@@ -27,8 +27,6 @@ struct CollectionView: View {
     @State private var proPaywall: ProReason?
     /// The list of every shelf and portfolio, to rename or delete them.
     @State private var managing = false
-    /// The portfolio menu (our own frosted panel, opened from the portfolio pill).
-    @State private var portfolioMenu = false
     /// Quick actions from a long press on a tile: sell, or work out what selling would leave.
     @State private var selling: HoldingView?
     @State private var whatIf: HoldingView?
@@ -165,16 +163,6 @@ struct CollectionView: View {
                     .padding(32)
                 case .ready:
                     VStack(alignment: .leading, spacing: 20) {
-                        HStack(spacing: 8) {
-                            portfolioSwitcher
-                            Spacer(minLength: 0)
-                            // Select mode starts from a card's long-press menu ("Select"); the bottom
-                            // bar's Done ends it.
-                        }
-                        // Drawn above the header's backdrop: that backdrop reaches up behind this
-                        // row, and coming later it was painted over the pills, grid and all, so
-                        // nothing on them could blur it.
-                        .zIndex(1)
                         if let groupError { Text(groupError).font(.geist(13)).foregroundStyle(Theme.muted) }
                         header
                         if store.holdings.isEmpty {
@@ -281,23 +269,6 @@ struct CollectionView: View {
             .sparkRefresh { await reload() }
             .navigationBarTitleDisplayMode(.inline)
             .collectionPageTitle()
-            // The portfolio menu: a frosted panel under the pill, the page dimmed behind; tap
-            // anywhere else to close.
-            .overlayPreferenceValue(PortfolioPillAnchor.self) { anchor in
-                GeometryReader { geo in
-                    if portfolioMenu, let anchor {
-                        let pill = geo[anchor]
-                        ZStack(alignment: .topLeading) {
-                            Color.black.opacity(0.35).ignoresSafeArea()
-                                .contentShape(Rectangle())
-                                .onTapGesture { withAnimation(.snappy(duration: 0.2)) { portfolioMenu = false } }
-                            portfolioMenuPanel
-                                .offset(x: pill.minX, y: pill.maxY + 8)
-                                .transition(.scale(scale: 0.92, anchor: .topLeading).combined(with: .opacity))
-                        }
-                    }
-                }
-            }
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
             // A card you own opens its page straight away (no Your copy sheet in between).
             .onChange(of: opened?.identity.key) {
@@ -387,25 +358,9 @@ struct CollectionView: View {
         }
     }
 
-    /// All portfolios, Main, or one of yours: filters every number, like the website's switcher.
-    private var portfolioSwitcher: some View {
-        Button {
-            withAnimation(.snappy(duration: 0.2)) { portfolioMenu.toggle() }
-        } label: {
-            // Quiet text, no pill: the Summary | Cards switch above is the one pill at the top.
-            HStack(spacing: 5) {
-                Image(systemName: "folder").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.muted)
-                Text(groups.name(of: groups.selected)).font(.geist(14, .medium)).lineLimit(1)
-                Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.muted)
-                    .rotationEffect(.degrees(portfolioMenu ? 180 : 0))
-            }
-            .foregroundStyle(.white)
-            .frame(height: 32)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .anchorPreference(key: PortfolioPillAnchor.self, value: .bounds) { $0 }
-        .accessibilityLabel("Portfolio: \(groups.name(of: groups.selected))")
+    /// The page's sheets and alerts (held tiles and list chips, lists, the Pro page, naming).
+    private func pageSheets<V: View>(_ view: V) -> some View {
+        view
         // A held tile's actions, and a held list chip's rename / delete (our own sheets).
         .actionsSheet(item: $held, title: { $0.product?.name }, product: { $0.product }) { quickActions($0) }
         .actionsSheet(item: $heldShelf, title: { $0.name }) { shelf in
@@ -426,64 +381,6 @@ struct CollectionView: View {
             Button("Cancel", role: .cancel) { name = ""; shelfProduct = nil }
             Button("Save") { saveName() }
         }
-    }
-
-    /// The portfolio menu's rows: which portfolio to show, then new, manage, and (for one of
-    /// yours) rename and delete. Full labels, never cut short; frosted behind.
-    private var portfolioMenuPanel: some View {
-        let options: [(String, String)] = [(GroupsStore.all, "All portfolios"), (GroupsStore.main, "Main")] + groups.portfolios.map { ($0.id, $0.name) }
-        let own = groups.portfolios.contains(where: { $0.id == groups.selected })
-        return VStack(alignment: .leading, spacing: 0) {
-            ForEach(options, id: \.0) { id, title in
-                menuRow(title, icon: groups.selected == id ? "checkmark" : nil, tint: .white) {
-                    groups.select(id, store: store)
-                }
-            }
-            Rectangle().fill(Color.white.opacity(0.1)).frame(height: 1).padding(.vertical, 6).padding(.horizontal, 16)
-            menuRow("New portfolio", icon: "plus", tint: .white) { if Pro.shared.unlocked { naming = .portfolio } else { proPaywall = .portfolios } }
-            menuRow("Lists and portfolios", icon: "slider.horizontal.3", tint: .white) { managing = true }
-            if own {
-                let id = groups.selected
-                menuRow("Rename portfolio", icon: "pencil", tint: .white) { name = groups.name(of: id); naming = .renamePortfolio(id) }
-                menuRow("Delete portfolio", icon: "trash", tint: Theme.down) {
-                    Task { await groupRun { try await groups.removePortfolio(id, store: store) } }
-                }
-            }
-        }
-        .padding(.vertical, 8)
-        .fixedSize()
-        .background {
-            let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
-            ZStack {
-                shape.fill(.regularMaterial)
-                shape.fill(Color.black.opacity(0.35))
-                shape.strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
-            }
-            .shadow(color: .black.opacity(0.5), radius: 24, y: 12)
-        }
-        .environment(\.colorScheme, .dark)
-    }
-
-    private func menuRow(_ title: String, icon: String?, tint: Color, action: @escaping () -> Void) -> some View {
-        Button {
-            withAnimation(.snappy(duration: 0.2)) { portfolioMenu = false }
-            action()
-        } label: {
-            HStack(spacing: 12) {
-                Group {
-                    if let icon { Image(systemName: icon).font(.system(size: 14, weight: .semibold)) } else { Color.clear }
-                }
-                .frame(width: 18)
-                .foregroundStyle(tint == .white ? Theme.lime : tint)
-                Text(title).font(.geist(16, .medium)).foregroundStyle(tint)
-                    .lineLimit(1).fixedSize()
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 18)
-            .frame(minWidth: 240, minHeight: 46, alignment: .leading)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
     }
 
     private var namingTitle: String {
@@ -752,50 +649,27 @@ struct CollectionView: View {
         }
     }
 
+    /// One slim line before the search and the cards (the value, chart, tiles and mix are on
+    /// Summary): what's shown is worth, its all-time gain, and which portfolio when not All.
     private var header: some View {
         let s = store.summary
-        let month = Array(store.timeline.suffix(31))
-        let monthChange = (month.last?.value ?? 0) - (month.first?.value ?? 0)
-        let monthTone = monthChange < 0 ? Theme.planPink : Theme.lime
-        return VStack(alignment: .leading, spacing: 18) {
-            // The value, counting up, with the all-time gain under it.
-            VStack(alignment: .leading, spacing: 8) {
-                MonoLabel(text: "Value")
-                CountingText(value: s.value, format: { Format.money($0) })
-                    .font(.display(56)).tracking(-2.2).monospacedDigit().lineLimit(1).minimumScaleFactor(0.5)
-                    .displayTrim(56)
-                    .shadow(color: .white.opacity(0.12), radius: 18)
-                HStack(spacing: 8) {
-                    DeltaPill(ratio: s.gainRatio, size: 13)
-                    Text(Format.signedMoney(s.gain)).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(s.gain))
-                    Text("all time").font(.geist(13)).foregroundStyle(Theme.muted)
+        return pageSheets(
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                if groups.selected != GroupsStore.all {
+                    Image(systemName: "folder").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.muted)
+                    Text(groups.name(of: groups.selected)).font(.geist(13, .medium)).foregroundStyle(.white).lineLimit(1)
+                    Text("·").font(.geist(13)).foregroundStyle(Theme.subtle)
                 }
+                Text("Worth").font(.geist(13)).foregroundStyle(Theme.muted)
+                Text(Format.money(s.value)).font(.geist(13, .semibold)).monospacedDigit().foregroundStyle(.white)
+                Text(Format.signedMoney(s.gain)).font(.geist(13, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(s.gain))
+                Text("all time").font(.geist(13)).foregroundStyle(Theme.muted)
+                Spacer(minLength: 0)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 8)
-            // The last 30 days, drawing itself in.
-            if month.count > 1 {
-                VStack(alignment: .leading, spacing: 6) {
-                    Sparkline(points: month, color: monthTone).frame(height: 54)
-                    HStack {
-                        MonoLabel(text: "Last 30 days")
-                        Spacer()
-                        Text(Format.signedMoney(monthChange)).font(.geist(12, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(monthChange))
-                    }
-                }
-            }
-            // Glass stat tiles.
-            HStack(spacing: 8) {
-                statTile("Today", Format.signedMoney(s.dayChange), Theme.tone(s.dayChange))
-                statTile("Items", "\(Int(s.items))", .white)
-                statTile("Paid", Format.money(s.totalCost), .white)
-            }
-            AllocationBar(holdings: store.holdings, total: s.value)
-            // No add button: cards are added from their own page (found through Search or Explore).
-        }
-        .background(alignment: .top) {
-            CollectionBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
-        }
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            .padding(.top, 4)
+        )
     }
 
     private func statTile(_ label: String, _ value: String, _ tint: Color) -> some View {
@@ -1314,11 +1188,6 @@ struct ManageGroupsSheet: View {
 }
 
 /// Where the portfolio pill sits, so its menu can open right under it.
-private struct PortfolioPillAnchor: PreferenceKey {
-    static let defaultValue: Anchor<CGRect>? = nil
-    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) { value = value ?? nextValue() }
-}
-
 private extension View {
     /// A frosted pill: a material blur of what's behind, a dark wash, a soft light from the top
     /// and a fine edge.
