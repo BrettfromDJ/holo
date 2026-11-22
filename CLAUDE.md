@@ -114,9 +114,9 @@ and say exactly what to run or click.
   `.liquidGlass(in:)`, which falls back to frosted material on older iOS and older Xcode.
   Glass cards always blur what's behind them: use `.liquidGlass(in:)` (never a flat translucent
   fill) for any card, panel or pill that reads as glass.
-- Chips and tabs (`Chip`, `ChipPicker`) look like a streaming app's category pills: separate capsules
-  with a thin light outline and white text, the selected one filled white with dark text; no track
-  or glass behind them. Rows never bleed off the screen: they scroll inside the margins with the right
+- Chips and tabs (`Chip`, `ChipPicker`) look like a streaming app's category tabs: separate rounded
+  (13pt) Liquid Glass tiles with a faint light edge and white text, the selected one filled white
+  with dark text; no track behind them. Rows never bleed off the screen: they scroll inside the margins with the right
   edge fading (`ChipPicker(..., scrolls: true)`).
 - Bottom sheets: `.glassSheet()`: pure black, pull handle centred at the top, stopping short of
   full height (`.fraction(0.93)`; iOS 26 floats them in from the edges); panels, forms and dark buttons

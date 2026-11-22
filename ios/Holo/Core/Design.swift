@@ -635,25 +635,29 @@ struct Chip: View {
     var fills = false
     var action: () -> Void
 
-    /// Like a streaming app's category pills: each its own capsule with a thin light outline,
-    /// white text; the chosen one filled white with dark text. No track behind them.
+    /// Like a streaming app's category tabs: each its own rounded Liquid Glass tile (blurring what's
+    /// behind it, a faint light edge), white text; the chosen one filled white with dark text.
     var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 13, style: .continuous)
         Button(action: action) {
             HStack(spacing: 6) {
-                Text(title).font(.geist(14, .semibold))
+                Text(title).font(.geist(15, .semibold))
                 if let count { Text("\(count)").font(.geist(14, .medium)).opacity(0.6).monospacedDigit() }
             }
             .padding(.horizontal, 16)
             .frame(maxWidth: fills ? .infinity : nil)
-            .frame(height: 36)
+            .frame(height: 38)
             .foregroundStyle(selected ? Theme.ink : Color.white)
             .background {
                 if selected {
-                    Capsule().fill(Color.white)
+                    shape.fill(Color.white)
                 } else {
-                    Capsule().strokeBorder(Color.white.opacity(0.35), lineWidth: 1)
+                    Color.clear
+                        .liquidGlass(in: shape, tint: Color.white.opacity(0.06))
+                        .overlay(shape.strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
                 }
             }
+            .contentShape(shape)
             .animation(.snappy(duration: 0.18), value: selected)
         }
         .buttonStyle(ChipPress())
@@ -666,7 +670,6 @@ struct ChipPress: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         let pressed = configuration.isPressed
         configuration.label
-            .contentShape(Capsule())
             .offset(y: pressed ? 1 : 0)
             .scaleEffect(pressed ? 0.97 : 1)
             .animation(.spring(response: 0.22, dampingFraction: 0.65), value: pressed)
