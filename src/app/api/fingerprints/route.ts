@@ -9,7 +9,7 @@ export const maxDuration = 60;
  * The nightly fingerprint job (GitHub "Card fingerprints" workflow, on a Mac) talks to this:
  * GET  /api/fingerprints?limit=500 — cards still to fingerprint (id and picture);
  * POST /api/fingerprints — { prints: [{ productId, imageUrl, print: number[] }] } saved.
- * Both need FINGERPRINTS_SECRET: any long random value, set in Vercel and as the same-named
+ * Both need FINGERPRINTS_SECRET (a long random value), set in Vercel and as the same-named
  * GitHub Actions secret (its own key, so the hidden CRON_SECRET never needs copying).
  */
 function authorized(req: Request): boolean {
