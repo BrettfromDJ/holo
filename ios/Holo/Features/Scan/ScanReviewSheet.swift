@@ -22,6 +22,8 @@ struct ScanReviewSheet: View {
     @State private var error: String?
     /// The scan open close up.
     @State private var editing: EditingScan?
+    /// The list picker for "Add to a list" (our own action sheet).
+    @State private var pickingList = false
 
     var body: some View { sheetBody.presentationDetents([.fraction(0.93)]).glassSheet() }
 
@@ -145,10 +147,56 @@ struct ScanReviewSheet: View {
             }
             .buttonStyle(LimeButtonStyle())
             .disabled(saving || model.picks.isEmpty)
+            // Or put them on a list instead (a want list, cards for a show), without adding them
+            // to your collection.
+            Button { Haptics.tap(); pickingList = true } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "square.stack").font(.system(size: 14, weight: .semibold))
+                    Text("Add \(model.picks.count) to a list")
+                }
+                .font(.geist(15, .semibold)).foregroundStyle(.white)
+                .frame(maxWidth: .infinity).frame(height: 46)
+                .liquidGlass(in: Capsule(), interactive: true)
+                .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .disabled(saving || model.picks.isEmpty)
+            .opacity(model.picks.isEmpty ? 0.45 : 1)
+            .actionsSheet(isPresented: $pickingList, title: "Add to a list") { listActions }
         }
         .padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 8)
         .background(alignment: .top) { Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1) }
         .background(Color.black.opacity(0.18))
+    }
+
+    /// Your lists (tap one to put every matched card on it) and New list… to name one right here.
+    private var listActions: [[SheetAction]] {
+        let ids = Array(Set(model.picks.compactMap { $0.picked?.product.id }))
+        var rows: [SheetAction] = groups.shelves.map { list in
+            SheetAction(title: list.name, icon: "rectangle.stack") { putOnList { try await groups.addMany(list.id, productIds: ids) } }
+        }
+        if Pro.shared.unlocked || groups.shelves.count < Pro.freeShelves {
+            rows.append(SheetAction(title: "New list…", icon: "plus", outlined: true, onCreate: { name in
+                putOnList { _ = try await groups.createShelf(name, productIds: ids) }
+            }))
+        }
+        return [rows]
+    }
+
+    /// Saves to the list, then closes the review and the camera (the scans are done with).
+    private func putOnList(_ work: @escaping () async throws -> Void) {
+        // So the list shows each card's picture and price right away.
+        for pick in model.picks { if let p = pick.picked { groups.remember(p.product, market: p.market) } }
+        Task {
+            do {
+                try await work()
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                dismiss()
+                onAdded()
+            } catch {
+                self.error = error.localizedDescription
+            }
+        }
     }
 
     private func add() async {
