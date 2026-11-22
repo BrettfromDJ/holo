@@ -14,7 +14,8 @@ enum OnDeviceScan {
     /// What the text recognition found on the card.
     struct Reading: Equatable {
         var name: String?
-        /// The collector number as printed, e.g. "215/203" or "TG05/TG30".
+        /// The collector number as printed, e.g. "215/203" or "TG05/TG30"; empty when only the
+        /// name could be read (then pictures decide).
         var number: String
     }
 
@@ -23,11 +24,39 @@ enum OnDeviceScan {
         await identifyWithReading(jpeg: jpeg).result
     }
 
-    /// The same, also returning what was read (for test-photo mode's log).
-    static func identifyWithReading(jpeg: Data) async -> (result: ScanResult?, reading: Reading?) {
-        guard let reading = await read(jpeg: jpeg) else { return (nil, nil) }
-        guard let hit = await lookUp(reading) else { return (nil, reading) }
-        return (result(for: hit), reading)
+    /// The same, also returning what was read and how it was decided (for test-photo mode's log).
+    /// Text first; when the text narrows it to several cards (or only a name was read), picture
+    /// matching (`CardFingerprint`) picks the one the photo looks most like, if one clearly is.
+    static func identifyWithReading(jpeg: Data) async -> (result: ScanResult?, reading: Reading?, note: String?) {
+        guard let reading = await read(jpeg: jpeg) else { return (nil, nil, nil) }
+        if !reading.number.isEmpty, let hit = await lookUp(reading) { return (result(for: hit), reading, "text") }
+        let pool = await candidates(reading)
+        guard !pool.isEmpty else { return (nil, reading, "no candidates") }
+        guard let best = await CardFingerprint.best(scan: jpeg, among: pool) else {
+            return (nil, reading, "picture unsure among \(pool.count)")
+        }
+        let note = String(format: "picture %.2f vs %@ among %d", best.distance, best.next.map { String(format: "%.2f", $0) } ?? "none", pool.count)
+        return (result(for: best.hit), reading, note)
+    }
+
+    /// The cards the reading could be: ones with its number (and name, when read), else every
+    /// single with its name; one entry per product.
+    static func candidates(_ reading: Reading) async -> [SearchHit] {
+        var out: [SearchHit] = []
+        var seen = Set<String>()
+        func add(_ hits: [SearchHit]) {
+            for h in hits where !h.product.isSealed && !h.product.isHiddenFromBrowsing && seen.insert(h.product.id).inserted { out.append(h) }
+        }
+        if !reading.number.isEmpty {
+            let q = [reading.name, reading.number].compactMap { $0 }.joined(separator: " ")
+            if let hits = try? await Backend.shared.api.search(q) { add(hits.filter { sameNumber($0.product.number, reading.number) }) }
+            if out.isEmpty, let hits = try? await Backend.shared.api.search(reading.number) { add(hits.filter { sameNumber($0.product.number, reading.number) }) }
+        }
+        if out.isEmpty, let name = reading.name, let hits = try? await Backend.shared.api.search(name) {
+            let base = name.lowercased()
+            add(hits.filter { $0.product.name.lowercased().hasPrefix(base) })
+        }
+        return out
     }
 
     /// A catalog match as a matched raw-card scan result.
@@ -93,7 +122,8 @@ enum OnDeviceScan {
             }
         }
         // Several cards in one photo: leave it to the server, which reads them all.
-        guard numbers.count == 1, let number = numbers.first else { return nil }
+        guard numbers.count <= 1 else { return nil }
+        let number = numbers.first ?? ""
         // The name: the topmost line with letters that isn't a stage/type word or an HP figure.
         let name = lines
             .sorted { $0.1.maxY > $1.1.maxY }
@@ -103,6 +133,8 @@ enum OnDeviceScan {
                 guard let n, n.count >= 3 else { return false }
                 return !notNames.contains(n.lowercased())
             } ?? nil
+        // Neither a number nor a name: nothing to go on.
+        if number.isEmpty && name == nil { return nil }
         return Reading(name: name, number: number)
     }
 
@@ -135,6 +167,7 @@ enum OnDeviceScan {
 
     /// One clear catalog match for the reading, or nil.
     static func lookUp(_ reading: Reading) async -> SearchHit? {
+        guard !reading.number.isEmpty else { return nil }
         var queries: [String] = []
         if let name = reading.name { queries.append(name) }
         queries.append(reading.number)

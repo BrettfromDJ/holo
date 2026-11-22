@@ -271,5 +271,9 @@ and say exactly what to run or click.
   or several cards are in it. Camera: combined camera (macro up close), 4K frames, a real photo per scan.
   Test-photo mode (Settings → Scanner, `ScanTestLog`): saves each scan's photo + both scanners'
   answers to Files → Corodex → Scan tests and keeps a running agree/disagree and speed summary;
-  both scanners run on every scan while it's on. Next: picture fingerprints (Core ML / Vision).
+  both scanners run on every scan while it's on. Picture matching (`CardFingerprint`, Vision feature
+  prints, on the phone): when text narrows it to several cards or only a name was read, the
+  candidates' catalog pictures are fingerprinted (cached in Caches/card-prints) and the closest wins
+  only if 20% nearer than the runner-up. Vision prints can't be made on the Linux server, so there's
+  no whole-catalog index yet (a macOS CI job could build one later).
 - Not in the app on purpose: the separate trade checker (the Deal tab covers trades), and the welcome pages (removed; signed out opens straight on Sign in, its card wall is `Features/Auth/CardWall.swift`).

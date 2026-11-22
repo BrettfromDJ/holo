@@ -290,7 +290,7 @@ final class ScanModel {
                     let began = Date()
                     let found = await OnDeviceScan.identifyWithReading(jpeg: photo)
                     quick = found.result
-                    readText = found.reading.map { [$0.name, $0.number].compactMap { $0 }.joined(separator: " · ") }
+                    readText = found.reading.map { [$0.name, $0.number.isEmpty ? nil : $0.number, found.note].compactMap { $0 }.joined(separator: " · ") }
                     phone = Date().timeIntervalSince(began)
                     if let quick {
                         let line = ScanModel.timingLine(tappedAt: tappedAt, queuedAt: queuedAt, phone: phone, request: nil, server: nil, bytes: photo.count)
