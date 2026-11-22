@@ -64,8 +64,8 @@ and say exactly what to run or click.
   changes win when it sends them.
 - Home opens with a search box (`SearchFieldButton`, opens `SearchScreen`), not the old Your
   collection strip (removed).
-- Home's tabs under the search box (`HomeFilter` in `Themes.swift`: All · Singles · Sealed · Japanese ·
-  Vintage, a `ChipPicker`): All is the normal Home; a tab shows `filteredSections`, every piece cut to
+- Home's tabs under the search box (`HomeFilter` in `Themes.swift`: All · Modern · Mid era ·
+  Vintage by each card's set date, a `ChipPicker`): All is the normal Home; a tab shows `filteredSections`, every piece cut to
   that kind (Card of the day, Heating up / Cooling off, Top 10 from trending + hot sealed, and collections
   via `ThemesModel.filtered`, rows with 4+ matching cards, up to 14). Sets, For you and lists: All only.
 - **Card of the day** leads Home as a clean poster like a streaming app's featured title

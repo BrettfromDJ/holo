@@ -391,22 +391,16 @@ struct ThemePage: View {
 
 // MARK: Home's tabs
 
-/// Home's tabs: All, or only one kind of card in every row.
+/// Home's tabs: All, or only one era's cards in every row (same cut-offs as `MarketEras`).
 enum HomeFilter: String, CaseIterable, Hashable {
-    case all = "All", singles = "Singles", sealed = "Sealed", japanese = "Japanese", vintage = "Vintage"
+    case all = "All", modern = "Modern", midEra = "Mid era", vintage = "Vintage"
 
     func fits(_ hit: SearchHit) -> Bool {
         switch self {
         case .all: return true
-        case .singles: return !hit.product.isSealed
-        case .sealed: return hit.product.isSealed
-        case .japanese: return Self.isJapanese(hit)
+        case .modern: return MarketEras.era(of: hit.releaseDate) == "modern"
+        case .midEra: return MarketEras.era(of: hit.releaseDate) == "midEra"
         case .vintage: return MarketEras.era(of: hit.releaseDate) == "vintage"
         }
-    }
-
-    private static func isJapanese(_ hit: SearchHit) -> Bool {
-        if let g = hit.gameName?.lowercased(), g.contains("japan") { return true }
-        return (hit.product.setName ?? "").range(of: "japanese", options: .caseInsensitive) != nil
     }
 }
