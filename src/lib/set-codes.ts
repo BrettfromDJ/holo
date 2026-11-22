@@ -21,6 +21,7 @@ export const SET_CODES: Record<string, string> = {
   paf: "paldean fates",
   par: "paradox rift",
   "151": "151",
+  sv151: "151",
   obf: "obsidian flames",
   pal: "paldea evolved",
   svi: "scarlet & violet base",
