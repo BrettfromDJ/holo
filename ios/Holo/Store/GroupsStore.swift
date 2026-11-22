@@ -189,13 +189,36 @@ final class GroupsStore {
     /// Move holdings: they end up only in `target`.
     @MainActor
     func moveMany(_ keys: [String], to target: String, store: CollectionStore) async throws {
+        let before = (portfolios, mainKeys)
         try await write(PortfolioMembership.move(membership, keys, to: target), store: store)
+        offerUndo("Moved \(keys.count) item\(keys.count == 1 ? "" : "s")", before: before, store: store)
     }
 
     /// Copy holdings: they also show in `target`, staying where they are (nothing is duplicated).
     @MainActor
     func copyMany(_ keys: [String], to target: String, store: CollectionStore) async throws {
+        let before = (portfolios, mainKeys)
         try await write(PortfolioMembership.copy(membership, keys, to: target), store: store)
+        offerUndo("Copied \(keys.count) item\(keys.count == 1 ? "" : "s")", before: before, store: store)
+    }
+
+    /// Undo for a few seconds after a move or copy: puts every portfolio and Main back as they were.
+    @MainActor
+    private func offerUndo(_ message: String, before: ([PortfolioGroup], [String]), store: CollectionStore) {
+        Router.shared.undo = UndoItem(message: message) { [weak self] in
+            guard let self else { return }
+            struct Patch: Encodable { var holding_keys: [String] }
+            for old in before.0 {
+                guard let i = self.portfolios.firstIndex(where: { $0.id == old.id }), self.portfolios[i].holding_keys != old.holding_keys else { continue }
+                if self.cloud { try? await self.db.from("portfolios").update(Patch(holding_keys: old.holding_keys)).eq("id", value: old.id).execute() }
+                self.portfolios[i].holding_keys = old.holding_keys
+            }
+            if self.mainKeys != before.1 {
+                if self.cloud, let userId = self.userId { try? await UserState.save("portfolio-main", before.1, userId: userId) }
+                self.mainKeys = before.1
+            }
+            self.apply(store)
+        }
     }
 
     /// Put a holding in exactly these portfolios (a slab back from grading joins its raw card's).
@@ -244,8 +267,16 @@ final class GroupsStore {
         var ids = shelves[i].product_ids
         for p in productIds where !ids.contains(p) { ids.append(p) }
         guard ids != shelves[i].product_ids else { return }
+        let old = shelves[i].product_ids
         if cloud { try await db.from("shelves").update(Patch(product_ids: ids)).eq("id", value: shelfId).execute() }
         shelves[i].product_ids = ids
+        let added = ids.count - old.count
+        // Undo for a few seconds: the list as it was.
+        Router.shared.undo = UndoItem(message: "Added \(added) to \(shelves[i].name)") { [weak self] in
+            guard let self, let j = self.shelves.firstIndex(where: { $0.id == shelfId }) else { return }
+            if self.cloud { try? await self.db.from("shelves").update(Patch(product_ids: old)).eq("id", value: shelfId).execute() }
+            self.shelves[j].product_ids = old
+        }
     }
 
     @MainActor

@@ -1474,7 +1474,7 @@ struct MarketLink<Label: View>: View {
     @Environment(CollectionStore.self) private var store
 
     var body: some View {
-        CardLink(productId: hit.product.id) { label }
+        CardLink(productId: hit.product.id, product: hit.product) { label }
             .buttonStyle(.plain)
             .simultaneousGesture(TapGesture().onEnded { store.seed(hit) })
     }

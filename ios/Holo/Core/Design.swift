@@ -661,6 +661,8 @@ struct Chip: View {
             .animation(.snappy(duration: 0.18), value: selected)
         }
         .buttonStyle(ChipPress())
+        // A light tick when this chip becomes the chosen one (only the new one, so one tick a switch).
+        .sensoryFeedback(.selection, trigger: selected) { _, now in now }
     }
 }
 
@@ -1227,12 +1229,18 @@ struct CardLink<Label: View>: View {
     var productId: String
     /// The exact copy, when the row is about one (a purchase, a slab); else your most valuable.
     var identity: HoldingIdentity? = nil
+    /// The card itself when the caller has it (a market list's hit), for the press-and-hold menu.
+    var product: Product? = nil
     @ViewBuilder var label: Label
     @Environment(CollectionStore.self) private var store
     /// The cards of the list this link is in, in order (see `.cardSequence`).
     @Environment(\.cardSequence) private var sequence
 
     var body: some View {
+        links.modifier(CardQuickActions(productId: productId, known: product))
+    }
+
+    @ViewBuilder private var links: some View {
         if let owned = ownedIdentity {
             // A card you own opens its page too (Your position sits near the top), on the
             // printing of the copy you tapped.
@@ -1422,4 +1430,43 @@ extension EnvironmentValues {
 extension View {
     /// The cards this list shows, in order, so a card page opened from it can step to the next.
     func cardSequence(_ ids: [String]) -> some View { environment(\.cardSequence, ids) }
+}
+
+// MARK: - Press and hold a card
+
+/// Press and hold any card: quick actions without opening its page (wishlist, watch, add to a
+/// list, add to your collection, which opens the card's page to fill in the purchase).
+private struct CardQuickActions: ViewModifier {
+    var productId: String
+    var known: Product?
+    @Environment(CollectionStore.self) private var store
+    @Environment(GroupsStore.self) private var groups
+
+    func body(content: Content) -> some View {
+        content.contextMenu {
+            if let product = known ?? store.products[productId] ?? groups.extraProducts[productId] {
+                Button {
+                    // The card's page (where the purchase is filled in) needs the card on hand.
+                    if store.products[productId] == nil { store.seed(SearchHit(product: product)) }
+                    Router.shared.product = productId
+                } label: { Label("Add to collection…", systemImage: "plus") }
+                let wish = store.wish(for: productId)
+                Button {
+                    Task { if let wish { try? await store.removeWish(wish.id) } else { try? await store.addWish(product, printing: product.printings?.first, price: store.marketPrice(productId, printing: product.printings?.first)?.market) } }
+                } label: { Label(wish == nil ? "Add to wishlist" : "Remove from wishlist", systemImage: wish == nil ? "heart" : "heart.slash") }
+                let watch = store.watch(for: productId)
+                Button {
+                    Task { if let watch { try? await store.removeWatch(watch.id) } else { try? await store.addWatch(product, printing: product.printings?.first, target: nil) } }
+                } label: { Label(watch == nil ? "Watch price" : "Stop watching", systemImage: watch == nil ? "eye" : "eye.slash") }
+                if !groups.shelves.isEmpty {
+                    Menu {
+                        ForEach(groups.shelves) { list in
+                            Button(list.name) { Task { try? await groups.addMany(list.id, productIds: [productId]) } }
+                                .disabled(list.product_ids.contains(productId))
+                        }
+                    } label: { Label("Add to list", systemImage: "rectangle.stack.badge.plus") }
+                }
+            }
+        }
+    }
 }
