@@ -617,7 +617,9 @@ struct ProductDetailView: View {
                 Task { await run { try await groups.toggle(shelf.id, productId: id) } }
             }
         }
-        lists.append(SheetAction(title: "New list…", icon: "plus", outlined: true) { naming = true })
+        lists.append(SheetAction(title: "New list…", icon: "plus", outlined: true, onCreate: { name in
+            Task { await run { _ = try await groups.createShelf(name, productIds: [id]) } }
+        }))
         keep.append(SheetAction(title: "Lists", icon: "square.stack", children: [lists]))
         if !owned.isEmpty, !groups.portfolios.isEmpty {
             // A check on every portfolio your copies show in; picking one moves them there.

@@ -544,10 +544,13 @@ struct CollectionView: View {
                 Task { await groupRun { try await groups.toggle(shelf.id, productId: productId) } }
             }
         }
-        lists.append(SheetAction(title: "New list…", icon: "plus", outlined: true) {
-            shelfProduct = productId
-            if canAddShelf { naming = .shelf } else { proPaywall = .shelves }
-        })
+        if canAddShelf {
+            lists.append(SheetAction(title: "New list…", icon: "plus", outlined: true, onCreate: { name in
+                Task { await groupRun { _ = try await groups.createShelf(name, productIds: [productId]) } }
+            }))
+        } else {
+            lists.append(SheetAction(title: "New list…", icon: "plus", outlined: true) { proPaywall = .shelves })
+        }
         return [
             [
                 // The main four as tiles: open, sell, what if, and select (this card picked first).
