@@ -31,6 +31,9 @@ struct HoldingSheet: View {
     @State private var bumpering = false
     @State private var editing: Txn?
     @State private var deleting: Txn?
+    /// The ⋯ action sheet, and one entry's Edit / Delete.
+    @State private var showMore = false
+    @State private var entryMenu: EntryChoice?
     @State private var error: String?
     /// The worth's "where it comes from" sheet.
     @State private var priceInfo: PriceInfo?
@@ -96,6 +99,12 @@ struct HoldingSheet: View {
         }
         .sheet(isPresented: $selling) { if let h = holding { SellSheet(holding: h) } }
         .sheet(isPresented: $removing) { if let h = holding { RemoveSheet(holding: h) } }
+        .actionsSheet(item: $entryMenu, title: { _ in nil }) { choice in
+            [[
+                SheetAction(title: "Edit", icon: "pencil") { editing = choice.entry },
+                SheetAction(title: "Delete", icon: "trash", destructive: true) { deleting = choice.entry },
+            ]]
+        }
         .sheet(isPresented: $editingDetails) { if let h = holding { EditDetailsSheet(holding: h) } }
         .alert("New list", isPresented: $namingShelf) {
             TextField("Grails, For sale at the show…", text: $newShelf)
@@ -178,73 +187,57 @@ struct HoldingSheet: View {
         }
     }
 
+    /// The ⋯ button: this copy's actions in our own action sheet (not Apple's menu).
     private var moreMenu: some View {
-        Menu {
-            // Short titles with a small line under each (iOS sets the menu's width, so long titles
-            // would wrap onto three lines).
-            Button { editingDetails = true } label: {
-                Label { Text("Edit details"); Text("Condition, grade or printing") } icon: { Image(systemName: "pencil") }
-            }
-            shelfMenu
-            if !groups.portfolios.isEmpty { portfolioMenu }
-            Button { selling = true } label: {
-                Label { Text("Mark as sold"); Text("Record the price you sold it\u{00A0}for") } icon: { Image(systemName: "tag") }
-            }
-            Button { removing = true } label: {
-                Label { Text("Remove"); Text("Opened, lost or gave away") } icon: { Image(systemName: "minus.circle") }
-            }
-            Button(role: .destructive) { confirmDelete = true } label: {
-                Label { Text("Delete"); Text("As if you never added\u{00A0}it") } icon: { Image(systemName: "trash") }
-            }
-        } label: {
+        Button { Haptics.tap(); showMore = true } label: {
             Image(systemName: "ellipsis").font(.system(size: 17, weight: .semibold)).foregroundStyle(.white)
                 .frame(width: 40, height: 40)
                 .background(Circle().fill(Color.white.opacity(0.12)))
                 .overlay(Circle().strokeBorder(Color.white.opacity(0.14)))
                 .contentShape(Circle())
         }
-        .menuStyle(.button)
         .buttonStyle(.plain)
         .accessibilityLabel("More actions")
+        .actionsSheet(isPresented: $showMore) { moreActions }
     }
 
-    /// Put the card on shelves or take it off (a check on each it's on).
-    private var shelfMenu: some View {
+    private var moreActions: [[SheetAction]] {
         let productId = store.current(opened).productId
-        let on = groups.shelves.filter { $0.product_ids.contains(productId) }.map(\.name)
-        return Menu {
-            ForEach(groups.shelves) { shelf in
-                Button {
-                    Task { await groupRun { try await groups.toggle(shelf.id, productId: productId) } }
-                } label: {
-                    if shelf.product_ids.contains(productId) { Label(shelf.name, systemImage: "checkmark") } else { Text(shelf.name) }
-                }
-            }
-            Button { newShelf = ""; namingShelf = true } label: { Label("New list…", systemImage: "plus") }
-        } label: {
-            Label { Text("Lists"); Text(on.isEmpty ? "On no list" : on.joined(separator: ", ")) } icon: { Image(systemName: "square.stack") }
-        }
-    }
-
-    /// Which portfolios this copy shows in: tap one to add it there or take it out (it always
-    /// stays in at least one).
-    private var portfolioMenu: some View {
         let key = store.current(opened).key
-        let current = groups.portfoliosOf(key)
-        return Menu {
-            ForEach([GroupsStore.main] + groups.portfolios.map(\.id), id: \.self) { id in
-                Button {
+        // Lists: a check on each the card is on; tap to put it on or take it off.
+        let on = groups.shelves.filter { $0.product_ids.contains(productId) }.map(\.name)
+        var lists: [SheetAction] = groups.shelves.map { shelf in
+            SheetAction(title: shelf.name, icon: "rectangle.stack", checked: shelf.product_ids.contains(productId)) {
+                Task { await groupRun { try await groups.toggle(shelf.id, productId: productId) } }
+            }
+        }
+        lists.append(SheetAction(title: "New list…", icon: "plus") { newShelf = ""; namingShelf = true })
+        var first: [SheetAction] = [
+            SheetAction(title: "Edit details", subtitle: "Condition, grade or printing", icon: "pencil") { editingDetails = true },
+            SheetAction(title: "Lists", subtitle: on.isEmpty ? "On no list" : on.joined(separator: ", "), icon: "square.stack", children: [lists]),
+        ]
+        if !groups.portfolios.isEmpty {
+            // Which portfolios this copy shows in: tap one to add it there or take it out (it
+            // always stays in at least one).
+            let current = groups.portfoliosOf(key)
+            let rows = ([GroupsStore.main] + groups.portfolios.map(\.id)).map { id in
+                SheetAction(title: groups.name(of: id), icon: "folder", checked: current.contains(id)) {
                     var next = current
                     if next.contains(id) { next.removeAll { $0 == id } } else { next.append(id) }
                     if next.isEmpty { return }
                     Task { await groupRun { try await groups.place(key, in: next, store: store) } }
-                } label: {
-                    if current.contains(id) { Label(groups.name(of: id), systemImage: "checkmark") } else { Text(groups.name(of: id)) }
                 }
             }
-        } label: {
-            Label { Text("Portfolios"); Text(current.map { groups.name(of: $0) }.joined(separator: ", ")) } icon: { Image(systemName: "folder") }
+            first.append(SheetAction(title: "Portfolios", subtitle: current.map { groups.name(of: $0) }.joined(separator: ", "), icon: "folder", children: [rows]))
         }
+        return [
+            first,
+            [
+                SheetAction(title: "Mark as sold", subtitle: "Record the price you sold it for", icon: "tag") { selling = true },
+                SheetAction(title: "Remove", subtitle: "Opened, lost or gave away", icon: "minus.circle") { removing = true },
+                SheetAction(title: "Delete", subtitle: "As if you never added it", icon: "trash", destructive: true) { confirmDelete = true },
+            ],
+        ]
     }
 
     private func groupRun(_ work: () async throws -> Void) async {
@@ -428,12 +421,11 @@ private struct HoldingHistory: View {
                 ForEach(entries, id: \.id) { t in
                     HStack {
                         EntryRow(entry: t)
-                        Menu {
-                            Button { editing = t } label: { Label("Edit", systemImage: "pencil") }
-                            Button(role: .destructive) { deleting = t } label: { Label("Delete", systemImage: "trash") }
-                        } label: {
+                        Button { Haptics.tap(); entryMenu = EntryChoice(entry: t) } label: {
                             Image(systemName: "ellipsis").font(.system(size: 13)).foregroundStyle(Theme.muted).frame(width: 44, height: 44).contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Entry actions")
                     }
                     .padding(.vertical, 10)
                     if t.id != lastId { Rectangle().fill(Theme.border).frame(height: 1) }
@@ -954,4 +946,10 @@ private extension HoldingWorth {
         if m > 0 { return "Held " + plural(m, "month") }
         return d < 1 ? "Added today" : "Held " + plural(d, "day")
     }
+}
+
+/// One history entry picked for its actions.
+private struct EntryChoice: Identifiable {
+    var entry: Txn
+    var id: String { entry.id }
 }

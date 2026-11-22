@@ -20,6 +20,8 @@ struct ProductDetailView: View {
     @State private var cardSet: ExploreSet?
     @State private var openSet: ExploreSet?
     @State private var openArtist: String?
+    /// The ⋯ action sheet.
+    @State private var showMore = false
 
     init(productId: String, extra: AnyView? = nil) {
         self.startId = productId
@@ -575,81 +577,73 @@ struct ProductDetailView: View {
         }
     }
 
-    /// The ⋯ menu at the top right: everything the page can do, in one place.
+    /// The ⋯ button at the top right: everything the page can do, in our own action sheet.
     private var moreMenu: some View {
-        Menu {
-            Section {
-                Button { adding = true } label: { Label(owned.isEmpty ? "Add to collection" : "Add more", systemImage: "plus") }
-                if deals.deal.kind != .empty, let product {
-                    Menu {
-                        Button { DealAddButton.add(.incoming, product: product, printing: printing, market: headline, owned: owned, deals: deals) } label: { Label("Coming in", systemImage: "arrow.down.left") }
-                        Button { DealAddButton.add(.outgoing, product: product, printing: printing, market: headline, owned: owned, deals: deals) } label: { Label("Going out", systemImage: "arrow.up.right") }
-                    } label: { Label("Add to deal", systemImage: "arrow.left.arrow.right") }
-                }
-            }
-            if !owned.isEmpty {
-                Section {
-                    copyChoice("Record sale", icon: "tag") { selling = $0 }
-                    copyChoice("What if I sell?", icon: "plus.forwardslash.minus") { whatIf = $0 }
-                }
-            }
-            Section {
-                let watch = store.watch(for: productId)
-                Button {
-                    if let watch { Task { await run { try await store.removeWatch(watch.id) } } } else { watching = true }
-                } label: { Label(watch == nil ? "Watch price" : "Stop watching", systemImage: watch == nil ? "eye" : "eye.slash") }
-                let wish = store.wish(for: productId)
-                Button {
-                    guard let product else { return }
-                    Task { await run { if let wish { try await store.removeWish(wish.id) } else { try await store.addWish(product, printing: printing, price: price?.market) } } }
-                } label: { Label(wish == nil ? "Add to wishlist" : "Remove from wishlist", systemImage: wish == nil ? "heart" : "heart.slash") }
-                Menu {
-                    ForEach(groups.shelves) { shelf in
-                        Button {
-                            Task { await run { try await groups.toggle(shelf.id, productId: productId) } }
-                        } label: {
-                            if shelf.product_ids.contains(productId) { Label(shelf.name, systemImage: "checkmark") } else { Text(shelf.name) }
-                        }
-                    }
-                    Button { naming = true } label: { Label("New list…", systemImage: "plus") }
-                } label: { Label("Lists", systemImage: "square.stack") }
-                if !owned.isEmpty, !groups.portfolios.isEmpty {
-                    // A check on every portfolio your copies show in; picking one moves them there.
-                    let current = Set(owned.flatMap { groups.portfoliosOf($0.identity.key) })
-                    Menu {
-                        ForEach([GroupsStore.main] + groups.portfolios.map(\.id), id: \.self) { id in
-                            Button {
-                                Task { await run { try await groups.moveMany(owned.map(\.identity.key), to: id, store: store) } }
-                            } label: {
-                                if current.contains(id) { Label(groups.name(of: id), systemImage: "checkmark") } else { Text(groups.name(of: id)) }
-                            }
-                        }
-                    } label: { Label("Portfolio", systemImage: "folder") }
-                }
-            }
-            Section {
-                Button { viewingArt = true } label: { Label("View full screen", systemImage: "arrow.up.left.and.arrow.down.right") }
-                if let url = webURL {
-                    ShareLink(item: url, subject: Text(product?.name ?? "Card"), message: Text(shareText)) {
-                        Label("Share", systemImage: "square.and.arrow.up")
-                    }
-                }
-            }
-        } label: {
-            Image(systemName: "ellipsis")
-        }
-        .accessibilityLabel("More")
+        Button { Haptics.tap(); showMore = true } label: { Image(systemName: "ellipsis") }
+            .accessibilityLabel("More")
+            .actionsSheet(isPresented: $showMore, title: product?.name) { moreActions }
     }
 
-    /// One menu item for your copies: a button with one copy, a submenu to pick when there are more.
-    @ViewBuilder private func copyChoice(_ title: String, icon: String, pick: @escaping (HoldingView) -> Void) -> some View {
-        if owned.count == 1, let only = owned.first {
-            Button { pick(only) } label: { Label(title, systemImage: icon) }
-        } else {
-            Menu {
-                ForEach(owned) { h in Button("\(h.label ?? "Near Mint") \u{00D7}\(Int(h.quantity))") { pick(h) } }
-            } label: { Label(title, systemImage: icon) }
+    private var moreActions: [[SheetAction]] {
+        var out: [[SheetAction]] = []
+        var first = [SheetAction(title: owned.isEmpty ? "Add to collection" : "Add more", icon: "plus") { adding = true }]
+        if deals.deal.kind != .empty, let product {
+            let p = product, pr = printing, m = headline, o = owned, d = deals
+            first.append(SheetAction(title: "Add to deal", icon: "arrow.left.arrow.right", children: [[
+                SheetAction(title: "Coming in", icon: "arrow.down.left") { DealAddButton.add(.incoming, product: p, printing: pr, market: m, owned: o, deals: d) },
+                SheetAction(title: "Going out", icon: "arrow.up.right") { DealAddButton.add(.outgoing, product: p, printing: pr, market: m, owned: o, deals: d) },
+            ]]))
         }
+        out.append(first)
+        if !owned.isEmpty {
+            out.append([
+                copyAction("Record sale", icon: "tag") { selling = $0 },
+                copyAction("What if I sell?", icon: "plus.forwardslash.minus") { whatIf = $0 },
+            ])
+        }
+        var keep: [SheetAction] = []
+        let watch = store.watch(for: productId)
+        keep.append(SheetAction(title: watch == nil ? "Watch price" : "Stop watching", icon: watch == nil ? "eye" : "eye.slash") {
+            if let watch { Task { await run { try await store.removeWatch(watch.id) } } } else { watching = true }
+        })
+        let wish = store.wish(for: productId)
+        keep.append(SheetAction(title: wish == nil ? "Add to wishlist" : "Remove from wishlist", icon: wish == nil ? "heart" : "heart.slash") {
+            guard let product else { return }
+            Task { await run { if let wish { try await store.removeWish(wish.id) } else { try await store.addWish(product, printing: printing, price: price?.market) } } }
+        })
+        let id = productId
+        var lists: [SheetAction] = groups.shelves.map { shelf in
+            SheetAction(title: shelf.name, icon: "rectangle.stack", checked: shelf.product_ids.contains(id)) {
+                Task { await run { try await groups.toggle(shelf.id, productId: id) } }
+            }
+        }
+        lists.append(SheetAction(title: "New list…", icon: "plus") { naming = true })
+        keep.append(SheetAction(title: "Lists", icon: "square.stack", children: [lists]))
+        if !owned.isEmpty, !groups.portfolios.isEmpty {
+            // A check on every portfolio your copies show in; picking one moves them there.
+            let current = Set(owned.flatMap { groups.portfoliosOf($0.identity.key) })
+            let keys = owned.map(\.identity.key)
+            let rows = ([GroupsStore.main] + groups.portfolios.map(\.id)).map { pid in
+                SheetAction(title: groups.name(of: pid), icon: "folder", checked: current.contains(pid)) {
+                    Task { await run { try await groups.moveMany(keys, to: pid, store: store) } }
+                }
+            }
+            keep.append(SheetAction(title: "Portfolio", icon: "folder", children: [rows]))
+        }
+        out.append(keep)
+        var more = [SheetAction(title: "View full screen", icon: "arrow.up.left.and.arrow.down.right") { viewingArt = true }]
+        if let url = webURL { more.append(SheetAction(title: "Share", icon: "square.and.arrow.up", share: url)) }
+        out.append(more)
+        return out
+    }
+
+    /// One action for your copies: straight away with one copy, a page to pick one when there are more.
+    private func copyAction(_ title: String, icon: String, pick: @escaping (HoldingView) -> Void) -> SheetAction {
+        if owned.count == 1, let only = owned.first {
+            return SheetAction(title: title, icon: icon) { pick(only) }
+        }
+        let rows = owned.map { h in SheetAction(title: "\(h.label ?? "Near Mint") \u{00D7}\(Int(h.quantity))") { pick(h) } }
+        return SheetAction(title: title, icon: icon, children: [rows])
     }
 
     // MARK: Your position

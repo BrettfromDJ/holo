@@ -296,6 +296,7 @@ struct SetView: View {
     @State private var failed = false
     @State private var tab = SetTab.singles
     @State private var sort = Sort.price
+    @State private var sorting = false
     /// What the page works out from the set's products, once when it loads (see `SetDerived`).
     @State private var derived: SetDerived?
 
@@ -431,11 +432,8 @@ struct SetView: View {
                 Chip(title: "Sealed", selected: tab == .sealed, count: sealed.count) { pick(.sealed) }
             }
             Spacer(minLength: 0)
-            Menu {
-                Picker("Sort", selection: $sort) {
-                    ForEach(Sort.allCases.filter { tab == .sealed || $0 != .perPack }, id: \.self) { Text($0.rawValue).tag($0) }
-                }
-            } label: {
+            // Sort: our own sheet of choices (not Apple's menu), a check on the current one.
+            Button { Haptics.tap(); sorting = true } label: {
                 Image(systemName: "arrow.up.arrow.down")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(.white)
@@ -443,7 +441,13 @@ struct SetView: View {
                     .liquidGlass(in: Circle())
                     .contentShape(Circle())
             }
+            .buttonStyle(.plain)
             .accessibilityLabel("Sort")
+            .actionsSheet(isPresented: $sorting, title: "Sort by") {
+                [Sort.allCases.filter { tab == .sealed || $0 != .perPack }.map { option in
+                    SheetAction(title: option.rawValue, checked: sort == option) { sort = option }
+                }]
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)

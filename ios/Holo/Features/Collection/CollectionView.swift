@@ -39,6 +39,9 @@ struct CollectionView: View {
     @State private var shelfProduct: String?
     /// Select mode (the bulk editor): the holding keys picked, all of what's shown to start with.
     @State private var selecting = false
+    /// A held tile or list chip: its actions in our own sheet.
+    @State private var held: HoldingView?
+    @State private var heldShelf: GroupsStore.Shelf?
     @State private var picked: Set<String> = []
     @State private var confirmingBulkDelete = false
     @State private var bulkBusy = false
@@ -374,13 +377,7 @@ struct CollectionView: View {
             ForEach(groups.shelves) { shelf in
                 let n = counts.shelves[shelf.id] ?? 0
                 Chip(title: shelf.name, selected: shelfId == shelf.id && !pullsOnly, count: n) { reshuffle { shelfId = shelf.id; category = nil; pullsOnly = false } }
-                    .contextMenu {
-                        Button { name = shelf.name; naming = .renameShelf(shelf.id) } label: { Label("Rename list", systemImage: "pencil") }
-                        Button("Delete list", role: .destructive) {
-                            if shelfId == shelf.id { reshuffle { shelfId = nil } }
-                            Task { await groupRun { try await groups.removeShelf(shelf.id) } }
-                        }
-                    }
+                    .highPriorityGesture(LongPressGesture(minimumDuration: 0.35).onEnded { _ in Haptics.remove(); heldShelf = shelf })
             }
             Button { shelfProduct = nil; if canAddShelf { naming = .shelf } else { proPaywall = .shelves } } label: {
                 Label("List", systemImage: "plus").font(.geist(14, .semibold)).foregroundStyle(Theme.muted)
@@ -409,6 +406,17 @@ struct CollectionView: View {
         .buttonStyle(.plain)
         .anchorPreference(key: PortfolioPillAnchor.self, value: .bounds) { $0 }
         .accessibilityLabel("Portfolio: \(groups.name(of: groups.selected))")
+        // A held tile's actions, and a held list chip's rename / delete (our own sheets).
+        .actionsSheet(item: $held, title: { $0.product?.name }) { quickActions($0) }
+        .actionsSheet(item: $heldShelf, title: { $0.name }) { shelf in
+            [[
+                SheetAction(title: "Rename list", icon: "pencil") { name = shelf.name; naming = .renameShelf(shelf.id) },
+                SheetAction(title: "Delete list", icon: "trash", destructive: true) {
+                    if shelfId == shelf.id { reshuffle { shelfId = nil } }
+                    Task { await groupRun { try await groups.removeShelf(shelf.id) } }
+                },
+            ]]
+        }
         .sheet(isPresented: $managing) {
             ManageGroupsSheet(onClearShelf: { id in if shelfId == id { shelfId = nil } })
         }
@@ -526,45 +534,40 @@ struct CollectionView: View {
         if reduceMotion { change() } else { withAnimation(.spring(response: 0.3, dampingFraction: 0.85), change) }
     }
 
-    /// A tile's long-press menu: sell, what if, put it on a shelf, open the card page, and the
-    /// Owned sheet's ⋯ actions (edit details, remove, delete).
-    @ViewBuilder
-    private func quickActions(_ h: HoldingView) -> some View {
+    /// A held tile's actions (our own sheet, not Apple's menu): select, sell, what if, lists,
+    /// open the card page, and the Owned sheet's ⋯ actions (edit details, remove, delete).
+    private func quickActions(_ h: HoldingView) -> [[SheetAction]] {
         let productId = h.identity.productId
-        // Select mode, starting with this card picked: tap others to add them.
-        Button {
-            let key = h.identity.key
-            selecting = true
-            // After the menu has closed and the grid has switched into select mode, so the pick
-            // isn't lost in that change.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { picked = [key] }
-        } label: { Label("Select", systemImage: "checkmark.circle") }
-        Divider()
-        Button { selling = h } label: { Label("Sell", systemImage: "dollarsign.circle") }
-        Button { whatIf = h } label: { Label("What if I sell?", systemImage: "questionmark.circle") }
-        Menu {
-            ForEach(groups.shelves) { shelf in
-                Button {
-                    Task { await groupRun { try await groups.toggle(shelf.id, productId: productId) } }
-                } label: {
-                    if shelf.product_ids.contains(productId) { Label(shelf.name, systemImage: "checkmark") } else { Text(shelf.name) }
-                }
+        let key = h.identity.key
+        var lists: [SheetAction] = groups.shelves.map { shelf in
+            SheetAction(title: shelf.name, icon: "rectangle.stack", checked: shelf.product_ids.contains(productId)) {
+                Task { await groupRun { try await groups.toggle(shelf.id, productId: productId) } }
             }
-            Button { shelfProduct = productId; if canAddShelf { naming = .shelf } else { proPaywall = .shelves } } label: { Label("New list…", systemImage: "plus") }
-        } label: {
-            Label("Add to list", systemImage: "square.stack")
         }
-        Button { path.append(productId) } label: { Label("Open card", systemImage: "arrow.up.right") }
-        Divider()
-        Button { editingDetails = h } label: {
-            Label { Text("Edit details"); Text("Condition, grade or printing") } icon: { Image(systemName: "pencil") }
-        }
-        Button { removing = h } label: {
-            Label { Text("Remove"); Text("Opened, lost or gave away") } icon: { Image(systemName: "minus.circle") }
-        }
-        Button(role: .destructive) { deleting = h } label: {
-            Label { Text("Delete"); Text("As if you never added\u{00A0}it") } icon: { Image(systemName: "trash") }
-        }
+        lists.append(SheetAction(title: "New list…", icon: "plus") {
+            shelfProduct = productId
+            if canAddShelf { naming = .shelf } else { proPaywall = .shelves }
+        })
+        return [
+            [
+                // Select mode, starting with this card picked: tap others to add them.
+                SheetAction(title: "Select", icon: "checkmark.circle") {
+                    selecting = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { picked = [key] }
+                },
+                SheetAction(title: "Open card", icon: "arrow.up.right") { path.append(productId) },
+            ],
+            [
+                SheetAction(title: "Sell", icon: "dollarsign.circle") { selling = h },
+                SheetAction(title: "What if I sell?", icon: "questionmark.circle") { whatIf = h },
+                SheetAction(title: "Add to list", icon: "square.stack", children: [lists]),
+            ],
+            [
+                SheetAction(title: "Edit details", subtitle: "Condition, grade or printing", icon: "pencil") { editingDetails = h },
+                SheetAction(title: "Remove", subtitle: "Opened, lost or gave away", icon: "minus.circle") { removing = h },
+                SheetAction(title: "Delete", subtitle: "As if you never added it", icon: "trash", destructive: true) { deleting = h },
+            ],
+        ]
     }
 
     // MARK: Select mode
@@ -583,8 +586,8 @@ struct CollectionView: View {
         if selecting {
             button
         } else {
-            // Hold to lift the tile and get quick actions.
-            button.contextMenu { quickActions(h) } preview: { LiftedPreview { HoldingTile(holding: h).frame(width: 190) } }
+            // Hold for quick actions (our own sheet; a quick tap still opens the copy).
+            button.highPriorityGesture(LongPressGesture(minimumDuration: 0.35).onEnded { _ in Haptics.remove(); held = h })
         }
     }
 
@@ -599,7 +602,7 @@ struct CollectionView: View {
         if selecting {
             button
         } else {
-            button.contextMenu { quickActions(h) } preview: { LiftedPreview { HoldingListRow(holding: h).frame(width: 340) } }
+            button.highPriorityGesture(LongPressGesture(minimumDuration: 0.35).onEnded { _ in Haptics.remove(); held = h })
         }
     }
 

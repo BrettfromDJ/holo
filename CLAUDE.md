@@ -133,6 +133,11 @@ and say exactly what to run or click.
   Scrubbable charts (`PriceHistoryCard`, `PerformanceSection`): the series is an Equatable child
   (`HistorySeries`, `PerformanceSeries`) with explicit x/y scales; the finger's rule/point is a
   separate empty-axis Chart overlaid on top that owns `chartXSelection`, so dragging redraws only it.
+- No Apple pop-up menus for actions (they lagged and clipped): use our `ActionsSheet`
+  (`Components/ActionsSheet.swift`, `.actionsSheet(isPresented:)` / `(item:)` with `[[SheetAction]]`):
+  a small black sheet of quiet glass rows, sections, checks, a second page for lists/portfolios/copies
+  with a round back button, run after the sheet closes. Used by the card page ⋯, Your copy ⋯ and its
+  entries, Collection's held tiles and list chips, the set page's sort. Small pickers may stay Menus.
 - Animations must be cheap: no per-frame layout on many views, no animated shadow radius, no
   per-frame blur. Looping motion uses a `TimelineView` or a single offset animation. Respect
   Reduce Motion everywhere.
