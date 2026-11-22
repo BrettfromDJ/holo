@@ -1443,30 +1443,45 @@ private struct CardQuickActions: ViewModifier {
     @Environment(GroupsStore.self) private var groups
 
     func body(content: Content) -> some View {
-        content.contextMenu {
-            if let product = known ?? store.products[productId] ?? groups.extraProducts[productId] {
-                Button {
-                    // The card's page (where the purchase is filled in) needs the card on hand.
-                    if store.products[productId] == nil { store.seed(SearchHit(product: product)) }
-                    Router.shared.product = productId
-                } label: { Label("Add to collection…", systemImage: "plus") }
-                let wish = store.wish(for: productId)
-                Button {
-                    Task { if let wish { try? await store.removeWish(wish.id) } else { try? await store.addWish(product, printing: product.printings?.first, price: store.marketPrice(productId, printing: product.printings?.first)?.market) } }
-                } label: { Label(wish == nil ? "Add to wishlist" : "Remove from wishlist", systemImage: wish == nil ? "heart" : "heart.slash") }
-                let watch = store.watch(for: productId)
-                Button {
-                    Task { if let watch { try? await store.removeWatch(watch.id) } else { try? await store.addWatch(product, printing: product.printings?.first, target: nil) } }
-                } label: { Label(watch == nil ? "Watch price" : "Stop watching", systemImage: watch == nil ? "eye" : "eye.slash") }
-                if !groups.shelves.isEmpty {
-                    Menu {
-                        ForEach(groups.shelves) { list in
-                            Button(list.name) { Task { try? await groups.addMany(list.id, productIds: [productId]) } }
-                                .disabled(list.product_ids.contains(productId))
-                        }
-                    } label: { Label("Add to list", systemImage: "rectangle.stack.badge.plus") }
+        if let product = known ?? store.products[productId] ?? groups.extraProducts[productId] {
+            content
+                // Lift just the card's rounded shape (not the row around it, not its price pill).
+                .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .contextMenu {
+                    menu(product)
+                } preview: {
+                    // A plain picture of the card for the preview: no glass, no zoom source, so the
+                    // lift is a clean, quick grow instead of a clipped snapshot of the tile.
+                    ProductImage(product: product, cornerRadius: 12)
+                        .frame(width: 240, height: 335)
+                        .background(Color.black)
                 }
-            }
+        } else {
+            content
+        }
+    }
+
+    @ViewBuilder private func menu(_ product: Product) -> some View {
+        Button {
+            // The card's page (where the purchase is filled in) needs the card on hand.
+            if store.products[productId] == nil { store.seed(SearchHit(product: product)) }
+            Router.shared.product = productId
+        } label: { Label("Add to collection…", systemImage: "plus") }
+        let wish = store.wish(for: productId)
+        Button {
+            Task { if let wish { try? await store.removeWish(wish.id) } else { try? await store.addWish(product, printing: product.printings?.first, price: store.marketPrice(productId, printing: product.printings?.first)?.market) } }
+        } label: { Label(wish == nil ? "Add to wishlist" : "Remove from wishlist", systemImage: wish == nil ? "heart" : "heart.slash") }
+        let watch = store.watch(for: productId)
+        Button {
+            Task { if let watch { try? await store.removeWatch(watch.id) } else { try? await store.addWatch(product, printing: product.printings?.first, target: nil) } }
+        } label: { Label(watch == nil ? "Watch price" : "Stop watching", systemImage: watch == nil ? "eye" : "eye.slash") }
+        if !groups.shelves.isEmpty {
+            Menu {
+                ForEach(groups.shelves) { list in
+                    Button(list.name) { Task { try? await groups.addMany(list.id, productIds: [productId]) } }
+                        .disabled(list.product_ids.contains(productId))
+                }
+            } label: { Label("Add to list", systemImage: "rectangle.stack.badge.plus") }
         }
     }
 }
