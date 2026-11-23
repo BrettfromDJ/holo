@@ -137,6 +137,7 @@ and say exactly what to run or click.
   turn into a faint white fill on it. No navigation bar in display sheets like Your copy: the bar
   resizes while the sheet rises and slides the content; put the title and Done in the content.
   Content sits still; only figures count and charts draw.
+- **No doubled titles:** a page with its own big heading (Lists, Activity, a list, Sales has none) leaves the bar title empty (`.pageTitle("")`), so the name isn't shown twice.
 - No black bar behind the navigation: content scrolls up under the status bar.
 - Smoothness rules (from the Nov 2026 audit): read saved files once per launch, not in a view's
   `@State` default (views re-init on every tab switch: `ThemesModel.launchSaved`,

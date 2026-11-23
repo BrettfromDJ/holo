@@ -266,7 +266,8 @@ struct ListsHomeView: View {
         }
         .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)
-        .pageTitle("Lists")
+        // "Lists" is the big heading in the page; the bar just has the back button.
+        .pageTitle("")
         // Cards not in your collection (their picture and price) load whenever a list gains one,
         // so a new card shows in its tile straight away, not only on the next visit.
         .task(id: groups.shelves.flatMap(\.product_ids)) { await groups.loadExtras(groups.shelves.flatMap(\.product_ids), known: store.products) }
