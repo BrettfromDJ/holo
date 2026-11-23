@@ -115,11 +115,13 @@ struct ListsView: View {
     }
 
     @ViewBuilder private var wishlist: some View {
-        ForEach(WishItem.Priority.allCases, id: \.self) { priority in
-            let items = store.wishlist.filter { $0.priority == priority }
-            if !items.isEmpty {
-                Section(priority.label) {
-                    ForEach(items) { w in
+        // One list, no headings (Grail / Want / Maybe were removed): grails first, then the rest.
+        let order = WishItem.Priority.allCases
+        let items = store.wishlist.enumerated().sorted {
+            let a = order.firstIndex(of: $0.element.priority) ?? 0, b = order.firstIndex(of: $1.element.priority) ?? 0
+            return a == b ? $0.offset < $1.offset : a < b
+        }.map(\.element)
+        ForEach(items) { w in
                         let current = store.listPrice(w.product.id, printing: w.printing)?.market ?? w.price
                         Group {
                             if selecting {
@@ -138,9 +140,6 @@ struct ListsView: View {
             .listRowInsets(EdgeInsets(top: 14, leading: 30, bottom: 14, trailing: 28))
             .listRowSeparator(.hidden)
                         // Holding the card opens its quick actions (wishlist on/off and more).
-                    }
-                }
-            }
         }
     }
 
