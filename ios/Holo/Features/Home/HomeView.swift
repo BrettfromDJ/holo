@@ -36,6 +36,17 @@ struct HomeView: View {
     var body: some View {
         NavigationStack(path: $path) {
             ScrollView {
+                // Summary / Cards, big, with the places menu on the right (no bar above).
+                CollectionTitles {
+                    Button { setMenu(!menuOpen) } label: {
+                        Image(systemName: menuOpen ? "xmark" : "line.3.horizontal").font(.system(size: 20, weight: .medium)).foregroundStyle(.white)
+                            .frame(width: 44, height: 44).contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(menuOpen ? "Close menu" : "Menu")
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
                 switch store.status {
                 case .idle, .loading:
                     // First launch only (later launches open on the saved collection): dim, still shapes.
@@ -100,26 +111,6 @@ struct HomeView: View {
                 checkRecap()
             }
             // The "Prices updated" banner stays off (see refresh()).
-            .toolbar {
-                // Once the search field scrolls away, search moves to the top left, in the same
-                // glass as the heart and gear.
-                ToolbarItem(placement: .topBarLeading) {
-                    if searchTucked {
-                        Button { search = true } label: { Image(systemName: "magnifyingglass") }
-                            .accessibilityLabel("Search")
-                            .transition(.opacity.combined(with: .scale(scale: 0.8)))
-                    }
-                }
-                // One menu for every main place in the app (replaces the heart and gear). Our own
-                // glass panel, not a system Menu: it pauses the moving cards behind it while open
-                // and closes instantly when you pick a page, so opening and leaving stay snappy.
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { setMenu(!menuOpen) } label: {
-                        Image(systemName: menuOpen ? "xmark" : "line.3.horizontal")
-                    }
-                    .accessibilityLabel(menuOpen ? "Close menu" : "Menu")
-                }
-            }
             .toolbarBackground(.hidden, for: .navigationBar)
             .navigationBarTitleDisplayMode(.inline)
             .collectionPageTitle()

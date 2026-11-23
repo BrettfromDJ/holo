@@ -54,11 +54,13 @@ and say exactly what to run or click.
   Analytics; Analytics, Grading, Master sets and Activity open from the top-right menu of
   Collection's Summary (what Overview was; the shortcut tiles were removed).
 - **Tabs:** Home (`MarketHomeView`: the hobby, not your collection: card of the day, hot and cold,
-  top 10, newest set showcase, hot sealed, sets), Collection (a Summary | Cards switch in the top
-  bar: Summary is `HomeView`, Cards is `CollectionView`; `CollectionMode`), Search, Explore, Deal.
+  top 10, newest set showcase, hot sealed, sets), Collection (Summary and Cards as two big titles in
+  the page, like Home's title, no bar (`CollectionTitles`; the one you're on white, the other faded;
+  Summary's places menu on the right): Summary is `HomeView`, Cards is `CollectionView`; `CollectionMode`), Search, Explore, Deal.
   `Router.tabRequest` "collection" opens Cards, "collection-summary" opens Summary.
   Cards gets to the cards fast: nothing above the search (only the portfolio's name when not
-  All; the "Worth" line was removed), then search, chips and the cards; the value, chart, stat tiles and mix bar live only on
+  All; the "Worth" line was removed), then search (one glass family: the search box, a round glass filter button with a lime dot when
+  something is set, and one round glass button flipping grid/list; no lime toggle), chips and the cards; the value, chart, stat tiles and mix bar live only on
   Summary. The portfolio switcher (`PortfolioSwitcher`, our action sheet) sits on Summary centred just
   above "Your collection's worth" and the big value (in `Hero`); Cards follows the pick.
 - **Home's risers** (card of the day, hot/cold, top 10, eras, hot sealed) read stored 24-hour and

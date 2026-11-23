@@ -29,32 +29,43 @@ struct CollectionTabRoot: View {
     }
 }
 
-/// Summary | Cards, in the top bar's middle, where the page title sits.
-struct CollectionModeSwitch: View {
+/// Summary and Cards as two big titles at the top of the page, like Home's title (the one
+/// you're on white, the other faded; tap to switch), with the page's own buttons on the right.
+struct CollectionTitles<Trailing: View>: View {
     @AppStorage(CollectionMode.key) private var mode = "summary"
+    var trailing: Trailing
+
+    init(@ViewBuilder trailing: () -> Trailing) { self.trailing = trailing() }
 
     var body: some View {
-        HStack(spacing: 2) {
+        HStack(alignment: .center, spacing: 18) {
             ForEach([("summary", "Summary"), ("cards", "Cards")], id: \.0) { value, title in
                 let on = mode == value
-                Button { mode = value } label: {
-                    Text(title).font(.geist(13, on ? .semibold : .medium))
-                        .foregroundStyle(on ? Theme.ink : Theme.muted)
-                        .padding(.horizontal, 14).frame(height: 30)
-                        .background { if on { Capsule().fill(Theme.lime) } }
+                Button { if !on { mode = value } } label: {
+                    Text(title).font(.display(32)).tracking(32 * -0.03)
+                        .foregroundStyle(on ? Color.white : Theme.subtle)
+                        .displayTrim(32)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityAddTraits(on ? .isSelected : [])
             }
+            Spacer(minLength: 8)
+            trailing
         }
-        .padding(3)
-        .liquidGlass(in: Capsule())
+        .frame(minHeight: 44)
+        .padding(.top, 4)
         .sensoryFeedback(.selection, trigger: mode)
     }
 }
 
+extension CollectionTitles where Trailing == EmptyView {
+    init() { self.trailing = EmptyView() }
+}
+
 extension View {
-    /// Collection's top: the Summary | Cards switch where the page title sits.
+    /// Collection's top: no bar (the Summary / Cards titles are in the page, like Home's).
     func collectionPageTitle() -> some View {
-        pageTitle { CollectionModeSwitch() }
+        toolbar(.hidden, for: .navigationBar)
     }
 }

@@ -150,6 +150,8 @@ struct CollectionView: View {
     var body: some View {
         NavigationStack(path: $path) {
             ScrollView {
+                // Summary / Cards, big (no bar above).
+                CollectionTitles().padding(.horizontal, 16).padding(.bottom, 12)
                 switch store.status {
                 case .idle, .loading:
                     // First launch only (later launches open on the saved collection): dim, still shapes.
@@ -661,7 +663,7 @@ struct CollectionView: View {
                     }
                     .padding(.top, 4)
                 } else {
-                    Color.clear.frame(height: 0)
+                    Color.clear.frame(height: 0).padding(.bottom, -20)
                 }
             }
         )
@@ -684,18 +686,32 @@ struct CollectionView: View {
                 // Its own view: tapping it or typing doesn't redraw the page; the page's query
                 // changes once you pause typing.
                 SettlingSearchBox(query: $query, prompt: "Search")
-                // Sort and filters in one bottom sheet.
+                // Sort and filters in one bottom sheet; the same glass as the search box (a small
+                // lime dot when something is set).
                 Button { filtering = true } label: {
-                    Image(systemName: filtersOn || sort != .value ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease")
+                    Image(systemName: "line.3.horizontal.decrease")
+                        .font(.system(size: 17, weight: .semibold)).foregroundStyle(.white)
+                        .frame(width: 48, height: 48)
+                        .background { Color.clear.blurredGlass(in: Circle()).allowsHitTesting(false) }
+                        .overlay(alignment: .topTrailing) {
+                            if filtersOn || sort != .value { Circle().fill(Theme.lime).frame(width: 8, height: 8).offset(x: -9, y: 9) }
+                        }
+                        .contentShape(Circle())
                 }
-                .buttonStyle(IconButton3D(size: 46, active: filtersOn || sort != .value))
+                .buttonStyle(.plain)
                 .accessibilityLabel("Sort and filter")
-                HStack(spacing: 2) {
-                    Button { grid = true } label: { Image(systemName: "square.grid.2x2") }.buttonStyle(IconButton3D(size: 40, active: grid, inTrack: true))
-                    Button { grid = false } label: { Image(systemName: "list.bullet") }.buttonStyle(IconButton3D(size: 40, active: !grid, inTrack: true))
+                // One button that flips between the grid and the list (shows what you'd switch to).
+                Button { withAnimation(.snappy(duration: 0.2)) { grid.toggle() } } label: {
+                    Image(systemName: grid ? "list.bullet" : "square.grid.2x2")
+                        .font(.system(size: 17, weight: .semibold)).foregroundStyle(.white)
+                        .contentTransition(.symbolEffect(.replace))
+                        .frame(width: 48, height: 48)
+                        .background { Color.clear.blurredGlass(in: Circle()).allowsHitTesting(false) }
+                        .contentShape(Circle())
                 }
-                .padding(3)
-                .liquidGlass(in: Capsule())
+                .buttonStyle(.plain)
+                .sensoryFeedback(.selection, trigger: grid)
+                .accessibilityLabel(grid ? "Show as list" : "Show as grid")
             }
             // The track stays inside the screen edges. When the chips don't all fit they scroll
             // inside it and the right edge fades out.
