@@ -267,7 +267,9 @@ struct ListsHomeView: View {
         .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)
         .pageTitle("Lists")
-        .task { await groups.loadExtras(groups.shelves.flatMap(\.product_ids), known: store.products) }
+        // Cards not in your collection (their picture and price) load whenever a list gains one,
+        // so a new card shows in its tile straight away, not only on the next visit.
+        .task(id: groups.shelves.flatMap(\.product_ids)) { await groups.loadExtras(groups.shelves.flatMap(\.product_ids), known: store.products) }
         .navigationDestination(item: $opened) { ListDetailView(listId: $0) }
     }
 
@@ -441,7 +443,7 @@ struct ListDetailView: View {
         .toolbar {
             if items.isEmpty { ToolbarItem(placement: .topBarTrailing) { moreMenuSmall } }
         }
-        .task { await groups.loadExtras(list.product_ids, known: store.products) }
+        .task(id: list.product_ids) { await groups.loadExtras(list.product_ids, known: store.products) }
         .sheet(isPresented: $adding) { ListAddSheet(listId: listId) }
         .sheet(isPresented: $sharing) { ListShareSheet(listId: listId, name: list.name, forSale: meta.isForSale) }
         .sheet(isPresented: $renaming) {
