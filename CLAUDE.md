@@ -91,7 +91,7 @@ and say exactly what to run or click.
   (`SnapshotFile`, per account, deleted on sign-out; never in a demo) and refreshes it in place;
   only a first launch with nothing saved shows dim, still placeholders (`LoadingPlaceholder`).
   The web keeps skeleton placeholders. No loading animations.
-- **One remove/delete look** (`.dangerStyle(shape)` in `Design.swift`): pink label on a soft pink tint (14%) with a faint pink edge, everywhere we draw our own remove button (action sheets, select bars, scan Remove). No solid pink buttons.
+- **One remove/delete look** (`.dangerStyle(shape)` in `Design.swift`): pink label on a soft pink tint (14%) with a faint pink edge, everywhere we draw our own remove button in a sheet (action sheets, scan Remove). Bars floating over the page (the Watchlist/Wishlist select bar) use `dangerStyle(shape, solid: true)`: filled pink, white text, so it holds up over the rows behind it.
 - **Never red or pink text on lime.** If a card's figure is down, the whole card goes pink.
 - **Oversized (jumbo) cards are never shown** anywhere people browse: search, set pages, Home's
   lists and collections. One rule on both sides: `isOversized` (`src/lib/explore/movers.ts`) and

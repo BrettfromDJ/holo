@@ -252,7 +252,7 @@ struct ListsView: View {
                     } else {
                         Text(which == .watchlist ? "Stop watching \(chosen.count)" : "Remove \(chosen.count)")
                             .frame(maxWidth: .infinity).frame(height: 50)
-                            .dangerStyle(Capsule())
+                            .dangerStyle(Capsule(), solid: true)
                     }
                 }
                 .font(.geist(16, .semibold))
