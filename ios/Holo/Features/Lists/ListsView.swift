@@ -9,6 +9,9 @@ struct ListsView: View {
     @State private var editingWatch: WatchRow?
     /// A held watchlist row: its actions in our sheet.
     @State private var heldWatch: WatchRow?
+    /// Select mode: tick rows, then remove them all at once.
+    @State private var selecting = false
+    @State private var chosen: Set<String> = []
     @State private var error: String?
     /// Pushed inside another page's navigation (Lists), not shown as its own sheet.
     var embedded = false
@@ -54,6 +57,22 @@ struct ListsView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .pageTitle(which.rawValue)
+            // Select (or Done) at the top right, while there's anything to select.
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    if !currentIds.isEmpty || selecting {
+                        Button(selecting ? "Done" : "Select") { setSelecting(!selecting) }
+                            .font(.geist(15, .semibold))
+                    }
+                }
+            }
+            // The select bar takes the tab bar's place.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if selecting { selectBar.padding(.horizontal, 16).padding(.bottom, 8).transition(.move(edge: .bottom).combined(with: .opacity)) }
+            }
+            .animation(.snappy(duration: 0.25), value: selecting)
+            .onChange(of: which) { setSelecting(false) }
+            .onDisappear { if selecting { setSelecting(false) } }
             .actionsSheet(item: $heldWatch, title: { store.products[$0.product_id]?.name }, product: { store.products[$0.product_id] }) { w in
                 [[
                     SheetAction(title: w.target_price == nil ? "Set target" : "Edit target", icon: "scope") { editingWatch = w },
@@ -73,15 +92,21 @@ struct ListsView: View {
         ForEach(store.watchlist) { w in
             let product = store.products[w.product_id]
             let price = store.listPrice(w.product_id, printing: w.printing)
-            NavigationLink(value: w.product_id) {
-                ListRow(product: product, price: price?.market, target: w.target_price, change: price?.change24hPct)
+            Group {
+                if selecting {
+                    selectRow(w.id) { ListRow(product: product, price: price?.market, target: w.target_price, change: price?.change24hPct) }
+                } else {
+                    NavigationLink(value: w.product_id) {
+                        ListRow(product: product, price: price?.market, target: w.target_price, change: price?.change24hPct)
+                    }
+                }
             }
             .listRowBackground(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.surface).padding(.horizontal, 16).padding(.vertical, 4))
             .listRowInsets(EdgeInsets(top: 14, leading: 30, bottom: 14, trailing: 28))
             .listRowSeparator(.hidden)
             // Press and hold for its actions (our own sheet; Apple's swipe buttons clashed:
             // square-cut row, lime Remove with white text).
-            .highPriorityGesture(LongPressGesture(minimumDuration: 0.35).onEnded { _ in Haptics.tap(); heldWatch = w })
+            .highPriorityGesture(LongPressGesture(minimumDuration: 0.35).onEnded { _ in Haptics.tap(); heldWatch = w }, including: selecting ? .subviews : .all)
         }
     }
 
@@ -92,8 +117,14 @@ struct ListsView: View {
                 Section(priority.label) {
                     ForEach(items) { w in
                         let current = store.listPrice(w.product.id, printing: w.printing)?.market ?? w.price
-                        CardLink(productId: w.product.id, product: w.product) {
-                            ListRow(product: w.product, price: current, target: w.target, change: nil)
+                        Group {
+                            if selecting {
+                                selectRow(w.id) { ListRow(product: w.product, price: current, target: w.target, change: nil) }
+                            } else {
+                                CardLink(productId: w.product.id, product: w.product) {
+                                    ListRow(product: w.product, price: current, target: w.target, change: nil)
+                                }
+                            }
                         }
                         .listRowBackground(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.surface).padding(.horizontal, 16).padding(.vertical, 4))
             .listRowInsets(EdgeInsets(top: 14, leading: 30, bottom: 14, trailing: 28))
@@ -103,6 +134,60 @@ struct ListsView: View {
                 }
             }
         }
+    }
+
+    private var currentIds: [String] { which == .watchlist ? store.watchlist.map(\.id) : store.wishlist.map(\.id) }
+
+    private func setSelecting(_ on: Bool) {
+        selecting = on
+        chosen = []
+        Router.shared.tabBarHidden = on
+    }
+
+    /// A row in select mode: a round check, then the row; tapping ticks it.
+    private func selectRow<Content: View>(_ id: String, @ViewBuilder content: () -> Content) -> some View {
+        let on = chosen.contains(id)
+        return Button {
+            if on { chosen.remove(id) } else { chosen.insert(id) }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: on ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 22, weight: .medium))
+                    .foregroundStyle(on ? Theme.lime : Theme.subtle)
+                content()
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .sensoryFeedback(.selection, trigger: on)
+    }
+
+    /// How many are ticked, Select all, and remove them.
+    private var selectBar: some View {
+        let all = currentIds
+        let allOn = !all.isEmpty && chosen.count == all.count
+        return HStack(spacing: 10) {
+            Button(allOn ? "Clear" : "Select all") { chosen = allOn ? [] : Set(all) }
+                .font(.geist(15, .semibold)).foregroundStyle(.white)
+                .padding(.horizontal, 16).frame(height: 50)
+                .liquidGlass(in: Capsule(), interactive: true)
+                .buttonStyle(.plain)
+            Button {
+                let ids = chosen
+                let watch = which == .watchlist
+                setSelecting(false)
+                Task { await run { if watch { try await store.removeWatches(ids) } else { try await store.removeWishes(ids) } } }
+            } label: {
+                Text(chosen.isEmpty ? "Select cards" : (which == .watchlist ? "Stop watching \(chosen.count)" : "Remove \(chosen.count)"))
+                    .font(.geist(16, .semibold)).foregroundStyle(.white)
+                    .frame(maxWidth: .infinity).frame(height: 50)
+                    .background(Capsule().fill(chosen.isEmpty ? Color.white.opacity(0.08) : Theme.planPink))
+            }
+            .buttonStyle(.plain)
+            .disabled(chosen.isEmpty)
+        }
+        .padding(8)
+        .liquidGlass(in: Capsule())
     }
 
     /// The page with nothing on it yet: an icon in a glass circle, a heading and one line, centred

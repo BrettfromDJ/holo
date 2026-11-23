@@ -1197,6 +1197,14 @@ final class CollectionStore {
         watchlist.removeAll { $0.id == id }
     }
 
+    /// Several at once (select mode): one request.
+    @MainActor
+    func removeWatches(_ ids: Set<String>) async throws {
+        guard !ids.isEmpty else { return }
+        if demo == nil { try await db.from("watchlist_items").delete().in("id", values: Array(ids)).execute() }
+        watchlist.removeAll { ids.contains($0.id) }
+    }
+
     // MARK: Writing: wishlist (shared JSON with the website)
 
     @MainActor
@@ -1219,6 +1227,12 @@ final class CollectionStore {
     @MainActor
     func removeWish(_ id: String) async throws {
         try await saveWishlist(wishlist.filter { $0.id != id })
+    }
+
+    /// Several at once (select mode): one save.
+    @MainActor
+    func removeWishes(_ ids: Set<String>) async throws {
+        try await saveWishlist(wishlist.filter { !ids.contains($0.id) })
     }
 
     @MainActor
