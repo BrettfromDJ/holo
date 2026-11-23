@@ -147,7 +147,7 @@ and say exactly what to run or click.
 - No Apple pop-up menus for actions (they lagged and clipped): use our `ActionsSheet`
   (`Components/ActionsSheet.swift`, `.actionsSheet(isPresented:)` / `(item:)` with `[[SheetAction]]`):
   a small black sheet of quiet glass rows, sections, checks, a second page for lists/portfolios/copies
-  with a round back button, run after the sheet closes. A destructive action alone in its section shows as a pink-tinted button with its label centred; a destructive tile is tinted pink too. No extra space under the last row. Used by the card page ⋯, Your copy ⋯ and its
+  with a round back button, run after the sheet closes. Any action alone in its section (no subtitle, not a list to pick from) shows as a full-width button with its label centred (`loneButton`): glass, or pink-tinted when it removes something; a destructive tile is tinted pink too. No extra space under the last row. Used by the card page ⋯, Your copy ⋯ and its
   entries, Collection's held tiles and list chips, the set page's sort. Small pickers may stay Menus.
 - Animations must be cheap: no per-frame layout on many views, no animated shadow radius, no
   per-frame blur. Looping motion uses a `TimelineView` or a single offset animation. Respect

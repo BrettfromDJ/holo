@@ -323,7 +323,7 @@ struct DealView: View {
         // The page already sets the 16pt margins: the bar lines up with the rows above it.
         .padding(.top, 8)
         .actionsSheet(isPresented: $clearing, title: "Clear this deal?") {
-            [[SheetAction(title: "Clear deal", subtitle: "Removes every item and its photos", icon: "trash", destructive: true) {
+            [[SheetAction(title: "Clear every item and photo", icon: "trash", destructive: true) {
                 let photos = deals.deal.photos
                 withAnimation(.snappy) { deals.update { $0 = DealState() } }
                 // The deal's photos go with it.

@@ -158,29 +158,40 @@ struct ActionsSheet: View {
 
     /// A section as one glass panel, its rows split by hairlines (an outlined row stands alone).
     @ViewBuilder private func panel(_ section: [SheetAction]) -> some View {
-        if section.count == 1, let only = section.first, only.destructive, only.children == nil, only.share == nil {
-            destructiveButton(only)
+        // A lone action (not a list to pick from) is a button: label centred, glass, or pink when
+        // it removes something.
+        if section.count == 1, let only = section.first, only.children == nil, only.share == nil, only.subtitle == nil,
+           !only.checked, !only.outlined, only.onCreate == nil {
+            loneButton(only)
         } else {
             rows(section)
         }
     }
 
-    /// A destructive action on its own (Remove from wishlist): a pink-tinted button, label centred.
-    private func destructiveButton(_ action: SheetAction) -> some View {
+    /// An action on its own (Set a target price, Remove from wishlist): a button with its label
+    /// centred; glass, or pink-tinted when it removes something.
+    @ViewBuilder private func loneButton(_ action: SheetAction) -> some View {
         let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
-        return Button { tap(action) } label: {
-            HStack(spacing: 8) {
-                if let icon = action.icon { Image(systemName: icon).font(.system(size: 15, weight: .semibold)) }
-                Text(action.title).font(.geist(16, .semibold))
+        let label = HStack(spacing: 8) {
+            if let icon = action.icon { Image(systemName: icon).font(.system(size: 15, weight: .semibold)) }
+            Text(action.title).font(.geist(16, .semibold))
+        }
+        .frame(maxWidth: .infinity).frame(height: 52)
+        .contentShape(shape)
+        Button { tap(action) } label: {
+            if action.destructive {
+                label.foregroundStyle(Theme.down)
+                    .background(shape.fill(Theme.down.opacity(0.14)))
+                    .overlay(shape.strokeBorder(Theme.down.opacity(0.3), lineWidth: 1))
+            } else {
+                label.foregroundStyle(.white)
+                    .liquidGlass(in: shape, tint: Color.white.opacity(0.02), interactive: true)
+                    .overlay(shape.strokeBorder(Color.white.opacity(0.07), lineWidth: 1))
             }
-            .foregroundStyle(Theme.down)
-            .frame(maxWidth: .infinity).frame(height: 52)
-            .background(shape.fill(Theme.down.opacity(0.14)))
-            .overlay(shape.strokeBorder(Theme.down.opacity(0.3), lineWidth: 1))
-            .contentShape(shape)
         }
         .buttonStyle(.plain)
         .disabled(action.disabled)
+        .opacity(action.disabled ? 0.45 : 1)
     }
 
     @ViewBuilder private func rows(_ section: [SheetAction]) -> some View {
