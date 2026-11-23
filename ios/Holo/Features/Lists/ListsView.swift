@@ -40,6 +40,9 @@ struct ListsView: View {
                 case .wishlist: wishlist
                 }
             }
+            // Plain rows, each its own panel with a 16pt corner (the grouped list's sections
+            // rounded much more than our other panels).
+            .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .background(Theme.background)
             .overlay { emptyState }
@@ -71,7 +74,9 @@ struct ListsView: View {
             NavigationLink(value: w.product_id) {
                 ListRow(product: product, price: price?.market, target: w.target_price, change: price?.change24hPct)
             }
-            .listRowBackground(Theme.surface)
+            .listRowBackground(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.surface).padding(.horizontal, 16).padding(.vertical, 4))
+            .listRowInsets(EdgeInsets(top: 14, leading: 30, bottom: 14, trailing: 28))
+            .listRowSeparator(.hidden)
             // Press and hold for its actions (our own sheet; Apple's swipe buttons clashed:
             // square-cut row, lime Remove with white text).
             .highPriorityGesture(LongPressGesture(minimumDuration: 0.35).onEnded { _ in Haptics.tap(); heldWatch = w })
@@ -88,7 +93,9 @@ struct ListsView: View {
                         CardLink(productId: w.product.id, product: w.product) {
                             ListRow(product: w.product, price: current, target: w.target, change: nil)
                         }
-                        .listRowBackground(Theme.surface)
+                        .listRowBackground(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.surface).padding(.horizontal, 16).padding(.vertical, 4))
+            .listRowInsets(EdgeInsets(top: 14, leading: 30, bottom: 14, trailing: 28))
+            .listRowSeparator(.hidden)
                         // Holding the card opens its quick actions (wishlist on/off and more).
                     }
                 }
