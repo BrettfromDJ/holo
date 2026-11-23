@@ -204,7 +204,7 @@ struct ListsView: View {
                 Text(watch ? "Watch a card's price" : "Your wishlist is empty")
                     .font(.display(24)).tracking(-0.6).foregroundStyle(.white)
                 Text(watch ? "Open any card and tap Watch price. Set a target and you'll hear when it drops to what you'd\u{00A0}pay."
-                           : "Open any card and tap Wishlist to keep track of what you want\u{00A0}next.")
+                           : "Open any card and tap Add to wishlist to keep track of what you want\u{00A0}next.")
                     .font(.geist(15)).foregroundStyle(Theme.muted)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 300)
