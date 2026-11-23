@@ -1674,7 +1674,11 @@ private struct BrandCard: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, minHeight: 112, alignment: .center)
-        .tinted(tint)
+        // Plain dark tiles with a fine light edge (the coloured tints were too loud): the logos
+        // carry the colour.
+        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Theme.surface))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous)
+            .strokeBorder(LinearGradient(colors: [.white.opacity(0.16), .white.opacity(0.05)], startPoint: .top, endPoint: .bottom), lineWidth: 1))
     }
 }
 
