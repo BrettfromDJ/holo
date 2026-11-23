@@ -157,65 +157,28 @@ struct MasterSetsView: View {
 
     // MARK: Top
 
+    /// The title with the brand beside it, and one quiet line of totals (the summary card and
+    /// stat tiles were removed: straight to the sets).
     private func header(_ owned: [MasterSetDetailView.OwnedSet], rows all: [Row]) -> some View {
-        let rows = all.filter { !$0.holdings.isEmpty }
-        let complete = rows.filter { ($0.ratio ?? 0) >= 1 }.count
-        let best = rows.filter { $0.ratio != nil }.max { ($0.ratio ?? 0) < ($1.ratio ?? 0) }
         let cards = owned.reduce(0) { $0 + Set($1.holdings.map(\.identity.productId)).count }
         let worth = owned.reduce(0) { $0 + $1.holdings.reduce(0) { $0 + ($1.value ?? 0) } }
-        return VStack(alignment: .leading, spacing: 16) {
-            // The title in the page.
-            Text("Master Sets").font(.display(40)).tracking(-1.4).displayTrim(40)
-                .padding(.top, 4)
-            // How many sets you've started, and the one you're closest to finishing.
-            // Two halves on one line: the count on the left, your closest set (a lime ring with
-            // its % inside, and its name) on the right, split by a thin rule.
-            HStack(alignment: .center, spacing: 16) {
-                VStack(alignment: .leading, spacing: 2) {
-                    CountingText(value: Double(owned.count), format: { "\(Int($0.rounded()))" })
-                        .font(.display(48)).tracking(-1.8).monospacedDigit().displayTrim(48)
-                    Text(owned.count == 1 ? "Set started" : "Sets started").font(.geist(13)).foregroundStyle(Theme.muted)
-                }
-                .fixedSize()
-                Rectangle().fill(Color.white.opacity(0.12)).frame(width: 1, height: 60)
-                if let best, let ratio = best.ratio {
-                    HStack(spacing: 12) {
-                        ZStack {
-                            Circle().stroke(Color.white.opacity(0.14), lineWidth: 5)
-                            Circle().trim(from: 0, to: max(0.02, min(ratio, 1)))
-                                .stroke(Theme.lime, style: StrokeStyle(lineWidth: 5, lineCap: .round))
-                                .rotationEffect(.degrees(-90))
-                            // Under 10% a percent says little ("1%"): the count instead.
-                            if ratio < 0.1, let total = best.total {
-                                Text("\(best.owned)/\(total)").font(.geist(11, .semibold)).monospacedDigit().minimumScaleFactor(0.6).lineLimit(1).padding(.horizontal, 8)
-                            } else {
-                                Text("\(Int((ratio * 100).rounded()))%").font(.geist(13, .semibold)).monospacedDigit()
-                            }
-                        }
-                        .frame(width: 56, height: 56)
-                        VStack(alignment: .leading, spacing: 3) {
-                            MonoLabel(text: "Closest")
-                            Text(best.name).font(.geist(14, .semibold)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .center, spacing: 10) {
+                Text("Master Sets").font(.display(40)).tracking(-1.4).displayTrim(40)
+                    .lineLimit(1).minimumScaleFactor(0.7)
+                Spacer(minLength: 8)
+                brandMenu
+            }
+            .padding(.top, 4)
+            Group {
+                if owned.isEmpty {
+                    Text("No \(brandName) sets started yet")
                 } else {
-                    Text("Add cards from a set to see how close you\u{00A0}are.").font(.geist(13)).foregroundStyle(Theme.muted)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text("\(owned.count) \(owned.count == 1 ? "set" : "sets") started · \(cards) \(cards == 1 ? "card" : "cards") · \(Format.money(worth))")
+                        .monospacedDigit()
                 }
             }
-            .padding(18)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .liquidGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(Theme.lime.opacity(0.25)))
-            HStack(spacing: 8) {
-                IconStat(icon: "rectangle.portrait.on.rectangle.portrait", label: "Cards", value: "\(cards)")
-                IconStat(icon: "checkmark.circle", label: "Complete", value: "\(complete)")
-                IconStat(icon: "chart.line.uptrend.xyaxis", label: "Worth", value: Format.money(worth))
-            }
-        }
-        .background(alignment: .top) {
-            DotBackdrop().padding(.horizontal, -16).padding(.top, -160).padding(.bottom, -40)
+            .font(.geist(14)).foregroundStyle(Theme.muted).lineLimit(1).minimumScaleFactor(0.8)
         }
     }
 
@@ -229,21 +192,26 @@ struct MasterSetsView: View {
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
-            // Two rows so nothing is cut short: the brand (its full name) and sort, then Your / All.
-            HStack(spacing: 10) {
-                brandMenu
+            // One row: Your sets / All sets, and sort at the end, all the same height (the brand
+            // sits by the title).
+            HStack(spacing: 8) {
+                ChipPicker(options: Scope.allCases.map { ($0, $0.rawValue) }, selection: $scope)
+                    .fixedSize()
                 Spacer(minLength: 0)
                 Menu {
                     Picker("Sort", selection: $sort) {
                         ForEach(Sort.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                     }
-                } label: { Image(systemName: "arrow.up.arrow.down") }
-                    .menuStyle(.button)
-                    .buttonStyle(IconButton3D(size: 44))
-                    .accessibilityLabel("Sort")
+                } label: {
+                    Image(systemName: "arrow.up.arrow.down").font(.system(size: 15, weight: .semibold)).foregroundStyle(.white)
+                        .frame(width: 38, height: 38)
+                        .contentShape(Circle())
+                }
+                .menuStyle(.button)
+                .buttonStyle(.plain)
+                .background { Color.clear.liquidGlass(in: Circle()).allowsHitTesting(false) }
+                .accessibilityLabel("Sort")
             }
-            ChipPicker(options: Scope.allCases.map { ($0, $0.rawValue) }, selection: $scope)
-                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -259,12 +227,12 @@ struct MasterSetsView: View {
             }
         } label: {
             HStack(spacing: 6) {
-                Text(name).font(.geist(15, .semibold)).lineLimit(1).fixedSize()
+                Text(name).font(.geist(14, .semibold)).lineLimit(1).fixedSize()
                 Image(systemName: "chevron.down").font(.system(size: 11, weight: .semibold))
             }
             .foregroundStyle(.white)
-            .padding(.horizontal, 16)
-            .frame(height: 44)
+            .padding(.horizontal, 14)
+            .frame(height: 36)
             .contentShape(Capsule())
         }
         .menuStyle(.button)
