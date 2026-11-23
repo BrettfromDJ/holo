@@ -105,6 +105,8 @@ struct ActionsSheet: View {
                     if let set = product.setName { Text(set).font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1) }
                 }
                 Spacer(minLength: 0)
+                // Says the header opens the card's page.
+                Image(systemName: "chevron.right").font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.subtle)
             }
             .contentShape(Rectangle())
             }
