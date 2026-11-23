@@ -361,24 +361,24 @@ struct ProductDetailView: View {
         Group {
             if product == nil {
                 // Still loading the card's details: hold its space empty, no stand-in picture.
-                Color.clear.frame(width: 260, height: 363)
+                Color.clear.frame(width: 300, height: 419)
             } else if let slab = heroSlab {
                 HoloCard(foil: false, textured: false, cornerRadius: 18) {
                     HoldingArt(product: artProduct, identity: slab.identity)
                 }
                 .onCardTap { viewingArt = true }
                 .drifting()
-                .frame(width: 250, height: 400)
+                .frame(width: 286, height: 458)
             } else if product?.isSealed == false, product?.imageURL != nil {
-                HoloCard(foil: product?.isFoil == true, textured: false, cornerRadius: 12) {
+                HoloCard(foil: product?.isFoil == true, textured: false, cornerRadius: 14) {
                     // Rounded like a real card (about 5% of its width), so the scan's white corners don't show.
-                    ProductImage(product: artProduct, cornerRadius: 13, large: true).frame(width: 260, height: 363)
+                    ProductImage(product: artProduct, cornerRadius: 15, large: true).frame(width: 300, height: 419)
                 }
                 .onCardTap { viewingArt = true }
                 .drifting()
             } else {
                 HoloCard(foil: false, textured: false, cornerRadius: 28, showsGlare: false) {
-                    SealedWell(product: product, cornerRadius: 28, caption: true).frame(width: 280, height: 280)
+                    SealedWell(product: product, cornerRadius: 30, caption: true).frame(width: 310, height: 310)
                 }
                 .onCardTap { if product?.imageURL != nil { viewingArt = true } }
             }
