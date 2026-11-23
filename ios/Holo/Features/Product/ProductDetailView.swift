@@ -691,7 +691,8 @@ struct ProductDetailView: View {
                         }
                         Image(systemName: "ellipsis").font(.system(size: 13)).foregroundStyle(Theme.muted)
                     }
-                    .padding(.vertical, 14)
+                    // The last row sits on the panel's own edge (no extra gap under it).
+                    .padding(.top, 14).padding(.bottom, i == owned.count - 1 ? 0 : 14)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -767,7 +768,7 @@ struct ProductDetailView: View {
     private var history: some View {
         let entries = self.entries
         return VStack(alignment: .leading, spacing: 0) {
-            PageHeader(title: "Purchase history", size: 22).padding(.bottom, 16)
+            PageHeader(title: "Purchase history", size: 22).padding(.bottom, 14)
             ForEach(entries, id: \.id) { t in
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -786,10 +787,13 @@ struct ProductDetailView: View {
                         Button { editing = t } label: { Label("Edit", systemImage: "pencil") }
                         Button(role: .destructive) { deleting = t } label: { Label("Delete", systemImage: "trash") }
                     } label: {
-                        Image(systemName: "ellipsis").font(.system(size: 13)).foregroundStyle(Theme.muted).frame(width: 44, height: 44).contentShape(Rectangle())
+                        // No taller than the row's two lines of text.
+                        Image(systemName: "ellipsis").font(.system(size: 13)).foregroundStyle(Theme.muted).frame(width: 36, height: 36).contentShape(Rectangle())
                     }
                 }
-                .padding(.vertical, 12)
+                // The first row starts right under the heading, the last ends on the panel's edge.
+                .padding(.top, t.id == entries.first?.id ? 0 : 10)
+                .padding(.bottom, t.id == entries.last?.id ? 0 : 10)
                 if t.id != entries.last?.id { Rectangle().fill(Theme.border).frame(height: 1) }
             }
             if entries.isEmpty {
