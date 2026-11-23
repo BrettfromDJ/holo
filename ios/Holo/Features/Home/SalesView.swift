@@ -254,9 +254,10 @@ struct SalesView: View {
     private static func held(_ days: Int) -> String {
         if days < 60 { return "\(days) \(days == 1 ? "day" : "days")" }
         let months = Int((Double(days) / 30.44).rounded())
-        if months < 24 { return "\(months) months" }
+        // Short, so the line fits beside the price and the ⋯.
+        if months < 24 { return "\(months) mo" }
         let years = Double(days) / 365.25
-        return String(format: "%.1f years", years)
+        return String(format: "%.1f yr", years)
     }
 }
 
