@@ -5,6 +5,7 @@
 // after MAX_MINUTES. Needs SITE_URL and CRON_SECRET in the environment.
 import Foundation
 import Vision
+import AppKit
 
 // Each line shows in the GitHub log as it happens (a pipe would otherwise hold it all back until
 // the end, and a run that's stopped would show nothing at all).
@@ -42,13 +43,35 @@ func request(_ path: String, method: String = "GET", body: Data? = nil) -> URLRe
     return r
 }
 
+/// One at a time: Vision on GitHub's virtual Macs (no graphics chip) stalled when many pictures
+/// were fingerprinted at once. Downloads still run 16 at a time.
+let visionLock = NSLock()
+
 func fingerprint(_ data: Data) -> [Float]? {
+    visionLock.lock(); defer { visionLock.unlock() }
     let req = VNGenerateImageFeaturePrintRequest()
     req.revision = VNGenerateImageFeaturePrintRequestRevision2
+    // The processor only: the virtual Mac has no graphics chip or neural engine to hand it to.
+    req.usesCPUOnly = true
     let handler = VNImageRequestHandler(data: data, options: [:])
     guard (try? handler.perform([req])) != nil, let obs = req.results?.first else { return nil }
     guard obs.elementType == .float else { return nil }
     return obs.data.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
+}
+
+// A quick check that Vision works here at all, before any downloads.
+do {
+    let t0 = Date()
+    let size = 64
+    var px = [UInt8](repeating: 0, count: size * size * 4)
+    for i in stride(from: 0, to: px.count, by: 4) { px[i] = UInt8(i % 255); px[i + 1] = 128; px[i + 2] = UInt8((i / 7) % 255); px[i + 3] = 255 }
+    let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: size, pixelsHigh: size, bitsPerSample: 8, samplesPerPixel: 4,
+                               hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: size * 4, bitsPerPixel: 32)!
+    px.withUnsafeBytes { memcpy(rep.bitmapData!, $0.baseAddress!, px.count) }
+    let png = rep.representation(using: .png, properties: [:])!
+    let test = fingerprint(png)
+    log("Vision check: \(test == nil ? "FAILED" : "ok, \(test!.count) numbers") in \(String(format: "%.1f", Date().timeIntervalSince(t0))) s.")
+    if test == nil { exit(1) }
 }
 
 var total = 0, failed = 0, seenDims = Set<Int>()
@@ -74,8 +97,13 @@ while !timeUp() {
         var it = cards.makeIterator()
         func next() -> Card? { it.next() }
         for _ in 0..<16 { if let c = next() { group.addTask { await make(c) } } }
+        var done = 0
+        let batchStart = Date()
         while let r = await group.next() {
             if let r { prints.append(r) }
+            done += 1
+            // Progress inside a batch, so a slow step shows in the log.
+            if done % 25 == 0 { log("  \(done)/\(cards.count) pictures done (\(prints.count) fingerprinted), \(Int(Date().timeIntervalSince(batchStart))) s into the batch.") }
             // Out of time: finish what's running, start nothing new.
             if !timeUp(), let c = next() { group.addTask { await make(c) } }
         }
