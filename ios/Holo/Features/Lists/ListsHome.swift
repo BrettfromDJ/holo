@@ -641,77 +641,99 @@ struct ListItemPriceSheet: View {
     var market: Double?
     @Environment(\.dismiss) private var dismiss
     @Environment(GroupsStore.self) private var groups
-    /// 0 follows the list's percentage.
-    @State private var percent: Double = 0
+    /// The % picked for this card; nil follows the list's %.
+    @State private var percent: Double?
     @State private var priceText = ""
     @State private var error: String?
     @FocusState private var typing: Bool
+    /// The content's height, measured, so the sheet fits it exactly.
+    @State private var contentHeight: CGFloat = 430
 
-    private static let percents: [Double] = [0, 100, 95, 90, 85, 80, 75, 70, 65, 60]
+    private static let percents: [Double] = [100, 95, 90, 85, 80, 75, 70, 65, 60]
 
     private var meta: ListMeta { groups.meta(listId) }
     private var typed: Double? { MoneyField.value(priceText) }
     private var listPercent: Double { meta.askPercent ?? 100 }
+    /// The % in use: this card's own, else the list's.
+    private var shownPercent: Double { percent ?? listPercent }
 
     private var asking: Double? {
         if let typed { return typed }
         guard let market else { return nil }
-        return (market * (percent == 0 ? listPercent : percent)).rounded() / 100
+        return (market * shownPercent).rounded() / 100
     }
 
-    var body: some View { sheetBody.presentationDetents([.medium, .large]).glassSheet() }
+    var body: some View {
+        sheetBody
+            .presentationDetents([.height(contentHeight)])
+            .glassSheet()
+    }
 
     private var sheetBody: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                HStack {
-                    Button("Cancel") { dismiss() }.font(.geist(16)).foregroundStyle(.white)
-                    Spacer()
-                    Text("Your price").font(.geist(17, .semibold)).foregroundStyle(.white)
-                    Spacer()
-                    Button("Save") { save() }.font(.geist(16, .semibold)).foregroundStyle(Theme.lime)
+        VStack(alignment: .leading, spacing: 22) {
+            // Title and a round close, like Sort & filter; Save is the big button at the end.
+            HStack {
+                Text("Your price").font(.geist(17, .semibold)).foregroundStyle(.white)
+                Spacer()
+                Button { Haptics.tap(); dismiss() } label: {
+                    Image(systemName: "xmark").font(.system(size: 14, weight: .semibold)).foregroundStyle(.white)
+                        .frame(width: 34, height: 34).background(Circle().fill(Color.white.opacity(0.1)))
                 }
-                HStack(spacing: 12) {
-                    ProductImage(product: product, cornerRadius: 4).frame(width: 44, height: 62)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(product?.name ?? "Card").font(.geist(15, .semibold)).foregroundStyle(.white).lineLimit(2)
-                        Text("Market \(Format.money(market))").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted)
-                    }
-                    Spacer(minLength: 0)
-                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close")
+            }
+            // The card and the answer side by side: what it's worth, what you're asking.
+            HStack(alignment: .center, spacing: 14) {
+                ProductImage(product: product, cornerRadius: 4).frame(width: 48, height: 67)
                 VStack(alignment: .leading, spacing: 4) {
-                    MonoLabel(text: "Asking")
-                    Text(Format.money(asking)).font(.display(44)).tracking(-1.2).monospacedDigit().foregroundStyle(.white)
+                    Text(product.map(ActionsSheet.shortName) ?? "Card").font(.geist(15, .semibold)).foregroundStyle(.white).lineLimit(1)
+                    Text("Market \(Format.money(market))").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted)
+                }
+                Spacer(minLength: 8)
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(Format.money(asking)).font(.display(30)).tracking(-0.8).monospacedDigit().foregroundStyle(.white)
                         .contentTransition(.numericText())
                         .animation(.snappy, value: asking)
+                    Text(typed != nil ? "your price" : "\(Int(shownPercent))% of market").font(.geist(12)).foregroundStyle(Theme.muted)
                 }
-                VStack(alignment: .leading, spacing: 8) {
-                    MonoLabel(text: "Percentage of market")
-                    ChipPicker(options: Self.percents.map { ($0, $0 == 0 ? "List \(Int(listPercent))%" : "\(Int($0))%") },
-                               selection: Binding(get: { typed == nil ? percent : -1 }, set: { pct in
-                                   Haptics.tap()
-                                   percent = pct
-                                   priceText = ""
-                                   typing = false
-                               }), scrolls: true)
-                }
-                VStack(alignment: .leading, spacing: 8) {
-                    MonoLabel(text: "Or a set price")
-                    HStack {
-                        Text("$").foregroundStyle(Theme.muted)
-                        TextField("0.00", text: $priceText).keyboardType(.decimalPad).focused($typing).monospacedDigit()
-                    }
-                    .font(.geist(17))
-                    .padding(.horizontal, 14).frame(height: 48)
-                    .background(RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.06)))
-                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(typed != nil ? Theme.lime : Color.white.opacity(0.08), lineWidth: 1))
-                }
-                if let error { Text(error).font(.geist(13)).foregroundStyle(.white) }
             }
-            .padding(20)
+            VStack(alignment: .leading, spacing: 8) {
+                MonoLabel(text: "Percentage of market")
+                ChipPicker(options: Self.percents.map { ($0, "\(Int($0))%") },
+                           selection: Binding(get: { typed == nil ? shownPercent : -1 }, set: { pct in
+                               Haptics.tap()
+                               // Picking the list's own % goes back to following the list.
+                               percent = pct == listPercent ? nil : pct
+                               priceText = ""
+                               typing = false
+                           }), scrolls: true)
+                Text(percent == nil && typed == nil ? "Follows the list's \(Int(listPercent))%." : "The list asks \(Int(listPercent))%; this card has its own price.")
+                    .font(.geist(12)).foregroundStyle(Theme.subtle)
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                MonoLabel(text: "Or a set price")
+                HStack {
+                    Text("$").foregroundStyle(Theme.muted)
+                    TextField("", text: $priceText, prompt: Text("Type a price").foregroundColor(Theme.subtle))
+                        .keyboardType(.decimalPad).focused($typing).monospacedDigit()
+                }
+                .font(.geist(17))
+                .padding(.horizontal, 14).frame(height: 48)
+                .background(RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.06)))
+                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(typed != nil ? Theme.lime : Color.white.opacity(0.08), lineWidth: 1))
+            }
+            if let error { Text(error).font(.geist(13)).foregroundStyle(.white) }
+            Button { save() } label: {
+                Text("Save").font(.geist(16, .semibold)).foregroundStyle(Theme.ink)
+                    .frame(maxWidth: .infinity).frame(height: 52)
+                    .background(Capsule().fill(Theme.lime))
+            }
+            .buttonStyle(.plain)
         }
+        .padding(.horizontal, 20).padding(.top, 24).padding(.bottom, 8)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight = $0 }
         .onAppear {
-            percent = meta.percents?[productId] ?? 0
+            percent = meta.percents?[productId]
             if let own = meta.prices?[productId] { priceText = String(format: "%.2f", own) }
         }
     }
@@ -725,7 +747,7 @@ struct ListItemPriceSheet: View {
                     var prices = m.prices ?? [:]
                     var percents = m.percents ?? [:]
                     prices[productId] = price
-                    percents[productId] = price == nil && pct != 0 ? pct : nil
+                    percents[productId] = price == nil ? pct : nil
                     m.prices = prices
                     m.percents = percents
                 }
