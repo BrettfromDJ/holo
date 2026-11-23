@@ -185,8 +185,8 @@ struct DealEditorPage: View {
                     .accessibilityLabel("Name this deal")
                 }
                 if path == .trade {
-                    ChipPicker(options: [(DealSide.incoming, "I receive · \(Format.money(totals.inValue))"),
-                                         (.outgoing, "I give · \(Format.money(totals.outValue))")],
+                    ChipPicker(options: [(DealSide.incoming, "Buy · \(Format.money(totals.inValue))"),
+                                         (.outgoing, "Sell · \(Format.money(totals.outValue))")],
                                selection: $tradeSide, fills: true)
                 }
                 rateCard(rate: rate)
@@ -219,7 +219,7 @@ struct DealEditorPage: View {
 
     private func rateCard(rate: Double) -> some View {
         let pct = Int((rate * 100).rounded())
-        let title = path == .buy ? "Buying rate" : path == .sell ? "Selling rate" : (side == .incoming ? "Receiving rate" : "Giving rate")
+        let title = path == .buy ? "Buying rate" : path == .sell ? "Selling rate" : (side == .incoming ? "Buying rate" : "Selling rate")
         return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -279,7 +279,7 @@ struct DealEditorPage: View {
         let market = items.reduce(0.0) { $0 + ($1.market ?? 0) * Double($1.qty) }
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline) {
-                Text(path == .trade ? (side == .incoming ? "I receive" : "I give") : "Cards").font(.display(20)).tracking(-0.5)
+                Text(path == .trade ? (side == .incoming ? "Buying" : "Selling") : "Cards").font(.display(20)).tracking(-0.5)
                 Text("\(items.reduce(0) { $0 + $1.qty })").font(.geist(14)).foregroundStyle(Theme.subtle)
                 Spacer()
                 Text("\(Format.money(market)) market").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted)
@@ -349,8 +349,8 @@ struct DealEditorPage: View {
         let empty = deals.deal.kind == .empty
         return VStack(alignment: .leading, spacing: 6) {
             if path == .trade {
-                line("I receive", Format.money(t.inValue))
-                line("I give", Format.money(t.outValue))
+                line("Buy", Format.money(t.inValue))
+                line("Sell", Format.money(t.outValue))
             } else {
                 line("Market value", Format.money(market))
             }
