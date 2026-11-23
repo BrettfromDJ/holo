@@ -27,6 +27,10 @@ struct WeeklyRecap: View {
             // A full-bleed moving picture behind the text, on slides that have one.
             if let backdrop = slide.backdrop {
                 backdrop.id(slide.key + "-backdrop").ignoresSafeArea().transition(.opacity)
+                // A dark fade at the top so the bars, the ✕ and the kicker read over the pictures.
+                LinearGradient(colors: [Color(hex: 0x0B0B0C).opacity(0.85), Color(hex: 0x0B0B0C).opacity(0)], startPoint: .top, endPoint: .bottom)
+                    .frame(height: 260).frame(maxHeight: .infinity, alignment: .top)
+                    .ignoresSafeArea().allowsHitTesting(false)
             }
             VStack(alignment: .leading, spacing: 0) {
                 // Progress bars, one per slide.
@@ -48,6 +52,8 @@ struct WeeklyRecap: View {
                         Image(systemName: "xmark").font(.system(size: 17, weight: .semibold)).foregroundStyle(.white.opacity(0.8))
                             .frame(width: 40, height: 40)
                     }
+                    // The glyph's right edge lines up with the end of the progress bars.
+                    .padding(.trailing, -12)
                     .accessibilityLabel("Close recap")
                 }
                 slide.content
@@ -148,13 +154,16 @@ private struct Slide {
         let s = store.summary
 
         var slides: [Slide] = []
-        let range = "\(shortDate(Calendar.current.date(byAdding: .day, value: -6, to: today) ?? today)) – \(shortDate(today))"
+        // The range the chart shows (its first day to today), so it matches the day labels.
+        let firstDay = week.first.flatMap { Format.isoDay.date(from: $0.date) } ?? today
+        let range = "\(shortDate(firstDay)) – \(shortDate(today))"
         slides.append(Slide(key: "intro", background: glow(0x5B3DF5, 0x1B1240, at: UnitPoint(x: 0.2, y: 0)), content: AnyView(
             VStack(alignment: .leading, spacing: 0) {
                 Kicker(text: "Your week in Corodex")
                 Text(range).font(.geist(14)).foregroundStyle(.white.opacity(0.7)).padding(.top, 8)
                 // The week's value, drawing across the page; today pings at the end.
                 RecapWeekChart(values: week.map(\.value), days: week.map(\.date), up: gain >= 0)
+                    .frame(maxHeight: 360)
                     .frame(maxHeight: .infinity)
                     .padding(.vertical, 28)
                 Text("Your collection \(gain >= 0 ? "grew" : "slipped")").font(.geist(18, .medium)).foregroundStyle(.white.opacity(0.8))
@@ -392,8 +401,11 @@ private struct RecapWeekChart: View {
     }
 
     private func points(in size: CGSize) -> [CGPoint] {
-        guard values.count > 1, let lo = values.min(), let hi = values.max() else { return [] }
-        let span = max(hi - lo, 1)
+        guard values.count > 1, let lo0 = values.min(), let hi0 = values.max() else { return [] }
+        // At least an 8% band around the week, so a 2% move reads as a 2% move, not a cliff.
+        let mid = (lo0 + hi0) / 2
+        let span = max(hi0 - lo0, abs(mid) * 0.08, 1)
+        let lo = mid - span / 2
         let step = size.width / CGFloat(values.count - 1)
         return values.enumerated().map { i, v in
             CGPoint(x: CGFloat(i) * step, y: size.height * 0.9 - CGFloat((v - lo) / span) * size.height * 0.8)
@@ -481,8 +493,18 @@ private struct RecapDriftCard: View {
             let sweep = CGFloat(sin(c * 0.6))
             // Fire flickers its glow; ice holds steady.
             let flicker: Double = theme == .fire ? 0.85 + 0.12 * sin(c * 9) + 0.08 * sin(c * 13.7) : 1
-            HoldingArt(product: holding.product, identity: holding.identity, cornerRadius: 16, caption: false)
-                .overlay { themeSkin(c) }
+            // A sealed box stands bare, like on the shelf: no dark card-shaped well around it.
+            let bare = holding.product?.isSealed == true && !holding.identity.isGraded
+            Group {
+                if bare {
+                    ProductImage(product: holding.product, cornerRadius: 0, caption: false)
+                        .shadow(color: .black.opacity(0.55), radius: 22, y: 14)
+                        .padding(.horizontal, -24)
+                } else {
+                    HoldingArt(product: holding.product, identity: holding.identity, cornerRadius: 16, caption: false)
+                }
+            }
+                .overlay { if !bare { themeSkin(c) } }
                 .overlay {
                     GeometryReader { geo in
                         LinearGradient(colors: [.clear, .white.opacity(0.32), .clear], startPoint: .leading, endPoint: .trailing)
@@ -493,6 +515,7 @@ private struct RecapDriftCard: View {
                     .blendMode(.plusLighter)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .allowsHitTesting(false)
+                    .opacity(bare ? 0 : 1)
                 }
                 .rotation3DEffect(.degrees(tiltX), axis: (x: 1, y: 0, z: 0), perspective: 0.5)
                 .rotation3DEffect(.degrees(tiltY), axis: (x: 0, y: 1, z: 0), perspective: 0.5)
