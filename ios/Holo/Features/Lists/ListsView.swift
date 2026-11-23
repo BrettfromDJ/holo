@@ -260,21 +260,6 @@ extension WishItem.Priority {
     }
 }
 
-/// A watched or wished-for card: price now, and how far it is from your target.
-/// A watched or wished-for card: price now, and how far it is from your target.
-/// How the Watchlist and Wishlist are ordered.
-enum ListSort: String, CaseIterable {
-    case recent, price, move, name
-    var label: String {
-        switch self {
-        case .recent: "Recently added"
-        case .price: "Price"
-        case .move: "Biggest move"
-        case .name: "Name"
-        }
-    }
-}
-
 /// A watched or wished-for card: bigger art, its name (without the number repeated), set and
 /// number, the price and today's move (no pill when it hasn't moved), and one line under it: how
 /// far it is from your target, or how much it's moved since you added it.
