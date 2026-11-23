@@ -310,9 +310,8 @@ private struct Unmatched: View {
                         Image(systemName: "trash").font(.system(size: 15, weight: .semibold))
                         Text("Remove").font(.geist(15, .semibold))
                     }
-                    .foregroundStyle(.white)
                     .frame(maxWidth: .infinity).frame(height: 52)
-                    .background(Capsule().fill(Theme.planPink))
+                    .dangerStyle(Capsule())
                     .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)

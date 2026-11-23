@@ -244,10 +244,18 @@ struct ListsView: View {
                 setSelecting(false)
                 Task { await run { if watch { try await store.removeWatches(ids) } else { try await store.removeWishes(ids) } } }
             } label: {
-                Text(chosen.isEmpty ? "Select cards" : (which == .watchlist ? "Stop watching \(chosen.count)" : "Remove \(chosen.count)"))
-                    .font(.geist(16, .semibold)).foregroundStyle(.white)
-                    .frame(maxWidth: .infinity).frame(height: 50)
-                    .background(Capsule().fill(chosen.isEmpty ? Color.white.opacity(0.08) : Theme.planPink))
+                Group {
+                    if chosen.isEmpty {
+                        Text("Select cards").foregroundStyle(Theme.muted)
+                            .frame(maxWidth: .infinity).frame(height: 50)
+                            .background(Capsule().fill(Color.white.opacity(0.08)))
+                    } else {
+                        Text(which == .watchlist ? "Stop watching \(chosen.count)" : "Remove \(chosen.count)")
+                            .frame(maxWidth: .infinity).frame(height: 50)
+                            .dangerStyle(Capsule())
+                    }
+                }
+                .font(.geist(16, .semibold))
             }
             .buttonStyle(.plain)
             .disabled(chosen.isEmpty)

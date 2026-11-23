@@ -195,9 +195,7 @@ struct ActionsSheet: View {
         .contentShape(shape)
         Button { tap(action) } label: {
             if action.destructive {
-                label.foregroundStyle(Theme.down)
-                    .background(shape.fill(Theme.down.opacity(0.14)))
-                    .overlay(shape.strokeBorder(Theme.down.opacity(0.3), lineWidth: 1))
+                label.dangerStyle(shape)
             } else {
                 label.foregroundStyle(.white)
                     .liquidGlass(in: shape, tint: Color.white.opacity(0.02), interactive: true)

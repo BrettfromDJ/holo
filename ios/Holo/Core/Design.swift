@@ -1549,3 +1549,14 @@ private struct ReadableWidth: ViewModifier {
         }
     }
 }
+
+
+extension View {
+    /// The app's one look for removing or deleting: a pink label on a soft pink tint with a faint
+    /// pink edge (Remove from wishlist, Stop watching, the select bar's remove, scan Remove).
+    func dangerStyle<S: InsettableShape>(_ shape: S) -> some View {
+        foregroundStyle(Theme.down)
+            .background(shape.fill(Theme.down.opacity(0.14)))
+            .overlay(shape.strokeBorder(Theme.down.opacity(0.3), lineWidth: 1))
+    }
+}
