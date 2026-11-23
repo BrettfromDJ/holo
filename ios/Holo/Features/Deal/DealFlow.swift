@@ -404,6 +404,8 @@ struct DealCardSheet: View {
     var rate: Double
     var onSave: (DealItem) -> Void
     var onRemove: () -> Void
+    /// Opens the card's full page (nil for a custom item, which has none).
+    var onOpen: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
     enum Mode: Hashable { case percent, fixed }
     @State private var mode = Mode.percent
@@ -421,11 +423,32 @@ struct DealCardSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(ActionsSheet.shortName(item.product)).font(.geist(18, .semibold)).foregroundStyle(.white).lineLimit(1)
-                    Text([item.product.setName, item.product.number].compactMap { $0 }.joined(separator: " · ")).font(.geist(13)).foregroundStyle(Theme.muted)
+            HStack(alignment: .center, spacing: 12) {
+                // The card, its name and set; tap them for its full page (prices, history, sales).
+                Button {
+                    guard let onOpen else { return }
+                    dismiss()
+                    onOpen()
+                } label: {
+                    HStack(spacing: 12) {
+                        HoldingArt(product: item.product, cornerRadius: 3, caption: false).frame(width: 40, height: 56)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(ActionsSheet.shortName(item.product)).font(.geist(18, .semibold)).foregroundStyle(.white).lineLimit(1)
+                            Text([item.product.setName, item.product.number].compactMap { $0 }.joined(separator: " · ")).font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
+                            if onOpen != nil {
+                                HStack(spacing: 3) {
+                                    Text("View card")
+                                    Image(systemName: "chevron.right").font(.system(size: 9, weight: .bold))
+                                }
+                                .font(.geist(13, .medium)).foregroundStyle(Theme.lime)
+                                .padding(.top, 2)
+                            }
+                        }
+                    }
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .disabled(onOpen == nil)
                 Spacer()
                 SheetHeader(title: "") { dismiss() }.fixedSize()
             }

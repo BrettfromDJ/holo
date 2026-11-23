@@ -208,7 +208,14 @@ struct DealView: View {
             .sheet(item: $pricingItem) { item in
                 let incoming = deals.deal.incoming.contains { $0.key == item.key }
                 DealCardSheet(item: item, rate: incoming ? rates.in : rates.out,
-                              onSave: { replace($0) }, onRemove: { remove(item) })
+                              onSave: { replace($0) }, onRemove: { remove(item) },
+                              onOpen: item.product.id.hasPrefix("custom:") ? nil : {
+                                  // Once this sheet is down, the card's page in its own sheet.
+                                  Task {
+                                      try? await Task.sleep(nanoseconds: 350_000_000)
+                                      detailItem = item
+                                  }
+                              })
             }
             .onAppear { if !deals.deal.photos.isEmpty || deals.deal.notes != nil { extrasOpen = true } }
             .sheet(isPresented: $confirming) { DealCloseSheet() }
