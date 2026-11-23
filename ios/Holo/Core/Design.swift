@@ -1316,9 +1316,11 @@ private struct UndoToast: ViewModifier {
                 }
                 .sensoryFeedback(.success, trigger: item.id)
             } else if let item = router.undo, let action = item.action {
-                HStack(spacing: 14) {
-                    Text(item.message).font(.geist(14, .medium)).foregroundStyle(.white)
-                    Spacer(minLength: 8)
+                // The same small centred pill as a confirmation, with Undo at its end.
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill").font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.lime)
+                    Text(item.message).font(.geist(14, .medium)).foregroundStyle(.white).lineLimit(1)
+                    Rectangle().fill(Color.white.opacity(0.15)).frame(width: 1, height: 18).padding(.horizontal, 4)
                     Button {
                         guard !working else { return }
                         working = true
@@ -1333,9 +1335,9 @@ private struct UndoToast: ViewModifier {
                     .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 18)
-                .frame(height: 50)
+                .frame(height: 44)
+                .background { Capsule().fill(Color.black.opacity(0.35)).shadow(color: .black.opacity(0.4), radius: 16, y: 8) }
                 .liquidGlass(in: Capsule())
-                .shadow(color: .black.opacity(0.4), radius: 16, y: 8)
                 .padding(.horizontal, 16)
                 .padding(.bottom, bottom)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
