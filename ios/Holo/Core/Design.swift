@@ -1489,7 +1489,7 @@ struct QuickActionsSheet: View {
                     if store.products[id] == nil { store.seed(SearchHit(product: p)) }
                     Router.shared.product = id
                 },
-                SheetAction(title: wish == nil ? "Wishlist" : "Wished", icon: wish == nil ? "heart" : "heart.fill") {
+                SheetAction(title: wish == nil ? "Add to wishlist" : "On wishlist", icon: wish == nil ? "heart" : "heart.fill") {
                     Task { if let wish { try? await store.removeWish(wish.id) } else { try? await store.addWish(p, printing: p.printings?.first, price: store.marketPrice(id, printing: p.printings?.first)?.market) } }
                 },
                 SheetAction(title: watch == nil ? "Watch" : "Watching", icon: watch == nil ? "eye" : "eye.fill") {
