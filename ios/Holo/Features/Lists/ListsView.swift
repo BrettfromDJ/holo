@@ -7,6 +7,8 @@ struct ListsView: View {
     @Environment(CollectionStore.self) private var store
     @State private var which: Which
     @State private var editingWatch: WatchRow?
+    /// A held watchlist row: its actions in our sheet.
+    @State private var heldWatch: WatchRow?
     @State private var error: String?
     /// Pushed inside another page's navigation (Lists), not shown as its own sheet.
     var embedded = false
@@ -40,11 +42,23 @@ struct ListsView: View {
             }
             .scrollContentBackground(.hidden)
             .background(Theme.background)
+            // Prices for cards added to either list since the collection loaded.
+            .task(id: store.watchlist.count + store.wishlist.count) {
+                await store.loadListPrices(store.watchlist.map(\.product_id) + store.wishlist.map(\.product.id))
+            }
             .navigationBarTitleDisplayMode(.inline)
             .pageTitle(which.rawValue)
+            .actionsSheet(item: $heldWatch, title: { store.products[$0.product_id]?.name }, product: { store.products[$0.product_id] }) { w in
+                [[
+                    SheetAction(title: w.target_price == nil ? "Set target" : "Edit target", icon: "scope") { editingWatch = w },
+                    SheetAction(title: "Stop watching", icon: "eye.slash", destructive: true) {
+                        Task { await run { try await store.removeWatch(w.id) } }
+                    },
+                ]]
+            }
             .sheet(item: $editingWatch) { w in
                 if let p = store.products[w.product_id] {
-                    WatchSheet(product: p, printing: w.printing, market: store.marketPrice(w.product_id, printing: w.printing)?.market, existing: w)
+                    WatchSheet(product: p, printing: w.printing, market: store.listPrice(w.product_id, printing: w.printing)?.market, existing: w)
                 }
             }
     }
@@ -55,15 +69,14 @@ struct ListsView: View {
         }
         ForEach(store.watchlist) { w in
             let product = store.products[w.product_id]
-            let market = store.marketPrice(w.product_id, printing: w.printing)?.market
+            let price = store.listPrice(w.product_id, printing: w.printing)
             NavigationLink(value: w.product_id) {
-                ListRow(product: product, price: market, target: w.target_price, change: store.marketPrice(w.product_id, printing: w.printing)?.change24hPct)
+                ListRow(product: product, price: price?.market, target: w.target_price, change: price?.change24hPct)
             }
             .listRowBackground(Theme.surface)
-            .swipeActions {
-                Button("Remove", role: .destructive) { Task { await run { try await store.removeWatch(w.id) } } }
-                Button("Target") { editingWatch = w }.tint(Theme.surface3)
-            }
+            // Press and hold for its actions (our own sheet; Apple's swipe buttons clashed:
+            // square-cut row, lime Remove with white text).
+            .highPriorityGesture(LongPressGesture(minimumDuration: 0.35).onEnded { _ in Haptics.tap(); heldWatch = w })
         }
     }
 
@@ -76,19 +89,12 @@ struct ListsView: View {
             if !items.isEmpty {
                 Section(priority.label) {
                     ForEach(items) { w in
-                        let current = store.marketPrice(w.product.id, printing: w.printing)?.market ?? w.price
+                        let current = store.listPrice(w.product.id, printing: w.printing)?.market ?? w.price
                         CardLink(productId: w.product.id, product: w.product) {
                             ListRow(product: w.product, price: current, target: w.target, change: nil)
                         }
                         .listRowBackground(Theme.surface)
-                        .swipeActions {
-                            Button("Remove", role: .destructive) { Task { await run { try await store.removeWish(w.id) } } }
-                        }
-                        .contextMenu {
-                            ForEach(WishItem.Priority.allCases, id: \.self) { p in
-                                Button(p.label) { Task { await run { try await store.updateWish(w.id, priority: p) } } }
-                            }
-                        }
+                        // Holding the card opens its quick actions (wishlist on/off and more).
                     }
                 }
             }

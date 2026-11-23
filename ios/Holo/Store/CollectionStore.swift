@@ -881,6 +881,29 @@ final class CollectionStore {
         prices[priceKey(productId, printing)]
     }
 
+    /// A watched or wished-for card's price: its own printing's, else the card's default
+    /// printing, else any printing that has one (a watch saved without a printing, or for a
+    /// printing the catalog prices under another name, would otherwise show "—").
+    func listPrice(_ productId: String, printing: String?) -> Price? {
+        if let p = marketPrice(productId, printing: printing), p.market != nil { return p }
+        if let p = marketPrice(productId, printing: nil), p.market != nil { return p }
+        let prefix = productId + "|"
+        return prices.keys.filter { $0.hasPrefix(prefix) }.sorted().lazy.compactMap { self.prices[$0] }.first { $0.market != nil }
+    }
+
+    /// Current prices (from our own database, not the paid API) for listed cards that have none
+    /// on the phone yet: ones watched or wished for after the collection loaded.
+    @MainActor
+    func loadListPrices(_ productIds: [String]) async {
+        guard demo == nil else { return }
+        let missing = Array(Set(productIds.filter { listPrice($0, printing: nil) == nil }))
+        guard !missing.isEmpty else { return }
+        for chunk in Self.chunks(missing) {
+            guard let rows: [PriceRow] = try? await db.from("product_prices").select().in("product_id", values: chunk).execute().value else { continue }
+            for r in rows { prices[priceKey(r.product_id, r.printing.isEmpty ? nil : r.printing)] = r.price }
+        }
+    }
+
     /// One position's entries as they count now (edits applied, deleted ones gone), newest first.
     func entries(for identity: HoldingIdentity) -> [Txn] {
         // Reading `transactions` keeps views that call this updating when the log changes.
