@@ -122,7 +122,7 @@ struct MasterSetDetailView: View {
                 if let art {
                     // Like the set's page in Explore: its art blurred across the top with the logo
                     // big on it, the name, tiles, the "You own" bar, then the chase cards.
-                    SetHero(set: art, productCount: 0, ownedCount: 0, updatedAt: nil)
+                    SetHero(set: art, productCount: 0, ownedCount: 0, updatedAt: nil, compact: true)
                         .padding(.horizontal, -16)
                         .padding(.bottom, 6)
                     HStack(spacing: 8) {

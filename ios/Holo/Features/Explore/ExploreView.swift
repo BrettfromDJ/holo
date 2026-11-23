@@ -549,6 +549,8 @@ struct SetHero: View {
     var productCount: Int
     var ownedCount: Int
     var updatedAt: String?
+    /// A shorter top (a master set's page): the logo and banner take less height.
+    var compact = false
 
     private var upcoming: Bool { (set.releaseDate ?? "") >= Format.day() }
 
@@ -598,15 +600,15 @@ struct SetHero: View {
         if ownArt != nil, let logo = set.logoUrl.flatMap(URL.init(string:)) {
             CachedImage(url: logo) { img in img.resizable().scaledToFit() } placeholder: { Color.clear }
                 .environment(\.imageFadesIn, false)
-                .frame(maxWidth: 300, maxHeight: 150)
+                .frame(maxWidth: compact ? 220 : 300, maxHeight: compact ? 96 : 150)
                 .shadow(color: .black.opacity(0.6), radius: 14, y: 6)
                 .frame(maxWidth: .infinity)
-                .frame(height: 210)
+                .frame(height: compact ? 120 : 210)
                 .accessibilityLabel(set.name)
         } else if let banner = set.iconUrl.flatMap(URL.init(string:)) {
             // Sized to the frame, not the picture: the banner fills it and is cut at its edges.
             Color.clear
-                .aspectRatio(3.0 / 2.0, contentMode: .fit)
+                .aspectRatio(compact ? 2.4 : 3.0 / 2.0, contentMode: .fit)
                 .overlay { CachedImage(url: banner) { img in img.resizable().scaledToFill() } placeholder: { Theme.well } }
                 .overlay { SetLogoOverlay(url: set.logoUrl) }
                 .environment(\.imageFadesIn, false)
@@ -621,7 +623,7 @@ struct SetHero: View {
                 CachedImage(url: sample) { img in img.resizable().scaledToFit() } placeholder: { Color.clear }
                     .padding(28)
             }
-            .frame(height: 180)
+            .frame(height: compact ? 120 : 180)
             .overlay(shape.strokeBorder(Theme.border))
         }
     }
