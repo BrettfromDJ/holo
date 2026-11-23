@@ -137,6 +137,10 @@ struct DealView: View {
                         DealPathChooser { pick in
                             Haptics.tap()
                             withAnimation(.snappy) { pathRaw = pick.rawValue }
+                            // Buying or selling: straight into the camera; each scan drops into its
+                            // tray, and Done lands on the filled-in deal. Trading opens the table.
+                            if pick == .buy { scanning = .incoming }
+                            if pick == .sell { scanning = .outgoing }
                         } onScan: {
                             pathRaw = DealKind.buy.rawValue
                             scanning = .incoming
@@ -222,7 +226,7 @@ struct DealView: View {
             // The receipt, always on screen above the tab bar while there's a deal.
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 VStack(spacing: 0) {
-                    if deals.deal.kind != .empty {
+                    if deals.deal.kind != .empty || dealPath == .trade {
                         receiptBar(totals, warning: warning)
                             .padding(.horizontal, 16).padding(.bottom, 8)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -389,6 +393,15 @@ struct DealView: View {
                    totals.outValue > 0 ? "Out \(Format.money(totals.outValue))" : nil].compactMap { $0 }.joined(separator: " − ")
         return HStack(alignment: .center, spacing: 12) {
             Button { startEditingCash(totals) } label: {
+                if deals.deal.kind == .empty {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Add both sides").font(.geist(11)).foregroundStyle(Theme.subtle)
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text("Cash").font(.geist(13, .medium)).foregroundStyle(Theme.muted)
+                            Text("$0").font(.display(24)).tracking(-0.7).foregroundStyle(.white.opacity(0.5))
+                        }
+                    }
+                } else {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(sum).font(.geist(11)).monospacedDigit().foregroundStyle(Theme.subtle).lineLimit(1)
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -407,8 +420,10 @@ struct DealView: View {
                 }
                 .lineLimit(1).minimumScaleFactor(0.75)
                 .contentShape(Rectangle())
+                }
             }
             .buttonStyle(.plain)
+            .disabled(deals.deal.kind == .empty)
             .accessibilityHint("Type the cash you agreed on")
             .animation(.snappy, value: totals.balance)
             Spacer(minLength: 0)
@@ -421,8 +436,8 @@ struct DealView: View {
                     .contentShape(Capsule())
             }
             .buttonStyle(.plain)
-            .disabled(unpriced)
-            .opacity(unpriced ? 0.55 : 1)
+            .disabled(unpriced || deals.deal.kind == .empty)
+            .opacity(unpriced || deals.deal.kind == .empty ? 0.45 : 1)
         }
         .padding(.leading, 18).padding(.trailing, 10).padding(.vertical, 10)
         .liquidGlass(in: RoundedRectangle(cornerRadius: 30, style: .continuous))
@@ -631,12 +646,13 @@ struct DealView: View {
         let fallback = incoming ? defaultRates.in : defaultRates.out
         VStack(alignment: .leading, spacing: 12) {
             // "Coming in · 2" with the side's total on the right.
+            if !(items.isEmpty && dealPath != .trade) {
             HStack(alignment: .firstTextBaseline) {
                 Image(systemName: incoming ? "arrow.down.left" : "arrow.up.right")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(incoming ? accent : Theme.planPink)
-                Text(incoming ? (dealPath == .buy ? "What you're buying" : "Coming in")
-                              : (dealPath == .sell ? "What you're selling" : "Going out"))
+                Text(incoming ? (dealPath == .buy ? "What you're buying" : dealPath == .trade ? "Their cards" : "Coming in")
+                              : (dealPath == .sell ? "What you're selling" : dealPath == .trade ? "Your cards" : "Going out"))
                     .font(.display(24)).tracking(-0.6).displayTrim(24).lineLimit(1).minimumScaleFactor(0.8)
                 // What the side is, behind an ⓘ (no line of small text under the title).
                 TermInfo(term: incoming ? .comingIn : .goingOut, color: .white)
@@ -650,6 +666,7 @@ struct DealView: View {
                         .contentTransition(.numericText())
                         .animation(.snappy, value: incoming ? totals.inValue : totals.outValue)
                 }
+            }
             }
 
             if !items.isEmpty {
@@ -675,27 +692,12 @@ struct DealView: View {
             }
 
             if items.isEmpty {
-                // Nothing on this side yet: one line and the two ways to add, Scan first (lime).
-                VStack(alignment: .leading, spacing: 14) {
-                    Text(incoming ? "Scan their cards, or search for one." : "Scan your cards, or pick them from your collection.")
-                        .font(.geist(14)).foregroundStyle(Theme.muted)
-                    HStack(spacing: 10) {
-                        Button { scanning = side } label: {
-                            Label("Scan", systemImage: "camera").font(.geist(16, .semibold)).foregroundStyle(Theme.ink)
-                                .frame(maxWidth: .infinity).frame(height: 48)
-                                .background(Capsule().fill(Theme.lime))
-                                .contentShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        Button { picking = side } label: {
-                            Label(incoming ? "Search" : "Collection", systemImage: incoming ? "magnifyingglass" : "square.grid.2x2")
-                                .font(.geist(16, .semibold)).foregroundStyle(.white)
-                                .frame(maxWidth: .infinity).frame(height: 48)
-                                .liquidGlass(in: Capsule())
-                                .contentShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                    }
+                if dealPath == .trade {
+                    // The table: faint card slots waiting to be filled; tap one to scan.
+                    TradeSlots(incoming: incoming, onScan: { scanning = side }, onSearch: { picking = side })
+                } else {
+                    // Buying or selling with nothing yet (the camera was closed): a proper empty state.
+                    DealEmptySide(incoming: incoming, onScan: { scanning = side }, onSearch: { picking = side })
                 }
             } else {
                 HStack(spacing: 8) {
@@ -1515,6 +1517,87 @@ private struct DealPathChooser: View {
             .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// Faint card outlines in a row, the first with a + (tap to scan), and a quiet way to search:
+/// what a side of a trade looks like before anything's on it.
+private struct TradeSlots: View {
+    var incoming: Bool
+    var onScan: () -> Void
+    var onSearch: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                ForEach(0 ..< 4, id: \.self) { i in
+                    let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    Button(action: onScan) {
+                        ZStack {
+                            shape.fill(Color.white.opacity(i == 0 ? 0.05 : 0.02))
+                            shape.strokeBorder(Color.white.opacity(i == 0 ? 0.28 : 0.1), style: StrokeStyle(lineWidth: 1.5, dash: [5, 5]))
+                            if i == 0 {
+                                Image(systemName: "plus").font(.system(size: 20, weight: .semibold)).foregroundStyle(incoming ? Theme.lime : Theme.planPink)
+                            }
+                        }
+                        .aspectRatio(63.0 / 88.0, contentMode: .fit)
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHidden(i > 0)
+                    .accessibilityLabel(incoming ? "Scan their cards" : "Scan your cards")
+                }
+            }
+            Button(action: onSearch) {
+                Text(incoming ? "Tap to scan, or search for a card" : "Tap to scan, or pick from your collection")
+                    .font(.geist(13, .medium)).foregroundStyle(Theme.muted)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+}
+
+/// Buying or selling with nothing added: a fan of faint card outlines, a big question, one line,
+/// a lime Scan and a quiet second way.
+private struct DealEmptySide: View {
+    var incoming: Bool
+    var onScan: () -> Void
+    var onSearch: () -> Void
+
+    var body: some View {
+        VStack(spacing: 14) {
+            ZStack {
+                ForEach(0 ..< 3, id: \.self) { i in
+                    let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    shape.fill(Color.white.opacity(i == 1 ? 0.05 : 0.025))
+                        .overlay(shape.strokeBorder(Color.white.opacity(i == 1 ? 0.22 : 0.1), style: StrokeStyle(lineWidth: 1.5, dash: [5, 5])))
+                        .frame(width: 78, height: 109)
+                        .rotationEffect(.degrees(Double(i - 1) * 10), anchor: .bottom)
+                        .offset(x: CGFloat(i - 1) * 44, y: i == 1 ? -6 : 4)
+                        .zIndex(i == 1 ? 1 : 0)
+                }
+            }
+            .frame(height: 130)
+            .padding(.bottom, 6)
+            Text(incoming ? "What are they selling you?" : "What are you selling?")
+                .font(.display(24)).tracking(-0.6).multilineTextAlignment(.center)
+            Text(incoming ? "Scan each card and its price adds up as you go." : "Scan your cards, and they're priced from the market.")
+                .font(.geist(14)).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
+            Button(action: onScan) {
+                Label("Scan cards", systemImage: "camera").font(.geist(16, .semibold)).foregroundStyle(Theme.ink)
+                    .padding(.horizontal, 28).frame(height: 48)
+                    .background(Capsule().fill(Theme.lime))
+                    .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 6)
+            Button(action: onSearch) {
+                Text(incoming ? "or search for a card" : "or pick from your collection").font(.geist(14, .medium)).foregroundStyle(Theme.muted)
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 30)
     }
 }
 
