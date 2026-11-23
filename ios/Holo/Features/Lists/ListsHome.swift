@@ -383,8 +383,6 @@ struct ListDetailView: View {
     @State private var deleting = false
     /// The card whose price is being set.
     @State private var pricing: String?
-    /// A card's ⋯: its actions in our sheet.
-    @State private var rowActions: ListRowRef?
     @State private var error: String?
 
     private static let percents: [Double] = [100, 95, 90, 85, 80, 75, 70]
@@ -448,17 +446,6 @@ struct ListDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         // The list's own name is the big heading below; the bar just has the back button.
         .pageTitle("")
-        .actionsSheet(item: $rowActions, title: { $0.product?.name ?? "Card" }, product: { $0.product }) { ref in
-            var rows: [[SheetAction]] = []
-            if groups.meta(listId).isForSale {
-                rows.append([SheetAction(title: "Set its price", icon: "tag") { pricing = ref.id }])
-            }
-            rows.append([SheetAction(title: "Remove from list", icon: "minus.circle", destructive: true) {
-                Haptics.remove()
-                run { try await groups.removeMany(listId, productIds: [ref.id]) }
-            }])
-            return rows
-        }
         .task { await groups.loadExtras(list.product_ids, known: store.products) }
         .sheet(isPresented: $adding) { ListAddSheet(listId: listId) }
         .sheet(isPresented: $sharing) { ListShareSheet(listId: listId, name: list.name, forSale: meta.isForSale) }
@@ -597,7 +584,20 @@ struct ListDetailView: View {
             } else {
                 Text(Format.money(info.market)).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(.white)
             }
-            RowMoreButton(label: info.product?.name) { rowActions = ListRowRef(id: productId, product: info.product) }
+            // A small drop-down by the ⋯ (the owner's call: no sheet for two actions).
+            Menu {
+                if meta.isForSale {
+                    Button { pricing = productId } label: { Label("Set its price", systemImage: "tag") }
+                }
+                Button(role: .destructive) {
+                    Haptics.remove()
+                    run { try await groups.removeMany(listId, productIds: [productId]) }
+                } label: { Label("Remove from list", systemImage: "minus.circle") }
+            } label: {
+                Image(systemName: "ellipsis").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.muted)
+                    .frame(width: 40, height: 44).contentShape(Rectangle())
+            }
+            .accessibilityLabel("Actions for \(info.product?.name ?? "this card")")
         }
         .padding(.vertical, 8)
     }
@@ -969,6 +969,3 @@ struct ListShareSheet: View {
         return UIImage(cgImage: cg)
     }
 }
-
-/// A card on a list, for its ⋯ sheet.
-private struct ListRowRef: Identifiable { var id: String; var product: Product? }
