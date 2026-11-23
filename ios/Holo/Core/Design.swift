@@ -719,7 +719,6 @@ struct ChipPicker<T: Hashable>: View {
             }
         }
         // One glass layer for the row (spacing 0: the chips stay separate, they don't melt together).
-        .glassGroup(spacing: 0)
     }
 }
 
@@ -1196,20 +1195,6 @@ extension View {
     func pillOnArt<S: InsettableShape>(in shape: S) -> some View {
         background(shape.fill(Color.black.opacity(0.52)))
             .overlay(shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.28), .white.opacity(0.06)], startPoint: .top, endPoint: .bottom), lineWidth: 1))
-    }
-
-    /// Glass pieces that sit close together (a row of buttons, the tab bar) share one glass layer
-    /// on iOS 26 instead of each drawing its own: cheaper, and they blend where they meet.
-    @ViewBuilder func glassGroup(spacing: CGFloat = 12) -> some View {
-        #if compiler(>=6.2)
-        if #available(iOS 26, *) {
-            GlassEffectContainer(spacing: spacing) { self }
-        } else {
-            self
-        }
-        #else
-        self
-        #endif
     }
 
     /// Liquid Glass for chip tracks and pills, except on a glass sheet, where they take the
