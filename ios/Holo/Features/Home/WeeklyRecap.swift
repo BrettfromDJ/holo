@@ -512,11 +512,13 @@ private struct RecapDriftCard: View {
                 // past the card's edge), so nothing cuts it off.
                 .background {
                     GeometryReader { geo in
-                        let w = geo.size.width
+                        // A square around the picture's longer side, fading to nothing inside it,
+                        // so a wide sealed box's glow isn't cut off flat at the top and bottom.
+                        let side = max(geo.size.width, geo.size.height)
                         RadialGradient(colors: [glow.opacity((theme == .plain ? 0.22 : 0.4) * flicker), glow.opacity(0.1 * flicker), .clear], center: .center,
-                                       startRadius: w * 0.25, endRadius: w * 0.5 + 28)
-                            .frame(width: w + 60, height: geo.size.height + 60)
-                            .position(x: w / 2, y: geo.size.height / 2)
+                                       startRadius: side * 0.2, endRadius: side * 0.5 + 40)
+                            .frame(width: side + 100, height: side + 100)
+                            .position(x: geo.size.width / 2, y: geo.size.height / 2)
                     }
                     .allowsHitTesting(false)
                 }
@@ -623,19 +625,22 @@ private struct RecapGrid: View {
             let w = (span - gap * CGFloat(cols - 1)) / CGFloat(cols)
             let h = w * 88 / 63
             let perCol = max(4, Int(ceil(Double(pieces.count) / Double(cols))))
-            let listH = CGFloat(perCol) * (h + gap)
+            // Cards are card-shaped; sealed products square. Each column loops over its own height.
+            let piece = { (c: Int, k: Int) in pieces[(c * perCol + k % perCol) % pieces.count] }
+            let tall = { (p: RecapBuy) -> CGFloat in p.product?.isSealed == true && !p.identity.isGraded ? w : h }
             TimelineView(.animation(minimumInterval: nil, paused: reduceMotion)) { context in
                 let clock = reduceMotion ? 0 : context.date.timeIntervalSince(Self.start)
                 HStack(alignment: .top, spacing: gap) {
                     ForEach(0 ..< cols, id: \.self) { c in
                         let speed: Double = [28, 23, 31, 26][c]
+                        let listH = (0 ..< perCol).reduce(CGFloat(0)) { $0 + tall(piece(c, $1)) + gap }
                         let progress = CGFloat((Double(c) * 0.27 + clock / speed).truncatingRemainder(dividingBy: 1))
                         let y: CGFloat = c % 2 == 1 ? -listH + listH * progress : -listH * progress
                         VStack(spacing: gap) {
                             ForEach(0 ..< perCol * 3, id: \.self) { k in
-                                let piece = pieces[(c * perCol + k % perCol) % pieces.count]
-                                HoldingArt(product: piece.product, identity: piece.identity, cornerRadius: 6, caption: false)
-                                    .frame(width: w, height: h)
+                                let p = piece(c, k)
+                                HoldingArt(product: p.product, identity: p.identity, cornerRadius: 6, caption: false)
+                                    .frame(width: w, height: tall(p))
                             }
                         }
                         .offset(y: y)
