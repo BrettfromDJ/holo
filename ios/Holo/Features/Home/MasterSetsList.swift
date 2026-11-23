@@ -107,7 +107,11 @@ struct MasterSetsView: View {
     /// A group's heading and its sets as tiles, two across, like Explore's brand page.
     private func group(_ title: String, _ rows: [Row]) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            SectionTitle(title)
+            // The heading with how many sets are in the group, quiet beside it.
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                SectionTitle(title)
+                Text("\(rows.count)").font(.geist(15)).monospacedDigit().foregroundStyle(Theme.muted)
+            }
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 14, alignment: .top), GridItem(.flexible(), spacing: 14, alignment: .top)],
                       alignment: .leading, spacing: 20) {
                 ForEach(rows) { r in
@@ -127,6 +131,8 @@ struct MasterSetsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 header
+                    // The sets start close under the game names (the gap was too big).
+                    .padding(.bottom, -14)
                 if !started.isEmpty { group("Sets started", started) }
                 if !rest.isEmpty { group("All sets", rest) }
                 if started.isEmpty, rest.isEmpty {
@@ -420,22 +426,40 @@ struct MasterSetTile: View {
                 .overlay(alignment: .topLeading) {
                     if isComplete { SkewTag(text: "Complete", icon: "checkmark").padding(10) }
                 }
+                // The edition as a small tag on the art, so the name stays short.
+                .overlay(alignment: .bottomLeading) {
+                    if let edition = Self.edition(row.name) {
+                        Text(edition).font(.mono(10)).tracking(0.8).foregroundStyle(.white)
+                            .padding(.horizontal, 7).padding(.vertical, 4)
+                            .pillOnArt(in: Capsule())
+                            .padding(8)
+                    }
+                }
                 .clipShape(shape)
                 .overlay(shape.strokeBorder(isComplete ? Theme.lime.opacity(0.6) : Theme.border))
             VStack(alignment: .leading, spacing: 4) {
-                Text(row.name).font(.geist(14, .medium)).lineLimit(1).foregroundStyle(.white)
-                HStack(spacing: 5) {
-                    Text(subtitle).font(.geist(12)).monospacedDigit().foregroundStyle(Theme.muted).lineLimit(1)
-                    if let ratio = row.ratio, started, ratio >= 0.01 {
-                        Text("· \(Int((ratio * 100).rounded()))%").font(.geist(12, .semibold)).monospacedDigit().foregroundStyle(Theme.lime)
-                    }
-                }
+                Text(Self.shortName(row.name)).font(.geist(14, .medium)).lineLimit(1).foregroundStyle(.white)
+                // "9 of 102" and the bar (no %: the same thing a third time).
+                Text(subtitle).font(.geist(12)).monospacedDigit().foregroundStyle(Theme.muted).lineLimit(1)
                 if let ratio = row.ratio, started {
                     GrowBar(fraction: ratio, color: Theme.lime, height: 3, gradient: false).padding(.top, 3)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    /// "1st Edition" / "Unlimited" at the end of an old set's name, for its tag.
+    static func edition(_ name: String) -> String? {
+        if name.hasSuffix(" 1st Edition") { return "1ST ED." }
+        if name.hasSuffix(" Unlimited") { return "UNLIMITED" }
+        return nil
+    }
+
+    /// The name without its edition ("Team Rocket Unlimited" → "Team Rocket").
+    static func shortName(_ name: String) -> String {
+        for cut in [" 1st Edition", " Unlimited"] where name.hasSuffix(cut) { return String(name.dropLast(cut.count)) }
+        return name
     }
 
     private var subtitle: String {
