@@ -36,7 +36,7 @@ struct DealPickerSheet: View {
             GlassList {
                 // Coming in is the customer's cards, so only going out lists your inventory.
                 if side == .outgoing {
-                Section("Your inventory") {
+                Section("Your collection") {
                     if owned.isEmpty { Text("Nothing matches.").foregroundStyle(Theme.muted) }
                     ForEach(owned) { h in
                         Button { addHolding(h) } label: {
@@ -77,9 +77,38 @@ struct DealPickerSheet: View {
                         Text(side == .incoming ? "Catalog" : "Not in Corodex")
                     } footer: {
                         if side == .outgoing {
-                            Text("Something you have that isn't in Corodex yet. Add what you paid on the deal and it's recorded properly; otherwise it's counted in the deal but not\u{00A0}tracked.")
+                            Text("Something you have that isn't in your collection yet. Add what you paid on the deal and it's recorded properly; otherwise it's counted in the deal but not\u{00A0}tracked.")
+                                .font(.geist(13)).foregroundStyle(Theme.muted)
                         }
                     }
+                }
+                // Not in the catalog (a lot, a binder, an odd one): a name and a price.
+                if side == .outgoing || query.count >= 2 {
+                    Section {
+                        customRow
+                    }
+                }
+            }
+            .overlay {
+                // Coming in, before you type: what to do, and the custom way in.
+                if side == .incoming && query.count < 2 {
+                    VStack(spacing: 10) {
+                        Image(systemName: "magnifyingglass").font(.system(size: 20, weight: .semibold)).foregroundStyle(.white)
+                            .frame(width: 56, height: 56).liquidGlass(in: Circle())
+                        Text("Find their cards").font(.display(22)).tracking(-0.5)
+                        Text("Search by name, set or number, or scan with the camera.").font(.geist(14)).foregroundStyle(Theme.muted)
+                            .multilineTextAlignment(.center)
+                        Button { customOpen = true } label: {
+                            Label("Add a custom item or lot", systemImage: "square.and.pencil")
+                                .font(.geist(14, .medium)).foregroundStyle(.white)
+                                .padding(.horizontal, 16).frame(height: 40)
+                                .liquidGlass(in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.top, 8)
+                    }
+                    .padding(.horizontal, 32)
+                    .padding(.bottom, 120)
                 }
             }
             .scrollContentBackground(.hidden)
@@ -88,27 +117,18 @@ struct DealPickerSheet: View {
             // Thumbnails, decoded off the main thread (a sheet doesn't get the Deal page's setting).
             .imageMaxPixel(360)
             .safeAreaInset(edge: .top, spacing: 0) {
-                // Search, with a small Custom button beside it for things not in the catalog.
-                HStack(spacing: 8) {
-                    HoloSearchField(text: $query, prompt: side == .incoming ? "Search any card or product" : "Search your inventory or any card",
+                // The title and Done in the sheet (no bar), then the search across the full width.
+                VStack(spacing: 14) {
+                    SheetHeader(title: side == .incoming ? "Add cards" : "Add from your collection") { dismiss() }
+                    HoloSearchField(text: $query, prompt: side == .incoming ? "Search any card or product" : "Search your collection or any card",
                                     focus: $focused, loading: searching, scan: onScan.map { SearchScan(action: $0) })
-                    Button { customOpen = true } label: {
-                        Label("Custom", systemImage: "plus")
-                            .font(.geist(15, .semibold)).foregroundStyle(.white)
-                            .padding(.horizontal, 14).frame(height: 48)
-                            .liquidGlass(in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Custom item")
-                    .accessibilityHint("A name and a price, for things not in the catalog")
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 8)
+                .padding(.top, 22)
+                .padding(.bottom, 8)
             }
             .scrollDismissesKeyboard(.immediately)
-            .navigationTitle(side == .incoming ? "Coming in" : "Going out")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .toolbar(.hidden, for: .navigationBar)
             .task(id: query) { await search() }
             .task {
                 // Ready to type the moment it opens.
@@ -125,6 +145,24 @@ struct DealPickerSheet: View {
                 }
             }
         }
+    }
+
+    /// The custom way in, as a quiet row at the end of the list.
+    private var customRow: some View {
+        Button { customOpen = true } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "square.and.pencil").font(.system(size: 15, weight: .semibold)).foregroundStyle(.white)
+                    .frame(width: 36, height: 36).background(Circle().fill(Color.white.opacity(0.08)))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Add a custom item or lot").font(.geist(15, .medium)).foregroundStyle(.white)
+                    Text("Not in the catalog? A name and a price is enough.").font(.geist(12)).foregroundStyle(Theme.muted)
+                }
+                Spacer()
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("A name and a price, for things not in the catalog")
     }
 
     private func addHolding(_ h: HoldingView) {
