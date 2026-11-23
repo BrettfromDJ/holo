@@ -509,7 +509,11 @@ struct CollectionView: View {
         if selecting {
             button
         } else {
-            button.highPriorityGesture(LongPressGesture(minimumDuration: 0.35).onEnded { _ in Haptics.remove(); held = h })
+            // A ⋯ at the end opens the same actions as holding the row, so they're easy to find.
+            HStack(spacing: 0) {
+                button.highPriorityGesture(LongPressGesture(minimumDuration: 0.35).onEnded { _ in Haptics.remove(); held = h })
+                RowMoreButton(label: h.product?.name) { held = h }
+            }
         }
     }
 
@@ -1214,5 +1218,22 @@ private extension View {
         } else {
             self
         }
+    }
+}
+
+/// The ⋯ at the end of a list row: opens the row's actions (the same as holding it), so they
+/// don't hide behind a long press. Used on every list of cards (Collection's list, Watchlist,
+/// Wishlist).
+struct RowMoreButton: View {
+    var label: String?
+    var action: () -> Void
+
+    var body: some View {
+        Button { Haptics.tap(); action() } label: {
+            Image(systemName: "ellipsis").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.muted)
+                .frame(width: 40, height: 44).contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
+        .accessibilityLabel("Actions for \(label ?? "this card")")
     }
 }

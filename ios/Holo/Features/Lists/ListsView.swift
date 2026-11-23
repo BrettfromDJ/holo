@@ -100,12 +100,7 @@ struct ListsView: View {
                     // set or edit the target, stop watching. Holding the row does the same.
                     HStack(spacing: 4) {
                         ListRow(product: product, price: price?.market, target: w.target_price, change: price?.change24hPct)
-                        Button { Haptics.tap(); heldWatch = w } label: {
-                            Image(systemName: "ellipsis").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.muted)
-                                .frame(width: 36, height: 44).contentShape(Rectangle())
-                        }
-                        .buttonStyle(.borderless)
-                        .accessibilityLabel("Actions for \(product?.name ?? "this card")")
+                        RowMoreButton(label: product?.name) { heldWatch = w }
                     }
                     .background { NavigationLink(value: w.product_id) { EmptyView() }.opacity(0) }
                 }
@@ -130,9 +125,13 @@ struct ListsView: View {
                             if selecting {
                                 selectRow(w.id) { ListRow(product: w.product, price: current, target: w.target, change: nil) }
                             } else {
-                                CardLink(productId: w.product.id, product: w.product) {
+                                // The ⋯ opens the card's quick actions (the same as holding it).
+                                HStack(spacing: 4) {
                                     ListRow(product: w.product, price: current, target: w.target, change: nil)
+                                    RowMoreButton(label: w.product.name) { Router.shared.quickCard = w.product }
                                 }
+                                .background { NavigationLink(value: w.product.id) { EmptyView() }.opacity(0) }
+                                .highPriorityGesture(LongPressGesture(minimumDuration: 0.35).onEnded { _ in Haptics.tap(); Router.shared.quickCard = w.product })
                             }
                         }
                         .listRowBackground(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.surface).padding(.horizontal, 16).padding(.vertical, 4))
