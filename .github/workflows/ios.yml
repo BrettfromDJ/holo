@@ -3,10 +3,12 @@
 name: iOS
 
 on:
+  # The fingerprint script lives in ios/scripts but isn't part of the app: changing it doesn't
+  # rebuild the app (which used up a Mac the fingerprint job was waiting for).
   push:
-    paths: ["ios/**", ".github/workflows/ios.yml"]
+    paths: ["ios/**", ".github/workflows/ios.yml", "!ios/scripts/fingerprints.swift"]
   pull_request:
-    paths: ["ios/**", ".github/workflows/ios.yml"]
+    paths: ["ios/**", ".github/workflows/ios.yml", "!ios/scripts/fingerprints.swift"]
   workflow_dispatch:
 
 # Lets the screenshot step publish its pictures to the ci-screenshots branch.
