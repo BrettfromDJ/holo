@@ -9,6 +9,8 @@ struct GradingView: View {
     @State private var showAll = false
     @State private var editingCosts = false
     @State private var sending: HoldingView?
+    /// The worth-grading row whose ⋯ is open.
+    @State private var acting: HoldingView?
     @State private var returning: GradingStore.Submission?
     /// The slab being unboxed over the page (after "It's back", or a returned slab's first look).
     @State private var unboxing: Unboxing?
@@ -40,7 +42,8 @@ struct GradingView: View {
             let o = Grading.outlook(productId: h.identity.productId, raw: price, costs: grading.costs, summary: summary)
             return o.upside10 > 0 ? (h, o) : nil
         }
-        .sorted { $0.1.score > $1.1.score }
+        // Biggest PSA 10 upside first, so the list reads in order of the figure it shows.
+        .sorted { $0.1.upside10 > $1.1.upside10 }
     }
 
     var body: some View {
@@ -48,13 +51,13 @@ struct GradingView: View {
         let candidates = self.candidates
         ScrollView {
             VStack(alignment: .leading, spacing: 36) {
-                heroTop(slabs)
-                // What's out at the grader first when there is any; what to send next; then your slabs.
-                if !grading.sent.isEmpty { atGrader.reveal() }
+                // Only what has something in it: no $0.00 hero, empty slabs or empty grader panel.
+                if !slabs.isEmpty { heroTop(slabs) }
+                if !grading.sent.isEmpty || !grading.returned.isEmpty { atGrader.reveal() }
                 worthGrading(candidates).reveal()
-                yourSlabs(slabs).reveal()
-                if grading.sent.isEmpty { atGrader.reveal() }
+                if !slabs.isEmpty { yourSlabs(slabs).reveal() }
             }
+            .padding(.top, slabs.isEmpty ? 8 : 0)
             .padding(.horizontal, 16)
             .padding(.bottom, 120)
         }
@@ -62,6 +65,21 @@ struct GradingView: View {
         .replaysAnimations()
         .navigationBarTitleDisplayMode(.inline)
         .pageTitle("Grading")
+        // The grading and shipping costs, behind a quiet icon at the top right.
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { editingCosts = true } label: { Image(systemName: "slider.horizontal.3") }
+                    .accessibilityLabel("Grading costs")
+            }
+        }
+        .actionsSheet(item: $acting, title: { $0.product?.name }, product: { $0.product }) { h in
+            let sent = (grading.atGrader[h.identity.key] ?? 0) >= h.quantity
+            return [[
+                SheetAction(title: sent ? "Sent for grading" : "Send for grading", icon: "paperplane", disabled: sent, run: { sending = h }),
+            ], [
+                SheetAction(title: "Grading costs", icon: "slider.horizontal.3", run: { editingCosts = true }),
+            ]]
+        }
         .task {
             await grading.load(userId: store.demo == nil ? store.userId : nil)
             let ids = Array(Set(store.holdings.filter { $0.product?.isSealed == false && $0.identity.productId.hasPrefix("tcgapi:") }.map(\.identity.productId))).sorted()
@@ -144,13 +162,6 @@ struct GradingView: View {
     private var atGrader: some View {
         VStack(alignment: .leading, spacing: 12) {
             MoreHeading(title: "At the grader", subtitle: "Cards stay raw until they come back")
-            if grading.sent.isEmpty {
-                Label("Nothing out for grading", systemImage: "paperplane")
-                    .font(.geist(13)).foregroundStyle(Theme.muted)
-                    .padding(.horizontal, 14).padding(.vertical, 12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.surface2.opacity(0.6), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            }
             ForEach(grading.sent) { s in
                 HStack(spacing: 12) {
                     CardLink(productId: s.productId) {
@@ -208,76 +219,67 @@ struct GradingView: View {
 
     private func worthGrading(_ candidates: [(HoldingView, Grading.Outlook)]) -> some View {
         let away = grading.atGrader
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top) {
-                MoreHeading(title: "Worth grading", subtitle: "Your raw cards that would make the most if graded a PSA 10, after \(Format.money(grading.costs.fee + grading.costs.shipping)) for grading and shipping. The smaller figure is what you'd make at a 9.")
-                Spacer(minLength: 8)
-                Button("Costs") { editingCosts = true }.buttonStyle(Button3D(kind: .dark, fullWidth: false, height: 34))
-            }
+        return VStack(alignment: .leading, spacing: 8) {
+            MoreHeading(title: "Worth grading", subtitle: "What each could make as a PSA 10, after \(Format.moneyWhole(grading.costs.fee + grading.costs.shipping)) to grade and ship.")
             if candidates.isEmpty {
-                Text("No raw singles worth more than \(Format.money(Grading.minRaw)) with upside after grading\u{00A0}costs.")
+                Text("No raw singles worth more than \(Format.moneyWhole(Grading.minRaw)) with upside after grading\u{00A0}costs.")
                     .font(.geist(13)).foregroundStyle(Theme.muted).padding(.vertical, 12)
             }
-            // Rows touch, divided by a hairline, so the spacing above and below each line matches.
+            // Plain rows on the page (no panel), divided by a hairline.
             let rows = showAll ? candidates : Array(candidates.prefix(Self.shown))
             let firstId = rows.first?.0.id
             VStack(spacing: 0) {
-            ForEach(rows, id: \.0.id) { h, o in
-                let est = o.source == .estimate ? "≈" : ""
-                let sent = (away[h.identity.key] ?? 0) >= h.quantity
-                // One balanced row: picture | name, prices, tag | upside and Send, top-aligned.
-                HStack(alignment: .top, spacing: 12) {
-                    CardLink(productId: h.identity.productId, identity: h.identity) {
-                        HStack(alignment: .top, spacing: 12) {
-                            HoldingArt(product: h.product, identity: h.identity, cornerRadius: 6, caption: false).frame(width: 44, height: 62)
-                            VStack(alignment: .leading, spacing: 5) {
-                                Text(h.product?.name ?? "Card").font(.geist(14, .medium)).foregroundStyle(.white)
-                                    .lineLimit(2).fixedSize(horizontal: false, vertical: true)
-                                Text("Raw \(Format.money(o.raw)) → PSA 10 \(est)\(Format.money(o.psa10))")
-                                    .font(.geist(12)).monospacedDigit().foregroundStyle(Theme.muted).lineLimit(1).minimumScaleFactor(0.8)
-                                Tag(text: o.source == .sales ? "10s \(Grading.liquidity(o.psa10Sales).lowercased())" : "Estimate",
-                                    tint: o.psa10Sales < 12 ? Theme.muted : Theme.lime)
+                ForEach(rows, id: \.0.id) { h, o in
+                    let est = o.source == .estimate ? "≈" : ""
+                    let sent = (away[h.identity.key] ?? 0) >= h.quantity
+                    // Picture | name, raw → PSA 10, one quiet line | the upside, then ⋯.
+                    HStack(alignment: .center, spacing: 12) {
+                        CardLink(productId: h.identity.productId, identity: h.identity) {
+                            HStack(alignment: .center, spacing: 12) {
+                                HoldingArt(product: h.product, identity: h.identity, cornerRadius: 5, caption: false).frame(width: 40, height: 56)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(h.product?.name ?? "Card").font(.geist(15, .medium)).foregroundStyle(.white).lineLimit(1)
+                                    Text("\(Format.moneyWhole(o.raw)) raw → \(est)\(Format.moneyWhole(o.psa10)) PSA 10")
+                                        .font(.geist(12)).monospacedDigit().foregroundStyle(Theme.muted).lineLimit(1).minimumScaleFactor(0.8)
+                                    Text(detail(o, sent: sent))
+                                        .font(.geist(12)).monospacedDigit().foregroundStyle(Theme.subtle).lineLimit(1)
+                                }
+                                Spacer(minLength: 8)
+                                Text(Self.signedWhole(o.upside10))
+                                    .font(.geist(16, .semibold)).monospacedDigit().foregroundStyle(Theme.up)
+                                    .lineLimit(1).fixedSize()
                             }
-                            Spacer(minLength: 0)
+                            .contentShape(Rectangle())
                         }
-                        .contentShape(Rectangle())
+                        .buttonStyle(.plain)
+                        RowMoreButton(label: h.product?.name) { acting = h }
+                            .padding(.trailing, -10)
                     }
-                    .buttonStyle(.plain)
-                    VStack(alignment: .trailing, spacing: 6) {
-                        Text(Format.signedMoney(o.upside10)).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(Theme.up)
-                        (Text("at a 9 ").foregroundColor(Theme.muted) + Text(Format.signedMoney(o.upside9)).foregroundColor(Theme.tone(o.upside9)))
-                            .font(.geist(11)).monospacedDigit()
-                        if sent {
-                            Text("Sent").font(.geist(12, .medium)).foregroundStyle(Theme.subtle).frame(height: 30)
-                        } else {
-                            Button { Haptics.tap(); sending = h } label: {
-                                Text("Send").font(.geist(13, .semibold)).foregroundStyle(.white)
-                                    .padding(.horizontal, 14).frame(height: 30)
-                                    .background(Capsule().fill(Color.white.opacity(0.1)))
-                                    .contentShape(Capsule())
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Send for grading")
-                        }
-                    }
-                    .fixedSize()
-                }
-                .padding(.vertical, 14)
-                .overlay(alignment: .top) {
-                    // A divider between rows (not above the first).
-                    if h.id != firstId {
-                        Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+                    .padding(.vertical, 12)
+                    .overlay(alignment: .top) {
+                        if h.id != firstId { Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1) }
                     }
                 }
-            }
             }
             if candidates.count > Self.shown {
                 Button(showAll ? "Show fewer" : "Show all \(candidates.count)") { showAll.toggle() }
-                    .font(.geist(13, .medium)).foregroundStyle(Theme.muted)
+                    .font(.geist(14, .medium)).foregroundStyle(Theme.muted)
+                    .padding(.top, 4)
             }
         }
-        .surface(radius: 16, padding: 16)
     }
+
+    /// The row's quiet line: sent, or what a 9 makes and how 10s sell ("+$1,024 at a 9 · hard to sell").
+    private func detail(_ o: Grading.Outlook, sent: Bool) -> String {
+        if sent { return "At the grader" }
+        let nine = "\(Self.signedWhole(o.upside9)) at a 9"
+        guard o.source == .sales else { return "\(nine) · estimate" }
+        let speed = o.psa10Sales >= 52 ? "10s sell fast" : o.psa10Sales >= 12 ? "10s sell steadily" : "10s sell slowly"
+        return "\(nine) · \(speed)"
+    }
+
+    /// "+$25,099" / "−$40": whole dollars with a sign.
+    static func signedWhole(_ v: Double) -> String { (v < 0 ? "−" : "+") + Format.moneyWhole(abs(v)) }
 
     // MARK: Slabs
 
