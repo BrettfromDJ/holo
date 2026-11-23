@@ -456,14 +456,11 @@ struct DealCardSheet: View {
                        selection: Binding(get: { mode }, set: { switchMode($0) }), fills: true)
             VStack(spacing: 6) {
                 Text(mode == .percent ? "Agreed rate" : "Agreed price per card").font(.geist(13)).foregroundStyle(Theme.muted)
-                HStack(spacing: 4) {
-                    if mode == .fixed { Text("$").foregroundStyle(Theme.muted) }
-                    TextField("0", text: $value).keyboardType(.decimalPad).multilineTextAlignment(.center).fixedSize()
-                    if mode == .percent { Text("%").foregroundStyle(Theme.muted) }
+                if mode == .percent {
+                    StepField(text: $value, step: 1, range: 1...200, suffix: "%", decimals: 0)
+                } else {
+                    StepField(text: $value, step: 1, range: 0...1_000_000, prefix: "$", decimals: 2)
                 }
-                .font(.display(34)).monospacedDigit()
-                .frame(maxWidth: .infinity).frame(height: 70)
-                .sheetPanel(radius: 16)
             }
             HStack {
                 Text("Agreed price per card").font(.geist(14)).foregroundStyle(Theme.muted)
@@ -554,13 +551,7 @@ struct DealRateSheet: View {
         VStack(alignment: .leading, spacing: 16) {
             SheetHeader(title: title) { dismiss() }
             Text("Only cards without their own price will update.").font(.geist(13)).foregroundStyle(Theme.muted)
-            HStack(spacing: 4) {
-                TextField("0", text: $value).keyboardType(.numberPad).multilineTextAlignment(.center).fixedSize()
-                Text("%").foregroundStyle(Theme.muted)
-            }
-            .font(.display(34)).monospacedDigit()
-            .frame(maxWidth: .infinity).frame(height: 70)
-            .sheetPanel(radius: 16)
+            StepField(text: $value, step: 1, range: 30...150, suffix: "%", decimals: 0)
             SheetLimeButton(title: "Apply rate", enabled: Double(value).map { (30...150).contains($0) } ?? false) {
                 if let v = Double(value) { onApply(v / 100) }
                 dismiss()
@@ -571,5 +562,54 @@ struct DealRateSheet: View {
         .onAppear { value = "\(Int((rate * 100).rounded()))" }
         .presentationDetents([.height(height)])
         .glassSheet()
+    }
+}
+
+// MARK: - A number with − and +
+
+/// A big number you can type, with a round − on the left and + on the right to nudge it.
+struct StepField: View {
+    @Binding var text: String
+    var step: Double
+    var range: ClosedRange<Double>
+    var prefix: String? = nil
+    var suffix: String? = nil
+    var decimals = 0
+
+    var body: some View {
+        HStack(spacing: 8) {
+            nudge("minus", -step)
+            Spacer(minLength: 0)
+            HStack(spacing: 4) {
+                if let prefix { Text(prefix).foregroundStyle(Theme.muted) }
+                TextField("0", text: $text).keyboardType(decimals == 0 ? .numberPad : .decimalPad)
+                    .multilineTextAlignment(.center).fixedSize()
+                if let suffix { Text(suffix).foregroundStyle(Theme.muted) }
+            }
+            .font(.display(34)).monospacedDigit()
+            Spacer(minLength: 0)
+            nudge("plus", step)
+        }
+        .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity).frame(height: 70)
+        .sheetPanel(radius: 16)
+    }
+
+    private func nudge(_ icon: String, _ by: Double) -> some View {
+        let current = MoneyField.value(text) ?? 0
+        let next = min(range.upperBound, max(range.lowerBound, (by > 0 ? floor(current / step) * step + step : ceil(current / step) * step - step)))
+        return Button {
+            Haptics.tap()
+            text = decimals == 0 ? "\(Int(next.rounded()))" : String(format: "%.\(decimals)f", next)
+        } label: {
+            Image(systemName: icon).font(.system(size: 16, weight: .semibold)).foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background(Circle().fill(Color.white.opacity(0.08)))
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .disabled(next == current)
+        .opacity(next == current ? 0.4 : 1)
+        .accessibilityLabel(by > 0 ? "Up \(Int(step))" : "Down \(Int(step))")
     }
 }
