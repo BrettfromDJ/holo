@@ -182,6 +182,22 @@ enum Grading {
 }
 
 extension Grading {
+    /// Each grader's own service levels and their usual fee per card (late 2026, from public price
+    /// lists; the fee can still be typed over). Same list as the website's `SERVICES`.
+    struct Service: Hashable { var name: String; var fee: Double }
+    static let services: [String: [Service]] = [
+        "PSA": [.init(name: "Value Bulk", fee: 24.99), .init(name: "Value", fee: 32.99), .init(name: "Value Plus", fee: 49.99),
+                .init(name: "Value Max", fee: 64.99), .init(name: "Regular", fee: 79.99), .init(name: "Express", fee: 199), .init(name: "Super Express", fee: 299)],
+        "BGS": [.init(name: "Base", fee: 14.95), .init(name: "Standard", fee: 34.95), .init(name: "Express", fee: 79.95), .init(name: "Priority", fee: 124.95)],
+        "CGC": [.init(name: "Bulk", fee: 17), .init(name: "Economy", fee: 20), .init(name: "Standard", fee: 55), .init(name: "Express", fee: 100), .init(name: "WalkThrough", fee: 300)],
+        "SGC": [.init(name: "Standard", fee: 50), .init(name: "Expedited", fee: 150)],
+        "TAG": [.init(name: "Value", fee: 29.95), .init(name: "Base", fee: 39.95), .init(name: "Standard", fee: 59.95),
+                .init(name: "Priority", fee: 79.95), .init(name: "Express", fee: 149.95), .init(name: "Premier", fee: 299.95)],
+    ]
+    static func services(for company: String) -> [Service] { services[company] ?? [.init(name: "Standard", fee: 0)] }
+}
+
+extension Grading {
     /// Where to check a certification number, like the website's certLookupUrl. Companies
     /// without a direct link get their lookup page.
     static func certLookupURL(company: String, cert: String) -> String {

@@ -282,7 +282,22 @@ export function CertDialog({ holding, open, onOpenChange }: { holding: HoldingVi
   );
 }
 
-const SERVICES = ["Value", "Regular", "Express", "Super Express"];
+/** Each grader's own service levels and their usual fee per card (late 2026, from public price
+ * lists; the fee can still be typed over). Same list as the app's `Grading.services`. */
+const SERVICES: Record<string, { name: string; fee: number }[]> = {
+  PSA: [
+    { name: "Value Bulk", fee: 24.99 }, { name: "Value", fee: 32.99 }, { name: "Value Plus", fee: 49.99 },
+    { name: "Value Max", fee: 64.99 }, { name: "Regular", fee: 79.99 }, { name: "Express", fee: 199 }, { name: "Super Express", fee: 299 },
+  ],
+  BGS: [{ name: "Base", fee: 14.95 }, { name: "Standard", fee: 34.95 }, { name: "Express", fee: 79.95 }, { name: "Priority", fee: 124.95 }],
+  CGC: [{ name: "Bulk", fee: 17 }, { name: "Economy", fee: 20 }, { name: "Standard", fee: 55 }, { name: "Express", fee: 100 }, { name: "WalkThrough", fee: 300 }],
+  SGC: [{ name: "Standard", fee: 50 }, { name: "Expedited", fee: 150 }],
+  TAG: [
+    { name: "Value", fee: 29.95 }, { name: "Base", fee: 39.95 }, { name: "Standard", fee: 59.95 },
+    { name: "Priority", fee: 79.95 }, { name: "Express", fee: 149.95 }, { name: "Premier", fee: 299.95 },
+  ],
+};
+const servicesFor = (company: string) => SERVICES[company] ?? [{ name: "Standard", fee: 0 }];
 
 /** Record raw copies of a card as sent off for grading. */
 export function SendToGraderDialog({ holding, open, onOpenChange }: { holding: HoldingView; open: boolean; onOpenChange: (o: boolean) => void }) {
@@ -290,7 +305,7 @@ export function SendToGraderDialog({ holding, open, onOpenChange }: { holding: H
   const { costs } = useGradingCosts();
   const { send } = useGradingSubmissions();
   const [company, setCompany] = useState("PSA");
-  const [service, setService] = useState("Value");
+  const [service, setService] = useState(servicesFor("PSA")[0].name);
   const [qty, setQty] = useState(1);
   const [fee, setFee] = useState("");
   const [shipping, setShipping] = useState("");
@@ -324,7 +339,16 @@ export function SendToGraderDialog({ holding, open, onOpenChange }: { holding: H
         >
           <div className="grid grid-cols-2 gap-3">
             <Field label="Company">
-              <Select value={company} onValueChange={setCompany}>
+              <Select
+                value={company}
+                onValueChange={(c) => {
+                  // A grader's own services; start on its cheapest, with its usual fee.
+                  setCompany(c);
+                  const first = servicesFor(c)[0];
+                  setService(first.name);
+                  if (first.fee > 0) setFee(first.fee.toFixed(2));
+                }}
+              >
                 <SelectTrigger aria-label="Grading company">
                   <SelectValue />
                 </SelectTrigger>
@@ -338,14 +362,21 @@ export function SendToGraderDialog({ holding, open, onOpenChange }: { holding: H
               </Select>
             </Field>
             <Field label="Service">
-              <Select value={service} onValueChange={setService}>
+              <Select
+                value={service}
+                onValueChange={(sv) => {
+                  setService(sv);
+                  const fee = servicesFor(company).find((x) => x.name === sv)?.fee;
+                  if (fee) setFee(fee.toFixed(2));
+                }}
+              >
                 <SelectTrigger aria-label="Service level">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {SERVICES.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
+                  {servicesFor(company).map((s) => (
+                    <SelectItem key={s.name} value={s.name}>
+                      {s.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

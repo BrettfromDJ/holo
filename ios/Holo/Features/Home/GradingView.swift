@@ -166,7 +166,7 @@ struct GradingView: View {
                 HStack(spacing: 12) {
                     CardLink(productId: s.productId) {
                         HStack(spacing: 12) {
-                            HoldingArt(product: store.products[s.productId], cornerRadius: 6, caption: false).frame(width: 33, height: 46)
+                            HoldingArt(product: store.products[s.productId], cornerRadius: 3, caption: false).frame(width: 33, height: 46)
                             VStack(alignment: .leading, spacing: 2) {
                                 (Text(s.quantity > 1 ? "\(Int(s.quantity)) × " : "").foregroundColor(Theme.muted) + Text(store.products[s.productId]?.name ?? "Card"))
                                     .font(.geist(14, .medium)).lineLimit(1)
@@ -236,7 +236,7 @@ struct GradingView: View {
                     HStack(alignment: .center, spacing: 12) {
                         CardLink(productId: h.identity.productId, identity: h.identity) {
                             HStack(alignment: .center, spacing: 12) {
-                                HoldingArt(product: h.product, identity: h.identity, cornerRadius: 5, caption: false).frame(width: 40, height: 56)
+                                HoldingArt(product: h.product, identity: h.identity, cornerRadius: 3, caption: false).frame(width: 40, height: 56)
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(h.product?.name ?? "Card").font(.geist(15, .medium)).foregroundStyle(.white).lineLimit(1)
                                     Text("\(Format.moneyWhole(o.raw)) raw → \(est)\(Format.moneyWhole(o.psa10)) PSA 10")
@@ -372,7 +372,7 @@ struct SendSheet: View {
     @Environment(GradingStore.self) private var grading
     @Environment(\.dismiss) private var dismiss
     @State private var company = "PSA"
-    @State private var service = "Value"
+    @State private var service = Grading.services(for: "PSA")[0].name
     @State private var quantity = 1
     @State private var fee = ""
     @State private var shipping = ""
@@ -380,14 +380,13 @@ struct SendSheet: View {
     @State private var height: CGFloat = 560
 
     private static let companies = ["PSA", "BGS", "CGC", "SGC", "TAG"]
-    private static let services = ["Value", "Regular", "Express", "Super Express"]
     private var owned: Int { max(1, Int(holding.quantity)) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             SheetHeader(title: "Send for grading") { dismiss() }
             HStack(spacing: 12) {
-                HoldingArt(product: holding.product, identity: holding.identity, cornerRadius: 4, caption: false).frame(width: 40, height: 56)
+                HoldingArt(product: holding.product, identity: holding.identity, cornerRadius: 3, caption: false).frame(width: 40, height: 56)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(holding.product.map(ActionsSheet.shortName) ?? "Card").font(.geist(15, .semibold)).foregroundStyle(.white).lineLimit(1)
                     Text("Raw \(Format.moneyWhole(holding.price))").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted)
@@ -398,8 +397,10 @@ struct SendSheet: View {
                 ChipPicker(options: Self.companies.map { ($0, $0) }, selection: $company, scrolls: true)
             }
             VStack(alignment: .leading, spacing: 8) {
-                MonoLabel(text: "Service")
-                ChipPicker(options: Self.services.map { ($0, $0) }, selection: $service, scrolls: true)
+                // The grader's own services; picking one fills in its usual fee.
+                MonoLabel(text: "\(company) service")
+                ChipPicker(options: Grading.services(for: company).map { ($0.name, $0.name) }, selection: $service, scrolls: true)
+                    .id(company)
             }
             SheetPanel {
                 if owned > 1 {
@@ -436,6 +437,13 @@ struct SendSheet: View {
         .onAppear {
             fee = String(format: "%.2f", grading.costs.fee)
             shipping = String(format: "%.2f", grading.costs.shipping)
+        }
+        // A new grader starts on its cheapest service, with that service's usual fee.
+        .onChange(of: company) { _, c in
+            if let first = Grading.services(for: c).first { service = first.name; if first.fee > 0 { fee = String(format: "%.2f", first.fee) } }
+        }
+        .onChange(of: service) { _, sv in
+            if let f = Grading.services(for: company).first(where: { $0.name == sv })?.fee, f > 0 { fee = String(format: "%.2f", f) }
         }
         .presentationDetents([.height(height)])
         .glassSheet()
