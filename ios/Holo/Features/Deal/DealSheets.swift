@@ -514,7 +514,7 @@ struct DealCloseSheet: View {
                 .background(Circle().fill(Color.white.opacity(0.06)))
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Text(incoming ? "Coming in" : "Going out").font(.geist(15, .semibold))
+                    Text(incoming ? "Buying" : "Selling").font(.geist(15, .semibold))
                     Text("\(count) item\(count == 1 ? "" : "s")").font(.geist(13)).foregroundStyle(Theme.muted)
                     Spacer()
                     Text(Format.money(value)).font(.geist(15, .semibold)).monospacedDigit()
