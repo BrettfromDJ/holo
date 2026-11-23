@@ -226,9 +226,10 @@ struct ListsView: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 300)
                 Button { Haptics.tap(); Router.shared.tabRequest = "explore" } label: {
-                    Text("Explore cards").font(.geist(15, .semibold)).foregroundStyle(.white)
+                    // Lime, like every empty page's one button.
+                    Text("Explore cards").font(.geist(15, .semibold)).foregroundStyle(Theme.ink)
                         .padding(.horizontal, 22).frame(height: 44)
-                        .liquidGlass(in: Capsule(), interactive: true)
+                        .background(Capsule().fill(Theme.lime))
                 }
                 .buttonStyle(.plain)
                 .padding(.top, 10)
