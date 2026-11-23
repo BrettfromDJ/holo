@@ -1511,7 +1511,7 @@ struct QuickActionsSheet: View {
                 SheetAction(title: wish == nil ? "Add to wishlist" : "On wishlist", icon: wish == nil ? "heart" : "heart.fill") {
                     Task { if let wish { try? await store.removeWish(wish.id) } else { try? await store.addWish(p, printing: p.printings?.first, price: store.marketPrice(id, printing: p.printings?.first)?.market) } }
                 },
-                SheetAction(title: watch == nil ? "Watch" : "Watching", icon: watch == nil ? "eye" : "eye.fill") {
+                SheetAction(title: watch == nil ? "Watch price" : "Watching price", icon: watch == nil ? "eye" : "eye.fill") {
                     Task { if let watch { try? await store.removeWatch(watch.id) } else { try? await store.addWatch(p, printing: p.printings?.first, target: nil) } }
                 },
             ],
