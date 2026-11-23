@@ -417,13 +417,14 @@ struct DealCloseSheet: View {
         let t = totals
         let b = t.balance
         VStack(alignment: .leading, spacing: 0) {
-            Capsule().fill(Color.white.opacity(0.2)).frame(width: 40, height: 5).frame(maxWidth: .infinity).padding(.top, 8)
+            // The sheet's own pull handle is the only one (a drawn one doubled it).
+            Color.clear.frame(height: 8)
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     Group {
                         VStack(alignment: .leading, spacing: 8) {
                             SkewTag(text: t.kind.label)
-                            DisplayText(text: "Close this \(t.kind.noun)?", size: 30)
+                            DisplayText(text: "Close this \(t.kind.noun.lowercased())?", size: 30)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         // Who pays whom, big enough to turn the phone around.
