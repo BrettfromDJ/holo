@@ -43,7 +43,9 @@ struct RootView: View {
     @Environment(GradingStore.self) private var grading
     @Environment(GroupsStore.self) private var groups
     @State private var onboarding = Onboarding.shared
-    @State private var launchCover = true
+    /// Only when a real session restores (never in demos or screenshot / speed runs, which then
+    /// don't draw the cover for a frame before taking it away).
+    @State private var launchCover = AppConfig.isConfigured && !Demo.isOn
     @State private var launchProgress: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
