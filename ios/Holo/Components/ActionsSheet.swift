@@ -92,7 +92,7 @@ struct ActionsSheet: View {
             HStack(spacing: 14) {
                 ProductImage(product: product, cornerRadius: 5).frame(width: 46, height: 64)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(product.name).font(.display(18)).tracking(-0.4).foregroundStyle(.white).lineLimit(2)
+                    Text(Self.shortName(product)).font(.display(18)).tracking(-0.4).foregroundStyle(.white).lineLimit(2)
                     if let set = product.setName { Text(set).font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1) }
                 }
                 Spacer(minLength: 0)
@@ -100,6 +100,12 @@ struct ActionsSheet: View {
         } else if let title {
             Text(title).font(.display(20)).tracking(-0.5).foregroundStyle(.white).lineLimit(2)
         }
+    }
+
+    /// "Mega Darkrai ex - 116/084" → "Mega Darkrai ex" (the set line says which one).
+    static func shortName(_ product: Product) -> String {
+        if let n = product.number, !n.isEmpty, product.name.hasSuffix(" - \(n)") { return String(product.name.dropLast(n.count + 3)) }
+        return product.name
     }
 
     /// The first section shows as tiles when it's 2–4 plain actions (no lines under, no pages).

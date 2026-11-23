@@ -80,12 +80,14 @@ struct ListsView: View {
             .onChange(of: which) { setSelecting(false) }
             .onDisappear { if selecting { setSelecting(false) } }
             .actionsSheet(item: $heldWatch, title: { store.products[$0.product_id]?.name }, product: { store.products[$0.product_id] }) { w in
-                [[
-                    SheetAction(title: w.target_price == nil ? "Set target" : "Edit target", icon: "scope") { editingWatch = w },
-                    SheetAction(title: "Stop watching", icon: "eye.slash", destructive: true) {
+                // The target as a row, then Stop watching as the same pink button the Wishlist's
+                // Remove from wishlist uses.
+                [
+                    [SheetAction(title: w.target_price == nil ? "Set a target price" : "Edit target price", icon: "scope") { editingWatch = w }],
+                    [SheetAction(title: "Stop watching", icon: "eye.slash", destructive: true) {
                         Task { await run { try await store.removeWatch(w.id) } }
-                    },
-                ]]
+                    }],
+                ]
             }
             .sheet(item: $editingWatch) { w in
                 if let p = store.products[w.product_id] {
