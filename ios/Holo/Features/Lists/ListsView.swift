@@ -12,10 +12,6 @@ struct ListsView: View {
     /// Select mode: tick rows, then remove them all at once.
     @State private var selecting = false
     @State private var chosen: Set<String> = []
-    /// How both lists are ordered (kept on the phone).
-    @AppStorage("lists-sort") private var sortRaw = ListSort.recent.rawValue
-    @State private var sorting = false
-    private var sort: ListSort { ListSort(rawValue: sortRaw) ?? .recent }
     @State private var error: String?
     /// Pushed inside another page's navigation (Lists), not shown as its own sheet.
     var embedded = false
@@ -41,8 +37,6 @@ struct ListsView: View {
                 }
 
                 if let error { Text(error).foregroundStyle(Theme.down) }
-
-                if !currentIds.isEmpty && !selecting { sortRow }
 
                 switch which {
                 case .watchlist: watchlist
@@ -146,61 +140,10 @@ struct ListsView: View {
         }
     }
 
-    // MARK: Sort
+    // MARK: Order (newest first; no sort control, the owner's call)
 
-    private var sortedWatches: [WatchRow] {
-        let rows = store.watchlist
-        let price = { (w: WatchRow) in store.listPrice(w.product_id, printing: w.printing) }
-        switch sort {
-        case .recent: return rows.sorted { $0.created_at > $1.created_at }
-        case .price: return rows.sorted { (price($0)?.market ?? -1) > (price($1)?.market ?? -1) }
-        case .move: return rows.sorted { abs(price($0)?.change24hPct ?? 0) > abs(price($1)?.change24hPct ?? 0) }
-        case .name: return rows.sorted { (store.products[$0.product_id]?.name ?? "") < (store.products[$1.product_id]?.name ?? "") }
-        }
-    }
-
-    private var sortedWishes: [WishItem] {
-        let rows = store.wishlist
-        let now = { (w: WishItem) in store.listPrice(w.product.id, printing: w.printing)?.market ?? w.price }
-        // Biggest move: since you added it when we know, else today's.
-        let move = { (w: WishItem) -> Double in
-            if let a = w.addedPrice, a > 0, let n = now(w) { return abs(n - a) / a * 100 }
-            return abs(store.listPrice(w.product.id, printing: w.printing)?.change24hPct ?? 0)
-        }
-        switch sort {
-        case .recent: return rows.sorted { $0.addedAt > $1.addedAt }
-        case .price: return rows.sorted { (now($0) ?? -1) > (now($1) ?? -1) }
-        case .move: return rows.sorted { move($0) > move($1) }
-        case .name: return rows.sorted { $0.product.name < $1.product.name }
-        }
-    }
-
-    /// "Sort: Recently added ⌄" on the right above the rows; opens our sheet.
-    private var sortRow: some View {
-        HStack {
-            Spacer()
-            Button { Haptics.tap(); sorting = true } label: {
-                HStack(spacing: 5) {
-                    Image(systemName: "arrow.up.arrow.down").font(.system(size: 11, weight: .semibold))
-                    Text(sort.label).font(.geist(13, .medium))
-                    Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
-                }
-                .foregroundStyle(Theme.muted)
-                .padding(.vertical, 6)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.borderless)
-            .accessibilityLabel("Sort: \(sort.label)")
-        }
-        .listRowBackground(Color.clear)
-        .listRowSeparator(.hidden)
-        .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 20))
-        .actionsSheet(isPresented: $sorting, title: "Sort by") {
-            [ListSort.allCases.map { option in
-                SheetAction(title: option.label, checked: option == sort) { sortRaw = option.rawValue }
-            }]
-        }
-    }
+    private var sortedWatches: [WatchRow] { store.watchlist.sorted { $0.created_at > $1.created_at } }
+    private var sortedWishes: [WishItem] { store.wishlist.sorted { $0.addedAt > $1.addedAt } }
 
     private var currentIds: [String] { which == .watchlist ? store.watchlist.map(\.id) : store.wishlist.map(\.id) }
 
@@ -317,6 +260,7 @@ extension WishItem.Priority {
     }
 }
 
+/// A watched or wished-for card: price now, and how far it is from your target.
 /// A watched or wished-for card: price now, and how far it is from your target.
 /// How the Watchlist and Wishlist are ordered.
 enum ListSort: String, CaseIterable {
