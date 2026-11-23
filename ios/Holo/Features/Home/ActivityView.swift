@@ -169,7 +169,8 @@ struct ActivityView: View {
         }
         .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)
-        .pageTitle("Activity")
+        // "Activity" is the big heading in the page; the bar just has the back button.
+        .pageTitle("")
         .sheet(item: $editing) { EntryEditSheet(entry: $0) }
         .alert("Delete this entry?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
             Button("Cancel", role: .cancel) {}
@@ -257,12 +258,17 @@ struct ActivityView: View {
                 HoldingArt(product: product, identity: t.identity, cornerRadius: 4, caption: false)
                     .frame(width: 38, height: 52)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(product?.name ?? t.identity.productId).font(.geist(14, .medium)).foregroundStyle(.white)
+                    Text(product.map(ActionsSheet.shortName) ?? t.identity.productId).font(.geist(14, .medium)).foregroundStyle(.white)
                         .lineLimit(2).fixedSize(horizontal: false, vertical: true)
-                    HStack(spacing: 6) {
-                        Tag(text: tag, tint: tint)
-                        if voided { Tag(text: "Deleted", tint: Theme.muted) }
-                        if edited { Tag(text: "Edited", tint: Theme.muted) }
+                    // A plain purchase needs no tag (the minus amount says it); Sold, Pulled and
+                    // Other keep theirs so they stand out.
+                    let plainBuy = t.kind == .purchase && !t.isPull
+                    if !plainBuy || voided || edited {
+                        HStack(spacing: 6) {
+                            if !plainBuy { Tag(text: tag, tint: tint) }
+                            if voided { Tag(text: "Deleted", tint: Theme.muted) }
+                            if edited { Tag(text: "Edited", tint: Theme.muted) }
+                        }
                     }
                     Text(meta).font(.geist(12)).monospacedDigit().foregroundStyle(Theme.muted).lineLimit(1)
                     if let notes = t.notes, !notes.isEmpty, !["Deleted", "Edited", "Voided", "Corrected"].contains(notes) {
