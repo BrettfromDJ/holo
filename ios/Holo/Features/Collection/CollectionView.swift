@@ -242,6 +242,9 @@ struct CollectionView: View {
                         }
                     }
                     .padding(.horizontal, 16)
+                    // Summary's content starts 4pt down too, so the search box doesn't hop
+                    // when you switch between them.
+                    .padding(.top, 4)
                     .padding(.bottom, 40)
                     // The page's sheets, on a view that's always there.
                     .background(pageSheets(Color.clear))
