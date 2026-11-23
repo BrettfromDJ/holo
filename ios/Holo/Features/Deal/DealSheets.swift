@@ -209,95 +209,92 @@ struct DealRatesSheet: View {
     @State private var role = DealRole.vendor
     @State private var collector = CollectorRates()
 
-    var body: some View { sheetBody.glassSheet() }
-
-    @ViewBuilder private var sheetBody: some View {
-        NavigationStack {
-            GlassForm {
-                Section {
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 26) {
+                SheetHeader(title: "Deal settings") { dismiss() }
+                group("You're dealing as") {
                     ChipPicker(options: DealRole.allCases.map { ($0, $0.title) }, selection: $role, fills: true)
-                        .frame(maxWidth: .infinity)
-                        .listRowBackground(Color.clear)
-                        .listRowInsets(EdgeInsets())
-                } header: {
-                    SectionTitle("You're dealing as")
-                } footer: {
-                    SectionNote(role == .vendor
+                    note(role == .vendor
                         ? "Your own buy and sell rates, with your profit on every deal."
-                        : "At a vendor's table: what they offer for your cards and charge for theirs, against market, so you can tell a fair deal.")
+                        : "At a vendor's table: what they offer and charge, against market.")
                 }
-                Section {
-                    Toggle(isOn: Binding(get: { rates.addsIncoming }, set: { rates.addIncoming = $0 })) {
-                        rowLabel("Add what comes in to my collection", "You can still switch any single item on the deal.")
+                group("Your collection") {
+                    SheetPanel {
+                        toggleRow("Add what comes in", "You can still switch any single card on the deal.",
+                                  Binding(get: { rates.addsIncoming }, set: { rates.addIncoming = $0 }))
+                        SheetDivider()
+                        toggleRow("Ask what I paid", "For cards going out that aren't in your collection.",
+                                  Binding(get: { rates.asksCost }, set: { rates.askCost = $0 }))
                     }
-                    Toggle(isOn: Binding(get: { rates.asksCost }, set: { rates.askCost = $0 })) {
-                        rowLabel("Ask what I paid", "For things going out that aren't in Corodex, so they're tracked.")
-                    }
-                } header: {
-                    SectionTitle("Your collection")
                 }
-                .tint(Theme.lime)
-                Section {
-                    VStack(alignment: .leading, spacing: 12) {
-                        rowLabel("Round the cash up to", "Used by Round up on the deal's cash.")
-                        ChipPicker(options: DealRates.roundSteps.map { ($0, "$\(Int($0))") },
-                                   selection: Binding(get: { rates.step }, set: { rates.roundStep = $0 }), scrolls: true)
-                    }
-                    .padding(.vertical, 6)
-                } header: {
-                    SectionTitle("Rounding")
+                group("Round the cash up to") {
+                    ChipPicker(options: DealRates.roundSteps.map { ($0, "$\(Int($0))") },
+                               selection: Binding(get: { rates.step }, set: { rates.roundStep = $0 }), scrolls: true)
                 }
-                if role == .vendor {
-                    Section {
-                        rate("Buying", "What you pay for cards you buy", \.buy)
-                        rate("Trade-in", "What you credit on trade", \.trade)
-                        rate("Selling", "What you charge for cards going out", \.sell)
-                    } header: {
-                        SectionTitle("Your rates")
-                    } footer: {
-                        SectionNote("A share of market price. Each deal starts here.")
+                group(role == .vendor ? "Your rates" : "What to expect") {
+                    SheetPanel {
+                        if role == .vendor {
+                            rate("Buying", "What you pay for cards", \.buy)
+                            SheetDivider()
+                            rate("Trade-in", "What you credit on trade", \.trade)
+                            SheetDivider()
+                            rate("Selling", "What you charge for yours", \.sell)
+                        } else {
+                            collectorRate("Cash offer", "What a vendor pays for yours", \.offer)
+                            SheetDivider()
+                            collectorRate("Trade-in credit", "What you get in trade credit", \.tradeOffer)
+                            SheetDivider()
+                            collectorRate("Their prices", "What a vendor charges", \.charge)
+                        }
                     }
-                } else {
-                    Section {
-                        collectorRate("Cash offer", "What a vendor pays in cash for yours", \.offer)
-                        collectorRate("Trade-in credit", "What you get in trade credit for yours", \.tradeOffer)
-                        collectorRate("Their prices", "What a vendor charges for theirs", \.charge)
-                    } header: {
-                        SectionTitle("What to expect")
-                    } footer: {
-                        SectionNote("A share of market price. Each deal starts here; drag it on the deal to match their offer.")
-                    }
+                    note("A share of market price. Each deal starts here, and you can change it on the deal.")
                 }
             }
-            .scrollContentBackground(.hidden)
-            // The title and its buttons sit on the sheet's black, above the form (nothing
-            // scrolls under them).
-            .safeAreaInset(edge: .top, spacing: 0) {
-                HStack {
-                    Button("Cancel") { dismiss() }.foregroundStyle(Theme.muted)
-                    Spacer()
-                    Text("Deal settings").font(.display(18)).tracking(-0.4)
-                    Spacer()
-                    Button("Save") {
-                        deals.setDefaults(rates)
-                        deals.role = role
-                        deals.collector = collector
-                        dismiss()
-                    }
-                    .fontWeight(.semibold).foregroundStyle(Theme.lime)
-                }
-                .font(.geist(16))
-                .padding(.horizontal, 20).padding(.top, 18).padding(.bottom, 10)
-                .background(Color.black)
+            .padding(.horizontal, 20).padding(.top, 24).padding(.bottom, 16)
+        }
+        .scrollIndicators(.hidden)
+        // Save stays in reach at the bottom.
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            SheetLimeButton(title: "Save") {
+                deals.setDefaults(rates)
+                deals.role = role
+                deals.collector = collector
+                dismiss()
             }
-            .toolbar(.hidden, for: .navigationBar)
-            .onAppear {
-                rates = deals.defaults
-                role = deals.role
-                collector = deals.collector
+            .padding(.horizontal, 20).padding(.top, 10).padding(.bottom, 8)
+            .background(Theme.sheet)
+        }
+        .onAppear {
+            rates = deals.defaults
+            role = deals.role
+            collector = deals.collector
+        }
+        .presentationDetents([.fraction(0.93)])
+        .glassSheet()
+    }
+
+    /// A group's quiet mono label, then its content.
+    private func group<C: View>(_ title: String, @ViewBuilder _ content: () -> C) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            MonoLabel(text: title)
+            content()
+        }
+    }
+
+    private func note(_ text: String) -> some View {
+        Text(text.noWidow).font(.geist(12)).foregroundStyle(Theme.muted).fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func toggleRow(_ title: String, _ line: String, _ isOn: Binding<Bool>) -> some View {
+        Toggle(isOn: isOn) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.geist(15, .medium)).foregroundStyle(.white)
+                Text(line.noWidow).font(.geist(12)).foregroundStyle(Theme.muted)
             }
         }
-        .presentationDetents([.medium, .large])
+        .tint(Theme.lime)
+        .padding(.vertical, 12)
     }
 
     /// A row's title and its one quiet line under it.
@@ -311,14 +308,18 @@ struct DealRatesSheet: View {
     /// A rate: its name and line on the left, the percent big in lime, the slider under.
     private func rateRow(_ title: String, _ hint: String, value: Binding<Double>) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .center, spacing: 12) {
-                rowLabel(title, hint)
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.geist(15, .medium)).foregroundStyle(.white)
+                    Text(hint).font(.geist(12)).foregroundStyle(Theme.muted)
+                }
                 Spacer(minLength: 8)
-                Text("\(Int((value.wrappedValue * 100).rounded()))%").font(.display(28)).tracking(-0.8).monospacedDigit().foregroundStyle(Theme.lime)
+                Text("\(Int((value.wrappedValue * 100).rounded()))%").font(.display(20)).tracking(-0.5).monospacedDigit().foregroundStyle(.white)
             }
             Slider(value: Binding(get: { value.wrappedValue }, set: { value.wrappedValue = ($0 * 100).rounded() / 100 }), in: 0.3...1.5, step: 0.01)
+                .tint(Theme.lime)
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 12)
     }
 
     private func collectorRate(_ title: String, _ hint: String, _ key: WritableKeyPath<CollectorRates, Double>) -> some View {

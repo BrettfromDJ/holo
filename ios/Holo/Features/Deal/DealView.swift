@@ -107,7 +107,7 @@ struct DealView: View {
                                 .transition(.opacity.combined(with: .move(edge: .top)))
                         }
                         // Before a deal starts: who you're dealing as, one tap from changing it.
-                        if deals.deal.kind == .empty {
+                        if deals.deal.kind == .empty && dealPath == nil {
                             Button { settings = true } label: {
                                 HStack(spacing: 6) {
                                     Text("Dealing as").foregroundStyle(Theme.muted)
@@ -131,7 +131,7 @@ struct DealView: View {
                         if path != .buy || !deals.deal.outgoing.isEmpty {
                             side(.outgoing, totals: totals, settled: agreed.deal, accent: accent).reveal()
                         }
-                        extras(accent: accent)
+                        if deals.deal.kind != .empty { extras(accent: accent) }
                     } else {
                         // Nothing started: ask what kind of deal it is, then lead down that path.
                         DealPathChooser { pick in
@@ -674,15 +674,40 @@ struct DealView: View {
                 }
             }
 
-            HStack(spacing: 8) {
-                Button { picking = side } label: {
-                    Label(incoming ? "Add" : "Add from collection", systemImage: "plus")
-                        .frame(maxWidth: .infinity)
+            if items.isEmpty {
+                // Nothing on this side yet: one line and the two ways to add, Scan first (lime).
+                VStack(alignment: .leading, spacing: 14) {
+                    Text(incoming ? "Scan their cards, or search for one." : "Scan your cards, or pick them from your collection.")
+                        .font(.geist(14)).foregroundStyle(Theme.muted)
+                    HStack(spacing: 10) {
+                        Button { scanning = side } label: {
+                            Label("Scan", systemImage: "camera").font(.geist(16, .semibold)).foregroundStyle(Theme.ink)
+                                .frame(maxWidth: .infinity).frame(height: 48)
+                                .background(Capsule().fill(Theme.lime))
+                                .contentShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        Button { picking = side } label: {
+                            Label(incoming ? "Search" : "Collection", systemImage: incoming ? "magnifyingglass" : "square.grid.2x2")
+                                .font(.geist(16, .semibold)).foregroundStyle(.white)
+                                .frame(maxWidth: .infinity).frame(height: 48)
+                                .liquidGlass(in: Capsule())
+                                .contentShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
-                .buttonStyle(Button3D(kind: .dark, fullWidth: true, height: 46))
-                Button { scanning = side } label: { Label("Scan", systemImage: "camera") }
-                    .buttonStyle(Button3D(kind: .dark, fullWidth: false, height: 46))
-                    .accessibilityLabel(incoming ? "Scan what's coming in" : "Scan what's going out")
+            } else {
+                HStack(spacing: 8) {
+                    Button { picking = side } label: {
+                        Label(incoming ? "Add" : "Add from collection", systemImage: "plus")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(Button3D(kind: .dark, fullWidth: true, height: 46))
+                    Button { scanning = side } label: { Label("Scan", systemImage: "camera") }
+                        .buttonStyle(Button3D(kind: .dark, fullWidth: false, height: 46))
+                        .accessibilityLabel(incoming ? "Scan what's coming in" : "Scan what's going out")
+                }
             }
         }
     }
