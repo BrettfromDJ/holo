@@ -56,14 +56,24 @@ struct MasterSetsView: View {
         }
     }
 
-    /// Every brand in the catalog: Pokémon first, then by how many sets each has, Pokémon Japan last.
+    /// Every brand in the catalog: Pokémon, One Piece, Lorcana, Magic, the rest, Pokémon Japan last.
     private var brands: [(slug: String, name: String)] {
         var counts: [String: (name: String, n: Int)] = ["pokemon": ("Pokémon", 0)]
         for s in index { counts[s.gameSlug, default: (s.gameName, 0)].n += 1 }
-        // Pokémon first, Pokémon Japan last (the owner's call), the rest by how many sets.
-        func rank(_ slug: String) -> Int { slug == "pokemon" ? 0 : slug.hasPrefix("pokemon") ? 2 : 1 }
+        // The owner's order: Pokémon, One Piece, Lorcana, Magic, then any other game by how many
+        // sets, and Pokémon Japan last.
+        func rank(_ g: (key: String, value: (name: String, n: Int))) -> Int {
+            switch Self.shortName(g.value.name) {
+            case "Pokémon": return 0
+            case "One Piece": return 1
+            case "Lorcana": return 2
+            case "Magic": return 3
+            case "Pokémon Japan": return 5
+            default: return 4
+            }
+        }
         return counts.sorted { a, b in
-            if rank(a.key) != rank(b.key) { return rank(a.key) < rank(b.key) }
+            if rank(a) != rank(b) { return rank(a) < rank(b) }
             return a.value.n > b.value.n
         }.map { ($0.key, $0.value.name) }
     }
