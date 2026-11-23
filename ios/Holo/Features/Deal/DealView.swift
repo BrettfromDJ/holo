@@ -211,6 +211,8 @@ struct DealView: View {
                 let incoming = deals.deal.incoming.contains { $0.key == item.key }
                 DealCardSheet(item: item, rate: incoming ? rates.in : rates.out,
                               onSave: { replace($0) }, onRemove: { remove(item) },
+                              selling: !incoming,
+                              collectionCost: item.holdingKey != nil ? deals.cost(of: item, in: store) : nil,
                               onOpen: item.product.id.hasPrefix("custom:") ? nil : {
                                   // Once this sheet is down, the card's page in its own sheet.
                                   Task {

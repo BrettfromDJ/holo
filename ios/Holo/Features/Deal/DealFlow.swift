@@ -305,6 +305,10 @@ struct DealEditorPage: View {
     private func cardRow(_ item: DealItem, rate: Double) -> some View {
         let unit = item.unitPrice(side: rate)
         let total = unit.map { $0 * Double(item.qty) }
+        // Selling: what you paid for it (from your collection, or typed in) and the profit.
+        let selling = side == .outgoing
+        let cost = selling ? deals.cost(of: item, in: store) : nil
+        let profit: Double? = { guard let cost, let total else { return nil }; return total - cost }()
         let pct: Int? = { guard let unit, let m = item.market, m > 0 else { return nil }; return Int((unit / m * 100).rounded()) }()
         return HStack(alignment: .center, spacing: 12) {
             HoldingArt(product: item.product, cornerRadius: 3, caption: false).frame(width: 40, height: 56)
@@ -314,6 +318,13 @@ struct DealEditorPage: View {
                     .font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
                 Text((item.qty > 1 ? "×\(item.qty) · " : "") + (item.market.map { "\(Format.money($0)) market" } ?? "No market price"))
                     .font(.geist(12)).monospacedDigit().foregroundStyle(Theme.subtle).lineLimit(1)
+                if selling && !item.isCustom {
+                    if let cost {
+                        Text("Paid \(Format.money(cost))").font(.geist(12)).monospacedDigit().foregroundStyle(Theme.muted)
+                    } else {
+                        Text("Add what you paid").font(.geist(12, .medium)).foregroundStyle(Theme.lime)
+                    }
+                }
             }
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 4) {
@@ -327,6 +338,9 @@ struct DealEditorPage: View {
                     .font(.geist(11, .semibold)).monospacedDigit().foregroundStyle(.white.opacity(0.8))
                     .padding(.horizontal, 7).frame(height: 20)
                     .background(Capsule().fill(Color.white.opacity(0.08)))
+                }
+                if let profit {
+                    Text(Format.signedMoney(profit)).font(.geist(12, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(profit))
                 }
             }
         }
@@ -347,12 +361,31 @@ struct DealEditorPage: View {
             }
         }()
         let empty = deals.deal.kind == .empty
+        // What the cards going out cost you, when every one has a cost, and the profit on them.
+        let out = deals.deal.settled(rates: deals.rates).outgoing
+        let costs = out.map { deals.cost(of: $0, in: store) }
+        let basis: Double? = out.isEmpty || costs.contains(where: { $0 == nil }) ? nil : costs.reduce(0) { $0 + ($1 ?? 0) }
+        let saleProfit = basis.map { t.outValue - $0 }
         return VStack(alignment: .leading, spacing: 6) {
             if path == .trade {
                 line("Buy", Format.money(t.inValue))
                 line("Sell", Format.money(t.outValue))
             } else {
                 line("Market value", Format.money(market))
+            }
+            if let basis, let saleProfit {
+                line("Cost basis", Format.money(basis))
+                HStack {
+                    Text(path == .trade ? "Profit on what I sell" : "Profit").foregroundStyle(Theme.muted)
+                    Spacer()
+                    Text(Format.signedMoney(saleProfit)).monospacedDigit().foregroundStyle(Theme.tone(saleProfit))
+                    if t.outValue > 0 {
+                        Text("· \(String(format: "%.1f", saleProfit / t.outValue * 100))% margin").monospacedDigit().foregroundStyle(Theme.muted)
+                    }
+                }
+                .font(.geist(13))
+            } else if !out.isEmpty {
+                line("Cost basis", "Add what you paid")
             }
             Text(label).font(.geist(13)).foregroundStyle(Theme.muted).padding(.top, 4)
             HStack(alignment: .center, spacing: 10) {
@@ -416,9 +449,13 @@ struct DealCardSheet: View {
     var rate: Double
     var onSave: (DealItem) -> Void
     var onRemove: () -> Void
+    /// Selling: what you paid for these copies (from your collection), or nil to ask for it.
+    var selling = false
+    var collectionCost: Double? = nil
     /// Opens the card's full page (nil for a custom item, which has none).
     var onOpen: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
+    @State private var paid = ""
     enum Mode: Hashable { case percent, fixed }
     @State private var mode = Mode.percent
     @State private var value = ""
@@ -489,6 +526,28 @@ struct DealCardSheet: View {
                     Stepper("", value: $qty, in: 1...max(1, item.maxQty ?? 999)).labelsHidden().fixedSize()
                 }
                 .frame(minHeight: 50)
+                if selling && !item.isCustom {
+                    SheetDivider()
+                    if let collectionCost {
+                        // From your collection's records: shown, not typed.
+                        HStack {
+                            Text("You paid").font(.geist(16)).foregroundStyle(.white)
+                            Spacer()
+                            Text(Format.money(collectionCost)).font(.geist(16)).monospacedDigit().foregroundStyle(Theme.muted)
+                        }
+                        .frame(minHeight: 50)
+                    } else {
+                        SheetMoneyRow(title: "You paid each", text: $paid)
+                    }
+                }
+            }
+            if selling, let u = unit, let cost = collectionCost ?? MoneyField.value(paid).map({ $0 * Double(qty) }) {
+                let profit = u * Double(qty) - cost
+                HStack {
+                    Text("Profit").font(.geist(14)).foregroundStyle(Theme.muted)
+                    Spacer()
+                    Text(Format.signedMoney(profit)).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(profit))
+                }
             }
             if item.price != nil || item.rate != nil {
                 Button {
@@ -507,6 +566,7 @@ struct DealCardSheet: View {
             SheetLimeButton(title: "Save changes") {
                 var c = item
                 c.qty = qty
+                if selling, collectionCost == nil, !item.isCustom { c.cost = MoneyField.value(paid) }
                 if let m = MoneyField.value(market) { c.market = m }
                 if let v = MoneyField.value(value) {
                     if mode == .fixed { c.price = v; c.rate = nil } else {
@@ -530,6 +590,7 @@ struct DealCardSheet: View {
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 }
         .onAppear {
             qty = item.qty
+            if let c = item.cost { paid = String(format: "%.2f", c) }
             if let m = item.market { market = String(format: "%.2f", m) }
             if let p = item.price { mode = .fixed; value = String(format: "%.2f", p) }
             else { value = "\(Int((item.rate(side: rate) * 100).rounded()))" }
