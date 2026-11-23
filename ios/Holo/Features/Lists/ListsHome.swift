@@ -383,6 +383,8 @@ struct ListDetailView: View {
     @State private var deleting = false
     /// The card whose price is being set.
     @State private var pricing: String?
+    /// A card's ⋯: its actions in our sheet.
+    @State private var rowActions: ListRowRef?
     @State private var error: String?
 
     private static let percents: [Double] = [100, 95, 90, 85, 80, 75, 70]
@@ -444,7 +446,19 @@ struct ListDetailView: View {
         }
         .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)
-        .pageTitle("List")
+        // The list's own name is the big heading below; the bar just has the back button.
+        .pageTitle("")
+        .actionsSheet(item: $rowActions, title: { store.products[$0.id]?.name }, product: { store.products[$0.id] }) { ref in
+            var rows: [[SheetAction]] = []
+            if groups.meta(listId).isForSale {
+                rows.append([SheetAction(title: "Set its price", icon: "tag") { pricing = ref.id }])
+            }
+            rows.append([SheetAction(title: "Remove from list", icon: "minus.circle", destructive: true) {
+                Haptics.remove()
+                run { try await groups.removeMany(listId, productIds: [ref.id]) }
+            }])
+            return rows
+        }
         .task { await groups.loadExtras(list.product_ids, known: store.products) }
         .sheet(isPresented: $adding) { ListAddSheet(listId: listId) }
         .sheet(isPresented: $sharing) { ListShareSheet(listId: listId, name: list.name, forSale: meta.isForSale) }
@@ -556,10 +570,10 @@ struct ListDetailView: View {
                 HStack(spacing: 12) {
                     ProductImage(product: info.product, cornerRadius: 4).frame(width: 44, height: 62)
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(info.product?.name ?? "Loading…").font(.geist(14, .semibold)).foregroundStyle(.white).lineLimit(2)
+                        Text(info.product.map(ActionsSheet.shortName) ?? "Loading…").font(.geist(14, .semibold)).foregroundStyle(.white).lineLimit(1)
                         Text(detail(info)).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
-                        // Owned or not, at a glance: the lime tag from the Owned sheet, or a quiet outline.
-                        if info.product != nil { ownedTag(info).padding(.top, 3) }
+                        // Owned: one quiet line with a small lime check (nothing when you don't own it).
+                        if info.product != nil { ownedTag(info).padding(.top, 1) }
                     }
                     Spacer(minLength: 4)
                 }
@@ -583,18 +597,7 @@ struct ListDetailView: View {
             } else {
                 Text(Format.money(info.market)).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(.white)
             }
-            Menu {
-                if meta.isForSale {
-                    Button { pricing = productId } label: { Label("Set its price", systemImage: "tag") }
-                }
-                Button(role: .destructive) {
-                    Haptics.remove()
-                    run { try await groups.removeMany(listId, productIds: [productId]) }
-                } label: { Label("Remove from list", systemImage: "minus.circle") }
-            } label: {
-                Image(systemName: "ellipsis").font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.muted)
-                    .frame(width: 36, height: 44).contentShape(Rectangle())
-            }
+            RowMoreButton(label: info.product?.name) { rowActions = ListRowRef(id: productId) }
         }
         .padding(.vertical, 8)
     }
@@ -609,12 +612,10 @@ struct ListDetailView: View {
     @ViewBuilder private func ownedTag(_ info: ListItemInfo) -> some View {
         let n = Int(info.copies.reduce(0) { $0 + $1.quantity })
         if n > 0 {
-            SkewTag(text: "Owned" + (n > 1 ? " ×\(n)" : ""), icon: "checkmark")
-        } else {
-            Text("NOT OWNED").font(.geist(11, .bold)).italic().tracking(0.2).foregroundStyle(Theme.muted)
-                .padding(.leading, 8).padding(.trailing, 10).padding(.vertical, 3)
-                .background(Parallelogram(inset: 5).stroke(Color.white.opacity(0.22), lineWidth: 1))
-                .fixedSize()
+            HStack(spacing: 4) {
+                Image(systemName: "checkmark.circle.fill").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.lime)
+                Text("Owned" + (n > 1 ? " ×\(n)" : "")).font(.geist(12)).foregroundStyle(Theme.muted)
+            }
         }
     }
 
@@ -946,3 +947,6 @@ struct ListShareSheet: View {
         return UIImage(cgImage: cg)
     }
 }
+
+/// A card on a list, for its ⋯ sheet.
+private struct ListRowRef: Identifiable { var id: String }
