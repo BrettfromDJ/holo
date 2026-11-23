@@ -161,7 +161,7 @@ and say exactly what to run or click.
   keeps the pages to a readable 760pt column (`readableWidth()` on `MainTabView`).
 - Press and hold any card (`CardLink` → `CardQuickActions`, our own 0.35s hold, not Apple's context
   menu, which clipped the tile and lagged): a tick, then `QuickActionsSheet` (a small black sheet via
-  `Router.quickCard`): Add to collection… (opens the card page sheet), wishlist, watch price, add to a list. Undo toasts also follow bulk Move / Copy and adding to a list.
+  `Router.quickCard`): tiles Add to collection (opens the card page sheet with its add form already up: `Router.addOnOpen`), Add to wishlist / On wishlist, Watch, then Add to list. Undo toasts also follow bulk Move / Copy and adding to a list.
 - Layout: `App/` (entry, tabs, router), `Core/` (design system in `Design.swift`, motion in
   `Motion.swift`, formatting), `Components/` (tab bar, product image, `Slab`), `Domain/` (FIFO
   ledger, timeline, deal math, worth, all ported from `src/lib`), `Store/` (collection store,
