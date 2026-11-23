@@ -12,6 +12,10 @@ struct ListsView: View {
     /// Select mode: tick rows, then remove them all at once.
     @State private var selecting = false
     @State private var chosen: Set<String> = []
+    /// How both lists are ordered (kept on the phone).
+    @AppStorage("lists-sort") private var sortRaw = ListSort.recent.rawValue
+    @State private var sorting = false
+    private var sort: ListSort { ListSort(rawValue: sortRaw) ?? .recent }
     @State private var error: String?
     /// Pushed inside another page's navigation (Lists), not shown as its own sheet.
     var embedded = false
@@ -37,6 +41,8 @@ struct ListsView: View {
                 }
 
                 if let error { Text(error).foregroundStyle(Theme.down) }
+
+                if !currentIds.isEmpty && !selecting { sortRow }
 
                 switch which {
                 case .watchlist: watchlist
@@ -89,17 +95,17 @@ struct ListsView: View {
     }
 
     @ViewBuilder private var watchlist: some View {
-        ForEach(store.watchlist) { w in
+        ForEach(sortedWatches) { w in
             let product = store.products[w.product_id]
             let price = store.listPrice(w.product_id, printing: w.printing)
             Group {
                 if selecting {
-                    selectRow(w.id) { ListRow(product: product, price: price?.market, target: w.target_price, change: price?.change24hPct) }
+                    selectRow(w.id) { ListRow(product: product, price: price?.market, change: price?.change24hPct, target: w.target_price) }
                 } else {
                     // Tapping the row opens the card; a ⋯ (instead of the arrow) opens its actions:
                     // set or edit the target, stop watching. Holding the row does the same.
                     HStack(spacing: 4) {
-                        ListRow(product: product, price: price?.market, target: w.target_price, change: price?.change24hPct)
+                        ListRow(product: product, price: price?.market, change: price?.change24hPct, target: w.target_price)
                         RowMoreButton(label: product?.name) { heldWatch = w }
                     }
                     .background { NavigationLink(value: w.product_id) { EmptyView() }.opacity(0) }
@@ -115,21 +121,16 @@ struct ListsView: View {
     }
 
     @ViewBuilder private var wishlist: some View {
-        // One list, no headings (Grail / Want / Maybe were removed): grails first, then the rest.
-        let order = WishItem.Priority.allCases
-        let items = store.wishlist.enumerated().sorted {
-            let a = order.firstIndex(of: $0.element.priority) ?? 0, b = order.firstIndex(of: $1.element.priority) ?? 0
-            return a == b ? $0.offset < $1.offset : a < b
-        }.map(\.element)
+        let items = sortedWishes
         ForEach(items) { w in
                         let current = store.listPrice(w.product.id, printing: w.printing)?.market ?? w.price
                         Group {
                             if selecting {
-                                selectRow(w.id) { ListRow(product: w.product, price: current, target: w.target, change: nil) }
+                                selectRow(w.id) { ListRow(product: w.product, price: current, change: store.listPrice(w.product.id, printing: w.printing)?.change24hPct, target: w.target, addedPrice: w.addedPrice) }
                             } else {
                                 // The ⋯ opens the card's quick actions (the same as holding it).
                                 HStack(spacing: 4) {
-                                    ListRow(product: w.product, price: current, target: w.target, change: nil)
+                                    ListRow(product: w.product, price: current, change: store.listPrice(w.product.id, printing: w.printing)?.change24hPct, target: w.target, addedPrice: w.addedPrice)
                                     RowMoreButton(label: w.product.name) { Router.shared.quickCard = w.product }
                                 }
                                 .background { NavigationLink(value: w.product.id) { EmptyView() }.opacity(0) }
@@ -140,6 +141,62 @@ struct ListsView: View {
             .listRowInsets(EdgeInsets(top: 14, leading: 30, bottom: 14, trailing: 28))
             .listRowSeparator(.hidden)
                         // Holding the card opens its quick actions (wishlist on/off and more).
+        }
+    }
+
+    // MARK: Sort
+
+    private var sortedWatches: [WatchRow] {
+        let rows = store.watchlist
+        let price = { (w: WatchRow) in store.listPrice(w.product_id, printing: w.printing) }
+        switch sort {
+        case .recent: return rows.sorted { $0.created_at > $1.created_at }
+        case .price: return rows.sorted { (price($0)?.market ?? -1) > (price($1)?.market ?? -1) }
+        case .move: return rows.sorted { abs(price($0)?.change24hPct ?? 0) > abs(price($1)?.change24hPct ?? 0) }
+        case .name: return rows.sorted { (store.products[$0.product_id]?.name ?? "") < (store.products[$1.product_id]?.name ?? "") }
+        }
+    }
+
+    private var sortedWishes: [WishItem] {
+        let rows = store.wishlist
+        let now = { (w: WishItem) in store.listPrice(w.product.id, printing: w.printing)?.market ?? w.price }
+        // Biggest move: since you added it when we know, else today's.
+        let move = { (w: WishItem) -> Double in
+            if let a = w.addedPrice, a > 0, let n = now(w) { return abs(n - a) / a * 100 }
+            return abs(store.listPrice(w.product.id, printing: w.printing)?.change24hPct ?? 0)
+        }
+        switch sort {
+        case .recent: return rows.sorted { $0.addedAt > $1.addedAt }
+        case .price: return rows.sorted { (now($0) ?? -1) > (now($1) ?? -1) }
+        case .move: return rows.sorted { move($0) > move($1) }
+        case .name: return rows.sorted { $0.product.name < $1.product.name }
+        }
+    }
+
+    /// "Sort: Recently added ⌄" on the right above the rows; opens our sheet.
+    private var sortRow: some View {
+        HStack {
+            Spacer()
+            Button { Haptics.tap(); sorting = true } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "arrow.up.arrow.down").font(.system(size: 11, weight: .semibold))
+                    Text(sort.label).font(.geist(13, .medium))
+                    Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
+                }
+                .foregroundStyle(Theme.muted)
+                .padding(.vertical, 6)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel("Sort: \(sort.label)")
+        }
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+        .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 20))
+        .actionsSheet(isPresented: $sorting, title: "Sort by") {
+            [ListSort.allCases.map { option in
+                SheetAction(title: option.label, checked: option == sort) { sortRaw = option.rawValue }
+            }]
         }
     }
 
@@ -251,35 +308,79 @@ extension WishItem.Priority {
 }
 
 /// A watched or wished-for card: price now, and how far it is from your target.
+/// How the Watchlist and Wishlist are ordered.
+enum ListSort: String, CaseIterable {
+    case recent, price, move, name
+    var label: String {
+        switch self {
+        case .recent: "Recently added"
+        case .price: "Price"
+        case .move: "Biggest move"
+        case .name: "Name"
+        }
+    }
+}
+
+/// A watched or wished-for card: bigger art, its name (without the number repeated), set and
+/// number, the price and today's move (no pill when it hasn't moved), and one line under it: how
+/// far it is from your target, or how much it's moved since you added it.
 private struct ListRow: View {
     var product: Product?
     var price: Double?
-    var target: Double?
+    /// Today's change, in percent.
     var change: Double?
+    var target: Double? = nil
+    /// The price when it went on the wishlist.
+    var addedPrice: Double? = nil
 
     var body: some View {
         HStack(spacing: 12) {
-            ProductImage(product: product, cornerRadius: 5).frame(width: 40, height: 56)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(product?.name ?? "Unknown").font(.subheadline.weight(.medium)).lineLimit(1)
+            ProductImage(product: product, cornerRadius: 5).frame(width: 48, height: 67)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(.subheadline.weight(.medium)).lineLimit(1)
                 Text(product?.subtitle ?? "").font(.caption).foregroundStyle(Theme.muted).lineLimit(1)
-                if let target {
-                    let hit = (price ?? .infinity) <= target
-                    HStack(spacing: 4) {
-                        Text("Target").foregroundStyle(Theme.muted)
-                        Text(Format.money(target)).monospacedDigit().foregroundStyle(hit ? Theme.up : .primary)
-                        if hit { Text("· hit").foregroundStyle(Theme.muted) }
-                    }
-                    .font(.caption)
-                }
+                detail.font(.caption).lineLimit(1).padding(.top, 1)
             }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
+            Spacer(minLength: 8)
+            VStack(alignment: .trailing, spacing: 4) {
                 Text(Format.money(price)).font(.subheadline.weight(.semibold)).monospacedDigit()
-                if let change {
+                if let change, abs(change) >= 0.05 {
                     DeltaPill(ratio: change / 100, size: 11)
                 }
             }
+        }
+    }
+
+    /// "Mega Darkrai ex - 116/084" → "Mega Darkrai ex" (the number is on the line under it).
+    private var title: String {
+        guard let name = product?.name else { return "Unknown" }
+        if let n = product?.number, !n.isEmpty, name.hasSuffix(" - \(n)") { return String(name.dropLast(n.count + 3)) }
+        return name
+    }
+
+    @ViewBuilder private var detail: some View {
+        if let target {
+            if let price, price <= target {
+                // Reached: only the figure is coloured.
+                HStack(spacing: 4) {
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.lime)
+                    Text("Target").foregroundStyle(Theme.muted)
+                    Text(Format.money(target)).monospacedDigit().foregroundStyle(Theme.lime)
+                    Text("reached").foregroundStyle(Theme.muted)
+                }
+            } else if let price, price > 0 {
+                let away = (price - target) / price
+                (Text("Target ").foregroundColor(Theme.muted)
+                    + Text(Format.money(target)).foregroundColor(.white)
+                    + Text(" · \(Int((away * 100).rounded()))% away").foregroundColor(Theme.muted))
+                    .monospacedDigit()
+            } else {
+                (Text("Target ").foregroundColor(Theme.muted) + Text(Format.money(target)).foregroundColor(.white)).monospacedDigit()
+            }
+        } else if let addedPrice, addedPrice > 0, let price, abs(price - addedPrice) >= 0.01 {
+            let d = price - addedPrice
+            (Text(Format.signedMoney(d)).foregroundColor(Theme.tone(d)) + Text(" since added").foregroundColor(Theme.muted))
+                .monospacedDigit()
         }
     }
 }

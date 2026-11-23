@@ -488,6 +488,8 @@ struct WishItem: Codable, Identifiable, Hashable {
     /// Latest known market price.
     var price: Double?
     var addedAt: String
+    /// The market price when it went on the wishlist ("+$40 since added"); older items have none.
+    var addedPrice: Double? = nil
 }
 
 /// One row of user_state: a JSON value per key, per user.

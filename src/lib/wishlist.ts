@@ -19,6 +19,8 @@ export interface WishItem {
   /** Latest known market price, refreshed when the wishlist is opened. */
   price: number | null;
   addedAt: string;
+  /** The market price when it went on the wishlist (the app shows "+$40 since added"); older items have none. */
+  addedPrice?: number | null;
 }
 
 const RANK: Record<WishPriority, number> = { grail: 0, want: 1, maybe: 2 };

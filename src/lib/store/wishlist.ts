@@ -21,7 +21,7 @@ export function useWishlist() {
       setItems((prev) =>
         prev.some((w) => w.product.id === product.id)
           ? prev
-          : [...prev, { id: crypto.randomUUID(), product, printing: opts?.printing ?? null, priority: opts?.priority ?? "want", target: null, price, addedAt: new Date().toISOString() }],
+          : [...prev, { id: crypto.randomUUID(), product, printing: opts?.printing ?? null, priority: opts?.priority ?? "want", target: null, price, addedAt: new Date().toISOString(), addedPrice: price }],
       ),
     [setItems],
   );

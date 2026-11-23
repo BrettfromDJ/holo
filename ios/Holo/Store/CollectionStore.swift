@@ -1214,7 +1214,7 @@ final class CollectionStore {
     func addWish(_ product: Product, printing: String?, price: Double?, priority: WishItem.Priority = .want) async throws {
         guard !wishlist.contains(where: { $0.product.id == product.id }) else { return }
         var next = wishlist
-        next.append(WishItem(id: UUID().uuidString.lowercased(), product: product, printing: printing, priority: priority, target: nil, price: price, addedAt: ISO8601DateFormatter().string(from: Date())))
+        next.append(WishItem(id: UUID().uuidString.lowercased(), product: product, printing: printing, priority: priority, target: nil, price: price, addedAt: ISO8601DateFormatter().string(from: Date()), addedPrice: price))
         try await saveWishlist(next)
         Router.shared.undo = UndoItem(message: "Added to your wishlist")
     }
