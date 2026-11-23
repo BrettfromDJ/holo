@@ -13,17 +13,26 @@ struct SalesView: View {
     @State private var editing: Txn?
     @State private var deleting: Txn?
     @State private var info = false
+    /// The report, worked out once and kept until the log changes (not on every redraw).
+    @State private var all: [SalesReport.Line] = []
+    @State private var feesById: [String: Double] = [:]
+    @State private var built = false
+    /// Find a sale by card name.
+    @State private var query = ""
+    /// The list starts with the latest sales; Show all opens the rest.
+    @State private var showAll = false
+    private static let firstPage = 50
 
     var body: some View {
-        // Every sale, once per log change (few lines, cheap).
-        let all = SalesReport.lines(store.transactions)
         let years = SalesReport.years(all)
         let shown = year ?? years.first ?? Calendar.current.component(.year, from: Date())
         let lines = shown == 0 ? all : all.filter { $0.year == shown }
         let t = SalesReport.totals(lines)
-        let fees = Self.fees(lines, store.effectiveTransactions)
+        let fees = Set(lines.map(\.saleId)).reduce(0) { $0 + (feesById[$1] ?? 0) }
         ScrollView {
-            if all.isEmpty {
+            if !built {
+                Color.clear.frame(height: 1)
+            } else if all.isEmpty {
                 EmptyPage(title: "No sales yet", line: "When you sell something, mark it sold on its page. Your profit for the year shows up here, ready for tax time.",
                           icon: "doc.text")
                     .padding(.top, 40)
@@ -42,6 +51,18 @@ struct SalesView: View {
             }
         }
         .background(Theme.background)
+        // Work the report out once per change to the log, off the page's redraws.
+        .task(id: "\(store.transactions.count)|\(store.transactions.last?.createdAt ?? "")") {
+            let txns = store.transactions
+            let effective = store.effectiveTransactions
+            let lines = SalesReport.lines(txns)
+            var fees: [String: Double] = [:]
+            for t in effective where t.kind == .sale { fees[t.id] = t.fees + t.shipping + t.tax }
+            all = lines
+            feesById = fees
+            built = true
+        }
+        .onChange(of: year) { showAll = false }
         .navigationBarTitleDisplayMode(.inline)
         .pageTitle("Sales & taxes")
         // The spreadsheet for your accountant: a share icon at the top right.
@@ -76,12 +97,6 @@ struct SalesView: View {
         } message: {
             Text("Profit is what each sale brought in after its fees, shipping and tax, minus what those copies cost you, oldest copies first. Cards you pulled count as costing nothing.\n\nIn the US, collectibles held over a year are taxed at up to 28%. A year or less is taxed like income. Your accountant will know what applies to you.\n\nA guide for your records, not tax advice.")
         }
-    }
-
-    /// Fees, shipping and tax paid on the sales shown.
-    private static func fees(_ lines: [SalesReport.Line], _ txns: [Txn]) -> Double {
-        let ids = Set(lines.map(\.saleId))
-        return txns.filter { ids.contains($0.id) }.reduce(0) { $0 + $1.fees + $1.shipping + $1.tax }
     }
 
     private func hero(_ t: SalesReport.Totals, lines: [SalesReport.Line], fees: Double, year: Int) -> some View {
@@ -133,16 +148,66 @@ struct SalesView: View {
         GlassStat(label: label, value: abs(gain) < 0.005 ? "—" : Format.signedMoney(gain), tint: abs(gain) < 0.005 ? Theme.subtle : Theme.tone(gain))
     }
 
+    /// Every sale, by month (each month's count and profit), newest first: drawn as they scroll
+    /// into view, the latest 50 first with Show all for the rest, and a search by card name.
     private func list(_ lines: [SalesReport.Line]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+        let found = q.isEmpty ? lines : lines.filter { (store.products[$0.identity.productId]?.name ?? "").lowercased().contains(q) }
+        let shown = showAll || !q.isEmpty ? found : Array(found.prefix(Self.firstPage))
+        let months = Self.byMonth(shown)
+        return VStack(alignment: .leading, spacing: 12) {
             MoreHeading(title: "Every sale", subtitle: "Split by when you got the copies, the way a tax form lists them")
-            VStack(spacing: 0) {
-                ForEach(Array(lines.enumerated()), id: \.element.id) { i, l in
-                    if i > 0 { Divider().overlay(Color.white.opacity(0.06)) }
-                    row(l)
+            if lines.count > 8 { SettlingSearchBox(query: $query, prompt: "Find a sale") }
+            if found.isEmpty {
+                Text("No sales match.").font(.geist(14)).foregroundStyle(Theme.muted).padding(.vertical, 12)
+            }
+            LazyVStack(alignment: .leading, spacing: 18) {
+                ForEach(months, id: \.key) { month in
+                    VStack(alignment: .leading, spacing: 8) {
+                        // "October 2026 · 42 sales · +$1,240"
+                        HStack(spacing: 6) {
+                            Text(month.title).font(.geist(14, .semibold)).foregroundStyle(.white)
+                            Text("· \(month.lines.count) \(month.lines.count == 1 ? "sale" : "sales")").font(.geist(13)).foregroundStyle(Theme.muted)
+                            Spacer(minLength: 8)
+                            Text(Format.signedMoney(month.gain)).font(.geist(13, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(month.gain))
+                        }
+                        .padding(.horizontal, 4)
+                        LazyVStack(spacing: 0) {
+                            ForEach(Array(month.lines.enumerated()), id: \.element.id) { i, l in
+                                if i > 0 { Divider().overlay(Color.white.opacity(0.06)) }
+                                row(l)
+                            }
+                        }
+                        .surface(radius: 16, padding: 14)
+                    }
                 }
             }
-            .surface(radius: 16, padding: 14)
+            if !showAll && q.isEmpty && found.count > Self.firstPage {
+                Button { Haptics.tap(); showAll = true } label: {
+                    Text("Show all \(found.count) sales").font(.geist(15, .semibold)).foregroundStyle(.white)
+                        .frame(maxWidth: .infinity).frame(height: 48)
+                        .liquidGlass(in: Capsule(), interactive: true)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private struct Month { var key: String; var title: String; var lines: [SalesReport.Line]; var gain: Double }
+
+    /// The sales in month groups, newest month first (they arrive newest first).
+    private static func byMonth(_ lines: [SalesReport.Line]) -> [Month] {
+        var order: [String] = []
+        var groups: [String: [SalesReport.Line]] = [:]
+        for l in lines {
+            let key = String(l.sold.prefix(7))
+            if groups[key] == nil { order.append(key) }
+            groups[key, default: []].append(l)
+        }
+        return order.map { key in
+            let ls = groups[key] ?? []
+            let title = Format.isoDay.date(from: key + "-01")?.formatted(.dateTime.month(.wide).year()) ?? key
+            return Month(key: key, title: title, lines: ls, gain: ls.reduce(0) { $0 + $1.gain })
         }
     }
 
