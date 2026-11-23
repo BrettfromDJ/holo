@@ -127,7 +127,7 @@ and say exactly what to run or click.
   (13pt) Liquid Glass tiles with a faint light edge and white text, the selected one filled white
   with dark text; no track behind them. Rows never bleed off the screen: they scroll inside the margins with the right
   edge fading (`ChipPicker(..., scrolls: true)`).
-- Bottom sheets: `.glassSheet()`: pure black, pull handle centred at the top, stopping short of
+- Bottom sheets: `.glassSheet()`: `Theme.sheet` (#161618, a touch lighter than the page so the sheet's edge shows; was pure black and blended in; `ActionsSheet` too), pull handle centred at the top, stopping short of
   full height (`.fraction(0.93)`; iOS 26 floats them in from the edges); panels, forms and dark buttons
   turn into a faint white fill on it. No navigation bar in display sheets like Your copy: the bar
   resizes while the sheet rises and slides the content; put the title and Done in the content.

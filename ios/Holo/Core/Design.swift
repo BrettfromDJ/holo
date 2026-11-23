@@ -322,7 +322,7 @@ extension View {
     /// Every bottom sheet: pure black, with its pull handle centred at the top (iOS 26 floats it in
     /// from the screen's edges).
     func nativeGlassSheet() -> some View {
-        presentationBackground(Color.black)
+        presentationBackground(Theme.sheet)
             .presentationDragIndicator(.visible)
     }
 }

@@ -64,7 +64,7 @@ struct ActionsSheet: View {
         .padding(.bottom, 12)
         .presentationDetents([.height(height(shown))])
         .presentationDragIndicator(.visible)
-        .presentationBackground(.black)
+        .presentationBackground(Theme.sheet)
         .animation(.snappy(duration: 0.22), value: page?.title)
         .glassSheet()
     }

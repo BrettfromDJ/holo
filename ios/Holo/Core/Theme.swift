@@ -3,6 +3,9 @@ import SwiftUI
 /// The palette, matching the website's dark theme: lime accent and gains, pink losses.
 enum Theme {
     static let background = Color(hex: 0x0B0B0C)
+    /// Bottom sheets: a touch lighter than the page, so a sheet's top edge shows against the
+    /// dimmed page behind it (pure black blended in).
+    static let sheet = Color(hex: 0x161618)
     static let surface = Color(hex: 0x131315)
     static let surface2 = Color(hex: 0x1A1A1D)
     static let surface3 = Color(hex: 0x232327)
