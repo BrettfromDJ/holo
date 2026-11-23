@@ -171,6 +171,14 @@ struct ProductDetailView: View {
             }
         }
         .sheet(item: $editing) { t in EntryEditSheet(entry: t) }
+        // Opened from the hold menu's Add to collection: the form comes straight up once the
+        // card is on hand.
+        .task(id: product?.id) {
+            guard Router.shared.addOnOpen, product != nil else { return }
+            Router.shared.addOnOpen = false
+            try? await Task.sleep(nanoseconds: 450_000_000)
+            adding = true
+        }
         .sheet(isPresented: $adding) {
             if let product { AddPurchaseSheet(hit: SearchHit(product: product, printing: printing, market: headline)) }
         }

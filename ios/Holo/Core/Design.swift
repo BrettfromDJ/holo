@@ -1484,9 +1484,11 @@ struct QuickActionsSheet: View {
         }
         return [
             [
-                SheetAction(title: "Add", icon: "plus") {
-                    // The card's page (where the purchase is filled in) needs the card on hand.
+                SheetAction(title: "Add to collection", icon: "plus") {
+                    // The card's page (where the purchase is filled in) needs the card on hand;
+                    // it opens with the Add to collection form already up.
                     if store.products[id] == nil { store.seed(SearchHit(product: p)) }
+                    Router.shared.addOnOpen = true
                     Router.shared.product = id
                 },
                 SheetAction(title: wish == nil ? "Add to wishlist" : "On wishlist", icon: wish == nil ? "heart" : "heart.fill") {

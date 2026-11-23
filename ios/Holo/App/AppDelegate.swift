@@ -53,6 +53,9 @@ final class Router {
     var quickCard: Product?
     /// A card to open (from a tapped notification).
     var product: String?
+    /// The card page opened by `product` goes straight to its Add to collection form (the hold
+    /// menu's Add to collection).
+    var addOnOpen = false
     /// A tab another screen asked to switch to ("collection").
     var tabRequest: String?
     /// The last tab-bar tap ("home", "collection", "explore", "deal") and a counter so tapping
