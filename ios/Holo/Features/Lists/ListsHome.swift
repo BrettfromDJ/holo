@@ -348,6 +348,8 @@ private struct ListTile: View {
         .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
+    /// The list's top cards fanned out, centred top to bottom in the well (the tilt lifts the
+    /// outer cards' tops a little, so the fan sits a touch above the exact middle).
     private func fan(_ shown: [ListItemInfo]) -> some View {
         let mid = Double(shown.count - 1) / 2
         return ZStack {
@@ -356,7 +358,7 @@ private struct ListTile: View {
                     .frame(width: 58, height: 80)
                     .shadow(color: .black.opacity(0.5), radius: 6, y: 3)
                     .rotationEffect(.degrees((Double(i) - mid) * 10), anchor: .bottom)
-                    .offset(x: (Double(i) - mid) * 30, y: 6)
+                    .offset(x: (Double(i) - mid) * 30, y: -2)
                     .zIndex(-abs(Double(i) - mid))
             }
         }
