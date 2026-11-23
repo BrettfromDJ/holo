@@ -59,6 +59,9 @@ struct ActionsSheet: View {
                 }
             }
             .scrollBounceBehavior(.basedOnSize)
+            // Liquid Glass buttons swell a little while pressed; let them, instead of the
+            // scroll area cutting them off at its edges.
+            .scrollClipDisabled()
         }
         .padding(.horizontal, 20)
         .padding(.top, 26)
