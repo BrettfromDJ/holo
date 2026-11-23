@@ -670,7 +670,10 @@ private struct Diversification: View {
                 VStack(alignment: .leading, spacing: 14) {
                     HStack(alignment: .center, spacing: 14) {
                         CountingText(value: Double(effective), format: { "\(Int($0.rounded()))" })
-                            .font(.display(54)).tracking(-2.2).monospacedDigit().foregroundStyle(Theme.lime).displayTrim(54)
+                            // Lighter tracking and a little room on the right: tight tracking shaved the
+                            // last digit's edge.
+                            .font(.display(54)).tracking(-1.2).monospacedDigit().foregroundStyle(Theme.lime).displayTrim(54)
+                            .fixedSize().padding(.trailing, 4)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(label).font(.geist(15, .semibold)).foregroundStyle(.white)
                             Text("Your \(holdings.count) holdings act like \(effective) of equal\u{00A0}size").font(.geist(13)).foregroundStyle(Theme.muted)
