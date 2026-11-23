@@ -243,6 +243,8 @@ struct CollectionView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.bottom, 40)
+                    // The page's sheets, on a view that's always there.
+                    .background(pageSheets(Color.clear))
                 }
             }
             // No scroll bar beside the placeholder while loading.
@@ -652,21 +654,14 @@ struct CollectionView: View {
     }
 
     /// Nothing before the search and the cards (the value, chart, tiles and mix are on Summary),
-    /// except which portfolio is showing when it isn't All. Carries the page's sheets.
-    private var header: some View {
-        pageSheets(
-            Group {
-                if groups.selected != GroupsStore.all {
-                    HStack(spacing: 6) {
-                        Image(systemName: "folder").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.muted)
-                        Text(groups.name(of: groups.selected)).font(.geist(13, .medium)).foregroundStyle(.white).lineLimit(1)
-                    }
-                    .padding(.top, 4)
-                } else {
-                    Color.clear.frame(height: 0).padding(.bottom, -20)
-                }
+    /// except which portfolio is showing when it isn't All.
+    @ViewBuilder private var header: some View {
+        if groups.selected != GroupsStore.all {
+            HStack(spacing: 6) {
+                Image(systemName: "folder").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.muted)
+                Text(groups.name(of: groups.selected)).font(.geist(13, .medium)).foregroundStyle(.white).lineLimit(1)
             }
-        )
+        }
     }
 
     private func statTile(_ label: String, _ value: String, _ tint: Color) -> some View {
