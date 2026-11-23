@@ -45,6 +45,12 @@ struct DealView: View {
     /// the page asks first). Kept on the phone so the page comes back the same.
     @AppStorage("deal-path") private var pathRaw = ""
     @State private var pathMenu = false
+    /// The new flow: leaving a deal (park / discard), naming it, and typing another rate.
+    @State private var leaving = false
+    @State private var renaming = false
+    @State private var nameText = ""
+    @AppStorage("deal-name") private var dealName = ""
+    @State private var rateSide: DealSide?
 
     /// The path in use: the one picked, else what the deal's items say it is.
     private var dealPath: DealKind? {
@@ -98,64 +104,52 @@ struct DealView: View {
         let warning = role == .vendor && Self.warning(totals)
         let accent = warning ? Theme.planPink : Theme.lime
         NavigationStack(path: $path) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 32) {
-                    VStack(alignment: .leading, spacing: 14) {
-                        // First time here, with nothing in the deal yet: one line on how it works.
-                        if !hintSeen && deals.deal.kind == .empty {
-                            DealHint { withAnimation(.snappy) { hintSeen = true } }
-                                .transition(.opacity.combined(with: .move(edge: .top)))
-                        }
-                        // Before a deal starts: who you're dealing as, one tap from changing it.
-                        if deals.deal.kind == .empty && dealPath == nil {
-                            Button { settings = true } label: {
-                                HStack(spacing: 6) {
-                                    Text("Dealing as").foregroundStyle(Theme.muted)
-                                    Text(role.title).foregroundStyle(.white)
-                                    Text("· Change").foregroundStyle(Theme.lime)
-                                }
-                                .font(.geist(13, .medium))
+            // The owner's flow (Nov 2026): pick what you're doing, then one simple page per deal.
+            Group {
+                if let p = dealPath {
+                    DealEditorPage(path: p, name: dealName,
+                                   onScan: { scanning = $0 },
+                                   onAdd: { picking = $0 },
+                                   onEditCard: { pricingItem = $0 },
+                                   onCustomRate: { rateSide = $0 },
+                                   onRename: { nameText = dealName; renaming = true },
+                                   onReview: { Haptics.tap(); confirming = true },
+                                   onPark: { parkNow() })
+                        .toolbar {
+                            ToolbarItem(placement: .topBarLeading) {
+                                Button {
+                                    Haptics.tap()
+                                    if deals.deal.hasContent { leaving = true } else { withAnimation(.snappy) { pathRaw = "" } }
+                                } label: { Image(systemName: "chevron.left") }
+                                .accessibilityLabel("Leave this deal")
                             }
-                            .buttonStyle(.plain)
+                            ToolbarItem(placement: .topBarTrailing) {
+                                Button { settings = true } label: { Image(systemName: "slider.horizontal.3") }.accessibilityLabel("Deal settings")
+                            }
                         }
-                        if !todays.isEmpty { TodayStrip(deals: todays) { path.append(DealRoute.history) } }
-                        if !deals.parked.isEmpty { ParkedChip(count: deals.parked.count) { parkedList = true } }
-                    }
-                    if let path = dealPath {
-                        // The path, one tap from changing it (the cards stay).
-                        pathChip(path)
-                        // Only the sides this path needs (a side that has cards always shows).
-                        if path != .sell || !deals.deal.incoming.isEmpty {
-                            side(.incoming, totals: totals, settled: agreed.deal, accent: accent).reveal()
+                } else {
+                    DealStartPage(onPick: { k in
+                        Haptics.tap()
+                        withAnimation(.snappy) { pathRaw = k.rawValue }
+                    }, onParkedAll: { parkedList = true },
+                       onHistory: { path.append(DealRoute.history) },
+                       onRecord: { path.append($0) })
+                        .pageTitle("Deal")
+                        .toolbar {
+                            ToolbarItem(placement: .topBarLeading) {
+                                Button { path.append(DealRoute.history) } label: { Image(systemName: "clock.arrow.circlepath") }.accessibilityLabel("Closed deals")
+                            }
+                            ToolbarItem(placement: .topBarTrailing) {
+                                Button { settings = true } label: { Image(systemName: "slider.horizontal.3") }.accessibilityLabel("Deal settings")
+                            }
                         }
-                        if path != .buy || !deals.deal.outgoing.isEmpty {
-                            side(.outgoing, totals: totals, settled: agreed.deal, accent: accent).reveal()
-                        }
-                        if deals.deal.kind != .empty { extras(accent: accent) }
-                    } else {
-                        // Nothing started: ask what kind of deal it is, then lead down that path.
-                        DealPathChooser { pick in
-                            Haptics.tap()
-                            withAnimation(.snappy) { pathRaw = pick.rawValue }
-                            // Buying or selling: straight into the camera; each scan drops into its
-                            // tray, and Done lands on the filled-in deal. Trading opens the table.
-                            if pick == .buy { scanning = .incoming }
-                            if pick == .sell { scanning = .outgoing }
-                        } onScan: {
-                            pathRaw = DealKind.buy.rawValue
-                            scanning = .incoming
-                        }
-                    }
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-                .padding(.bottom, 24)
-                .background(alignment: .top) { DealBackdrop(accent: accent) }
             }
+            .background(alignment: .top) { DealBackdrop(accent: accent) }
+            .background(Theme.background)
             // A tap on this tab (from anywhere) closes pushed pages and scrolls back to the top.
             .tabTopReset("deal", path: $path)
             .scrollDismissesKeyboard(.interactively)
-            // The number pad has no return key: a Done above it puts the keyboard away.
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
@@ -165,48 +159,26 @@ struct DealView: View {
                     .font(.geist(16, .semibold))
                 }
             }
-            .background(Theme.background)
             .imageMaxPixel(360)
-            .replaysAnimations()
-            .animation(.easeInOut(duration: 0.3), value: warning)
-            .tint(accent)
+            .tint(Theme.lime)
             .navigationBarTitleDisplayMode(.inline)
-            .pageTitle("Deal")
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    if docked {
-                        // While the deal bar sits in the tab bar's place, an X at the top left
-                        // steps out of the deal to Overview (the deal stays as it is; tap Deal to
-                        // come back to it).
-                        Button {
-                            Router.shared.tabRequest = "home"
-                        } label: { Image(systemName: "xmark") }
-                        .accessibilityLabel("Leave the deal for now")
-                    } else if deals.deal.kind == .empty, !pathRaw.isEmpty {
-                        // A path picked but nothing added yet: back to "What's the deal?".
-                        Button {
-                            Haptics.tap()
-                            withAnimation(.snappy) { pathRaw = "" }
-                        } label: { Image(systemName: "chevron.left") }
-                        .accessibilityLabel("Back to the kinds of deal")
-                    } else {
-                        Button { path.append(DealRoute.history) } label: { Image(systemName: "clock.arrow.circlepath") }.accessibilityLabel("Closed deals")
-                    }
-                }
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    if docked {
-                        Button { path.append(DealRoute.history) } label: { Image(systemName: "clock.arrow.circlepath") }.accessibilityLabel("Closed deals")
-                    }
-                    // The customer view is a vendor's: it shows the customer their side of the deal.
-                    if role == .vendor {
-                        Button { customer = true } label: { Image(systemName: "eye") }
-                            .accessibilityLabel("Customer view")
-                            .disabled(deals.deal.kind == .empty)
-                    }
-                    if deals.deal.kind != .empty {
-                        Button { dealMenu = true } label: { Image(systemName: "ellipsis") }.accessibilityLabel("Deal actions")
-                    }
-                    Button { settings = true } label: { Image(systemName: "slider.horizontal.3") }.accessibilityLabel("Deal settings")
+            .actionsSheet(isPresented: $leaving, title: "Leave this deal?") {
+                [[SheetAction(title: "Park deal", subtitle: "Pick it up where you left off", icon: "pause") { parkNow() }],
+                 [SheetAction(title: "Discard deal", icon: "trash", destructive: true) {
+                    let photos = deals.deal.photos
+                    withAnimation(.snappy) { deals.update { $0 = DealState() }; pathRaw = ""; dealName = "" }
+                    Task { for p in photos { await DealPhotos.delete(p) } }
+                 }]]
+            }
+            .alert("Name this deal", isPresented: $renaming) {
+                TextField("Untitled deal", text: $nameText)
+                Button("Cancel", role: .cancel) {}
+                Button("Save") { dealName = nameText.trimmingCharacters(in: .whitespaces) }
+            }
+            .sheet(item: $rateSide) { side in
+                let r = side == .incoming ? rates.in : rates.out
+                DealRateSheet(title: "Set default rate", rate: r) { v in
+                    deals.update { d in if side == .incoming { d.rateIn = v } else { d.rateOut = v } }
                 }
             }
             .toolbar(pinned ? .hidden : .visible, for: .navigationBar)
@@ -223,18 +195,7 @@ struct DealView: View {
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
-            // The receipt, always on screen above the tab bar while there's a deal.
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                VStack(spacing: 0) {
-                    if deals.deal.kind != .empty || dealPath == .trade {
-                        receiptBar(totals, warning: warning)
-                            .padding(.horizontal, 16).padding(.bottom, 8)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                    }
-                    Color.clear.frame(height: docked ? 0 : HoloTabBar<Int>.clearance)
-                }
-                .animation(.snappy, value: deals.deal.kind == .empty)
-            }
+            .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: docked ? 0 : HoloTabBar<Int>.clearance) }
             .actionsSheet(isPresented: $dealMenu, title: "This deal") { dealActions(totals) }
             .actionsSheet(isPresented: $pathMenu, title: "What kind of deal?") {
                 [[DealKind.buy, .sell, .trade].map { k in
@@ -246,10 +207,8 @@ struct DealView: View {
             .actionsSheet(item: $actingItem, title: { $0.product.name }, product: { $0.product }) { itemActions($0) }
             .sheet(item: $pricingItem) { item in
                 let incoming = deals.deal.incoming.contains { $0.key == item.key }
-                DealPriceSheet(item: item, incoming: incoming, rate: incoming ? rates.in : rates.out,
-                               asksPaid: !incoming && item.holdingKey == nil && !item.isCustom) { changed in
-                    replace(changed)
-                }
+                DealCardSheet(item: item, rate: incoming ? rates.in : rates.out,
+                              onSave: { replace($0) }, onRemove: { remove(item) })
             }
             .onAppear { if !deals.deal.photos.isEmpty || deals.deal.notes != nil { extrasOpen = true } }
             .sheet(isPresented: $confirming) { DealCloseSheet() }
@@ -332,7 +291,7 @@ struct DealView: View {
         .onChange(of: deals.deal.kind == .empty) { was, empty in
             if empty { showTabs = false }
             // A deal that had cards and is now empty (closed, parked or cleared): next time, ask again.
-            if empty && !was { pathRaw = "" }
+            if empty && !was { pathRaw = ""; dealName = "" }
         }
         // Tapping the Deal tab goes back into the deal: the deal bar docks again.
         .onChange(of: Router.shared.tabTap) { _, tap in if tap.name == "deal" { showTabs = false } }
@@ -499,6 +458,17 @@ struct DealView: View {
         return [main, more, [
             SheetAction(title: "Remove from deal", icon: "trash", destructive: true) { remove(item) },
         ]].filter { !$0.isEmpty }
+    }
+
+    /// Park the deal under its name (or today's) and go back to the start.
+    private func parkNow() {
+        guard deals.deal.hasContent else { return }
+        withAnimation(.snappy) {
+            deals.park(name: dealName)
+            pathRaw = ""
+            dealName = ""
+        }
+        Haptics.tap()
     }
 
     /// Puts a changed line back where it was, on whichever side it's on.
