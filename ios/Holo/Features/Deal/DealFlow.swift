@@ -237,25 +237,36 @@ struct DealEditorPage: View {
                         Haptics.tap()
                         setRate(Double(v) / 100)
                     } label: {
+                        // The app's chip look: a glass tile with a faint light edge, the picked one white.
                         Text("\(v)%").font(.geist(13, .semibold)).monospacedDigit()
                             .foregroundStyle(v == pct ? Theme.ink : .white)
                             .frame(maxWidth: .infinity).frame(height: 36)
-                            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(v == pct ? Color.white : Color.white.opacity(0.07)))
+                            .background { rateChip(on: v == pct) }
                     }
                     .buttonStyle(.plain)
                 }
                 Button { onCustomRate(side) } label: {
                     Image(systemName: "ellipsis").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
                         .frame(maxWidth: .infinity).frame(height: 36)
-                        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.white.opacity(0.07)))
+                        .background { rateChip(on: false) }
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Another rate")
             }
         }
-        .padding(14)
-        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.surface))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Theme.border))
+        .padding(16)
+        // A glass panel like the app's other cards (it was a flat dark box).
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+
+    @ViewBuilder private func rateChip(on: Bool) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 13, style: .continuous)
+        if on {
+            shape.fill(Color.white)
+        } else {
+            shape.fill(Color.white.opacity(0.06))
+                .overlay(shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.18), .white.opacity(0.05)], startPoint: .top, endPoint: .bottom), lineWidth: 1))
+        }
     }
 
     private func setRate(_ r: Double) {
