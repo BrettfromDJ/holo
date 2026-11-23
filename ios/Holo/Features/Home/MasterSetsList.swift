@@ -21,6 +21,11 @@ struct MasterSetsView: View {
     @State private var searching = false
     /// The brand shown (a game's slug from the catalog); Pokémon to start, remembered after.
     @AppStorage("master-sets-brand") private var brand = "pokemon"
+    /// Each game's logo from the catalog, kept on the phone so the tabs show logos at once next time.
+    @AppStorage("master-sets-logos") private var logosJSON = ""
+    private var logos: [String: String] {
+        (try? JSONDecoder().decode([String: String].self, from: Data(logosJSON.utf8))) ?? [:]
+    }
 
 
     /// A set on the page: the catalog's entry (for art and release date) if found, and your progress.
@@ -160,7 +165,11 @@ struct MasterSetsView: View {
                 let saved = await Task.detached(priority: .userInitiated) { SavedSets.load() }.value
                 if !saved.isEmpty { index = saved; indexTried = true; prefetchBanners() }
             }
-            if let i = try? await Backend.shared.api.exploreIndex() { index = i.sets; prefetchBanners() }
+            if let i = try? await Backend.shared.api.exploreIndex() {
+                index = i.sets; prefetchBanners()
+                let found = Dictionary(i.games.compactMap { g in g.logoUrl.map { (g.slug, $0) } }, uniquingKeysWith: { a, _ in a })
+                if let data = try? JSONEncoder().encode(found), let json = String(data: data, encoding: .utf8), json != logosJSON { logosJSON = json }
+            }
             indexTried = true
         }
         .task(id: owned.map(\.id).joined(separator: ",")) { await MasterSetDetailView.load(owned, store: store) }
@@ -206,24 +215,28 @@ struct MasterSetsView: View {
         return n.trimmingCharacters(in: .whitespaces)
     }
 
+    /// The games as logos, side by side: the one shown bright, the rest faded. Pokémon uses our
+    /// own crisp logo (Pokémon Japan adds a small "Japan"); other games the catalog's logo, or
+    /// their short name when there is none.
     private var gameTitles: some View {
-        ScrollViewReader { proxy in
+        let logos = self.logos
+        return ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .firstTextBaseline, spacing: 20) {
+                HStack(alignment: .center, spacing: 22) {
                     ForEach(brands, id: \.slug) { b in
                         let on = b.slug == brand
                         Button { if !on { Haptics.tap(); brand = b.slug } } label: {
-                            Text(Self.shortName(b.name)).font(.display(32)).tracking(32 * -0.03)
-                                .foregroundStyle(on ? Color.white : Theme.subtle)
-                                .displayTrim(32)
-                                .fixedSize()
+                            GameLogo(slug: b.slug, name: Self.shortName(b.name), url: logos[b.slug].flatMap(URL.init(string:)))
+                                .opacity(on ? 1 : 0.35)
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel(Self.shortName(b.name))
                         .accessibilityAddTraits(on ? .isSelected : [])
                         .id(b.slug)
                     }
                 }
+                .frame(height: 48)
                 .padding(.trailing, 44)
             }
             .fadeTrailingEdge()
@@ -447,5 +460,31 @@ struct MasterSetTile: View {
                 }
             }
         }
+    }
+}
+
+/// One game's logo for Master Sets' tabs, 34pt tall and up to 120pt wide.
+private struct GameLogo: View {
+    var slug: String
+    var name: String
+    var url: URL?
+
+    var body: some View {
+        if slug.hasPrefix("pokemon") {
+            HStack(alignment: .lastTextBaseline, spacing: 6) {
+                Image("PokemonLogo").resizable().scaledToFit().frame(height: 34)
+                if slug != "pokemon" { MonoLabel(text: "Japan", color: .white) }
+            }
+            .fixedSize()
+        } else if let url {
+            CachedImage(url: url) { img in img.resizable().scaledToFit() } placeholder: { nameText }
+                .frame(maxWidth: 120, maxHeight: 34)
+        } else {
+            nameText
+        }
+    }
+
+    private var nameText: some View {
+        Text(name).font(.display(22)).tracking(-0.6).foregroundStyle(.white).fixedSize()
     }
 }
