@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// All portfolios, Main, or one of yours: filters every number in the app (Summary, Cards,
-/// Analytics), like the website's switcher. Lives at the top of Summary; opens our action sheet
+/// Analytics), like the website's switcher. Sits on Summary just above the worth; opens our action sheet
 /// with the portfolios, New portfolio (named right in the sheet), Lists and portfolios, and
 /// rename / delete for one of yours.
 struct PortfolioSwitcher: View {
@@ -15,7 +15,7 @@ struct PortfolioSwitcher: View {
     @State private var error: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(spacing: 4) {
             Button { Haptics.tap(); open = true } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "folder").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.muted)

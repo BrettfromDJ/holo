@@ -207,8 +207,6 @@ struct HomeView: View {
                     }
                     .buttonStyle(.plain)
                 }
-                // Which portfolio every number covers (All, Main or one of yours); Cards follows it.
-                HStack { PortfolioSwitcher(); Spacer(minLength: 0) }.padding(.horizontal, 16)
                 // (The Pulse ticker was here: market news belongs on Home, not over your own numbers.)
                 // Opens search with the keyboard already up.
                 SearchFieldButton(prompt: "Search any card or sealed product", scan: .collection) { search = true }
@@ -448,6 +446,8 @@ private struct Hero: View {
         VStack(spacing: 10) {
             CardFan(holdings: top, spread: spread).frame(height: 200)
             VStack(spacing: 6) {
+                // Which portfolio the worth (and every number on Summary and Cards) covers.
+                PortfolioSwitcher().padding(.bottom, 6)
                 Text("Your collection's worth").font(.display(30)).tracking(-0.8).displayTrim(30)
                 CountingText(value: s.value, format: { Format.money($0) })
                     .font(.display(66)).tracking(-2.6)
