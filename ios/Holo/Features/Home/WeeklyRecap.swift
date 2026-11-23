@@ -427,7 +427,7 @@ private struct RecapBuy {
     var cost: Double
 }
 
-/// What you bought this week as a fan, dropping in one by one, each with its price on glass.
+/// What you bought this week as a fan, dropping in one by one (no prices under it: the total says it).
 private struct RecapBuysFan: View {
     var buys: [RecapBuy]
     @State private var shown = false
@@ -455,17 +455,6 @@ private struct RecapBuysFan: View {
                         .animation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.75).delay(0.15 + Double(i) * 0.12), value: shown)
                 }
             }
-            // What each cost, in the same order, straight and side by side under the fan.
-            HStack(spacing: 6) {
-                ForEach(0 ..< n, id: \.self) { i in
-                    Text(Format.money(buys[i].cost)).font(.geist(small ? 11 : 13, .semibold)).monospacedDigit()
-                        .lineLimit(1).fixedSize()
-                        .padding(.horizontal, small ? 8 : 12).frame(height: small ? 26 : 30)
-                        .liquidGlass(in: Capsule())
-                }
-            }
-            .opacity(shown ? 1 : 0)
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.4).delay(0.3 + Double(n) * 0.12), value: shown)
         }
         // The biggest picture of each, decoded at full size.
         .environment(\.imageMaxPixel, nil)
