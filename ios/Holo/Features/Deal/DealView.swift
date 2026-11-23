@@ -41,6 +41,16 @@ struct DealView: View {
     @State private var pricingItem: DealItem?
     /// Photos and notes, folded into one row until opened (open when the deal has either).
     @State private var extrasOpen = false
+    /// The path picked when the deal started: buying, selling or trading ("" = not picked yet:
+    /// the page asks first). Kept on the phone so the page comes back the same.
+    @AppStorage("deal-path") private var pathRaw = ""
+    @State private var pathMenu = false
+
+    /// The path in use: the one picked, else what the deal's items say it is.
+    private var dealPath: DealKind? {
+        if let k = DealKind(rawValue: pathRaw), k != .empty { return k }
+        return deals.deal.kind == .empty ? nil : deals.deal.kind
+    }
 
     private var rates: (in: Double, out: Double) { deals.rates }
     private var defaultRates: (in: Double, out: Double) {
@@ -111,11 +121,27 @@ struct DealView: View {
                         if !todays.isEmpty { TodayStrip(deals: todays) { path.append(DealRoute.history) } }
                         if !deals.parked.isEmpty { ParkedChip(count: deals.parked.count) { parkedList = true } }
                     }
-                    // The deal reads top to bottom like a receipt: what comes in, what goes out,
-                    // then the answer in the bar pinned at the bottom.
-                    side(.incoming, totals: totals, settled: agreed.deal, accent: accent).reveal()
-                    side(.outgoing, totals: totals, settled: agreed.deal, accent: accent).reveal()
-                    extras(accent: accent)
+                    if let path = dealPath {
+                        // The path, one tap from changing it (the cards stay).
+                        pathChip(path)
+                        // Only the sides this path needs (a side that has cards always shows).
+                        if path != .sell || !deals.deal.incoming.isEmpty {
+                            side(.incoming, totals: totals, settled: agreed.deal, accent: accent).reveal()
+                        }
+                        if path != .buy || !deals.deal.outgoing.isEmpty {
+                            side(.outgoing, totals: totals, settled: agreed.deal, accent: accent).reveal()
+                        }
+                        extras(accent: accent)
+                    } else {
+                        // Nothing started: ask what kind of deal it is, then lead down that path.
+                        DealPathChooser { pick in
+                            Haptics.tap()
+                            withAnimation(.snappy) { pathRaw = pick.rawValue }
+                        } onScan: {
+                            pathRaw = DealKind.buy.rawValue
+                            scanning = .incoming
+                        }
+                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
@@ -199,6 +225,13 @@ struct DealView: View {
                 .animation(.snappy, value: deals.deal.kind == .empty)
             }
             .actionsSheet(isPresented: $dealMenu, title: "This deal") { dealActions(totals) }
+            .actionsSheet(isPresented: $pathMenu, title: "What kind of deal?") {
+                [[DealKind.buy, .sell, .trade].map { k in
+                    SheetAction(title: Self.pathTitle(k), subtitle: Self.pathLine(k), checked: dealPath == k) {
+                        withAnimation(.snappy) { pathRaw = k.rawValue }
+                    }
+                }]
+            }
             .actionsSheet(item: $actingItem, title: { $0.product.name }, product: { $0.product }) { itemActions($0) }
             .sheet(item: $pricingItem) { item in
                 let incoming = deals.deal.incoming.contains { $0.key == item.key }
@@ -285,9 +318,48 @@ struct DealView: View {
         // this while the Deal tab is the one showing, so every other tab always keeps its tab bar.
         .onAppear { Router.shared.dealDocked = docked }
         .onChange(of: docked) { _, on in Router.shared.dealDocked = on }
-        .onChange(of: deals.deal.kind == .empty) { _, empty in if empty { showTabs = false } }
+        .onChange(of: deals.deal.kind == .empty) { was, empty in
+            if empty { showTabs = false }
+            // A deal that had cards and is now empty (closed, parked or cleared): next time, ask again.
+            if empty && !was { pathRaw = "" }
+        }
         // Tapping the Deal tab goes back into the deal: the deal bar docks again.
         .onChange(of: Router.shared.tabTap) { _, tap in if tap.name == "deal" { showTabs = false } }
+    }
+
+    // MARK: The path
+
+    static func pathTitle(_ k: DealKind) -> String {
+        switch k {
+        case .buy: return "Buying"
+        case .sell: return "Selling"
+        case .trade: return "Trading"
+        case .empty: return "Deal"
+        }
+    }
+    static func pathLine(_ k: DealKind) -> String {
+        switch k {
+        case .buy: return "Cards come in, you pay"
+        case .sell: return "Cards go out, they pay"
+        case .trade: return "Cards both ways, cash evens it out"
+        case .empty: return ""
+        }
+    }
+
+    /// "Buying ▾" at the top: switch the kind of deal without losing the cards.
+    private func pathChip(_ path: DealKind) -> some View {
+        Button { Haptics.tap(); pathMenu = true } label: {
+            HStack(spacing: 6) {
+                Text(Self.pathTitle(path)).font(.geist(15, .semibold)).foregroundStyle(.white)
+                Image(systemName: "chevron.down").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.muted)
+            }
+            .padding(.horizontal, 14).frame(height: 36)
+            .liquidGlass(in: Capsule())
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Kind of deal: \(Self.pathTitle(path))")
+        .accessibilityHint("Change it")
     }
 
     // MARK: The receipt bar
@@ -556,7 +628,9 @@ struct DealView: View {
                 Image(systemName: incoming ? "arrow.down.left" : "arrow.up.right")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(incoming ? accent : Theme.planPink)
-                Text(incoming ? "Coming in" : "Going out").font(.display(24)).tracking(-0.6).displayTrim(24)
+                Text(incoming ? (dealPath == .buy ? "What you're buying" : "Coming in")
+                              : (dealPath == .sell ? "What you're selling" : "Going out"))
+                    .font(.display(24)).tracking(-0.6).displayTrim(24).lineLimit(1).minimumScaleFactor(0.8)
                 // What the side is, behind an ⓘ (no line of small text under the title).
                 TermInfo(term: incoming ? .comingIn : .goingOut, color: .white)
                 if !items.isEmpty {
@@ -1361,6 +1435,54 @@ private struct DealItemCard: View {
         var c = item
         edit(&c)
         onChange(c)
+    }
+}
+
+/// The empty Deal tab: what kind of deal is this? Three big choices, each leading to a page
+/// with only what it needs, and a scan button that starts a buy straight away.
+private struct DealPathChooser: View {
+    var onPick: (DealKind) -> Void
+    var onScan: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            DisplayText(text: "What's the deal?", size: 30)
+                .padding(.bottom, 4)
+            option(.buy, icon: "arrow.down.left")
+            option(.sell, icon: "arrow.up.right")
+            option(.trade, icon: "arrow.left.arrow.right")
+            Button(action: onScan) {
+                HStack(spacing: 8) {
+                    Image(systemName: "camera").font(.system(size: 14, weight: .semibold))
+                    Text("Or scan a card to start buying").font(.geist(14, .medium))
+                }
+                .foregroundStyle(Theme.muted)
+                .frame(maxWidth: .infinity).frame(height: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func option(_ k: DealKind, icon: String) -> some View {
+        Button { onPick(k) } label: {
+            HStack(spacing: 14) {
+                Image(systemName: icon).font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(k == .sell ? Theme.planPink : Theme.lime)
+                    .frame(width: 44, height: 44)
+                    .background(Circle().fill(Color.white.opacity(0.06)))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(DealView.pathTitle(k)).font(.geist(18, .semibold)).foregroundStyle(.white)
+                    Text(DealView.pathLine(k)).font(.geist(13)).foregroundStyle(Theme.muted)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.subtle)
+            }
+            .padding(14)
+            .liquidGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 }
 
