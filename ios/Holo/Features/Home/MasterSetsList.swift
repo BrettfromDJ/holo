@@ -110,6 +110,8 @@ struct MasterSetsView: View {
                 if owned.isEmpty, scope == .mine {
                     EmptyPage(title: "No \(brandName) sets yet", line: "Add a few cards and your sets appear here.", action: "Scan a card",
                               onAction: { Router.shared.scanRequest += 1 }, link: "Browse all sets", onLink: { scope = .all }, symbol: "square.grid.3x3")
+                        // Centred in the room left under the titles and chips.
+                        .containerRelativeFrame(.vertical, alignment: .center) { h, _ in h * 0.6 }
                 } else {
                     // Every set as a tile, two across, like Explore's brand page: the set's banner art,
                     // then its name and how far along you are. Tap one to open the set.

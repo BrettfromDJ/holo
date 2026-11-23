@@ -49,12 +49,12 @@ struct EmptyPage: View {
     /// One look for every empty page (the same as an empty Watchlist or list): an icon in a glass
     /// circle, a display heading, one muted line, one flat lime 44pt button, an optional quiet link.
     var body: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 10) {
             Image(systemName: symbol ?? icon)
                 .font(.system(size: 26, weight: .medium)).foregroundStyle(.white)
                 .frame(width: 72, height: 72)
                 .liquidGlass(in: Circle())
-                .padding(.bottom, 6)
+                .padding(.bottom, 4)
             Text(title.noWidow).font(.display(24)).tracking(-0.6).foregroundStyle(.white).multilineTextAlignment(.center)
             // Even lines, centred (no long line over a short one).
             BalancedText(text: line, font: .geist(15), color: Theme.muted, alignment: .center)
@@ -67,11 +67,10 @@ struct EmptyPage: View {
                         .background(Capsule().fill(Theme.lime))
                 }
                 .buttonStyle(.plain)
-                .padding(.top, 10)
+                .padding(.top, 8)
             }
             if let link {
                 Button(link, action: onLink).font(.geist(14, .medium)).foregroundStyle(Theme.muted)
-                    .padding(.top, 2)
             }
         }
         .frame(maxWidth: .infinity)
