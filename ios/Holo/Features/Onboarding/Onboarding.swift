@@ -38,24 +38,40 @@ struct EmptyPage: View {
     var title: String
     var line: String
     var action: String?
+    /// The button's icon, and the big icon on top unless `symbol` is given.
     var icon: String = "camera"
     var onAction: () -> Void = {}
     var link: String?
     var onLink: () -> Void = {}
+    /// The icon in the glass circle at the top.
+    var symbol: String? = nil
 
+    /// One look for every empty page (the same as an empty Watchlist or list): an icon in a glass
+    /// circle, a display heading, one muted line, one flat lime 44pt button, an optional quiet link.
     var body: some View {
-        VStack(spacing: 12) {
-            Text(title.noWidow).font(.display(28)).tracking(-0.7).multilineTextAlignment(.center)
+        VStack(spacing: 14) {
+            Image(systemName: symbol ?? icon)
+                .font(.system(size: 26, weight: .medium)).foregroundStyle(.white)
+                .frame(width: 72, height: 72)
+                .liquidGlass(in: Circle())
+                .padding(.bottom, 6)
+            Text(title.noWidow).font(.display(24)).tracking(-0.6).foregroundStyle(.white).multilineTextAlignment(.center)
             // Even lines, centred (no long line over a short one).
             BalancedText(text: line, font: .geist(15), color: Theme.muted, alignment: .center)
                 .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: 300)
             if let action {
-                Button(action: onAction) { Label(action, systemImage: icon) }
-                    .buttonStyle(Button3D(kind: .lime, fullWidth: false))
-                    .padding(.top, 8)
+                Button { Haptics.tap(); onAction() } label: {
+                    Label(action, systemImage: icon).font(.geist(15, .semibold)).foregroundStyle(Theme.ink)
+                        .padding(.horizontal, 22).frame(height: 44)
+                        .background(Capsule().fill(Theme.lime))
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 10)
             }
             if let link {
-                Button(link, action: onLink).font(.geist(15, .medium)).foregroundStyle(Theme.muted)
+                Button(link, action: onLink).font(.geist(14, .medium)).foregroundStyle(Theme.muted)
+                    .padding(.top, 2)
             }
         }
         .frame(maxWidth: .infinity)

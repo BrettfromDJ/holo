@@ -24,6 +24,7 @@ struct MasterSetsView: View {
     @State private var searching = false
     /// The brand shown (a game's slug from the catalog); Pokémon to start, remembered after.
     @AppStorage("master-sets-brand") private var brand = "pokemon"
+    @State private var choosingBrand = false
 
     enum Scope: String, CaseIterable { case mine = "Your sets", all = "All sets" }
     enum Sort: String, CaseIterable { case progress = "Most complete", value = "Most valuable", newest = "Newest", name = "Name" }
@@ -109,7 +110,7 @@ struct MasterSetsView: View {
                 controls
                 if owned.isEmpty, scope == .mine {
                     EmptyPage(title: "No \(brandName) sets yet", line: "Add a few cards and your sets appear here.", action: "Scan a card",
-                              onAction: { Router.shared.scanRequest += 1 }, link: "Browse all sets", onLink: { scope = .all })
+                              onAction: { Router.shared.scanRequest += 1 }, link: "Browse all sets", onLink: { scope = .all }, symbol: "square.grid.3x3")
                 } else {
                     // Every set as a tile, two across, like Explore's brand page: the set's banner art,
                     // then its name and how far along you are. Tap one to open the set.
@@ -218,32 +219,26 @@ struct MasterSetsView: View {
 
     private var brandName: String { brands.first { $0.slug == brand }?.name ?? "Pokémon" }
 
-    /// Which brand's sets to show: a glass pill with the brand's name.
+    /// Which brand's sets to show: a glass pill with the brand's name, opening our sheet of
+    /// games (a system Menu's label cut a longer name off while it resized).
     private var brandMenu: some View {
-        let list = brands
         let name = brandName
-        return Menu {
-            Picker("Brand", selection: $brand) {
-                ForEach(list, id: \.slug) { Text($0.name).tag($0.slug) }
-            }
-        } label: {
+        return Button { Haptics.tap(); choosingBrand = true } label: {
             HStack(spacing: 6) {
                 Text(name).font(.geist(14, .semibold)).lineLimit(1).fixedSize()
                 Image(systemName: "chevron.down").font(.system(size: 11, weight: .semibold))
             }
-            // A new pill for each game: it appears at its full width rather than stretching
-            // from the old one's (which cut the name off for a moment).
-            .id(name)
-            .transaction { $0.animation = nil }
             .foregroundStyle(.white)
             .padding(.horizontal, 14)
             .frame(height: 36)
             .contentShape(Capsule())
+            .background { Color.clear.liquidGlass(in: Capsule()).allowsHitTesting(false) }
         }
-        .menuStyle(.button)
         .buttonStyle(.plain)
-        .background { Color.clear.liquidGlass(in: Capsule()).allowsHitTesting(false) }
-        .accessibilityLabel("Brand: \(name)")
+        .accessibilityLabel("Game: \(name)")
+        .actionsSheet(isPresented: $choosingBrand, title: "Game") {
+            [brands.map { b in SheetAction(title: b.name, checked: b.slug == brand) { brand = b.slug } }]
+        }
     }
 }
 
