@@ -46,7 +46,8 @@ struct HomeView: View {
                     .accessibilityLabel(menuOpen ? "Close menu" : "Menu")
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, 12)
+                // Close to the search box below (the scroll view adds its own small gap).
+                .padding(.bottom, -8)
                 switch store.status {
                 case .idle, .loading:
                     // First launch only (later launches open on the saved collection): dim, still shapes.

@@ -151,7 +151,7 @@ struct CollectionView: View {
         NavigationStack(path: $path) {
             ScrollView {
                 // Summary / Cards, big (no bar above).
-                CollectionTitles().padding(.horizontal, 16).padding(.bottom, 12)
+                CollectionTitles().padding(.horizontal, 16).padding(.bottom, -8)
                 switch store.status {
                 case .idle, .loading:
                     // First launch only (later launches open on the saved collection): dim, still shapes.
