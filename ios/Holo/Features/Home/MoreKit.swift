@@ -256,11 +256,16 @@ struct GlassStat: View {
     var label: String
     var value: String
     var tint: Color = .white
+    /// Opens something: a small chevron after the label, centred on it.
+    var opens = false
     @Environment(\.onGlassSheet) private var onGlass
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            MonoLabel(text: label).lineLimit(1).minimumScaleFactor(0.6)
+            HStack(alignment: .center, spacing: 4) {
+                MonoLabel(text: label).lineLimit(1).minimumScaleFactor(0.6)
+                if opens { Image(systemName: "chevron.right").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.subtle) }
+            }
             Text(value).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(tint).lineLimit(1).minimumScaleFactor(0.7)
         }
         .padding(.horizontal, 12)

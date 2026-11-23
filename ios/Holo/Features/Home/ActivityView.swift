@@ -199,7 +199,7 @@ struct ActivityView: View {
                     // The profit from selling: opens Sales & taxes.
                     let realized = thisYear ? m.base.yearRealized : m.realizedTotal
                     NavigationLink(value: MorePage.sales) {
-                        GlassStat(label: "Realized ›", value: Format.signedMoney(realized), tint: Theme.tone(realized))
+                        GlassStat(label: "Realized", value: Format.signedMoney(realized), tint: Theme.tone(realized), opens: true)
                     }
                     .buttonStyle(.plain)
                 }
