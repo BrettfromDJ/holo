@@ -104,11 +104,13 @@ struct MasterSetsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 header(owned, rows: rows)
+                // The brand and Your / All stay put even when this brand has none of your sets,
+                // so you can always switch back (they used to vanish behind the empty message).
+                controls
                 if owned.isEmpty, scope == .mine {
-                    EmptyPage(title: "No sets yet", line: "Add a few cards and your sets appear here.", action: "Scan a card",
+                    EmptyPage(title: "No \(brandName) sets yet", line: "Add a few cards and your sets appear here.", action: "Scan a card",
                               onAction: { Router.shared.scanRequest += 1 }, link: "Browse all sets", onLink: { scope = .all })
                 } else {
-                    controls
                     // Every set as a full-width card in its own light. Tap one to open the set.
                     LazyVStack(spacing: 14) {
                         ForEach(rows) { r in
@@ -227,10 +229,10 @@ struct MasterSetsView: View {
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
+            // Two rows so nothing is cut short: the brand (its full name) and sort, then Your / All.
             HStack(spacing: 10) {
-                ChipPicker(options: Scope.allCases.map { ($0, $0.rawValue) }, selection: $scope)
-                Spacer(minLength: 0)
                 brandMenu
+                Spacer(minLength: 0)
                 Menu {
                     Picker("Sort", selection: $sort) {
                         ForEach(Sort.allCases, id: \.self) { Text($0.rawValue).tag($0) }
@@ -240,20 +242,24 @@ struct MasterSetsView: View {
                     .buttonStyle(IconButton3D(size: 44))
                     .accessibilityLabel("Sort")
             }
+            ChipPicker(options: Scope.allCases.map { ($0, $0.rawValue) }, selection: $scope)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
+
+    private var brandName: String { brands.first { $0.slug == brand }?.name ?? "Pokémon" }
 
     /// Which brand's sets to show: a glass pill with the brand's name.
     private var brandMenu: some View {
         let list = brands
-        let name = list.first { $0.slug == brand }?.name ?? "Pokémon"
+        let name = brandName
         return Menu {
             Picker("Brand", selection: $brand) {
                 ForEach(list, id: \.slug) { Text($0.name).tag($0.slug) }
             }
         } label: {
             HStack(spacing: 6) {
-                Text(name).font(.geist(14, .semibold)).lineLimit(1)
+                Text(name).font(.geist(15, .semibold)).lineLimit(1).fixedSize()
                 Image(systemName: "chevron.down").font(.system(size: 11, weight: .semibold))
             }
             .foregroundStyle(.white)
