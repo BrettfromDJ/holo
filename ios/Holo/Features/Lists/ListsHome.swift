@@ -339,6 +339,8 @@ private struct ListTile: View {
                 .font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
             }
             .padding(.horizontal, 4)
+            // As much room under the text as above the name.
+            .padding(.bottom, 4)
         }
         .padding(8)
         .frame(maxWidth: .infinity, alignment: .leading)
