@@ -179,7 +179,7 @@ private struct CustomItemSheet: View {
                     MoneyField(title: "Price each", text: $price, hint: "0.00")
                     Stepper("Quantity: \(qty)", value: $qty, in: 1...999)
                 } footer: {
-                    Text("For things that aren't in the catalog. Counted in the deal, not tracked in your\u{00A0}collection.")
+                    Text("For things that aren't in the catalog. Counted in the deal, not tracked in your\u{00A0}collection.").font(.geist(13)).foregroundStyle(Theme.muted)
                 }
             }
             .scrollContentBackground(.hidden)

@@ -20,7 +20,7 @@ struct CertSheet: View {
                         .focused($focused)
                         .onChange(of: value) { _, v in if v.count > 20 { value = String(v.prefix(20)) } }
                 } footer: {
-                    Text("The certification number printed on the \(holding.identity.gradeCompany ?? "") label. Used to verify the slab, with a link to look it up.")
+                    Text("The certification number printed on the \(holding.identity.gradeCompany ?? "") label. Used to verify the slab, with a link to look it up.").font(.geist(13)).foregroundStyle(Theme.muted)
                 }
             }
             .scrollContentBackground(.hidden)

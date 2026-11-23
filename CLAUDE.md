@@ -106,6 +106,7 @@ and say exactly what to run or click.
   linking to the card's TCGplayer page (printing + Near Mint). No figures: our source can't say
   which condition TCGplayer's market price is for, and its played-copy prices are asking prices.
 - Watchlist / Wishlist (`ListsView`): prices via `store.listPrice` (the watched printing, else the default, else any printing) and `loadListPrices` fetches `product_prices` for cards added since the load (our DB, not TCG API). No Apple swipe actions or context menus on rows: hold a watch row for our sheet (Set/Edit target, Stop watching); wishlist rows are `CardLink`s (hold = quick actions). Empty lists: `emptyState`, centred on the page: an icon (eye / heart) in a glass circle, a `Font.display` heading, one muted line, and an "Explore cards" glass button.
+- Form footnotes under a section (`} footer: {`) are quiet: `.font(.geist(13)).foregroundStyle(Theme.muted)` (they showed bright white).
 - No sell-speed meter on the card page's eBay panel (app `EbaySalesPanel`, web `ebay-sales.tsx`): removed, the owner's call.
 - No confetti. No emojis. Toasts bottom-right on the web. The "Prices updated" banner is off
   in the app for now; milestone banners are back on (see Open threads).

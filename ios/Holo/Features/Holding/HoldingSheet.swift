@@ -526,7 +526,7 @@ struct SellSheet: View {
                     LabeledContent("Cost of these") { Text(Format.money(cost)).monospacedDigit() }
                     LabeledContent("Profit") { Text(Format.signedMoney(net - cost)).monospacedDigit().foregroundStyle(Theme.tone(net - cost)) }
                 } footer: {
-                    Text("Cost comes from your oldest copies\u{00A0}first.")
+                    Text("Cost comes from your oldest copies\u{00A0}first.").font(.geist(13)).foregroundStyle(Theme.muted)
                 }
                 if let error { Section { Text(error).foregroundStyle(Theme.down) } }
             }
@@ -590,7 +590,7 @@ struct EntryEditSheet: View {
                     MoneyField(title: "Shipping", text: $shipping)
                     DatePicker("Date", selection: $date, in: ...Date(), displayedComponents: .date)
                 } footer: {
-                    Text("Saved as a correction, so the original stays in the\u{00A0}record.")
+                    Text("Saved as a correction, so the original stays in the\u{00A0}record.").font(.geist(13)).foregroundStyle(Theme.muted)
                 }
                 if let error { Section { Text(error).foregroundStyle(Theme.down) } }
             }
@@ -638,7 +638,7 @@ struct ManualValueSheet: View {
                 Section {
                     MoneyField(title: identity.gradeLabel ?? "Value", text: $value, hint: current.map { Format.money($0) } ?? "$0.00")
                 } footer: {
-                    Text("Used for this slab's value from today\u{00A0}on.")
+                    Text("Used for this slab's value from today\u{00A0}on.").font(.geist(13)).foregroundStyle(Theme.muted)
                 }
                 if current != nil {
                     Section { Button("Clear value", role: .destructive) { Task { await save(nil) } } }
@@ -722,7 +722,7 @@ struct RemoveSheet: View {
                     }
                     DatePicker("Date", selection: $date, in: ...Date(), displayedComponents: .date)
                 } footer: {
-                    Text("What you paid for \(quantity == 1 ? "it" : "them") is written off, so it shows as a loss in your gains. To erase it as if you never had it, use Delete from collection instead.")
+                    Text("What you paid for \(quantity == 1 ? "it" : "them") is written off, so it shows as a loss in your gains. To erase it as if you never had it, use Delete from collection instead.").font(.geist(13)).foregroundStyle(Theme.muted)
                 }
                 if let error { Section { Text(error).foregroundStyle(Theme.down) } }
             }

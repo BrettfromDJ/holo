@@ -390,13 +390,13 @@ private struct ShareCollectionSheet: View {
                     Section {
                         Button("Stop sharing", role: .destructive) { Task { await stop() } }
                     } footer: {
-                        Text("Anyone with the link sees your cards and their value. Never your email, notes or where you bought\u{00A0}things.")
+                        Text("Anyone with the link sees your cards and their value. Never your email, notes or where you bought\u{00A0}things.").font(.geist(13)).foregroundStyle(Theme.muted)
                     }
                 } else if !loading {
                     Section {
                         Button("Create a link") { Task { await create() } }
                     } footer: {
-                        Text("A read-only page anyone with the link can open, no sign-in needed. You can turn it off any\u{00A0}time.")
+                        Text("A read-only page anyone with the link can open, no sign-in needed. You can turn it off any\u{00A0}time.").font(.geist(13)).foregroundStyle(Theme.muted)
                     }
                 }
                 if let error { Section { Text(error).foregroundStyle(Theme.muted) } }

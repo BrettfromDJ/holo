@@ -342,7 +342,7 @@ struct CostsSheet: View {
                     MoneyField(title: "Fee per card", text: $fee)
                     MoneyField(title: "Shipping per card", text: $shipping)
                 } footer: {
-                    Text("Used to weigh which cards are worth grading, and as the default when you send one in. Shipping both ways, with\u{00A0}insurance.")
+                    Text("Used to weigh which cards are worth grading, and as the default when you send one in. Shipping both ways, with\u{00A0}insurance.").font(.geist(13)).foregroundStyle(Theme.muted)
                 }
             }
             .scrollContentBackground(.hidden)
@@ -397,7 +397,7 @@ struct SendSheet: View {
                 } header: {
                     Text(holding.product?.name ?? "Card")
                 } footer: {
-                    Text("It stays in your collection raw until it comes\u{00A0}back.")
+                    Text("It stays in your collection raw until it comes\u{00A0}back.").font(.geist(13)).foregroundStyle(Theme.muted)
                 }
             }
             .scrollContentBackground(.hidden)
@@ -449,7 +449,7 @@ private struct ReturnSheet: View {
                 } header: {
                     Text(store.products[submission.productId]?.name ?? "Card")
                 } footer: {
-                    Text("The raw copies move into a \(submission.company) slab at what they cost you, plus the grading fee and\u{00A0}shipping.")
+                    Text("The raw copies move into a \(submission.company) slab at what they cost you, plus the grading fee and\u{00A0}shipping.").font(.geist(13)).foregroundStyle(Theme.muted)
                 }
                 if let error { Section { Text(error).foregroundStyle(Theme.down) } }
             }
