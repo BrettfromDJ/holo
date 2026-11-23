@@ -6,15 +6,22 @@ import UniformTypeIdentifiers
 /// long you held them, with a spreadsheet to hand to an accountant. Covers every portfolio.
 struct SalesView: View {
     @Environment(CollectionStore.self) private var store
+    /// The year shown; nil is the latest, 0 is every year.
     @State private var year: Int?
+    /// A sale's ⋯: edit or delete it.
+    @State private var acting: SaleRef?
+    @State private var editing: Txn?
+    @State private var deleting: Txn?
+    @State private var info = false
 
     var body: some View {
         // Every sale, once per log change (few lines, cheap).
         let all = SalesReport.lines(store.transactions)
         let years = SalesReport.years(all)
         let shown = year ?? years.first ?? Calendar.current.component(.year, from: Date())
-        let lines = all.filter { $0.year == shown }
+        let lines = shown == 0 ? all : all.filter { $0.year == shown }
         let t = SalesReport.totals(lines)
+        let fees = Self.fees(lines, store.effectiveTransactions)
         ScrollView {
             if all.isEmpty {
                 EmptyPage(title: "No sales yet", line: "When you sell something, mark it sold on its page. Your profit for the year shows up here, ready for tax time.",
@@ -22,16 +29,12 @@ struct SalesView: View {
                     .padding(.top, 40)
             } else {
                 VStack(alignment: .leading, spacing: 32) {
-                    if years.count > 1 {
-                        ChipPicker(options: years.map { ($0, String($0)) }, selection: Binding(get: { shown }, set: { year = $0 }), scrolls: true)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    hero(t, year: shown)
+                    // Every year you sold in, and All.
+                    ChipPicker(options: [(0, "All")] + years.map { ($0, String($0)) }, selection: Binding(get: { shown }, set: { year = $0 }), scrolls: true)
+                        .fixedSize(horizontal: false, vertical: true)
+                    hero(t, lines: lines, fees: fees, year: shown)
                     heldSplit(t)
-                    export(lines, year: shown)
                     list(lines)
-                    Text("Profit is what each sale brought in after its fees, shipping and tax, minus what those copies cost you, oldest copies first. Cards you pulled count as costing nothing. A guide for your records, not tax\u{00A0}advice.")
-                        .font(.geist(12)).foregroundStyle(Theme.subtle)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
@@ -41,12 +44,60 @@ struct SalesView: View {
         .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)
         .pageTitle("Sales & taxes")
+        // The spreadsheet for your accountant: a share icon at the top right.
+        .toolbar {
+            if !all.isEmpty {
+                ToolbarItem(placement: .topBarTrailing) {
+                    let file = SalesFile(csv: SalesReport.csv(lines, products: store.products), name: shown == 0 ? "Corodex sales" : "Corodex sales \(shown)")
+                    ShareLink(item: file, preview: SharePreview(file.name)) { Image(systemName: "square.and.arrow.up") }
+                        .accessibilityLabel("Export for your accountant")
+                }
+            }
+        }
+        .actionsSheet(item: $acting, title: { store.products[$0.productId]?.name }, product: { store.products[$0.productId] }) { ref in
+            guard let t = store.effectiveTransactions.first(where: { $0.id == ref.id }) else { return [] }
+            return [
+                [SheetAction(title: "Edit sale", icon: "pencil") { editing = t }],
+                [SheetAction(title: "Delete sale", icon: "trash", destructive: true) { deleting = t }],
+            ]
+        }
+        .sheet(item: $editing) { t in EntryEditSheet(entry: t) }
+        .alert("Delete this sale?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                guard let t = deleting else { return }
+                Task { try? await store.delete(t) }
+            }
+        } message: {
+            Text("The copies go back into your collection. The original stays in the\u{00A0}record.")
+        }
+        .alert("About these numbers", isPresented: $info) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Profit is what each sale brought in after its fees, shipping and tax, minus what those copies cost you, oldest copies first. Cards you pulled count as costing nothing.\n\nIn the US, collectibles held over a year are taxed at up to 28%. A year or less is taxed like income. Your accountant will know what applies to you.\n\nA guide for your records, not tax advice.")
+        }
     }
 
-    private func hero(_ t: SalesReport.Totals, year: Int) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
+    /// Fees, shipping and tax paid on the sales shown.
+    private static func fees(_ lines: [SalesReport.Line], _ txns: [Txn]) -> Double {
+        let ids = Set(lines.map(\.saleId))
+        return txns.filter { ids.contains($0.id) }.reduce(0) { $0 + $1.fees + $1.shipping + $1.tax }
+    }
+
+    private func hero(_ t: SalesReport.Totals, lines: [SalesReport.Line], fees: Double, year: Int) -> some View {
+        let gains = lines.reduce(0) { $0 + max(0, $1.gain) }
+        let losses = lines.reduce(0) { $0 + min(0, $1.gain) }
+        return VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 6) {
-                MonoLabel(text: "Profit in \(String(year))")
+                HStack(spacing: 6) {
+                    MonoLabel(text: year == 0 ? "Profit, every year" : "Profit in \(String(year))")
+                    // The fine print, folded away.
+                    Button { info = true } label: {
+                        Image(systemName: "info.circle").font(.system(size: 13, weight: .medium)).foregroundStyle(Theme.subtle)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("About these numbers")
+                }
                 Text(Format.signedMoney(t.gain))
                     .font(.display(48)).tracking(-1.4).monospacedDigit()
                     .foregroundStyle(Theme.tone(t.gain))
@@ -54,9 +105,15 @@ struct SalesView: View {
                 Text("From \(t.sales) \(t.sales == 1 ? "sale" : "sales") · \(count(t.quantity)) \(t.quantity == 1 ? "copy" : "copies")")
                     .font(.geist(14)).foregroundStyle(Theme.muted)
             }
+            // Gains and losses apart (losses lower the tax), then what came in and went out.
+            HStack(spacing: 8) {
+                GlassStat(label: "Gains", value: Format.signedMoney(gains), tint: gains > 0 ? Theme.up : Theme.subtle)
+                GlassStat(label: "Losses", value: losses < 0 ? Format.signedMoney(losses) : "—", tint: losses < 0 ? Theme.down : Theme.subtle)
+            }
             HStack(spacing: 8) {
                 GlassStat(label: "Sold for", value: Format.money(t.proceeds))
                 GlassStat(label: "They cost", value: Format.money(t.cost))
+                GlassStat(label: "Fees", value: fees > 0 ? Format.money(fees) : "—", tint: fees > 0 ? .white : Theme.subtle)
             }
         }
     }
@@ -68,36 +125,12 @@ struct SalesView: View {
                 heldTile("Over a year", t.longTermGain)
                 heldTile("A year or less", t.shortTermGain)
             }
-            Text("In the US, collectibles held over a year are taxed at up to 28%. A year or less is taxed like income. Your accountant will know what applies to\u{00A0}you.")
-                .font(.geist(12)).foregroundStyle(Theme.subtle)
         }
     }
 
+    /// The same glass tile as the figures above; nothing held that long reads as a quiet dash.
     private func heldTile(_ label: String, _ gain: Double) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            MonoLabel(text: label)
-            Text(Format.signedMoney(gain)).font(.display(24)).tracking(-0.6).monospacedDigit()
-                .foregroundStyle(gain == 0 ? .white : Theme.tone(gain))
-                .lineLimit(1).minimumScaleFactor(0.6)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .surface(radius: 16, padding: 14)
-    }
-
-    private func export(_ lines: [SalesReport.Line], year: Int) -> some View {
-        let file = SalesFile(csv: SalesReport.csv(lines, products: store.products), name: "Corodex sales \(year)")
-        return ShareLink(item: file, preview: SharePreview(file.name)) {
-            HStack(spacing: 8) {
-                Image(systemName: "square.and.arrow.up").font(.system(size: 16, weight: .semibold))
-                Text("Export for your accountant").font(.geist(16, .semibold))
-            }
-            .foregroundStyle(Theme.ink)
-            .frame(maxWidth: .infinity)
-            .frame(height: 52)
-            .background(Capsule().fill(Theme.lime))
-        }
-        .buttonStyle(.plain)
-        .simultaneousGesture(TapGesture().onEnded { Haptics.tap() })
+        GlassStat(label: label, value: abs(gain) < 0.005 ? "—" : Format.signedMoney(gain), tint: abs(gain) < 0.005 ? Theme.subtle : Theme.tone(gain))
     }
 
     private func list(_ lines: [SalesReport.Line]) -> some View {
@@ -115,12 +148,13 @@ struct SalesView: View {
 
     private func row(_ l: SalesReport.Line) -> some View {
         let product = store.products[l.identity.productId]
-        return CardLink(productId: l.identity.productId, identity: l.identity) {
+        return HStack(spacing: 2) {
+        CardLink(productId: l.identity.productId, identity: l.identity) {
             HStack(spacing: 12) {
                 ProductImage(product: product, cornerRadius: 4)
                     .frame(width: 40, height: 56)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(product?.name ?? "Unknown item").font(.geist(14, .semibold)).foregroundStyle(.white).lineLimit(1)
+                    Text(product.map(ActionsSheet.shortName) ?? "Unknown item").font(.geist(14, .semibold)).foregroundStyle(.white).lineLimit(1)
                     Text(detail(l)).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
                 }
                 Spacer(minLength: 8)
@@ -133,6 +167,9 @@ struct SalesView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        // Edit or delete the sale (the same ⋯ as other lists of cards).
+        RowMoreButton(label: product?.name) { acting = SaleRef(id: l.saleId, productId: l.identity.productId) }
+        }
     }
 
     private func detail(_ l: SalesReport.Line) -> String {
@@ -171,3 +208,6 @@ struct SalesFile: Transferable {
         }
     }
 }
+
+/// A sale, for its ⋯ sheet.
+private struct SaleRef: Identifiable { var id: String; var productId: String }
