@@ -178,6 +178,13 @@ struct DealView: View {
                             Router.shared.tabRequest = "home"
                         } label: { Image(systemName: "xmark") }
                         .accessibilityLabel("Leave the deal for now")
+                    } else if deals.deal.kind == .empty, !pathRaw.isEmpty {
+                        // A path picked but nothing added yet: back to "What's the deal?".
+                        Button {
+                            Haptics.tap()
+                            withAnimation(.snappy) { pathRaw = "" }
+                        } label: { Image(systemName: "chevron.left") }
+                        .accessibilityLabel("Back to the kinds of deal")
                     } else {
                         Button { path.append(DealRoute.history) } label: { Image(systemName: "clock.arrow.circlepath") }.accessibilityLabel("Closed deals")
                     }
