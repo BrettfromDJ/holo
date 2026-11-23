@@ -366,7 +366,7 @@ struct MasterSetDetailView: View {
     // MARK: Search, sort, filter
 
     private func controls(_ entries: [Entry]) -> some View {
-        let ownedCount = entries.filter(\.owned).count
+        // No All / Owned / Missing chips (the owner's call: noise); sort has Owned / Missing first.
         return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
                 SettledSearchField(prompt: "Search this set", settled: $settledQuery, delay: 0.3)
@@ -379,11 +379,6 @@ struct MasterSetDetailView: View {
                 }
                 .menuStyle(.button)
                 .buttonStyle(IconButton3D(size: 46))
-            }
-            HStack(spacing: 8) {
-                Chip(title: "All", selected: show == .all, count: entries.count) { show = .all }
-                Chip(title: "Owned", selected: show == .owned, count: ownedCount) { show = .owned }
-                Chip(title: "Missing", selected: show == .missing, count: entries.count - ownedCount) { show = .missing }
             }
             if sort != .number {
                 Text("Sorted by \(sort.rawValue.lowercased())").font(.geist(13)).foregroundStyle(Theme.muted)
