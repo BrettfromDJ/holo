@@ -403,17 +403,11 @@ struct ListDetailView: View {
         let marketTotal = totals.market
         let askTotal = totals.asking
         let cards = totals.cards
-        return ScrollView {
+        return Group { if items.isEmpty { emptyPage } else { ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 VStack(alignment: .leading, spacing: 8) {
-                    HStack(alignment: .center) {
-                        DisplayText(text: list.name, size: 34)
-                        // An empty list keeps only its ⋯ (rename, delete), beside the name.
-                        if items.isEmpty { Spacer(minLength: 8); moreMenu }
-                    }
-                    if items.isEmpty {
-                        Text("Empty").font(.geist(14)).foregroundStyle(Theme.muted)
-                    } else if meta.isForSale {
+                    DisplayText(text: list.name, size: 34)
+                    if meta.isForSale {
                         Text(Format.money(askTotal)).font(.display(44)).tracking(-1.2).monospacedDigit().foregroundStyle(Theme.lime)
                             .lineLimit(1).minimumScaleFactor(0.6)
                         Text("Asking for \(cards) card\(cards == 1 ? "" : "s") · \(Format.money(marketTotal)) at market")
@@ -426,30 +420,7 @@ struct ListDetailView: View {
                 if !items.isEmpty { actions }
                 if let error { Text(error).font(.geist(13)).foregroundStyle(Theme.down) }
                 if !items.isEmpty { saleCard(meta) }
-                if items.isEmpty {
-                    // Nothing to share or price yet: one centred invitation to add cards.
-                    VStack(spacing: 14) {
-                        ListPlaceholderFan(well: Color(red: 0.07, green: 0.07, blue: 0.08), cardWidth: 60)
-                            .frame(maxWidth: .infinity).frame(height: 140)
-                            .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color(red: 0.07, green: 0.07, blue: 0.08)))
-                            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color.white.opacity(0.06)))
-                            .onTapGesture { Haptics.tap(); adding = true }
-                            .padding(.bottom, 8)
-                        Text("Nothing on this list yet").font(.display(24)).tracking(-0.6).foregroundStyle(.white)
-                        Text("Add cards from your collection or anywhere in the catalog. You don't have to own\u{00A0}them.")
-                            .font(.geist(15)).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
-                            .frame(maxWidth: 300)
-                        Button { Haptics.tap(); adding = true } label: {
-                            Label("Add cards", systemImage: "plus").font(.geist(16, .semibold)).foregroundStyle(Theme.ink)
-                                .padding(.horizontal, 26).frame(height: 50)
-                                .background(Capsule().fill(Theme.lime))
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.top, 8)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 24)
-                } else {
+                if !items.isEmpty {
                     VStack(spacing: 0) {
                         ForEach(Array(items.enumerated()), id: \.offset) { i, item in
                             if i > 0 { Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1) }
@@ -462,11 +433,14 @@ struct ListDetailView: View {
             .padding(.horizontal, 16)
             .padding(.top, 8)
             .padding(.bottom, 120)
-        }
+        } } }
         .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)
-        // The list's own name is the big heading below; the bar just has the back button.
-        .pageTitle("")
+        // The list's own name is the big heading below (an empty list: in the bar, with its ⋯).
+        .pageTitle(items.isEmpty ? list.name : "")
+        .toolbar {
+            if items.isEmpty { ToolbarItem(placement: .topBarTrailing) { moreMenuSmall } }
+        }
         .task { await groups.loadExtras(list.product_ids, known: store.products) }
         .sheet(isPresented: $adding) { ListAddSheet(listId: listId) }
         .sheet(isPresented: $sharing) { ListShareSheet(listId: listId, name: list.name, forSale: meta.isForSale) }
@@ -507,6 +481,44 @@ struct ListDetailView: View {
             cards += n
         }
         return (market, asking, Int(cards))
+    }
+
+    /// An empty list: the same centred look as an empty Watchlist or Wishlist (an icon in a glass
+    /// circle, a heading, one line), with a lime Add cards button.
+    private var emptyPage: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "square.stack")
+                .font(.system(size: 26, weight: .medium)).foregroundStyle(.white)
+                .frame(width: 72, height: 72)
+                .liquidGlass(in: Circle())
+                .padding(.bottom, 6)
+            Text("Nothing on this list yet").font(.display(24)).tracking(-0.6).foregroundStyle(.white)
+            Text("Add cards from your collection or anywhere in the catalog. You don't have to own\u{00A0}them.")
+                .font(.geist(15)).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
+                .frame(maxWidth: 300)
+            Button { Haptics.tap(); adding = true } label: {
+                Label("Add cards", systemImage: "plus").font(.geist(15, .semibold)).foregroundStyle(Theme.ink)
+                    .padding(.horizontal, 22).frame(height: 44)
+                    .background(Capsule().fill(Theme.lime))
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 10)
+        }
+        .padding(.horizontal, 32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // A little above the middle, which reads as centred with the tab bar below.
+        .padding(.bottom, 80)
+    }
+
+    /// The ⋯ in the top bar of an empty list (rename, delete).
+    private var moreMenuSmall: some View {
+        Menu {
+            Button { renaming = true } label: { Label("Rename", systemImage: "pencil") }
+            Button(role: .destructive) { deleting = true } label: { Label("Delete list", systemImage: "trash") }
+        } label: {
+            Image(systemName: "ellipsis")
+        }
+        .accessibilityLabel("More")
     }
 
     private var moreMenu: some View {
