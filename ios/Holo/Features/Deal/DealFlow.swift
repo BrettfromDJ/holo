@@ -389,7 +389,8 @@ struct DealEditorPage: View {
             }
             .padding(.top, 6)
         }
-        .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 10)
+        // Close above the tab bar: the page's room for the tab bar is generous, so the bar eats into it.
+        .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, -16)
         .background(alignment: .top) {
             Theme.background.ignoresSafeArea(edges: .bottom)
                 .overlay(alignment: .top) { Rectangle().fill(Theme.border).frame(height: 1) }
