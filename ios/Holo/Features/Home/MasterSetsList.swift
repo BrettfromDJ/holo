@@ -162,25 +162,9 @@ struct MasterSetsView: View {
 
     // MARK: Top
 
-    /// The title with the brand beside it, and one quiet line of totals (the summary card and
-    /// stat tiles were removed: straight to the sets).
+    /// The games as big titles (no totals line: fewer layers above the sets).
     private func header(_ owned: [MasterSetDetailView.OwnedSet], rows all: [Row]) -> some View {
-        let cards = owned.reduce(0) { $0 + Set($1.holdings.map(\.identity.productId)).count }
-        let worth = owned.reduce(0) { $0 + $1.holdings.reduce(0) { $0 + ($1.value ?? 0) } }
-        return VStack(alignment: .leading, spacing: 6) {
-            // Each game as a big title, like Summary | Cards: the one shown white, the rest faded,
-            // scrolling sideways with the right edge fading. Short names (Magic, One Piece).
-            gameTitles.padding(.top, 4)
-            Group {
-                if owned.isEmpty {
-                    Text("No \(brandName) sets started yet")
-                } else {
-                    Text("\(owned.count) \(owned.count == 1 ? "set" : "sets") started · \(cards) \(cards == 1 ? "card" : "cards") · \(Format.money(worth))")
-                        .monospacedDigit()
-                }
-            }
-            .font(.geist(14)).foregroundStyle(Theme.muted).lineLimit(1).minimumScaleFactor(0.8)
-        }
+        gameTitles.padding(.top, 4)
     }
 
     private var controls: some View {
@@ -199,6 +183,8 @@ struct MasterSetsView: View {
                 ChipPicker(options: Scope.allCases.map { ($0, $0.rawValue) }, selection: $scope)
                     .fixedSize()
                 Spacer(minLength: 0)
+                // Nothing to sort on an empty page.
+                if !(scope == .mine && owned.isEmpty) {
                 Menu {
                     Picker("Sort", selection: $sort) {
                         ForEach(Sort.allCases, id: \.self) { Text($0.rawValue).tag($0) }
@@ -212,6 +198,7 @@ struct MasterSetsView: View {
                 .buttonStyle(.plain)
                 .background { Color.clear.liquidGlass(in: Circle()).allowsHitTesting(false) }
                 .accessibilityLabel("Sort")
+                }
             }
         }
     }
@@ -221,6 +208,15 @@ struct MasterSetsView: View {
     /// "Magic: The Gathering" → "Magic", "Disney Lorcana" → "Lorcana", "One Piece Card Game" →
     /// "One Piece".
     static func shortName(_ name: String) -> String {
+        // The catalog's names aren't consistent ("YuGiOh", "Pokemon Japan"): the usual ones by hand.
+        let key = name.lowercased().filter { $0.isLetter }
+        let known: [String: String] = [
+            "pokemon": "Pokémon", "pokémon": "Pokémon", "pokemonjapan": "Pokémon Japan", "pokémonjapan": "Pokémon Japan",
+            "yugioh": "Yu-Gi-Oh!", "magicthegathering": "Magic", "onepiececardgame": "One Piece", "onepiece": "One Piece",
+            "disneylorcana": "Lorcana", "lorcana": "Lorcana", "dragonballsuperfusionworld": "Dragon Ball", "fleshandblood": "Flesh and Blood",
+            "digimoncardgame": "Digimon", "starwarsunlimited": "Star Wars", "weissschwarz": "Weiss Schwarz",
+        ]
+        if let k = known[key] { return k }
         var n = name
         for cut in [": The Gathering", " Trading Card Game", " Card Game", " TCG", " CCG"] {
             if let r = n.range(of: cut, options: [.caseInsensitive, .backwards]) { n.removeSubrange(r) }
@@ -251,7 +247,8 @@ struct MasterSetsView: View {
             }
             .fadeTrailingEdge()
             .sensoryFeedback(.selection, trigger: brand)
-            .onAppear { proxy.scrollTo(brand, anchor: .leading) }
+            // The game you're on is always in view (the list of games arrives after the page).
+            .task(id: brands.map(\.slug).joined()) { proxy.scrollTo(brand, anchor: .leading) }
             .onChange(of: brand) { _, b in withAnimation(.snappy) { proxy.scrollTo(b, anchor: .center) } }
         }
     }
