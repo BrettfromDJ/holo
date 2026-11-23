@@ -365,7 +365,8 @@ struct CostsSheet: View {
                 shipping = String(format: "%.2f", grading.costs.shipping)
             }
         }
-        .presentationDetents([.medium])
+        // Fits its two fields and note (half the screen left a big empty space under them).
+        .presentationDetents([.height(290)])
     }
 }
 
