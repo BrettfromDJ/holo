@@ -363,6 +363,7 @@ struct CollectionView: View {
             }
             .buttonStyle(.plain)
         }
+        .glassGroup(spacing: 0)
     }
 
     /// The page's sheets and alerts (held tiles and list chips, lists, the Pro page, naming).

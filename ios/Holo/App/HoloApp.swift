@@ -497,6 +497,8 @@ struct LaunchCover: View {
     var body: some View {
         ZStack {
             Color("LaunchBackground")
+            // Prepares the glass and the keyboard while the logo shows (see LaunchWarmUp).
+            LaunchWarmUp()
             Image("LaunchLogo").resizable().interpolation(.high).frame(width: 150, height: 150)
             Capsule().fill(Color.white.opacity(0.12))
                 .frame(width: 120, height: 3)

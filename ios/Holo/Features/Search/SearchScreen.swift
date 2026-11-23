@@ -271,7 +271,9 @@ struct SearchScreen: View {
                 // keyboard down (the task runs again each time the page reappears).
                 guard !autoFocused else { return }
                 autoFocused = true
-                try? await Task.sleep(nanoseconds: 80_000_000)
+                // After the page has slid in: the page answers the tap at once, and the keyboard
+                // rises as it settles (asking for it mid-slide made the whole opening wait on it).
+                try? await Task.sleep(nanoseconds: 320_000_000)
                 focused = true
             }
             .sheet(item: $adding) { hit in AddPurchaseSheet(hit: hit, onDone: { if mode == .add { dismiss() } }) }

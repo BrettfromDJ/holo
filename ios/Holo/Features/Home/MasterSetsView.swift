@@ -583,7 +583,12 @@ struct SettledSearchField: View {
 
     var body: some View {
         HoloSearchField(text: $text, prompt: prompt, focus: $focused)
-            .onAppear { if autoFocus { text = settled; focused = true } }
+            .onAppear {
+                guard autoFocus else { return }
+                text = settled
+                // The field fades in first; the keyboard follows a beat later.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { focused = true }
+            }
             .task(id: text) {
                 if !text.isEmpty, delay > 0 { try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000)) }
                 guard !Task.isCancelled, settled != text else { return }

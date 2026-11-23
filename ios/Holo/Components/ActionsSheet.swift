@@ -172,6 +172,7 @@ struct ActionsSheet: View {
                 .disabled(action.disabled)
             }
         }
+        .glassGroup(spacing: 0)
     }
 
     /// A section as one glass panel, its rows split by hairlines (an outlined row stands alone).

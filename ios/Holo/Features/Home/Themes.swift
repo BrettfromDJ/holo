@@ -282,7 +282,7 @@ struct Poster: View {
                     .font(.geist(13, .semibold)).monospacedDigit().lineLimit(1)
                     .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
                         .padding(.horizontal, 9).padding(.vertical, 5)
-                        .liquidGlass(in: Capsule(), tint: .black.opacity(0.25))
+                        .pillOnArt(in: Capsule())
                         .padding(8)
                 }
             }

@@ -718,6 +718,8 @@ struct ChipPicker<T: Hashable>: View {
                 Chip(title: label, selected: selection == value, fills: fills) { selection = value }
             }
         }
+        // One glass layer for the row (spacing 0: the chips stay separate, they don't melt together).
+        .glassGroup(spacing: 0)
     }
 }
 
@@ -1188,6 +1190,28 @@ extension View {
         #endif
     }
 
+    /// A price tag on a card in a long scrolling row: looks like the glass pill (dark see-through
+    /// fill, light top edge) but is painted, not live glass, so rows of dozens of cards stay cheap
+    /// to scroll.
+    func pillOnArt<S: InsettableShape>(in shape: S) -> some View {
+        background(shape.fill(Color.black.opacity(0.52)))
+            .overlay(shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.28), .white.opacity(0.06)], startPoint: .top, endPoint: .bottom), lineWidth: 1))
+    }
+
+    /// Glass pieces that sit close together (a row of buttons, the tab bar) share one glass layer
+    /// on iOS 26 instead of each drawing its own: cheaper, and they blend where they meet.
+    @ViewBuilder func glassGroup(spacing: CGFloat = 12) -> some View {
+        #if compiler(>=6.2)
+        if #available(iOS 26, *) {
+            GlassEffectContainer(spacing: spacing) { self }
+        } else {
+            self
+        }
+        #else
+        self
+        #endif
+    }
+
     /// Liquid Glass for chip tracks and pills, except on a glass sheet, where they take the
     /// sheet's faint white fill instead (like dark buttons there): glass on glass makes iOS blur
     /// twice over, which made taps in sheets feel slow.
@@ -1565,6 +1589,44 @@ extension View {
             foregroundStyle(Theme.down)
                 .background(shape.fill(Theme.down.opacity(0.14)))
                 .overlay(shape.strokeBorder(Theme.down.opacity(0.3), lineWidth: 1))
+        }
+    }
+}
+
+
+/// Makes the first glass and the first keyboard as quick as every later one: at launch, behind
+/// the logo screen, it draws each kind of glass once (invisibly) so iOS prepares its graphics,
+/// and opens and closes a hidden text field so the keyboard is started before you first search.
+struct LaunchWarmUp: View {
+    var body: some View {
+        HStack(spacing: 4) {
+            Color.clear.frame(width: 40, height: 20).liquidGlass(in: Capsule())
+            Color.clear.frame(width: 20, height: 20).liquidGlass(in: Circle(), interactive: true)
+            Color.clear.frame(width: 40, height: 20).liquidGlass(in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+            Color.clear.frame(width: 20, height: 20).blurredGlass(in: Capsule())
+        }
+        .opacity(0.02)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+        .onAppear { KeyboardWarmUp.run() }
+    }
+}
+
+enum KeyboardWarmUp {
+    private static var done = false
+
+    /// Opens and closes a text field off screen in one go: the keyboard loads without showing.
+    @MainActor static func run() {
+        guard !done else { return }
+        done = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            guard let window = UIApplication.shared.connectedScenes.compactMap({ ($0 as? UIWindowScene)?.keyWindow }).first else { return }
+            let field = UITextField(frame: CGRect(x: -100, y: -100, width: 10, height: 10))
+            field.autocorrectionType = .no
+            window.addSubview(field)
+            field.becomeFirstResponder()
+            field.resignFirstResponder()
+            field.removeFromSuperview()
         }
     }
 }
