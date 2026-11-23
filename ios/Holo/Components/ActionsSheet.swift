@@ -102,7 +102,8 @@ struct ActionsSheet: View {
 
     /// The first section shows as tiles when it's 2–4 plain actions (no lines under, no pages).
     static func isTiles(_ section: [SheetAction]) -> Bool {
-        (2...4).contains(section.count) && section.allSatisfy { $0.icon != nil && $0.subtitle == nil && $0.children == nil && $0.share == nil && !$0.checked && !$0.outlined }
+        // A tile may open a second page (Add to list); tapping it steps in like a row does.
+        (2...4).contains(section.count) && section.allSatisfy { $0.icon != nil && $0.subtitle == nil && $0.share == nil && !$0.checked && !$0.outlined }
     }
 
     /// Room for the header and every row, up to most of the screen (it scrolls past that).

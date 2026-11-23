@@ -1508,14 +1508,20 @@ struct QuickActionsSheet: View {
                     Router.shared.addOnOpen = true
                     Router.shared.product = id
                 },
-                SheetAction(title: wish == nil ? "Add to wishlist" : "On wishlist", icon: wish == nil ? "heart" : "heart.fill") {
-                    Task { if let wish { try? await store.removeWish(wish.id) } else { try? await store.addWish(p, printing: p.printings?.first, price: store.marketPrice(id, printing: p.printings?.first)?.market) } }
-                },
                 SheetAction(title: watch == nil ? "Watch price" : "Watching price", icon: watch == nil ? "eye" : "eye.fill") {
                     Task { if let watch { try? await store.removeWatch(watch.id) } else { try? await store.addWatch(p, printing: p.printings?.first, target: nil) } }
                 },
+                // Lists in the row too (it opens the lists page); the wishlist sits below as a
+                // plain row, so on the Wishlist itself it reads Remove from wishlist.
+                SheetAction(title: "Add to list", icon: "square.stack", children: [lists]),
             ],
-            [SheetAction(title: "Add to list", icon: "square.stack", children: [lists])],
+            [wish == nil
+                ? SheetAction(title: "Add to wishlist", icon: "heart") {
+                    Task { try? await store.addWish(p, printing: p.printings?.first, price: store.marketPrice(id, printing: p.printings?.first)?.market) }
+                }
+                : SheetAction(title: "Remove from wishlist", icon: "heart.slash", destructive: true) {
+                    Task { if let wish { try? await store.removeWish(wish.id) } }
+                }],
         ]
     }
 }
