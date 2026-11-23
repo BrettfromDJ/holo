@@ -15,6 +15,9 @@ struct CollectionFilterSheet: View {
 
     private var filtersOn: Bool { setFilter != nil || typeFilter != nil || perf != .all || sort != .value }
 
+    /// The options' height, measured, so the sheet fits them exactly.
+    @State private var contentHeight: CGFloat = 420
+
     var body: some View {
         VStack(spacing: 0) {
             HStack {
@@ -45,8 +48,10 @@ struct CollectionFilterSheet: View {
                     // (The set search and set list were removed: the owner's call.)
                 }
                 .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 24)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight = $0 }
             }
             .scrollDismissesKeyboard(.immediately)
+            .scrollBounceBehavior(.basedOnSize)
 
             // Always in reach.
             HStack(spacing: 10) {
@@ -69,7 +74,9 @@ struct CollectionFilterSheet: View {
             }
             .padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 10)
         }
-        .presentationDetents([.medium, .large])
+        // One height, just what it holds (nothing more to drag up to): the header, the options
+        // and the buttons; it scrolls only if there are too many types to fit.
+        .presentationDetents([.height(min(64 + contentHeight + 74, 720))])
         .presentationDragIndicator(.visible)
         .glassSheet()
     }
