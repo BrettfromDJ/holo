@@ -65,9 +65,10 @@ struct ExploreView: View {
             VStack(alignment: .leading, spacing: 40) {
                 // Categories first, then the next release, what's coming and what's just out.
                 VStack(alignment: .leading, spacing: 14) {
-                    PageHeader(title: "Categories", subtitle: "Every game in the catalog", size: 22)
+                    PageHeader(title: "Games", subtitle: nil, size: 22)
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                        ForEach(Array(index.games.enumerated()), id: \.element.id) { i, g in
+                        // The owner's order (as on Master Sets): Pokémon, One Piece, Lorcana, Magic, the rest, Pokémon Japan last.
+                        ForEach(Array(ExploreGame.ordered(index.games).enumerated()), id: \.element.id) { i, g in
                             NavigationLink(value: g) { BrandCard(game: g, tint: BrandCard.tints[i % BrandCard.tints.count]) }
                                 .buttonStyle(.plain)
                         }
@@ -77,8 +78,8 @@ struct ExploreView: View {
                 CatalogHero(index: index, next: upcoming.first)
                 if upcoming.count > 1 {
                     VStack(alignment: .leading, spacing: 14) {
-                        HStack(alignment: .lastTextBaseline) {
-                            PageHeader(title: "Coming soon", subtitle: "New sets on the way", size: 22)
+                        HStack(alignment: .firstTextBaseline) {
+                            PageHeader(title: "Coming soon", subtitle: nil, size: 22)
                             Spacer()
                             NavigationLink(value: ExploreRoute.calendar) {
                                 HStack(spacing: 4) { Text("Calendar"); Image(systemName: "arrow.right").font(.system(size: 12, weight: .semibold)) }
@@ -92,7 +93,7 @@ struct ExploreView: View {
                 }
                 if !recent.isEmpty {
                     VStack(alignment: .leading, spacing: 14) {
-                        PageHeader(title: "Just released", subtitle: "The newest sets in the catalog", size: 22).padding(.horizontal, 16)
+                        PageHeader(title: "Just released", subtitle: nil, size: 22).padding(.horizontal, 16)
                         SetCarousel(sets: Array(recent.prefix(12)), upcoming: false)
                     }
                     .reveal()
@@ -167,7 +168,7 @@ struct ReleaseRow: View {
             .frame(width: 40, height: 40)
             VStack(alignment: .leading, spacing: 2) {
                 Text(set.name).font(.subheadline.weight(.medium)).lineLimit(1)
-                Text([set.gameName, set.release?.formatted(date: .abbreviated, time: .omitted)].compactMap { $0 }.joined(separator: " · "))
+                Text([set.shortGame, set.release?.formatted(date: .abbreviated, time: .omitted)].compactMap { $0 }.joined(separator: " · "))
                     .font(.caption).foregroundStyle(Theme.muted)
             }
             Spacer()
@@ -351,7 +352,7 @@ struct SetView: View {
         .replaysAnimations()
         .tabBarClearance()
         .navigationBarTitleDisplayMode(.inline)
-        .pageTitle(info.gameName)
+        .pageTitle(MasterSetsView.shortName(info.gameName))
         .task { await load() }
     }
 
@@ -1034,7 +1035,7 @@ private struct CalendarRow: View {
                     SkewTag(text: days <= 0 ? "Out today" : "In \(days) day\(days == 1 ? "" : "s")",
                             color: days <= 7 ? Theme.lime : Theme.planBlue, textColor: days <= 7 ? Theme.ink : .white)
                 } else {
-                    Text(set.gameName).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
+                    Text(set.shortGame).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
                 }
             }
             Spacer(minLength: 0)
@@ -1353,7 +1354,7 @@ private struct NextRelease: View {
                     SkewTag(text: "Next release", icon: "sparkles")
                     DisplayText(text: set.name, size: 24)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    Text([set.gameName, set.release?.formatted(date: .abbreviated, time: .omitted)].compactMap { $0 }.joined(separator: " · "))
+                    Text([set.shortGame, set.release?.formatted(date: .abbreviated, time: .omitted)].compactMap { $0 }.joined(separator: " · "))
                         .font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
                     Button {
                         busy = true
@@ -1610,7 +1611,7 @@ struct SetTile: View {
 
     private var subtitle: String {
         let date = set.release?.formatted(.dateTime.month(.abbreviated).day().year())
-        if showGame { return [set.gameName, date].compactMap { $0 }.joined(separator: " · ") }
+        if showGame { return [set.shortGame, date].compactMap { $0 }.joined(separator: " · ") }
         let count = set.loaded ? set.productCount.flatMap { $0 > 0 ? "\($0) product\($0 == 1 ? "" : "s")" : nil } : nil
         return [date ?? "Undated", count].compactMap { $0 }.joined(separator: " · ")
     }
@@ -1663,21 +1664,42 @@ private struct BrandCard: View {
             } placeholder: {
                 Text(game.name.prefix(1).uppercased()).font(.display(26)).tracking(-0.7).foregroundStyle(tint)
             }
-            .frame(height: 44)
+            .frame(height: 40)
             .frame(maxWidth: .infinity)
             VStack(alignment: .center, spacing: 3) {
-                Text(game.name).font(.geist(15, .semibold)).lineLimit(1).minimumScaleFactor(0.85).foregroundStyle(.white)
-                Text("\(game.sets) sets" + (game.cardCount.map { " · \($0.formatted()) cards" } ?? ""))
+                Text(MasterSetsView.shortName(game.name)).font(.geist(15, .semibold)).lineLimit(1).minimumScaleFactor(0.85).foregroundStyle(.white)
+                Text("\(game.sets) sets" + (game.cardCount.map { " · \($0.formatted(.number.notation(.compactName))) cards" } ?? ""))
                     .font(.geist(12)).foregroundStyle(Theme.muted).monospacedDigit().lineLimit(1).minimumScaleFactor(0.8)
             }
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, minHeight: 124, alignment: .center)
+        .padding(12)
+        .frame(maxWidth: .infinity, minHeight: 112, alignment: .center)
         .tinted(tint)
     }
 }
 
+extension ExploreSet {
+    /// The game's short name ("Magic", "Yu-Gi-Oh!", "One Piece"), as on Master Sets.
+    var shortGame: String { MasterSetsView.shortName(gameName) }
+}
+
 extension ExploreGame {
+    /// Games in the owner's order: Pokémon, One Piece, Lorcana, Magic, then the rest by how many
+    /// sets, Pokémon Japan last (the same order as Master Sets' titles).
+    static func ordered(_ games: [ExploreGame]) -> [ExploreGame] {
+        func rank(_ g: ExploreGame) -> Int {
+            switch MasterSetsView.shortName(g.name) {
+            case "Pokémon": return 0
+            case "One Piece": return 1
+            case "Lorcana": return 2
+            case "Magic": return 3
+            case "Pokémon Japan": return 5
+            default: return 4
+            }
+        }
+        return games.sorted { rank($0) != rank($1) ? rank($0) < rank($1) : $0.sets > $1.sets }
+    }
+
     /// Logos drawn in black (One Piece), which vanish on the dark theme: shown white instead,
     /// as on the website (`logoTone`).
     var drawnInBlack: Bool {
