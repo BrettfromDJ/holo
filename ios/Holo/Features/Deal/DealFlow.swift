@@ -625,3 +625,99 @@ struct StepField: View {
         .accessibilityLabel(by > 0 ? "Up \(Int(step))" : "Down \(Int(step))")
     }
 }
+
+// MARK: - Finalize
+
+/// Before recording: the market value and the cards' agreed total, then the final amount you
+/// settle on (type it, or tap a rounded one), what that changes and, on a buy or sale, the rate it
+/// works out to. Complete deal sets it as the agreed cash and opens the close.
+struct DealFinalizeSheet: View {
+    /// The cards' total at their prices (no agreed cash).
+    var original: Double
+    /// The amount agreed so far (the original when none).
+    var current: Double
+    var market: Double
+    /// A buy or sale (the final amount is a share of market); a trade's is the cash difference.
+    var showsRate: Bool
+    var label: String
+    var onComplete: (Double?) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var text = ""
+    @State private var height: CGFloat = 520
+
+    private var final: Double { MoneyField.value(text) ?? original }
+    /// Rounded amounts around the total: the $5 below, the $5 above and the $5 after that.
+    private var options: [Double] {
+        let down = (original / 5).rounded(.down) * 5
+        let up = (original / 5).rounded(.up) * 5
+        return Array(Set([down, up == down ? up + 5 : up, (up == down ? up + 5 : up) + 5])).filter { $0 > 0 }.sorted()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            SheetHeader(title: "Finalize deal") { dismiss() }
+            SheetPanel {
+                row("Market value", Format.money(market))
+                SheetDivider()
+                row(showsRate ? "Agreed card total" : "Cash at your prices", Format.money(original))
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                MonoLabel(text: label)
+                HStack(spacing: 4) {
+                    Text("$").foregroundStyle(Theme.muted)
+                    TextField(String(format: "%.2f", original), text: $text).keyboardType(.decimalPad)
+                    Image(systemName: "pencil").font(.system(size: 15, weight: .medium)).foregroundStyle(Theme.muted)
+                }
+                .font(.display(28)).monospacedDigit()
+                .padding(.horizontal, 16).frame(height: 60)
+                .sheetPanel(radius: 16)
+                HStack(spacing: 8) {
+                    ForEach(options, id: \.self) { o in
+                        let on = abs(final - o) < 0.005
+                        Button {
+                            Haptics.tap()
+                            text = String(format: "%.0f", o)
+                        } label: {
+                            Text(Format.moneyWhole(o)).font(.geist(15, .semibold)).monospacedDigit()
+                                .foregroundStyle(on ? Theme.ink : .white)
+                                .frame(maxWidth: .infinity).frame(height: 42)
+                                .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(on ? Color.white : Color.white.opacity(0.07)))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            SheetPanel {
+                row("Price adjustment", Format.signedMoney(final - original), muted: abs(final - original) < 0.005)
+                if showsRate, market > 0 {
+                    SheetDivider()
+                    row("Effective market rate", String(format: "%.2f%%", final / market * 100))
+                }
+            }
+            if abs(final - original) > 0.004 {
+                Button { text = "" } label: {
+                    Text("Reset to original total").font(.geist(14, .medium)).foregroundStyle(Theme.muted).frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.plain)
+            }
+            SheetLimeButton(title: "Complete deal · \(Format.money(final))") {
+                onComplete(abs(final - original) < 0.005 ? nil : final)
+                dismiss()
+            }
+        }
+        .padding(.horizontal, 20).padding(.top, 24).padding(.bottom, 8)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 }
+        .onAppear { if abs(current - original) > 0.004 { text = String(format: "%.2f", current) } }
+        .presentationDetents([.height(height)])
+        .glassSheet()
+    }
+
+    private func row(_ label: String, _ value: String, muted: Bool = false) -> some View {
+        HStack {
+            Text(label).font(.geist(15)).foregroundStyle(Theme.muted)
+            Spacer()
+            Text(value).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(muted ? Theme.muted : .white)
+        }
+        .frame(minHeight: 46)
+    }
+}

@@ -51,6 +51,8 @@ struct DealView: View {
     @State private var nameText = ""
     @AppStorage("deal-name") private var dealName = ""
     @State private var rateSide: DealSide?
+    /// Finalize deal: the final amount (rounded or typed) before recording.
+    @State private var finalizing = false
 
     /// The path in use: the one picked, else what the deal's items say it is.
     private var dealPath: DealKind? {
@@ -113,7 +115,7 @@ struct DealView: View {
                                    onEditCard: { pricingItem = $0 },
                                    onCustomRate: { rateSide = $0 },
                                    onRename: { nameText = dealName; renaming = true },
-                                   onReview: { Haptics.tap(); confirming = true },
+                                   onReview: { Haptics.tap(); finalizing = true },
                                    onPark: { parkNow() })
                         .toolbar {
                             ToolbarItem(placement: .topBarLeading) {
@@ -174,6 +176,29 @@ struct DealView: View {
                 TextField("Untitled deal", text: $nameText)
                 Button("Cancel", role: .cancel) {}
                 Button("Save") { dealName = nameText.trimmingCharacters(in: .whitespaces) }
+            }
+            .sheet(isPresented: $finalizing) {
+                // The total at the cards' own prices (no agreed cash), and as it stands.
+                let plain: DealTotals = {
+                    var d = deals.deal
+                    d.agreedCash = nil
+                    return DealTotals(d, rates: rates, cost: { deals.cost(of: $0, in: store) })
+                }()
+                let now = DealTotals(deals.deal.settled(rates: rates), rates: rates, cost: { deals.cost(of: $0, in: store) })
+                let path = dealPath ?? deals.deal.kind
+                let market = (deals.deal.incoming + deals.deal.outgoing).reduce(0.0) { $0 + ($1.market ?? 0) * Double($1.qty) }
+                DealFinalizeSheet(original: abs(plain.balance), current: abs(now.balance), market: market,
+                                  showsRate: path != .trade,
+                                  label: path == .buy ? "Final price I pay" : path == .sell ? "Final price I receive"
+                                      : (plain.balance >= 0 ? "Final cash I receive" : "Final cash I pay")) { amount in
+                    withAnimation(.snappy) {
+                        if let amount { deals.setAgreedCash(signedAgreedCash(amount, totals: plain)) } else { deals.update { $0.agreedCash = nil } }
+                    }
+                    Task {
+                        try? await Task.sleep(nanoseconds: 400_000_000)
+                        confirming = true
+                    }
+                }
             }
             .sheet(item: $rateSide) { side in
                 let r = side == .incoming ? rates.in : rates.out
