@@ -320,8 +320,8 @@ struct DealView: View {
         .padding(.horizontal, 14).padding(.top, 14).padding(.bottom, 12)
         .liquidGlass(in: RoundedRectangle(cornerRadius: 30, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 30, style: .continuous).strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
-        .padding(.horizontal, 16)
-        .padding(.bottom, 8)
+        // The page already sets the 16pt margins: the bar lines up with the rows above it.
+        .padding(.top, 8)
         .actionsSheet(isPresented: $clearing, title: "Clear this deal?") {
             [[SheetAction(title: "Clear deal", subtitle: "Removes every item and its photos", icon: "trash", destructive: true) {
                 let photos = deals.deal.photos
