@@ -61,7 +61,9 @@ struct ActionsSheet: View {
         }
         .padding(.horizontal, 20)
         .padding(.top, 26)
-        .padding(.bottom, 12)
+        // Nothing under the last row but the phone's own bottom margin (the sheet looked
+        // padded twice).
+        .padding(.bottom, 2)
         .presentationDetents([.height(height(shown))])
         .presentationDragIndicator(.visible)
         .presentationBackground(Theme.sheet)
@@ -110,7 +112,7 @@ struct ActionsSheet: View {
     private func height(_ groups: [[SheetAction]]) -> CGFloat {
         // Exactly what's drawn: top and bottom padding, the heading and its gap, each section
         // and the gaps between them (iOS adds the home-indicator room itself).
-        var h: CGFloat = 26 + 12
+        var h: CGFloat = 26 + 2
         let heading: CGFloat = page != nil ? 32 : product != nil ? 64 : title != nil ? 26 : 0
         if heading > 0 { h += heading + 16 }
         for (i, section) in groups.enumerated() {
@@ -121,7 +123,7 @@ struct ActionsSheet: View {
             }
             if i > 0 { h += 12 }
         }
-        return min(h + 6, 660)
+        return min(h, 660)
     }
 
     // MARK: Sections
@@ -137,8 +139,9 @@ struct ActionsSheet: View {
                     }
                     .foregroundStyle(action.destructive ? Theme.down : .white)
                     .frame(maxWidth: .infinity).frame(height: 76)
-                    .liquidGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), tint: Color.white.opacity(0.02), interactive: true)
-                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.white.opacity(0.07), lineWidth: 1))
+                    // A destructive tile (Stop watching) is tinted pink, like the remove button.
+                    .liquidGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), tint: action.destructive ? Theme.down.opacity(0.14) : Color.white.opacity(0.02), interactive: true)
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(action.destructive ? Theme.down.opacity(0.3) : Color.white.opacity(0.07), lineWidth: 1))
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -149,6 +152,32 @@ struct ActionsSheet: View {
 
     /// A section as one glass panel, its rows split by hairlines (an outlined row stands alone).
     @ViewBuilder private func panel(_ section: [SheetAction]) -> some View {
+        if section.count == 1, let only = section.first, only.destructive, only.children == nil, only.share == nil {
+            destructiveButton(only)
+        } else {
+            rows(section)
+        }
+    }
+
+    /// A destructive action on its own (Remove from wishlist): a pink-tinted button, label centred.
+    private func destructiveButton(_ action: SheetAction) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
+        return Button { tap(action) } label: {
+            HStack(spacing: 8) {
+                if let icon = action.icon { Image(systemName: icon).font(.system(size: 15, weight: .semibold)) }
+                Text(action.title).font(.geist(16, .semibold))
+            }
+            .foregroundStyle(Theme.down)
+            .frame(maxWidth: .infinity).frame(height: 52)
+            .background(shape.fill(Theme.down.opacity(0.14)))
+            .overlay(shape.strokeBorder(Theme.down.opacity(0.3), lineWidth: 1))
+            .contentShape(shape)
+        }
+        .buttonStyle(.plain)
+        .disabled(action.disabled)
+    }
+
+    @ViewBuilder private func rows(_ section: [SheetAction]) -> some View {
         let plain = section.filter { !$0.outlined }
         let outlined = section.filter(\.outlined)
         VStack(spacing: 8) {
