@@ -383,6 +383,10 @@ struct DealCloseSheet: View {
     @State private var error: String?
     /// The totals as recorded (after closing, costs have moved on).
     @State private var recorded: DealTotals?
+    /// The final amount: the cash at the cards' own prices, and what's typed or picked over it.
+    @State private var original: Double = 0
+    @State private var finalText = ""
+    @FocusState private var editingFinal: Bool
 
     enum Phase { case review, recording, done }
 
@@ -392,6 +396,33 @@ struct DealCloseSheet: View {
     }
 
     private var totals: DealTotals { DealTotals(deal, rates: rates, cost: { deals.cost(of: $0, in: store) }) }
+
+    /// The deal at the cards' own prices (no agreed cash).
+    private var plainTotals: DealTotals {
+        var d = deals.deal
+        d.agreedCash = nil
+        return DealTotals(d, rates: deals.rates, cost: { deals.cost(of: $0, in: store) })
+    }
+
+    private var market: Double { (deals.deal.incoming + deals.deal.outgoing).reduce(0.0) { $0 + ($1.market ?? 0) * Double($1.qty) } }
+    private var finalAmount: Double { MoneyField.value(finalText) ?? original }
+    /// Round amounts around the total: the $5 below it, the $5 above, and the $5 after that.
+    private var roundOptions: [Double] {
+        let down = (original / 5).rounded(.down) * 5
+        var up = (original / 5).rounded(.up) * 5
+        if up == down { up += 5 }
+        return [down, up, up + 5].filter { $0 > 0 }
+    }
+
+    /// Set (or clear) the agreed cash and redo the deal's prices to match.
+    private func applyFinal(_ amount: Double?) {
+        if let amount, abs(amount - original) > 0.004 {
+            deals.setAgreedCash(signedAgreedCash(amount, totals: plainTotals))
+        } else {
+            deals.update { $0.agreedCash = nil }
+        }
+        withAnimation(.snappy) { deal = deals.deal.settled(rates: deals.rates) }
+    }
 
     var body: some View { sheetBody.glassSheet() }
 
@@ -410,6 +441,8 @@ struct DealCloseSheet: View {
             // At the agreed cash, when there is one: the same prices the record will keep.
             deal = deals.deal.settled(rates: deals.rates)
             rates = deals.rates
+            original = abs(plainTotals.balance)
+            if deals.deal.agreedCash != nil { finalText = String(format: "%.2f", abs(totals.balance)) }
         }
     }
 
@@ -427,11 +460,56 @@ struct DealCloseSheet: View {
                             DisplayText(text: "Close this \(t.kind.noun.lowercased())?", size: 30)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        // Who pays whom, big enough to turn the phone around.
-                        VStack(alignment: .leading, spacing: 8) {
-                            MonoLabel(text: abs(b) < 0.005 ? "Even trade" : (b > 0 ? deals.role.theyPay : deals.role.youPay))
-                            Text(Format.money(abs(b))).font(.display(56)).tracking(-2.2).monospacedDigit().displayTrim(56)
-                                .lineLimit(1).minimumScaleFactor(0.5)
+                        // The final amount: type it, or tap a round one. It's what gets recorded.
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                MonoLabel(text: abs(b) < 0.005 && original < 0.005 ? "Even trade" : (plainTotals.balance > 0 ? "Final amount I receive" : "Final amount I pay"))
+                                Spacer()
+                                Text("Market \(Format.money(market))").font(.geist(12)).monospacedDigit().foregroundStyle(Theme.muted)
+                            }
+                            HStack(spacing: 4) {
+                                Text("$").foregroundStyle(Theme.muted)
+                                TextField(String(format: "%.2f", original), text: $finalText)
+                                    .keyboardType(.decimalPad).focused($editingFinal)
+                                    .onSubmit { applyFinal(MoneyField.value(finalText)) }
+                                Image(systemName: "pencil").font(.system(size: 16, weight: .medium)).foregroundStyle(Theme.muted)
+                            }
+                            .font(.display(40)).tracking(-1.2).monospacedDigit()
+                            .onChange(of: editingFinal) { _, on in if !on { applyFinal(MoneyField.value(finalText)) } }
+                            HStack(spacing: 8) {
+                                ForEach(roundOptions, id: \.self) { o in
+                                    let on = abs(finalAmount - o) < 0.005
+                                    Button {
+                                        Haptics.tap()
+                                        editingFinal = false
+                                        finalText = String(format: "%.0f", o)
+                                        applyFinal(o)
+                                    } label: {
+                                        Text(Format.moneyWhole(o)).font(.geist(15, .semibold)).monospacedDigit()
+                                            .foregroundStyle(on ? Theme.ink : .white)
+                                            .frame(maxWidth: .infinity).frame(height: 40)
+                                            .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(on ? Color.white : Color.white.opacity(0.08)))
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            VStack(spacing: 6) {
+                                finalLine("At the cards' prices", Format.money(original))
+                                finalLine("Price adjustment", Format.signedMoney(finalAmount - original))
+                                if deal.kind != .trade, market > 0 {
+                                    finalLine("Effective market rate", String(format: "%.2f%%", finalAmount / market * 100))
+                                }
+                            }
+                            .padding(.top, 2)
+                            if abs(finalAmount - original) > 0.004 {
+                                Button {
+                                    finalText = ""
+                                    applyFinal(nil)
+                                } label: {
+                                    Text("Reset to original total").font(.geist(13, .medium)).foregroundStyle(Theme.lime)
+                                }
+                                .buttonStyle(.plain)
+                            }
                         }
                         .padding(18)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -485,10 +563,14 @@ struct DealCloseSheet: View {
             }
             VStack(spacing: 8) {
                 Group {
-                    Button { Task { await close() } } label: {
+                    Button {
+                        // A typed amount counts even if the keyboard is still up.
+                        if editingFinal { editingFinal = false; applyFinal(MoneyField.value(finalText)) }
+                        Task { await close() }
+                    } label: {
                         HStack(spacing: 8) {
                             if phase == .recording { ProgressView().tint(Theme.ink) }
-                            Text(phase == .recording ? "Recording…" : "Close \(t.kind.noun.lowercased())")
+                            Text(phase == .recording ? "Recording…" : "Complete deal · \(Format.money(abs(b)))")
                         }
                     }
                     .buttonStyle(Button3D(kind: .lime))
@@ -501,6 +583,15 @@ struct DealCloseSheet: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 12)
         }
+    }
+
+    private func finalLine(_ label: String, _ value: String) -> some View {
+        HStack {
+            Text(label).foregroundStyle(Theme.muted)
+            Spacer()
+            Text(value).monospacedDigit().foregroundStyle(.white)
+        }
+        .font(.geist(14))
     }
 
     private func sideRow(_ side: DealSide, _ items: [DealItem], _ value: Double) -> some View {
