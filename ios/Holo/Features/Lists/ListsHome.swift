@@ -121,12 +121,14 @@ struct ListPlaceholderFan: View {
     var body: some View {
         let h = cardWidth * 74 / 54
         ZStack {
-            // Tilted about their centres so the fan sits in the middle; solid in the well's
-            // black so the cards behind don't show through. The middle one is in front.
+            // Tilted about their centres so the fan sits in the middle; soft solid card shapes (no
+            // dotted outlines, the owner's call), each opaque so the ones behind don't show
+            // through. The middle one is in front and a touch lighter.
             ForEach(0..<3, id: \.self) { i in
                 let shape = RoundedRectangle(cornerRadius: cardWidth / 9, style: .continuous)
                 shape.fill(well)
-                    .overlay(shape.strokeBorder(Color.white.opacity(0.22), style: StrokeStyle(lineWidth: 1, dash: [4, 4])))
+                    .overlay(shape.fill(Color.white.opacity(i == 1 ? 0.07 : 0.045)))
+                    .overlay(shape.strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
                     .frame(width: cardWidth, height: h)
                     .rotationEffect(.degrees(Double(i - 1) * 10))
                     .offset(x: Double(i - 1) * cardWidth * 0.52)
