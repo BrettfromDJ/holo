@@ -287,8 +287,6 @@ struct DealEditorPage: View {
                         .buttonStyle(.plain)
                         .overlay(alignment: .top) { if i > 0 { Rectangle().fill(Theme.border).frame(height: 1) } }
                 }
-                Text("Tap a card to change its rate, price or quantity.").font(.geist(12)).foregroundStyle(Theme.subtle)
-                    .padding(.top, 6)
             }
         }
     }
