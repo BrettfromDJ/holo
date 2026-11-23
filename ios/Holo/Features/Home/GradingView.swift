@@ -328,49 +328,45 @@ struct GradingView: View {
     }
 }
 
-/// The fee and shipping assumed when weighing whether to grade.
+/// The fee and shipping assumed when weighing whether to grade. Fits its content: a title with a
+/// round close, the two amounts in one panel, a note, and a lime Save.
 struct CostsSheet: View {
     @Environment(GradingStore.self) private var grading
     @Environment(\.dismiss) private var dismiss
     @State private var fee = ""
     @State private var shipping = ""
+    @State private var height: CGFloat = 330
 
-    var body: some View { sheetBody.glassSheet() }
+    private var valid: Bool { MoneyField.value(fee) != nil && MoneyField.value(shipping) != nil }
 
-    @ViewBuilder private var sheetBody: some View {
-        NavigationStack {
-            GlassForm {
-                Section {
-                    MoneyField(title: "Fee per card", text: $fee)
-                    MoneyField(title: "Shipping per card", text: $shipping)
-                } footer: {
-                    Text("Used to weigh which cards are worth grading, and as the default when you send one in. Shipping both ways, with\u{00A0}insurance.").font(.geist(13)).foregroundStyle(Theme.muted)
-                }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            SheetHeader(title: "Grading costs") { dismiss() }
+            SheetPanel {
+                SheetMoneyRow(title: "Fee per card", text: $fee)
+                SheetDivider()
+                SheetMoneyRow(title: "Shipping per card", text: $shipping)
             }
-            .scrollContentBackground(.hidden)
-            .navigationTitle("Grading costs")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        if let f = MoneyField.value(fee), let s = MoneyField.value(shipping) { grading.setCosts(.init(fee: f, shipping: s)) }
-                        dismiss()
-                    }
-                    .disabled(MoneyField.value(fee) == nil || MoneyField.value(shipping) == nil)
-                }
-            }
-            .onAppear {
-                fee = String(format: "%.2f", grading.costs.fee)
-                shipping = String(format: "%.2f", grading.costs.shipping)
+            Text("Used to weigh which cards are worth grading, and as the default when you send one in. Shipping both ways, with\u{00A0}insurance.")
+                .font(.geist(13)).foregroundStyle(Theme.muted).fixedSize(horizontal: false, vertical: true)
+            SheetLimeButton(title: "Save", enabled: valid) {
+                if let f = MoneyField.value(fee), let s = MoneyField.value(shipping) { grading.setCosts(.init(fee: f, shipping: s)) }
+                dismiss()
             }
         }
-        // Fits its two fields and note (half the screen left a big empty space under them).
-        .presentationDetents([.height(290)])
+        .padding(.horizontal, 20).padding(.top, 24).padding(.bottom, 8)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 }
+        .onAppear {
+            fee = String(format: "%.2f", grading.costs.fee)
+            shipping = String(format: "%.2f", grading.costs.shipping)
+        }
+        .presentationDetents([.height(height)])
+        .glassSheet()
     }
 }
 
-/// Record raw copies as sent off for grading.
+/// Record raw copies as sent off for grading. Fits its content: title and close, the card, the
+/// grader and service as chips, one panel of details, and a lime Mark as sent.
 struct SendSheet: View {
     var holding: HoldingView
     @Environment(GradingStore.self) private var grading
@@ -381,47 +377,138 @@ struct SendSheet: View {
     @State private var fee = ""
     @State private var shipping = ""
     @State private var date = Date()
+    @State private var height: CGFloat = 560
 
     private static let companies = ["PSA", "BGS", "CGC", "SGC", "TAG"]
     private static let services = ["Value", "Regular", "Express", "Super Express"]
+    private var owned: Int { max(1, Int(holding.quantity)) }
 
-    var body: some View { sheetBody.presentationDetents([.fraction(0.93)]).glassSheet() }
-
-    @ViewBuilder private var sheetBody: some View {
-        NavigationStack {
-            GlassForm {
-                Section {
-                    Picker("Grader", selection: $company) { ForEach(Self.companies, id: \.self) { Text($0) } }
-                    Picker("Service", selection: $service) { ForEach(Self.services, id: \.self) { Text($0) } }
-                    Stepper("Quantity: \(quantity) of \(Int(holding.quantity))", value: $quantity, in: 1...max(1, Int(holding.quantity)))
-                    MoneyField(title: "Fee per card", text: $fee)
-                    MoneyField(title: "Shipping per card", text: $shipping)
-                    DatePicker("Sent", selection: $date, in: ...Date(), displayedComponents: .date)
-                } header: {
-                    Text(holding.product?.name ?? "Card")
-                } footer: {
-                    Text("It stays in your collection raw until it comes\u{00A0}back.").font(.geist(13)).foregroundStyle(Theme.muted)
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            SheetHeader(title: "Send for grading") { dismiss() }
+            HStack(spacing: 12) {
+                HoldingArt(product: holding.product, identity: holding.identity, cornerRadius: 4, caption: false).frame(width: 40, height: 56)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(holding.product.map(ActionsSheet.shortName) ?? "Card").font(.geist(15, .semibold)).foregroundStyle(.white).lineLimit(1)
+                    Text("Raw \(Format.moneyWhole(holding.price))").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted)
                 }
             }
-            .scrollContentBackground(.hidden)
-            .navigationTitle("Send for grading")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Mark as sent") {
-                        grading.send(holding, company: company, service: service, quantity: Double(quantity),
-                                     fee: MoneyField.value(fee) ?? grading.costs.fee, shipping: MoneyField.value(shipping) ?? grading.costs.shipping, date: Format.day(date))
-                        UINotificationFeedbackGenerator().notificationOccurred(.success)
-                        dismiss()
+            VStack(alignment: .leading, spacing: 8) {
+                MonoLabel(text: "Grader")
+                ChipPicker(options: Self.companies.map { ($0, $0) }, selection: $company, scrolls: true)
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                MonoLabel(text: "Service")
+                ChipPicker(options: Self.services.map { ($0, $0) }, selection: $service, scrolls: true)
+            }
+            SheetPanel {
+                if owned > 1 {
+                    HStack {
+                        Text("Copies").font(.geist(16)).foregroundStyle(.white)
+                        Spacer()
+                        Text("\(quantity) of \(owned)").font(.geist(16)).monospacedDigit().foregroundStyle(Theme.muted)
+                        Stepper("", value: $quantity, in: 1...owned).labelsHidden().fixedSize()
                     }
+                    .frame(minHeight: 50)
+                    SheetDivider()
                 }
+                SheetMoneyRow(title: "Fee per card", text: $fee)
+                SheetDivider()
+                SheetMoneyRow(title: "Shipping per card", text: $shipping)
+                SheetDivider()
+                HStack {
+                    Text("Sent").font(.geist(16)).foregroundStyle(.white)
+                    Spacer()
+                    DatePicker("", selection: $date, in: ...Date(), displayedComponents: .date).labelsHidden()
+                }
+                .frame(minHeight: 50)
             }
-            .onAppear {
-                fee = String(format: "%.2f", grading.costs.fee)
-                shipping = String(format: "%.2f", grading.costs.shipping)
+            Text("It stays in your collection raw until it comes\u{00A0}back.").font(.geist(13)).foregroundStyle(Theme.muted)
+            SheetLimeButton(title: "Mark as sent") {
+                grading.send(holding, company: company, service: service, quantity: Double(quantity),
+                             fee: MoneyField.value(fee) ?? grading.costs.fee, shipping: MoneyField.value(shipping) ?? grading.costs.shipping, date: Format.day(date))
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                dismiss()
             }
         }
+        .padding(.horizontal, 20).padding(.top, 24).padding(.bottom, 8)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 }
+        .onAppear {
+            fee = String(format: "%.2f", grading.costs.fee)
+            shipping = String(format: "%.2f", grading.costs.shipping)
+        }
+        .presentationDetents([.height(height)])
+        .glassSheet()
+    }
+}
+
+// MARK: Small sheet pieces (one look for sheets that fit their content)
+
+/// A sheet's title on the left and a round close on the right.
+struct SheetHeader: View {
+    var title: String
+    var close: () -> Void
+    var body: some View {
+        HStack {
+            Text(title).font(.geist(17, .semibold)).foregroundStyle(.white)
+            Spacer()
+            Button { Haptics.tap(); close() } label: {
+                Image(systemName: "xmark").font(.system(size: 14, weight: .semibold)).foregroundStyle(.white)
+                    .frame(width: 34, height: 34).background(Circle().fill(Color.white.opacity(0.1)))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Close")
+        }
+    }
+}
+
+/// Rows grouped in one faint panel on a sheet.
+struct SheetPanel<Content: View>: View {
+    @ViewBuilder var content: Content
+    var body: some View {
+        VStack(spacing: 0) { content }
+            .padding(.horizontal, 16)
+            .sheetPanel(radius: 18)
+    }
+}
+
+struct SheetDivider: View {
+    var body: some View { Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1) }
+}
+
+/// A label on the left and a dollar amount typed on the right, one row tall.
+struct SheetMoneyRow: View {
+    var title: String
+    @Binding var text: String
+    var body: some View {
+        HStack {
+            Text(title).font(.geist(16)).foregroundStyle(.white)
+            Spacer()
+            Text("$").font(.geist(16)).foregroundStyle(Theme.muted)
+            TextField("0.00", text: $text)
+                .keyboardType(.decimalPad).multilineTextAlignment(.trailing).monospacedDigit()
+                .font(.geist(16)).foregroundStyle(.white)
+                .fixedSize()
+        }
+        .frame(minHeight: 50)
+        .contentShape(Rectangle())
+    }
+}
+
+/// The full-width lime button that ends a sheet.
+struct SheetLimeButton: View {
+    var title: String
+    var enabled = true
+    var action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            Text(title).font(.geist(16, .semibold)).foregroundStyle(Theme.ink)
+                .frame(maxWidth: .infinity).frame(height: 52)
+                .background(Capsule().fill(Theme.lime))
+                .opacity(enabled ? 1 : 0.4)
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
     }
 }
 
@@ -439,33 +526,34 @@ private struct ReturnSheet: View {
     @State private var saving = false
     @State private var error: String?
 
-    var body: some View { sheetBody.presentationDetents([.fraction(0.93)]).glassSheet() }
+    @State private var height: CGFloat = 420
 
-    @ViewBuilder private var sheetBody: some View {
-        NavigationStack {
-            GlassForm {
-                Section {
-                    Picker("\(submission.company) grade", selection: $grade) {
-                        ForEach(WorthCalc.grades(for: submission.company).reversed(), id: \.self) { Text($0) }
-                    }
-                    DatePicker("Returned", selection: $date, in: ...Date(), displayedComponents: .date)
-                } header: {
-                    Text(store.products[submission.productId]?.name ?? "Card")
-                } footer: {
-                    Text("The raw copies move into a \(submission.company) slab at what they cost you, plus the grading fee and\u{00A0}shipping.").font(.geist(13)).foregroundStyle(Theme.muted)
-                }
-                if let error { Section { Text(error).foregroundStyle(Theme.down) } }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            SheetHeader(title: "It's back") { dismiss() }
+            Text(store.products[submission.productId].map(ActionsSheet.shortName) ?? "Card")
+                .font(.geist(15, .semibold)).foregroundStyle(.white).lineLimit(1)
+            VStack(alignment: .leading, spacing: 8) {
+                MonoLabel(text: "\(submission.company) grade")
+                ChipPicker(options: WorthCalc.grades(for: submission.company).reversed().map { ($0, $0) }, selection: $grade, scrolls: true)
             }
-            .scrollContentBackground(.hidden)
-            .navigationTitle("It's back")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(saving ? "Saving…" : "Save") { Task { await save() } }.disabled(saving)
+            SheetPanel {
+                HStack {
+                    Text("Returned").font(.geist(16)).foregroundStyle(.white)
+                    Spacer()
+                    DatePicker("", selection: $date, in: ...Date(), displayedComponents: .date).labelsHidden()
                 }
+                .frame(minHeight: 50)
             }
+            Text("The raw copies move into a \(submission.company) slab at what they cost you, plus the grading fee and\u{00A0}shipping.")
+                .font(.geist(13)).foregroundStyle(Theme.muted).fixedSize(horizontal: false, vertical: true)
+            if let error { Text(error).font(.geist(13)).foregroundStyle(.white) }
+            SheetLimeButton(title: saving ? "Saving…" : "Save", enabled: !saving) { Task { await save() } }
         }
+        .padding(.horizontal, 20).padding(.top, 24).padding(.bottom, 8)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 }
+        .presentationDetents([.height(height)])
+        .glassSheet()
     }
 
     private func save() async {
