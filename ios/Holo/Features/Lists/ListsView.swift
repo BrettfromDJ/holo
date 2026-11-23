@@ -105,7 +105,7 @@ struct ListsView: View {
                     .background { NavigationLink(value: w.product_id) { EmptyView() }.opacity(0) }
                 }
             }
-            .listRowBackground(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.surface).padding(.horizontal, 16).padding(.vertical, 4))
+            .listRowBackground(ListRowPanel())
             .listRowInsets(EdgeInsets(top: 14, leading: 30, bottom: 14, trailing: 28))
             .listRowSeparator(.hidden)
             // Press and hold for its actions (our own sheet; Apple's swipe buttons clashed:
@@ -136,7 +136,7 @@ struct ListsView: View {
                                 .highPriorityGesture(LongPressGesture(minimumDuration: 0.35).onEnded { _ in Haptics.tap(); Router.shared.quickCard = w.product })
                             }
                         }
-                        .listRowBackground(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.surface).padding(.horizontal, 16).padding(.vertical, 4))
+                        .listRowBackground(ListRowPanel())
             .listRowInsets(EdgeInsets(top: 14, leading: 30, bottom: 14, trailing: 28))
             .listRowSeparator(.hidden)
                         // Holding the card opens its quick actions (wishlist on/off and more).
@@ -339,5 +339,16 @@ struct WatchSheet: View {
         } catch {
             self.error = error.localizedDescription
         }
+    }
+}
+
+/// A Watchlist / Wishlist row's panel: a little lighter than the page, with a faint light edge,
+/// so each row reads as its own card on the dark background.
+private struct ListRowPanel: View {
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
+        shape.fill(Color(hex: 0x1A1A1D))
+            .overlay(shape.strokeBorder(Color.white.opacity(0.07), lineWidth: 1))
+            .padding(.horizontal, 16).padding(.vertical, 4)
     }
 }
