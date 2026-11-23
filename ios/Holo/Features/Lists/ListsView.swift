@@ -42,6 +42,7 @@ struct ListsView: View {
             }
             .scrollContentBackground(.hidden)
             .background(Theme.background)
+            .overlay { emptyState }
             // Prices for cards added to either list since the collection loaded.
             .task(id: store.watchlist.count + store.wishlist.count) {
                 await store.loadListPrices(store.watchlist.map(\.product_id) + store.wishlist.map(\.product.id))
@@ -64,9 +65,6 @@ struct ListsView: View {
     }
 
     @ViewBuilder private var watchlist: some View {
-        if store.watchlist.isEmpty {
-            empty("Watch a card's price", "Open any card and tap Watch price. Set a target to see when it drops to what you'd pay.")
-        }
         ForEach(store.watchlist) { w in
             let product = store.products[w.product_id]
             let price = store.listPrice(w.product_id, printing: w.printing)
@@ -81,9 +79,6 @@ struct ListsView: View {
     }
 
     @ViewBuilder private var wishlist: some View {
-        if store.wishlist.isEmpty {
-            empty("Your wishlist is empty", "Open any card and tap Wishlist to keep track of what you want next.")
-        }
         ForEach(WishItem.Priority.allCases, id: \.self) { priority in
             let items = store.wishlist.filter { $0.priority == priority }
             if !items.isEmpty {
@@ -101,13 +96,37 @@ struct ListsView: View {
         }
     }
 
-    private func empty(_ title: String, _ body: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.geist(17, .semibold))
-            Text(body).font(.callout).foregroundStyle(Theme.muted)
+    /// The page with nothing on it yet: an icon in a glass circle, a heading and one line, centred
+    /// in the middle of the screen, and a way to go and find cards.
+    @ViewBuilder private var emptyState: some View {
+        let watch = which == .watchlist
+        if watch ? store.watchlist.isEmpty : store.wishlist.isEmpty {
+            VStack(spacing: 14) {
+                Image(systemName: watch ? "eye" : "heart")
+                    .font(.system(size: 26, weight: .medium)).foregroundStyle(.white)
+                    .frame(width: 72, height: 72)
+                    .liquidGlass(in: Circle())
+                    .padding(.bottom, 6)
+                Text(watch ? "Watch a card's price" : "Your wishlist is empty")
+                    .font(.display(24)).tracking(-0.6).foregroundStyle(.white)
+                Text(watch ? "Open any card and tap Watch price. Set a target and you'll hear when it drops to what you'd\u{00A0}pay."
+                           : "Open any card and tap Wishlist to keep track of what you want\u{00A0}next.")
+                    .font(.geist(15)).foregroundStyle(Theme.muted)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 300)
+                Button { Haptics.tap(); Router.shared.tabRequest = "explore" } label: {
+                    Text("Explore cards").font(.geist(15, .semibold)).foregroundStyle(.white)
+                        .padding(.horizontal, 22).frame(height: 44)
+                        .liquidGlass(in: Capsule(), interactive: true)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 10)
+            }
+            .padding(.horizontal, 32)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // A little above the middle, which reads as centred with the tab bar below.
+            .padding(.bottom, 80)
         }
-        .padding(.vertical, 8)
-        .listRowBackground(Color.clear)
     }
 
     private func run(_ work: () async throws -> Void) async {
