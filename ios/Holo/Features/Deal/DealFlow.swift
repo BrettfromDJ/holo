@@ -158,6 +158,8 @@ struct DealEditorPage: View {
     @Environment(DealStore.self) private var deals
     @Environment(CollectionStore.self) private var store
     @State private var tradeSide = DealSide.incoming
+    /// The breakdown above the total (open by default on a trade, where it matters most).
+    @State private var breakdownOpen: Bool?
 
     private var side: DealSide { path == .buy ? .incoming : path == .sell ? .outgoing : tradeSide }
 
@@ -365,29 +367,33 @@ struct DealEditorPage: View {
         let out = deals.deal.settled(rates: deals.rates).outgoing
         let costs = out.map { deals.cost(of: $0, in: store) }
         let basis: Double? = out.isEmpty || costs.contains(where: { $0 == nil }) ? nil : costs.reduce(0) { $0 + ($1 ?? 0) }
-        let saleProfit = basis.map { t.outValue - $0 }
+        let getMarket = deals.deal.incoming.reduce(0.0) { $0 + ($1.market ?? 0) * Double($1.qty) }
+        let open = breakdownOpen ?? (path == .trade)
+        let ahead = DealBreakdown.ahead(t, basis: basis, selling: !out.isEmpty)
         return VStack(alignment: .leading, spacing: 6) {
-            if path == .trade {
-                line("Buy", Format.money(t.inValue))
-                line("Sell", Format.money(t.outValue))
-            } else {
-                line("Market value", Format.money(market))
-            }
-            if let basis, let saleProfit {
-                line("Cost basis", Format.money(basis))
-                HStack {
-                    Text(path == .trade ? "Profit on what I sell" : "Profit").foregroundStyle(Theme.muted)
-                    Spacer()
-                    Text(Format.signedMoney(saleProfit)).monospacedDigit().foregroundStyle(Theme.tone(saleProfit))
-                    if t.outValue > 0 {
-                        Text("· \(String(format: "%.1f", saleProfit / t.outValue * 100))% margin").monospacedDigit().foregroundStyle(Theme.muted)
+            // The answer in plain words; tap it for what it's made of.
+            if !empty {
+                Button {
+                    Haptics.tap()
+                    withAnimation(.snappy(duration: 0.25)) { breakdownOpen = !open }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(DealBreakdown.verdict(ahead)).font(.geist(14, .semibold))
+                            .foregroundStyle(ahead.map { abs($0) < 0.005 ? Color.white : Theme.tone($0) } ?? Theme.muted)
+                        Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.muted)
+                            .rotationEffect(.degrees(open ? 180 : 0))
+                        Spacer()
                     }
+                    .contentShape(Rectangle())
                 }
-                .font(.geist(13))
-            } else if !out.isEmpty {
-                line("Cost basis", "Add what you paid")
+                .buttonStyle(.plain)
+                if open {
+                    DealBreakdown(kind: path, totals: t, getMarket: getMarket, basis: basis, selling: !out.isEmpty)
+                        .padding(.vertical, 4)
+                        .transition(.opacity)
+                }
             }
-            Text(label).font(.geist(13)).foregroundStyle(Theme.muted).padding(.top, 4)
+            Text(label).font(.geist(13)).foregroundStyle(Theme.muted).padding(.top, 2)
             HStack(alignment: .center, spacing: 10) {
                 Text(Format.money(abs(b))).font(.display(32)).tracking(-1).monospacedDigit().foregroundStyle(.white)
                     .contentTransition(.numericText())
@@ -687,3 +693,97 @@ struct StepField: View {
     }
 }
 
+
+// MARK: - What the deal is made of
+
+/// The deal's numbers, only the ones that apply: what you get at market, what you pay or receive,
+/// the trade-in value (what you get is worth at market minus what you give for it), what you
+/// paid for what you sell and the sale profit, and how far ahead it leaves you. Each has an ⓘ.
+struct DealBreakdown: View {
+    var kind: DealKind
+    var totals: DealTotals
+    /// What the cards you get are worth at market.
+    var getMarket: Double
+    /// What you paid for the cards you sell (nil when one has no cost yet).
+    var basis: Double?
+    var selling: Bool
+
+    /// How far ahead the deal leaves you: trade-in value plus sale profit (nil while a card you
+    /// sell has no cost).
+    static func ahead(_ t: DealTotals, basis: Double?, selling: Bool) -> Double? {
+        let gained = t.inValue > 0 ? t.equity : 0
+        if !selling { return gained }
+        guard let basis else { return nil }
+        return gained + (t.outValue - basis)
+    }
+
+    static func verdict(_ ahead: Double?) -> String {
+        guard let ahead else { return "Add what you paid to see where you land" }
+        if abs(ahead) < 0.005 { return "You come out even" }
+        return "You come out \(Format.money(abs(ahead))) \(ahead > 0 ? "ahead" : "behind")"
+    }
+
+    var body: some View {
+        let t = totals
+        let b = t.balance
+        let profit = basis.map { t.outValue - $0 }
+        let ahead = Self.ahead(t, basis: basis, selling: selling)
+        VStack(spacing: 7) {
+            if kind != .sell, t.inValue > 0 {
+                row("Market value of what I get", Format.money(getMarket), info: "What the cards coming to you sell for at market.")
+                row(kind == .trade ? "What I give for it" : "What I pay", Format.money(t.inValue),
+                    info: kind == .trade ? "The value you're giving for their cards: your cards at your selling rate, plus or minus cash." : "The total you pay for their cards.")
+                row("Trade-in value", Format.signedMoney(t.equity), tint: Theme.tone(t.equity),
+                    info: "What you get is worth at market, minus what you give for it. Above zero, you got it for less than it's worth.")
+            }
+            if selling, kind != .buy {
+                if kind == .sell { row("What I receive", Format.money(abs(b)), info: "The total the buyer pays you.") }
+                row("What I paid for what I sell", basis.map { Format.money($0) } ?? "Add what you paid",
+                    info: "What your cards going out cost you, from your collection or what you typed in.")
+                if let profit {
+                    row("Sale profit", Format.signedMoney(profit) + (t.outValue > 0 ? " · \(String(format: "%.1f", profit / t.outValue * 100))%" : ""),
+                        tint: Theme.tone(profit), info: "What your cards went for in this deal, minus what you paid for them. The % is your margin.")
+                }
+            }
+            if kind == .trade {
+                row(abs(b) < 0.005 ? "Cash" : (b > 0 ? "Cash I receive" : "Cash I pay"), Format.money(abs(b)),
+                    info: "The cash that evens out the trade.")
+            }
+            Rectangle().fill(Theme.border).frame(height: 1).padding(.vertical, 2)
+            row("Ahead overall", ahead.map { Format.signedMoney($0) } ?? "—", tint: ahead.map { Theme.tone($0) } ?? Theme.muted, bold: true,
+                info: "Trade-in value plus sale profit: how much better off this deal leaves you, at market prices.")
+        }
+    }
+
+    private func row(_ label: String, _ value: String, tint: Color = .white, bold: Bool = false, info: String) -> some View {
+        HStack(spacing: 4) {
+            Text(label).foregroundStyle(bold ? .white : Theme.muted)
+            InfoDot(text: info)
+            Spacer(minLength: 8)
+            Text(value).monospacedDigit().foregroundStyle(tint).fontWeight(bold ? .semibold : .regular)
+        }
+        .font(.geist(13))
+        .lineLimit(1).minimumScaleFactor(0.85)
+    }
+}
+
+/// A small ⓘ that shows one line of explanation in a popover.
+struct InfoDot: View {
+    var text: String
+    @State private var open = false
+
+    var body: some View {
+        Button { open = true } label: {
+            Image(systemName: "info.circle").font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.subtle)
+                .frame(width: 22, height: 22).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $open) {
+            Text(text).font(.geist(14)).foregroundStyle(.white)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(14).frame(width: 260, alignment: .leading)
+                .presentationCompactAdaptation(.popover)
+                .presentationBackground(Theme.surface2)
+        }
+    }
+}

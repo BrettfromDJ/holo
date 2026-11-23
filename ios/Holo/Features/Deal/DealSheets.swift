@@ -514,30 +514,21 @@ struct DealCloseSheet: View {
                         .padding(18)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-                        // How far ahead you come out, then what it's made of.
+                        // Where you land, then what it's made of: the same breakdown as the deal page.
+                        let costs = deal.outgoing.map { deals.cost(of: $0, in: store) }
+                        let basis: Double? = deal.outgoing.isEmpty || costs.contains(where: { $0 == nil }) ? nil : costs.reduce(0) { $0 + ($1 ?? 0) }
+                        let ahead = DealBreakdown.ahead(t, basis: basis, selling: !deal.outgoing.isEmpty)
                         VStack(alignment: .leading, spacing: 10) {
-                            if let ahead = t.ahead {
-                                HStack(spacing: 8) {
-                                    Image(systemName: ahead >= 0 ? "arrow.up.right" : "arrow.down.right").foregroundStyle(Theme.tone(ahead))
-                                    Text(dealAheadTitle(ahead)).foregroundStyle(.white)
-                                    Text(Format.signedMoney(ahead)).monospacedDigit().foregroundStyle(Theme.tone(ahead))
-                                }
-                                .font(.geist(16, .bold)).lineLimit(1).minimumScaleFactor(0.75)
-                            } else if let verdict = t.verdict {
-                                Label(verdict, systemImage: (t.net ?? 0) >= 0 ? "arrow.up.right" : "arrow.down.right")
-                                    .font(.geist(16, .bold)).foregroundStyle(Theme.tone(t.net))
-                            }
-                            HStack(spacing: 8) {
-                                if let profit = t.profit { pill("Sale profit", Format.signedMoney(profit), Theme.tone(profit)) }
-                                if deal.kind != .sell, t.inValue > 0 { pill("Trade-in value", Format.signedMoney(t.equity), Theme.tone(t.equity)) }
-                            }
-                            if let paper = t.onPaper {
-                                Text("includes \(Format.money(paper)) on paper").font(.geist(12)).foregroundStyle(Theme.muted)
-                            }
-                            if t.uncosted > 0 {
-                                Text("Add what you paid for every item to see your\u{00A0}total").font(.geist(13)).foregroundStyle(Theme.muted)
-                            }
+                            Text(DealBreakdown.verdict(ahead)).font(.geist(16, .bold))
+                                .foregroundStyle(ahead.map { abs($0) < 0.005 ? Color.white : Theme.tone($0) } ?? Theme.muted)
+                            DealBreakdown(kind: deal.kind, totals: t,
+                                          getMarket: deal.incoming.reduce(0.0) { $0 + ($1.market ?? 0) * Double($1.qty) },
+                                          basis: basis, selling: !deal.outgoing.isEmpty)
                         }
+                        .padding(16)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.surface))
+                        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Theme.border))
                         if !deal.incoming.isEmpty { sideRow(.incoming, deal.incoming, t.inValue) }
                         if !deal.outgoing.isEmpty { sideRow(.outgoing, deal.outgoing, t.outValue) }
                         let fx = deals.effects(deal)
