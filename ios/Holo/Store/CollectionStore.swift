@@ -1183,6 +1183,7 @@ final class CollectionStore {
             .insert(NewWatchRow(user_id: userId, product_id: product.id, printing: printing, target_price: target))
             .select().single().execute().value
         watchlist.append(row)
+        Router.shared.undo = UndoItem(message: "Added to your watchlist")
     }
 
     @MainActor
@@ -1195,6 +1196,7 @@ final class CollectionStore {
     func removeWatch(_ id: String) async throws {
         try await db.from("watchlist_items").delete().eq("id", value: id).execute()
         watchlist.removeAll { $0.id == id }
+        Router.shared.undo = UndoItem(message: "Removed from your watchlist")
     }
 
     /// Several at once (select mode): one request.
@@ -1203,6 +1205,7 @@ final class CollectionStore {
         guard !ids.isEmpty else { return }
         if demo == nil { try await db.from("watchlist_items").delete().in("id", values: Array(ids)).execute() }
         watchlist.removeAll { ids.contains($0.id) }
+        Router.shared.undo = UndoItem(message: "Removed \(ids.count) from your watchlist")
     }
 
     // MARK: Writing: wishlist (shared JSON with the website)
@@ -1213,6 +1216,7 @@ final class CollectionStore {
         var next = wishlist
         next.append(WishItem(id: UUID().uuidString.lowercased(), product: product, printing: printing, priority: priority, target: nil, price: price, addedAt: ISO8601DateFormatter().string(from: Date())))
         try await saveWishlist(next)
+        Router.shared.undo = UndoItem(message: "Added to your wishlist")
     }
 
     @MainActor
@@ -1227,12 +1231,14 @@ final class CollectionStore {
     @MainActor
     func removeWish(_ id: String) async throws {
         try await saveWishlist(wishlist.filter { $0.id != id })
+        Router.shared.undo = UndoItem(message: "Removed from your wishlist")
     }
 
     /// Several at once (select mode): one save.
     @MainActor
     func removeWishes(_ ids: Set<String>) async throws {
         try await saveWishlist(wishlist.filter { !ids.contains($0.id) })
+        Router.shared.undo = UndoItem(message: "Removed \(ids.count) from your wishlist")
     }
 
     @MainActor

@@ -1298,7 +1298,24 @@ private struct UndoToast: ViewModifier {
 
     func body(content: Content) -> some View {
         content.overlay(alignment: .bottom) {
-            if let item = router.undo {
+            if let item = router.undo, item.action == nil {
+                // A plain confirmation: a small centred pill with a check mark.
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill").font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.lime)
+                    Text(item.message).font(.geist(14, .medium)).foregroundStyle(.white)
+                }
+                .padding(.horizontal, 18)
+                .frame(height: 44)
+                .background { Capsule().fill(Color.black.opacity(0.35)).shadow(color: .black.opacity(0.4), radius: 16, y: 8) }
+                .liquidGlass(in: Capsule())
+                .padding(.bottom, bottom)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .task(id: item.id) {
+                    try? await Task.sleep(nanoseconds: 2_200_000_000)
+                    if router.undo?.id == item.id { withAnimation(.snappy) { router.undo = nil } }
+                }
+                .sensoryFeedback(.success, trigger: item.id)
+            } else if let item = router.undo, let action = item.action {
                 HStack(spacing: 14) {
                     Text(item.message).font(.geist(14, .medium)).foregroundStyle(.white)
                     Spacer(minLength: 8)
@@ -1306,7 +1323,7 @@ private struct UndoToast: ViewModifier {
                         guard !working else { return }
                         working = true
                         Task {
-                            await item.action()
+                            await action()
                             working = false
                             if router.undo?.id == item.id { withAnimation(.snappy) { router.undo = nil } }
                         }

@@ -413,6 +413,8 @@ struct MainTabView: View {
                     .environment(\.cardPageInSheet, true)
                     .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
             }
+            // Confirmations (Added to your watchlist) show on the card page sheet too.
+            .undoToast(bottom: 24)
         }
     }
 }

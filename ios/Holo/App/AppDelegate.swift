@@ -90,7 +90,8 @@ final class Router {
 struct UndoItem: Identifiable {
     let id = UUID()
     var message: String
-    var action: @MainActor () async -> Void
+    /// Nil: just a confirmation (a check mark, no Undo), e.g. "Added to your watchlist".
+    var action: (@MainActor () async -> Void)? = nil
 }
 
 /// A purchase just saved: what it was, how many, and the collection's value just before.
