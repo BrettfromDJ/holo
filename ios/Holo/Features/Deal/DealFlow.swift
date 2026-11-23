@@ -368,7 +368,7 @@ struct DealEditorPage: View {
         let costs = out.map { deals.cost(of: $0, in: store) }
         let basis: Double? = out.isEmpty || costs.contains(where: { $0 == nil }) ? nil : costs.reduce(0) { $0 + ($1 ?? 0) }
         let getMarket = deals.deal.incoming.reduce(0.0) { $0 + ($1.market ?? 0) * Double($1.qty) }
-        let open = breakdownOpen ?? (path == .trade)
+        let open = breakdownOpen ?? false
         let ahead = DealBreakdown.ahead(t, basis: basis, selling: !out.isEmpty)
         return VStack(alignment: .leading, spacing: 6) {
             // The answer in plain words; tap it for what it's made of.
@@ -723,47 +723,26 @@ struct DealBreakdown: View {
         return "You come out \(Format.money(abs(ahead))) \(ahead > 0 ? "ahead" : "behind")"
     }
 
+    /// Two figures side by side, like the old balance card's details: what explains the answer.
+    /// Buying: what it's worth and the trade-in value. Selling: what you paid and the sale profit.
+    /// Trading: the trade-in value and the sale profit (they add up to the answer).
     var body: some View {
         let t = totals
-        let b = t.balance
         let profit = basis.map { t.outValue - $0 }
-        let ahead = Self.ahead(t, basis: basis, selling: selling)
-        VStack(spacing: 7) {
-            if kind != .sell, t.inValue > 0 {
-                row("Market value of what I get", Format.money(getMarket), info: "What the cards coming to you sell for at market.")
-                row(kind == .trade ? "What I give for it" : "What I pay", Format.money(t.inValue),
-                    info: kind == .trade ? "The value you're giving for their cards: your cards at your selling rate, plus or minus cash." : "The total you pay for their cards.")
-                row("Trade-in value", Format.signedMoney(t.equity), tint: Theme.tone(t.equity),
-                    info: "What you get is worth at market, minus what you give for it. Above zero, you got it for less than it's worth.")
+        let gained = t.inValue > 0 ? t.equity : nil
+        HStack(spacing: 8) {
+            switch kind {
+            case .buy:
+                GlassStat(label: "Market value", value: Format.money(getMarket))
+                GlassStat(label: "Trade-in value", value: gained.map { Format.signedMoney($0) } ?? "—", tint: gained.map { Theme.tone($0) } ?? .white)
+            case .sell:
+                GlassStat(label: "You paid", value: basis.map { Format.money($0) } ?? "—")
+                GlassStat(label: "Sale profit", value: profit.map { Format.signedMoney($0) } ?? "—", tint: profit.map { Theme.tone($0) } ?? .white)
+            default:
+                GlassStat(label: "Trade-in value", value: gained.map { Format.signedMoney($0) } ?? "—", tint: gained.map { Theme.tone($0) } ?? .white)
+                GlassStat(label: "Sale profit", value: selling ? (profit.map { Format.signedMoney($0) } ?? "Add cost") : "—", tint: profit.map { Theme.tone($0) } ?? .white)
             }
-            if selling, kind != .buy {
-                if kind == .sell { row("What I receive", Format.money(abs(b)), info: "The total the buyer pays you.") }
-                row("What I paid for what I sell", basis.map { Format.money($0) } ?? "Add what you paid",
-                    info: "What your cards going out cost you, from your collection or what you typed in.")
-                if let profit {
-                    row("Sale profit", Format.signedMoney(profit) + (t.outValue > 0 ? " · \(String(format: "%.1f", profit / t.outValue * 100))%" : ""),
-                        tint: Theme.tone(profit), info: "What your cards went for in this deal, minus what you paid for them. The % is your margin.")
-                }
-            }
-            if kind == .trade {
-                row(abs(b) < 0.005 ? "Cash" : (b > 0 ? "Cash I receive" : "Cash I pay"), Format.money(abs(b)),
-                    info: "The cash that evens out the trade.")
-            }
-            Rectangle().fill(Theme.border).frame(height: 1).padding(.vertical, 2)
-            row("Ahead overall", ahead.map { Format.signedMoney($0) } ?? "—", tint: ahead.map { Theme.tone($0) } ?? Theme.muted, bold: true,
-                info: "Trade-in value plus sale profit: how much better off this deal leaves you, at market prices.")
         }
-    }
-
-    private func row(_ label: String, _ value: String, tint: Color = .white, bold: Bool = false, info: String) -> some View {
-        HStack(spacing: 4) {
-            Text(label).foregroundStyle(bold ? .white : Theme.muted)
-            InfoDot(text: info)
-            Spacer(minLength: 8)
-            Text(value).monospacedDigit().foregroundStyle(tint).fontWeight(bold ? .semibold : .regular)
-        }
-        .font(.geist(13))
-        .lineLimit(1).minimumScaleFactor(0.85)
     }
 }
 
