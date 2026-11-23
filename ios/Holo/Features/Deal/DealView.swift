@@ -24,6 +24,8 @@ struct DealView: View {
     @State private var detailItem: DealItem?
     /// Parking the deal: asks for an optional name first.
     @State private var parking = false
+    /// Asking before clearing the whole deal.
+    @State private var clearing = false
     @State private var parkName = ""
     @State private var parkedList = false
     /// Typing the cash the two of you agreed on (tap the big figure on the balance card).
@@ -266,54 +268,79 @@ struct DealView: View {
     // MARK: Close bar
 
     private func closeBar(_ totals: DealTotals, warning: Bool) -> some View {
-        VStack(spacing: 8) {
-        // The answer, always on screen: who pays and whether you come out ahead.
-        HStack(spacing: 6) {
-            Text(totals.cashLine).foregroundStyle(.white)
-            if deals.role == .collector {
-                // A collector's answer: market value gained or given up, as on the card.
-                let net = CollectorRead(agreed.deal, totals: totals, rates: rates).net
-                Text("·").foregroundStyle(Theme.muted)
-                Text("At market").foregroundStyle(Theme.muted)
-                Text(Format.signedMoney(net)).foregroundStyle(Theme.tone(net))
-            } else if let ahead = totals.ahead {
-                Text("·").foregroundStyle(Theme.muted)
-                Text(ahead < 0 ? "Behind" : "Ahead").foregroundStyle(Theme.muted)
-                Text(Format.signedMoney(ahead)).foregroundStyle(Theme.tone(ahead))
-            } else if let net = totals.net {
-                Text("·").foregroundStyle(Theme.muted)
-                Text(net >= 0 ? "You're \(Format.signedMoney(net))" : "You're \(Format.signedMoney(net))").foregroundStyle(Theme.tone(net))
+        // The second figure: market value gained or given up (collector), ahead/behind (vendor).
+        let second: (label: String, value: Double)? = {
+            if deals.role == .collector { return ("At market", CollectorRead(agreed.deal, totals: totals, rates: rates).net) }
+            if let ahead = totals.ahead { return (ahead < 0 ? "Behind" : "Ahead", ahead) }
+            if let net = totals.net { return ("You're", net) }
+            return nil
+        }()
+        let b = totals.balance
+        let cashLabel = abs(b) < 0.005 ? "Even swap" : (b > 0 ? "They pay" : "You pay")
+        return VStack(spacing: 14) {
+            // The answer, always on screen: two totals, like the bottom of a receipt.
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 3) {
+                    MonoLabel(text: cashLabel)
+                    Text(abs(b) < 0.005 ? "$0" : Format.money(abs(b)))
+                        .font(.display(26)).tracking(-0.8).monospacedDigit().foregroundStyle(.white)
+                        .contentTransition(.numericText())
+                }
+                Spacer(minLength: 12)
+                if let second {
+                    VStack(alignment: .trailing, spacing: 3) {
+                        MonoLabel(text: second.label)
+                        Text(Format.signedMoney(second.value))
+                            .font(.display(26)).tracking(-0.8).monospacedDigit().foregroundStyle(Theme.tone(second.value))
+                            .contentTransition(.numericText())
+                    }
+                }
+            }
+            .lineLimit(1).minimumScaleFactor(0.7)
+            .animation(.snappy, value: totals.balance)
+            .padding(.horizontal, 6)
+            .accessibilityElement(children: .combine)
+            HStack(spacing: 10) {
+                // Park and clear: small round glass buttons, so the close stays the one big action.
+                roundBarButton("bookmark", label: "Park this deal to finish later") { parking = true }
+                roundBarButton("trash", label: "Clear this deal") { clearing = true }
+                Button { Haptics.tap(); confirming = true } label: {
+                    Text(unpriced ? "Price every item to close" : "Close \(deals.deal.kind.noun.lowercased())")
+                        .font(.geist(16, .semibold)).foregroundStyle(warning ? .white : Theme.ink)
+                        .lineLimit(1).minimumScaleFactor(0.8)
+                        .frame(maxWidth: .infinity).frame(height: 50)
+                        .background(Capsule().fill(warning ? Theme.planPink : Theme.lime))
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(unpriced)
+                .opacity(unpriced ? 0.55 : 1)
             }
         }
-        .font(.geist(13, .semibold)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.75)
-        .contentTransition(.numericText())
-        .animation(.snappy, value: totals.balance)
-        .padding(.top, 4)
-        HStack(spacing: 8) {
-            Button("Clear") {
+        .padding(.horizontal, 14).padding(.top, 14).padding(.bottom, 12)
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 30, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 30, style: .continuous).strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
+        .actionsSheet(isPresented: $clearing, title: "Clear this deal?") {
+            [[SheetAction(title: "Clear deal", subtitle: "Removes every item and its photos", icon: "trash", destructive: true) {
                 let photos = deals.deal.photos
                 withAnimation(.snappy) { deals.update { $0 = DealState() } }
                 // The deal's photos go with it.
                 Task { for p in photos { await DealPhotos.delete(p) } }
-            }
-            .buttonStyle(Button3D(kind: .dark, fullWidth: false, height: 48))
-            Button { parking = true } label: { Image(systemName: "bookmark") }
-                .buttonStyle(Button3D(kind: .dark, fullWidth: false, height: 48))
-                .accessibilityLabel("Park this deal to finish later")
-            Button { confirming = true } label: {
-                Text(unpriced ? "Price every item to close" : "Close \(deals.deal.kind.noun.lowercased())")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(Button3D(kind: warning ? .pink : .lime, fullWidth: true, height: 48))
-            .disabled(unpriced)
-            .opacity(unpriced ? 0.55 : 1)
+            }]]
         }
-        .environment(\.inGlassBar, true)
+    }
+
+    private func roundBarButton(_ icon: String, label: String, action: @escaping () -> Void) -> some View {
+        Button { Haptics.tap(); action() } label: {
+            Image(systemName: icon).font(.system(size: 17, weight: .semibold)).foregroundStyle(.white)
+                .frame(width: 50, height: 50)
+                .liquidGlass(in: Circle(), tint: Color.white.opacity(0.04), interactive: true)
+                .contentShape(Circle())
         }
-        .padding(8)
-        .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .padding(.horizontal, 16)
-        .padding(.bottom, 8)
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 
     // MARK: Rounding the cash

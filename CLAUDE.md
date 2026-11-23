@@ -287,4 +287,5 @@ and say exactly what to run or click.
   `/api/fingerprints` into `card_prints` (pgvector; migration `20261122000000_card_prints.sql`);
   the app's last on-phone try sends the scan's fingerprint to `/api/scan/match` (nearest 5) before
   CardSight.
+- Deal tab's close bar (`closeBar` in `DealView`): one glass panel (30pt corners); two totals like a receipt's bottom (YOU PAY / THEY PAY / EVEN SWAP left, AT MARKET or AHEAD / BEHIND right, coloured), then round glass park (bookmark) and clear (trash, asks first in our sheet) buttons and a wide flat lime Close pill (pink when it warns).
 - Not in the app on purpose: the separate trade checker (the Deal tab covers trades), and the welcome pages (removed; signed out opens straight on Sign in, its card wall is `Features/Auth/CardWall.swift`).
