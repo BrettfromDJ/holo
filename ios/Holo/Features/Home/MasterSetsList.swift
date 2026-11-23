@@ -6,17 +6,14 @@ struct MasterSetRoute: Hashable {
     var name: String
 }
 
-/// Master Sets: a title, how many sets you've started and your
-/// closest, three glass tiles, then every set as a full-width card with its art and progress. Your sets by default; switch to every set in the catalog. Tap one to see
-/// every card in it.
+/// Master Sets: the games as big titles, then the sets you've started and every other set of
+/// that game, each as a grid of tiles. Tap one to see every card in it.
 struct MasterSetsView: View {
     @Environment(CollectionStore.self) private var store
     @State private var cache = MasterSetsCache.shared
     @State private var index: [ExploreSet] = []
     /// The catalog's set list has been asked for (loaded, or failed: then sets show your card).
     @State private var indexTried = false
-    @State private var scope = Scope.mine
-    @State private var sort = Sort.progress
     /// The search, handed over by the field a moment after typing stops (so typing doesn't
     /// rebuild the deck on every key).
     @State private var query = ""
@@ -25,8 +22,6 @@ struct MasterSetsView: View {
     /// The brand shown (a game's slug from the catalog); Pokémon to start, remembered after.
     @AppStorage("master-sets-brand") private var brand = "pokemon"
 
-    enum Scope: String, CaseIterable { case mine = "Your sets", all = "All sets" }
-    enum Sort: String, CaseIterable { case progress = "Most complete", value = "Most valuable", newest = "Newest", name = "Name" }
 
     /// A set on the page: the catalog's entry (for art and release date) if found, and your progress.
     struct Row: Identifiable {
@@ -72,7 +67,9 @@ struct MasterSetsView: View {
         }.map { ($0.key, $0.value.name) }
     }
 
-    private func rows(_ owned: [MasterSetDetailView.OwnedSet]) -> [Row] {
+    /// The page's two groups: the sets you've started (most complete first), then every other
+    /// set of the game (newest first). The search filters both.
+    private func groups(_ owned: [MasterSetDetailView.OwnedSet]) -> (started: [Row], rest: [Row]) {
         let (bySlug, byName) = memo.lookups(index)
         func row(_ s: MasterSetDetailView.OwnedSet) -> Row {
             let list = cache.checklists[s.id]
@@ -81,52 +78,53 @@ struct MasterSetsView: View {
             return Row(id: s.id, name: s.name, art: bySlug[s.id] ?? byName[s.name.lowercased()], holdings: s.holdings,
                        owned: have, total: list?.count, value: s.holdings.reduce(0) { $0 + ($1.value ?? 0) })
         }
-        var rows = owned.map(row)
-        if scope == .all {
-            let mine = Set(rows.map(\.id))
-            let mineNames = Set(rows.map { $0.name.lowercased() })
-            rows += index.filter { $0.loaded && $0.gameSlug == brand && !mine.contains($0.slug) && !mineNames.contains($0.name.lowercased()) }
-                .map { Row(id: $0.slug, name: $0.name, art: $0, holdings: [], owned: 0, total: nil, value: 0) }
-        }
+        var started = owned.map(row)
+        let mine = Set(started.map(\.id))
+        let mineNames = Set(started.map { $0.name.lowercased() })
+        var rest = index.filter { $0.loaded && $0.gameSlug == brand && !mine.contains($0.slug) && !mineNames.contains($0.name.lowercased()) }
+            .map { Row(id: $0.slug, name: $0.name, art: $0, holdings: [], owned: 0, total: nil, value: 0) }
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
-        if !q.isEmpty { rows = rows.filter { $0.name.lowercased().contains(q) } }
-        switch sort {
-        case .progress: return rows.sorted { ($0.ratio ?? -1, $0.owned) > ($1.ratio ?? -1, $1.owned) }
-        case .value: return rows.sorted { $0.value > $1.value }
-        case .newest: return rows.sorted { ($0.art?.releaseDate ?? "") > ($1.art?.releaseDate ?? "") }
-        case .name: return rows.sorted { $0.name < $1.name }
+        if !q.isEmpty {
+            started = started.filter { $0.name.lowercased().contains(q) }
+            rest = rest.filter { $0.name.lowercased().contains(q) }
+        }
+        started.sort { ($0.ratio ?? -1, $0.owned) > ($1.ratio ?? -1, $1.owned) }
+        rest.sort { ($0.art?.releaseDate ?? "") > ($1.art?.releaseDate ?? "") }
+        return (started, rest)
+    }
+
+    /// A group's heading and its sets as tiles, two across, like Explore's brand page.
+    private func group(_ title: String, _ rows: [Row]) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            SectionTitle(title)
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 14, alignment: .top), GridItem(.flexible(), spacing: 14, alignment: .top)],
+                      alignment: .leading, spacing: 20) {
+                ForEach(rows) { r in
+                    NavigationLink(value: MasterSetRoute(id: r.id, name: r.name)) { MasterSetTile(row: r, catalogReady: indexTried) }
+                        .buttonStyle(.plain)
+                }
+            }
+            .environment(\.imageFadesIn, false)
+            // Results swap in place as you type (tiles don't fly about).
+            .animation(nil, value: query)
         }
     }
 
     var body: some View {
         let owned = self.owned
-        let rows = self.rows(owned)
+        let (started, rest) = groups(owned)
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                header(owned, rows: rows)
-                // The brand and Your / All stay put even when this brand has none of your sets,
-                // so you can always switch back (they used to vanish behind the empty message).
-                controls
-                if owned.isEmpty, scope == .mine {
-                    EmptyPage(title: "No \(brandName) sets yet", line: "Add a few cards and your sets appear here.", action: "Scan a card",
-                              onAction: { Router.shared.scanRequest += 1 }, link: "Browse all sets", onLink: { scope = .all }, symbol: "square.grid.3x3")
-                        // Centred in the room left under the titles and chips.
-                        .containerRelativeFrame(.vertical, alignment: .center) { h, _ in h * 0.6 }
-                } else {
-                    // Every set as a tile, two across, like Explore's brand page: the set's banner art,
-                    // then its name and how far along you are. Tap one to open the set.
-                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 14, alignment: .top), GridItem(.flexible(), spacing: 14, alignment: .top)],
-                              alignment: .leading, spacing: 20) {
-                        ForEach(rows) { r in
-                            NavigationLink(value: MasterSetRoute(id: r.id, name: r.name)) { MasterSetTile(row: r, catalogReady: indexTried) }
-                                .buttonStyle(.plain)
-                        }
-                    }
-                    .environment(\.imageFadesIn, false)
-                    // Results swap in place as you type (tiles don't fly about).
-                    .animation(nil, value: query)
-                    if rows.isEmpty {
+            VStack(alignment: .leading, spacing: 28) {
+                header
+                if !started.isEmpty { group("Sets started", started) }
+                if !rest.isEmpty { group("All sets", rest) }
+                if started.isEmpty, rest.isEmpty {
+                    if !query.isEmpty {
                         Text("Nothing matches.").font(.geist(15)).foregroundStyle(Theme.muted).frame(maxWidth: .infinity).padding(.vertical, 30)
+                    } else if indexTried {
+                        EmptyPage(title: "No \(brandName) sets yet", line: "Add a few cards and your sets appear here.", action: "Scan a card",
+                                  onAction: { Router.shared.scanRequest += 1 }, symbol: "square.grid.3x3")
+                            .containerRelativeFrame(.vertical, alignment: .center) { h, _ in h * 0.6 }
                     }
                 }
             }
@@ -173,7 +171,7 @@ struct MasterSetsView: View {
     /// The games as big titles (no totals line: fewer layers above the sets).
     /// The search field takes the game titles' place (a quick cross-fade, same height), so
     /// nothing below moves when search opens or closes; the top-right ✕ closes it.
-    private func header(_ owned: [MasterSetDetailView.OwnedSet], rows all: [Row]) -> some View {
+    private var header: some View {
         ZStack(alignment: .leading) {
             if searching {
                 SettledSearchField(prompt: "Search \(brandName) sets", settled: $query, delay: 0.3, autoFocus: true)
@@ -184,34 +182,6 @@ struct MasterSetsView: View {
         }
         .frame(height: 48)
         .padding(.top, 4)
-    }
-
-    private var controls: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // One row: Your sets / All sets, and sort at the end, all the same height (the brand
-            // sits by the title).
-            HStack(spacing: 8) {
-                ChipPicker(options: Scope.allCases.map { ($0, $0.rawValue) }, selection: $scope)
-                    .fixedSize()
-                Spacer(minLength: 0)
-                // Nothing to sort on an empty page.
-                if !(scope == .mine && owned.isEmpty) {
-                Menu {
-                    Picker("Sort", selection: $sort) {
-                        ForEach(Sort.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                    }
-                } label: {
-                    Image(systemName: "arrow.up.arrow.down").font(.system(size: 15, weight: .semibold)).foregroundStyle(.white)
-                        .frame(width: 38, height: 38)
-                        .contentShape(Circle())
-                }
-                .menuStyle(.button)
-                .buttonStyle(.plain)
-                .background { Color.clear.liquidGlass(in: Circle()).allowsHitTesting(false) }
-                .accessibilityLabel("Sort")
-                }
-            }
-        }
     }
 
     private var brandName: String { Self.shortName(brands.first { $0.slug == brand }?.name ?? "Pokémon") }
