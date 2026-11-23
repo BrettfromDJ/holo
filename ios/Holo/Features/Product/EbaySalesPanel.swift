@@ -127,18 +127,7 @@ struct EbaySalesPanel: View {
         }
         .padding(.top, 16)
 
-        // How easily this one sells (the open grade, else ungraded), from the same sales.
-        Group {
-            if let speed = Liquidity.score(e, grade: tab == Self.ungradedTab ? nil : tab, today: Format.day()) {
-                SellSpeedMeter(score: speed)
-            } else {
-                HStack(spacing: 8) {
-                    SellSpeedBar(tier: .slow).opacity(0.35)
-                    Text("Not enough sales yet").font(.geist(13)).foregroundStyle(Theme.muted)
-                }
-            }
-        }
-        .padding(.top, 14)
+        // (The sell-speed meter was here: removed, the owner's call.)
 
         if sales.isEmpty {
             Text("No \(tab == Self.ungradedTab ? "ungraded" : tab) sales in the last 30 days.")

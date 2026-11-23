@@ -12,7 +12,6 @@ import { ebayListingsUrl, ebaySoldUrl } from "@/lib/ebay-link";
 import { useStore } from "@/lib/store/collection-store";
 import { priceKey, type Grade } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { SellSpeedFromSales } from "./sell-speed";
 
 const salesCount = (n: number) => (n === 1 ? "1 sale" : `${n} sales`);
 
@@ -183,8 +182,7 @@ export function EbaySales({
             </div>
           </dl>
 
-          {/* How easily this one sells (the open grade, else ungraded), from the same sales. */}
-          <SellSpeedFromSales ebay={data} grade={tab === UNGRADED ? null : tab} className="mt-4" />
+          {/* (The sell-speed meter was here: removed, the owner's call.) */}
 
           {sales.length ? (
             <ul className="mt-5 divide-y divide-border">

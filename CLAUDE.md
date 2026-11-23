@@ -105,6 +105,7 @@ and say exactly what to run or click.
   Liquid Glass button, text only ("View on TCGplayer ↗", no logo), right under Add to Collection,
   linking to the card's TCGplayer page (printing + Near Mint). No figures: our source can't say
   which condition TCGplayer's market price is for, and its played-copy prices are asking prices.
+- No sell-speed meter on the card page's eBay panel (app `EbaySalesPanel`, web `ebay-sales.tsx`): removed, the owner's call.
 - No confetti. No emojis. Toasts bottom-right on the web. The "Prices updated" banner is off
   in the app for now; milestone banners are back on (see Open threads).
 - On Home, a tapped card grows into its card page (iOS 18+ zoom): `@Namespace cardZoom` in
