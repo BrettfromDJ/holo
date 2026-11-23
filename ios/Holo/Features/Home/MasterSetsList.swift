@@ -123,6 +123,8 @@ struct MasterSetsView: View {
                         }
                     }
                     .environment(\.imageFadesIn, false)
+                    // Results swap in place as you type (tiles don't fly about).
+                    .animation(nil, value: query)
                     if rows.isEmpty {
                         Text("Nothing matches.").font(.geist(15)).foregroundStyle(Theme.muted).frame(maxWidth: .infinity).padding(.vertical, 30)
                     }
@@ -143,7 +145,11 @@ struct MasterSetsView: View {
         // Search sits behind an icon at the top right; the field opens under the stats.
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button { withAnimation(.snappy) { searching.toggle() }; if !searching { query = "" } } label: {
+                Button {
+                    Haptics.tap()
+                    withAnimation(.easeInOut(duration: 0.18)) { searching.toggle() }
+                    if !searching { query = "" }
+                } label: {
                     Image(systemName: searching ? "xmark" : "magnifyingglass")
                 }
                 .accessibilityLabel(searching ? "Close search" : "Search sets")
@@ -165,20 +171,23 @@ struct MasterSetsView: View {
     // MARK: Top
 
     /// The games as big titles (no totals line: fewer layers above the sets).
+    /// The search field takes the game titles' place (a quick cross-fade, same height), so
+    /// nothing below moves when search opens or closes; the top-right ✕ closes it.
     private func header(_ owned: [MasterSetDetailView.OwnedSet], rows all: [Row]) -> some View {
-        gameTitles.padding(.top, 4)
+        ZStack(alignment: .leading) {
+            if searching {
+                SettledSearchField(prompt: "Search \(brandName) sets", settled: $query, delay: 0.3, autoFocus: true)
+                    .transition(.opacity)
+            } else {
+                gameTitles.transition(.opacity)
+            }
+        }
+        .frame(height: 48)
+        .padding(.top, 4)
     }
 
     private var controls: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if searching {
-                HStack(spacing: 10) {
-                    SettledSearchField(prompt: "Search sets", settled: $query, delay: 0.3, autoFocus: true)
-                    Button("Cancel") { query = ""; withAnimation(.snappy) { searching = false } }
-                        .font(.geist(16, .medium)).foregroundStyle(Theme.lime)
-                }
-                .transition(.opacity.combined(with: .move(edge: .top)))
-            }
             // One row: Your sets / All sets, and sort at the end, all the same height (the brand
             // sits by the title).
             HStack(spacing: 8) {
