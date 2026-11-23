@@ -138,6 +138,8 @@ struct MasterSetsView: View {
         .toolbarBackground(.hidden, for: .navigationBar)
         // Search sits behind an icon at the top right; the field opens under the stats.
         .toolbar {
+            // Which game's sets: a pill centred in the top bar.
+            ToolbarItem(placement: .principal) { brandMenu }
             ToolbarItem(placement: .topBarTrailing) {
                 Button { withAnimation(.snappy) { searching.toggle() }; if !searching { query = "" } } label: {
                     Image(systemName: searching ? "xmark" : "magnifyingglass")
@@ -166,13 +168,9 @@ struct MasterSetsView: View {
         let cards = owned.reduce(0) { $0 + Set($1.holdings.map(\.identity.productId)).count }
         let worth = owned.reduce(0) { $0 + $1.holdings.reduce(0) { $0 + ($1.value ?? 0) } }
         return VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .center, spacing: 10) {
-                Text("Master Sets").font(.display(40)).tracking(-1.4).displayTrim(40)
-                    .lineLimit(1).minimumScaleFactor(0.7)
-                Spacer(minLength: 8)
-                brandMenu
-            }
-            .padding(.top, 4)
+            Text("Master Sets").font(.display(40)).tracking(-1.4).displayTrim(40)
+                .lineLimit(1).minimumScaleFactor(0.7)
+                .padding(.top, 4)
             Group {
                 if owned.isEmpty {
                     Text("No \(brandName) sets started yet")
@@ -233,6 +231,10 @@ struct MasterSetsView: View {
                 Text(name).font(.geist(14, .semibold)).lineLimit(1).fixedSize()
                 Image(systemName: "chevron.down").font(.system(size: 11, weight: .semibold))
             }
+            // A new pill for each game: it appears at its full width rather than stretching
+            // from the old one's (which cut the name off for a moment).
+            .id(name)
+            .transaction { $0.animation = nil }
             .foregroundStyle(.white)
             .padding(.horizontal, 14)
             .frame(height: 36)
