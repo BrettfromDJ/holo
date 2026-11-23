@@ -1529,7 +1529,8 @@ private struct RateChips: View {
     var body: some View {
         let pct = Int((rate * 100).rounded())
         let usual = Int((fallback * 100).rounded())
-        let options = Array(Set([50, 60, 70, 80, 90, 100, 110, pct, usual])).filter { (40...120).contains($0) }.sorted()
+        // Five steps fit across the screen (100% was scrolled out of sight), plus this deal's % and the usual one.
+        let options = Array(Set([60, 70, 80, 90, 100, pct, usual])).filter { (40...120).contains($0) }.sorted()
         VStack(alignment: .leading, spacing: 8) {
             Text(lead).foregroundColor(Theme.muted) + Text(" \(pct)%").foregroundColor(.white) + Text(" of market").foregroundColor(Theme.muted)
             ChipPicker(options: options.map { ($0, "\($0)%") },
