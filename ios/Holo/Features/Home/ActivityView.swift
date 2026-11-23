@@ -212,7 +212,9 @@ struct ActivityView: View {
     }
 
     private func controls(_ m: Model) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        // Even gaps: the search, the chips and the deleted-records link each 16pt apart (the
+        // chips sat tight under the search, which looked fused to it).
+        VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").font(.system(size: 14, weight: .medium)).foregroundStyle(Theme.muted)
                 TextField("", text: $query, prompt: Text("Find a card").foregroundColor(Theme.subtle))
@@ -223,7 +225,7 @@ struct ActivityView: View {
                         .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 14).frame(height: 44)
+            .padding(.horizontal, 16).frame(height: 48)
             .liquidGlass(in: Capsule())
             ChipPicker(options: Filter.allCases.map { ($0, $0.rawValue) }, selection: $filter, scrolls: true)
             if m.hiddenCount > 0 {
