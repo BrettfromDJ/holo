@@ -34,6 +34,13 @@ struct DealView: View {
     /// The tab bar brought back over a docked deal bar ("Show tabs"); off again once the deal empties
     /// or the Deal tab is tapped.
     @State private var showTabs = false
+    /// The deal's ⋯ at the top right (park, clear, round up, the agreed cash).
+    @State private var dealMenu = false
+    /// A row's ⋯ (its rarer actions), and the price sheet a row's price opens.
+    @State private var actingItem: DealItem?
+    @State private var pricingItem: DealItem?
+    /// Photos and notes, folded into one row until opened (open when the deal has either).
+    @State private var extrasOpen = false
 
     private var rates: (in: Double, out: Double) { deals.rates }
     private var defaultRates: (in: Double, out: Double) {
@@ -103,18 +110,12 @@ struct DealView: View {
                         }
                         if !todays.isEmpty { TodayStrip(deals: todays) { path.append(DealRoute.history) } }
                         if !deals.parked.isEmpty { ParkedChip(count: deals.parked.count) { parkedList = true } }
-                        BalanceCard(totals: totals, role: role, read: read, roundTo: roundTarget(totals), onRound: roundCash,
-                                    agreed: agreed.side != nil, share: agreed.share,
-                                    onEditCash: { startEditingCash(totals) }, onClearAgreed: clearAgreed)
                     }
+                    // The deal reads top to bottom like a receipt: what comes in, what goes out,
+                    // then the answer in the bar pinned at the bottom.
                     side(.incoming, totals: totals, settled: agreed.deal, accent: accent).reveal()
                     side(.outgoing, totals: totals, settled: agreed.deal, accent: accent).reveal()
-                    photosSection(accent: accent).reveal()
-                    notesSection(accent: accent).reveal()
-                    // The deal bar at the end of the page (not pinned: it took too much of the screen).
-                    if deals.deal.kind != .empty {
-                        closeBar(totals, warning: warning)
-                    }
+                    extras(accent: accent)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
@@ -165,6 +166,9 @@ struct DealView: View {
                             .accessibilityLabel("Customer view")
                             .disabled(deals.deal.kind == .empty)
                     }
+                    if deals.deal.kind != .empty {
+                        Button { dealMenu = true } label: { Image(systemName: "ellipsis") }.accessibilityLabel("Deal actions")
+                    }
                     Button { settings = true } label: { Image(systemName: "slider.horizontal.3") }.accessibilityLabel("Deal settings")
                 }
             }
@@ -182,7 +186,28 @@ struct DealView: View {
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
-            .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: docked ? 0 : HoloTabBar<Int>.clearance) }
+            // The receipt, always on screen above the tab bar while there's a deal.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                VStack(spacing: 0) {
+                    if deals.deal.kind != .empty {
+                        receiptBar(totals, warning: warning)
+                            .padding(.horizontal, 16).padding(.bottom, 8)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                    Color.clear.frame(height: docked ? 0 : HoloTabBar<Int>.clearance)
+                }
+                .animation(.snappy, value: deals.deal.kind == .empty)
+            }
+            .actionsSheet(isPresented: $dealMenu, title: "This deal") { dealActions(totals) }
+            .actionsSheet(item: $actingItem, title: { $0.product.name }, product: { $0.product }) { itemActions($0) }
+            .sheet(item: $pricingItem) { item in
+                let incoming = deals.deal.incoming.contains { $0.key == item.key }
+                DealPriceSheet(item: item, incoming: incoming, rate: incoming ? rates.in : rates.out,
+                               asksPaid: !incoming && item.holdingKey == nil && !item.isCustom) { changed in
+                    replace(changed)
+                }
+            }
+            .onAppear { if !deals.deal.photos.isEmpty || deals.deal.notes != nil { extrasOpen = true } }
             .sheet(isPresented: $confirming) { DealCloseSheet() }
             .sheet(item: $picking) { side in
                 DealPickerSheet(side: side, onScan: {
@@ -265,70 +290,137 @@ struct DealView: View {
         .onChange(of: Router.shared.tabTap) { _, tap in if tap.name == "deal" { showTabs = false } }
     }
 
-    // MARK: Close bar
+    // MARK: The receipt bar
 
-    private func closeBar(_ totals: DealTotals, warning: Bool) -> some View {
-        // The second figure: market value gained or given up (collector), ahead/behind (vendor).
-        let second: (label: String, value: Double)? = {
-            if deals.role == .collector { return ("At market", CollectorRead(agreed.deal, totals: totals, rates: rates).net) }
-            if let ahead = totals.ahead { return (ahead < 0 ? "Behind" : "Ahead", ahead) }
-            if let net = totals.net { return ("You're", net) }
-            return nil
-        }()
+    /// Pinned above the tab bar: the sum (in − out), who pays and how much (tap it to type the
+    /// cash you agreed on), the one verdict, and Close. Park, clear and round up are in the ⋯.
+    private func receiptBar(_ totals: DealTotals, warning: Bool) -> some View {
         let b = totals.balance
         let cashLabel = abs(b) < 0.005 ? "Even swap" : (b > 0 ? "They pay" : "You pay")
-        return VStack(spacing: 14) {
-            // The answer, always on screen: two totals, like the bottom of a receipt.
-            HStack(alignment: .bottom) {
-                VStack(alignment: .leading, spacing: 3) {
-                    MonoLabel(text: cashLabel)
-                    Text(abs(b) < 0.005 ? "$0" : Format.money(abs(b)))
-                        .font(.display(26)).tracking(-0.8).monospacedDigit().foregroundStyle(.white)
-                        .contentTransition(.numericText())
-                }
-                Spacer(minLength: 12)
-                if let second {
-                    VStack(alignment: .trailing, spacing: 3) {
-                        MonoLabel(text: second.label)
-                        Text(Format.signedMoney(second.value))
-                            .font(.display(26)).tracking(-0.8).monospacedDigit().foregroundStyle(Theme.tone(second.value))
+        let second: (text: String, value: Double)? = {
+            if deals.role == .collector {
+                let net = CollectorRead(agreed.deal, totals: totals, rates: rates).net
+                return (abs(net) < 0.005 ? "At market" : "\(Format.money(abs(net))) \(net < 0 ? "under" : "over") market", net)
+            }
+            if let ahead = totals.ahead { return ("\(Format.money(abs(ahead))) \(ahead < 0 ? "behind" : "ahead")", ahead) }
+            if let net = totals.net { return ("\(Format.signedMoney(net)) on the deal", net) }
+            return nil
+        }()
+        let sum = [totals.inValue > 0 ? "In \(Format.money(totals.inValue))" : nil,
+                   totals.outValue > 0 ? "Out \(Format.money(totals.outValue))" : nil].compactMap { $0 }.joined(separator: " − ")
+        return HStack(alignment: .center, spacing: 12) {
+            Button { startEditingCash(totals) } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(sum).font(.geist(11)).monospacedDigit().foregroundStyle(Theme.subtle).lineLimit(1)
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(cashLabel).font(.geist(13, .medium)).foregroundStyle(Theme.muted)
+                        Text(abs(b) < 0.005 ? "$0" : Format.money(abs(b)))
+                            .font(.display(24)).tracking(-0.7).monospacedDigit().foregroundStyle(.white)
                             .contentTransition(.numericText())
                     }
+                    if let second {
+                        Text(second.text + (totals.belowCost > 0 ? " · \(totals.belowCost) below cost" : ""))
+                            .font(.geist(12, .medium)).monospacedDigit()
+                            .foregroundStyle(abs(second.value) < 0.005 ? Theme.muted : Theme.tone(second.value))
+                    } else if totals.belowCost > 0 {
+                        Text("\(totals.belowCost) below cost").font(.geist(12, .medium)).foregroundStyle(Theme.planPink)
+                    }
                 }
+                .lineLimit(1).minimumScaleFactor(0.75)
+                .contentShape(Rectangle())
             }
-            .lineLimit(1).minimumScaleFactor(0.7)
+            .buttonStyle(.plain)
+            .accessibilityHint("Type the cash you agreed on")
             .animation(.snappy, value: totals.balance)
-            .padding(.horizontal, 6)
-            .accessibilityElement(children: .combine)
-            HStack(spacing: 10) {
-                // Park and clear: small round glass buttons, so the close stays the one big action.
-                roundBarButton("bookmark", label: "Park this deal to finish later") { parking = true }
-                roundBarButton("trash", label: "Clear this deal") { clearing = true }
-                Button { Haptics.tap(); confirming = true } label: {
-                    Text(unpriced ? "Price every item to close" : "Close \(deals.deal.kind.noun.lowercased())")
-                        .font(.geist(16, .semibold)).foregroundStyle(warning ? .white : Theme.ink)
-                        .lineLimit(1).minimumScaleFactor(0.8)
-                        .frame(maxWidth: .infinity).frame(height: 50)
-                        .background(Capsule().fill(warning ? Theme.planPink : Theme.lime))
-                        .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .disabled(unpriced)
-                .opacity(unpriced ? 0.55 : 1)
+            Spacer(minLength: 0)
+            Button { Haptics.tap(); confirming = true } label: {
+                Text(unpriced ? "Price all" : "Close \(deals.deal.kind.noun.lowercased())")
+                    .font(.geist(16, .semibold)).foregroundStyle(warning ? .white : Theme.ink)
+                    .lineLimit(1).minimumScaleFactor(0.8)
+                    .padding(.horizontal, 22).frame(height: 50)
+                    .background(Capsule().fill(warning ? Theme.planPink : Theme.lime))
+                    .contentShape(Capsule())
             }
+            .buttonStyle(.plain)
+            .disabled(unpriced)
+            .opacity(unpriced ? 0.55 : 1)
         }
-        .padding(.horizontal, 14).padding(.top, 14).padding(.bottom, 12)
+        .padding(.leading, 18).padding(.trailing, 10).padding(.vertical, 10)
         .liquidGlass(in: RoundedRectangle(cornerRadius: 30, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 30, style: .continuous).strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
-        // The page already sets the 16pt margins: the bar lines up with the rows above it.
-        .padding(.top, 8)
-        .actionsSheet(isPresented: $clearing, title: "Clear this deal?") {
-            [[SheetAction(title: "Clear every item and photo", icon: "trash", destructive: true) {
+    }
+
+    /// The deal's ⋯: round up or type the cash, park it, clear it.
+    private func dealActions(_ totals: DealTotals) -> [[SheetAction]] {
+        var cash: [SheetAction] = []
+        if let target = roundTarget(totals) {
+            cash.append(SheetAction(title: "Round up to \(Format.money(abs(target)))", icon: "arrow.up") { roundCash() })
+        }
+        cash.append(SheetAction(title: "Type the agreed cash", icon: "pencil") { startEditingCash(totals) })
+        if deals.deal.agreedCash != nil {
+            cash.append(SheetAction(title: "Clear the agreed cash", icon: "xmark") { clearAgreed() })
+        }
+        return [cash, [
+            SheetAction(title: "Park to finish later", icon: "bookmark") { parking = true },
+        ], [
+            SheetAction(title: "Clear this deal", icon: "trash", destructive: true) {
                 let photos = deals.deal.photos
                 withAnimation(.snappy) { deals.update { $0 = DealState() } }
-                // The deal's photos go with it.
                 Task { for p in photos { await DealPhotos.delete(p) } }
-            }]]
+            },
+        ]]
+    }
+
+    /// A row's ⋯: price, quantity, collection, card details, remove.
+    private func itemActions(_ item: DealItem) -> [[SheetAction]] {
+        let incoming = deals.deal.incoming.contains { $0.key == item.key }
+        let tracked = deals.tracked(item, side: incoming ? .incoming : .outgoing)
+        var main: [SheetAction] = [SheetAction(title: "Set its price", icon: "dollarsign") { pricingItem = item }]
+        if item.price != nil || item.rate != nil {
+            let r = incoming ? rates.in : rates.out
+            main.append(SheetAction(title: "Use \(Int((r * 100).rounded()))% of market", icon: "arrow.uturn.backward") {
+                var c = item
+                c.price = nil
+                c.rate = nil
+                replace(c)
+            })
+        }
+        if item.qty < (item.maxQty ?? 999) {
+            main.append(SheetAction(title: "One more", subtitle: "\(item.qty) now", icon: "plus") { var c = item; c.qty += 1; replace(c) })
+        }
+        if item.qty > 1 {
+            main.append(SheetAction(title: "One fewer", subtitle: "\(item.qty) now", icon: "minus") { var c = item; c.qty -= 1; replace(c) })
+        }
+        if incoming && !item.isCustom {
+            main.append(SheetAction(title: tracked ? "Don't add to collection" : "Add to collection", icon: tracked ? "minus.circle" : "plus.circle") {
+                var c = item
+                c.track = !tracked
+                replace(c)
+            })
+        }
+        var more: [SheetAction] = []
+        if !item.product.id.hasPrefix("custom:") {
+            more.append(SheetAction(title: "Card details", icon: "rectangle.portrait") { detailItem = item })
+        }
+        return [main, more, [
+            SheetAction(title: "Remove from deal", icon: "trash", destructive: true) { remove(item) },
+        ]].filter { !$0.isEmpty }
+    }
+
+    /// Puts a changed line back where it was, on whichever side it's on.
+    private func replace(_ changed: DealItem) {
+        deals.update { d in
+            if let i = d.incoming.firstIndex(where: { $0.key == changed.key }) { d.incoming[i] = changed }
+            else if let i = d.outgoing.firstIndex(where: { $0.key == changed.key }) { d.outgoing[i] = changed }
+        }
+    }
+
+    private func remove(_ item: DealItem) {
+        withAnimation(.snappy) {
+            deals.update { d in
+                d.incoming.removeAll { $0.key == item.key }
+                d.outgoing.removeAll { $0.key == item.key }
+            }
         }
     }
 
@@ -388,7 +480,34 @@ struct DealView: View {
         withAnimation(.snappy) { deals.update { $0.agreedCash = nil } }
     }
 
-    // MARK: Photos
+    // MARK: Photos and notes
+
+    /// One quiet row until wanted, then the photos strip and the notes field.
+    @ViewBuilder private func extras(accent: Color) -> some View {
+        if extrasOpen {
+            VStack(alignment: .leading, spacing: 28) {
+                photosSection(accent: accent)
+                notesSection(accent: accent)
+            }
+            .transition(.opacity)
+        } else {
+            Button {
+                Haptics.tap()
+                withAnimation(.snappy) { extrasOpen = true }
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "camera").font(.system(size: 15, weight: .semibold))
+                    Text("Add a photo or note").font(.geist(15, .medium))
+                    Spacer()
+                }
+                .foregroundStyle(Theme.muted)
+                .padding(.horizontal, 16).frame(height: 50)
+                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.surface))
+                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.border))
+            }
+            .buttonStyle(.plain)
+        }
+    }
 
     /// Photos documenting the deal (the cards on the table, a receipt); they're kept with it when it closes.
     private func photosSection(accent: Color) -> some View {
@@ -396,10 +515,9 @@ struct DealView: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
                     Image(systemName: "camera.fill").font(.system(size: 14, weight: .semibold)).foregroundStyle(accent)
-                    Text("Photos").font(.display(24)).tracking(-0.6).displayTrim(24)
+                    Text("Photos").font(.display(20)).tracking(-0.5).displayTrim(20)
                     if !deals.deal.photos.isEmpty { MonoLabel(text: "\(deals.deal.photos.count)") }
                 }
-                Text("Document the deal: the cards on the table, a receipt, the \(deals.role.other)'s binder".noWidow).font(.geist(12)).foregroundStyle(Theme.muted)
             }
             DealPhotosStrip(photos: deals.deal.photos, accountId: store.demo == nil ? deals.accountId : nil, accent: accent) { photos in
                 deals.update { $0.photos = photos }
@@ -414,7 +532,7 @@ struct DealView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: "note.text").font(.system(size: 14, weight: .semibold)).foregroundStyle(accent)
-                Text("Notes").font(.display(24)).tracking(-0.6).displayTrim(24)
+                Text("Notes").font(.display(20)).tracking(-0.5).displayTrim(20)
             }
             DealNotesField(notes: deals.deal.notes, prompt: "Who it was with, how they paid, anything to remember", accent: accent) { text in
                 deals.update { $0.notes = text.isEmpty ? nil : text }
@@ -433,63 +551,51 @@ struct DealView: View {
         let rate = incoming ? rates.in : rates.out
         let fallback = incoming ? defaultRates.in : defaultRates.out
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .lastTextBaseline) {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 8) {
-                        Image(systemName: incoming ? "arrow.down.left" : "arrow.up.right")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(incoming ? accent : Theme.planPink)
-                        Text(incoming ? "Coming in" : "Going out").font(.display(24)).tracking(-0.6).displayTrim(24)
-                    }
-                    Text(incoming ? "What the \(deals.role.other) hands you" : "What you hand over").font(.geist(12)).foregroundStyle(Theme.muted)
+            // "Coming in · 2" with the side's total on the right.
+            HStack(alignment: .firstTextBaseline) {
+                Image(systemName: incoming ? "arrow.down.left" : "arrow.up.right")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(incoming ? accent : Theme.planPink)
+                Text(incoming ? "Coming in" : "Going out").font(.display(24)).tracking(-0.6).displayTrim(24)
+                // What the side is, behind an ⓘ (no line of small text under the title).
+                TermInfo(term: incoming ? .comingIn : .goingOut, color: .white)
+                if !items.isEmpty {
+                    Text("· \(items.reduce(0) { $0 + $1.qty })").font(.geist(17, .medium)).monospacedDigit().foregroundStyle(Theme.subtle)
                 }
                 Spacer(minLength: 8)
-                Text(Format.money(incoming ? totals.inValue : totals.outValue))
-                    .font(.display(26)).tracking(-0.7).monospacedDigit().displayTrim(26)
-                    .contentTransition(.numericText())
-                    .animation(.snappy, value: incoming ? totals.inValue : totals.outValue)
+                if !items.isEmpty {
+                    Text(Format.money(incoming ? totals.inValue : totals.outValue))
+                        .font(.display(22)).tracking(-0.6).monospacedDigit().displayTrim(22)
+                        .contentTransition(.numericText())
+                        .animation(.snappy, value: incoming ? totals.inValue : totals.outValue)
+                }
             }
 
-            RateCard(rate: rate, fallback: fallback, accent: accent,
-                     result: deals.deal.kind == .empty ? nil
-                        : (deals.role == .collector ? totals.cashLine + " · at market " + Format.signedMoney(CollectorRead(settled, totals: totals, rates: rates).net) : totals.summary),
-                     lead: deals.role == .vendor ? "At " : (incoming ? "They charge " : "They offer ")) { r in
-                deals.update { d in if incoming { d.rateIn = r } else { d.rateOut = r } }
-            }
-
-            ForEach(items) { item in
-                DealItemCard(item: item, incoming: incoming, rate: rate, agreedUnit: agreedUnits[item.key], cost: incoming ? nil : deals.cost(of: item, in: store), accent: accent,
-                             tracked: deals.tracked(item, side: side), asksCost: deals.defaults.asksCost,
-                             onOpen: item.product.id.hasPrefix("custom:") ? nil : { detailItem = item },
-                             onEbay: { ebayItem = item },
-                             onRemove: {
-                                 withAnimation(.snappy) {
-                                     deals.update { d in
-                                         if incoming { d.incoming.removeAll { $0.key == item.key } } else { d.outgoing.removeAll { $0.key == item.key } }
-                                     }
-                                 }
-                             }) { changed in
-                    deals.update { d in
-                        if incoming {
-                            if let i = d.incoming.firstIndex(where: { $0.key == item.key }) { d.incoming[i] = changed }
-                        } else {
-                            if let i = d.outgoing.firstIndex(where: { $0.key == item.key }) { d.outgoing[i] = changed }
-                        }
+            if !items.isEmpty {
+                // One rate for the side, as chips; a card with its own price ignores it.
+                RateChips(rate: rate, fallback: fallback,
+                          lead: deals.role == .vendor ? (incoming ? "You pay" : "You charge") : (incoming ? "They charge" : "They offer")) { r in
+                    deals.update { d in if incoming { d.rateIn = r } else { d.rateOut = r } }
+                }
+                VStack(spacing: 0) {
+                    ForEach(Array(items.enumerated()), id: \.element.id) { n, item in
+                        DealRow(item: item, incoming: incoming, rate: rate, agreedUnit: agreedUnits[item.key],
+                                cost: incoming ? nil : deals.cost(of: item, in: store),
+                                tracked: deals.tracked(item, side: side),
+                                onOpen: item.product.id.hasPrefix("custom:") ? nil : { detailItem = item },
+                                onPrice: { pricingItem = item },
+                                onMore: { actingItem = item })
+                            .overlay(alignment: .top) {
+                                if n > 0 { Rectangle().fill(Theme.border).frame(height: 1) }
+                            }
+                            .transition(.opacity)
                     }
                 }
-                .swipeToRemove(item.product.name) {
-                    withAnimation(.snappy) {
-                        deals.update { d in
-                            if incoming { d.incoming.removeAll { $0.key == item.key } } else { d.outgoing.removeAll { $0.key == item.key } }
-                        }
-                    }
-                }
-                .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
             HStack(spacing: 8) {
                 Button { picking = side } label: {
-                    Label(incoming ? "Add what's coming in" : "Add from inventory", systemImage: "plus")
+                    Label(incoming ? "Add" : "Add from collection", systemImage: "plus")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(Button3D(kind: .dark, fullWidth: true, height: 46))
@@ -1255,6 +1361,192 @@ private struct DealItemCard: View {
         var c = item
         edit(&c)
         onChange(c)
+    }
+}
+
+/// A side's share of market as chips (one rate for the side). Picking the usual one goes back
+/// to following the deal settings.
+private struct RateChips: View {
+    var rate: Double
+    var fallback: Double
+    var lead: String
+    var onChange: (Double?) -> Void
+
+    var body: some View {
+        let pct = Int((rate * 100).rounded())
+        let usual = Int((fallback * 100).rounded())
+        let options = Array(Set([50, 60, 70, 80, 90, 100, 110, pct, usual])).filter { (40...120).contains($0) }.sorted()
+        VStack(alignment: .leading, spacing: 8) {
+            Text(lead).foregroundColor(Theme.muted) + Text(" \(pct)%").foregroundColor(.white) + Text(" of market").foregroundColor(Theme.muted)
+            ChipPicker(options: options.map { ($0, "\($0)%") },
+                       selection: Binding(get: { pct }, set: { v in onChange(v == usual ? nil : Double(v) / 100) }), scrolls: true)
+        }
+        .font(.geist(13, .medium)).monospacedDigit()
+        .sensoryFeedback(.selection, trigger: pct)
+    }
+}
+
+/// One line of the deal, calm: picture, name, one quiet line (market and its share, or its own
+/// price), a pink line only when it's below what you paid, the price on the right (tap to change
+/// it) and a ⋯ for the rest.
+private struct DealRow: View {
+    var item: DealItem
+    var incoming: Bool
+    var rate: Double
+    var agreedUnit: Double?
+    var cost: Double?
+    var tracked: Bool
+    var onOpen: (() -> Void)?
+    var onPrice: () -> Void
+    var onMore: () -> Void
+    @Environment(CollectionStore.self) private var store
+
+    private var identity: HoldingIdentity? {
+        if let key = item.holdingKey, let held = store.allHoldings.first(where: { $0.identity.key == key }) { return held.identity }
+        if let g = item.grade {
+            return HoldingIdentity(productId: item.product.id, printing: item.printing, condition: "Near Mint", gradeCompany: g.company, grade: g.grade)
+        }
+        return nil
+    }
+
+    var body: some View {
+        let unit = agreedUnit ?? item.unitPrice(side: rate)
+        let total = unit.map { $0 * Double(item.qty) }
+        let identity = self.identity
+        let loss: Double? = { guard let cost, let total else { return nil }; let p = total - cost; return p < -0.005 ? -p : nil }()
+        HStack(alignment: .center, spacing: 12) {
+            Button { onOpen?() } label: {
+                HoldingArt(product: item.product, identity: identity, cornerRadius: 3, caption: false)
+                    .frame(width: 40, height: 56)
+            }
+            .buttonStyle(.plain)
+            .disabled(onOpen == nil)
+            .accessibilityLabel("Details for \(item.product.name)")
+            VStack(alignment: .leading, spacing: 3) {
+                Text(ActionsSheet.shortName(item.product)).font(.geist(15, .medium)).foregroundStyle(.white).lineLimit(1)
+                Text(detail(unit: unit, identity: identity)).font(.geist(12)).monospacedDigit().foregroundStyle(Theme.muted).lineLimit(1)
+                if let loss {
+                    Text("Below what you paid by \(Format.money(loss))").font(.geist(12, .medium)).monospacedDigit().foregroundStyle(Theme.planPink).lineLimit(1)
+                }
+            }
+            Spacer(minLength: 8)
+            Button(action: onPrice) {
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(total.map { Format.money($0) } ?? "Set price").font(.geist(15, .semibold)).monospacedDigit()
+                        .foregroundStyle(total == nil ? Theme.lime : .white)
+                    if item.qty > 1, let unit {
+                        Text("\(item.qty) × \(Format.money(unit))").font(.geist(11)).monospacedDigit().foregroundStyle(Theme.subtle)
+                    }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Change its price")
+            RowMoreButton(label: item.product.name, action: onMore)
+                .padding(.trailing, -10)
+        }
+        .padding(.vertical, 10)
+    }
+
+    /// "Market $103.52 · 100%", "Own price · market $54.84", plus what happens in your collection
+    /// when that isn't the usual.
+    private func detail(unit: Double?, identity: HoldingIdentity?) -> String {
+        var parts: [String] = []
+        if let g = identity?.gradeLabel { parts.append(g) }
+        if item.isCustom {
+            parts.append("Custom")
+        } else if let market = item.market {
+            if item.price != nil { parts.append("Own price · market \(Format.money(market))") }
+            else if let unit, market > 0 { parts.append("Market \(Format.money(market)) · \(Int((unit / market * 100).rounded()))%") }
+            else { parts.append("Market \(Format.money(market))") }
+        } else {
+            parts.append("No market price")
+        }
+        if incoming, !item.isCustom, !tracked { parts.append("not adding to collection") }
+        if !incoming, item.holdingKey == nil, !item.isCustom { parts.append("not in your collection") }
+        if let cost, (unit.map { $0 * Double(item.qty) } ?? 0) - cost >= -0.005 { parts.append("paid \(Format.money(cost))") }
+        return parts.joined(separator: " · ")
+    }
+}
+
+/// A line's price (and quantity, and what you paid when it isn't in your collection), in a sheet
+/// that fits its content, like the Grading sheets.
+private struct DealPriceSheet: View {
+    var item: DealItem
+    var incoming: Bool
+    var rate: Double
+    var asksPaid: Bool
+    var onSave: (DealItem) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var price = ""
+    @State private var paid = ""
+    @State private var qty = 1
+    @State private var height: CGFloat = 380
+
+    var body: some View {
+        let maxQty = item.maxQty ?? 999
+        VStack(alignment: .leading, spacing: 18) {
+            SheetHeader(title: "Its price") { dismiss() }
+            HStack(spacing: 12) {
+                HoldingArt(product: item.product, cornerRadius: 3, caption: false).frame(width: 40, height: 56)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(ActionsSheet.shortName(item.product)).font(.geist(15, .semibold)).foregroundStyle(.white).lineLimit(1)
+                    Text(item.market.map { "Market \(Format.money($0))" } ?? "No market price").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted)
+                }
+            }
+            SheetPanel {
+                SheetMoneyRow(title: "Price each", text: $price)
+                if maxQty > 1 || item.qty > 1 {
+                    SheetDivider()
+                    HStack {
+                        Text("Quantity").font(.geist(16)).foregroundStyle(.white)
+                        Spacer()
+                        Text("\(qty)").font(.geist(16)).monospacedDigit().foregroundStyle(Theme.muted)
+                        Stepper("", value: $qty, in: 1...max(1, maxQty)).labelsHidden().fixedSize()
+                    }
+                    .frame(minHeight: 50)
+                }
+                if asksPaid {
+                    SheetDivider()
+                    SheetMoneyRow(title: "You paid each", text: $paid)
+                }
+            }
+            if item.market != nil {
+                Button {
+                    price = ""
+                    var c = item
+                    c.price = nil
+                    c.rate = nil
+                    c.qty = qty
+                    if asksPaid { c.cost = MoneyField.value(paid) }
+                    onSave(c)
+                    dismiss()
+                } label: {
+                    Text("Use \(Int((rate * 100).rounded()))% of market instead").font(.geist(14, .medium)).foregroundStyle(Theme.muted)
+                }
+                .buttonStyle(.plain)
+            }
+            SheetLimeButton(title: "Save", enabled: MoneyField.value(price) != nil || item.market != nil) {
+                var c = item
+                if let v = MoneyField.value(price), abs(v - (item.unitPrice(side: rate) ?? -1)) > 0.004 || item.price != nil {
+                    c.price = v
+                    c.rate = nil
+                }
+                c.qty = qty
+                if asksPaid { c.cost = MoneyField.value(paid) }
+                onSave(c)
+                dismiss()
+            }
+        }
+        .padding(.horizontal, 20).padding(.top, 24).padding(.bottom, 8)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 }
+        .onAppear {
+            qty = item.qty
+            if let u = item.unitPrice(side: rate) { price = String(format: "%.2f", u) }
+            if let c = item.cost { paid = String(format: "%.2f", c) }
+        }
+        .presentationDetents([.height(height)])
+        .glassSheet()
     }
 }
 
