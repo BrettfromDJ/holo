@@ -448,7 +448,7 @@ struct ListDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         // The list's own name is the big heading below; the bar just has the back button.
         .pageTitle("")
-        .actionsSheet(item: $rowActions, title: { store.products[$0.id]?.name }, product: { store.products[$0.id] }) { ref in
+        .actionsSheet(item: $rowActions, title: { $0.product?.name ?? "Card" }, product: { $0.product }) { ref in
             var rows: [[SheetAction]] = []
             if groups.meta(listId).isForSale {
                 rows.append([SheetAction(title: "Set its price", icon: "tag") { pricing = ref.id }])
@@ -597,7 +597,7 @@ struct ListDetailView: View {
             } else {
                 Text(Format.money(info.market)).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(.white)
             }
-            RowMoreButton(label: info.product?.name) { rowActions = ListRowRef(id: productId) }
+            RowMoreButton(label: info.product?.name) { rowActions = ListRowRef(id: productId, product: info.product) }
         }
         .padding(.vertical, 8)
     }
@@ -971,4 +971,4 @@ struct ListShareSheet: View {
 }
 
 /// A card on a list, for its ⋯ sheet.
-private struct ListRowRef: Identifiable { var id: String }
+private struct ListRowRef: Identifiable { var id: String; var product: Product? }
