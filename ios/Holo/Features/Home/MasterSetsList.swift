@@ -24,7 +24,6 @@ struct MasterSetsView: View {
     @State private var searching = false
     /// The brand shown (a game's slug from the catalog); Pokémon to start, remembered after.
     @AppStorage("master-sets-brand") private var brand = "pokemon"
-    @State private var choosingBrand = false
 
     enum Scope: String, CaseIterable { case mine = "Your sets", all = "All sets" }
     enum Sort: String, CaseIterable { case progress = "Most complete", value = "Most valuable", newest = "Newest", name = "Name" }
@@ -137,10 +136,10 @@ struct MasterSetsView: View {
         .navigationBarTitleDisplayMode(.inline)
         // The title is in the page (big, with the card fan), so the bar stays clear.
         .toolbarBackground(.hidden, for: .navigationBar)
+        // The page's name in the bar; the big titles are the games.
+        .pageTitle("Master Sets")
         // Search sits behind an icon at the top right; the field opens under the stats.
         .toolbar {
-            // Which game's sets: a pill centred in the top bar.
-            ToolbarItem(placement: .principal) { brandMenu }
             ToolbarItem(placement: .topBarTrailing) {
                 Button { withAnimation(.snappy) { searching.toggle() }; if !searching { query = "" } } label: {
                     Image(systemName: searching ? "xmark" : "magnifyingglass")
@@ -169,9 +168,9 @@ struct MasterSetsView: View {
         let cards = owned.reduce(0) { $0 + Set($1.holdings.map(\.identity.productId)).count }
         let worth = owned.reduce(0) { $0 + $1.holdings.reduce(0) { $0 + ($1.value ?? 0) } }
         return VStack(alignment: .leading, spacing: 6) {
-            Text("Master Sets").font(.display(40)).tracking(-1.4).displayTrim(40)
-                .lineLimit(1).minimumScaleFactor(0.7)
-                .padding(.top, 4)
+            // Each game as a big title, like Summary | Cards: the one shown white, the rest faded,
+            // scrolling sideways with the right edge fading. Short names (Magic, One Piece).
+            gameTitles.padding(.top, 4)
             Group {
                 if owned.isEmpty {
                     Text("No \(brandName) sets started yet")
@@ -217,29 +216,46 @@ struct MasterSetsView: View {
         }
     }
 
-    private var brandName: String { brands.first { $0.slug == brand }?.name ?? "Pokémon" }
+    private var brandName: String { Self.shortName(brands.first { $0.slug == brand }?.name ?? "Pokémon") }
 
-    /// Which brand's sets to show: a glass pill with the brand's name, opening our sheet of
-    /// games (a system Menu's label cut a longer name off while it resized).
-    private var brandMenu: some View {
-        let name = brandName
-        return Button { Haptics.tap(); choosingBrand = true } label: {
-            HStack(spacing: 6) {
-                Text(name).font(.geist(14, .semibold)).lineLimit(1).fixedSize()
-                Image(systemName: "chevron.down").font(.system(size: 11, weight: .semibold))
-            }
-            .foregroundStyle(.white)
-            .padding(.horizontal, 14)
-            .frame(height: 36)
-            .contentShape(Capsule())
-            .background { Color.clear.liquidGlass(in: Capsule()).allowsHitTesting(false) }
+    /// "Magic: The Gathering" → "Magic", "Disney Lorcana" → "Lorcana", "One Piece Card Game" →
+    /// "One Piece".
+    static func shortName(_ name: String) -> String {
+        var n = name
+        for cut in [": The Gathering", " Trading Card Game", " Card Game", " TCG", " CCG"] {
+            if let r = n.range(of: cut, options: [.caseInsensitive, .backwards]) { n.removeSubrange(r) }
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Game: \(name)")
-        .actionsSheet(isPresented: $choosingBrand, title: "Game") {
-            [brands.map { b in SheetAction(title: b.name, checked: b.slug == brand) { brand = b.slug } }]
+        if n.hasPrefix("Disney ") { n.removeFirst(7) }
+        return n.trimmingCharacters(in: .whitespaces)
+    }
+
+    private var gameTitles: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(alignment: .firstTextBaseline, spacing: 20) {
+                    ForEach(brands, id: \.slug) { b in
+                        let on = b.slug == brand
+                        Button { if !on { Haptics.tap(); brand = b.slug } } label: {
+                            Text(Self.shortName(b.name)).font(.display(32)).tracking(32 * -0.03)
+                                .foregroundStyle(on ? Color.white : Theme.subtle)
+                                .displayTrim(32)
+                                .fixedSize()
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(on ? .isSelected : [])
+                        .id(b.slug)
+                    }
+                }
+                .padding(.trailing, 44)
+            }
+            .fadeTrailingEdge()
+            .sensoryFeedback(.selection, trigger: brand)
+            .onAppear { proxy.scrollTo(brand, anchor: .leading) }
+            .onChange(of: brand) { _, b in withAnimation(.snappy) { proxy.scrollTo(b, anchor: .center) } }
         }
     }
+
 }
 
 /// One set as a full-width card in its own light: the set's banner art on the right, fading into
