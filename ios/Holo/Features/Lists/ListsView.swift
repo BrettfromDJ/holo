@@ -43,6 +43,8 @@ struct ListsView: View {
             // Plain rows, each its own panel with a 16pt corner (the grouped list's sections
             // rounded much more than our other panels).
             .listStyle(.plain)
+            // The first row starts just under the title (no tall gap above the list).
+            .contentMargins(.top, 4, for: .scrollContent)
             .scrollContentBackground(.hidden)
             .background(Theme.background)
             .overlay { emptyState }
