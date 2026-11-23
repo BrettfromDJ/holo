@@ -89,6 +89,12 @@ struct ActionsSheet: View {
                 Text(page.title).font(.display(20)).tracking(-0.5).foregroundStyle(.white).lineLimit(1)
             }
         } else if let product {
+            // Tapping the card (its picture or name) opens its page once the sheet has gone.
+            Button {
+                Haptics.tap()
+                dismiss()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { Router.shared.product = product.id }
+            } label: {
             HStack(spacing: 14) {
                 ProductImage(product: product, cornerRadius: 5).frame(width: 46, height: 64)
                 VStack(alignment: .leading, spacing: 3) {
@@ -97,6 +103,10 @@ struct ActionsSheet: View {
                 }
                 Spacer(minLength: 0)
             }
+            .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Open \(Self.shortName(product))")
         } else if let title {
             Text(title).font(.display(20)).tracking(-0.5).foregroundStyle(.white).lineLimit(2)
         }
