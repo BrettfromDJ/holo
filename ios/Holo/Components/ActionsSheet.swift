@@ -36,6 +36,7 @@ struct ActionsSheet: View {
     var product: Product? = nil
     var groups: [[SheetAction]]
     @Environment(\.dismiss) private var dismiss
+    @Environment(CollectionStore.self) private var store
     @State private var page: (title: String, groups: [[SheetAction]])?
     /// The "new …" row being named, and the name so far.
     @State private var naming: UUID?
@@ -92,6 +93,8 @@ struct ActionsSheet: View {
             // Tapping the card (its picture or name) opens its page once the sheet has gone.
             Button {
                 Haptics.tap()
+                // The page needs the card on hand (a wishlist card may not be in the catalog yet).
+                if store.products[product.id] == nil { store.seed(SearchHit(product: product)) }
                 dismiss()
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { Router.shared.product = product.id }
             } label: {
