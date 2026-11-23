@@ -96,9 +96,18 @@ struct ListsView: View {
                 if selecting {
                     selectRow(w.id) { ListRow(product: product, price: price?.market, target: w.target_price, change: price?.change24hPct) }
                 } else {
-                    NavigationLink(value: w.product_id) {
+                    // Tapping the row opens the card; a ⋯ (instead of the arrow) opens its actions:
+                    // set or edit the target, stop watching. Holding the row does the same.
+                    HStack(spacing: 4) {
                         ListRow(product: product, price: price?.market, target: w.target_price, change: price?.change24hPct)
+                        Button { Haptics.tap(); heldWatch = w } label: {
+                            Image(systemName: "ellipsis").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.muted)
+                                .frame(width: 36, height: 44).contentShape(Rectangle())
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityLabel("Actions for \(product?.name ?? "this card")")
                     }
+                    .background { NavigationLink(value: w.product_id) { EmptyView() }.opacity(0) }
                 }
             }
             .listRowBackground(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.surface).padding(.horizontal, 16).padding(.vertical, 4))
