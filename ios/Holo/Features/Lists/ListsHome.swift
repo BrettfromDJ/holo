@@ -406,8 +406,14 @@ struct ListDetailView: View {
         return ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 VStack(alignment: .leading, spacing: 8) {
-                    DisplayText(text: list.name, size: 34)
-                    if meta.isForSale {
+                    HStack(alignment: .center) {
+                        DisplayText(text: list.name, size: 34)
+                        // An empty list keeps only its ⋯ (rename, delete), beside the name.
+                        if items.isEmpty { Spacer(minLength: 8); moreMenu }
+                    }
+                    if items.isEmpty {
+                        Text("Empty").font(.geist(14)).foregroundStyle(Theme.muted)
+                    } else if meta.isForSale {
                         Text(Format.money(askTotal)).font(.display(44)).tracking(-1.2).monospacedDigit().foregroundStyle(Theme.lime)
                             .lineLimit(1).minimumScaleFactor(0.6)
                         Text("Asking for \(cards) card\(cards == 1 ? "" : "s") · \(Format.money(marketTotal)) at market")
@@ -417,17 +423,32 @@ struct ListDetailView: View {
                             .font(.geist(14)).monospacedDigit().foregroundStyle(Theme.muted)
                     }
                 }
-                actions
+                if !items.isEmpty { actions }
                 if let error { Text(error).font(.geist(13)).foregroundStyle(Theme.down) }
-                saleCard(meta)
+                if !items.isEmpty { saleCard(meta) }
                 if items.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Nothing on this list yet").font(.geist(17, .semibold))
+                    // Nothing to share or price yet: one centred invitation to add cards.
+                    VStack(spacing: 14) {
+                        ListPlaceholderFan(well: Color(red: 0.07, green: 0.07, blue: 0.08), cardWidth: 60)
+                            .frame(maxWidth: .infinity).frame(height: 140)
+                            .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color(red: 0.07, green: 0.07, blue: 0.08)))
+                            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color.white.opacity(0.06)))
+                            .onTapGesture { Haptics.tap(); adding = true }
+                            .padding(.bottom, 8)
+                        Text("Nothing on this list yet").font(.display(24)).tracking(-0.6).foregroundStyle(.white)
                         Text("Add cards from your collection or anywhere in the catalog. You don't have to own\u{00A0}them.")
-                            .font(.geist(14)).foregroundStyle(Theme.muted)
+                            .font(.geist(15)).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
+                            .frame(maxWidth: 300)
+                        Button { Haptics.tap(); adding = true } label: {
+                            Label("Add cards", systemImage: "plus").font(.geist(16, .semibold)).foregroundStyle(Theme.ink)
+                                .padding(.horizontal, 26).frame(height: 50)
+                                .background(Capsule().fill(Theme.lime))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.top, 8)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .surface(radius: 18, padding: 16)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 24)
                 } else {
                     VStack(spacing: 0) {
                         ForEach(Array(items.enumerated()), id: \.offset) { i, item in
@@ -488,6 +509,19 @@ struct ListDetailView: View {
         return (market, asking, Int(cards))
     }
 
+    private var moreMenu: some View {
+        Menu {
+            Button { renaming = true } label: { Label("Rename", systemImage: "pencil") }
+            Button(role: .destructive) { deleting = true } label: { Label("Delete list", systemImage: "trash") }
+        } label: {
+            Image(systemName: "ellipsis").font(.system(size: 17, weight: .semibold)).foregroundStyle(.white)
+                .frame(width: 46, height: 46)
+                .liquidGlass(in: Circle())
+                .contentShape(Circle())
+        }
+        .accessibilityLabel("More")
+    }
+
     private var actions: some View {
         HStack(spacing: 10) {
             Button {
@@ -509,16 +543,7 @@ struct ListDetailView: View {
             }
             .buttonStyle(.plain)
             // Rename and delete: a full-size button in the page, not a small icon in the top bar.
-            Menu {
-                Button { renaming = true } label: { Label("Rename", systemImage: "pencil") }
-                Button(role: .destructive) { deleting = true } label: { Label("Delete list", systemImage: "trash") }
-            } label: {
-                Image(systemName: "ellipsis").font(.system(size: 17, weight: .semibold)).foregroundStyle(.white)
-                    .frame(width: 46, height: 46)
-                    .liquidGlass(in: Circle())
-                    .contentShape(Circle())
-            }
-            .accessibilityLabel("More")
+            moreMenu
         }
     }
 
