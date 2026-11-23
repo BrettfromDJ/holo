@@ -111,13 +111,16 @@ struct MasterSetsView: View {
                     EmptyPage(title: "No \(brandName) sets yet", line: "Add a few cards and your sets appear here.", action: "Scan a card",
                               onAction: { Router.shared.scanRequest += 1 }, link: "Browse all sets", onLink: { scope = .all })
                 } else {
-                    // Every set as a full-width card in its own light. Tap one to open the set.
-                    LazyVStack(spacing: 14) {
+                    // Every set as a tile, two across, like Explore's brand page: the set's banner art,
+                    // then its name and how far along you are. Tap one to open the set.
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 14, alignment: .top), GridItem(.flexible(), spacing: 14, alignment: .top)],
+                              alignment: .leading, spacing: 20) {
                         ForEach(rows) { r in
-                            NavigationLink(value: MasterSetRoute(id: r.id, name: r.name)) { SetBannerRow(row: r, catalogReady: indexTried) }
+                            NavigationLink(value: MasterSetRoute(id: r.id, name: r.name)) { MasterSetTile(row: r, catalogReady: indexTried) }
                                 .buttonStyle(.plain)
                         }
                     }
+                    .environment(\.imageFadesIn, false)
                     if rows.isEmpty {
                         Text("Nothing matches.").font(.geist(15)).foregroundStyle(Theme.muted).frame(maxWidth: .infinity).padding(.vertical, 30)
                     }
@@ -391,5 +394,67 @@ final class MasterSetsMemo {
             ((slugs[s.id] ?? names[s.name.lowercased()])?.gameSlug ?? "pokemon") == brand
         }
         return ownedValue
+    }
+}
+
+/// A set on Master Sets as a grid tile, the same look as Explore's brand page (`SetTile`): the
+/// set's banner art in a rounded 3:2 frame, then its name and "8 of 102 · 8%" with a thin lime
+/// bar. A finished set gets a lime Complete tag on its art.
+struct MasterSetTile: View {
+    var row: MasterSetsView.Row
+    var catalogReady = true
+
+    private var started: Bool { !row.holdings.isEmpty }
+    private var isComplete: Bool {
+        guard let total = row.total, total > 0, started else { return false }
+        return row.owned >= total
+    }
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
+        VStack(alignment: .leading, spacing: 10) {
+            art
+                .aspectRatio(3.0 / 2.0, contentMode: .fit)
+                .overlay(alignment: .topLeading) {
+                    if isComplete { SkewTag(text: "Complete", icon: "checkmark").padding(10) }
+                }
+                .clipShape(shape)
+                .overlay(shape.strokeBorder(isComplete ? Theme.lime.opacity(0.6) : Theme.border))
+            VStack(alignment: .leading, spacing: 4) {
+                Text(row.name).font(.geist(14, .medium)).lineLimit(1).foregroundStyle(.white)
+                HStack(spacing: 5) {
+                    Text(subtitle).font(.geist(12)).monospacedDigit().foregroundStyle(Theme.muted).lineLimit(1)
+                    if let ratio = row.ratio, started, ratio >= 0.01 {
+                        Text("· \(Int((ratio * 100).rounded()))%").font(.geist(12, .semibold)).monospacedDigit().foregroundStyle(Theme.lime)
+                    }
+                }
+                if let ratio = row.ratio, started {
+                    GrowBar(fraction: ratio, color: Theme.lime, height: 3, gradient: false).padding(.top, 3)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var subtitle: String {
+        if let total = row.total { return started ? "\(row.owned) of \(total)" : "\(total) cards" }
+        if !started { return row.art?.release?.formatted(.dateTime.month(.abbreviated).year()) ?? "Not started" }
+        return "\(row.owned) card\(row.owned == 1 ? "" : "s")"
+    }
+
+    @ViewBuilder private var art: some View {
+        if let set = row.art {
+            SetArt(set: set)
+        } else {
+            // No catalog entry (a demo set): your best card from it on the set's glow.
+            ZStack {
+                SetGlow(id: row.id)
+                if catalogReady, let cover = row.holdings.max(by: { ($0.value ?? 0) < ($1.value ?? 0) }) {
+                    HoldingArt(product: cover.product, identity: cover.identity, cornerRadius: 4, caption: false)
+                        .frame(width: 58, height: 80)
+                        .rotationEffect(.degrees(6))
+                }
+            }
+        }
     }
 }
