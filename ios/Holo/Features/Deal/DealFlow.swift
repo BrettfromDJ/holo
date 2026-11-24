@@ -60,7 +60,7 @@ struct DealStartPage: View {
                                             line: "\(DealView.pathTitle(r.kind)) · \(cards(r.items)) · \(when(r))",
                                             amount: abs(r.balance),
                                             // How it ended: ahead or behind, coloured (the cash is the amount above).
-                                            note: r.aheadTotal.map { abs($0) < 0.005 ? "Even" : "\(Format.signedMoney($0)) \($0 > 0 ? "ahead" : "behind")" } ?? "Completed",
+                                            note: r.aheadTotal.map { abs($0) < 0.005 ? "Even" : "\(Format.signedMoney($0)) \($0 > 0 ? "profit" : "loss")" } ?? "Completed",
                                             noteTint: r.aheadTotal.map { abs($0) < 0.005 ? Theme.muted : Theme.tone($0) },
                                             divider: i > 0)
                             }

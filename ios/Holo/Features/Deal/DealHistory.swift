@@ -634,7 +634,7 @@ struct DealHistoryView: View {
         let what = filter.map { "\($0.noun.lowercased())s" } ?? "deals"
         return VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 8) {
-                MonoLabel(text: (ahead < 0 ? "Behind from " : "Ahead from ") + what)
+                MonoLabel(text: (ahead < 0 ? "Loss from " : "Profit from ") + what)
                 CountingText(value: ahead, format: { Format.signedMoney($0) })
                     .font(.display(72)).tracking(-2.9).monospacedDigit().foregroundStyle(ahead < 0 ? Theme.planPink : Theme.lime)
                     .lineLimit(1).minimumScaleFactor(0.5).displayTrim(72)
@@ -895,7 +895,7 @@ private struct DealRecordCard: View {
 
     /// How far ahead it left you; without that, profit, or for a buy the equity taken in.
     private var headline: (String, Double?) {
-        if let a = record.aheadTotal { return (a < 0 ? "Behind" : "Ahead", a) }
+        if let a = record.aheadTotal { return (a < 0 ? "Loss" : "Profit", a) }
         if let p = record.profit { return ("Sale profit", p) }
         if record.inValue > 0 { return (record.kind == .buy ? "Potential profit" : "Trade-in value", record.equity) }
         return ("Sale profit", nil)
