@@ -58,7 +58,11 @@ struct DealStartPage: View {
                             Button { onRecord(r) } label: {
                                 DealListRow(kind: r.kind, title: title(r),
                                             line: "\(DealView.pathTitle(r.kind)) · \(cards(r.items)) · \(when(r))",
-                                            amount: abs(r.balance), note: r.kind == .trade ? "Cash difference" : "Completed", divider: i > 0)
+                                            amount: abs(r.balance),
+                                            // How it ended: ahead or behind, coloured (the cash is the amount above).
+                                            note: r.aheadTotal.map { abs($0) < 0.005 ? "Even" : "\(Format.signedMoney($0)) \($0 > 0 ? "ahead" : "behind")" } ?? "Completed",
+                                            noteTint: r.aheadTotal.map { abs($0) < 0.005 ? Theme.muted : Theme.tone($0) },
+                                            divider: i > 0)
                             }
                             .buttonStyle(.plain)
                         }
@@ -129,6 +133,7 @@ private struct DealListRow: View {
     var line: String
     var amount: Double
     var note: String
+    var noteTint: Color? = nil
     var divider: Bool
 
     var body: some View {
@@ -144,7 +149,7 @@ private struct DealListRow: View {
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 2) {
                 Text(Format.money(amount)).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(.white)
-                Text(note).font(.geist(11)).foregroundStyle(Theme.subtle)
+                Text(note).font(.geist(12, noteTint == nil ? .regular : .semibold)).monospacedDigit().foregroundStyle(noteTint ?? Theme.subtle)
             }
         }
         .padding(.vertical, 12)
