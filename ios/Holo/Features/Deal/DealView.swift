@@ -999,7 +999,7 @@ private struct BalanceCard: View {
             }
 
             HStack(alignment: .center, spacing: 8) {
-                TermLabel(text: empty ? "Add items to start" : (abs(b) < 0.005 ? "Settled · no cash" : (b > 0 ? role.theyPay : role.youPay)), term: .cash, color: ink.opacity(0.7))
+                TermLabel(text: cashLabel(b, empty: empty), term: .cash, color: ink.opacity(0.7))
                 Spacer()
             }
             .padding(.top, 16)
@@ -1115,6 +1115,14 @@ private struct BalanceCard: View {
             .lineLimit(1).fixedSize()
         }
         .buttonStyle(ShutterStyle())
+    }
+
+    /// Who pays whom; in the past tense on a closed deal ("You paid the customer").
+    private func cashLabel(_ b: Double, empty: Bool) -> String {
+        if empty { return "Add items to start" }
+        if abs(b) < 0.005 { return "Settled · no cash" }
+        if b > 0 { return past ? role.theyPaid : role.theyPay }
+        return past ? role.youPaid : role.youPay
     }
 
     /// The review screen's round amounts, right under the total (the owner's call: no disconnect
