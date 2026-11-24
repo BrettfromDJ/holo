@@ -137,12 +137,13 @@ jobs:
           OUT=$(mktemp -d)
           mkdir -p "$OUT/${GITHUB_SHA::7}"
           cp screenshots/*.png "$OUT/${GITHUB_SHA::7}/"
-          # Speed numbers: this run's, plus a running history carried over from the last publish.
+          # Speed numbers: the running history is always carried over from the last publish (a run
+          # cut short before its speed tests used to drop it), and this run's are added when there.
+          PREV=$(mktemp -d)
+          git clone -q --depth 1 -b ci-screenshots "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" "$PREV" 2>/dev/null || true
+          cp "$PREV/perf-history.txt" "$OUT/perf-history.txt" 2>/dev/null || true
           if [ -s perf.txt ]; then
             cp perf.txt "$OUT/${GITHUB_SHA::7}/perf.txt"
-            PREV=$(mktemp -d)
-            git clone -q --depth 1 -b ci-screenshots "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" "$PREV" 2>/dev/null || true
-            cp "$PREV/perf-history.txt" "$OUT/perf-history.txt" 2>/dev/null || true
             { echo "## ${GITHUB_SHA::7} $(date -u '+%Y-%m-%d %H:%M')"; cat perf.txt; echo; } >> "$OUT/perf-history.txt"
           fi
           cd "$OUT"
