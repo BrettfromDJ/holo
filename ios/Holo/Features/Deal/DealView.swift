@@ -908,6 +908,12 @@ struct TermLabel: View {
 /// whom (with a one-tap round up), a bar showing what each side puts in, and the four numbers
 /// in plain words (tap any for what it means). When the value gained is negative the whole card
 /// goes pink, so there's never pink on lime.
+/// The deal card as a read-only summary (the review screen). Built here because the card's own
+/// initializer is file-private (it has private state).
+@MainActor func dealSummaryCard(totals: DealTotals, role: DealRole, agreed: Bool) -> some View {
+    BalanceCard(totals: totals, role: role, read: nil, roundTo: nil, onRound: {}, agreed: agreed, readOnly: true)
+}
+
 private struct BalanceCard: View {
     var totals: DealTotals
     var role: DealRole = .vendor
@@ -926,6 +932,8 @@ private struct BalanceCard: View {
     /// picked again goes back to the cards' own total. Empty: no pills (the old Round up chip).
     var roundOptions: [Double] = []
     var onPickRound: (Double) -> Void = { _ in }
+    /// A summary, nothing to change (the review screen): no pencil, chips or pills, figures shown.
+    var readOnly = false
     /// The breakdown under the big figure (what comes in and goes out, the shares of market,
     /// notes on the total), folded away until wanted: the figure and one verdict are enough.
     @State private var details = false
@@ -1001,7 +1009,7 @@ private struct BalanceCard: View {
                         CountingText(value: abs(b), format: { Format.money($0) })
                             .font(.display(60)).tracking(-2.4).padding(.trailing, 2.4).monospacedDigit().foregroundStyle(ink).lineLimit(1).minimumScaleFactor(0.5)
                             .displayTrim(60)
-                        if !empty {
+                        if !empty && !readOnly {
                             Image(systemName: "pencil")
                                 .font(.system(size: 17, weight: .medium))
                                 .foregroundStyle(ink.opacity(0.7))
@@ -1011,10 +1019,12 @@ private struct BalanceCard: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .disabled(empty)
-                .accessibilityHint("Type the cash you agreed on")
+                .disabled(empty || readOnly)
+                .accessibilityHint(readOnly ? "" : "Type the cash you agreed on")
                 Spacer(minLength: 0)
-                if roundOptions.isEmpty, let roundTo {
+                if readOnly {
+                    EmptyView()
+                } else if roundOptions.isEmpty, let roundTo {
                     // A quiet outlined chip on the card: one line, no figure (it's in the label read aloud).
                     chip("Round up", icon: "arrow.up", ink: ink, action: onRound)
                         .accessibilityLabel("Round up to \(Format.money(abs(roundTo)))")
@@ -1026,9 +1036,9 @@ private struct BalanceCard: View {
                 }
             }
             .padding(.top, 8)
-            if !empty && !roundOptions.isEmpty { roundPills(abs(b), ink: ink) }
+            if !empty && !roundOptions.isEmpty && !readOnly { roundPills(abs(b), ink: ink) }
 
-            if details {
+            if details || readOnly {
             Group {
                 if let read {
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], alignment: .leading, spacing: 14) {
@@ -1044,7 +1054,7 @@ private struct BalanceCard: View {
             .padding(.top, 18)
             .transition(.opacity)
             }
-            if !empty {
+            if !empty && !readOnly {
                 Button {
                     Haptics.tap()
                     withAnimation(.snappy(duration: 0.25)) { details.toggle() }

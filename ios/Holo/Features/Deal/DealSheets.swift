@@ -540,21 +540,9 @@ struct DealCloseSheet: View {
                             DisplayText(text: "Close this \(t.kind.noun.lowercased())?", size: 30)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        // No final amount panel here: it's set on the deal page's card (the owner's call).
-                        // Where you land, then what it's made of: the same breakdown as the deal page.
-                        let costs = deal.outgoing.map { deals.cost(of: $0, in: store) }
-                        let basis: Double? = deal.outgoing.isEmpty || costs.contains(where: { $0 == nil }) ? nil : costs.reduce(0) { $0 + ($1 ?? 0) }
-                        let ahead = DealBreakdown.ahead(t, basis: basis, selling: !deal.outgoing.isEmpty)
-                        VStack(alignment: .leading, spacing: 10) {
-                            // The deal card's verdict and figures, the same words as the deal page.
-                            Text(t.headline ?? DealBreakdown.verdict(ahead)).font(.geist(16, .bold))
-                                .foregroundStyle(ahead.map { abs($0) < 0.005 ? Color.white : Theme.tone($0) } ?? Theme.muted)
-                            DealFigures(totals: t)
-                        }
-                        .padding(16)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.surface))
-                        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Theme.border))
+                        // The deal page's card as a summary (the owner's call): the same verdict, amount
+                        // and figures, nothing to change here.
+                        dealSummaryCard(totals: t, role: deals.role, agreed: deal.agreedCash != nil)
                         if !deal.incoming.isEmpty { sideRow(.incoming, deal.incoming, t.inValue) }
                         if !deal.outgoing.isEmpty { sideRow(.outgoing, deal.outgoing, t.outValue) }
                         let fx = deals.effects(deal)
