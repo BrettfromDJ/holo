@@ -221,22 +221,29 @@ struct DealPickerSheet: View {
     }
 
     /// The custom way in, as a quiet row at the end of the list.
-    /// The custom way in at the end of the list: one quiet line and a glass pill, centred (like
-    /// the empty state's), not a row.
+    /// The custom way in at the end of the list: a small panel with a real heading, one line on
+    /// what it's for, and the glass button across its width (a lone quiet line over a pill read weak).
     private var customRow: some View {
-        VStack(spacing: 10) {
-            Text("Not in the catalog?").font(.geist(13)).foregroundStyle(Theme.muted)
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Can't find it?").font(.display(20)).tracking(-0.5).foregroundStyle(.white)
+                Text("Add a lot, a binder or anything not in the catalog. A name and a price is enough.")
+                    .font(.geist(14)).foregroundStyle(Theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             Button { customOpen = true } label: {
                 Label("Add a custom item or lot", systemImage: "square.and.pencil")
-                    .font(.geist(14, .medium)).foregroundStyle(.white)
-                    .padding(.horizontal, 16).frame(height: 40)
+                    .font(.geist(15, .semibold)).foregroundStyle(.white)
+                    .frame(maxWidth: .infinity).frame(height: 46)
                     .liquidGlass(in: Capsule())
             }
             .buttonStyle(.plain)
             .accessibilityHint("A name and a price, for things not in the catalog")
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 20)
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .sheetPanel(radius: 20)
+        .padding(.vertical, 12)
     }
 
     /// Adds your card to the deal, or takes it off when it's already on.
