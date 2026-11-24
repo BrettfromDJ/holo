@@ -78,7 +78,8 @@ struct DealPickerSheet: View {
                             .buttonStyle(.plain)
                         }
                     } header: {
-                        Text(side == .incoming ? "Catalog" : "Not in Corodex")
+                        // Coming in it's all the catalog, so no title (the owner's call).
+                        if side == .outgoing { Text("Not in Corodex") }
                     } footer: {
                         if side == .outgoing {
                             Text("Something you have that isn't in your collection yet. Add what you paid on the deal and it's recorded properly; otherwise it's counted in the deal but not\u{00A0}tracked.")
@@ -95,7 +96,10 @@ struct DealPickerSheet: View {
             }
             .listRowBackground(Color.clear)
             .listRowSeparatorTint(Color.white.opacity(0.08))
+            // Rows run to the same 16pt margin as the search above (the list's own insets were wide).
+            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
             }
+            .contentMargins(.horizontal, 0, for: .scrollContent)
             .foregroundStyle(.white)
             .overlay {
                 // Coming in, before you type: what to do, and the custom way in.
