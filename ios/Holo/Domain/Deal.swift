@@ -571,6 +571,9 @@ enum DealRole: String, CaseIterable {
     var other: String { self == .vendor ? "customer" : "vendor" }
     var theyPay: String { self == .vendor ? "Customer pays you" : "The vendor pays you" }
     var youPay: String { self == .vendor ? "You pay the customer" : "You pay the vendor" }
+    /// The same, for a closed deal.
+    var theyPaid: String { self == .vendor ? "Customer paid you" : "The vendor paid you" }
+    var youPaid: String { self == .vendor ? "You paid the customer" : "You paid the vendor" }
 }
 
 /// A collector's usual expectations, as a share of market: what vendors pay for your cards
