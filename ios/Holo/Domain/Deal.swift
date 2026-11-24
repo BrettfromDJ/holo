@@ -398,6 +398,22 @@ struct DealTotals {
     }
 }
 
+extension DealTotals {
+    /// A closed deal's figures as they were recorded, so its page can show the same card as the
+    /// deal page and the review screen.
+    init(record r: DealRecord) {
+        kind = r.kind
+        inValue = r.inValue
+        outValue = r.outValue
+        balance = r.balance
+        profit = r.profit
+        equity = r.equity
+        belowCost = 0
+        uncosted = r.uncosted ?? 0
+        ahead = r.aheadTotal
+    }
+}
+
 /// A closed deal, for the history (user_state "deals", shared with the website).
 struct DealRecord: Codable, Identifiable, Hashable {
     struct Line: Codable, Hashable {

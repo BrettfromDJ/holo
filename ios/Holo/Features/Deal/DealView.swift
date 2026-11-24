@@ -910,8 +910,8 @@ struct TermLabel: View {
 /// goes pink, so there's never pink on lime.
 /// The deal card as a read-only summary (the review screen). Built here because the card's own
 /// initializer is file-private (it has private state).
-@MainActor func dealSummaryCard(totals: DealTotals, role: DealRole, agreed: Bool) -> some View {
-    BalanceCard(totals: totals, role: role, read: nil, roundTo: nil, onRound: {}, agreed: agreed, readOnly: true)
+@MainActor func dealSummaryCard(totals: DealTotals, role: DealRole, agreed: Bool, past: Bool = false) -> some View {
+    BalanceCard(totals: totals, role: role, read: nil, roundTo: nil, onRound: {}, agreed: agreed, readOnly: true, past: past)
 }
 
 private struct BalanceCard: View {
@@ -934,6 +934,8 @@ private struct BalanceCard: View {
     var onPickRound: (Double) -> Void = { _ in }
     /// A summary, nothing to change (the review screen): no pencil, chips or pills, figures shown.
     var readOnly = false
+    /// A closed deal: the verdict in the past tense ("You made a profit").
+    var past = false
     /// The breakdown under the big figure (what comes in and goes out, the shares of market,
     /// notes on the total), folded away until wanted: the figure and one verdict are enough.
     @State private var details = false
@@ -976,7 +978,7 @@ private struct BalanceCard: View {
                         .font(.geist(12, .medium)).foregroundStyle(ink.opacity(0.7))
                         .padding(.top, 8)
                 }
-            } else if let verdict = t.headline {
+            } else if let verdict = past ? (t.ahead.map { "\(dealAheadTitle($0, past: true)) \(Format.signedMoney($0))" } ?? t.headline) : t.headline {
                 let score = t.ahead ?? t.net ?? 0
                 HStack(spacing: 8) {
                     Image(systemName: score >= 0 ? "arrow.up.right" : "arrow.down.right").font(.system(size: 13, weight: .medium))

@@ -919,7 +919,13 @@ struct DealRecordDetail: View {
         ScrollView {
             if let r = record {
                 VStack(alignment: .leading, spacing: 28) {
-                    header(r)
+                    // The same card as the deal page and the review screen (the owner's call: one
+                    // way to show a deal everywhere), under the date.
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(r.date.formatted(.dateTime.weekday(.wide).month(.abbreviated).day().hour().minute()))
+                            .font(.geist(13)).foregroundStyle(Theme.muted)
+                        dealSummaryCard(totals: DealTotals(record: r), role: deals.role, agreed: false, past: true)
+                    }
                     if let lines = r.lines, !lines.isEmpty {
                         // Cash is a line too, on the side it came in or went out, so the two sides add up.
                         lineSection(.incoming, kind: r.kind, lines.filter { $0.side == .incoming }, r.inValue, cash: r.balance > 0.005 ? r.balance : nil)
