@@ -332,7 +332,9 @@ struct DealEditorPage: View {
                 Text(ActionsSheet.shortName(item.product)).font(.geist(15, .medium)).foregroundStyle(.white).lineLimit(1)
                 Text([item.product.setName, item.product.number].compactMap { $0 }.joined(separator: " · "))
                     .font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
-                Text((item.qty > 1 ? "×\(item.qty) · " : "") + (item.market.map { "\(Format.money($0)) market" } ?? "No market price"))
+                Text((item.qty > 1 ? "×\(item.qty) · " : "") + (item.market.map { "\(Format.money($0)) market" } ?? "No market price")
+                     // Changed by hand: the catalog's price beside it, so both sides can see.
+                     + (item.catalogMarket.map { " (was \(Format.money($0)))" } ?? ""))
                     .font(.geist(12)).monospacedDigit().foregroundStyle(Theme.subtle).lineLimit(1)
                 if selling && !item.isCustom {
                     if let cost {
