@@ -41,11 +41,29 @@ struct DealPickerSheet: View {
                     if owned.isEmpty { Text("Nothing matches.").foregroundStyle(Theme.muted) }
                     ForEach(owned) { h in
                         Button { addHolding(h) } label: {
-                            HStack {
-                                MiniRow(holding: h, trailing: Format.money(h.price), tint: .primary)
-                                if side == .outgoing { Text("×\(Int(h.quantity))").font(.caption).foregroundStyle(Theme.muted) }
-                                if added.contains(h.id) { Image(systemName: "checkmark").foregroundStyle(Theme.lime) }
+                            // The same size and layout as the search results below (cards never
+                            // change size as you scroll): big art, name, set, what you hold, price, add mark.
+                            HStack(spacing: 12) {
+                                HStack(spacing: 14) {
+                                    HoldingArt(product: h.product, identity: h.identity, cornerRadius: 4, caption: false)
+                                        .frame(width: 64, height: 89)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(h.product.map(ActionsSheet.shortName) ?? "Unknown").font(.geist(16, .medium)).foregroundStyle(.white).lineLimit(2)
+                                        if let set = h.product?.setName {
+                                            Text(set).font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
+                                        }
+                                        Text("You have \(Int(h.quantity))" + (h.label.map { " · \($0)" } ?? ""))
+                                            .font(.geist(12)).foregroundStyle(Theme.subtle).lineLimit(1)
+                                    }
+                                    Spacer(minLength: 8)
+                                    Text(Format.money(h.price)).font(.geist(16, .semibold)).monospacedDigit().foregroundStyle(.white)
+                                }
+                                .padding(.vertical, 6)
+                                Image(systemName: added.contains(h.id) ? "checkmark.circle.fill" : "plus.circle")
+                                    .font(.system(size: 22))
+                                    .foregroundStyle(added.contains(h.id) ? Theme.lime : Color.white.opacity(0.35))
                             }
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                     }
