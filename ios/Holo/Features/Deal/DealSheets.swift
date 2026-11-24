@@ -500,7 +500,7 @@ struct DealCloseSheet: View {
                                         finalText = ""
                                         applyFinal(nil)
                                     } label: {
-                                        Text("Reset to original total").font(.geist(13, .medium)).foregroundStyle(Theme.lime)
+                                        Text("Reset to original total").font(.geist(13, .medium)).tracking(0).foregroundStyle(Theme.lime)
                                             .lineLimit(1).fixedSize()
                                     }
                                     .buttonStyle(.plain)
@@ -616,32 +616,29 @@ struct DealCloseSheet: View {
     private func sideRow(_ side: DealSide, _ items: [DealItem], _ value: Double) -> some View {
         let incoming = side == .incoming
         let count = items.reduce(0) { $0 + $1.qty }
-        return HStack(spacing: 12) {
-            Image(systemName: incoming ? "arrow.down.left" : "arrow.up.right")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(incoming ? Theme.lime : Theme.planPink)
-                .frame(width: 30, height: 30)
-                .background(Circle().fill(Color.white.opacity(0.06)))
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text(incoming ? "Buying" : "Selling").font(.geist(15, .semibold))
-                    Text("\(count) item\(count == 1 ? "" : "s")").font(.geist(13)).foregroundStyle(Theme.muted)
-                    Spacer()
-                    Text(Format.money(value)).font(.geist(15, .semibold)).monospacedDigit()
+        // The side's name, count and value on one line, its cards under it, all from the same
+        // left edge (no arrow icon beside it: it threw the alignment off).
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(incoming ? "Buying" : "Selling").font(.geist(16, .semibold))
+                Text("\(count) item\(count == 1 ? "" : "s")").font(.geist(13)).foregroundStyle(Theme.muted)
+                Spacer()
+                Text(Format.money(value)).font(.geist(16, .semibold)).monospacedDigit()
+            }
+            // The items themselves, overlapping like a hand of cards.
+            HStack(spacing: -10) {
+                ForEach(items.prefix(8)) { i in
+                    HoldingArt(product: i.product, identity: nil, cornerRadius: 3, caption: false)
+                        .frame(width: 40, height: 56)
+                        .shadow(color: .black.opacity(0.5), radius: 4, x: 2)
                 }
-                // The items themselves, overlapping like a hand of cards.
-                HStack(spacing: -10) {
-                    ForEach(items.prefix(8)) { i in
-                        HoldingArt(product: i.product, identity: nil, cornerRadius: 3, caption: false)
-                            .frame(width: 34, height: 48)
-                            .shadow(color: .black.opacity(0.5), radius: 4, x: 2)
-                    }
-                    if items.count > 8 {
-                        Text("+\(items.count - 8)").font(.geist(12, .semibold)).foregroundStyle(Theme.muted).padding(.leading, 16)
-                    }
+                if items.count > 8 {
+                    Text("+\(items.count - 8)").font(.geist(12, .semibold)).foregroundStyle(Theme.muted).padding(.leading, 16)
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 4)
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.surface))
         .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Theme.border))
