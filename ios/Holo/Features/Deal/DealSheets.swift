@@ -529,7 +529,10 @@ struct DealCloseSheet: View {
                             }
                             VStack(spacing: 6) {
                                 finalLine("At the cards' prices", Format.money(original))
-                                finalLine("Price adjustment", Format.signedMoney(finalAmount - original))
+                                // Only once the total has been changed.
+                                if abs(finalAmount - original) > 0.004 {
+                                    finalLine("Price adjustment", Format.signedMoney(finalAmount - original))
+                                }
                                 if deal.kind != .trade, market > 0 {
                                     finalLine("Effective market rate", String(format: "%.2f%%", finalAmount / market * 100))
                                 }
