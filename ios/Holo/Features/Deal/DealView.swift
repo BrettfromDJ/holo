@@ -121,7 +121,8 @@ struct DealView: View {
                                    onPark: { parkNow() },
                                    card: AnyView(BalanceCard(totals: totals, role: role, read: read, roundTo: roundTarget(totals), onRound: roundCash,
                                                              agreed: agreed.side != nil, share: agreed.share,
-                                                             onEditCash: { startEditingCash(totals) }, onClearAgreed: clearAgreed)))
+                                                             onEditCash: { startEditingCash(totals) }, onClearAgreed: clearAgreed,
+                                                             roundOptions: cardRoundOptions(), onPickRound: pickRound)))
                         .toolbar {
                             ToolbarItem(placement: .topBarLeading) {
                                 Button {
@@ -539,6 +540,32 @@ struct DealView: View {
         Haptics.tap()
     }
 
+    /// The deal at the cards' own prices (no agreed cash, whole %s): what the round pills round.
+    private var plainTotals: DealTotals {
+        DealTotals(deals.unrounded, rates: deals.rates(for: deals.unrounded), cost: { deals.cost(of: $0, in: store) })
+    }
+
+    /// The same three round amounts as the review screen: the cards' total rounded down and up to
+    /// $5, and the $5 after.
+    private func cardRoundOptions() -> [Double] {
+        guard deals.deal.kind != .empty else { return [] }
+        let original = abs(plainTotals.balance)
+        let down = (original / 5).rounded(.down) * 5
+        var up = (original / 5).rounded(.up) * 5
+        if up == down { up += 5 }
+        return [down, up, up + 5].filter { $0 > 0 }
+    }
+
+    /// Settle on a round amount (as the review screen does): the cash becomes it, paid the way it goes now.
+    private func pickRound(_ amount: Double) {
+        let plain = plainTotals
+        if abs(amount - abs(plain.balance)) < 0.004 {
+            withAnimation(.snappy) { deals.clearAgreedTotal() }
+        } else {
+            withAnimation(.snappy) { deals.setAgreedCash(signedAgreedCash(amount, totals: plain)) }
+        }
+    }
+
     /// Open the agreed-cash box, filled in with the cash as it stands.
     private func startEditingCash(_ totals: DealTotals) {
         guard deals.deal.kind != .empty else { return }
@@ -895,9 +922,13 @@ private struct BalanceCard: View {
     /// Tap the big figure to type the agreed cash.
     var onEditCash: () -> Void = {}
     var onClearAgreed: () -> Void = {}
+    /// Round amounts to settle on, as on the review screen ($780 · $785 · $790); tapping the one
+    /// picked again goes back to the cards' own total. Empty: no pills (the old Round up chip).
+    var roundOptions: [Double] = []
+    var onPickRound: (Double) -> Void = { _ in }
     /// The breakdown under the big figure (what comes in and goes out, the shares of market,
     /// notes on the total), folded away until wanted: the figure and one verdict are enough.
-    @State private var details = true
+    @State private var details = false
 
     var body: some View {
         let t = totals
@@ -983,19 +1014,19 @@ private struct BalanceCard: View {
                 .disabled(empty)
                 .accessibilityHint("Type the cash you agreed on")
                 Spacer(minLength: 0)
-                if let roundTo {
+                if roundOptions.isEmpty, let roundTo {
                     // A quiet outlined chip on the card: one line, no figure (it's in the label read aloud).
                     chip("Round up", icon: "arrow.up", ink: ink, action: onRound)
                         .accessibilityLabel("Round up to \(Format.money(abs(roundTo)))")
                         .transition(.scale.combined(with: .opacity))
-                } else if agreed {
-                    // An agreed cash: Clear sits in the same place (the card keeps its size).
+                } else if agreed && !roundOptions.contains(where: { abs(abs(b) - $0) < 0.005 }) {
+                    // A typed amount (not one of the pills): Clear goes back to the cards' total.
                     chip("Clear", icon: "xmark", ink: ink, action: onClearAgreed)
                         .accessibilityLabel("Clear the agreed cash")
-                        .transition(.scale.combined(with: .opacity))
                 }
             }
             .padding(.top, 8)
+            if !empty && !roundOptions.isEmpty { roundPills(abs(b), ink: ink) }
 
             if details {
             Group {
@@ -1069,6 +1100,28 @@ private struct BalanceCard: View {
             .lineLimit(1).fixedSize()
         }
         .buttonStyle(ShutterStyle())
+    }
+
+    /// The review screen's round amounts, right under the total (the owner's call: no disconnect
+    /// between the two). The picked one is white; tap it again to go back to the cards' total.
+    private func roundPills(_ cash: Double, ink: Color) -> some View {
+        HStack(spacing: 8) {
+            ForEach(roundOptions, id: \.self) { o in
+                let on = agreed && abs(cash - o) < 0.005
+                Button {
+                    Haptics.tap()
+                    if on { onClearAgreed() } else { onPickRound(o) }
+                } label: {
+                    Text(Format.moneyWhole(o)).font(.geist(15, .semibold)).monospacedDigit()
+                        .foregroundStyle(on ? Theme.ink : ink)
+                        .frame(maxWidth: .infinity).frame(height: 40)
+                        .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(on ? Color.white : Theme.ink.opacity(0.35)))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(on ? "\(Format.moneyWhole(o)), picked. Tap to go back to the cards' total" : "Settle on \(Format.moneyWhole(o))")
+            }
+        }
+        .padding(.top, 12)
     }
 
     private func stat(_ label: String, _ term: DealTerm, _ value: String, _ ink: Color) -> some View {
