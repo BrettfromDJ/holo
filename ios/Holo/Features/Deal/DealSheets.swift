@@ -129,9 +129,20 @@ struct DealPickerSheet: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 22)
                 .padding(.bottom, 8)
-                // The sheet's own colour behind the title and search, so results scrolling up
-                // pass under it instead of showing through the title.
-                .background(Theme.sheet.ignoresSafeArea(edges: .top))
+                // Results scroll on up behind the title and search, blurred (frosted, darkened with
+                // the sheet's colour), fading out at the bottom edge so there's no hard cut.
+                .background {
+                    ZStack {
+                        Rectangle().fill(.ultraThinMaterial)
+                        Theme.sheet.opacity(0.55)
+                    }
+                    .environment(\.colorScheme, .dark)
+                    .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.78),
+                                                 .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom))
+                    .padding(.bottom, -14)
+                    .ignoresSafeArea(edges: .top)
+                    .allowsHitTesting(false)
+                }
             }
             .scrollDismissesKeyboard(.immediately)
             .toolbar(.hidden, for: .navigationBar)
