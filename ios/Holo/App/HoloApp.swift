@@ -168,6 +168,9 @@ struct RootView: View {
                 }
             } else if case .signedIn = state {
                 onboarding.tryingDemo = false
+                // Load the keyboard out of sight once signed in (the sign-in page warms its own;
+                // two at once there froze the email field).
+                KeyboardWarmUp.run()
             }
         }
     }

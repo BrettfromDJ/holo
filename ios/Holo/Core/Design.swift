@@ -1593,7 +1593,6 @@ struct LaunchWarmUp: View {
         .opacity(0.02)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
-        .onAppear { KeyboardWarmUp.run() }
     }
 }
 
