@@ -67,8 +67,8 @@ final class DealAheadTests: XCTestCase {
     }
 
     func testHeadline() {
-        XCTAssertEqual(dealAheadTitle(58), "You come out ahead")
-        XCTAssertEqual(dealAheadTitle(-20, past: true), "You came out behind")
+        XCTAssertEqual(dealAheadTitle(58), "You make a profit")
+        XCTAssertEqual(dealAheadTitle(-20, past: true), "You took a loss")
         XCTAssertEqual(dealAheadTitle(0, past: true), "You broke even")
     }
 
