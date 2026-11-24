@@ -532,7 +532,9 @@ extension ISO8601DateFormatter {
 /// The ahead headline: "You come out ahead" (an open deal) or "You came out ahead" (a closed one).
 func dealAheadTitle(_ n: Double, past: Bool = false) -> String {
     if abs(n) < 0.005 { return past ? "You broke even" : "You break even" }
-    return "You \(past ? "came" : "come") out \(n > 0 ? "ahead" : "behind")"
+    // Profit / loss, the owner's words (was "came out ahead / behind").
+    if n > 0 { return past ? "You made a profit" : "You make a profit" }
+    return past ? "You took a loss" : "You take a loss"
 }
 
 func round2(_ n: Double) -> Double { (n * 100).rounded() / 100 }

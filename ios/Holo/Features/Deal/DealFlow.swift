@@ -796,8 +796,8 @@ struct DealBreakdown: View {
 
     static func verdict(_ ahead: Double?) -> String {
         guard let ahead else { return "Add what you paid to see where you land" }
-        if abs(ahead) < 0.005 { return "You come out even" }
-        return "You come out \(Format.money(abs(ahead))) \(ahead > 0 ? "ahead" : "behind")"
+        if abs(ahead) < 0.005 { return "You break even" }
+        return ahead > 0 ? "You make \(Format.money(ahead)) profit" : "You take a \(Format.money(-ahead)) loss"
     }
 
     /// Two figures side by side, like the old balance card's details: what explains the answer.
