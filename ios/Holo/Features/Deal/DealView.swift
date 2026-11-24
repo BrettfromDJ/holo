@@ -850,7 +850,7 @@ extension DealTotals {
 
 /// What each number means, one sentence each (tap a label to read it).
 enum DealTerm: String {
-    case verdict, ahead, cash, comingIn, goingOut, profit, value, rate, offer, charge
+    case verdict, ahead, cash, comingIn, goingOut, profit, value, rate, offer, charge, market, paid, gain
 
     var title: String {
         switch self {
@@ -864,6 +864,9 @@ enum DealTerm: String {
         case .rate: return "Share of market"
         case .offer: return "Their offer"
         case .charge: return "Their price"
+        case .market: return "Market value"
+        case .paid: return "You paid"
+        case .gain: return "Profit"
         }
     }
 
@@ -879,6 +882,9 @@ enum DealTerm: String {
         case .rate: return "Each item counts for this share of its market price. Drag to counter-offer, or set one item's own % or price."
         case .offer: return "What the vendor is paying for your cards, as a share of their market price. Cash offers are usually lower than trade-in credit."
         case .charge: return "What the vendor is charging for their cards, as a share of market. Over 100% means you pay above market."
+        case .market: return "What the cards are worth at today's market prices."
+        case .paid: return "What you paid for the cards you're selling, from your collection's records (or what you typed in)."
+        case .gain: return "On a buy: what the cards are worth at market, minus what you pay; what you'd make reselling them at market. On a sale: what you sell for, minus what you paid."
         }
     }
 }
@@ -1170,12 +1176,29 @@ struct DealFigures: View {
 
     var body: some View {
         let t = totals
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], alignment: .leading, spacing: 14) {
-            if t.inValue > 0 || t.kind == .trade { stat("Coming in", .comingIn, Format.money(t.inValue)) }
-            if t.outValue > 0 || t.kind == .trade { stat("Going out", .goingOut, Format.money(t.outValue)) }
-            if t.kind != .buy { stat("Sale profit", .profit, t.profit.map { Format.signedMoney($0) } ?? "—") }
-            if t.kind == .trade { stat("Trade-in value", .value, t.showsEquity ? Format.signedMoney(t.equity) : "—") }
+        let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: t.kind == .trade ? 2 : 3)
+        LazyVGrid(columns: columns, alignment: .leading, spacing: 14) {
+            switch t.kind {
+            case .buy:
+                stat("Market value", .market, t.inMarket.map { Format.money($0) } ?? "—")
+                stat("Of market", .rate, t.inMarket.flatMap { $0 > 0 ? "\(Int((t.inValue / $0 * 100).rounded()))%" : nil } ?? "—")
+                gain(t.ahead)
+            case .sell:
+                stat("You paid", .paid, t.profit.map { Format.money(t.outValue - $0) } ?? "—")
+                stat("Market value", .market, t.outMarket.map { Format.money($0) } ?? "—")
+                gain(t.profit)
+            default:
+                stat("Coming in", .comingIn, Format.money(t.inValue))
+                stat("Going out", .goingOut, Format.money(t.outValue))
+                stat("Sale profit", .profit, t.profit.map { Format.signedMoney($0) } ?? "—")
+                stat("Trade-in value", .value, t.showsEquity ? Format.signedMoney(t.equity) : "—")
+            }
         }
+    }
+
+    /// "Profit" or "Loss", by itself (the owner's call), the number signed.
+    private func gain(_ v: Double?) -> some View {
+        stat((v ?? 0) < -0.005 ? "Loss" : "Profit", .gain, v.map { Format.signedMoney($0) } ?? "—")
     }
 
     private func stat(_ label: String, _ term: DealTerm, _ value: String) -> some View {

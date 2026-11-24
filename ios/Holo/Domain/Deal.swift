@@ -378,6 +378,9 @@ struct DealTotals {
     /// goes out, less cash you pay (plus cash you get). Profit + value gained; it doesn't depend on
     /// how the prices were split. Nil when anything going out has no known cost, or the deal is empty.
     var ahead: Double?
+    /// Market value of what comes in / goes out (nil when not known, e.g. a past sale's).
+    var inMarket: Double? = nil
+    var outMarket: Double? = nil
 
     /// `cost` gives your cost for an outgoing row (nil when unknown).
     init(_ deal: DealState, rates: (in: Double, out: Double), cost: (DealItem) -> Double?) {
@@ -395,6 +398,8 @@ struct DealTotals {
         balance = round2(outValue - inValue)
         // A pure buy has no profit (ahead = value gained); a pure sell has no value gained (ahead = profit).
         ahead = (deal.kind == .empty || unknown > 0) ? nil : round2((made ?? 0) + gained)
+        inMarket = round2(deal.incoming.reduce(0) { $0 + ($1.market ?? 0) * Double($1.qty) })
+        outMarket = round2(deal.outgoing.reduce(0) { $0 + ($1.market ?? 0) * Double($1.qty) })
     }
 }
 
@@ -411,6 +416,9 @@ extension DealTotals {
         belowCost = 0
         uncosted = r.uncosted ?? 0
         ahead = r.aheadTotal
+        // What came in was worth what it went for plus the value gained; what went out isn't recorded.
+        inMarket = r.inValue > 0 ? round2(r.inValue + r.equity) : nil
+        outMarket = nil
     }
 }
 
