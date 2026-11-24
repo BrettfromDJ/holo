@@ -33,7 +33,8 @@ struct DealPickerSheet: View {
         // Filtered once per keystroke, not once per use (going out only).
         let owned = side == .outgoing ? self.owned : []
         NavigationStack {
-            GlassList {
+            // Plain rows straight on the sheet (no panel behind the results; the owner's call).
+            List { Group {
                 // Coming in is the customer's cards, so only going out lists your inventory.
                 if side == .outgoing {
                 Section("Your collection") {
@@ -92,6 +93,10 @@ struct DealPickerSheet: View {
                     }
                 }
             }
+            .listRowBackground(Color.clear)
+            .listRowSeparatorTint(Color.white.opacity(0.08))
+            }
+            .foregroundStyle(.white)
             .overlay {
                 // Coming in, before you type: what to do, and the custom way in.
                 if side == .incoming && query.count < 2 {
