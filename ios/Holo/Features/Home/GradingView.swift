@@ -462,7 +462,7 @@ struct SheetHeader: View {
             Spacer()
             Button { Haptics.tap(); close() } label: {
                 Image(systemName: "xmark").font(.system(size: 14, weight: .semibold)).foregroundStyle(.white)
-                    .frame(width: 34, height: 34).background(Circle().fill(Color.white.opacity(0.1)))
+                    .frame(width: 34, height: 34).liquidGlass(in: Circle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Close")

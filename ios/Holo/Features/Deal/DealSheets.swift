@@ -129,6 +129,9 @@ struct DealPickerSheet: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 22)
                 .padding(.bottom, 8)
+                // The sheet's own colour behind the title and search, so results scrolling up
+                // pass under it instead of showing through the title.
+                .background(Theme.sheet.ignoresSafeArea(edges: .top))
             }
             .scrollDismissesKeyboard(.immediately)
             .toolbar(.hidden, for: .navigationBar)
