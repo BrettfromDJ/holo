@@ -840,7 +840,8 @@ private struct RecordedScreen: View {
         if t.ahead != nil {
             let parts = [t.profit.map { "Sale profit \(Format.signedMoney($0))" },
                          t.showsEquity ? "\(t.kind == .buy ? "Potential profit" : "Trade-in value") \(Format.signedMoney(t.equity))" : nil].compactMap { $0 }
-            if !parts.isEmpty {
+            // Only when it's made of two parts (a trade); one part just repeats the big number.
+            if parts.count > 1 {
                 Text(parts.joined(separator: " · ")).font(.geist(14, .semibold)).monospacedDigit().foregroundStyle(ink)
                     .lineLimit(1).minimumScaleFactor(0.75)
             }
