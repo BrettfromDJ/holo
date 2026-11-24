@@ -459,6 +459,11 @@ struct DealEditorPage: View {
                 }
                 Spacer(minLength: 0)
             }
+            // A trade's cash, explained: what you sell for less what you buy for.
+            if path == .trade, t.inValue > 0, t.outValue > 0 {
+                Text("\(Format.money(t.outValue)) selling − \(Format.money(t.inValue)) buying")
+                    .font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted)
+            }
             HStack(spacing: 10) {
                 Button(action: onPark) {
                     Image(systemName: "pause").font(.system(size: 16, weight: .semibold)).foregroundStyle(.white)
@@ -834,7 +839,7 @@ struct DealBreakdown: View {
                 GlassStat(label: "You paid", value: basis.map { Format.money($0) } ?? "—")
                 GlassStat(label: "Sale profit", value: profit.map { Format.signedMoney($0) } ?? "—", tint: profit.map { Theme.tone($0) } ?? .white)
             default:
-                GlassStat(label: "Trade-in value", value: gained.map { Format.signedMoney($0) } ?? "—", tint: gained.map { Theme.tone($0) } ?? .white)
+                GlassStat(label: "Potential profit", value: gained.map { Format.signedMoney($0) } ?? "—", tint: gained.map { Theme.tone($0) } ?? .white)
                 GlassStat(label: "Sale profit", value: selling ? (profit.map { Format.signedMoney($0) } ?? "Add cost") : "—", tint: profit.map { Theme.tone($0) } ?? .white)
             }
         }

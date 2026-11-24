@@ -897,7 +897,7 @@ private struct DealRecordCard: View {
     private var headline: (String, Double?) {
         if let a = record.aheadTotal { return (a < 0 ? "Loss" : "Profit", a) }
         if let p = record.profit { return ("Sale profit", p) }
-        if record.inValue > 0 { return (record.kind == .buy ? "Potential profit" : "Trade-in value", record.equity) }
+        if record.inValue > 0 { return ("Potential profit", record.equity) }
         return ("Sale profit", nil)
     }
 
