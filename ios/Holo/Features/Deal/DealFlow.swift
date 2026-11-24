@@ -737,7 +737,8 @@ struct DealBreakdown: View {
             switch kind {
             case .buy:
                 GlassStat(label: "Market value", value: Format.money(getMarket))
-                GlassStat(label: "Trade-in value", value: gained.map { Format.signedMoney($0) } ?? "—", tint: gained.map { Theme.tone($0) } ?? .white)
+                // How far under market you're buying: what you'd make reselling at market.
+                GlassStat(label: "Potential profit", value: gained.map { Format.signedMoney($0) } ?? "—", tint: gained.map { Theme.tone($0) } ?? .white)
             case .sell:
                 GlassStat(label: "You paid", value: basis.map { Format.money($0) } ?? "—")
                 GlassStat(label: "Sale profit", value: profit.map { Format.signedMoney($0) } ?? "—", tint: profit.map { Theme.tone($0) } ?? .white)
