@@ -14,6 +14,8 @@ struct DealStartPage: View {
     var onHistory: () -> Void
     var onRecord: (DealRecord) -> Void
     @Environment(DealStore.self) private var deals
+    /// The parked deal whose ⋯ was tapped (Resume, Delete).
+    @State private var acting: ParkedDeal?
 
     var body: some View {
         ScrollView {
@@ -32,15 +34,21 @@ struct DealStartPage: View {
                     list("Parked deals", count: deals.parked.count, onAll: onParkedAll) {
                         ForEach(Array(deals.parked.prefix(3).enumerated()), id: \.element.id) { i, entry in
                             let t = DealTotals(entry.state, rates: deals.rates(for: entry.state), cost: { _ in nil })
-                            Button {
-                                Haptics.tap()
-                                withAnimation(.snappy) { deals.resume(entry) }
-                            } label: {
-                                DealListRow(kind: entry.state.kind, title: entry.name,
-                                            line: "\(DealView.pathTitle(entry.state.kind)) · \(cards(entry.state.incoming.count + entry.state.outgoing.count))",
-                                            amount: abs(t.balance), note: "Parked", divider: i > 0)
+                            HStack(spacing: 0) {
+                                Button {
+                                    Haptics.tap()
+                                    withAnimation(.snappy) { deals.resume(entry) }
+                                } label: {
+                                    DealListRow(kind: entry.state.kind, title: entry.name,
+                                                line: "\(DealView.pathTitle(entry.state.kind)) · \(cards(entry.state.incoming.count + entry.state.outgoing.count))",
+                                                amount: abs(t.balance), note: "Parked", divider: false)
+                                }
+                                .buttonStyle(.plain)
+                                // Its actions (Resume, Delete), so deleting never hides.
+                                RowMoreButton(label: entry.name) { acting = entry }
+                                    .padding(.trailing, -10)
                             }
-                            .buttonStyle(.plain)
+                            .overlay(alignment: .top) { if i > 0 { Rectangle().fill(Theme.border).frame(height: 1) } }
                         }
                     }
                 }
@@ -58,6 +66,10 @@ struct DealStartPage: View {
                 }
             }
             .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 40)
+        }
+        .actionsSheet(item: $acting, title: { $0.name }) { entry in
+            [[SheetAction(title: "Resume deal", icon: "play") { withAnimation(.snappy) { deals.resume(entry) } }],
+             [SheetAction(title: "Delete deal", icon: "trash", destructive: true) { withAnimation(.snappy) { deals.deleteParked(entry) } }]]
         }
     }
 
@@ -153,6 +165,8 @@ struct DealEditorPage: View {
     var onEditCard: (DealItem) -> Void
     var onCustomRate: (DealSide) -> Void
     var onRename: () -> Void
+    /// The deal's ⋯: Name, Park, Delete.
+    var onMore: () -> Void
     var onReview: () -> Void
     var onPark: () -> Void
     @Environment(DealStore.self) private var deals
@@ -171,7 +185,7 @@ struct DealEditorPage: View {
         let count = deals.deal.incoming.count + deals.deal.outgoing.count
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                // Title, and the deal's name (tap the pencil to name it).
+                // Title, and the deal's name; the ⋯ names, parks or deletes it.
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 4) {
                         DisplayText(text: path == .buy ? "New purchase" : path == .sell ? "New sale" : "New trade", size: 30)
@@ -179,12 +193,12 @@ struct DealEditorPage: View {
                             .font(.geist(14)).foregroundStyle(Theme.muted)
                     }
                     Spacer()
-                    Button(action: onRename) {
-                        Image(systemName: "pencil").font(.system(size: 16, weight: .medium)).foregroundStyle(.white)
-                            .frame(width: 40, height: 40).contentShape(Rectangle())
+                    Button { Haptics.tap(); onMore() } label: {
+                        Image(systemName: "ellipsis").font(.system(size: 17, weight: .semibold)).foregroundStyle(.white)
+                            .frame(width: 40, height: 40).liquidGlass(in: Circle())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Name this deal")
+                    .accessibilityLabel("Deal actions")
                 }
                 if path == .trade {
                     ChipPicker(options: [(DealSide.incoming, "Buy · \(Format.money(totals.inValue))"),

@@ -47,6 +47,7 @@ struct DealView: View {
     @State private var pathMenu = false
     /// The new flow: leaving a deal (park / discard), naming it, and typing another rate.
     @State private var leaving = false
+    @State private var dealOptions = false
     @State private var renaming = false
     @State private var nameText = ""
     @AppStorage("deal-name") private var dealName = ""
@@ -115,6 +116,7 @@ struct DealView: View {
                                    onEditCard: { pricingItem = $0 },
                                    onCustomRate: { rateSide = $0 },
                                    onRename: { nameText = dealName; renaming = true },
+                                   onMore: { dealOptions = true },
                                    onReview: { Haptics.tap(); confirming = true },
                                    onPark: { parkNow() })
                         .toolbar {
@@ -166,11 +168,12 @@ struct DealView: View {
             .navigationBarTitleDisplayMode(.inline)
             .actionsSheet(isPresented: $leaving, title: "Leave this deal?") {
                 [[SheetAction(title: "Park deal", subtitle: "Pick it up where you left off", icon: "pause") { parkNow() }],
-                 [SheetAction(title: "Discard deal", icon: "trash", destructive: true) {
-                    let photos = deals.deal.photos
-                    withAnimation(.snappy) { deals.update { $0 = DealState() }; pathRaw = ""; dealName = "" }
-                    Task { for p in photos { await DealPhotos.delete(p) } }
-                 }]]
+                 [SheetAction(title: "Discard deal", icon: "trash", destructive: true) { discardDeal() }]]
+            }
+            .actionsSheet(isPresented: $dealOptions, title: "This deal") {
+                [[SheetAction(title: dealName.isEmpty ? "Name deal" : "Rename deal", icon: "pencil") { nameText = dealName; renaming = true }]
+                 + (deals.deal.hasContent ? [SheetAction(title: "Park deal", subtitle: "Pick it up where you left off", icon: "pause") { parkNow() }] : []),
+                 [SheetAction(title: "Delete deal", icon: "trash", destructive: true) { discardDeal() }]]
             }
             .alert("Name this deal", isPresented: $renaming) {
                 TextField("Untitled deal", text: $nameText)
@@ -472,6 +475,13 @@ struct DealView: View {
     }
 
     /// Park the deal under its name (or today's) and go back to the start.
+    /// Throws the open deal away (its photos too) and goes back to the start.
+    private func discardDeal() {
+        let photos = deals.deal.photos
+        withAnimation(.snappy) { deals.update { $0 = DealState() }; pathRaw = ""; dealName = "" }
+        Task { for p in photos { await DealPhotos.delete(p) } }
+    }
+
     private func parkNow() {
         guard deals.deal.hasContent else { return }
         withAnimation(.snappy) {
