@@ -886,7 +886,9 @@ struct Badge: View {
             .lineLimit(1)
             .padding(.horizontal, 9)
             .frame(height: 22)
-            .background(Capsule().fill(filled ? Theme.surface2 : .clear))
+            // Filled is glass, so whatever scrolls under it is blurred (it sits on the card art and
+            // can ride over the page when the sheet's top floats).
+            .background { if filled { Color.clear.liquidGlass(in: Capsule()) } }
             .overlay(Capsule().strokeBorder(filled ? .clear : Theme.borderStrong))
     }
 }
