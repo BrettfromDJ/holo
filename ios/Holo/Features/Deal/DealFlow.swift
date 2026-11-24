@@ -416,7 +416,12 @@ struct DealEditorPage: View {
                     .padding(.top, 2)
                 }
             }
-            // One big white line: "You pay $186.70" (the owner's call), the % of market beside it.
+            // How it comes out, in plain words above the total (the old card's verdict).
+            if !empty, let ahead {
+                Text(DealBreakdown.verdict(ahead)).font(.geist(15, .semibold))
+                    .foregroundStyle(abs(ahead) < 0.005 ? Color.white : Theme.tone(ahead))
+            }
+            // One big white line: "You pay $186.70" (the owner's call).
             HStack(alignment: .center, spacing: 10) {
                 HStack(spacing: 8) {
                     Text(label)
@@ -467,22 +472,23 @@ struct DealEditorPage: View {
         }
     }
 
+    /// The old deal card's figures, back by the owner's call: Buying and Selling, then Sale profit
+    /// and Potential profit, two by two, each with its ⓘ.
     @ViewBuilder private func figures(_ t: DealTotals, market: Double, getMarket: Double, basis: Double?, ahead: Double?) -> some View {
-        let share: String = market > 0 ? "\(Int((abs(t.balance) / market * 100).rounded()))%" : "—"
-        HStack(alignment: .top, spacing: 12) {
-            switch path {
-            case .buy:
-                figure("Market value", Format.money(getMarket))
-                figure("Of market", share)
-            case .sell:
-                figure("You paid", basis.map { Format.money($0) } ?? "Add costs", tint: basis == nil ? Theme.lime : .white)
-                figure("Of market", share)
-            default:
-                figure("Buying", Format.money(t.inValue))
-                figure("Selling", Format.money(t.outValue))
-            }
-            figure("Profit", ahead.map { Format.signedMoney($0) } ?? "—", tint: ahead.map { Theme.tone($0) } ?? Theme.muted)
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], alignment: .leading, spacing: 14) {
+            termFigure("Buying", .comingIn, Format.money(t.inValue))
+            termFigure("Selling", .goingOut, Format.money(t.outValue))
+            termFigure("Sale profit", .profit, t.profit.map { Format.signedMoney($0) } ?? "—", tint: t.profit.map { Theme.tone($0) } ?? Theme.muted)
+            termFigure("Potential profit", .value, t.showsEquity ? Format.signedMoney(t.equity) : "—", tint: t.showsEquity ? Theme.tone(t.equity) : Theme.muted)
         }
+    }
+
+    private func termFigure(_ label: String, _ term: DealTerm, _ value: String, tint: Color = .white) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            TermLabel(text: label, term: term, color: Color.white.opacity(0.65))
+            Text(value).font(.geist(17, .semibold)).monospacedDigit().foregroundStyle(tint).lineLimit(1).minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// One of the figures under the total: a quiet label over a number.

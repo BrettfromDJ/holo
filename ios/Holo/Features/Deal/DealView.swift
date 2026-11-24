@@ -852,7 +852,7 @@ enum DealTerm: String {
 }
 
 /// A small caps label you can tap to read what it means.
-private struct TermLabel: View {
+struct TermLabel: View {
     var text: String
     var term: DealTerm
     var color: Color
