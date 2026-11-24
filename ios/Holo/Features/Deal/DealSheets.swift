@@ -527,17 +527,17 @@ struct DealCloseSheet: View {
                                     .buttonStyle(.plain)
                                 }
                             }
-                            VStack(spacing: 6) {
-                                finalLine("At the cards' prices", Format.money(original))
-                                // Only once the total has been changed.
-                                if abs(finalAmount - original) > 0.004 {
+                            // Only once the total has been changed (until then it all repeats the big amount).
+                            if abs(finalAmount - original) > 0.004 {
+                                VStack(spacing: 6) {
+                                    finalLine("Original total", Format.money(original))
                                     finalLine("Price adjustment", Format.signedMoney(finalAmount - original))
+                                    if deal.kind != .trade, market > 0 {
+                                        finalLine("Effective market rate", String(format: "%.2f%%", finalAmount / market * 100))
+                                    }
                                 }
-                                if deal.kind != .trade, market > 0 {
-                                    finalLine("Effective market rate", String(format: "%.2f%%", finalAmount / market * 100))
-                                }
+                                .padding(.top, 2)
                             }
-                            .padding(.top, 2)
                         }
                         .padding(18)
                         .frame(maxWidth: .infinity, alignment: .leading)
