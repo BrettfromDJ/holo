@@ -998,18 +998,16 @@ private struct BalanceCard: View {
             .padding(.top, 8)
 
             if details {
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], alignment: .leading, spacing: 14) {
-                stat("Coming in", .comingIn, Format.money(t.inValue), ink)
-                stat("Going out", .goingOut, Format.money(t.outValue), ink)
+            Group {
                 if let read {
-                    stat("Their offer", .offer, read.offerShare.map { "\(Int(($0 * 100).rounded()))% of market" } ?? "—", ink)
-                    stat("Their price", .charge, read.chargeShare.map { "\(Int(($0 * 100).rounded()))% of market" } ?? "—", ink)
-                } else {
-                    stat("Sale profit", .profit, t.profit.map { Format.signedMoney($0) } ?? "—", ink)
-                    // Only on a trade (the owner's call): a buy's whole answer is already the verdict.
-                    if t.kind == .trade {
-                        stat("Trade-in value", .value, t.showsEquity ? Format.signedMoney(t.equity) : "—", ink)
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], alignment: .leading, spacing: 14) {
+                        stat("Coming in", .comingIn, Format.money(t.inValue), ink)
+                        stat("Going out", .goingOut, Format.money(t.outValue), ink)
+                        stat("Their offer", .offer, read.offerShare.map { "\(Int(($0 * 100).rounded()))% of market" } ?? "—", ink)
+                        stat("Their price", .charge, read.chargeShare.map { "\(Int(($0 * 100).rounded()))% of market" } ?? "—", ink)
                     }
+                } else {
+                    DealFigures(totals: t, ink: ink)
                 }
             }
             .padding(.top, 18)
@@ -1074,6 +1072,32 @@ private struct BalanceCard: View {
     }
 
     private func stat(_ label: String, _ term: DealTerm, _ value: String, _ ink: Color) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            TermLabel(text: label, term: term, color: ink.opacity(0.65))
+            Text(value).font(.geist(17, .semibold)).monospacedDigit().foregroundStyle(ink).lineLimit(1).minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// The deal card's figures, only those that apply (the owner's call): a buy shows what's coming
+/// in; a sale what's going out and its profit; a trade all four, Trade-in value included. Shared
+/// by the deal card and the review screen so both say the same things in the same words.
+struct DealFigures: View {
+    var totals: DealTotals
+    var ink: Color = .white
+
+    var body: some View {
+        let t = totals
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], alignment: .leading, spacing: 14) {
+            if t.inValue > 0 || t.kind == .trade { stat("Coming in", .comingIn, Format.money(t.inValue)) }
+            if t.outValue > 0 || t.kind == .trade { stat("Going out", .goingOut, Format.money(t.outValue)) }
+            if t.kind != .buy { stat("Sale profit", .profit, t.profit.map { Format.signedMoney($0) } ?? "—") }
+            if t.kind == .trade { stat("Trade-in value", .value, t.showsEquity ? Format.signedMoney(t.equity) : "—") }
+        }
+    }
+
+    private func stat(_ label: String, _ term: DealTerm, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             TermLabel(text: label, term: term, color: ink.opacity(0.65))
             Text(value).font(.geist(17, .semibold)).monospacedDigit().foregroundStyle(ink).lineLimit(1).minimumScaleFactor(0.7)

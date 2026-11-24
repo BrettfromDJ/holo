@@ -605,11 +605,10 @@ struct DealCloseSheet: View {
                         let basis: Double? = deal.outgoing.isEmpty || costs.contains(where: { $0 == nil }) ? nil : costs.reduce(0) { $0 + ($1 ?? 0) }
                         let ahead = DealBreakdown.ahead(t, basis: basis, selling: !deal.outgoing.isEmpty)
                         VStack(alignment: .leading, spacing: 10) {
-                            Text(DealBreakdown.verdict(ahead)).font(.geist(16, .bold))
+                            // The deal card's verdict and figures, the same words as the deal page.
+                            Text(t.headline ?? DealBreakdown.verdict(ahead)).font(.geist(16, .bold))
                                 .foregroundStyle(ahead.map { abs($0) < 0.005 ? Color.white : Theme.tone($0) } ?? Theme.muted)
-                            DealBreakdown(kind: deal.kind, totals: t,
-                                          getMarket: deal.incoming.reduce(0.0) { $0 + ($1.market ?? 0) * Double($1.qty) },
-                                          basis: basis, selling: !deal.outgoing.isEmpty)
+                            DealFigures(totals: t)
                         }
                         .padding(16)
                         .frame(maxWidth: .infinity, alignment: .leading)
