@@ -397,31 +397,8 @@ struct DealEditorPage: View {
         let costs = out.map { deals.cost(of: $0, in: store) }
         let basis: Double? = out.isEmpty || costs.contains(where: { $0 == nil }) ? nil : costs.reduce(0) { $0 + ($1 ?? 0) }
         let getMarket = deals.deal.incoming.reduce(0.0) { $0 + ($1.market ?? 0) * Double($1.qty) }
-        let open = breakdownOpen ?? false
         let ahead = DealBreakdown.ahead(t, basis: basis, selling: !out.isEmpty)
         return VStack(alignment: .leading, spacing: 6) {
-            // The answer in plain words; tap it for what it's made of.
-            if !empty {
-                Button {
-                    Haptics.tap()
-                    withAnimation(.snappy(duration: 0.25)) { breakdownOpen = !open }
-                } label: {
-                    HStack(spacing: 6) {
-                        Text(DealBreakdown.verdict(ahead)).font(.geist(14, .semibold))
-                            .foregroundStyle(ahead.map { abs($0) < 0.005 ? Color.white : Theme.tone($0) } ?? Theme.muted)
-                        Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.muted)
-                            .rotationEffect(.degrees(open ? 180 : 0))
-                        Spacer()
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                if open {
-                    DealBreakdown(kind: path, totals: t, getMarket: getMarket, basis: basis, selling: !out.isEmpty)
-                        .padding(.vertical, 4)
-                        .transition(.opacity)
-                }
-            }
             // A total rounded on the review screen: by how much, and a way back to the cards' prices.
             if deals.deal.agreedCash != nil {
                 let plain = DealTotals(deals.unrounded, rates: deals.rates(for: deals.unrounded), cost: { _ in nil })
@@ -452,17 +429,13 @@ struct DealEditorPage: View {
                 .font(.display(28)).tracking(-0.8).foregroundStyle(.white)
                 .lineLimit(1).minimumScaleFactor(0.6)
                 .padding(.top, 2)
-                if path != .trade, market > 0 {
-                    Text("\(Int((abs(b) / market * 100).rounded()))% of market").font(.geist(12, .medium)).foregroundStyle(.white.opacity(0.8))
-                        .padding(.horizontal, 8).frame(height: 22)
-                        .background(Capsule().fill(Color.white.opacity(0.08)))
-                }
                 Spacer(minLength: 0)
             }
-            // A trade's cash, explained: what you sell for less what you buy for.
-            if path == .trade, t.inValue > 0, t.outValue > 0 {
-                Text("\(Format.money(t.outValue)) selling − \(Format.money(t.inValue)) buying")
-                    .font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted)
+            // Three plain figures under it, like the old deal card (the owner's call: one profit,
+            // not three): what it's measured against, and the one profit.
+            if !empty {
+                figures(t, market: market, getMarket: getMarket, basis: basis, ahead: ahead)
+                    .padding(.top, 4)
             }
             HStack(spacing: 10) {
                 Button(action: onPark) {
@@ -492,6 +465,34 @@ struct DealEditorPage: View {
             Theme.background.ignoresSafeArea(edges: .bottom)
                 .overlay(alignment: .top) { Rectangle().fill(Theme.border).frame(height: 1) }
         }
+    }
+
+    @ViewBuilder private func figures(_ t: DealTotals, market: Double, getMarket: Double, basis: Double?, ahead: Double?) -> some View {
+        let share: String = market > 0 ? "\(Int((abs(t.balance) / market * 100).rounded()))%" : "—"
+        HStack(alignment: .top, spacing: 12) {
+            switch path {
+            case .buy:
+                figure("Market value", Format.money(getMarket))
+                figure("Of market", share)
+            case .sell:
+                figure("You paid", basis.map { Format.money($0) } ?? "Add costs", tint: basis == nil ? Theme.lime : .white)
+                figure("Of market", share)
+            default:
+                figure("Buying", Format.money(t.inValue))
+                figure("Selling", Format.money(t.outValue))
+            }
+            figure("Profit", ahead.map { Format.signedMoney($0) } ?? "—", tint: ahead.map { Theme.tone($0) } ?? Theme.muted)
+        }
+    }
+
+    /// One of the figures under the total: a quiet label over a number.
+    private func figure(_ label: String, _ value: String, tint: Color = .white) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
+            Text(value).font(.geist(16, .semibold)).monospacedDigit().foregroundStyle(tint)
+                .lineLimit(1).minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func line(_ label: String, _ value: String) -> some View {
