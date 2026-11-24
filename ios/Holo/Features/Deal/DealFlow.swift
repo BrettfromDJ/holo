@@ -527,6 +527,21 @@ struct DealCardSheet: View {
         if let catalog, abs(m - catalog) < 0.005 { c.catalogMarket = nil } else if c.catalogMarket == nil { c.catalogMarket = item.market }
         c.market = m
     }
+    /// The line under the field: the price on a %, the share of market on a fixed price.
+    private var workedOut: String {
+        guard let u = unit else { return "—" }
+        if mode == .percent { return Format.money(u) }
+        guard let m = marketValue, m > 0 else { return "—" }
+        let pct: Int = Int((u / m * 100).rounded())
+        return "\(pct)%"
+    }
+
+    /// The catalog's market price, when the typed one differs from it (Reset to catalog price).
+    private var catalogToRestore: Double? {
+        guard !item.isCustom, let catalog = item.catalogMarket ?? item.market, let typed = MoneyField.value(market) else { return nil }
+        return abs(typed - catalog) > 0.004 ? catalog : nil
+    }
+
     private var unit: Double? {
         guard let v = MoneyField.value(value) else { return nil }
         if mode == .fixed { return v }
@@ -579,15 +594,12 @@ struct DealCardSheet: View {
             HStack {
                 Text(mode == .percent ? "Agreed price per card" : "Share of market").font(.geist(14)).foregroundStyle(Theme.muted)
                 Spacer()
-                Text(mode == .percent ? (unit.map { Format.money($0) } ?? "—")
-                     : (unit.flatMap { u in marketValue.flatMap { $0 > 0 ? "\(Int((u / $0 * 100).rounded()))%" : nil } } ?? "—"))
-                    .font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(.white)
+                Text(workedOut).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(.white)
             }
             SheetPanel {
                 SheetMoneyRow(title: "Market price", text: $market)
                 // Changed by hand (agreed with the other side): one tap puts the catalog's back.
-                if let catalog = item.catalogMarket ?? item.market, let typed = MoneyField.value(market),
-                   abs(typed - catalog) > 0.004, !item.isCustom {
+                if let catalog = catalogToRestore {
                     Button {
                         Haptics.tap()
                         market = String(format: "%.2f", catalog)
