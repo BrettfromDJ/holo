@@ -66,9 +66,12 @@ struct DealPickerSheet: View {
                         }
                         ForEach(results) { hit in
                             Button { addHit(hit) } label: {
-                                HStack {
+                                HStack(spacing: 12) {
                                     SearchRow(hit: hit)
-                                    if added.contains(hit.id) { Image(systemName: "checkmark").foregroundStyle(Theme.lime) }
+                                    // A plus to add, a lime check once it's on the deal.
+                                    Image(systemName: added.contains(hit.id) ? "checkmark.circle.fill" : "plus.circle")
+                                        .font(.system(size: 22))
+                                        .foregroundStyle(added.contains(hit.id) ? Theme.lime : Color.white.opacity(0.35))
                                 }
                             }
                             .buttonStyle(.plain)
