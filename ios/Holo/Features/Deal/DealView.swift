@@ -1019,7 +1019,10 @@ private struct BalanceCard: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .disabled(empty || readOnly)
+                .disabled(empty)
+                // Read-only: the tap goes nowhere, but the figure isn't dimmed (a disabled button
+                // fades its label, which made the review screen's amount look faded).
+                .allowsHitTesting(!readOnly)
                 .accessibilityHint(readOnly ? "" : "Type the cash you agreed on")
                 Spacer(minLength: 0)
                 if readOnly {
