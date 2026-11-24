@@ -628,8 +628,11 @@ struct DealRateSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            SheetHeader(title: title) { dismiss() }
-            Text("Only cards without their own price will update.").font(.geist(13)).foregroundStyle(Theme.muted)
+            // The line sits right under the title (the round close makes the header tall).
+            VStack(alignment: .leading, spacing: 0) {
+                SheetHeader(title: title) { dismiss() }
+                Text("Only cards without their own price will update.").font(.geist(13)).foregroundStyle(Theme.muted)
+            }
             StepField(text: $value, step: 1, range: 30...150, suffix: "%", decimals: 0)
             SheetLimeButton(title: "Apply rate", enabled: Double(value).map { (30...150).contains($0) } ?? false) {
                 if let v = Double(value) { onApply(v / 100) }
