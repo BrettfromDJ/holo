@@ -831,7 +831,7 @@ enum DealTerm: String {
         case .comingIn: return "Buying"
         case .goingOut: return "Selling"
         case .profit: return "Sale profit"
-        case .value: return "Potential profit"
+        case .value: return "Trade-in value"
         case .rate: return "Share of market"
         case .offer: return "Their offer"
         case .charge: return "Their price"
@@ -1006,7 +1006,7 @@ private struct BalanceCard: View {
                     stat("Their price", .charge, read.chargeShare.map { "\(Int(($0 * 100).rounded()))% of market" } ?? "—", ink)
                 } else {
                     stat("Sale profit", .profit, t.profit.map { Format.signedMoney($0) } ?? "—", ink)
-                    stat("Potential profit", .value, t.showsEquity ? Format.signedMoney(t.equity) : "—", ink)
+                    stat("Trade-in value", .value, t.showsEquity ? Format.signedMoney(t.equity) : "—", ink)
                 }
             }
             .padding(.top, 18)
