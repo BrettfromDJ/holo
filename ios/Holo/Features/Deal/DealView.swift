@@ -119,10 +119,12 @@ struct DealView: View {
                                    onMore: { dealOptions = true },
                                    onReview: { Haptics.tap(); confirming = true },
                                    onPark: { parkNow() },
-                                   card: AnyView(BalanceCard(totals: totals, role: role, read: read, roundTo: roundTarget(totals), onRound: roundCash,
-                                                             agreed: agreed.side != nil, share: agreed.share,
-                                                             onEditCash: { startEditingCash(totals) }, onClearAgreed: clearAgreed,
-                                                             roundOptions: cardRoundOptions(), onPickRound: pickRound)))
+                                   card: { rate in
+                                       AnyView(BalanceCard(totals: totals, role: role, read: read, roundTo: nil, onRound: {},
+                                                           agreed: agreed.side != nil, share: agreed.share,
+                                                           onEditCash: { startEditingCash(totals) }, onClearAgreed: clearAgreed,
+                                                           extra: rate))
+                                   })
                         .toolbar {
                             ToolbarItem(placement: .topBarLeading) {
                                 Button {
@@ -934,6 +936,8 @@ private struct BalanceCard: View {
     var onPickRound: (Double) -> Void = { _ in }
     /// A summary, nothing to change (the review screen): no pencil, chips or pills, figures shown.
     var readOnly = false
+    /// Shown under the amount (the deal page puts the rate here); with it, no round pills or chips.
+    var extra: AnyView? = nil
     /// A closed deal: the verdict in the past tense ("You made a profit").
     var past = false
     /// The breakdown under the big figure (what comes in and goes out, the shares of market,
@@ -1027,7 +1031,7 @@ private struct BalanceCard: View {
                 .allowsHitTesting(!readOnly)
                 .accessibilityHint(readOnly ? "" : "Type the cash you agreed on")
                 Spacer(minLength: 0)
-                if readOnly {
+                if readOnly || extra != nil {
                     EmptyView()
                 } else if roundOptions.isEmpty, let roundTo {
                     // A quiet outlined chip on the card: one line, no figure (it's in the label read aloud).
@@ -1041,7 +1045,8 @@ private struct BalanceCard: View {
                 }
             }
             .padding(.top, 8)
-            if !empty && !roundOptions.isEmpty && !readOnly { roundPills(abs(b), ink: ink) }
+            if !empty && !roundOptions.isEmpty && !readOnly && extra == nil { roundPills(abs(b), ink: ink) }
+            if let extra { extra }
 
             if details || readOnly {
             Group {

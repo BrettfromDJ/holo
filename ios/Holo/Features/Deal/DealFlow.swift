@@ -179,7 +179,9 @@ struct DealEditorPage: View {
     var onPark: () -> Void
     /// The old deal card (lime, the verdict, the cash and its four figures), back at the top by
     /// the owner's call. Built by DealView, which has its round / agreed-cash actions.
-    var card: AnyView = AnyView(EmptyView())
+    /// Given the rate section (title, %, Round up, the % chips), returns the card with it inside,
+    /// under the amount (the owner's call: one card for the cash and the rate).
+    var card: (AnyView) -> AnyView = { $0 }
     @Environment(DealStore.self) private var deals
     @Environment(CollectionStore.self) private var store
     @State private var tradeSide = DealSide.incoming
@@ -216,8 +218,7 @@ struct DealEditorPage: View {
                                          (.outgoing, "Sell · \(Format.money(totals.outValue))")],
                                selection: $tradeSide, fills: true)
                 }
-                card
-                rateCard(rate: rate)
+                card(AnyView(rateSection(rate: rate)))
                 HStack(spacing: 10) {
                     Button { onScan(side) } label: {
                         Label("Scan card", systemImage: "viewfinder").font(.geist(15, .semibold)).foregroundStyle(.white)
@@ -245,19 +246,22 @@ struct DealEditorPage: View {
 
     // MARK: Rate
 
-    private func rateCard(rate: Double) -> some View {
+    /// The side's rate inside the deal card: its name and %, a Round up (or Undo round) beside the %,
+    /// then the % chips. Dark chips on the lime card, the picked one white.
+    private func rateSection(rate: Double) -> some View {
         let pct = Int((rate * 100).rounded())
         let title = path == .buy ? "Buying rate" : path == .sell ? "Selling rate" : (side == .incoming ? "Buying rate" : "Selling rate")
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .center) {
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).font(.geist(15, .semibold)).foregroundStyle(.white)
-                    Text("Default for all cards").font(.geist(12)).foregroundStyle(Theme.muted)
+                    Text("Default for all cards").font(.geist(12)).foregroundStyle(.white.opacity(0.65))
                 }
-                Spacer()
-                Text("\(pct)%").font(.display(28)).tracking(-0.8).monospacedDigit().foregroundStyle(.white)
+                Spacer(minLength: 4)
+                Text("\(pct)%").font(.display(26)).tracking(-0.8).monospacedDigit().foregroundStyle(.white)
                     .contentTransition(.numericText())
                     .animation(.snappy, value: pct)
+                roundChip
             }
             HStack(spacing: 6) {
                 ForEach([75, 80, 85, 90, 100], id: \.self) { v in
@@ -265,26 +269,58 @@ struct DealEditorPage: View {
                         Haptics.tap()
                         setRate(Double(v) / 100)
                     } label: {
-                        // The app's chip look: a glass tile with a faint light edge, the picked one white.
                         Text("\(v)%").font(.geist(13, .semibold)).monospacedDigit()
                             .foregroundStyle(v == pct ? Theme.ink : .white)
                             .frame(maxWidth: .infinity).frame(height: 36)
-                            .background { rateChip(on: v == pct) }
+                            .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(v == pct ? Color.white : Theme.ink.opacity(0.35)))
                     }
                     .buttonStyle(.plain)
                 }
                 Button { onCustomRate(side) } label: {
                     Image(systemName: "ellipsis").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
                         .frame(maxWidth: .infinity).frame(height: 36)
-                        .background { rateChip(on: false) }
+                        .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(Theme.ink.opacity(0.35)))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Another rate")
             }
         }
-        .padding(16)
-        // A glass panel like the app's other cards (it was a flat dark box).
-        .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .padding(.top, 18)
+    }
+
+    /// The deal at the cards' own prices (no rounding): what Round up rounds.
+    private var plainTotals: DealTotals {
+        DealTotals(deals.unrounded, rates: deals.rates(for: deals.unrounded), cost: { _ in nil })
+    }
+
+    /// Round up the total to the next $5, or undo it; nothing when the total is already round.
+    @ViewBuilder private var roundChip: some View {
+        if deals.deal.kind != .empty {
+            if deals.deal.agreedCash != nil {
+                cardChip("Undo round", icon: "arrow.uturn.backward") {
+                    withAnimation(.snappy) { deals.clearAgreedTotal() }
+                }
+            } else {
+                let original = abs(plainTotals.balance)
+                let up = (original / 5).rounded(.up) * 5
+                if up - original > 0.004 {
+                    cardChip("Round up", icon: "arrow.up") {
+                        withAnimation(.snappy) { deals.setAgreedCash(signedAgreedCash(up, totals: plainTotals)) }
+                    }
+                    .accessibilityLabel("Round up to \(Format.moneyWhole(up))")
+                }
+            }
+        }
+    }
+
+    private func cardChip(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button { Haptics.tap(); action() } label: {
+            Label(title, systemImage: icon).font(.geist(13, .semibold)).foregroundStyle(.white)
+                .padding(.horizontal, 12).frame(height: 34)
+                .background(Capsule().fill(Theme.ink.opacity(0.35)))
+                .overlay(Capsule().strokeBorder(Color.white.opacity(0.25)))
+        }
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder private func rateChip(on: Bool) -> some View {
