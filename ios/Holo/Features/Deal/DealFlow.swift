@@ -371,9 +371,9 @@ struct DealEditorPage: View {
         let market = (deals.deal.incoming + deals.deal.outgoing).reduce(0.0) { $0 + ($1.market ?? 0) * Double($1.qty) }
         let label: String = {
             switch path {
-            case .buy: return "Total I pay"
-            case .sell: return "Total I receive"
-            default: return abs(b) < 0.005 ? "Even trade" : (b > 0 ? "I receive cash" : "I pay the difference")
+            case .buy: return "You pay"
+            case .sell: return "You receive"
+            default: return abs(b) < 0.005 ? "Even trade" : (b > 0 ? "You receive" : "You pay")
             }
         }()
         let empty = deals.deal.kind == .empty
@@ -407,12 +407,19 @@ struct DealEditorPage: View {
                         .transition(.opacity)
                 }
             }
-            Text(label).font(.geist(13)).foregroundStyle(Theme.muted).padding(.top, 2)
+            // One big white line: "You pay $186.70" (the owner's call), the % of market beside it.
             HStack(alignment: .center, spacing: 10) {
-                Text(Format.money(abs(b))).font(.display(32)).tracking(-1).monospacedDigit().foregroundStyle(.white)
-                    .contentTransition(.numericText())
-                    .animation(.snappy, value: b)
-                    .lineLimit(1).minimumScaleFactor(0.6)
+                HStack(spacing: 8) {
+                    Text(label)
+                    if !(path == .trade && abs(b) < 0.005) {
+                        Text(Format.money(abs(b))).monospacedDigit()
+                            .contentTransition(.numericText())
+                            .animation(.snappy, value: b)
+                    }
+                }
+                .font(.display(28)).tracking(-0.8).foregroundStyle(.white)
+                .lineLimit(1).minimumScaleFactor(0.6)
+                .padding(.top, 2)
                 if path != .trade, market > 0 {
                     Text("\(Int((abs(b) / market * 100).rounded()))% of market").font(.geist(12, .medium)).foregroundStyle(.white.opacity(0.8))
                         .padding(.horizontal, 8).frame(height: 22)
