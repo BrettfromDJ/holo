@@ -50,6 +50,8 @@ export interface DealLine {
   rate?: number | null;
   /** Your cost for the units going out (out-lines only). */
   cost?: number | null;
+  /** The catalog's market price, kept when the market was changed by hand (the app's "Reset to catalog price"). */
+  catalogMarket?: number | null;
 }
 
 export function dealKind(inCount: number, outCount: number): DealKind {

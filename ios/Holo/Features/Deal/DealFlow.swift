@@ -491,6 +491,15 @@ struct DealCardSheet: View {
     @State private var height: CGFloat = 520
 
     private var marketValue: Double? { MoneyField.value(market) ?? item.market }
+
+    /// The typed market onto the card, remembering the catalog's the first time it changes (and
+    /// forgetting it once it's back to the catalog's).
+    private func applyMarket(_ c: inout DealItem) {
+        guard let m = MoneyField.value(market) else { return }
+        let catalog = item.catalogMarket ?? item.market
+        if let catalog, abs(m - catalog) < 0.005 { c.catalogMarket = nil } else if c.catalogMarket == nil { c.catalogMarket = item.market }
+        c.market = m
+    }
     private var unit: Double? {
         guard let v = MoneyField.value(value) else { return nil }
         if mode == .fixed { return v }
@@ -538,13 +547,30 @@ struct DealCardSheet: View {
                     StepField(text: $value, step: 1, range: 0...1_000_000, prefix: "$", decimals: 2)
                 }
             }
+            // What the field works out to, never the same figure twice: the price on a %, the
+            // share of market on a fixed price.
             HStack {
-                Text("Agreed price per card").font(.geist(14)).foregroundStyle(Theme.muted)
+                Text(mode == .percent ? "Agreed price per card" : "Share of market").font(.geist(14)).foregroundStyle(Theme.muted)
                 Spacer()
-                Text(unit.map { Format.money($0) } ?? "—").font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(.white)
+                Text(mode == .percent ? (unit.map { Format.money($0) } ?? "—")
+                     : (unit.flatMap { u in marketValue.flatMap { $0 > 0 ? "\(Int((u / $0 * 100).rounded()))%" : nil } } ?? "—"))
+                    .font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(.white)
             }
             SheetPanel {
                 SheetMoneyRow(title: "Market price", text: $market)
+                // Changed by hand (agreed with the other side): one tap puts the catalog's back.
+                if let catalog = item.catalogMarket ?? item.market, let typed = MoneyField.value(market),
+                   abs(typed - catalog) > 0.004, !item.isCustom {
+                    Button {
+                        Haptics.tap()
+                        market = String(format: "%.2f", catalog)
+                    } label: {
+                        Text("Reset to catalog price (\(Format.money(catalog)))").font(.geist(13, .medium)).foregroundStyle(Theme.lime)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.bottom, 12)
+                }
                 SheetDivider()
                 HStack {
                     Text("Quantity").font(.geist(16)).foregroundStyle(.white)
@@ -582,7 +608,7 @@ struct DealCardSheet: View {
                     c.price = nil
                     c.rate = nil
                     c.qty = qty
-                    if let m = MoneyField.value(market) { c.market = m }
+                    applyMarket(&c)
                     onSave(c)
                     dismiss()
                 } label: {
@@ -594,7 +620,7 @@ struct DealCardSheet: View {
                 var c = item
                 c.qty = qty
                 if selling, collectionCost == nil, !item.isCustom { c.cost = MoneyField.value(paid) }
-                if let m = MoneyField.value(market) { c.market = m }
+                applyMarket(&c)
                 if let v = MoneyField.value(value) {
                     if mode == .fixed { c.price = v; c.rate = nil } else {
                         let r = v / 100

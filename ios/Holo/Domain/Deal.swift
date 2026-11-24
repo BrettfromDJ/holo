@@ -94,11 +94,14 @@ struct DealItem: Codable, Identifiable, Hashable {
     var cost: Double?
     /// A line that isn't a catalog product ("Bulk lot"): a name and a price, never tracked.
     var custom: Bool?
+    /// The catalog's market price, kept when the market was changed by hand (agreed with the
+    /// other side), so it can be put back.
+    var catalogMarket: Double?
 
     var id: String { key }
     var isCustom: Bool { custom == true }
 
-    enum CodingKeys: String, CodingKey { case key, product, printing, market, qty, price, rate, grade, holdingKey, maxQty, track, cost, custom }
+    enum CodingKeys: String, CodingKey { case key, product, printing, market, qty, price, rate, grade, holdingKey, maxQty, track, cost, custom, catalogMarket }
 
     init(key: String, product: Product, printing: String?, market: Double?, qty: Int = 1, price: Double? = nil, rate: Double? = nil, grade: ScanGrade? = nil, holdingKey: String? = nil, maxQty: Int? = nil, track: Bool? = nil, cost: Double? = nil, custom: Bool? = nil) {
         self.track = track
@@ -131,6 +134,7 @@ struct DealItem: Codable, Identifiable, Hashable {
         track = try c.decodeIfPresent(Bool.self, forKey: .track)
         cost = try c.decodeIfPresent(Double.self, forKey: .cost)
         custom = try c.decodeIfPresent(Bool.self, forKey: .custom)
+        catalogMarket = try c.decodeIfPresent(Double.self, forKey: .catalogMarket)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -149,6 +153,7 @@ struct DealItem: Codable, Identifiable, Hashable {
         try c.encodeIfPresent(track, forKey: .track)
         try c.encodeIfPresent(cost, forKey: .cost)
         try c.encodeIfPresent(custom, forKey: .custom)
+        try c.encodeIfPresent(catalogMarket, forKey: .catalogMarket)
     }
 
     /// The share of market this row counts at.
