@@ -31,6 +31,9 @@ struct DealView: View {
     /// Typing the cash the two of you agreed on (tap the big figure on the balance card).
     @State private var editingCash = false
     @State private var cashText = ""
+    /// The agreed market value box (tap Market value on the deal card).
+    @State private var editingMarket = false
+    @State private var marketText = ""
     /// The tab bar brought back over a docked deal bar ("Show tabs"); off again once the deal empties
     /// or the Deal tab is tapped.
     @State private var showTabs = false
@@ -123,7 +126,9 @@ struct DealView: View {
                                        AnyView(BalanceCard(totals: totals, role: role, read: read, roundTo: nil, onRound: {},
                                                            agreed: agreed.side != nil, share: agreed.share,
                                                            onEditCash: { startEditingCash(totals) }, onClearAgreed: clearAgreed,
-                                                           extra: rate))
+                                                           extra: rate,
+                                                           onEditMarket: { startEditingMarket(totals) },
+                                                           marketAgreed: marketSide.map { deals.marketAgreed(on: $0) } ?? false))
                                    })
                         .toolbar {
                             ToolbarItem(placement: .topBarLeading) {
@@ -247,6 +252,23 @@ struct DealView: View {
             .navigationDestination(for: DealRecord.self) { DealRecordDetail(recordId: $0.id) }
             .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
             .fullScreenCover(isPresented: $customer) { CustomerViewSheet(deal: agreed.deal, rates: rates, totals: totals) }
+            .alert("Agreed market value", isPresented: $editingMarket) {
+                TextField("0.00", text: $marketText).keyboardType(.decimalPad)
+                Button("Cancel", role: .cancel) { marketText = "" }
+                if let side = marketSide, deals.marketAgreed(on: side) {
+                    Button("Back to catalog prices") {
+                        marketText = ""
+                        withAnimation(.snappy) { deals.resetMarket(on: side) }
+                    }
+                }
+                Button("Set") {
+                    let v = MoneyField.value(marketText)
+                    marketText = ""
+                    if let v, let side = marketSide { withAnimation(.snappy) { deals.setAgreedMarket(v, on: side) } }
+                }
+            } message: {
+                Text("What the cards are worth, as you both agreed. Cards priced at a % of market follow it.")
+            }
             .alert("Agreed cash", isPresented: $editingCash) {
                 TextField("0.00", text: $cashText).keyboardType(.decimalPad)
                 Button("Cancel", role: .cancel) { cashText = "" }
@@ -566,6 +588,22 @@ struct DealView: View {
         } else {
             withAnimation(.snappy) { deals.setAgreedCash(signedAgreedCash(amount, totals: plain)) }
         }
+    }
+
+    /// Which side's market value the card shows: what you buy on a buy, what you sell on a sale.
+    private var marketSide: DealSide? {
+        switch deals.deal.kind {
+        case .buy: return .incoming
+        case .sell: return .outgoing
+        default: return nil
+        }
+    }
+
+    /// Open the agreed-market box, filled in with the market value as it stands.
+    private func startEditingMarket(_ totals: DealTotals) {
+        guard let side = marketSide else { return }
+        marketText = String(format: "%.2f", (side == .incoming ? totals.inMarket : totals.outMarket) ?? 0)
+        editingMarket = true
     }
 
     /// Open the agreed-cash box, filled in with the cash as it stands.
@@ -906,9 +944,28 @@ struct TermLabel: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .popover(isPresented: $open) {
-            TermTip(term: term)
+        .sheet(isPresented: $open) { TermSheet(term: term) }
+    }
+}
+
+/// What a deal figure means, in a small sheet from the bottom (the owner found the speech-bubble
+/// tip ugly: it covered the card): the name and one plain line, with a round close.
+struct TermSheet: View {
+    var term: DealTerm
+    @Environment(\.dismiss) private var dismiss
+    @State private var height: CGFloat = 200
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SheetHeader(title: term.title) { dismiss() }
+            Text(term.explanation).font(.geist(15)).foregroundStyle(Theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .padding(.horizontal, 20).padding(.top, 22).padding(.bottom, 24)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 + 12 }
+        .presentationDetents([.height(height)])
+        .glassSheet()
     }
 }
 
@@ -944,6 +1001,9 @@ private struct BalanceCard: View {
     var readOnly = false
     /// Shown under the amount (the deal page puts the rate here); with it, no round pills or chips.
     var extra: AnyView? = nil
+    /// Tap Market value to type the market value you agreed on (the deal page only).
+    var onEditMarket: (() -> Void)? = nil
+    var marketAgreed = false
     /// A closed deal: the verdict in the past tense ("You made a profit").
     var past = false
     /// The breakdown under the big figure (what comes in and goes out, the shares of market,
@@ -1064,7 +1124,7 @@ private struct BalanceCard: View {
                         stat("Their price", .charge, read.chargeShare.map { "\(Int(($0 * 100).rounded()))% of market" } ?? "—", ink)
                     }
                 } else {
-                    DealFigures(totals: t, ink: ink)
+                    DealFigures(totals: t, ink: ink, onEditMarket: readOnly ? nil : onEditMarket, marketAgreed: marketAgreed)
                 }
             }
             .padding(.top, 18)
@@ -1173,6 +1233,10 @@ private struct BalanceCard: View {
 struct DealFigures: View {
     var totals: DealTotals
     var ink: Color = .white
+    /// Market value is tappable to type the agreed market value (with a pencil); nil on summaries.
+    var onEditMarket: (() -> Void)? = nil
+    /// The market value was agreed by hand: the label says so.
+    var marketAgreed = false
 
     var body: some View {
         let t = totals
@@ -1180,12 +1244,12 @@ struct DealFigures: View {
         LazyVGrid(columns: columns, alignment: .leading, spacing: 14) {
             switch t.kind {
             case .buy:
-                stat("Market value", .market, t.inMarket.map { Format.money($0) } ?? "—")
+                market(t.inMarket)
                 stat("Of market", .rate, t.inMarket.flatMap { $0 > 0 ? "\(Int((t.inValue / $0 * 100).rounded()))%" : nil } ?? "—")
                 gain(t.ahead)
             case .sell:
                 stat("You paid", .paid, t.profit.map { Format.money(t.outValue - $0) } ?? "—")
-                stat("Market value", .market, t.outMarket.map { Format.money($0) } ?? "—")
+                market(t.outMarket)
                 gain(t.profit)
             default:
                 stat("Coming in", .comingIn, Format.money(t.inValue))
@@ -1193,6 +1257,28 @@ struct DealFigures: View {
                 stat("Sale profit", .profit, t.profit.map { Format.signedMoney($0) } ?? "—")
                 stat("Trade-in value", .value, t.showsEquity ? Format.signedMoney(t.equity) : "—")
             }
+        }
+    }
+
+    /// Market value; on the deal page a pencil beside it opens the agreed-market box.
+    @ViewBuilder private func market(_ v: Double?) -> some View {
+        let value = v.map { Format.money($0) } ?? "—"
+        if let onEditMarket {
+            VStack(alignment: .leading, spacing: 5) {
+                TermLabel(text: marketAgreed ? "Agreed market" : "Market value", term: .market, color: ink.opacity(0.65))
+                Button { Haptics.tap(); onEditMarket() } label: {
+                    HStack(spacing: 4) {
+                        Text(value).font(.geist(17, .semibold)).monospacedDigit().foregroundStyle(ink).lineLimit(1).minimumScaleFactor(0.7)
+                        Image(systemName: "pencil").font(.system(size: 11, weight: .semibold)).foregroundStyle(ink.opacity(0.7))
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Type the market value you agreed on")
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            stat(marketAgreed ? "Agreed market" : "Market value", .market, value)
         }
     }
 
@@ -1239,9 +1325,7 @@ private struct TermInfo: View {
             Image(systemName: "info.circle").font(.system(size: 12, weight: .semibold)).foregroundStyle(color.opacity(0.75))
         }
         .buttonStyle(.plain)
-        .popover(isPresented: $open) {
-            TermTip(term: term)
-        }
+        .sheet(isPresented: $open) { TermSheet(term: term) }
     }
 }
 

@@ -199,6 +199,48 @@ final class DealStore {
         scheduleSave()
     }
 
+    /// Whether a side's market value was changed by hand (any card keeps its catalog price aside).
+    func marketAgreed(on side: DealSide) -> Bool {
+        (side == .incoming ? deal.incoming : deal.outgoing).contains { $0.catalogMarket != nil }
+    }
+
+    /// The market value the two of you agreed on for a side, shared across its cards in proportion
+    /// to their market prices (each keeps its catalog price, so it can be put back). Cards at a % of
+    /// market re-price with it; fixed prices stay. A rounded total lets go (the prices moved).
+    @MainActor
+    func setAgreedMarket(_ total: Double, on side: DealSide) {
+        update { d in
+            var items = side == .incoming ? d.incoming : d.outgoing
+            let current = items.reduce(0.0) { $0 + ($1.market ?? 0) * Double($1.qty) }
+            guard current > 0, total > 0 else { return }
+            let factor = total / current
+            for i in items.indices {
+                guard let m = items[i].market else { continue }
+                let catalog = items[i].catalogMarket ?? m
+                let next = round2(m * factor)
+                items[i].market = next
+                items[i].catalogMarket = abs(next - catalog) < 0.005 ? nil : catalog
+            }
+            if side == .incoming { d.incoming = items } else { d.outgoing = items }
+            d.agreedCash = nil
+        }
+    }
+
+    /// Every card on a side back on its catalog market price.
+    @MainActor
+    func resetMarket(on side: DealSide) {
+        update { d in
+            func reset(_ items: inout [DealItem]) {
+                for i in items.indices where items[i].catalogMarket != nil {
+                    items[i].market = items[i].catalogMarket
+                    items[i].catalogMarket = nil
+                }
+            }
+            if side == .incoming { reset(&d.incoming) } else { reset(&d.outgoing) }
+            d.agreedCash = nil
+        }
+    }
+
     /// Takes a line off the deal (unticking it in the add sheet).
     @MainActor
     func removeItem(key: String, from side: DealSide) {
