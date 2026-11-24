@@ -95,7 +95,9 @@ struct DealPickerSheet: View {
                 }
             }
             .listRowBackground(Color.clear)
-            .listRowSeparatorTint(Color.white.opacity(0.08))
+            // No lines between rows (the owner's call): the big art keeps them apart.
+            .listRowSeparator(.hidden)
+            .listSectionSeparator(.hidden)
             // Rows run to the same 16pt margin as the search above (the list's own insets were wide).
             .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
             }
@@ -174,21 +176,22 @@ struct DealPickerSheet: View {
     }
 
     /// The custom way in, as a quiet row at the end of the list.
+    /// The custom way in at the end of the list: one quiet line and a glass pill, centred (like
+    /// the empty state's), not a row.
     private var customRow: some View {
-        Button { customOpen = true } label: {
-            HStack(spacing: 12) {
-                Image(systemName: "square.and.pencil").font(.system(size: 15, weight: .semibold)).foregroundStyle(.white)
-                    .frame(width: 36, height: 36).background(Circle().fill(Color.white.opacity(0.08)))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Add a custom item or lot").font(.geist(15, .medium)).foregroundStyle(.white)
-                    Text("Not in the catalog? A name and a price is enough.").font(.geist(12)).foregroundStyle(Theme.muted)
-                }
-                Spacer()
+        VStack(spacing: 10) {
+            Text("Not in the catalog?").font(.geist(13)).foregroundStyle(Theme.muted)
+            Button { customOpen = true } label: {
+                Label("Add a custom item or lot", systemImage: "square.and.pencil")
+                    .font(.geist(14, .medium)).foregroundStyle(.white)
+                    .padding(.horizontal, 16).frame(height: 40)
+                    .liquidGlass(in: Capsule())
             }
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .accessibilityHint("A name and a price, for things not in the catalog")
         }
-        .buttonStyle(.plain)
-        .accessibilityHint("A name and a price, for things not in the catalog")
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 20)
     }
 
     private func addHolding(_ h: HoldingView) {
