@@ -494,7 +494,19 @@ struct DealCloseSheet: View {
                                 TextField(String(format: "%.2f", original), text: $finalText)
                                     .keyboardType(.decimalPad).focused($editingFinal)
                                     .onSubmit { applyFinal(MoneyField.value(finalText)) }
-                                Image(systemName: "pencil").font(.system(size: 16, weight: .medium)).foregroundStyle(Theme.muted)
+                                // Changed: Reset sits beside the amount (in the pencil's place).
+                                if abs(finalAmount - original) > 0.004 {
+                                    Button {
+                                        finalText = ""
+                                        applyFinal(nil)
+                                    } label: {
+                                        Text("Reset to original total").font(.geist(13, .medium)).foregroundStyle(Theme.lime)
+                                            .lineLimit(1).fixedSize()
+                                    }
+                                    .buttonStyle(.plain)
+                                } else {
+                                    Image(systemName: "pencil").font(.system(size: 16, weight: .medium)).foregroundStyle(Theme.muted)
+                                }
                             }
                             .font(.display(40)).tracking(-1.2).monospacedDigit()
                             .onChange(of: editingFinal) { _, on in if !on { applyFinal(MoneyField.value(finalText)) } }
@@ -523,15 +535,6 @@ struct DealCloseSheet: View {
                                 }
                             }
                             .padding(.top, 2)
-                            if abs(finalAmount - original) > 0.004 {
-                                Button {
-                                    finalText = ""
-                                    applyFinal(nil)
-                                } label: {
-                                    Text("Reset to original total").font(.geist(13, .medium)).foregroundStyle(Theme.lime)
-                                }
-                                .buttonStyle(.plain)
-                            }
                         }
                         .padding(18)
                         .frame(maxWidth: .infinity, alignment: .leading)
