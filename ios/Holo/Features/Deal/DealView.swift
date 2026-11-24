@@ -948,11 +948,6 @@ private struct BalanceCard: View {
                 .contentTransition(.numericText())
                 .animation(.snappy, value: t.ahead ?? t.net)
             }
-            if details, read == nil, let paper = t.onPaper {
-                Text("Includes \(Format.money(paper)) on paper")
-                    .font(.geist(12, .medium)).foregroundStyle(ink.opacity(0.7))
-                    .padding(.top, 8)
-            }
             if details, read == nil, t.uncosted > 0 {
                 Text("Add what you paid for every item to see your\u{00A0}total")
                     .font(.geist(12, .medium)).foregroundStyle(ink.opacity(0.7))

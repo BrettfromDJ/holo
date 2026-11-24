@@ -834,7 +834,7 @@ private struct RecordedScreen: View {
         return nil
     }
 
-    /// "Profit +$971 · Value gained +$730", then "includes $730 on paper", all in ink (no pink on
+    /// "Profit +$971 · Value gained +$730", all in ink (no pink on
     /// lime). Without every cost, a short note that the total isn't known.
     @ViewBuilder private func breakdown(_ t: DealTotals, ink: Color) -> some View {
         if t.ahead != nil {
@@ -843,9 +843,6 @@ private struct RecordedScreen: View {
             if !parts.isEmpty {
                 Text(parts.joined(separator: " · ")).font(.geist(14, .semibold)).monospacedDigit().foregroundStyle(ink)
                     .lineLimit(1).minimumScaleFactor(0.75)
-            }
-            if let paper = t.onPaper {
-                Text("includes \(Format.money(paper)) on paper").font(.geist(12, .medium)).foregroundStyle(ink.opacity(0.65))
             }
         } else if t.uncosted > 0 {
             Text("Total unknown: not every item had a\u{00A0}cost").font(.geist(12, .medium)).foregroundStyle(ink.opacity(0.65))

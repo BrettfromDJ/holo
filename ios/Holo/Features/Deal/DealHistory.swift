@@ -978,10 +978,6 @@ struct DealRecordDetail: View {
                     .font(.display(56)).tracking(-2.2).monospacedDigit().foregroundStyle(Theme.tone(ahead))
                     .lineLimit(1).minimumScaleFactor(0.5).displayTrim(56)
                     .padding(.top, 6)
-                if r.kind != .sell, r.equity > 0.005 {
-                    Text("Includes \(Format.money(r.equity)) on paper").font(.geist(12)).foregroundStyle(Theme.muted)
-                        .padding(.top, 6)
-                }
             } else {
                 Text("Total unknown").font(.display(26)).tracking(-0.8).foregroundStyle(.white)
                     .padding(.top, 18)
