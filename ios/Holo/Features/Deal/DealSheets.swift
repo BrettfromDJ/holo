@@ -540,66 +540,7 @@ struct DealCloseSheet: View {
                             DisplayText(text: "Close this \(t.kind.noun.lowercased())?", size: 30)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        // The final amount: type it, or tap a round one. It's what gets recorded.
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                MonoLabel(text: abs(b) < 0.005 && original < 0.005 ? "Even trade" : (plainTotals.balance > 0 ? "Final amount I receive" : "Final amount I pay"))
-                                Spacer()
-                                Text("Market \(Format.money(market))").font(.geist(12)).monospacedDigit().foregroundStyle(Theme.muted)
-                            }
-                            HStack(spacing: 4) {
-                                Text("$").foregroundStyle(Theme.muted)
-                                TextField(String(format: "%.2f", original), text: $finalText)
-                                    .keyboardType(.decimalPad).focused($editingFinal)
-                                    .onSubmit { applyFinal(MoneyField.value(finalText)) }
-                                // Changed: Reset sits beside the amount (in the pencil's place).
-                                if abs(finalAmount - original) > 0.004 {
-                                    Button {
-                                        finalText = ""
-                                        applyFinal(nil)
-                                    } label: {
-                                        Text("Reset to original total").font(.geist(13, .medium)).tracking(0).foregroundStyle(Theme.lime)
-                                            .lineLimit(1).fixedSize()
-                                    }
-                                    .buttonStyle(.plain)
-                                } else {
-                                    Image(systemName: "pencil").font(.system(size: 16, weight: .medium)).foregroundStyle(Theme.muted)
-                                }
-                            }
-                            .font(.display(40)).tracking(-1.2).monospacedDigit()
-                            .onChange(of: editingFinal) { _, on in if !on { applyFinal(MoneyField.value(finalText)) } }
-                            HStack(spacing: 8) {
-                                ForEach(roundOptions, id: \.self) { o in
-                                    let on = abs(finalAmount - o) < 0.005
-                                    Button {
-                                        Haptics.tap()
-                                        editingFinal = false
-                                        finalText = String(format: "%.0f", o)
-                                        applyFinal(o)
-                                    } label: {
-                                        Text(Format.moneyWhole(o)).font(.geist(15, .semibold)).monospacedDigit()
-                                            .foregroundStyle(on ? Theme.ink : .white)
-                                            .frame(maxWidth: .infinity).frame(height: 40)
-                                            .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(on ? Color.white : Color.white.opacity(0.08)))
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                            // Only once the total has been changed (until then it all repeats the big amount).
-                            if abs(finalAmount - original) > 0.004 {
-                                VStack(spacing: 6) {
-                                    finalLine("Original total", Format.money(original))
-                                    finalLine("Price adjustment", Format.signedMoney(finalAmount - original))
-                                    if deal.kind != .trade, market > 0 {
-                                        finalLine("Effective market rate", String(format: "%.2f%%", finalAmount / market * 100))
-                                    }
-                                }
-                                .padding(.top, 2)
-                            }
-                        }
-                        .padding(18)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                        // No final amount panel here: it's set on the deal page's card (the owner's call).
                         // Where you land, then what it's made of: the same breakdown as the deal page.
                         let costs = deal.outgoing.map { deals.cost(of: $0, in: store) }
                         let basis: Double? = deal.outgoing.isEmpty || costs.contains(where: { $0 == nil }) ? nil : costs.reduce(0) { $0 + ($1 ?? 0) }
