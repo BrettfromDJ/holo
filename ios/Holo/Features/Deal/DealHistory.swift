@@ -922,8 +922,8 @@ struct DealRecordDetail: View {
                     header(r)
                     if let lines = r.lines, !lines.isEmpty {
                         // Cash is a line too, on the side it came in or went out, so the two sides add up.
-                        lineSection(.incoming, lines.filter { $0.side == .incoming }, r.inValue, cash: r.balance > 0.005 ? r.balance : nil)
-                        lineSection(.outgoing, lines.filter { $0.side == .outgoing }, r.outValue, cash: r.balance < -0.005 ? -r.balance : nil)
+                        lineSection(.incoming, kind: r.kind, lines.filter { $0.side == .incoming }, r.inValue, cash: r.balance > 0.005 ? r.balance : nil)
+                        lineSection(.outgoing, kind: r.kind, lines.filter { $0.side == .outgoing }, r.outValue, cash: r.balance < -0.005 ? -r.balance : nil)
                     } else {
                         Text("Came in \(Format.money(r.inValue)) · went out \(Format.money(r.outValue)). Item details weren't kept for deals closed before they were\u{00A0}recorded.")
                             .font(.geist(13)).foregroundStyle(Theme.muted)
@@ -964,52 +964,49 @@ struct DealRecordDetail: View {
         let b = r.balance
         let shape = RoundedRectangle(cornerRadius: 24, style: .continuous)
         return VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 10) {
-                Image(systemName: r.kind.icon).font(.system(size: 13, weight: .semibold)).foregroundStyle(r.kind.color)
-                    .frame(width: 30, height: 30).background(Circle().fill(r.kind.color.opacity(0.16)))
-                Text(r.date.formatted(.dateTime.weekday(.wide).month(.abbreviated).day().hour().minute()).uppercased())
-                    .font(.mono(11)).tracking(1).foregroundStyle(Theme.muted)
-            }
+            Text(r.date.formatted(.dateTime.weekday(.wide).month(.abbreviated).day().hour().minute()))
+                .font(.geist(13)).foregroundStyle(Theme.muted)
             // How far ahead the deal left you; the cash moves into the numbers below.
             if let ahead = r.aheadTotal {
-                Text(dealAheadTitle(ahead, past: true)).font(.display(26)).tracking(-0.8).foregroundStyle(.white)
-                    .padding(.top, 18)
+                Text(dealAheadTitle(ahead, past: true)).font(.display(24)).tracking(-0.7).foregroundStyle(.white)
+                    .padding(.top, 14)
                 CountingText(value: ahead, format: { Format.signedMoney($0) })
-                    .font(.display(56)).tracking(-2.2).monospacedDigit().foregroundStyle(Theme.tone(ahead))
-                    .lineLimit(1).minimumScaleFactor(0.5).displayTrim(56)
-                    .padding(.top, 6)
+                    .font(.display(52)).tracking(-2).monospacedDigit().foregroundStyle(Theme.tone(ahead))
+                    .lineLimit(1).minimumScaleFactor(0.5).displayTrim(52)
+                    .padding(.top, 4)
             } else {
-                Text("Total unknown").font(.display(26)).tracking(-0.8).foregroundStyle(.white)
-                    .padding(.top, 18)
+                Text("Total unknown").font(.display(24)).tracking(-0.7).foregroundStyle(.white)
+                    .padding(.top, 14)
                 Text("Not every item that went out had a\u{00A0}cost.").font(.geist(13)).foregroundStyle(Theme.muted)
                     .padding(.top, 6)
             }
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], alignment: .leading, spacing: 14) {
-                stat("Came in", Format.money(r.inValue), .white)
-                stat("Went out", Format.money(r.outValue), .white)
-                stat(abs(b) < 0.005 ? "Cash" : (b > 0 ? "They paid you" : "You paid them"), abs(b) < 0.005 ? "Even swap" : Format.money(abs(b)), .white)
-                stat("Items", "\(r.items)", .white)
-                stat("Sale profit", r.profit.map { Format.signedMoney($0) } ?? "—", r.profit == nil ? Theme.muted : Theme.tone(r.profit))
-                stat(r.kind == .buy ? "Potential profit" : "Trade-in value", r.kind == .sell ? "—" : Format.signedMoney(r.equity), r.kind == .sell ? Theme.muted : Theme.tone(r.equity))
+            // Only the figures that mean something for this kind of deal, each said once.
+            HStack(alignment: .top, spacing: 12) {
+                switch r.kind {
+                case .buy:
+                    stat("You paid", Format.money(r.inValue), .white)
+                    stat("Market value", Format.money(r.inValue + r.equity), .white)
+                    stat("Cards", "\(r.items)", .white)
+                case .sell:
+                    stat("You received", Format.money(r.outValue), .white)
+                    stat("You paid for them", r.profit.map { Format.money(r.outValue - $0) } ?? "—", r.profit == nil ? Theme.muted : .white)
+                    stat("Cards", "\(r.items)", .white)
+                default:
+                    stat("Came in", Format.money(r.inValue), .white)
+                    stat("Went out", Format.money(r.outValue), .white)
+                    stat(abs(b) < 0.005 ? "Cash" : (b > 0 ? "They paid you" : "You paid them"), abs(b) < 0.005 ? "Even" : Format.money(abs(b)), .white)
+                }
             }
             .padding(.top, 20)
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            ZStack {
-                shape.fill(Color(hex: 0x070707))
-                GridPattern(step: 28, opacity: 0.06)
-                RadialGradient(colors: [r.kind.color.opacity(0.22), .clear], center: .topTrailing, startRadius: 0, endRadius: 260)
-            }
-            .clipShape(shape)
-        }
-        .overlay(shape.strokeBorder(r.kind.color.opacity(0.3)))
+        .liquidGlass(in: shape)
     }
 
     private func stat(_ label: String, _ value: String, _ tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 5) {
-            MonoLabel(text: label)
+            Text(label).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1).minimumScaleFactor(0.8)
             Text(value).font(.geist(17, .semibold)).monospacedDigit().foregroundStyle(tint).lineLimit(1).minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1031,14 +1028,14 @@ struct DealRecordDetail: View {
         .padding(.horizontal, 12)
     }
 
-    @ViewBuilder private func lineSection(_ side: DealSide, _ lines: [DealRecord.Line], _ total: Double, cash: Double? = nil) -> some View {
+    @ViewBuilder private func lineSection(_ side: DealSide, kind: DealKind, _ lines: [DealRecord.Line], _ total: Double, cash: Double? = nil) -> some View {
         if !lines.isEmpty || cash != nil {
             let incoming = side == .incoming
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .lastTextBaseline) {
                     Image(systemName: incoming ? "arrow.down.left" : "arrow.up.right").font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(incoming ? Theme.lime : Theme.planPink)
-                    Text(incoming ? "Came in" : "Went out").font(.display(22)).tracking(-0.6)
+                    Text(kind == .buy ? (incoming ? "Bought" : "Paid") : kind == .sell ? (incoming ? "Received" : "Sold") : (incoming ? "Came in" : "Went out")).font(.display(22)).tracking(-0.6)
                     Spacer()
                     Text(Format.money(total + (cash ?? 0))).font(.display(22)).tracking(-0.6).monospacedDigit()
                 }
