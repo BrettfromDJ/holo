@@ -20,15 +20,18 @@ struct DealStartPage: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 30) {
-                VStack(alignment: .leading, spacing: 6) {
-                    MonoLabel(text: "New deal")
-                    DisplayText(text: "What's the deal?", size: 32)
-                    Text("Choose what you're doing today.").font(.geist(15)).foregroundStyle(Theme.muted)
-                }
-                VStack(spacing: 10) {
-                    choice(.buy, icon: "arrow.down.to.line", title: "Buy cards", line: "Pay for cards at your rate.")
-                    choice(.sell, icon: "arrow.up.to.line", title: "Sell cards", line: "Price out cards for a buyer.")
-                    choice(.trade, icon: "arrow.left.arrow.right", title: "Trade cards", line: "Swap cards and balance the difference.")
+                // The heading close above the three choices (30pt here looked like a gap).
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        MonoLabel(text: "New deal")
+                        DisplayText(text: "What's the deal?", size: 32)
+                        Text("Choose what you're doing today.").font(.geist(15)).foregroundStyle(Theme.muted)
+                    }
+                    VStack(spacing: 10) {
+                        choice(.buy, icon: "arrow.down.to.line", title: "Buy cards", line: "Pay for cards at your rate.")
+                        choice(.sell, icon: "arrow.up.to.line", title: "Sell cards", line: "Price out cards for a buyer.")
+                        choice(.trade, icon: "arrow.left.arrow.right", title: "Trade cards", line: "Swap cards and balance the difference.")
+                    }
                 }
                 if !deals.parked.isEmpty {
                     list("Parked deals", count: deals.parked.count, onAll: onParkedAll) {
