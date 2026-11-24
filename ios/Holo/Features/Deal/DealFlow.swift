@@ -177,6 +177,9 @@ struct DealEditorPage: View {
     var onMore: () -> Void
     var onReview: () -> Void
     var onPark: () -> Void
+    /// The old deal card (lime, the verdict, the cash and its four figures), back at the top by
+    /// the owner's call. Built by DealView, which has its round / agreed-cash actions.
+    var card: AnyView = AnyView(EmptyView())
     @Environment(DealStore.self) private var deals
     @Environment(CollectionStore.self) private var store
     @State private var tradeSide = DealSide.incoming
@@ -213,6 +216,7 @@ struct DealEditorPage: View {
                                          (.outgoing, "Sell · \(Format.money(totals.outValue))")],
                                selection: $tradeSide, fills: true)
                 }
+                card
                 rateCard(rate: rate)
                 HStack(spacing: 10) {
                     Button { onScan(side) } label: {
@@ -399,49 +403,7 @@ struct DealEditorPage: View {
         let getMarket = deals.deal.incoming.reduce(0.0) { $0 + ($1.market ?? 0) * Double($1.qty) }
         let ahead = DealBreakdown.ahead(t, basis: basis, selling: !out.isEmpty)
         return VStack(alignment: .leading, spacing: 6) {
-            // A total rounded on the review screen: by how much, and a way back to the cards' prices.
-            if deals.deal.agreedCash != nil {
-                let plain = DealTotals(deals.unrounded, rates: deals.rates(for: deals.unrounded), cost: { _ in nil })
-                let diff = abs(b) - abs(plain.balance)
-                if abs(diff) > 0.004 {
-                    HStack(spacing: 6) {
-                        Text("Rounded \(Format.signedMoney(diff))").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted)
-                        Text("·").font(.geist(13)).foregroundStyle(Theme.subtle)
-                        Button {
-                            Haptics.tap()
-                            withAnimation(.snappy) { deals.clearAgreedTotal() }
-                        } label: { Text("Reset").font(.geist(13, .medium)).foregroundStyle(Theme.lime) }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.top, 2)
-                }
-            }
-            // How it comes out, in plain words above the total (the old card's verdict).
-            if !empty, let ahead {
-                Text(DealBreakdown.verdict(ahead)).font(.geist(15, .semibold))
-                    .foregroundStyle(abs(ahead) < 0.005 ? Color.white : Theme.tone(ahead))
-            }
-            // One big white line: "You pay $186.70" (the owner's call).
-            HStack(alignment: .center, spacing: 10) {
-                HStack(spacing: 8) {
-                    Text(label)
-                    if !(path == .trade && abs(b) < 0.005) {
-                        Text(Format.money(abs(b))).monospacedDigit()
-                            .contentTransition(.numericText())
-                            .animation(.snappy, value: b)
-                    }
-                }
-                .font(.display(28)).tracking(-0.8).foregroundStyle(.white)
-                .lineLimit(1).minimumScaleFactor(0.6)
-                .padding(.top, 2)
-                Spacer(minLength: 0)
-            }
-            // Three plain figures under it, like the old deal card (the owner's call: one profit,
-            // not three): what it's measured against, and the one profit.
-            if !empty {
-                figures(t, market: market, getMarket: getMarket, basis: basis, ahead: ahead)
-                    .padding(.top, 4)
-            }
+            // The figures live in the deal card at the top now; the bottom is just park and Review.
             HStack(spacing: 10) {
                 Button(action: onPark) {
                     Image(systemName: "pause").font(.system(size: 16, weight: .semibold)).foregroundStyle(.white)

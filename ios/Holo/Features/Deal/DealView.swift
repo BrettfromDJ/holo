@@ -118,7 +118,10 @@ struct DealView: View {
                                    onRename: { nameText = dealName; renaming = true },
                                    onMore: { dealOptions = true },
                                    onReview: { Haptics.tap(); confirming = true },
-                                   onPark: { parkNow() })
+                                   onPark: { parkNow() },
+                                   card: AnyView(BalanceCard(totals: totals, role: role, read: read, roundTo: roundTarget(totals), onRound: roundCash,
+                                                             agreed: agreed.side != nil, share: agreed.share,
+                                                             onEditCash: { startEditingCash(totals) }, onClearAgreed: clearAgreed)))
                         .toolbar {
                             ToolbarItem(placement: .topBarLeading) {
                                 Button {
@@ -894,7 +897,7 @@ private struct BalanceCard: View {
     var onClearAgreed: () -> Void = {}
     /// The breakdown under the big figure (what comes in and goes out, the shares of market,
     /// notes on the total), folded away until wanted: the figure and one verdict are enough.
-    @State private var details = false
+    @State private var details = true
 
     var body: some View {
         let t = totals
