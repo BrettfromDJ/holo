@@ -199,6 +199,14 @@ final class DealStore {
         scheduleSave()
     }
 
+    /// Takes a line off the deal (unticking it in the add sheet).
+    @MainActor
+    func removeItem(key: String, from side: DealSide) {
+        update { d in
+            if side == .incoming { d.incoming.removeAll { $0.key == key } } else { d.outgoing.removeAll { $0.key == key } }
+        }
+    }
+
     @MainActor
     func add(_ item: DealItem, to side: DealSide) {
         update { d in

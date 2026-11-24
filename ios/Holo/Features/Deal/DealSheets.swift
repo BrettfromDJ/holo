@@ -12,7 +12,16 @@ struct DealPickerSheet: View {
     @State private var query = ""
     @State private var results: [SearchHit] = []
     @State private var searching = false
-    @State private var added: Set<String> = []
+    /// The card whose picture was tapped: its page in a sheet over this one.
+    @State private var opened: OpenedCard?
+    struct OpenedCard: Identifiable { let id: String }
+
+    private func hitKey(_ hit: SearchHit) -> String { "p:\(hit.product.id):\(hit.printing ?? ""):" }
+    private func holdingKey(_ h: HoldingView) -> String { "h:\(h.identity.key)" }
+    /// Ticked = on this side of the deal now (so it's right for cards added before, too).
+    private func onDeal(_ key: String) -> Bool {
+        (side == .incoming ? deals.deal.incoming : deals.deal.outgoing).contains { $0.key == key }
+    }
     @State private var customOpen = false
     @State private var searchedFor = ""
     @FocusState private var focused: Bool
@@ -27,7 +36,21 @@ struct DealPickerSheet: View {
         }
     }
 
-    var body: some View { sheetBody.presentationDetents([.fraction(0.93)]).glassSheet() }
+    // Nearly the whole screen (the owner's call: a search sheet wants the room).
+    var body: some View {
+        sheetBody.presentationDetents([.large]).glassSheet()
+            .sheet(item: $opened) { card in
+                // The card's full page over the search, so the search stays where it was.
+                NavigationStack {
+                    ProductDetailView(productId: card.id)
+                        .navigationDestination(for: String.self) { ProductDetailView(productId: $0) }
+                        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { opened = nil } } }
+                        .environment(\.cardPageInSheet, true)
+                }
+                .presentationDetents([.fraction(0.93)])
+                .presentationDragIndicator(.visible)
+            }
+    }
 
     @ViewBuilder private var sheetBody: some View {
         // Filtered once per keystroke, not once per use (going out only).
@@ -40,13 +63,16 @@ struct DealPickerSheet: View {
                 Section("Your collection") {
                     if owned.isEmpty { Text("Nothing matches.").foregroundStyle(Theme.muted) }
                     ForEach(owned) { h in
-                        Button { addHolding(h) } label: {
+                        let on = onDeal(holdingKey(h))
+                        Button { toggleHolding(h) } label: {
                             // The same size and layout as the search results below (cards never
                             // change size as you scroll): big art, name, set, what you hold, price, add mark.
                             HStack(spacing: 12) {
                                 HStack(spacing: 14) {
                                     HoldingArt(product: h.product, identity: h.identity, cornerRadius: 4, caption: false)
                                         .frame(width: 64, height: 89)
+                                        .contentShape(Rectangle())
+                                        .highPriorityGesture(TapGesture().onEnded { if let id = h.product?.id { opened = OpenedCard(id: id) } })
                                     VStack(alignment: .leading, spacing: 3) {
                                         Text(h.product.map(ActionsSheet.shortName) ?? "Unknown").font(.geist(16, .medium)).foregroundStyle(.white).lineLimit(2)
                                         if let set = h.product?.setName {
@@ -59,9 +85,9 @@ struct DealPickerSheet: View {
                                     Text(Format.money(h.price)).font(.geist(16, .semibold)).monospacedDigit().foregroundStyle(.white)
                                 }
                                 .padding(.vertical, 6)
-                                Image(systemName: added.contains(h.id) ? "checkmark.circle.fill" : "plus.circle")
+                                Image(systemName: on ? "checkmark.circle.fill" : "plus.circle")
                                     .font(.system(size: 22))
-                                    .foregroundStyle(added.contains(h.id) ? Theme.lime : Color.white.opacity(0.35))
+                                    .foregroundStyle(on ? Theme.lime : Color.white.opacity(0.35))
                             }
                             .contentShape(Rectangle())
                         }
@@ -84,16 +110,17 @@ struct DealPickerSheet: View {
                             } label: { Label("Not found. Search the live catalog", systemImage: "bolt.fill") }
                         }
                         ForEach(results) { hit in
-                            Button { addHit(hit) } label: {
-                                HStack(spacing: 12) {
-                                    SearchRow(hit: hit)
-                                    // A plus to add, a lime check once it's on the deal.
-                                    Image(systemName: added.contains(hit.id) ? "checkmark.circle.fill" : "plus.circle")
-                                        .font(.system(size: 22))
-                                        .foregroundStyle(added.contains(hit.id) ? Theme.lime : Color.white.opacity(0.35))
-                                }
+                            let on = onDeal(hitKey(hit))
+                            // Tap the row to add, again to take it off; tap the picture for the card's page.
+                            HStack(spacing: 12) {
+                                SearchRow(hit: hit, onArt: hit.product.id.hasPrefix("custom:") ? nil : { opened = OpenedCard(id: hit.product.id) })
+                                Image(systemName: on ? "checkmark.circle.fill" : "plus.circle")
+                                    .font(.system(size: 22))
+                                    .foregroundStyle(on ? Theme.lime : Color.white.opacity(0.35))
                             }
-                            .buttonStyle(.plain)
+                            .contentShape(Rectangle())
+                            .onTapGesture { toggleHit(hit) }
+                            .accessibilityAddTraits(.isButton)
                         }
                     } header: {
                         // Coming in it's all the catalog, so no title (the owner's call).
@@ -212,20 +239,27 @@ struct DealPickerSheet: View {
         .padding(.vertical, 20)
     }
 
-    private func addHolding(_ h: HoldingView) {
+    /// Adds your card to the deal, or takes it off when it's already on.
+    private func toggleHolding(_ h: HoldingView) {
         guard let p = h.product else { return }
-        let item = DealItem(
-            key: "h:\(h.identity.key)", product: p, printing: h.identity.printing, market: h.price,
-            holdingKey: h.identity.key, maxQty: side == .outgoing ? Int(h.quantity) : nil
-        )
-        deals.add(item, to: side)
-        added.insert(h.id)
+        let key = holdingKey(h)
+        if onDeal(key) {
+            withAnimation(.snappy) { deals.removeItem(key: key, from: side) }
+        } else {
+            deals.add(DealItem(key: key, product: p, printing: h.identity.printing, market: h.price,
+                               holdingKey: h.identity.key, maxQty: side == .outgoing ? Int(h.quantity) : nil), to: side)
+        }
         Haptics.tap()
     }
 
-    private func addHit(_ hit: SearchHit) {
-        deals.add(DealItem(key: "p:\(hit.product.id):\(hit.printing ?? ""):", product: hit.product, printing: hit.printing, market: hit.market), to: side)
-        added.insert(hit.id)
+    /// Adds the catalog card to the deal, or takes it off when it's already on.
+    private func toggleHit(_ hit: SearchHit) {
+        let key = hitKey(hit)
+        if onDeal(key) {
+            withAnimation(.snappy) { deals.removeItem(key: key, from: side) }
+        } else {
+            deals.add(DealItem(key: key, product: hit.product, printing: hit.printing, market: hit.market), to: side)
+        }
         Haptics.tap()
     }
 
