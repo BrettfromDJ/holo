@@ -1006,7 +1006,10 @@ private struct BalanceCard: View {
                     stat("Their price", .charge, read.chargeShare.map { "\(Int(($0 * 100).rounded()))% of market" } ?? "—", ink)
                 } else {
                     stat("Sale profit", .profit, t.profit.map { Format.signedMoney($0) } ?? "—", ink)
-                    stat("Trade-in value", .value, t.showsEquity ? Format.signedMoney(t.equity) : "—", ink)
+                    // Only on a trade (the owner's call): a buy's whole answer is already the verdict.
+                    if t.kind == .trade {
+                        stat("Trade-in value", .value, t.showsEquity ? Format.signedMoney(t.equity) : "—", ink)
+                    }
                 }
             }
             .padding(.top, 18)
