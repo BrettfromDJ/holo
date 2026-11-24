@@ -562,7 +562,7 @@ struct DealView: View {
 
     /// Lets go of the agreed cash; the slider stays where it moved to.
     private func clearAgreed() {
-        withAnimation(.snappy) { deals.update { $0.agreedCash = nil } }
+        withAnimation(.snappy) { deals.clearAgreedTotal() }
     }
 
     // MARK: Photos and notes

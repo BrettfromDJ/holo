@@ -325,7 +325,10 @@ struct DealEditorPage: View {
         let selling = side == .outgoing
         let cost = selling ? deals.cost(of: item, in: store) : nil
         let profit: Double? = { guard let cost, let total else { return nil }; return total - cost }()
-        let pct: Int? = { guard let unit, let m = item.market, m > 0 else { return nil }; return Int((unit / m * 100).rounded()) }()
+        // The card's true share of market: "99.6%" when a rounded total moved it off a whole number.
+        let share: Double? = { guard let unit, let m = item.market, m > 0 else { return nil }; return unit / m * 100 }()
+        let offWhole = share.map { abs($0 - $0.rounded()) >= 0.05 } ?? false
+        let pct: String? = share.map { offWhole ? String(format: "%.1f", $0) : "\(Int($0.rounded()))" }
         return HStack(alignment: .center, spacing: 12) {
             HoldingArt(product: item.product, cornerRadius: 3, caption: false).frame(width: 40, height: 56)
             VStack(alignment: .leading, spacing: 2) {
@@ -351,7 +354,7 @@ struct DealEditorPage: View {
                 if let pct {
                     HStack(spacing: 2) {
                         Text("\(pct)%")
-                        if item.price != nil || item.rate != nil { Image(systemName: "pencil").font(.system(size: 8, weight: .bold)) }
+                        if item.price != nil || item.rate != nil || offWhole { Image(systemName: "pencil").font(.system(size: 8, weight: .bold)) }
                     }
                     .font(.geist(11, .semibold)).monospacedDigit().foregroundStyle(.white.opacity(0.8))
                     .padding(.horizontal, 7).frame(height: 20)
@@ -407,6 +410,23 @@ struct DealEditorPage: View {
                     DealBreakdown(kind: path, totals: t, getMarket: getMarket, basis: basis, selling: !out.isEmpty)
                         .padding(.vertical, 4)
                         .transition(.opacity)
+                }
+            }
+            // A total rounded on the review screen: by how much, and a way back to the cards' prices.
+            if deals.deal.agreedCash != nil {
+                let plain = DealTotals(deals.unrounded, rates: deals.rates(for: deals.unrounded), cost: { _ in nil })
+                let diff = abs(b) - abs(plain.balance)
+                if abs(diff) > 0.004 {
+                    HStack(spacing: 6) {
+                        Text("Rounded \(Format.signedMoney(diff))").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted)
+                        Text("·").font(.geist(13)).foregroundStyle(Theme.subtle)
+                        Button {
+                            Haptics.tap()
+                            withAnimation(.snappy) { deals.clearAgreedTotal() }
+                        } label: { Text("Reset").font(.geist(13, .medium)).foregroundStyle(Theme.lime) }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.top, 2)
                 }
             }
             // One big white line: "You pay $186.70" (the owner's call), the % of market beside it.

@@ -172,6 +172,26 @@ final class DealStore {
     /// that gets there and the agreed cash lands it to the cent (DealState.agreeing(cash:rates:)).
     /// Applied straight, not through `update`, which would read the slider moving as a
     /// renegotiation and let the agreed cash go again. A later slider move still does.
+    /// Lets go of a rounded total: back to the cards' own prices, with the side's % back on a whole
+    /// number (settling on a total moved it to a fraction, e.g. 99.62%).
+    @MainActor
+    func clearAgreedTotal() {
+        update { d in
+            d.agreedCash = nil
+            d.rateIn = d.rateIn.map { ($0 * 100).rounded() / 100 }
+            d.rateOut = d.rateOut.map { ($0 * 100).rounded() / 100 }
+        }
+    }
+
+    /// The deal without its rounding (no agreed total, whole %s): what the cards come to on their own.
+    var unrounded: DealState {
+        var d = deal
+        d.agreedCash = nil
+        d.rateIn = d.rateIn.map { ($0 * 100).rounded() / 100 }
+        d.rateOut = d.rateOut.map { ($0 * 100).rounded() / 100 }
+        return d
+    }
+
     @MainActor
     func setAgreedCash(_ cash: Double) {
         guard deal.kind != .empty else { return }

@@ -441,7 +441,7 @@ struct DealCloseSheet: View {
         if let amount, abs(amount - original) > 0.004 {
             deals.setAgreedCash(signedAgreedCash(amount, totals: plainTotals))
         } else {
-            deals.update { $0.agreedCash = nil }
+            deals.clearAgreedTotal()
         }
         withAnimation(.snappy) { deal = deals.deal.settled(rates: deals.rates) }
     }
