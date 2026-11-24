@@ -338,7 +338,9 @@ struct DealEditorPage: View {
         let offWhole = share.map { abs($0 - $0.rounded()) >= 0.05 } ?? false
         let pct: String? = share.map { offWhole ? String(format: "%.1f", $0) : "\(Int($0.rounded()))" }
         return HStack(alignment: .center, spacing: 12) {
-            HoldingArt(product: item.product, cornerRadius: 3, caption: false).frame(width: 40, height: 56)
+            // As tall as the lines beside it (40×56 was shorter than the text), the same size as
+            // the add sheet's rows.
+            HoldingArt(product: item.product, cornerRadius: 4, caption: false).frame(width: 64, height: 89)
             VStack(alignment: .leading, spacing: 2) {
                 Text(ActionsSheet.shortName(item.product)).font(.geist(15, .medium)).foregroundStyle(.white).lineLimit(1)
                 Text([item.product.setName, item.product.number].compactMap { $0 }.joined(separator: " · "))
