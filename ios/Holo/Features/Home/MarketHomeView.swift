@@ -64,8 +64,8 @@ struct MarketHomeView: View {
                     if let index {
                         sections(index)
                     } else {
-                        // First visit only (later ones open on the saved copy): the name on the lit
-                        // grid, still. No spinner, no grey boxes.
+                        // First visit only (later ones open on the saved copy): dim, still shapes where
+                        // Home's pieces will be, so it reads as Home arriving. No spinner, no motion.
                         HomeLoading()
                     }
                 }
@@ -307,6 +307,12 @@ struct MarketHomeView: View {
 
     /// Some of this open's collections, by position.
     @ViewBuilder private func themeRows(_ shown: [MarketTheme], _ range: Range<Int>) -> some View {
+        // Collections still on their way (a first open): still rows hold their place, and they
+        // fill in as they arrive while the rest of Home is already there.
+        if shown.isEmpty && !themes.loaded && range.lowerBound == 0 {
+            PlaceholderRow()
+            PlaceholderRow()
+        }
         let r = range.clamped(to: 0..<shown.count)
         ForEach(Array(r), id: \.self) { i in
             ThemeSection(theme: shown[i]).id(shown[i].id)
@@ -541,22 +547,45 @@ private struct HobbyStories: View {
     }
 }
 
-/// Home before its lists arrive (a first launch): Corodex's name with a soft lime glow, still.
+/// Home before its lists arrive (a first launch): dim, still shapes in Home's layout (Card of the
+/// day, Heating up / Cooling off, then rows of cards), filled in place as each piece arrives.
 private struct HomeLoading: View {
     var body: some View {
-        VStack(spacing: 10) {
-            Text("Corodex").font(.display(44)).tracking(-1.6).foregroundStyle(.white)
-            Text("Getting today's market\u{00A0}ready").font(.geist(14)).foregroundStyle(Theme.muted)
+        let fill = Color.white.opacity(0.05)
+        VStack(alignment: .leading, spacing: 32) {
+            RoundedRectangle(cornerRadius: 28, style: .continuous).fill(fill).frame(height: 460)
+                .padding(.horizontal, 16)
+            HStack(spacing: 10) {
+                RoundedRectangle(cornerRadius: 20, style: .continuous).fill(fill).frame(height: 150)
+                RoundedRectangle(cornerRadius: 20, style: .continuous).fill(fill).frame(height: 150)
+            }
+            .padding(.horizontal, 16)
+            PlaceholderRow()
+            PlaceholderRow()
         }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 140)
-        .background {
-            RadialGradient(colors: [Theme.lime.opacity(0.18), .clear], center: .center, startRadius: 0, endRadius: 180)
-                .frame(width: 360, height: 360)
-                .padding(.top, 140)
-                .allowsHitTesting(false)
+        .allowsHitTesting(false)
+        .accessibilityLabel("Loading Home")
+    }
+}
+
+/// A row of cards that hasn't arrived yet: a short title bar and three card shapes, still.
+struct PlaceholderRow: View {
+    var body: some View {
+        let fill = Color.white.opacity(0.05)
+        VStack(alignment: .leading, spacing: 14) {
+            RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.07)).frame(width: 170, height: 20)
+                .padding(.horizontal, 16)
+            HStack(spacing: 12) {
+                ForEach(0 ..< 3, id: \.self) { _ in
+                    RoundedRectangle(cornerRadius: 12, style: .continuous).fill(fill).frame(width: 150, height: 209)
+                }
+            }
+            .padding(.leading, 16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .clipped()
         }
-        .accessibilityElement(children: .combine)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 

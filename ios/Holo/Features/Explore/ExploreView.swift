@@ -1658,27 +1658,33 @@ private struct BrandCard: View {
     static let tints: [Color] = [Theme.lime, Theme.planPink, Theme.planBlue, Theme.azure]
 
     var body: some View {
-        VStack(alignment: .center, spacing: 12) {
+        let name = MasterSetsView.shortName(game.name)
+        // The logo big, in place of the name (the owner's call); the name only stands in when
+        // there's no logo. Pokémon Japan shares Pokémon's logo, so it says Japan under it.
+        VStack(alignment: .center, spacing: 10) {
             CachedImage(url: game.logoUrl.flatMap(URL.init(string:))) { img in
                 img.resizable().scaledToFit().whiteLogo(game.drawnInBlack).shadow(color: .black.opacity(0.5), radius: 9, y: 8)
             } placeholder: {
-                Text(game.name.prefix(1).uppercased()).font(.display(26)).tracking(-0.7).foregroundStyle(tint)
+                Text(name).font(.display(22)).tracking(-0.6).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.7)
             }
-            .frame(height: 40)
+            .frame(height: 66)
             .frame(maxWidth: .infinity)
-            VStack(alignment: .center, spacing: 3) {
-                Text(MasterSetsView.shortName(game.name)).font(.geist(15, .semibold)).lineLimit(1).minimumScaleFactor(0.85).foregroundStyle(.white)
+            .padding(.horizontal, 6)
+            HStack(spacing: 6) {
+                if name == "Pokémon Japan" { MonoLabel(text: "Japan", color: .white) }
                 Text("\(game.sets) sets" + (game.cardCount.map { " · \($0.formatted(.number.notation(.compactName))) cards" } ?? ""))
                     .font(.geist(12)).foregroundStyle(Theme.muted).monospacedDigit().lineLimit(1).minimumScaleFactor(0.8)
             }
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, minHeight: 112, alignment: .center)
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 124, alignment: .center)
         // Plain dark tiles with a fine light edge (the coloured tints were too loud): the logos
         // carry the colour.
         .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Theme.surface))
         .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous)
             .strokeBorder(LinearGradient(colors: [.white.opacity(0.16), .white.opacity(0.05)], startPoint: .top, endPoint: .bottom), lineWidth: 1))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(name)
     }
 }
 

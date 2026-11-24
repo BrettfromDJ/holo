@@ -201,14 +201,18 @@ async function themeCards(admin: SupabaseClient<Database>, rule: ThemeRule, day:
  * filled a few at a time within a time budget; the rest fill on the next ask, so this never
  * keeps the app waiting long.
  */
-export async function themes(admin: SupabaseClient<Database>): Promise<Theme[]> {
-  const day = new Date().toISOString().slice(0, 10);
+export async function themes(
+  admin: SupabaseClient<Database>,
+  opts: { day?: string; budgetMs?: number } = {},
+): Promise<Theme[]> {
+  const day = opts.day ?? new Date().toISOString().slice(0, 10);
+  const budget = opts.budgetMs ?? 40_000;
   const rules = [...THEMES, ...(await themeIdeas().catch(() => []))];
   const started = Date.now();
   const shared: Shared = {};
   const out: Theme[] = [];
   for (let i = 0; i < rules.length; i += 6) {
-    if (Date.now() - started > 40_000) break;
+    if (Date.now() - started > budget) break;
     const batch = await Promise.all(rules.slice(i, i + 6).map((r) => themeCards(admin, r, day, shared).catch(() => null)));
     for (const t of batch) if (t) out.push(t);
   }

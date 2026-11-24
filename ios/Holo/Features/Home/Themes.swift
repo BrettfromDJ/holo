@@ -30,6 +30,9 @@ final class ThemesModel {
     var shown: [MarketTheme] = []
     /// Collection of the Day, at the top of Home: the same all day, a new one tomorrow.
     var daily: MarketTheme?
+    /// The server has answered (or failed) at least once this launch: until then, a first open
+    /// with nothing saved shows still placeholder rows where the collections go.
+    var loaded = false
 
     /// A new mix each time the app opens (the same while it stays open).
     private static let launchSeed = UInt64.random(in: 1...UInt64.max)
@@ -40,8 +43,10 @@ final class ThemesModel {
     func load(index: ExploreIndex?) async {
         if Demo.isOn {
             all = Self.stand(in: index)
+            loaded = true
             return
         }
+        defer { loaded = true }
         if let fresh = try? await Backend.shared.api.themes(), !fresh.isEmpty {
             all = fresh
             // Written off the main thread (it's a big file).

@@ -50,6 +50,17 @@ export async function GET(req: Request) {
       clearTimeout(timer);
     });
   }
+  // Once a night: Home's themed collections for today and tomorrow (its own request), so the
+  // day's first open never waits while they're built.
+  if (hop === 0) {
+    const warm = new URL("/api/cron/warm-home", url);
+    after(async () => {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 8000);
+      await fetch(warm, { headers: { authorization: `Bearer ${secret}` }, signal: ctrl.signal }).catch(() => {});
+      clearTimeout(timer);
+    });
+  }
   if (hop === 0) {
     const now = new Date();
     await admin.from("api_cache").delete().lt("expires_at", now.toISOString()).then(() => undefined, () => undefined);
