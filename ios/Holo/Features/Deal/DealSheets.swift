@@ -148,26 +148,14 @@ struct DealPickerSheet: View {
             }
             .contentMargins(.horizontal, 0, for: .scrollContent)
             .foregroundStyle(.white)
-            .overlay {
-                // Coming in, before you type: what to do, and the custom way in.
+            .overlay(alignment: .top) {
+                // Coming in, before you type: what to do, and the custom way in, as the same
+                // panel that ends the results (the owner's call).
                 if side == .incoming && query.count < 2 {
-                    VStack(spacing: 10) {
-                        Image(systemName: "magnifyingglass").font(.system(size: 20, weight: .semibold)).foregroundStyle(.white)
-                            .frame(width: 56, height: 56).liquidGlass(in: Circle())
-                        Text("Find their cards").font(.display(22)).tracking(-0.5)
-                        Text("Search by name, set or number, or scan with the camera.").font(.geist(14)).foregroundStyle(Theme.muted)
-                            .multilineTextAlignment(.center)
-                        Button { customOpen = true } label: {
-                            Label("Add a custom item or lot", systemImage: "square.and.pencil")
-                                .font(.geist(14, .medium)).foregroundStyle(.white)
-                                .padding(.horizontal, 16).frame(height: 40)
-                                .liquidGlass(in: Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.top, 8)
-                    }
-                    .padding(.horizontal, 32)
-                    .padding(.bottom, 120)
+                    customPanel(title: "Find their cards",
+                                line: "Search by name, set or number above, or scan with the camera. Not in the catalog? Add it by hand.")
+                        .padding(.horizontal, 16)
+                        .padding(.top, 4)
                 }
             }
             .scrollContentBackground(.hidden)
@@ -224,10 +212,15 @@ struct DealPickerSheet: View {
     /// The custom way in at the end of the list: a small panel with a real heading, one line on
     /// what it's for, and the glass button across its width (a lone quiet line over a pill read weak).
     private var customRow: some View {
+        customPanel(title: "Can't find it?", line: "Add a lot, a binder or anything not in the catalog. A name and a price is enough.")
+            .padding(.vertical, 12)
+    }
+
+    private func customPanel(title: String, line: String) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Can't find it?").font(.display(20)).tracking(-0.5).foregroundStyle(.white)
-                Text("Add a lot, a binder or anything not in the catalog. A name and a price is enough.")
+                Text(title).font(.display(20)).tracking(-0.5).foregroundStyle(.white)
+                Text(line)
                     .font(.geist(14)).foregroundStyle(Theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -243,7 +236,6 @@ struct DealPickerSheet: View {
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
         .sheetPanel(radius: 20)
-        .padding(.vertical, 12)
     }
 
     /// Adds your card to the deal, or takes it off when it's already on.
