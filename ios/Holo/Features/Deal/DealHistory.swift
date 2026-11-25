@@ -626,36 +626,21 @@ struct DealHistoryView: View {
     // MARK: The top: how far ahead, counts, and that total over time
 
     private func hero(_ shown: [DealRecord]) -> some View {
-        let known = shown.compactMap(\.aheadTotal)
-        let ahead = known.reduce(0, +)
-        let hasProfit = shown.contains { $0.profit != nil }
-        let profit = shown.compactMap(\.profit).reduce(0, +)
+        let ahead = shown.compactMap(\.aheadTotal).reduce(0, +)
         let cash = shown.reduce(0) { $0 + $1.balance }
         let what = filter.map { "\($0.noun.lowercased())s" } ?? "deals"
-        return VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 8) {
-                MonoLabel(text: (ahead < 0 ? "Loss from " : "Profit from ") + what)
-                CountingText(value: ahead, format: { Format.signedMoney($0) })
-                    .font(.display(72)).tracking(-2.9).monospacedDigit().foregroundStyle(ahead < 0 ? Theme.planPink : Theme.lime)
-                    .lineLimit(1).minimumScaleFactor(0.5).displayTrim(72)
-                    .shadow(color: (ahead < 0 ? Theme.planPink : Theme.lime).opacity(0.35), radius: 18)
-            }
-            // One row when it fits; otherwise two, so the page never runs off the screen's edges.
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) {
-                    StatPill(label: "Deals", value: "\(shown.count)")
-                    if hasProfit { StatPill(label: "Sale profit", value: Format.signedMoney(profit), tint: Theme.tone(profit)) }
-                    StatPill(label: "Cash", value: Format.signedMoney(cash), tint: Theme.tone(cash))
-                }
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
-                        StatPill(label: "Deals", value: "\(shown.count)")
-                        StatPill(label: "Cash", value: Format.signedMoney(cash), tint: Theme.tone(cash))
-                    }
-                    if hasProfit { StatPill(label: "Sale profit", value: Format.signedMoney(profit), tint: Theme.tone(profit)) }
-                }
-            }
+        // The profit, one quiet line (the pills and a second "sale profit" were noise; the owner's
+        // clean-up), then that total climbing deal by deal.
+        return VStack(alignment: .leading, spacing: 8) {
+            Text((ahead < 0 ? "Loss from " : "Profit from ") + what).font(.geist(14)).foregroundStyle(Theme.muted)
+            CountingText(value: ahead, format: { Format.signedMoney($0) })
+                .font(.display(56)).tracking(-2.2).monospacedDigit().foregroundStyle(ahead < 0 ? Theme.planPink : Theme.lime)
+                .lineLimit(1).minimumScaleFactor(0.5).displayTrim(56)
+            (Text("\(shown.count) deal\(shown.count == 1 ? "" : "s") · ").foregroundColor(Theme.muted)
+                + Text("\(Format.signedMoney(cash)) cash").foregroundColor(Theme.tone(cash)))
+                .font(.geist(15)).monospacedDigit()
             ProfitClimb(records: shown)
+                .padding(.top, 10)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -666,24 +651,37 @@ struct DealHistoryView: View {
         let t = DealDayTotals(records)
         let date = Format.isoDay.date(from: day)
         let title = date.map { Calendar.current.isDateInToday($0) ? "Today" : (Calendar.current.isDateInYesterday($0) ? "Yesterday" : $0.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())) } ?? day
-        return VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Text(title).font(.display(24)).tracking(-0.6)
-                    MonoLabel(text: "\(t.deals) deal\(t.deals == 1 ? "" : "s")")
-                    Spacer()
-                    if let ahead = t.ahead {
-                        Text(Format.signedMoney(ahead)).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(ahead))
-                    }
+        // The heading with its count and profit, then the deals as the same rows as the Deal
+        // tab's Recent deals (the cards with tags, times and a second profit line were too busy).
+        return VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(title).font(.display(22)).tracking(-0.5)
+                Text("\(t.deals)").font(.geist(14)).foregroundStyle(Theme.subtle)
+                Spacer()
+                if let ahead = t.ahead {
+                    Text(Format.signedMoney(ahead)).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(Theme.tone(ahead))
                 }
-                DayFigures(totals: t)
             }
-            VStack(spacing: 12) {
-                ForEach(records) { r in
-                    NavigationLink(value: r) { DealRecordCard(record: r) }.buttonStyle(.plain)
+            .padding(.bottom, 4)
+            ForEach(Array(records.enumerated()), id: \.element.id) { i, r in
+                NavigationLink(value: r) {
+                    DealListRow(kind: r.kind, title: Self.title(r),
+                                line: "\(DealView.pathTitle(r.kind)) · \(r.items) card\(r.items == 1 ? "" : "s") · \(r.date.formatted(date: .omitted, time: .shortened))",
+                                amount: abs(r.balance),
+                                note: r.aheadTotal.map { abs($0) < 0.005 ? "Even" : "\(Format.signedMoney($0)) \($0 > 0 ? "profit" : "loss")" } ?? "Completed",
+                                noteTint: r.aheadTotal.map { abs($0) < 0.005 ? Theme.muted : Theme.tone($0) },
+                                divider: i > 0)
                 }
+                .buttonStyle(.plain)
             }
         }
+    }
+
+    /// A closed deal's name: its first card, and how many more.
+    private static func title(_ r: DealRecord) -> String {
+        guard let first = r.lines?.first else { return DealView.pathTitle(r.kind) }
+        let more = (r.lines?.count ?? 1) - 1
+        return first.product.name + (more > 0 ? " +\(more)" : "")
     }
 }
 
@@ -776,18 +774,8 @@ private struct BestDealCard: View {
                 .frame(width: 120, height: 100)
         }
         .padding(18)
-        .background {
-            ZStack {
-                shape.fill(Color(hex: 0x070707))
-                GridPattern(step: 28, opacity: 0.06)
-                RadialGradient(colors: [Theme.lime.opacity(0.2), .clear], center: .trailing, startRadius: 0, endRadius: 220)
-            }
-            .clipShape(shape)
-        }
-        // Glow first, then the spinning border, so the glow isn't redrawn every frame the bolt
-        // moves (the border sits inside the card, so it looks the same).
-        .shadow(color: Theme.lime.opacity(0.18), radius: 18)
-        .overlay(ElectricBorder(radius: 22))
+        // A plain glass card (the electric border and glow were too much; the owner's clean-up).
+        .liquidGlass(in: shape)
     }
 }
 

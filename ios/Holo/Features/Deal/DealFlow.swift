@@ -130,7 +130,7 @@ struct DealStartPage: View {
 }
 
 /// A parked or closed deal: its kind's icon, name, one line, the amount and a quiet note.
-private struct DealListRow: View {
+struct DealListRow: View {
     var kind: DealKind
     var title: String
     var line: String
