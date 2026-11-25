@@ -296,7 +296,7 @@ and say exactly what to run or click.
   answers to Files → Corodex → Scan tests and keeps a running agree/disagree and speed summary;
   both scanners run on every scan while it's on. Picture matching (`CardFingerprint`, Vision feature
   prints, on the phone): when text narrows it to several cards or only a name was read, the
-  candidates' catalog pictures are fingerprinted (cached in Caches/card-prints) and the closest wins
+  candidates are compared on the server against their stored fingerprints (`/api/scan/match` with `ids`, no downloads; only cards with none stored, or pictured differently like Unlimited photos, are fingerprinted on the phone, cached in Caches/card-prints; the scan's own fingerprint is made once, alongside the text reading) and the closest wins
   only if 20% nearer than the runner-up. Whole catalog: the "Card fingerprints" GitHub workflow
   (nightly on a Mac, `ios/scripts/fingerprints.swift`, needs `FINGERPRINTS_SECRET`, the same value in Vercel and as a GitHub Actions secret, and
   optionally the variable `SITE_URL`) fingerprints every Pokémon single (Vision revision 2) via
