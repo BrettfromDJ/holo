@@ -51,6 +51,8 @@ struct DealView: View {
     /// The new flow: leaving a deal (park / discard), naming it, and typing another rate.
     @State private var leaving = false
     @State private var dealOptions = false
+    /// Switching to this kind would drop the other side's cards: the alert asking first.
+    @State private var confirmKind: DealKind?
     /// A switch to Buy or Sell that would drop the other side's cards: asked first.
 
     @State private var renaming = false
@@ -140,6 +142,15 @@ struct DealView: View {
                                                            onEditMarket: { startEditingMarket(totals) },
                                                            marketAgreed: marketSide.map { deals.marketAgreed(on: $0) } ?? false))
                                    })
+                        .alert(confirmKind.map { dropTitle($0) } ?? "", isPresented: Binding(get: { confirmKind != nil }, set: { if !$0 { confirmKind = nil } })) {
+                            Button("Cancel", role: .cancel) { confirmKind = nil }
+                            Button("Remove and switch", role: .destructive) {
+                                if let k = confirmKind { switchDropping(to: k) }
+                                confirmKind = nil
+                            }
+                        } message: {
+                            Text("This deal becomes \(confirmKind.map { Self.pathTitle($0).lowercased() } ?? "") only.")
+                        }
                         .toolbar {
                             ToolbarItem(placement: .topBarLeading) {
                                 Button {
@@ -526,17 +537,29 @@ struct DealView: View {
                 withAnimation(.snappy) { pathRaw = k.rawValue }
             }
         }
-        let n = dropping.reduce(0) { $0 + $1.qty }
-        let what = "\(n) card\(n == 1 ? "" : "s") you're \(k == .buy ? "selling" : "buying")"
-        return SheetAction(title: Self.pathTitle(k), children: [[
-            SheetAction(title: "Remove the \(what)", subtitle: "and switch to \(Self.pathTitle(k).lowercased())", icon: "trash", destructive: true) {
-                withAnimation(.snappy) {
-                    // Switch first, so emptying that side doesn't send you back to the start.
-                    pathRaw = k.rawValue
-                    deals.update { d in if k == .buy { d.outgoing = [] } else { d.incoming = [] } }
-                }
+        // Asked in a plain alert in the middle of the screen (the owner's call), once the ⋯ sheet
+        // has fully gone (an alert raised while it was still closing didn't show).
+        return SheetAction(title: Self.pathTitle(k)) {
+            Task {
+                try? await Task.sleep(nanoseconds: 400_000_000)
+                confirmKind = k
             }
-        ]])
+        }
+    }
+
+    /// The alert's words for switching to a kind that drops a side.
+    private func dropTitle(_ k: DealKind) -> String {
+        let dropping = k == .buy ? deals.deal.outgoing : deals.deal.incoming
+        let n = dropping.reduce(0) { $0 + $1.qty }
+        return "Remove the \(n) card\(n == 1 ? "" : "s") you're \(k == .buy ? "selling" : "buying")?"
+    }
+
+    private func switchDropping(to k: DealKind) {
+        withAnimation(.snappy) {
+            // Switch first, so emptying that side doesn't send you back to the start.
+            pathRaw = k.rawValue
+            deals.update { d in if k == .buy { d.outgoing = [] } else { d.incoming = [] } }
+        }
     }
 
     /// Throws the open deal away (its photos too) and goes back to the start.
