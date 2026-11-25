@@ -465,7 +465,7 @@ struct DealEditorPage: View {
             // The figures live in the deal card at the top now; the bottom is just park and Review.
             HStack(spacing: 10) {
                 Button(action: onPark) {
-                    Image(systemName: "pause").font(.system(size: 16, weight: .semibold)).foregroundStyle(.white)
+                    Image(systemName: "bookmark").font(.system(size: 16, weight: .semibold)).foregroundStyle(.white)
                         .frame(width: 52, height: 52)
                         .liquidGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }

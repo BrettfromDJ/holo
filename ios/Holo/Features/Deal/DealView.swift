@@ -199,14 +199,14 @@ struct DealView: View {
             .tint(Theme.lime)
             .navigationBarTitleDisplayMode(.inline)
             .actionsSheet(isPresented: $leaving, title: "Leave this deal?") {
-                [[SheetAction(title: "Save for later", icon: "pause") { parkNow() }],
+                [[SheetAction(title: "Save for later", icon: "bookmark") { parkNow() }],
                  [SheetAction(title: "Discard deal", icon: "trash", destructive: true) { discardDeal() }]]
             }
             .actionsSheet(isPresented: $dealOptions, title: "This deal") {
                 [[SheetAction(title: dealName.isEmpty ? "Name deal" : "Rename deal", icon: "pencil") { nameText = dealName; renaming = true },
                   SheetAction(title: "Change deal type", icon: "arrow.left.arrow.right",
                               children: [[DealKind.buy, .sell, .trade].map { k in kindRow(k) }])]
-                 + (deals.deal.hasContent ? [SheetAction(title: "Save for later", icon: "pause") { parkNow() }] : []),
+                 + (deals.deal.hasContent ? [SheetAction(title: "Save for later", icon: "bookmark") { parkNow() }] : []),
                  [SheetAction(title: "Delete deal", icon: "trash", destructive: true) { discardDeal() }]]
             }
             .alert("Name this deal", isPresented: $renaming) {
