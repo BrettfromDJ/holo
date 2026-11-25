@@ -291,7 +291,7 @@ and say exactly what to run or click.
 - Scanner: the phone reads first (`OnDeviceScan`: Apple's text recognition for name + number, then
   the free catalog search, name / number / both searched at once (`searches`); one clear match whose name fits what was read (`nameAgrees`) or it falls back; a set total read one off (021/130 for 021/131) still matches (`closeNumber`); a small subset number beside the real one (30th Celebration's "09/30") is dropped; test scans' notes carry each step's seconds), live (`CardTracker`) and on the shutter
   (a crop of the tracked card); CardSight (server) gets the whole photo only when the phone isn't sure,
-  or several cards are in it. Camera: combined camera (macro up close), 4K frames, a real photo per scan.
+  or several cards are in it. Camera: combined camera (macro up close), 4K frames, a real photo per scan. The scanner closes on a swipe down over the camera only (not on the tray: `trayTop`); pulling the tray's header down folds its list, up opens it; the list is clipped to the tray.
   Test-photo mode (Settings → Scanner, `ScanTestLog`): saves each scan's photo + both scanners'
   answers to Files → Corodex → Scan tests and keeps a running agree/disagree and speed summary;
   both scanners run on every scan while it's on. Picture matching (`CardFingerprint`, Vision feature

@@ -38,6 +38,8 @@ struct ScanView: View {
     /// The strip opened out into a list over the camera (tap the card count), to look through
     /// what's been scanned; tap again to go back to scanning.
     @State private var expanded = false
+    /// Where the tray's top edge is on screen: a swipe that starts on the tray never closes the scanner.
+    @State private var trayTop: CGFloat = .infinity
     /// "Tap the card to scan it", until the first tap ever.
     @State private var showTip = !UserDefaults.standard.bool(forKey: "scan-tip-seen")
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -69,8 +71,10 @@ struct ScanView: View {
             }
         }
         .statusBarHidden()
-        // Swipe down anywhere to close, as well as the X.
-        .simultaneousGesture(DragGesture(minimumDistance: 30).onEnded { g in
+        // Swipe down on the camera to close, as well as the X. Not on the tray: swiping its list
+        // (or pulling it back down) closed the whole scanner.
+        .simultaneousGesture(DragGesture(minimumDistance: 30, coordinateSpace: .global).onEnded { g in
+            guard g.startLocation.y < trayTop - 8 else { return }
             if g.translation.height > 120 && abs(g.translation.width) < g.translation.height { dismiss() }
         })
         .onAppear {
@@ -277,6 +281,7 @@ struct ScanView: View {
     private var bottom: some View {
         ScanTray(model: model, dealSide: dealSide, title: trayTitle, expanded: $expanded, onOpen: { open($0) },
                  onNext: { focused = nil; reviewing = true }, onDone: { dismiss() })
+            .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { trayTop = $0 }
     }
 
     /// A tapped scan opens (its card page on the scan's printing; a failed read is tried again first).
@@ -442,6 +447,14 @@ private struct ScanTray: View {
                 .accessibilityLabel(expanded ? "Back to the strip" : "See all scanned cards")
             }
             .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 12)
+            .contentShape(Rectangle())
+            // Pull the tray's top down to fold the list away, up to open it.
+            .gesture(DragGesture(minimumDistance: 20).onEnded { g in
+                let open = g.translation.height < -40, close = g.translation.height > 40
+                guard (open && !expanded) || (close && expanded) else { return }
+                Haptics.tap()
+                withAnimation(reduceMotion ? nil : .snappy(duration: 0.3)) { expanded = open }
+            })
             Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
             }
             Group {
@@ -458,7 +471,8 @@ private struct ScanTray: View {
                         }
                         .padding(.horizontal, 20).padding(.vertical, 8)
                     }
-                    .scrollClipDisabled()
+                    // Rows stay inside the tray (they scrolled out over its header and the camera).
+                    .clipped()
                 } else if model.entries.isEmpty {
                     EmptyScanTray()
                 } else if let latest = model.entries.first {
