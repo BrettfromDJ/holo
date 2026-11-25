@@ -48,14 +48,17 @@ final class Camera: NSObject, ObservableObject {
         // A trading card is 63 x 88 mm (0.716); allow for tilt and perspective.
         r.minimumAspectRatio = 0.55
         r.maximumAspectRatio = 0.9
-        r.minimumSize = 0.2
-        r.quadratureTolerance = 20
+        r.minimumSize = 0.15
+        r.quadratureTolerance = 25
         // Every card in view is found, so the one followed can be chosen (see `captureOutput`)
         // rather than whichever Vision lists first, which flips between cards.
         r.maximumObservations = 12
-        r.minimumConfidence = 0.6
+        r.minimumConfidence = 0.5
         return r
     }()
+    /// Apple's learned document finder: picks out a card on a busy background (carpet, a desk)
+    /// where the plain edge finder above often saw nothing until the phone moved.
+    private lazy var documents = VNDetectDocumentSegmentationRequest()
     private var trackingOn = false
     private var cardHandler: ((CardQuad?, CGSize) -> Void)?
     private var snapshotWaiter: CheckedContinuation<CardCrop?, Never>?
@@ -368,8 +371,9 @@ extension Camera: AVCaptureVideoDataOutputSampleBufferDelegate {
 
         let handler = VNImageRequestHandler(cvPixelBuffer: pixels, orientation: orientation, options: [:])
         var quads: [CardQuad] = []
-        if (try? handler.perform([rectangles])) != nil {
-            quads = (rectangles.results ?? []).map { r in
+        if (try? handler.perform([documents, rectangles])) != nil {
+            let found = (documents.results ?? []) + (rectangles.results ?? [])
+            quads = found.map { r in
                 CardQuad(topLeft: r.topLeft, topRight: r.topRight, bottomRight: r.bottomRight, bottomLeft: r.bottomLeft)
             }
         }
