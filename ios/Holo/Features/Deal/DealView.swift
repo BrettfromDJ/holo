@@ -51,6 +51,8 @@ struct DealView: View {
     /// The new flow: leaving a deal (park / discard), naming it, and typing another rate.
     @State private var leaving = false
     @State private var dealOptions = false
+    /// A switch to Buy or Sell that would drop the other side's cards: asked first.
+    @State private var pendingKind: DealKind?
     @State private var renaming = false
     @State private var nameText = ""
     @AppStorage("deal-name") private var dealName = ""
@@ -120,6 +122,14 @@ struct DealView: View {
                                    onCustomRate: { rateSide = $0 },
                                    onRename: { nameText = dealName; renaming = true },
                                    onMore: { dealOptions = true },
+                                   onMakeTrade: { side in
+                                       withAnimation(.snappy) { pathRaw = DealKind.trade.rawValue }
+                                       // The add sheet for the new side, once the page has turned into a trade.
+                                       Task {
+                                           try? await Task.sleep(nanoseconds: 300_000_000)
+                                           picking = side
+                                       }
+                                   },
                                    onReview: { Haptics.tap(); confirming = true },
                                    onPark: { parkNow() },
                                    card: { rate in
@@ -182,9 +192,24 @@ struct DealView: View {
                  [SheetAction(title: "Discard deal", icon: "trash", destructive: true) { discardDeal() }]]
             }
             .actionsSheet(isPresented: $dealOptions, title: "This deal") {
-                [[SheetAction(title: dealName.isEmpty ? "Name deal" : "Rename deal", icon: "pencil") { nameText = dealName; renaming = true }]
+                [[SheetAction(title: dealName.isEmpty ? "Name deal" : "Rename deal", icon: "pencil") { nameText = dealName; renaming = true },
+                  SheetAction(title: "Change deal type", subtitle: dealPath.map { Self.pathTitle($0) }, icon: "arrow.left.arrow.right",
+                              children: [[DealKind.buy, .sell, .trade].map { k in
+                                  SheetAction(title: Self.pathTitle(k), checked: dealPath == k) { changeKind(to: k) }
+                              }])]
                  + (deals.deal.hasContent ? [SheetAction(title: "Park deal", subtitle: "Pick it up where you left off", icon: "pause") { parkNow() }] : []),
                  [SheetAction(title: "Delete deal", icon: "trash", destructive: true) { discardDeal() }]]
+            }
+            .alert(pendingKind.map { dropPrompt(for: $0) } ?? "", isPresented: Binding(get: { pendingKind != nil }, set: { if !$0 { pendingKind = nil } })) {
+                Button("Cancel", role: .cancel) { pendingKind = nil }
+                Button("Remove and switch", role: .destructive) {
+                    guard let k = pendingKind else { return }
+                    pendingKind = nil
+                    withAnimation(.snappy) {
+                        deals.update { d in if k == .buy { d.outgoing = [] } else { d.incoming = [] } }
+                        pathRaw = k.rawValue
+                    }
+                }
             }
             .alert("Name this deal", isPresented: $renaming) {
                 TextField("Untitled deal", text: $nameText)
@@ -503,6 +528,22 @@ struct DealView: View {
     }
 
     /// Park the deal under its name (or today's) and go back to the start.
+    /// Change what kind of deal this is. Going to Buy or Sell when the other side has cards asks
+    /// first (they'd be removed); nothing switches by itself as cards come and go.
+    private func changeKind(to k: DealKind) {
+        if k == .buy && !deals.deal.outgoing.isEmpty || k == .sell && !deals.deal.incoming.isEmpty {
+            pendingKind = k
+        } else {
+            withAnimation(.snappy) { pathRaw = k.rawValue }
+        }
+    }
+
+    private func dropPrompt(for k: DealKind) -> String {
+        let items = k == .buy ? deals.deal.outgoing : deals.deal.incoming
+        let n = items.reduce(0) { $0 + $1.qty }
+        return "Remove the \(n) card\(n == 1 ? "" : "s") you're \(k == .buy ? "selling" : "buying")?"
+    }
+
     /// Throws the open deal away (its photos too) and goes back to the start.
     private func discardDeal() {
         let photos = deals.deal.photos

@@ -175,6 +175,8 @@ struct DealEditorPage: View {
     var onRename: () -> Void
     /// The deal's ⋯: Name, Park, Delete.
     var onMore: () -> Void
+    /// "Also selling cards? Make it a trade": the deal becomes a trade on that side, add sheet open.
+    var onMakeTrade: (DealSide) -> Void = { _ in }
     var onReview: () -> Void
     var onPark: () -> Void
     /// The old deal card (lime, the verdict, the cash and its four figures), back at the top by
@@ -236,6 +238,27 @@ struct DealEditorPage: View {
                     .buttonStyle(.plain)
                 }
                 cardsList(items, rate: rate)
+                // A buy or a sale that turns out to go both ways: one quiet link at the end of the list.
+                if path != .trade && !items.isEmpty {
+                    let other: DealSide = path == .buy ? .outgoing : .incoming
+                    Button {
+                        Haptics.tap()
+                        tradeSide = other
+                        onMakeTrade(other)
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.left.arrow.right").font(.system(size: 13, weight: .semibold))
+                            Text(path == .buy ? "Also selling cards? " : "Also buying cards? ").foregroundColor(Theme.muted)
+                                + Text("Make it a trade").foregroundColor(Theme.lime)
+                        }
+                        .font(.geist(14, .medium))
+                        .foregroundStyle(Theme.lime)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 8)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
             }
             .padding(.horizontal, 16).padding(.top, 4).padding(.bottom, 24)
         }
