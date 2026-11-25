@@ -232,12 +232,12 @@ final class Camera: NSObject, ObservableObject {
         // sharper than from 1080p; the card finder still reads only ~10 frames a second.
         session.sessionPreset = session.canSetSessionPreset(.hd4K3840x2160) ? .hd4K3840x2160
             : session.canSetSessionPreset(.hd1920x1080) ? .hd1920x1080 : .high
-        // The combined camera (wide + ultra wide) where there is one: up close it switches to the
-        // ultra wide's macro on its own (iPhone 13 Pro and later), like the Camera app. Else the
-        // main camera.
+        // The main camera only (the owner's call). The combined camera switched lenses by itself
+        // and opened soft (zoomed in on the ultra wide while it worked out the distance), then
+        // jumped sharp once a card was close; with the view zoomed in, cards are held where the
+        // main lens focuses anyway, so the close-up (macro) lens isn't needed.
         let discovery = AVCaptureDevice.DiscoverySession(
-            deviceTypes: [.builtInTripleCamera, .builtInDualWideCamera, .builtInWideAngleCamera],
-            mediaType: .video, position: .back)
+            deviceTypes: [.builtInWideAngleCamera], mediaType: .video, position: .back)
         guard
             let device = discovery.devices.first,
             let input = try? AVCaptureDeviceInput(device: device),
@@ -273,17 +273,46 @@ final class Camera: NSObject, ObservableObject {
             // picture, and you hold the phone a little farther off, where the main lens focuses
             // sharply instead of handing over to the softer close-up (macro) camera. Kept short of
             // the telephoto's hand-over.
-            let switches = device.virtualDeviceSwitchOverVideoZoomFactors.map { CGFloat(truncating: $0) }
-            let main = switches.first ?? 1
-            var zoom = main * 1.8
-            if switches.count > 1 { zoom = min(zoom, switches[1] * 0.95) }
-            device.videoZoomFactor = min(max(zoom, device.minAvailableVideoZoomFactor), device.maxAvailableVideoZoomFactor)
+            device.videoZoomFactor = min(max(1.8, device.minAvailableVideoZoomFactor), device.maxAvailableVideoZoomFactor)
+            // Focus and exposure start on the middle, near (where a card is held), not searching
+            // from far away; once a card is found they follow it (`focus(on:)`).
+            if device.isFocusPointOfInterestSupported { device.focusPointOfInterest = CGPoint(x: 0.5, y: 0.5) }
+            if device.isExposurePointOfInterestSupported { device.exposurePointOfInterest = CGPoint(x: 0.5, y: 0.5) }
             if device.isFocusModeSupported(.continuousAutoFocus) { device.focusMode = .continuousAutoFocus }
+            if device.isExposureModeSupported(.continuousAutoExposure) { device.exposureMode = .continuousAutoExposure }
             if device.isAutoFocusRangeRestrictionSupported { device.autoFocusRangeRestriction = .near }
+            device.isSmoothAutoFocusEnabled = false
             device.unlockForConfiguration()
         }
         return true
     }
+
+    /// Points focus and exposure at the card's middle (at most twice a second, and only when it
+    /// moved), so the card stays sharp and well lit rather than the table around it. Runs on the
+    /// video queue. Vision's corners are upright with the origin bottom-left; the camera's points
+    /// are in the sensor's landscape frame, top-left origin.
+    private func focus(on quad: CardQuad) {
+        let now = CACurrentMediaTime()
+        guard now - lastFocus > 0.5, let device else { return }
+        let c = quad.corners
+        let mid = CGPoint(x: c.map(\.x).reduce(0, +) / 4, y: c.map(\.y).reduce(0, +) / 4)
+        let point = CGPoint(x: 1 - mid.y, y: 1 - mid.x)
+        guard hypot(point.x - lastFocusPoint.x, point.y - lastFocusPoint.y) > 0.05 else { return }
+        lastFocus = now
+        lastFocusPoint = point
+        guard (try? device.lockForConfiguration()) != nil else { return }
+        if device.isFocusPointOfInterestSupported {
+            device.focusPointOfInterest = point
+            if device.isFocusModeSupported(.continuousAutoFocus) { device.focusMode = .continuousAutoFocus }
+        }
+        if device.isExposurePointOfInterestSupported {
+            device.exposurePointOfInterest = point
+            if device.isExposureModeSupported(.continuousAutoExposure) { device.exposureMode = .continuousAutoExposure }
+        }
+        device.unlockForConfiguration()
+    }
+    private var lastFocus: CFTimeInterval = 0
+    private var lastFocusPoint = CGPoint(x: 0.5, y: 0.5)
 
     /// The next frame as a JPEG no larger than `maxEdge` pixels on its long side: the "photo"
     /// for a scan. Fails if no frame comes within a second (the camera is stopped or
@@ -395,6 +424,7 @@ extension Camera: AVCaptureVideoDataOutputSampleBufferDelegate {
             quad = quads.max { $0.area < $1.area }
         }
         lastQuad = quad
+        if let quad { focus(on: quad) }
 
         if wantsSnapshot {
             lock.lock()
