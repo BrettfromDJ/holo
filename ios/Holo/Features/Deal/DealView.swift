@@ -1139,10 +1139,10 @@ private struct BalanceCard: View {
                 // Tap the figure to type the cash you agreed on.
                 Button(action: onEditCash) {
                     // The pencil says the figure can be tapped to type an amount; one tap target.
-                    HStack(alignment: .center, spacing: 6) {
-                        // A hair space after the last digit: with the tight tracking and shrink-to-fit, the last
-                        // glyph's edge was cut off (the bottom right of an 8).
-                        CountingText(value: abs(b), format: { Format.money($0) + "\u{200A}" })
+                    HStack(alignment: .center, spacing: 0) {
+                        // A thin space after the last digit (it takes the pencil's gap): with the tight
+                        // tracking and shrink-to-fit, the last glyph's edge was cut off (an 8's bottom right).
+                        CountingText(value: abs(b), format: { Format.money($0) + "\u{2009}" })
                             .font(.display(60)).tracking(-2.4).monospacedDigit().foregroundStyle(ink).lineLimit(1).minimumScaleFactor(0.5)
                             .displayTrim(60)
                         if !empty && !readOnly {
