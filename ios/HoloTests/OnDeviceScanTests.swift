@@ -69,4 +69,10 @@ final class OnDeviceScanTests: XCTestCase {
         XCTAssertFalse(OnDeviceScan.numberIsEnough("09/30"))
         XCTAssertFalse(OnDeviceScan.numberIsEnough("074"))
     }
+
+    func testTotalReadNeedsATotal() {
+        XCTAssertTrue(OnDeviceScan.strictNumber("074/131", "074/131"))
+        XCTAssertFalse(OnDeviceScan.strictNumber("074", "074/131"))
+        XCTAssertTrue(OnDeviceScan.strictNumber("074", "074"))
+    }
 }

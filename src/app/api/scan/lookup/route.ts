@@ -35,6 +35,8 @@ export async function POST(req: Request) {
   const total = number?.total ? Number(number.total.digits) : null;
   const numbered = ((byNumber.data ?? []) as ProductRow[]).filter((r) => {
     if (!number) return false;
+    // A total was read: the card must print one too (a bare "074" isn't this card).
+    if (number.total && !(r.number ?? "").includes("/")) return false;
     if (matchesNumber(r.number, number)) return true;
     const t = Number((r.number ?? "").split("/")[1]?.replace(/\D/g, ""));
     return total !== null && Number.isFinite(t) && Math.abs(t - total) === 1 && matchesNumber(r.number, { ...number, total: null });

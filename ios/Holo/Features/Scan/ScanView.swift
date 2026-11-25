@@ -347,12 +347,17 @@ struct ScanView: View {
             do {
                 // A sharp full photo; the phone reads a crop of the tracked card from it, and with
                 // CardSight the whole photo goes up (smaller, so it uploads fast) when the phone isn't sure.
-                let jpeg = try await camera.capture(maxEdge: 2000, quality: 0.85)
+                // Big enough that the card's small printed number reads (at 2000 the crop came out
+                // ~550 pt wide and the number often didn't).
+                let jpeg = try await camera.capture(maxEdge: 3200, quality: 0.85)
                 var photo = jpeg
-                if let quad {
-                    let crop = await Task.detached(priority: .userInitiated) { Camera.crop(photo: jpeg, to: quad, maxEdge: 1400)?.jpeg }.value
-                    if let crop { photo = crop }
-                }
+                // The tracked card, flattened; with none tracked, the card-shaped middle where the
+                // guide sits, so every thumbnail (and what the phone reads) is framed the same way
+                // (it was the whole photo, zoomed right out, whenever tracking missed).
+                let crop = await Task.detached(priority: .userInitiated) {
+                    (quad.flatMap { Camera.crop(photo: jpeg, to: $0, maxEdge: 2000) } ?? Camera.guideCrop(photo: jpeg, maxEdge: 2000))?.jpeg
+                }.value
+                if let crop { photo = crop }
                 var upload: Data?
                 if model.cardSight {
                     upload = await Task.detached(priority: .userInitiated) {

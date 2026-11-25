@@ -44,14 +44,23 @@ enum OnDeviceScan {
             let searched = Date()
             let hits = await searches(reading)
             lap("search", searched)
-            let numbered = hits.filter { sameNumber($0.product.number, reading.number) }
+            let numbered = hits.filter { strictNumber($0.product.number, reading.number) }
             // One card with that number, and the name read (if any) agrees: that's it.
             if !reading.number.isEmpty, Set(numbered.map(\.product.id)).count == 1, let hit = numbered.first,
                numberIsEnough(reading.number) || nameAgrees(reading.name, hit.product.name) {
                 return (result(for: hit), reading, noted("text"))
             }
+            // Several cards print that number (other games and sets): the name read picks one.
+            let named = numbered.filter { nameAgrees(reading.name, $0.product.name) && reading.name != nil }
+            if Set(named.map(\.product.id)).count == 1, let hit = named.first {
+                return (result(for: hit), reading, noted("text + name among \(Set(numbered.map(\.product.id)).count)"))
+            }
             // A misread set total ("021/130" for 021/131): cards with the same number and a total one off.
-            let close = numbered.isEmpty ? hits.filter { closeNumber($0.product.number, reading.number) } : []
+            var close = numbered.isEmpty ? hits.filter { closeNumber($0.product.number, reading.number) } : []
+            if Set(close.map(\.product.id)).count > 1, reading.name != nil {
+                let named = close.filter { nameAgrees(reading.name, $0.product.name) }
+                if !named.isEmpty { close = named }
+            }
             if Set(close.map(\.product.id)).count == 1, let hit = close.first, nameAgrees(reading.name, hit.product.name) {
                 return (result(for: hit), reading, noted("text, total one off"))
             }
@@ -119,6 +128,13 @@ enum OnDeviceScan {
         let parts = number.split(separator: "/")
         guard parts.count == 2, let total = Int(parts[1].filter(\.isNumber)) else { return false }
         return total > 30
+    }
+
+    /// `sameNumber`, but when a set total was read the card must print one too (a stored "074"
+    /// with no total matched every "074/131" read, filling the list with other sets' cards).
+    static func strictNumber(_ catalog: String?, _ read: String) -> Bool {
+        guard sameNumber(catalog, read) else { return false }
+        return !read.contains("/") || (catalog ?? "").contains("/")
     }
 
     /// The same card number with a set total one off ("021/130" read for 021/131).
@@ -259,12 +275,14 @@ enum OnDeviceScan {
     /// One clear catalog match for the reading, or nil (the live scanner's check).
     static func lookUp(_ reading: Reading) async -> SearchHit? {
         guard !reading.number.isEmpty else { return nil }
-        let numbered = await searches(reading).filter { sameNumber($0.product.number, reading.number) }
-        // One product (its printings come along with it) that fits the name read: accept. More
-        // than one: let the server decide.
-        guard Set(numbered.map(\.product.id)).count == 1, let hit = numbered.first,
-              numberIsEnough(reading.number) || nameAgrees(reading.name, hit.product.name) else { return nil }
-        return hit
+        let numbered = await searches(reading).filter { strictNumber($0.product.number, reading.number) }
+        // One product (its printings come along with it) that fits the name read: accept. Several
+        // with that number: the one whose name fits, if only one does. Else let the server decide.
+        if Set(numbered.map(\.product.id)).count == 1, let hit = numbered.first,
+           numberIsEnough(reading.number) || nameAgrees(reading.name, hit.product.name) { return hit }
+        guard reading.name != nil else { return nil }
+        let named = numbered.filter { nameAgrees(reading.name, $0.product.name) }
+        return Set(named.map(\.product.id)).count == 1 ? named.first : nil
     }
 }
 

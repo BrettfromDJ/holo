@@ -418,6 +418,26 @@ extension Camera: AVCaptureVideoDataOutputSampleBufferDelegate {
         return flatten(image, quad: quad, maxEdge: maxEdge)
     }
 
+    /// The card-shaped middle of `photo`, roughly where the on-screen guide sits (the preview fills
+    /// the screen from the photo's middle), a little roomier so a card held off-centre still fits.
+    static func guideCrop(photo: Data, maxEdge: CGFloat) -> CardCrop? {
+        guard let image = CIImage(data: photo, options: [.applyOrientationProperty: true]) else { return nil }
+        let e = image.extent
+        guard e.width > 0, e.height > 0 else { return nil }
+        let h = min(e.height * 0.5, e.width * 0.8 * 88 / 63)
+        let w = h * 63 / 88
+        // Core Image's origin is bottom-left; the guide sits a touch above the middle.
+        let rect = CGRect(x: e.midX - w / 2, y: e.minY + e.height * 0.52 - h / 2, width: w, height: h).intersection(e)
+        var out = image.cropped(to: rect)
+        out = out.transformed(by: CGAffineTransform(translationX: -rect.minX, y: -rect.minY))
+        let long = max(out.extent.width, out.extent.height)
+        if long > maxEdge { out = out.transformed(by: CGAffineTransform(scaleX: maxEdge / long, y: maxEdge / long)) }
+        guard let cg = ciContext.createCGImage(out, from: out.extent.integral) else { return nil }
+        let ui = UIImage(cgImage: cg)
+        guard let jpeg = ui.jpegData(compressionQuality: 0.85) else { return nil }
+        return CardCrop(jpeg: jpeg, image: ui)
+    }
+
     /// Perspective-corrects the quad (0...1, origin bottom-left like Core Image) out of `image`,
     /// a little wider than the detected edge so the border isn't clipped.
     static func flatten(_ image: CIImage, quad: CardQuad, maxEdge: CGFloat) -> CardCrop? {
