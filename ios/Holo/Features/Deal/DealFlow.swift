@@ -273,7 +273,7 @@ struct DealEditorPage: View {
     /// then the % chips. Dark chips on the lime card, the picked one white.
     private func rateSection(rate: Double) -> some View {
         let pct = Int((rate * 100).rounded())
-        let title = path == .buy ? "Buying rate" : path == .sell ? "Selling rate" : (side == .incoming ? "Buying rate" : "Selling rate")
+        let title = path == .buy ? "Buying rate" : path == .sell ? "Selling rate" : (side == .incoming ? "Coming in rate" : "Going out rate")
         return VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .center, spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
