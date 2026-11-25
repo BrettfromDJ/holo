@@ -49,6 +49,7 @@ enum CardFingerprint {
         scored.sort { $0.1 < $1.1 }
         guard let first = scored.first else { return nil }
         let next = scored.dropFirst().first?.1
+        noteNear(first.1, next)
         // Clearly closest: well ahead of the runner-up (alone, it must still look alike).
         if let next {
             guard first.1 < next * margin else { return nil }
@@ -64,11 +65,19 @@ enum CardFingerprint {
         guard let vector = vector(mine) else { return nil }
         guard let matches = try? await Backend.shared.api.matchPrint(vector), let first = matches.first else { return nil }
         let next = matches.dropFirst().first?.distance
+        noteNear(first.distance, next)
         if let next {
             guard first.distance < next * margin else { return nil }
         }
         guard first.distance < 1.0 else { return nil }
         return (first.hit, first.distance, next)
+    }
+
+    /// The last comparison's closest and runner-up distances ("0.71 vs 0.78"), for test scans' notes
+    /// when it wasn't sure enough (to tune how sure it must be).
+    nonisolated(unsafe) static var lastNear: String?
+    private static func noteNear(_ first: Float, _ next: Float?) {
+        lastNear = String(format: "%.2f vs %@", first, next.map { String(format: "%.2f", $0) } ?? "none")
     }
 
     /// A fingerprint's numbers, to send to the server.

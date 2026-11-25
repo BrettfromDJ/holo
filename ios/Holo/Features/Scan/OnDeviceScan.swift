@@ -47,7 +47,7 @@ enum OnDeviceScan {
             let numbered = hits.filter { sameNumber($0.product.number, reading.number) }
             // One card with that number, and the name read (if any) agrees: that's it.
             if !reading.number.isEmpty, Set(numbered.map(\.product.id)).count == 1, let hit = numbered.first,
-               nameAgrees(reading.name, hit.product.name) {
+               numberIsEnough(reading.number) || nameAgrees(reading.name, hit.product.name) {
                 return (result(for: hit), reading, noted("text"))
             }
             // A misread set total ("021/130" for 021/131): cards with the same number and a total one off.
@@ -64,7 +64,7 @@ enum OnDeviceScan {
                     let note = String(format: "picture %.2f vs %@ among %d", best.distance, best.next.map { String(format: "%.2f", $0) } ?? "none", pool.count)
                     return (result(for: best.hit), reading, noted(note))
                 }
-                why = "picture unsure among \(pool.count)"
+                why = "picture unsure among \(pool.count)" + (CardFingerprint.lastNear.map { " (\($0))" } ?? "")
             }
         }
         // Last on the phone's side: the scan's picture against every card in the catalog.
@@ -77,11 +77,16 @@ enum OnDeviceScan {
                 return (result(for: best.hit), reading, noted(note))
             }
         }
-        return (nil, reading, noted(why + ", catalog picture unsure"))
+        return (nil, reading, noted(why + ", catalog picture unsure" + (CardFingerprint.lastNear.map { " (\($0))" } ?? "")))
     }
 
-    /// The name, the number and both together, searched at the same time; one list, each product once.
+    /// The scanner's own quick lookup (one request); the general search (name, number and both,
+    /// at once) only if that fails. One list, each product once.
     static func searches(_ reading: Reading) async -> [SearchHit] {
+        if let hits = try? await Backend.shared.api.scanLookup(name: reading.name, number: reading.number) {
+            var seen = Set<String>()
+            return hits.filter { !$0.product.isSealed && seen.insert($0.product.id + "|" + ($0.printing ?? "")).inserted }
+        }
         var queries: [String] = []
         if let name = reading.name { queries.append(name) }
         if !reading.number.isEmpty { queries.append(reading.number) }
@@ -105,6 +110,15 @@ enum OnDeviceScan {
         let seen = letters(read)
         guard let first = name.split(separator: " ").first.map({ letters(String($0)) }), first.count >= 3 else { return true }
         return seen.contains(first) || (seen.count >= 4 && first.contains(seen))
+    }
+
+    /// A full collector number ("092/131") names one card by itself, even when the line read as
+    /// the name was an attack ("Unified Beatdown"). A small one ("09/30", a subset's own count)
+    /// can be a stray, so the name read must fit too.
+    static func numberIsEnough(_ number: String) -> Bool {
+        let parts = number.split(separator: "/")
+        guard parts.count == 2, let total = Int(parts[1].filter(\.isNumber)) else { return false }
+        return total > 30
     }
 
     /// The same card number with a set total one off ("021/130" read for 021/131).
@@ -248,7 +262,8 @@ enum OnDeviceScan {
         let numbered = await searches(reading).filter { sameNumber($0.product.number, reading.number) }
         // One product (its printings come along with it) that fits the name read: accept. More
         // than one: let the server decide.
-        guard Set(numbered.map(\.product.id)).count == 1, let hit = numbered.first, nameAgrees(reading.name, hit.product.name) else { return nil }
+        guard Set(numbered.map(\.product.id)).count == 1, let hit = numbered.first,
+              numberIsEnough(reading.number) || nameAgrees(reading.name, hit.product.name) else { return nil }
         return hit
     }
 }

@@ -81,6 +81,20 @@ final class HoloAPI {
         return (hits, page.total ?? (offset + page.products.count), page.products.count, page.fuzzy ?? false)
     }
 
+    /// The scanner's one quick lookup after reading a card: singles with that number (its set
+    /// total as read or one off) and singles whose name starts with what was read.
+    func scanLookup(name: String?, number: String) async throws -> [SearchHit] {
+        struct Page: Decodable { var products: [SearchHit] }
+        var req = try await request("api/scan/lookup")
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        var body: [String: Any] = [:]
+        if let name { body["name"] = name }
+        if !number.isEmpty { body["number"] = number }
+        req.httpBody = try JSONSerialization.data(withJSONObject: body)
+        return try await send(req, as: Page.self).products.filter { !$0.product.isHiddenFromBrowsing }
+    }
+
     /// Search the stored catalog (free: no TCG API calls).
     func search(_ query: String) async throws -> [SearchHit] {
         try await searchPage(query, offset: 0, limit: 80).hits

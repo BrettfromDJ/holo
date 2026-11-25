@@ -63,4 +63,10 @@ final class OnDeviceScanTests: XCTestCase {
         XCTAssertFalse(OnDeviceScan.closeNumber("022/131", "021/130"))
         XCTAssertFalse(OnDeviceScan.closeNumber("021/142", "021/130"))
     }
+
+    func testFullNumberNeedsNoName() {
+        XCTAssertTrue(OnDeviceScan.numberIsEnough("092/131"))
+        XCTAssertFalse(OnDeviceScan.numberIsEnough("09/30"))
+        XCTAssertFalse(OnDeviceScan.numberIsEnough("074"))
+    }
 }
