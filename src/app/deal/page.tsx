@@ -245,7 +245,7 @@ export default function DealPage() {
     setParked((cur) => [entry, ...(cur ?? [])]);
     setDeal(EMPTY);
     setParking(false);
-    toast(`Parked “${entry.name}”`);
+    toast(`Saved “${entry.name}” for later`);
   };
   /** Pick a parked deal back up; an open one is parked first (the list asks before this runs). */
   const resume = (p: ParkedDeal) => {
@@ -254,7 +254,7 @@ export default function DealPage() {
     // Straight in, agreed cash and all (not through setDeal, which would read it as a renegotiation).
     setStored({ ...EMPTY, ...p.state });
     setParkedOpen(false);
-    toast(current ? `Parked the open deal and resumed “${p.name}”` : `Resumed “${p.name}”`);
+    toast(current ? `Saved the open deal for later and resumed “${p.name}”` : `Resumed “${p.name}”`);
   };
   const deleteParked = (p: ParkedDeal) => {
     for (const path of p.state.photos ?? []) void deleteDealPhoto(path);
@@ -339,7 +339,7 @@ export default function DealPage() {
       {todays.length > 0 && <TodayStrip deals={todays} onOpen={() => setHistoryOpen(true)} />}
       {parked.length > 0 && (
         <button type="button" onClick={() => setParkedOpen(true)} className="mb-4 inline-flex items-center gap-2 rounded-full bg-surface px-3.5 py-1.5 text-[13px] font-semibold ring-1 ring-inset ring-border hover:bg-surface-2">
-          <Bookmark className="size-3.5 text-[var(--lime)]" /> Parked <span className="tabular text-muted">({parked.length})</span>
+          <Bookmark className="size-3.5 text-[var(--lime)]" /> Saved for later <span className="tabular text-muted">({parked.length})</span>
         </button>
       )}
 
@@ -409,8 +409,8 @@ export default function DealPage() {
               <Button variant="secondary" size="lg" onClick={clear}>
                 Clear
               </Button>
-              <Button variant="secondary" size="lg" onClick={() => setParking(true)} aria-label="Park this deal to finish later">
-                <Bookmark /> <span className="hidden sm:inline">Park</span>
+              <Button variant="secondary" size="lg" onClick={() => setParking(true)} aria-label="Save this deal for later">
+                <Bookmark /> <span className="hidden sm:inline">Save for later</span>
               </Button>
               <Button variant="lime" size="lg" className="flex-1" disabled={unpriced} onClick={() => setConfirming(true)}>
                 {unpriced ? "Price every item to close" : `Close ${KIND_NOUN[kind].toLowerCase()}`}
@@ -1348,8 +1348,8 @@ function ParkDialog({ open, onOpenChange, onPark }: { open: boolean; onOpenChang
     >
       <DialogContent className="sm:max-w-[420px]">
         <DialogHeader>
-          <DialogTitle>Park this deal</DialogTitle>
-          <DialogDescription>Set it aside with its photos and notes, and start a fresh one. Pick it back up from Parked.</DialogDescription>
+          <DialogTitle>Save for later</DialogTitle>
+          <DialogDescription>Set it aside with its photos and notes, and start a fresh one. Pick it back up from Saved for later.</DialogDescription>
         </DialogHeader>
         <form
           className="space-y-4 px-6 pb-6 pt-2"
@@ -1365,7 +1365,7 @@ function ParkDialog({ open, onOpenChange, onPark }: { open: boolean; onOpenChang
               Cancel
             </Button>
             <Button type="submit" variant="lime" size="lg" className="flex-1">
-              Park deal
+              Save for later
             </Button>
           </div>
         </form>
@@ -1380,7 +1380,7 @@ function ParkedDialog({ open, onOpenChange, parked, hasDeal, onResume, onDelete 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader className="pt-7">
-          <DialogTitle>Parked deals</DialogTitle>
+          <DialogTitle>Saved for later</DialogTitle>
           <DialogDescription>Deals you set aside to finish later, here or in the app.</DialogDescription>
         </DialogHeader>
         <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-2">
@@ -1396,7 +1396,7 @@ function ParkedList({ parked, hasDeal, onResume, onDelete }: { parked: ParkedDea
   const [asking, setAsking] = useState<string | null>(null);
   return (
     <ul className="divide-y divide-border">
-      {!parked.length && <li className="py-12 text-center text-[14px] text-muted">Nothing parked.</li>}
+      {!parked.length && <li className="py-12 text-center text-[14px] text-muted">Nothing saved for later.</li>}
       {parked.map((p) => {
         const state = { ...EMPTY, ...p.state };
         const items = [...state.in, ...state.out];
@@ -1426,7 +1426,7 @@ function ParkedList({ parked, hasDeal, onResume, onDelete }: { parked: ParkedDea
             </div>
             {asking === p.id && (
               <div className="mt-2 rounded-2xl bg-surface-2 p-3">
-                <p className="text-[13px]">You have a deal open. Park it first, then resume this one?</p>
+                <p className="text-[13px]">You have a deal open. Save it for later first, then resume this one?</p>
                 <div className="mt-2 flex gap-2">
                   <Button variant="secondary" size="sm" onClick={() => setAsking(null)}>
                     Cancel
@@ -1439,7 +1439,7 @@ function ParkedList({ parked, hasDeal, onResume, onDelete }: { parked: ParkedDea
                       onResume(p);
                     }}
                   >
-                    Park it and resume
+                    Save it and resume
                   </Button>
                 </div>
               </div>
@@ -1521,7 +1521,7 @@ function HistoryDialog({
             <section className="mt-3">
               <button type="button" onClick={() => setParkedOpen((o) => !o)} aria-expanded={parkedOpen} className="flex h-12 w-full items-center gap-2.5 rounded-2xl bg-white/[0.06] px-3.5 text-left ring-1 ring-inset ring-white/10 backdrop-blur-xl hover:bg-white/[0.09]">
                 <Bookmark className="size-3.5 fill-current text-[var(--lime)]" />
-                <span className="text-[15px] font-semibold">Parked</span>
+                <span className="text-[15px] font-semibold">Saved for later</span>
                 <span className="tabular text-[14px] text-muted">{parked.length}</span>
                 <ChevronDown className={cn("ml-auto size-4 text-muted transition-transform", parkedOpen && "rotate-180")} />
               </button>

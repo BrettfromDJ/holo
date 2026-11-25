@@ -199,14 +199,14 @@ struct DealView: View {
             .tint(Theme.lime)
             .navigationBarTitleDisplayMode(.inline)
             .actionsSheet(isPresented: $leaving, title: "Leave this deal?") {
-                [[SheetAction(title: "Park deal", subtitle: "Pick it up where you left off", icon: "pause") { parkNow() }],
+                [[SheetAction(title: "Save for later", icon: "pause") { parkNow() }],
                  [SheetAction(title: "Discard deal", icon: "trash", destructive: true) { discardDeal() }]]
             }
             .actionsSheet(isPresented: $dealOptions, title: "This deal") {
                 [[SheetAction(title: dealName.isEmpty ? "Name deal" : "Rename deal", icon: "pencil") { nameText = dealName; renaming = true },
                   SheetAction(title: "Change deal type", icon: "arrow.left.arrow.right",
                               children: [[DealKind.buy, .sell, .trade].map { k in kindRow(k) }])]
-                 + (deals.deal.hasContent ? [SheetAction(title: "Park deal", subtitle: "Pick it up where you left off", icon: "pause") { parkNow() }] : []),
+                 + (deals.deal.hasContent ? [SheetAction(title: "Save for later", icon: "pause") { parkNow() }] : []),
                  [SheetAction(title: "Delete deal", icon: "trash", destructive: true) { discardDeal() }]]
             }
             .alert("Name this deal", isPresented: $renaming) {
@@ -307,17 +307,17 @@ struct DealView: View {
                 if args.contains("-HoloDealCustomer") { customer = true } else { path.append(DealRoute.history) }
             }
             .sheet(isPresented: $parkedList) { ParkedDealsSheet() }
-            .alert("Park this deal", isPresented: $parking) {
+            .alert("Save for later", isPresented: $parking) {
                 TextField(ParkedDeal.defaultName(), text: $parkName)
                 Button("Cancel", role: .cancel) { parkName = "" }
-                Button("Park") {
+                Button("Save") {
                     let name = parkName
                     parkName = ""
                     withAnimation(.snappy) { deals.park(name: name) }
                     Haptics.tap()
                 }
             } message: {
-                Text("Set it aside with its photos and notes, and start a fresh one. Pick it back up from\u{00A0}Parked.")
+                Text("Set it aside with its photos and notes, and start a fresh one. Pick it back up from Saved for\u{00A0}later.")
             }
             .sheet(item: $detailItem) { item in
                 // The card's full page (prices, history, eBay sales, graded values) in a sheet,
@@ -479,7 +479,7 @@ struct DealView: View {
             cash.append(SheetAction(title: "Clear the agreed cash", icon: "xmark") { clearAgreed() })
         }
         return [cash, [
-            SheetAction(title: "Park to finish later", icon: "bookmark") { parking = true },
+            SheetAction(title: "Save for later", icon: "bookmark") { parking = true },
         ], [
             SheetAction(title: "Clear this deal", icon: "trash", destructive: true) {
                 let photos = deals.deal.photos
@@ -2490,7 +2490,7 @@ private struct ParkedChip: View {
         Button(action: onOpen) {
             HStack(spacing: 8) {
                 Image(systemName: "bookmark.fill").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.lime)
-                Text("Parked").foregroundStyle(.white)
+                Text("Saved for later").foregroundStyle(.white)
                 Text("(\(count))").foregroundStyle(Theme.muted)
                 Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.subtle)
             }
@@ -2500,7 +2500,7 @@ private struct ParkedChip: View {
             .liquidGlass(in: Capsule())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Parked deals, \(count)")
+        .accessibilityLabel("Saved for later, \(count)")
     }
 }
 
@@ -2513,7 +2513,7 @@ struct ParkedDealsSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(alignment: .firstTextBaseline) {
-                        Text("Parked deals").font(.display(28)).tracking(-0.7)
+                        Text("Saved for later").font(.display(28)).tracking(-0.7)
                         Spacer()
                         Button("Done") { dismiss() }.font(.geist(16, .semibold)).foregroundStyle(.white)
                     }
@@ -2545,18 +2545,18 @@ struct ParkedDealsList: View {
     var body: some View {
         VStack(spacing: 10) {
             if deals.parked.isEmpty {
-                Text("Nothing parked.").font(.geist(14)).foregroundStyle(Theme.muted).padding(.vertical, 24)
+                Text("Nothing saved for later.").font(.geist(14)).foregroundStyle(Theme.muted).padding(.vertical, 24)
                     .frame(maxWidth: .infinity)
             }
             ForEach(deals.parked) { entry in row(entry) }
         }
         .confirmationDialog("You have a deal open", isPresented: Binding(get: { asking != nil }, set: { if !$0 { asking = nil } }), titleVisibility: .visible, presenting: asking) { entry in
-            Button("Park it and resume \(entry.name)") { resume(entry) }
+            Button("Save it and resume \(entry.name)") { resume(entry) }
             Button("Cancel", role: .cancel) {}
         } message: { _ in
-            Text("It's parked first, so nothing is\u{00A0}lost.")
+            Text("It's saved for later first, so nothing is\u{00A0}lost.")
         }
-        .confirmationDialog("Delete this parked deal?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible, presenting: deleting) { entry in
+        .confirmationDialog("Delete this saved deal?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible, presenting: deleting) { entry in
             Button("Delete \(entry.name)", role: .destructive) { withAnimation(.snappy) { deals.deleteParked(entry) } }
             Button("Cancel", role: .cancel) {}
         } message: { _ in

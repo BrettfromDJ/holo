@@ -589,7 +589,7 @@ struct DealHistoryView: View {
             } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "bookmark.fill").font(.system(size: 14, weight: .medium)).foregroundStyle(Theme.lime)
-                    Text("Parked").font(.display(22)).tracking(-0.5).foregroundStyle(.white)
+                    Text("Saved for later").font(.display(22)).tracking(-0.5).foregroundStyle(.white)
                     Text("\(deals.parked.count)").font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(Theme.muted)
                     Spacer()
                     Image(systemName: "chevron.down").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.muted)
@@ -601,7 +601,7 @@ struct DealHistoryView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Parked deals, \(deals.parked.count)")
+            .accessibilityLabel("Saved for later, \(deals.parked.count)")
             .accessibilityValue(parkedOpen ? "Open" : "Closed")
             if parkedOpen {
                 ParkedDealsList { dismiss() }

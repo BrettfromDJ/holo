@@ -34,7 +34,7 @@ struct DealStartPage: View {
                     }
                 }
                 if !deals.parked.isEmpty {
-                    list("Parked deals", count: deals.parked.count, onAll: onParkedAll) {
+                    list("Saved for later", count: deals.parked.count, onAll: onParkedAll) {
                         ForEach(Array(deals.parked.prefix(3).enumerated()), id: \.element.id) { i, entry in
                             let t = DealTotals(entry.state, rates: deals.rates(for: entry.state), cost: { _ in nil })
                             HStack(spacing: 0) {
@@ -44,7 +44,7 @@ struct DealStartPage: View {
                                 } label: {
                                     DealListRow(kind: entry.state.kind, title: entry.name,
                                                 line: "\(DealView.pathTitle(entry.state.kind)) · \(cards(entry.state.incoming.count + entry.state.outgoing.count))",
-                                                amount: abs(t.balance), note: "Parked", divider: false)
+                                                amount: abs(t.balance), note: "Saved", divider: false)
                                 }
                                 .buttonStyle(.plain)
                                 // Its actions (Resume, Delete), so deleting never hides.
@@ -472,7 +472,7 @@ struct DealEditorPage: View {
                 .buttonStyle(.plain)
                 .disabled(empty)
                 .opacity(empty ? 0.5 : 1)
-                .accessibilityLabel("Park this deal")
+                .accessibilityLabel("Save for later")
                 Button(action: onReview) {
                     Text("Review deal").font(.geist(16, .semibold)).foregroundStyle(Theme.ink)
                         .frame(maxWidth: .infinity).frame(height: 52)
