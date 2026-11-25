@@ -43,6 +43,11 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
+                // The page's own big title (no bar title: shown small over the rows as they
+                // scrolled under it, it overlapped them: "Corodex Pro is onAccount").
+                Text("Account").font(.display(34)).tracking(-1)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 0))
                 // The plan: Go Pro, or that Pro is on (test mode).
                 Section {
                     ProAccountCard().padding(.vertical, 6)
@@ -203,7 +208,8 @@ struct SettingsView: View {
             }
             .scrollContentBackground(.hidden)
             .background(Theme.background)
-            .navigationTitle("Account")
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .clearTopEdge()
             .toolbar { ToolbarItem(placement: .confirmationAction) { DoneButton() } }

@@ -12,7 +12,9 @@ final class OnDeviceScanTests: XCTestCase {
             ("Dark Signal", box(top: 0.5)),
             ("215/203", box(top: 0.05)),
         ]
-        XCTAssertEqual(OnDeviceScan.parse(lines), OnDeviceScan.Reading(name: "Umbreon VMAX", number: "215/203"))
+        let r = OnDeviceScan.parse(lines)
+        XCTAssertEqual(r?.name, "Umbreon VMAX")
+        XCTAssertEqual(r?.number, "215/203")
     }
 
     func testTrainerGalleryNumber() {
@@ -114,5 +116,11 @@ final class OnDeviceScanTests: XCTestCase {
         }
         let kept = OnDeviceScan.realSets([hit("1", "Mewtwo - 063/128 (What's Your Favorite Stamp)", "Miscellaneous Cards & Products"), hit("2", "Mewtwo", "ME: 30th Celebration")])
         XCTAssertEqual(kept.map(\.product.id), ["2"])
+    }
+
+    func testNextLineCountsWhenTheFirstIsALabel() {
+        let r = OnDeviceScan.parse([("HASG", box(top: 0.97)), ("Articuno", box(top: 0.93)), ("097", box(top: 0.04))])!
+        XCTAssertTrue(OnDeviceScan.fits(r, "Articuno - 097 (30th Celebration)"))
+        XCTAssertFalse(OnDeviceScan.fits(r, "Zapdos - 098 (30th Celebration)"))
     }
 }
