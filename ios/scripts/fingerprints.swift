@@ -43,12 +43,17 @@ func request(_ path: String, method: String = "GET", body: Data? = nil) -> URLRe
     return r
 }
 
-/// One at a time: Vision on GitHub's virtual Macs (no graphics chip) stalled when many pictures
-/// were fingerprinted at once. Downloads still run 16 at a time.
-let visionLock = NSLock()
+/// One at a time, on its own thread: Vision on GitHub's virtual Macs stalled when many pictures
+/// were fingerprinted at once, and holding a lock inside Swift's shared task threads (the last
+/// try) froze the whole run (16 downloads blocked those few threads waiting for the lock, so
+/// nothing could finish). Vision now runs on one plain queue the tasks wait on without blocking.
+let visionQueue = DispatchQueue(label: "vision")
+
+func fingerprintAsync(_ data: Data) async -> [Float]? {
+    await withCheckedContinuation { done in visionQueue.async { done.resume(returning: fingerprint(data)) } }
+}
 
 func fingerprint(_ data: Data) -> [Float]? {
-    visionLock.lock(); defer { visionLock.unlock() }
     let req = VNGenerateImageFeaturePrintRequest()
     req.revision = VNGenerateImageFeaturePrintRequestRevision2
     // The processor only: the virtual Mac has no graphics chip or neural engine to hand it to.
@@ -74,13 +79,28 @@ do {
     if test == nil { exit(1) }
 }
 
+// Safety stops, so a stuck run ends in minutes instead of using up GitHub's 5½ hours:
+// nothing finished for 10 minutes ends it (what's saved stays saved), and so does running
+// 15 minutes past MAX_MINUTES.
+let progressLock = NSLock()
+var lastProgress = Date()
+func noteProgress() { progressLock.lock(); lastProgress = Date(); progressLock.unlock() }
+let watchdog = DispatchSource.makeTimerSource(queue: .global())
+watchdog.schedule(deadline: .now() + 60, repeating: 60)
+watchdog.setEventHandler {
+    progressLock.lock(); let idle = Date().timeIntervalSince(lastProgress); progressLock.unlock()
+    if idle > 600 { log("Stuck: nothing finished for \(Int(idle / 60)) minutes. Stopping (what's saved stays saved)."); exit(1) }
+    if Date().timeIntervalSince(started) > (maxMinutes + 15) * 60 { log("Over time. Stopping."); exit(0) }
+}
+watchdog.resume()
+
 var total = 0, failed = 0, seenDims = Set<Int>()
 var skipped = Set<String>()
 var batch = 0
 while !timeUp() {
     batch += 1
     var todoURL = request("api/fingerprints")
-    todoURL.url = URL(string: site.appendingPathComponent("api/fingerprints").absoluteString + "?limit=400")
+    todoURL.url = URL(string: site.appendingPathComponent("api/fingerprints").absoluteString + "?limit=200")
     let listStart = Date()
     let fetched = try? await session.data(for: todoURL)
     let status = (fetched?.1 as? HTTPURLResponse)?.statusCode
@@ -89,6 +109,7 @@ while !timeUp() {
         exit(1)
     }
     let cards = todo.cards.filter { !skipped.contains($0.productId) }
+    noteProgress()
     log("Batch \(batch): \(cards.count) cards to do (list took \(Int(Date().timeIntervalSince(listStart))) s).")
     if cards.isEmpty { break }
     // Download and fingerprint, 16 at a time.
@@ -102,6 +123,7 @@ while !timeUp() {
         while let r = await group.next() {
             if let r { prints.append(r) }
             done += 1
+            noteProgress()
             // Progress inside a batch, so a slow step shows in the log.
             if done % 25 == 0 { log("  \(done)/\(cards.count) pictures done (\(prints.count) fingerprinted), \(Int(Date().timeIntervalSince(batchStart))) s into the batch.") }
             // Out of time: finish what's running, start nothing new.
@@ -121,6 +143,7 @@ while !timeUp() {
             exit(1)
         }
         total += chunk.count
+        noteProgress()
     }
     log("Fingerprinted \(total) so far (\(failed) pictures couldn't be read), \(Int(Date().timeIntervalSince(started) / 60)) min in.")
 }
@@ -130,6 +153,6 @@ func make(_ card: Card) async -> Print? {
     guard let url = URL(string: card.imageUrl),
           let (data, resp) = try? await session.data(from: url),
           (resp as? HTTPURLResponse)?.statusCode == 200,
-          let print = fingerprint(data) else { return nil }
+          let print = await fingerprintAsync(data) else { return nil }
     return Print(productId: card.productId, imageUrl: card.imageUrl, print: print)
 }
