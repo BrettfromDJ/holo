@@ -107,4 +107,12 @@ final class OnDeviceScanTests: XCTestCase {
         XCTAssertNil(r?.name)
         XCTAssertEqual(r?.number, "124/103")
     }
+
+    func testStampedOdditiesGiveWay() {
+        func hit(_ id: String, _ name: String, _ set: String) -> SearchHit {
+            SearchHit(product: Product(id: id, name: name, setName: set, setId: set, number: "063/128", kind: "single"))
+        }
+        let kept = OnDeviceScan.realSets([hit("1", "Mewtwo - 063/128 (What's Your Favorite Stamp)", "Miscellaneous Cards & Products"), hit("2", "Mewtwo", "ME: 30th Celebration")])
+        XCTAssertEqual(kept.map(\.product.id), ["2"])
+    }
 }

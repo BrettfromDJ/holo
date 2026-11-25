@@ -47,7 +47,7 @@ enum OnDeviceScan {
             let searched = Date()
             let hits = await searches(reading)
             lap("search", searched)
-            var numbered = hits.filter { strictNumber($0.product.number, reading.number) }
+            var numbered = realSets(hits.filter { strictNumber($0.product.number, reading.number) })
             // A promo's bare number ("098"): promos print theirs bare too, so prefer those over
             // every set's 98th card.
             if !reading.number.contains("/") {
@@ -63,9 +63,22 @@ enum OnDeviceScan {
             }
             // One card with that number (its pattern versions count as one), and the name read
             // agrees, or isn't any card's name (an attack read as the name): that's it.
-            if !reading.number.isEmpty, let hit = oneCard(numbered),
-               nameAgrees(reading.name, hit.product.name) || (numberIsEnough(reading.number) && sameName.isEmpty) {
+            if !reading.number.isEmpty, let hit = oneCard(numbered), nameAgrees(reading.name, hit.product.name) {
                 return (result(for: hit), reading, noted("text"))
+            }
+            // The number alone (the name read isn't a card's): a Japanese card reads as Latin
+            // gibberish, so check with a Japanese-only read first; if it is, look among Japanese cards.
+            if !reading.number.isEmpty, let hit = oneCard(numbered), numberIsEnough(reading.number), sameName.isEmpty {
+                let checked = Date()
+                let japanese = await looksJapanese(jpeg: jpeg)
+                lap("japanese check", checked)
+                if japanese {
+                    let jp = Reading(name: nil, number: reading.number, japanese: true)
+                    let found = realSets((await searches(jp)).filter { strictNumber($0.product.number, jp.number) })
+                    if let card = oneCard(found) { return (result(for: card), jp, noted("japanese, by number")) }
+                    return (nil, jp, noted("japanese, number unsure among \(found.count)"))
+                }
+                return (result(for: hit), reading, noted("text (number)"))
             }
             // Several cards print that number (other games and sets): the name read picks one.
             if let hit = oneCard(numbered.filter { reading.name != nil && nameAgrees(reading.name, $0.product.name) }) {
@@ -158,6 +171,14 @@ enum OnDeviceScan {
         return seen.contains(first) || (seen.count >= 5 && first.contains(seen))
     }
 
+    /// Leaves out "Miscellaneous Cards & Products" (stamped oddities like a Pokémon Day Eevee or a
+    /// "What's Your Favorite" Mewtwo) when a card from a real set is there too: they share its
+    /// number and name, and made the phone unsure on the everyday card.
+    static func realSets(_ hits: [SearchHit]) -> [SearchHit] {
+        let real = hits.filter { !($0.product.setName ?? "").localizedCaseInsensitiveContains("miscellaneous") }
+        return real.isEmpty ? hits : real
+    }
+
     /// The one card these are, counting a card's pattern versions (Prismatic Evolutions' Poké Ball
     /// and Master Ball patterns are their own products with the same number) as one: the plainest
     /// name wins (the others are a tap away under Wrong card?). Nil when they're different cards.
@@ -206,6 +227,11 @@ enum OnDeviceScan {
     static func candidates(_ reading: Reading, hits numbered: [SearchHit], all: [SearchHit]) -> [SearchHit] {
         var seen = Set<String>()
         var out = numbered.filter { seen.insert($0.product.id).inserted }
+        // None of the number's cards fits the name read (a stray digit read as the number): the name's cards.
+        if let name = reading.name, !out.isEmpty, !out.contains(where: { nameAgrees(name, $0.product.name) }) {
+            seen = []
+            out = []
+        }
         if out.isEmpty, let name = reading.name {
             let base = name.lowercased()
             out = all.filter { $0.product.name.lowercased().hasPrefix(base) && seen.insert($0.product.id).inserted }
@@ -238,6 +264,27 @@ enum OnDeviceScan {
                                                 "supporter", "stadium", "energy", "pokémon tool", "evolves from", "vmax", "vstar", "mega"]
     /// Slab labels: leave those to the server, which also reads the grade.
     private static let slabWords = ["psa", "bgs", "beckett", "cgc", "sgc", "gem mt", "gem mint", "pristine", "certified"]
+
+    /// Whether the card's text is Japanese: a quick Japanese-only read of the photo, kana or kanji
+    /// in what comes back.
+    static func looksJapanese(jpeg: Data) async -> Bool {
+        await withCheckedContinuation { (cont: CheckedContinuation<Bool, Never>) in
+            let once = Once()
+            let request = VNRecognizeTextRequest { request, _ in
+                let text = (request.results as? [VNRecognizedTextObservation] ?? []).compactMap { $0.topCandidates(1).first?.string }.joined()
+                let kana = text.unicodeScalars.filter { (0x3040...0x30FF).contains($0.value) || (0x4E00...0x9FFF).contains($0.value) }.count
+                if once.claim() { cont.resume(returning: kana >= 4) }
+            }
+            // Japanese is read only at the accurate level.
+            request.recognitionLevel = .accurate
+            request.recognitionLanguages = ["ja-JP"]
+            request.usesLanguageCorrection = false
+            DispatchQueue.global(qos: .userInitiated).async {
+                let handler = VNImageRequestHandler(data: jpeg, options: [:])
+                do { try handler.perform([request]) } catch { if once.claim() { cont.resume(returning: false) } }
+            }
+        }
+    }
 
     static func read(jpeg: Data) async -> Reading? {
         await withCheckedContinuation { (cont: CheckedContinuation<Reading?, Never>) in
@@ -294,7 +341,8 @@ enum OnDeviceScan {
             let promo = lines.compactMap { text, box -> String? in
                 guard box.maxY < 0.12, box.minX < 0.5 else { return nil }
                 let tokens = text.split(whereSeparator: { $0 == " " }).map(String.init)
-                return tokens.last { $0.range(of: #"^[A-Z]{0,4}0*\d{1,3}$"#, options: .regularExpression) != nil && $0.contains(where: \.isNumber) }
+                // Two or three digits ("098", "168"): a lone "1" in the corner is something else.
+                return tokens.last { $0.range(of: #"^[A-Z]{0,4}\d{2,3}$"#, options: .regularExpression) != nil }
             }
             if promo.count == 1 { number = promo[0].filter(\.isNumber) }
         }
