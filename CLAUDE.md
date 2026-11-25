@@ -60,7 +60,7 @@ and say exactly what to run or click.
   `Router.tabRequest` "collection" opens Cards, "collection-summary" opens Summary.
   Cards gets to the cards fast: nothing above the search (only the portfolio's name when not
   All; the "Worth" line was removed), then search (one glass family: the search box, a round glass filter button with a lime dot when
-  something is set, and one round glass button flipping grid/list; no lime toggle), chips and the cards; the value, chart, stat tiles and mix bar live only on
+  something is set, and one round glass button flipping grid/list; no lime toggle), chips (no All tab, the owner's call: Singles, Sealed, Graded, then Pulls and lists; it opens on Singles, or Sealed when that's all you have: `activeCategory`; no kind banner above the cards) and the cards; the value, chart, stat tiles and mix bar live only on
   Summary. The portfolio switcher (`PortfolioSwitcher`, our action sheet) sits on Summary centred just
   above "Your collection's worth" and the big value (in `Hero`); Cards follows the pick.
 - **Home's risers** (card of the day, hot/cold, top 10, eras, hot sealed) read stored 24-hour and

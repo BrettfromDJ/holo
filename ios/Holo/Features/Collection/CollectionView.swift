@@ -114,7 +114,7 @@ struct CollectionView: View {
 
     private var shown: [HoldingView] {
         let key = ShownKey(
-            holdings: store.holdings, query: query, category: category, sort: sort, setFilter: setFilter,
+            holdings: store.holdings, query: query, category: activeCategory, sort: sort, setFilter: setFilter,
             typeFilter: typeFilter, perf: perf, shelf: groups.shelves.first { $0.id == shelfId }?.product_ids,
             pulls: pullsOnly ? store.pulledKeys : nil
         )
@@ -205,9 +205,6 @@ struct CollectionView: View {
                                         + Text(Format.money(pulls.reduce(0) { $0 + ($1.value ?? 0) })).foregroundColor(Theme.lime).fontWeight(.semibold))
                                         .font(.geist(15)).monospacedDigit()
                                 }
-                            }
-                            if let category, shelfId == nil, !pullsOnly {
-                                CategoryBanner(category: category, holdings: store.holdings, total: store.summary.value).equatable()
                             }
                             // Filtered and sorted once per redraw.
                             let shown = self.shown
@@ -322,6 +319,19 @@ struct CollectionView: View {
         }
     }
 
+    /// The kind shown (no All tab, the owner's call): the one picked while it still has anything,
+    /// else Singles, else Sealed (a sealed-only collection opens on Sealed), else Graded. Nil on a
+    /// list or Pulls.
+    private var activeCategory: HoldingCategory? {
+        guard shelfId == nil, !pullsOnly else { return nil }
+        let counts = chipCounts.categories
+        if let category, (counts[category] ?? 0) > 0 { return category }
+        return Self.kindOrder.first { (counts[$0] ?? 0) > 0 } ?? category
+    }
+
+    /// The kinds' tabs, in the owner's order: Singles first, then Sealed.
+    private static let kindOrder: [HoldingCategory] = [.singles, .sealed, .graded]
+
     /// How many holdings each category chip and shelf chip covers (counted once per change).
     private var chipCounts: ChipCounts {
         let holdings = store.holdings
@@ -341,20 +351,21 @@ struct CollectionView: View {
     private var categoryChips: some View {
         let counts = chipCounts
         return HStack(spacing: 8) {
-            Chip(title: "All", selected: category == nil && shelfId == nil && !pullsOnly, count: store.holdings.count) { reshuffle { category = nil; shelfId = nil; pullsOnly = false } }
+            // No All tab (the owner's call): Singles, Sealed, Graded, then Pulls and your lists.
+            let active = activeCategory
+            ForEach(Self.kindOrder) { c in
+                let n = counts.categories[c] ?? 0
+                if n > 0 { Chip(title: c.rawValue, selected: active == c, count: n) { reshuffle { category = c; shelfId = nil; pullsOnly = false } } }
+            }
             // The cards you pulled from packs.
             let pulledCount = store.pulledHoldings.count
             if pulledCount > 0 {
-                Chip(title: "Pulls", selected: pullsOnly, count: pulledCount) { reshuffle { pullsOnly = true; category = nil; shelfId = nil } }
-            }
-            ForEach(HoldingCategory.allCases) { c in
-                let n = counts.categories[c] ?? 0
-                if n > 0 { Chip(title: c.rawValue, selected: category == c && shelfId == nil && !pullsOnly, count: n) { reshuffle { category = c; shelfId = nil; pullsOnly = false } } }
+                Chip(title: "Pulls", selected: pullsOnly, count: pulledCount) { reshuffle { pullsOnly = true; shelfId = nil } }
             }
             // Your shelves (shared with the website); hold one to rename or delete it.
             ForEach(groups.shelves) { shelf in
                 let n = counts.shelves[shelf.id] ?? 0
-                Chip(title: shelf.name, selected: shelfId == shelf.id && !pullsOnly, count: n) { reshuffle { shelfId = shelf.id; category = nil; pullsOnly = false } }
+                Chip(title: shelf.name, selected: shelfId == shelf.id && !pullsOnly, count: n) { reshuffle { shelfId = shelf.id; pullsOnly = false } }
                     .highPriorityGesture(LongPressGesture(minimumDuration: 0.35).onEnded { _ in Haptics.remove(); heldShelf = shelf })
             }
             Button { shelfProduct = nil; if canAddShelf { naming = .shelf } else { proPaywall = .shelves } } label: {
