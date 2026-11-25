@@ -1186,7 +1186,7 @@ private struct BalanceCard: View {
                         stat("Their price", .charge, read.chargeShare.map { "\(Int(($0 * 100).rounded()))% of market" } ?? "—", ink)
                     }
                 } else {
-                    DealFigures(totals: t, ink: ink, onEditMarket: readOnly ? nil : onEditMarket, marketAgreed: marketAgreed)
+                    DealFigures(totals: t, ink: ink, onEditMarket: readOnly ? nil : onEditMarket, marketAgreed: marketAgreed, past: past)
                 }
             }
             .padding(.top, 18)
@@ -1299,6 +1299,8 @@ struct DealFigures: View {
     var onEditMarket: (() -> Void)? = nil
     /// The market value was agreed by hand: the label says so.
     var marketAgreed = false
+    /// A closed deal: Came in / Went out (past tense).
+    var past = false
 
     var body: some View {
         let t = totals
@@ -1314,8 +1316,8 @@ struct DealFigures: View {
                 market(t.outMarket)
                 gain(t.profit)
             default:
-                stat("Coming in", .comingIn, Format.money(t.inValue))
-                stat("Going out", .goingOut, Format.money(t.outValue))
+                stat(past ? "Came in" : "Coming in", .comingIn, Format.money(t.inValue))
+                stat(past ? "Went out" : "Going out", .goingOut, Format.money(t.outValue))
                 stat("Sale profit", .profit, t.profit.map { Format.signedMoney($0) } ?? "—")
                 stat("Trade-in value", .value, t.showsEquity ? Format.signedMoney(t.equity) : "—")
             }
