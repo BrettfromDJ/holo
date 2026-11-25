@@ -14,12 +14,29 @@ enum CardFingerprint {
 
     /// The candidate the scan looks most like, with how sure (its distance and the runner-up's),
     /// or nil when none is clearly closest.
-    static func best(scan: Data, among hits: [SearchHit]) async -> (hit: SearchHit, distance: Float, next: Float?)? {
+    /// The server already holds every catalog card's fingerprint (made nightly), so it compares
+    /// them in one quick request; only cards it has none for (or pictured differently, like an
+    /// Unlimited photo) are fingerprinted here, downloading their picture once.
+    static func best(print mine: VNFeaturePrintObservation, among hits: [SearchHit]) async -> (hit: SearchHit, distance: Float, next: Float?)? {
         let hits = Array(hits.prefix(maxCandidates))
-        guard !hits.isEmpty, let mine = await fingerprint(of: scan) else { return nil }
+        guard !hits.isEmpty else { return nil }
         var scored: [(SearchHit, Float)] = []
-        await withTaskGroup(of: (SearchHit, Float)?.self) { group in
+        var local = hits
+        if let vector = vector(mine),
+           let rows = try? await Backend.shared.api.printDistances(vector, among: hits.map(\.product.id)) {
+            let byId = Dictionary(rows.map { ($0.productId, $0) }, uniquingKeysWith: { a, _ in a })
+            local = []
             for hit in hits {
+                // The stored print is of the catalog picture; use it only when that's what this card shows.
+                if let row = byId[hit.product.id], row.imageUrl == (hit.pictured.imageUrl ?? "") {
+                    scored.append((hit, row.distance))
+                } else {
+                    local.append(hit)
+                }
+            }
+        }
+        await withTaskGroup(of: (SearchHit, Float)?.self) { group in
+            for hit in local {
                 group.addTask {
                     guard let theirs = await catalogPrint(hit.pictured) else { return nil }
                     var d: Float = 0
@@ -43,8 +60,8 @@ enum CardFingerprint {
 
     /// The whole catalog: the scan's fingerprint goes to the server, which finds the nearest of
     /// every card's (made nightly on a Mac). Only a clear winner counts, as above.
-    static func catalogMatch(scan: Data) async -> (hit: SearchHit, distance: Float, next: Float?)? {
-        guard let mine = await fingerprint(of: scan), let vector = vector(mine) else { return nil }
+    static func catalogMatch(print mine: VNFeaturePrintObservation) async -> (hit: SearchHit, distance: Float, next: Float?)? {
+        guard let vector = vector(mine) else { return nil }
         guard let matches = try? await Backend.shared.api.matchPrint(vector), let first = matches.first else { return nil }
         let next = matches.dropFirst().first?.distance
         if let next {

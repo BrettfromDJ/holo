@@ -149,6 +149,18 @@ final class HoloAPI {
         return try await send(try await request("api/artists/\(name)"), as: Body.self).cards.filter { !$0.product.isOversized }
     }
 
+    /// A scan's distance from each of a few cards' stored fingerprints (nearest first; cards with
+    /// none stored are left out). The server does the comparing, so nothing is downloaded.
+    func printDistances(_ print: [Float], among ids: [String]) async throws -> [(productId: String, imageUrl: String, distance: Float)] {
+        struct Row: Decodable { var productId: String; var imageUrl: String; var distance: Float }
+        struct Body: Decodable { var distances: [Row] }
+        var req = try await request("api/scan/match")
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONSerialization.data(withJSONObject: ["print": print.map { Double($0) }, "ids": ids])
+        return try await send(req, as: Body.self).distances.map { ($0.productId, $0.imageUrl, $0.distance) }
+    }
+
     /// The cards whose catalog fingerprints are nearest a scan's (nearest first).
     func matchPrint(_ print: [Float]) async throws -> [(hit: SearchHit, distance: Float)] {
         struct Match: Decodable {

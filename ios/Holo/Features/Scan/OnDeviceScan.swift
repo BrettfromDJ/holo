@@ -28,13 +28,17 @@ enum OnDeviceScan {
     /// Text first; when the text narrows it to several cards (or only a name was read), picture
     /// matching (`CardFingerprint`) picks the one the photo looks most like, if one clearly is.
     static func identifyWithReading(jpeg: Data) async -> (result: ScanResult?, reading: Reading?, note: String?) {
+        // The photo's fingerprint starts alongside the text reading (it's needed whenever the
+        // text alone doesn't settle it) and is made once for both picture checks below.
+        // (A plain task, so a scan settled by its text never waits for it.)
+        let printing = Task { await CardFingerprint.fingerprint(of: jpeg) }
         let reading = await read(jpeg: jpeg)
         var why = reading == nil ? "no text" : "text unsure"
         if let reading {
             if !reading.number.isEmpty, let hit = await lookUp(reading) { return (result(for: hit), reading, "text") }
             let pool = await candidates(reading)
             if !pool.isEmpty {
-                if let best = await CardFingerprint.best(scan: jpeg, among: pool) {
+                if let mine = await printing.value, let best = await CardFingerprint.best(print: mine, among: pool) {
                     let note = String(format: "picture %.2f vs %@ among %d", best.distance, best.next.map { String(format: "%.2f", $0) } ?? "none", pool.count)
                     return (result(for: best.hit), reading, note)
                 }
@@ -42,7 +46,7 @@ enum OnDeviceScan {
             }
         }
         // Last on the phone's side: the scan's picture against every card in the catalog.
-        if let best = await CardFingerprint.catalogMatch(scan: jpeg) {
+        if let mine = await printing.value, let best = await CardFingerprint.catalogMatch(print: mine) {
             let note = String(format: "catalog picture %.2f vs %@", best.distance, best.next.map { String(format: "%.2f", $0) } ?? "none")
             return (result(for: best.hit), reading, note)
         }
