@@ -216,8 +216,8 @@ struct DealEditorPage: View {
                     .accessibilityLabel("Deal actions")
                 }
                 if path == .trade {
-                    ChipPicker(options: [(DealSide.incoming, "Buy · \(Format.money(totals.inValue))"),
-                                         (.outgoing, "Sell · \(Format.money(totals.outValue))")],
+                    ChipPicker(options: [(DealSide.incoming, "Coming in · \(Format.money(totals.inValue))"),
+                                         (.outgoing, "Going out · \(Format.money(totals.outValue))")],
                                selection: $tradeSide, fills: true)
                 }
                 card(AnyView(rateSection(rate: rate)))
@@ -366,7 +366,7 @@ struct DealEditorPage: View {
         let market = items.reduce(0.0) { $0 + ($1.market ?? 0) * Double($1.qty) }
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline) {
-                Text(path == .trade ? (side == .incoming ? "Buying" : "Selling") : "Cards").font(.display(20)).tracking(-0.5)
+                Text(path == .trade ? (side == .incoming ? "Coming in" : "Going out") : "Cards").font(.display(20)).tracking(-0.5)
                 Text("\(items.reduce(0) { $0 + $1.qty })").font(.geist(14)).foregroundStyle(Theme.subtle)
                 Spacer()
                 Text("\(Format.money(market)) market").font(.geist(13)).monospacedDigit().foregroundStyle(Theme.muted)
