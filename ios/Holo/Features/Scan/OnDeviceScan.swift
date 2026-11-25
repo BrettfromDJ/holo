@@ -47,7 +47,13 @@ enum OnDeviceScan {
             let searched = Date()
             let hits = await searches(reading)
             lap("search", searched)
-            let numbered = hits.filter { strictNumber($0.product.number, reading.number) }
+            var numbered = hits.filter { strictNumber($0.product.number, reading.number) }
+            // A promo's bare number ("098"): promos print theirs bare too, so prefer those over
+            // every set's 98th card.
+            if !reading.number.contains("/") {
+                let bare = numbered.filter { !($0.product.number ?? "").contains("/") }
+                if !bare.isEmpty { numbered = bare }
+            }
             // The cards the name read could be, in a set of the same size (the number may be misread:
             // "083/128" read for Mewtwo's 063/128 named a Lucario).
             let total = reading.number.split(separator: "/").dropFirst().first.map(String.init)
@@ -88,6 +94,8 @@ enum OnDeviceScan {
                     return (result(for: best.hit), reading, noted(note))
                 }
                 why = "picture unsure among \(pool.count)" + (CardFingerprint.lastNear.map { " (\($0))" } ?? "")
+                    // Which cards they were (test notes), to see why the text didn't settle it.
+                    + " [" + pool.prefix(6).map { "\($0.product.name) · \($0.product.setName ?? $0.product.setId ?? "?") · \($0.product.number ?? "")" }.joined(separator: " | ") + "]"
             }
         }
         // Last on the phone's side: the scan's picture against every card in the catalog.

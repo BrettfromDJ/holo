@@ -8,7 +8,7 @@ import Foundation
 enum ScanTestLog {
     static let key = "scan-test-photos"
     /// Bumped with each scanner change worth testing.
-    static let build = "2026-11-25 japanese"
+    static let build = "2026-11-25 candidates"
 
     static var isOn: Bool {
         get { UserDefaults.standard.bool(forKey: key) }
