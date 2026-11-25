@@ -149,12 +149,17 @@ while !timeUp(), let cursor = after {
     for p in prints { seenDims.insert(p.print.count) }
     for chunk in stride(from: 0, to: prints.count, by: 100).map({ Array(prints[$0..<min($0 + 100, prints.count)]) }) {
         let body = try! JSONEncoder().encode(["prints": chunk])
-        let saved = try? await session.data(for: request("api/fingerprints", method: "POST", body: body))
-        let code = (saved?.1 as? HTTPURLResponse)?.statusCode
-        guard code == 200 else {
-            log("Saving failed (HTTP \(code.map(String.init) ?? "no answer")): \(String(data: saved?.0 ?? Data(), encoding: .utf8)?.prefix(300) ?? "")")
-            exit(1)
+        // A blip (no answer, a slow moment) is tried again, three times, before giving up; a run
+        // stopped on one dropped save after 25,000 cards.
+        var savedOK = false
+        for attempt in 1...4 {
+            let saved = try? await session.data(for: request("api/fingerprints", method: "POST", body: body))
+            let code = (saved?.1 as? HTTPURLResponse)?.statusCode
+            if code == 200 { savedOK = true; break }
+            log("Saving failed (HTTP \(code.map(String.init) ?? "no answer")): \(String(data: saved?.0 ?? Data(), encoding: .utf8)?.prefix(300) ?? "")\(attempt < 4 ? ", trying again" : "")")
+            if attempt < 4 { try? await Task.sleep(nanoseconds: UInt64(attempt) * 20_000_000_000) }
         }
+        guard savedOK else { exit(1) }
         total += chunk.count
         noteProgress()
     }
