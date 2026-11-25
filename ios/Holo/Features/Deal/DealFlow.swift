@@ -398,7 +398,12 @@ struct DealEditorPage: View {
         let profit: Double? = { guard let cost, let total else { return nil }; return total - cost }()
         // The card's true share of market: "99.6%" when a rounded total moved it off a whole number.
         let share: Double? = { guard let unit, let m = item.market, m > 0 else { return nil }; return unit / m * 100 }()
-        let offWhole = share.map { abs($0 - $0.rounded()) >= 0.05 } ?? false
+        // Off a whole % only when the price isn't that whole % rounded to the cent ($6.92 × 80% =
+        // $5.54 reads 80.06%, which is still plain 80%, not a price of its own).
+        let offWhole: Bool = {
+            guard let s = share, let unit, let m = item.market else { return false }
+            return abs(unit - round2(m * s.rounded() / 100)) > 0.005
+        }()
         let pct: String? = share.map { offWhole ? String(format: "%.1f", $0) : "\(Int($0.rounded()))" }
         return HStack(alignment: .center, spacing: 12) {
             // As tall as the lines beside it (40×56 was shorter than the text), the same size as
