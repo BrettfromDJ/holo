@@ -126,7 +126,9 @@ enum OnDeviceScan {
         func letters(_ s: String) -> String { s.lowercased().filter(\.isLetter) }
         let seen = letters(read)
         guard let first = name.split(separator: " ").first.map({ letters(String($0)) }), first.count >= 3 else { return true }
-        return seen.contains(first) || (seen.count >= 4 && first.contains(seen))
+        // A partly read name ("eevee" read as "evee") counts only from 5 letters: "asic" sits
+        // inside "basic" and named a Grass Energy.
+        return seen.contains(first) || (seen.count >= 5 && first.contains(seen))
     }
 
     /// A full collector number ("092/131") names one card by itself, even when the line read as
