@@ -79,6 +79,13 @@ do {
     if test == nil { exit(1) }
 }
 
+/// Why pictures couldn't be read, tallied for the end of the run (and the first few named).
+/// Declared before the loop: a script's top-level lines run in order, and using these before
+/// this line ran crashed the run (segmentation fault).
+let reasonLock = NSLock()
+var reasons: [String: Int] = [:]
+var examples: [String] = []
+
 // Safety stops, so a stuck run ends in minutes instead of using up GitHub's 5½ hours:
 // nothing finished for 10 minutes ends it (what's saved stays saved), and so does running
 // 15 minutes past MAX_MINUTES.
@@ -172,10 +179,6 @@ if !reasons.isEmpty {
     for e in examples { log("  " + e) }
 }
 
-/// Why pictures couldn't be read, tallied for the end of the run (and the first few named).
-let reasonLock = NSLock()
-var reasons: [String: Int] = [:]
-var examples: [String] = []
 func fail(_ card: Card, _ why: String) -> Print? {
     reasonLock.lock()
     reasons[why, default: 0] += 1
