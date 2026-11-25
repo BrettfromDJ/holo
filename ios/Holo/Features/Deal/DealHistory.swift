@@ -652,7 +652,7 @@ struct DealHistoryView: View {
         let date = Format.isoDay.date(from: day)
         let title = date.map { Calendar.current.isDateInToday($0) ? "Today" : (Calendar.current.isDateInYesterday($0) ? "Yesterday" : $0.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())) } ?? day
         // The heading with its count and profit, then the deals as the same rows as the Deal
-        // tab's Recent deals (the cards with tags, times and a second profit line were too busy).
+        // tab's Closed deals (the cards with tags, times and a second profit line were too busy).
         return VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(title).font(.display(22)).tracking(-0.5)

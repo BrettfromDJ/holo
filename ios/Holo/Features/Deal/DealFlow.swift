@@ -56,7 +56,7 @@ struct DealStartPage: View {
                     }
                 }
                 if !deals.log.isEmpty {
-                    list("Recent deals", count: deals.log.count, onAll: onHistory) {
+                    list("Closed deals", count: deals.log.count, onAll: onHistory) {
                         ForEach(Array(deals.log.prefix(3).enumerated()), id: \.element.id) { i, r in
                             Button { onRecord(r) } label: {
                                 DealListRow(kind: r.kind, title: title(r),
