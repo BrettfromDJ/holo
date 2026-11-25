@@ -575,11 +575,11 @@ struct DealCloseSheet: View {
                         Task { await close() }
                     } label: {
                         HStack(spacing: 8) {
-                            if phase == .recording { ProgressView().tint(Theme.ink) }
+                            if phase == .recording { ProgressView().tint((DealKind(rawValue: UserDefaults.standard.string(forKey: "deal-path") ?? "") ?? .sell).onTint) }
                             Text(phase == .recording ? "Recording…" : "Complete deal · \(Format.money(abs(b)))")
                         }
                     }
-                    .buttonStyle(Button3D(kind: .lime))
+                    .buttonStyle(Button3D(kind: (DealKind(rawValue: UserDefaults.standard.string(forKey: "deal-path") ?? "") ?? .sell).button3D))
                     .disabled(phase == .recording)
                     Button("Keep editing") { dismiss() }
                         .buttonStyle(Button3D(kind: .dark))

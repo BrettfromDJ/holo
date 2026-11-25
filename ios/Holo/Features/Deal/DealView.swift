@@ -182,7 +182,8 @@ struct DealView: View {
                         }
                 }
             }
-            .background(alignment: .top) { DealBackdrop(accent: accent) }
+            // A deal's page glows in its type's colour (blue buy, lime sell, purple trade).
+            .background(alignment: .top) { DealBackdrop(accent: warning ? accent : (dealPath?.tint ?? accent), second: dealPath.map { $0.tint } ?? Theme.planBlue) }
             .background(Theme.background)
             // A tap on this tab (from anywhere) closes pushed pages and scrolls back to the top.
             .tabTopReset("deal", path: $path)
@@ -852,12 +853,14 @@ extension DealSide: Identifiable {
 /// The lit grid and soft glows behind the top of the page, like the other tabs.
 private struct DealBackdrop: View {
     var accent: Color
+    /// The right-hand glow: blue on the start page, the deal type's colour on a deal.
+    var second: Color = Theme.planBlue
 
     var body: some View {
         ZStack {
             GridPattern(step: 36, opacity: 0.05)
             RadialGradient(colors: [accent.opacity(0.18), .clear], center: UnitPoint(x: 0.2, y: 0.3), startRadius: 0, endRadius: 260)
-            RadialGradient(colors: [Theme.planBlue.opacity(0.18), .clear], center: UnitPoint(x: 0.9, y: 0.5), startRadius: 0, endRadius: 240)
+            RadialGradient(colors: [second.opacity(0.18), .clear], center: UnitPoint(x: 0.9, y: 0.5), startRadius: 0, endRadius: 240)
         }
         .frame(height: 520)
         .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.6), .init(color: .clear, location: 1)],
@@ -1077,13 +1080,15 @@ private struct BalanceCard: View {
         let b = t.balance
         let empty = t.kind == .empty
         let down = read == nil && ((t.showsEquity && t.equity < -0.005) || (t.ahead ?? 0) < -0.005)
-        let fill = down ? Theme.planPink : Theme.lime
+        // The deal type's colour (blue buy, lime sell, purple trade; the owner's call), pink when behind.
+        let kind = tagKind ?? t.kind
+        let fill = down ? Theme.planPink : (kind == .empty ? Theme.lime : kind.tint)
         // A soft glow of the color around a dark middle, so the text is white on both.
         let ink = Color.white
         let shape = RoundedRectangle(cornerRadius: 24, style: .continuous)
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                SkewTag(text: empty ? "New deal" : (tagKind == .trade ? DealKind.trade.label : t.kind.label), color: fill, textColor: down ? .white : Theme.ink)
+                SkewTag(text: empty ? "New deal" : (tagKind == .trade ? DealKind.trade.label : t.kind.label), color: fill, textColor: down ? .white : (kind == .empty ? Theme.ink : kind.onTint))
                 Spacer()
                 if t.belowCost > 0 {
                     Label("\(t.belowCost) below cost", systemImage: "exclamationmark.triangle.fill")
@@ -1217,7 +1222,7 @@ private struct BalanceCard: View {
         .background {
             ZStack {
                 // Dark olive (or wine when down) in the middle, the color glowing in from the edges. Still.
-                shape.fill(down ? Color(hex: 0x3A0B22) : Color(hex: 0x2F3A0A))
+                shape.fill(down ? Color(hex: 0x3A0B22) : kind.tintBase)
                 RadialGradient(colors: [fill.opacity(0.75), fill.opacity(0)], center: UnitPoint(x: 0.1, y: -0.05), startRadius: 0, endRadius: 300)
                 RadialGradient(colors: [fill.opacity(0.55), fill.opacity(0)], center: UnitPoint(x: 1.05, y: 0.2), startRadius: 0, endRadius: 230)
                 RadialGradient(colors: [fill.opacity(0.7), fill.opacity(0)], center: UnitPoint(x: 0.55, y: 1.15), startRadius: 0, endRadius: 280)

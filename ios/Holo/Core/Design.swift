@@ -358,7 +358,7 @@ extension EnvironmentValues {
 }
 
 struct Button3D: ButtonStyle {
-    enum Kind { case light, lime, dark, blue, pink }
+    enum Kind { case light, lime, dark, blue, pink, purple }
 
     var kind: Kind = .lime
     var fullWidth = true
@@ -377,6 +377,7 @@ struct Button3D: ButtonStyle {
         case .dark: return onGlass ? Color.white.opacity(0.1) : Theme.surface2
         case .blue: return Theme.planBlue
         case .pink: return Theme.planPink
+        case .purple: return Color(hex: 0x7B5CF0)
         }
     }
 
@@ -387,13 +388,14 @@ struct Button3D: ButtonStyle {
         case .dark: return onGlass ? Color.white.opacity(0.04) : Color(hex: 0x0D0D0F)
         case .blue: return Color(hex: 0x1A2F9E)
         case .pink: return Color(hex: 0xA3175F)
+        case .purple: return Color(hex: 0x3E2A99)
         }
     }
 
     private var text: Color {
         switch kind {
         case .light, .lime: return Theme.ink
-        case .dark, .blue, .pink: return .white
+        case .dark, .blue, .pink, .purple: return .white
         }
     }
 

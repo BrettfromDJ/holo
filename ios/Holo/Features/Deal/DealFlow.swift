@@ -194,6 +194,24 @@ extension DealKind {
     }
     /// The icon on a filled tile: dark on lime, white on the others.
     var onTint: Color { self == .sell ? Theme.ink : .white }
+    /// A solid button's fill (Add cards, Review deal): deep enough for white text on blue and purple.
+    var tintButton: Color { self == .sell ? Theme.lime : tintDeep }
+    /// The deal card's dark middle, under its glows.
+    var tintBase: Color {
+        switch self {
+        case .buy: return Color(hex: 0x0C1A4A)
+        case .sell, .empty: return Color(hex: 0x2F3A0A)
+        case .trade: return Color(hex: 0x22124A)
+        }
+    }
+    /// The review screen's Complete deal button.
+    var button3D: Button3D.Kind {
+        switch self {
+        case .buy: return .blue
+        case .trade: return .purple
+        case .sell, .empty: return .lime
+        }
+    }
 }
 
 // MARK: - The deal
@@ -265,9 +283,9 @@ struct DealEditorPage: View {
                     }
                     .buttonStyle(.plain)
                     Button { onAdd(side) } label: {
-                        Label("Add cards", systemImage: "plus").font(.geist(15, .semibold)).foregroundStyle(Theme.ink)
+                        Label("Add cards", systemImage: "plus").font(.geist(15, .semibold)).foregroundStyle(path.onTint)
                             .frame(maxWidth: .infinity).frame(height: 48)
-                            .background(Capsule().fill(Theme.lime))
+                            .background(Capsule().fill(path.tintButton))
                             .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
@@ -284,10 +302,10 @@ struct DealEditorPage: View {
                         HStack(spacing: 6) {
                             Image(systemName: "arrow.left.arrow.right").font(.system(size: 13, weight: .semibold))
                             Text(path == .buy ? "Also selling cards? " : "Also buying cards? ").foregroundColor(Theme.muted)
-                                + Text("Make it a trade").foregroundColor(Theme.lime)
+                                + Text("Make it a trade").foregroundColor(DealKind.trade.tint)
                         }
                         .font(.geist(14, .medium))
-                        .foregroundStyle(Theme.lime)
+                        .foregroundStyle(DealKind.trade.tint)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.vertical, 8)
                         .contentShape(Rectangle())
@@ -456,14 +474,14 @@ struct DealEditorPage: View {
                     if let cost {
                         Text("Paid \(Format.money(cost))").font(.geist(12)).monospacedDigit().foregroundStyle(Theme.muted)
                     } else {
-                        Text("Add what you paid").font(.geist(12, .medium)).foregroundStyle(Theme.lime)
+                        Text("Add what you paid").font(.geist(12, .medium)).foregroundStyle(path.tint)
                     }
                 }
             }
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 4) {
                 Text(total.map { Format.money($0) } ?? "Set price").font(.geist(15, .semibold)).monospacedDigit()
-                    .foregroundStyle(total == nil ? Theme.lime : .white)
+                    .foregroundStyle(total == nil ? path.tint : .white)
                 if let pct {
                     HStack(spacing: 2) {
                         Text("\(pct)%")
@@ -514,9 +532,9 @@ struct DealEditorPage: View {
                 .opacity(empty ? 0.5 : 1)
                 .accessibilityLabel("Save for later")
                 Button(action: onReview) {
-                    Text("Review deal").font(.geist(16, .semibold)).foregroundStyle(Theme.ink)
+                    Text("Review deal").font(.geist(16, .semibold)).foregroundStyle(path.onTint)
                         .frame(maxWidth: .infinity).frame(height: 52)
-                        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.lime))
+                        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(path.tintButton))
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
