@@ -32,7 +32,7 @@ let session: URLSession = {
 log("Fingerprinting cards for \(Int(maxMinutes)) minutes at most, from \(site.host ?? "the site").")
 
 struct Card: Codable { var productId: String; var imageUrl: String }
-struct Todo: Codable { var cards: [Card] }
+struct Todo: Codable { var cards: [Card]; var next: String? }
 struct Print: Codable { var productId: String; var imageUrl: String; var print: [Float] }
 
 func request(_ path: String, method: String = "GET", body: Data? = nil) -> URLRequest {
@@ -97,25 +97,34 @@ watchdog.resume()
 var total = 0, failed = 0, seenDims = Set<Int>()
 var skipped = Set<String>()
 var batch = 0
-while !timeUp() {
+// The website walks the catalog from a bookmark: each list carries on where the last one ended
+// (the one big "what's left" query timed out once most cards were done).
+var after: String? = ""
+while !timeUp(), let cursor = after {
     batch += 1
+    var parts = URLComponents(url: site.appendingPathComponent("api/fingerprints"), resolvingAgainstBaseURL: false)!
+    parts.queryItems = [URLQueryItem(name: "limit", value: "200"), URLQueryItem(name: "after", value: cursor)]
     var todoURL = request("api/fingerprints")
-    todoURL.url = URL(string: site.appendingPathComponent("api/fingerprints").absoluteString + "?limit=\(min(2000, 200 + skipped.count))")
+    todoURL.url = parts.url
     let listStart = Date()
-    let fetched = try? await session.data(for: todoURL)
-    let status = (fetched?.1 as? HTTPURLResponse)?.statusCode
-    guard let data = fetched?.0, status == 200, let todo = try? JSONDecoder().decode(Todo.self, from: data) else {
-        log("Couldn't get the list of cards (HTTP \(status.map(String.init) ?? "no answer")): \(String(data: fetched?.0 ?? Data(), encoding: .utf8)?.prefix(300) ?? "")")
-        exit(1)
+    // A hiccup (a slow database moment) is tried again, three times, before giving up.
+    var todo: Todo?
+    for attempt in 1...4 {
+        let fetched = try? await session.data(for: todoURL)
+        let status = (fetched?.1 as? HTTPURLResponse)?.statusCode
+        if let data = fetched?.0, status == 200, let t = try? JSONDecoder().decode(Todo.self, from: data) { todo = t; break }
+        log("Couldn't get the list of cards (HTTP \(status.map(String.init) ?? "no answer")): \(String(data: fetched?.0 ?? Data(), encoding: .utf8)?.prefix(300) ?? "")\(attempt < 4 ? ", trying again" : "")")
+        if attempt < 4 { try? await Task.sleep(nanoseconds: UInt64(attempt) * 20_000_000_000) }
     }
+    guard let todo else { exit(1) }
+    after = todo.next
     // Pictures that couldn't be read stay on the website's list (they have no fingerprint), so
     // ask for that many more and step past them; otherwise they'd fill the list and end the run
     // early with cards still to do.
-    let cards = Array(todo.cards.filter { !skipped.contains($0.productId) }.prefix(200))
-    if cards.isEmpty && skipped.count >= 1800 { log("Stopping: 1,800 pictures couldn't be read, and they fill the list.") }
+    let cards = todo.cards.filter { !skipped.contains($0.productId) }
     noteProgress()
     log("Batch \(batch): \(cards.count) cards to do (list took \(Int(Date().timeIntervalSince(listStart))) s).")
-    if cards.isEmpty { break }
+    if cards.isEmpty { continue }
     // Download and fingerprint, 16 at a time.
     var prints: [Print] = []
     await withTaskGroup(of: Print?.self) { group in
