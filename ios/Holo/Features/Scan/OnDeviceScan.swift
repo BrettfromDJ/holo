@@ -269,7 +269,17 @@ enum OnDeviceScan {
         }
         // Several cards in one photo: leave it to the server, which reads them all.
         guard numbers.count <= 1 else { return nil }
-        let number = numbers.first ?? ""
+        var number = numbers.first ?? ""
+        // Promos print just a number ("SVP EN 168", "098"), no "/total": a short number alone in
+        // the card's bottom-left corner, where nothing else is (HP and damage sit higher up).
+        if number.isEmpty {
+            let promo = lines.compactMap { text, box -> String? in
+                guard box.maxY < 0.12, box.minX < 0.5 else { return nil }
+                let tokens = text.split(whereSeparator: { $0 == " " }).map(String.init)
+                return tokens.last { $0.range(of: #"^[A-Z]{0,4}0*\d{1,3}$"#, options: .regularExpression) != nil && $0.contains(where: \.isNumber) }
+            }
+            if promo.count == 1 { number = promo[0].filter(\.isNumber) }
+        }
         // The name: the topmost line with letters that isn't a stage/type word or an HP figure.
         let name = lines
             .sorted { $0.1.maxY > $1.1.maxY }

@@ -93,4 +93,11 @@ final class OnDeviceScanTests: XCTestCase {
         XCTAssertEqual(picked?.product.id, "1")
         XCTAssertNil(OnDeviceScan.oneCard([hit("1", "Seaking"), hit("4", "Goldeen")]))
     }
+
+    func testPromoNumberInTheCorner() {
+        let r = OnDeviceScan.parse([("Vaporeon", box(top: 0.95)), ("Spiral Drain 30", box(top: 0.5)), ("SVP EN 168", box(top: 0.06))])
+        XCTAssertEqual(r?.number, "168")
+        // Numbers higher up (HP, damage) aren't the card number.
+        XCTAssertEqual(OnDeviceScan.parse([("Vaporeon", box(top: 0.95)), ("Fighting Whirlpool 90", box(top: 0.4))])?.number, "")
+    }
 }
