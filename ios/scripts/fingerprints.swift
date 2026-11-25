@@ -100,7 +100,7 @@ var batch = 0
 while !timeUp() {
     batch += 1
     var todoURL = request("api/fingerprints")
-    todoURL.url = URL(string: site.appendingPathComponent("api/fingerprints").absoluteString + "?limit=200")
+    todoURL.url = URL(string: site.appendingPathComponent("api/fingerprints").absoluteString + "?limit=\(min(2000, 200 + skipped.count))")
     let listStart = Date()
     let fetched = try? await session.data(for: todoURL)
     let status = (fetched?.1 as? HTTPURLResponse)?.statusCode
@@ -108,7 +108,11 @@ while !timeUp() {
         log("Couldn't get the list of cards (HTTP \(status.map(String.init) ?? "no answer")): \(String(data: fetched?.0 ?? Data(), encoding: .utf8)?.prefix(300) ?? "")")
         exit(1)
     }
-    let cards = todo.cards.filter { !skipped.contains($0.productId) }
+    // Pictures that couldn't be read stay on the website's list (they have no fingerprint), so
+    // ask for that many more and step past them; otherwise they'd fill the list and end the run
+    // early with cards still to do.
+    let cards = Array(todo.cards.filter { !skipped.contains($0.productId) }.prefix(200))
+    if cards.isEmpty && skipped.count >= 1800 { log("Stopping: 1,800 pictures couldn't be read, and they fill the list.") }
     noteProgress()
     log("Batch \(batch): \(cards.count) cards to do (list took \(Int(Date().timeIntervalSince(listStart))) s).")
     if cards.isEmpty { break }
