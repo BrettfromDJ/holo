@@ -204,7 +204,7 @@ struct DealView: View {
             }
             .actionsSheet(isPresented: $dealOptions, title: "This deal") {
                 [[SheetAction(title: dealName.isEmpty ? "Name deal" : "Rename deal", icon: "pencil") { nameText = dealName; renaming = true },
-                  SheetAction(title: "Change deal type", subtitle: dealPath.map { Self.pathTitle($0) }, icon: "arrow.left.arrow.right",
+                  SheetAction(title: "Change deal type", icon: "arrow.left.arrow.right",
                               children: [[DealKind.buy, .sell, .trade].map { k in kindRow(k) }])]
                  + (deals.deal.hasContent ? [SheetAction(title: "Park deal", subtitle: "Pick it up where you left off", icon: "pause") { parkNow() }] : []),
                  [SheetAction(title: "Delete deal", icon: "trash", destructive: true) { discardDeal() }]]
