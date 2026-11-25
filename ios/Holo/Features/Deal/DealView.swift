@@ -1309,7 +1309,7 @@ struct DealFigures: View {
             switch t.kind {
             case .buy:
                 market(t.inMarket)
-                stat("Of market", .rate, t.inMarket.flatMap { $0 > 0 ? "\(Int((t.inValue / $0 * 100).rounded()))%" : nil } ?? "—")
+                stat(past ? "Paid at" : "Buying rate", .rate, t.inMarket.flatMap { $0 > 0 ? "\(Int((t.inValue / $0 * 100).rounded()))%" : nil } ?? "—")
                 gain(t.ahead)
             case .sell:
                 stat("You paid", .paid, t.profit.map { Format.money(t.outValue - $0) } ?? "—")

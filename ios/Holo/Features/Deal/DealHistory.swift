@@ -1032,7 +1032,8 @@ struct DealRecordDetail: View {
                     Text(kind == .buy ? (incoming ? "Bought" : "Paid") : kind == .sell ? (incoming ? "Received" : "Sold") : (incoming ? "Came in" : "Went out")).font(.display(22)).tracking(-0.6)
                     Spacer()
                     // The cards only (the cash is its own line below), so it matches the card's Coming in / Going out.
-                    Text(Format.money(total)).font(.display(22)).tracking(-0.6).monospacedDigit()
+                    // A side with only cash (a buy's Paid, a sale's Received) shows the cash.
+                    Text(Format.money(lines.isEmpty ? (cash ?? 0) : total)).font(.display(22)).tracking(-0.6).monospacedDigit()
                 }
                 VStack(spacing: 0) {
                     ForEach(Array(lines.enumerated()), id: \.offset) { i, line in
