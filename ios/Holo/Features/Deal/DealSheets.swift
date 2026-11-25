@@ -542,7 +542,8 @@ struct DealCloseSheet: View {
                         }
                         // The deal page's card as a summary (the owner's call): the same verdict, amount
                         // and figures, nothing to change here.
-                        dealSummaryCard(totals: t, role: deals.role, agreed: deal.agreedCash != nil)
+                        dealSummaryCard(totals: t, role: deals.role, agreed: deal.agreedCash != nil,
+                                        tagKind: DealKind(rawValue: UserDefaults.standard.string(forKey: "deal-path") ?? ""))
                         if !deal.incoming.isEmpty { sideRow(.incoming, deal.incoming, t.inValue) }
                         if !deal.outgoing.isEmpty { sideRow(.outgoing, deal.outgoing, t.outValue) }
                         let fx = deals.effects(deal)

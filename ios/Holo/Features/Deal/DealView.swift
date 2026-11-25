@@ -140,7 +140,8 @@ struct DealView: View {
                                                            onEditCash: { startEditingCash(totals) }, onClearAgreed: clearAgreed,
                                                            extra: rate,
                                                            onEditMarket: { startEditingMarket(totals) },
-                                                           marketAgreed: marketSide.map { deals.marketAgreed(on: $0) } ?? false))
+                                                           marketAgreed: marketSide.map { deals.marketAgreed(on: $0) } ?? false,
+                                                           tagKind: dealPath))
                                    })
                         .alert(confirmKind.map { dropTitle($0) } ?? "", isPresented: Binding(get: { confirmKind != nil }, set: { if !$0 { confirmKind = nil } })) {
                             Button("Cancel", role: .cancel) { confirmKind = nil }
@@ -1034,8 +1035,8 @@ struct TermSheet: View {
 /// goes pink, so there's never pink on lime.
 /// The deal card as a read-only summary (the review screen). Built here because the card's own
 /// initializer is file-private (it has private state).
-@MainActor func dealSummaryCard(totals: DealTotals, role: DealRole, agreed: Bool, past: Bool = false) -> some View {
-    BalanceCard(totals: totals, role: role, read: nil, roundTo: nil, onRound: {}, agreed: agreed, readOnly: true, past: past)
+@MainActor func dealSummaryCard(totals: DealTotals, role: DealRole, agreed: Bool, past: Bool = false, tagKind: DealKind? = nil) -> some View {
+    BalanceCard(totals: totals, role: role, read: nil, roundTo: nil, onRound: {}, agreed: agreed, readOnly: true, past: past, tagKind: tagKind)
 }
 
 private struct BalanceCard: View {
@@ -1065,6 +1066,8 @@ private struct BalanceCard: View {
     var marketAgreed = false
     /// A closed deal: the verdict in the past tense ("You made a profit").
     var past = false
+    /// The deal type picked (Trade stays Trade even while one side is still empty).
+    var tagKind: DealKind? = nil
     /// The breakdown under the big figure (what comes in and goes out, the shares of market,
     /// notes on the total), folded away until wanted: the figure and one verdict are enough.
     @State private var details = false
@@ -1080,7 +1083,7 @@ private struct BalanceCard: View {
         let shape = RoundedRectangle(cornerRadius: 24, style: .continuous)
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                SkewTag(text: empty ? "New deal" : t.kind.label, color: fill, textColor: down ? .white : Theme.ink)
+                SkewTag(text: empty ? "New deal" : (tagKind == .trade ? DealKind.trade.label : t.kind.label), color: fill, textColor: down ? .white : Theme.ink)
                 Spacer()
                 if t.belowCost > 0 {
                     Label("\(t.belowCost) below cost", systemImage: "exclamationmark.triangle.fill")
