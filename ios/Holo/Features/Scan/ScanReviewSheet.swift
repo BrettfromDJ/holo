@@ -53,7 +53,7 @@ struct ScanReviewSheet: View {
                         .accessibilityLabel("Back to camera")
                     }
                     .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 6, leading: 20, bottom: 4, trailing: 20))
+                    .listRowInsets(EdgeInsets(top: 18, leading: 16, bottom: 6, trailing: 16))
                     .listRowSeparator(.hidden)
                 }
                 ForEach(model.entries) { entry in
@@ -92,6 +92,10 @@ struct ScanReviewSheet: View {
                 }
             }
             .scrollContentBackground(.hidden)
+            // Plain rows to the sheet's 16pt margin (the grouped style added another inset on each
+            // side: far too much padding inside the sheet).
+            .listStyle(.plain)
+            .scrollIndicators(.hidden)
             .onAppear { if let focus { proxy.scrollTo(focus, anchor: .center) } }
         }
         .safeAreaInset(edge: .bottom) {
@@ -124,7 +128,7 @@ struct ScanReviewSheet: View {
     /// The scan's defaults in one line (tap to change), then the Add button. Sits on the sheet's
     /// glass under a hairline.
     private var footer: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 10) {
             // The defaults every card starts from: bought at market or pulled, portfolio, date,
             // where, shipping. A card's own purchase details (its row's Edit) override them.
             Button { editingDetails = true } label: {
@@ -135,9 +139,8 @@ struct ScanReviewSheet: View {
                     Spacer(minLength: 6)
                     Text("Edit").font(.geist(13, .semibold)).foregroundStyle(Theme.lime)
                 }
-                .padding(.horizontal, 14).frame(height: 40)
-                .background(Color.white.opacity(0.07), in: Capsule())
-                .contentShape(Capsule())
+                .padding(.horizontal, 2).frame(height: 30)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             Button {
@@ -155,7 +158,7 @@ struct ScanReviewSheet: View {
                     Text("Add \(model.picks.count) to a list")
                 }
                 .font(.geist(15, .semibold)).foregroundStyle(.white)
-                .frame(maxWidth: .infinity).frame(height: 46)
+                .frame(maxWidth: .infinity).frame(height: 44)
                 .liquidGlass(in: Capsule(), interactive: true)
                 .contentShape(Capsule())
             }
@@ -164,9 +167,16 @@ struct ScanReviewSheet: View {
             .opacity(model.picks.isEmpty ? 0.45 : 1)
             .actionsSheet(isPresented: $pickingList, title: "Add to a list") { listActions }
         }
-        .padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 8)
-        .background(alignment: .top) { Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1) }
-        .background(Color.black.opacity(0.18))
+        .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 8)
+        // Solid, with a short fade above, so the rows scrolling under it don't show through
+        // (they did: names and pills behind Defaults and the buttons).
+        .background(alignment: .top) {
+            Theme.sheet.ignoresSafeArea(edges: .bottom)
+                .overlay(alignment: .top) {
+                    LinearGradient(colors: [Theme.sheet.opacity(0), Theme.sheet], startPoint: .top, endPoint: .bottom)
+                        .frame(height: 24).offset(y: -24)
+                }
+        }
     }
 
     /// Your lists (tap one to put every matched card on it) and New list… to name one right here.

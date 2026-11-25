@@ -127,6 +127,17 @@ struct ScanView: View {
                 // -HoloScanList opens the tray's list.
                 if Demo.value("-HoloScanSample") == "matched", let first = model.entries.first { editing = EditingScan(id: first.id) }
                 if ProcessInfo.processInfo.arguments.contains("-HoloScanList") { expanded = true }
+                // -HoloScanReview opens the review sheet (after a few more made-up scans).
+                if ProcessInfo.processInfo.arguments.contains("-HoloScanReview") {
+                    for id in ["sample:mew-ex-gold", "sample:pikachu-ex-ss", "sample:charizard-ex-of"] {
+                        if let q = store.products[id] {
+                            let c = ScanCandidate(product: q, printing: nil, printings: q.printings ?? [], market: store.marketPrice(q.id, printing: q.printings?.first)?.market, score: 0.9)
+                            model.add(matched: ScanResult(status: "matched", message: nil, read: nil, candidates: [c], scansRemaining: nil), photo: Data(), thumbnail: nil)
+                        }
+                    }
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                    reviewing = true
+                }
             } else if Demo.isOn, let kind = Demo.value("-HoloScanSample") {
                 let ids = ["sample:charizard-ex-151", "sample:charizard-ex-of", "sample:mew-ex-gold", "sample:pikachu-ex-ss"]
                 let candidates = kind == "retake" ? [] : ids.compactMap { id in
@@ -736,39 +747,56 @@ struct ScanListRow: View {
         let p = entry.picked!.product
         HStack(alignment: .top, spacing: 12) {
             Button(action: onOpen) {
-                ProductImage(product: p, cornerRadius: 6).frame(width: 62, height: 86)
+                ProductImage(product: p, cornerRadius: 4).frame(width: 52, height: 72)
             }
             .buttonStyle(.borderless)
             .accessibilityLabel("Open \(p.name)")
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 3) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(p.name).font(.geist(16, .semibold)).foregroundStyle(.white).lineLimit(1)
+                    // The name without its number (the line under says it): "Zapdos (30th Celebration)".
+                    Text(Self.shortName(p.name)).font(.geist(15, .semibold)).foregroundStyle(.white).lineLimit(1)
                     Spacer(minLength: 6)
-                    Text(Format.money(entry.value)).font(.geist(16, .semibold)).monospacedDigit().foregroundStyle(.white)
+                    Text(Format.money(entry.value)).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(.white)
                         .contentTransition(.numericText())
                 }
-                Text([p.number.map { "#\($0)" }, p.setName].compactMap { $0 }.joined(separator: " · "))
-                    .font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
-                if entry.isBestGuess || owned > 0 {
-                    HStack(spacing: 8) {
-                        if entry.isBestGuess { BestGuessLabel() }
-                        if owned > 0 { SkewTag(text: "Owned ×\(owned)", icon: "checkmark") }
+                // Set · number, then owned / best guess as one quiet line (no big tags).
+                HStack(spacing: 6) {
+                    Text([p.setName.map(Self.shortSet), p.number.map { "#\($0)" }].compactMap { $0 }.joined(separator: " · "))
+                        .lineLimit(1)
+                    if owned > 0 {
+                        HStack(spacing: 3) {
+                            Image(systemName: "checkmark").font(.system(size: 9, weight: .heavy)).foregroundStyle(Theme.lime)
+                            Text("Owned ×\(owned)")
+                        }
+                        .fixedSize()
                     }
-                    .padding(.top, 2)
+                    if entry.isBestGuess { BestGuessLabel().fixedSize() }
                 }
+                .font(.geist(12)).foregroundStyle(Theme.muted)
                 // Printing, condition and how you got it, side by side in one row.
                 if !inDeal {
                     HStack(spacing: 6) {
                         ScanEditMenus(entry: entry, setPrinting: setPrinting, setCondition: setCondition)
                         if let onPurchase { purchasePill(onPurchase) }
                     }
-                    .padding(.top, 6)
+                    .padding(.top, 5)
                 }
             }
         }
-        .padding(.vertical, 12)
+        .padding(.vertical, 10)
         .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1) }
         .contentShape(Rectangle())
+    }
+
+    /// "Zapdos - 098 (30th Celebration)" → "Zapdos (30th Celebration)", "Chespin -  058" → "Chespin".
+    static func shortName(_ name: String) -> String {
+        name.replacingOccurrences(of: #"\s+-\s+[A-Za-z]{0,5}\s?\d{1,3}(/[A-Za-z]*\d+)?"#, with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespaces)
+    }
+
+    /// "SV: Prismatic Evolutions" → "Prismatic Evolutions" (the game code adds nothing here).
+    static func shortSet(_ set: String) -> String {
+        set.replacingOccurrences(of: #"^[A-Z0-9]{1,5}:\s*"#, with: "", options: .regularExpression)
     }
 
     /// "Bought $X" (or "Pulled") with a lime pencil: the purchase details.
@@ -785,7 +813,7 @@ struct ScanListRow: View {
             }
             .font(.geist(13, .semibold))
             .lineLimit(1)
-            .padding(.horizontal, 10).frame(height: 32)
+            .padding(.horizontal, 10).frame(height: 30)
             .background(Capsule().fill(Color.white.opacity(p.own ? 0.14 : 0.1)))
             .contentShape(Capsule())
         }
@@ -882,7 +910,7 @@ private struct ScanEditMenus: View {
                 Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.muted)
             }
             .foregroundStyle(.white)
-            .padding(.horizontal, 10).frame(height: 32)
+            .padding(.horizontal, 10).frame(height: 30)
             .background(Capsule().fill(Color.white.opacity(0.1)))
             .contentShape(Capsule())
         }
