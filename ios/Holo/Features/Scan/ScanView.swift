@@ -80,6 +80,7 @@ struct ScanView: View {
             if g.translation.height > 120 && abs(g.translation.width) < g.translation.height { dismiss() }
         })
         .onAppear {
+            ScanCatalog.shared.prepare()
             wire()
             // The note's button starts the camera the first time (its prompt follows the note).
             if !cameraNote { camera.start() }

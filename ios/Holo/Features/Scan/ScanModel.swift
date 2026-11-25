@@ -60,6 +60,9 @@ final class ScanModel {
     private var conditionRows: [String: [ConditionPrice]] = [:]
     private var printingPrices: [String: [Price]] = [:]
     private var fetching: Set<String> = []
+    /// Scans found in the phone's own card list (no price yet) waiting for their price before
+    /// they're handed to a deal, which needs the market price when a card is added.
+    private var handLater: Set<UUID> = []
     /// Try reading the card on the phone before the paid scan (off in demo, where the catalog search isn't real).
     var onDeviceFirst = !Demo.isOn
 
@@ -136,7 +139,12 @@ final class ScanModel {
             e.priceNote = "eBay sales at this grade"
         } else {
             let printing = e.printing ?? c.printing
-            let nm = printingPrices[id]?.first(where: { $0.printing == printing })?.market ?? (printing == c.printing ? c.market : nil) ?? c.market
+            // A card found in the phone's own list comes without a printing or price: once the
+            // prices arrive, take the first printing that has one.
+            if printing == nil, let first = printingPrices[id]?.first(where: { $0.market != nil }) {
+                e.printing = first.printing
+            }
+            let nm = printingPrices[id]?.first(where: { $0.printing == (e.printing ?? printing) })?.market ?? (printing == c.printing ? c.market : nil) ?? c.market
             if let nm, !c.product.isSealed {
                 let condition = CardCondition(rawValue: e.condition) ?? .nearMint
                 let worth = WorthCalc.raw(nm: nm, condition: condition, ebay: EbaySalesCache.cached(id, printing: printing, market: nm),
@@ -168,6 +176,15 @@ final class ScanModel {
                 if !prices.isEmpty { self.printingPrices[id] = prices }
                 self.fetching.remove(id)
                 for i in self.entries.indices where self.entries[i].picked?.product.id == id { self.reprice(i) }
+                // Scans waiting on this price for a deal: give them it, then hand them over.
+                for i in self.entries.indices where self.handLater.contains(self.entries[i].id) && self.entries[i].picked?.product.id == id {
+                    self.handLater.remove(self.entries[i].id)
+                    let chosen = self.entries[i].printing
+                    let price = prices.first { $0.printing == chosen && $0.market != nil } ?? prices.first { $0.market != nil }
+                    self.entries[i].picked?.market = price?.market
+                    if self.entries[i].picked?.printing == nil { self.entries[i].picked?.printing = price?.printing }
+                    self.hand(i)
+                }
             }
         }
     }
@@ -193,7 +210,19 @@ final class ScanModel {
 
     @MainActor
     private func hand(_ i: Int) {
-        guard let onPick, let c = entries[i].picked else { return }
+        guard let onPick, var c = entries[i].picked else { return }
+        // Its price already fetched (the same card scanned before): fill it in.
+        if c.market == nil, let prices = printingPrices[c.product.id],
+           let price = prices.first(where: { $0.printing == (entries[i].printing ?? c.printing) && $0.market != nil }) ?? prices.first(where: { $0.market != nil }) {
+            c.market = price.market
+            if c.printing == nil { c.printing = price.printing }
+            entries[i].picked = c
+        }
+        // Found in the phone's card list: no price yet. Wait for it (a moment), then hand over.
+        if c.market == nil, c.slabMarket == nil, !c.product.isSealed, fetching.contains(c.product.id) {
+            handLater.insert(entries[i].id)
+            return
+        }
         let result = onPick(c, entries[i].result?.read)
         entries[i].note = result.note
         entries[i].rejected = !result.ok

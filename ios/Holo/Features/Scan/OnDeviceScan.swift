@@ -92,6 +92,14 @@ enum OnDeviceScan {
     /// The scanner's own quick lookup (one request); the general search (name, number and both,
     /// at once) only if that fails. One list, each product once.
     static func searches(_ reading: Reading) async -> [SearchHit] {
+        // The card list kept on the phone first (milliseconds). The server too only when the
+        // phone's list has nothing for this number (a set newer than the list) or isn't ready.
+        if let local = ScanCatalog.shared.hits(for: reading) {
+            let covered = reading.number.isEmpty
+                ? !local.isEmpty
+                : local.contains { strictNumber($0.product.number, reading.number) || closeNumber($0.product.number, reading.number) }
+            if covered { return local }
+        }
         if let hits = try? await Backend.shared.api.scanLookup(name: reading.name, number: reading.number) {
             var seen = Set<String>()
             return hits.filter { !$0.product.isSealed && seen.insert($0.product.id + "|" + ($0.printing ?? "")).inserted }

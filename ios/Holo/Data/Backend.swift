@@ -81,6 +81,18 @@ final class HoloAPI {
         return (hits, page.total ?? (offset + page.products.count), page.products.count, page.fuzzy ?? false)
     }
 
+    /// Every English Pokémon single, packed small, for the scanner to keep on the phone
+    /// (`ScanCatalog`). Raw bytes, saved as they come. No sign-in sent: it's the same for
+    /// everyone, and cached at the edge.
+    func scanIndex() async throws -> Data {
+        var req = URLRequest(url: base.appendingPathComponent("api/scan/index"))
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.timeoutInterval = 60
+        let (data, response) = try await session.data(for: req)
+        guard ((response as? HTTPURLResponse)?.statusCode ?? 0) == 200 else { throw HoloError.server(code: nil, message: "No card list.") }
+        return data
+    }
+
     /// The scanner's one quick lookup after reading a card: singles with that number (its set
     /// total as read or one off) and singles whose name starts with what was read.
     func scanLookup(name: String?, number: String) async throws -> [SearchHit] {
