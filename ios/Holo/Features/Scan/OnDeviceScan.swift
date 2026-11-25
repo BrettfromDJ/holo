@@ -17,6 +17,9 @@ enum OnDeviceScan {
         /// The collector number as printed, e.g. "215/203" or "TG05/TG30"; empty when only the
         /// name could be read (then pictures decide).
         var number: String
+        /// Japanese text on the card: it's looked up among Japanese cards (the English list on
+        /// the phone had an English card with the same number, and named it).
+        var japanese = false
     }
 
     /// Identify a raw card in a photo, or nil when not sure.
@@ -103,6 +106,11 @@ enum OnDeviceScan {
     /// The scanner's own quick lookup (one request); the general search (name, number and both,
     /// at once) only if that fails. One list, each product once.
     static func searches(_ reading: Reading) async -> [SearchHit] {
+        // A Japanese card: the server's lookup, kept to Japanese cards (the phone's list is English).
+        if reading.japanese {
+            let hits = (try? await Backend.shared.api.scanLookup(name: nil, number: reading.number)) ?? []
+            return hits.filter { ($0.gameName ?? "").localizedCaseInsensitiveContains("japan") && !$0.product.isSealed }
+        }
         // The card list kept on the phone first (milliseconds). The server too only when the
         // phone's list has nothing for this number (a set newer than the list) or isn't ready.
         if let local = ScanCatalog.shared.hits(for: reading) {
@@ -236,7 +244,9 @@ enum OnDeviceScan {
             }
             request.recognitionLevel = .accurate
             request.usesLanguageCorrection = false
-            request.recognitionLanguages = ["en-US"]
+            // Japanese too, so a Japanese card is known for one (its name can't be matched, but
+            // its number can, among Japanese cards).
+            request.recognitionLanguages = ["en-US", "ja-JP"]
             DispatchQueue.global(qos: .userInitiated).async {
                 // Reads the photo's own orientation from its EXIF data.
                 let handler = VNImageRequestHandler(data: jpeg, options: [:])
@@ -291,6 +301,9 @@ enum OnDeviceScan {
             } ?? nil
         // Neither a number nor a name: nothing to go on.
         if number.isEmpty && name == nil { return nil }
+        let japanese = lines.contains { $0.0.unicodeScalars.contains { (0x3040...0x30FF).contains($0.value) || (0x4E00...0x9FFF).contains($0.value) } }
+        // A Japanese card's name can't be matched to the catalog's English names.
+        if japanese { return number.isEmpty ? nil : Reading(name: nil, number: number, japanese: true) }
         return Reading(name: name, number: number)
     }
 

@@ -7,6 +7,8 @@ import Foundation
 /// summary.json).
 enum ScanTestLog {
     static let key = "scan-test-photos"
+    /// Bumped with each scanner change worth testing.
+    static let build = "2026-11-25 japanese"
 
     static var isOn: Bool {
         get { UserDefaults.standard.bool(forKey: key) }
@@ -24,6 +26,8 @@ enum ScanTestLog {
 
     /// One saved scan.
     struct Record: Codable {
+        /// Which scanner version made it (so a test zip says whether the phone had the latest).
+        var build: String? = ScanTestLog.build
         var id: String
         var date: String
         /// The phone's own read (nil: it wasn't sure, so it would have fallen back to CardSight).

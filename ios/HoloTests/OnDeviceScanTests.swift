@@ -100,4 +100,11 @@ final class OnDeviceScanTests: XCTestCase {
         // Numbers higher up (HP, damage) aren't the card number.
         XCTAssertEqual(OnDeviceScan.parse([("Vaporeon", box(top: 0.95)), ("Fighting Whirlpool 90", box(top: 0.4))])?.number, "")
     }
+
+    func testJapaneseCardIsMarked() {
+        let r = OnDeviceScan.parse([("ホゲータex", box(top: 0.95)), ("124/103 SAR", box(top: 0.04))])
+        XCTAssertEqual(r?.japanese, true)
+        XCTAssertNil(r?.name)
+        XCTAssertEqual(r?.number, "124/103")
+    }
 }
