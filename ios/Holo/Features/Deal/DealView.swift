@@ -52,8 +52,7 @@ struct DealView: View {
     @State private var leaving = false
     @State private var dealOptions = false
     /// A switch to Buy or Sell that would drop the other side's cards: asked first.
-    @State private var pendingKind: KindPick?
-    struct KindPick: Identifiable { let kind: DealKind; var id: String { kind.rawValue } }
+
     @State private var renaming = false
     @State private var nameText = ""
     @AppStorage("deal-name") private var dealName = ""
@@ -195,22 +194,9 @@ struct DealView: View {
             .actionsSheet(isPresented: $dealOptions, title: "This deal") {
                 [[SheetAction(title: dealName.isEmpty ? "Name deal" : "Rename deal", icon: "pencil") { nameText = dealName; renaming = true },
                   SheetAction(title: "Change deal type", subtitle: dealPath.map { Self.pathTitle($0) }, icon: "arrow.left.arrow.right",
-                              children: [[DealKind.buy, .sell, .trade].map { k in
-                                  SheetAction(title: Self.pathTitle(k), checked: dealPath == k) { changeKind(to: k) }
-                              }])]
+                              children: [[DealKind.buy, .sell, .trade].map { k in kindRow(k) }])]
                  + (deals.deal.hasContent ? [SheetAction(title: "Park deal", subtitle: "Pick it up where you left off", icon: "pause") { parkNow() }] : []),
                  [SheetAction(title: "Delete deal", icon: "trash", destructive: true) { discardDeal() }]]
-            }
-            // Asked in our own small sheet (an Apple alert raised as the ⋯ sheet closed never showed).
-            .actionsSheet(item: $pendingKind, title: { dropPrompt(for: $0.kind) }) { pick in
-                [[SheetAction(title: "Remove and switch to \(Self.pathTitle(pick.kind).lowercased())", icon: "trash", destructive: true) {
-                    withAnimation(.snappy) {
-                        // Switch first, so emptying the deal doesn't send you back to the start.
-                        pathRaw = pick.kind.rawValue
-                        deals.update { d in if pick.kind == .buy { d.outgoing = [] } else { d.incoming = [] } }
-                    }
-                }],
-                 [SheetAction(title: "Keep both sides") {}]]
             }
             .alert("Name this deal", isPresented: $renaming) {
                 TextField("Untitled deal", text: $nameText)
@@ -529,20 +515,28 @@ struct DealView: View {
     }
 
     /// Park the deal under its name (or today's) and go back to the start.
-    /// Change what kind of deal this is. Going to Buy or Sell when the other side has cards asks
-    /// first (they'd be removed); nothing switches by itself as cards come and go.
-    private func changeKind(to k: DealKind) {
-        if k == .buy && !deals.deal.outgoing.isEmpty || k == .sell && !deals.deal.incoming.isEmpty {
-            pendingKind = KindPick(kind: k)
-        } else {
-            withAnimation(.snappy) { pathRaw = k.rawValue }
+    /// A deal type in the ⋯ sheet. Going to Buy or Sell when the other side has cards asks first,
+    /// on a page of the same sheet (a second sheet raised as this one closed looped); nothing
+    /// switches by itself as cards come and go.
+    private func kindRow(_ k: DealKind) -> SheetAction {
+        let dropping = k == .buy ? deals.deal.outgoing : k == .sell ? deals.deal.incoming : []
+        if dealPath == k || dropping.isEmpty {
+            return SheetAction(title: Self.pathTitle(k), checked: dealPath == k) {
+                guard dealPath != k else { return }
+                withAnimation(.snappy) { pathRaw = k.rawValue }
+            }
         }
-    }
-
-    private func dropPrompt(for k: DealKind) -> String {
-        let items = k == .buy ? deals.deal.outgoing : deals.deal.incoming
-        let n = items.reduce(0) { $0 + $1.qty }
-        return "Remove the \(n) card\(n == 1 ? "" : "s") you're \(k == .buy ? "selling" : "buying")?"
+        let n = dropping.reduce(0) { $0 + $1.qty }
+        let what = "\(n) card\(n == 1 ? "" : "s") you're \(k == .buy ? "selling" : "buying")"
+        return SheetAction(title: Self.pathTitle(k), children: [[
+            SheetAction(title: "Remove the \(what)", subtitle: "and switch to \(Self.pathTitle(k).lowercased())", icon: "trash", destructive: true) {
+                withAnimation(.snappy) {
+                    // Switch first, so emptying that side doesn't send you back to the start.
+                    pathRaw = k.rawValue
+                    deals.update { d in if k == .buy { d.outgoing = [] } else { d.incoming = [] } }
+                }
+            }
+        ]])
     }
 
     /// Throws the open deal away (its photos too) and goes back to the start.
