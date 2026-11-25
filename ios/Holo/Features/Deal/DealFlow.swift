@@ -51,7 +51,7 @@ struct DealStartPage: View {
                                 RowMoreButton(label: entry.name) { acting = entry }
                                     .padding(.trailing, -10)
                             }
-                            .overlay(alignment: .top) { if i > 0 { Rectangle().fill(Theme.border).frame(height: 1) } }
+                            .overlay(alignment: .top) { if i > 0 { Rectangle().fill(Theme.border).frame(height: 1).padding(.leading, DealListRow.textInset) } }
                         }
                     }
                 }
@@ -83,18 +83,23 @@ struct DealStartPage: View {
     private func choice(_ k: DealKind, icon: String, title: String, line: String) -> some View {
         Button { onPick(k) } label: {
             HStack(spacing: 14) {
-                Image(systemName: icon).font(.system(size: 17, weight: .semibold)).foregroundStyle(.white)
-                    .frame(width: 44, height: 44)
-                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.08)))
+                Image(systemName: icon).font(.system(size: 18, weight: .bold)).foregroundStyle(k.onTint)
+                    .frame(width: 46, height: 46)
+                    .background(RoundedRectangle(cornerRadius: 13, style: .continuous)
+                        .fill(LinearGradient(colors: [k.tint, k.tintDeep], startPoint: .top, endPoint: .bottom)))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).font(.geist(17, .semibold)).foregroundStyle(.white)
                     Text(line).font(.geist(13)).foregroundStyle(Theme.muted)
                 }
                 Spacer(minLength: 8)
-                Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.subtle)
+                Image(systemName: "chevron.right").font(.system(size: 15, weight: .semibold)).foregroundStyle(k.tint)
             }
             .padding(14)
+            // Each choice in its own colour (the owner's mockup): blue buy, lime sell, purple trade.
+            .background(RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(LinearGradient(colors: [k.tint.opacity(0.22), k.tint.opacity(0.05)], startPoint: .leading, endPoint: .trailing)))
             .liquidGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(k.tint.opacity(0.4), lineWidth: 1))
             .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -138,27 +143,57 @@ struct DealListRow: View {
     var note: String
     var noteTint: Color? = nil
     var divider: Bool
+    /// Where the row's text starts: dividers begin here, not under the icon.
+    static let textInset: CGFloat = 54
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 14) {
             Image(systemName: kind == .buy ? "arrow.down.to.line" : kind == .sell ? "arrow.up.to.line" : "arrow.left.arrow.right")
-                .font(.system(size: 14, weight: .semibold)).foregroundStyle(.white)
-                .frame(width: 38, height: 38)
-                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.white.opacity(0.07)))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.geist(15, .medium)).foregroundStyle(.white).lineLimit(1)
-                Text(line).font(.geist(12)).foregroundStyle(Theme.muted).lineLimit(1)
+                .font(.system(size: 15, weight: .semibold)).foregroundStyle(kind.tint)
+                .frame(width: 40, height: 40)
+                .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(kind.tint.opacity(0.16)))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(.geist(16, .medium)).foregroundStyle(.white).lineLimit(1)
+                kindLine.font(.geist(13)).lineLimit(1)
             }
             Spacer(minLength: 8)
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(Format.money(amount)).font(.geist(15, .semibold)).monospacedDigit().foregroundStyle(.white)
-                Text(note).font(.geist(12, noteTint == nil ? .regular : .semibold)).monospacedDigit().foregroundStyle(noteTint ?? Theme.subtle)
+            VStack(alignment: .trailing, spacing: 3) {
+                Text(Format.money(amount)).font(.geist(16, .semibold)).monospacedDigit().foregroundStyle(.white)
+                Text(note).font(.geist(13, noteTint == nil ? .regular : .semibold)).monospacedDigit().foregroundStyle(noteTint ?? Theme.subtle)
             }
         }
         .padding(.vertical, 12)
-        .overlay(alignment: .top) { if divider { Rectangle().fill(Theme.border).frame(height: 1) } }
+        .overlay(alignment: .top) { if divider { Rectangle().fill(Theme.border).frame(height: 1).padding(.leading, Self.textInset) } }
         .contentShape(Rectangle())
     }
+
+    /// "Trading · 2 cards": the kind word in its colour, the rest quiet.
+    private var kindLine: Text {
+        let word = DealView.pathTitle(kind)
+        guard line.hasPrefix(word) else { return Text(line).foregroundColor(Theme.muted) }
+        return Text(word).foregroundColor(kind.tint) + Text(String(line.dropFirst(word.count))).foregroundColor(Theme.muted)
+    }
+}
+
+/// Each deal kind's colour (the owner's mockup): blue buy, lime sell, purple trade.
+extension DealKind {
+    var tint: Color {
+        switch self {
+        case .buy: return Color(hex: 0x5B82FF)
+        case .sell: return Theme.lime
+        case .trade, .empty: return Color(hex: 0xA584FF)
+        }
+    }
+    /// The bottom of the icon tile's gradient.
+    var tintDeep: Color {
+        switch self {
+        case .buy: return Theme.planBlue
+        case .sell: return Color(hex: 0x9FE02A)
+        case .trade, .empty: return Color(hex: 0x7B5CF0)
+        }
+    }
+    /// The icon on a filled tile: dark on lime, white on the others.
+    var onTint: Color { self == .sell ? Theme.ink : .white }
 }
 
 // MARK: - The deal
