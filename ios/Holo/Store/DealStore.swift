@@ -23,6 +23,7 @@ final class DealStore {
 
     func reset() {
         saveTask?.cancel()
+        DealSnapshotFile.deleteAll()
         deal = DealState()
         defaults = DealRates()
         log = []
@@ -36,16 +37,37 @@ final class DealStore {
     @MainActor
     func load(userId: String) async {
         self.userId = userId
-        // Each key on its own: "no saved value yet" loads as empty, a failed load leaves that key
-        // unsynced (see logSynced) instead of looking like an empty list.
+        // What was here last time first (kept on the phone), so the Deal tab shows its parked and
+        // past deals at once; the server's copy replaces it a moment later.
+        if !loaded, let saved = await DealSnapshotFile.read(userId: userId) {
+            deal = saved.deal
+            defaults = saved.defaults
+            log = saved.log
+            parked = saved.parked
+            loaded = true
+        }
+        // The four lists together, not one after another.
+        async let dealLoad = attempt { try await UserState.load("deal", as: DealState.self) }
+        async let ratesLoad = attempt { try await UserState.load("deal-rates", as: DealRates.self) }
+        async let logLoad = attempt { try await UserState.load("deals", as: [DealRecord].self) }
+        async let parkedLoad = attempt { try await UserState.load("deals-parked", as: [ParkedDeal].self) }
+        let (d, r, l, pk) = await (dealLoad, ratesLoad, logLoad, parkedLoad)
         var failure: Error?
-        do { deal = try await UserState.load("deal", as: DealState.self) ?? DealState() } catch { failure = error }
-        do { defaults = try await UserState.load("deal-rates", as: DealRates.self) ?? DealRates() } catch { failure = error }
-        do { log = try await UserState.load("deals", as: [DealRecord].self) ?? []; logSynced = true } catch { failure = error }
-        do { parked = try await UserState.load("deals-parked", as: [ParkedDeal].self) ?? []; parkedSynced = true } catch { failure = error }
+        switch d { case .success(let v): deal = v ?? DealState(); case .failure(let e): failure = e }
+        switch r { case .success(let v): defaults = v ?? DealRates(); case .failure(let e): failure = e }
+        switch l { case .success(let v): log = v ?? []; logSynced = true; case .failure(let e): failure = e }
+        switch pk { case .success(let v): parked = v ?? []; parkedSynced = true; case .failure(let e): failure = e }
         self.error = failure?.localizedDescription
         loaded = true
+        keepOnPhone()
     }
+
+    /// A copy of the deal, rates, past and parked deals on the phone (per account; deleted on sign-out).
+    func keepOnPhone() {
+        guard let userId else { return }
+        DealSnapshotFile.write(DealSnapshot(userId: userId, deal: deal, defaults: defaults, log: log, parked: parked))
+    }
+
 
     var rates: (in: Double, out: Double) { rates(for: deal) }
 
@@ -83,6 +105,7 @@ final class DealStore {
     /// Save the closed deals. If the account's list didn't load, read it first and keep both.
     @MainActor
     private func saveLog() async {
+        keepOnPhone()
         guard let userId else { return }
         if !logSynced {
             do {
@@ -141,6 +164,7 @@ final class DealStore {
     /// Save the parked list. If the account's list didn't load, read it first and keep both.
     @MainActor
     private func saveParked() async {
+        keepOnPhone()
         guard savesParked, let userId else { return }
         if !parkedSynced {
             do {
@@ -295,6 +319,7 @@ final class DealStore {
 
     @MainActor
     private func scheduleSave() {
+        keepOnPhone()
         saveTask?.cancel()
         let snapshot = deal
         let userId = userId
@@ -443,4 +468,58 @@ final class DealStore {
         add(DealItem(key: "h:\(h.identity.key)", product: p, printing: h.identity.printing, market: h.price, holdingKey: h.identity.key, maxQty: Int(h.quantity)), to: .outgoing)
         return (true, "Added to going out")
     }
+}
+
+
+/// The Deal tab's lists as they were, kept on the phone so the tab opens on them at once.
+struct DealSnapshot: Codable {
+    var userId: String
+    var deal: DealState
+    var defaults: DealRates
+    var log: [DealRecord]
+    var parked: [ParkedDeal]
+}
+
+enum DealSnapshotFile {
+    private static let queue = DispatchQueue(label: "holo.deal-snapshot", qos: .utility)
+
+    private static var folder: URL? {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("DealSnapshots", isDirectory: true)
+    }
+
+    private static func fileURL(_ userId: String) -> URL? {
+        let safe = String(userId.lowercased().filter { $0.isLetter || $0.isNumber || $0 == "-" })
+        guard !safe.isEmpty else { return nil }
+        return folder?.appendingPathComponent("deals-\(safe).json")
+    }
+
+    static func read(userId: String) async -> DealSnapshot? {
+        guard let url = fileURL(userId) else { return nil }
+        return await withCheckedContinuation { c in
+            queue.async {
+                let snap = (try? Data(contentsOf: url)).flatMap { try? JSONDecoder().decode(DealSnapshot.self, from: $0) }
+                c.resume(returning: snap?.userId == userId ? snap : nil)
+            }
+        }
+    }
+
+    static func write(_ snapshot: DealSnapshot) {
+        guard let url = fileURL(snapshot.userId), let folder else { return }
+        queue.async {
+            try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            if let data = try? JSONEncoder().encode(snapshot) { try? data.write(to: url, options: .atomic) }
+        }
+    }
+
+    /// On sign-out: nobody's deals stay on the phone.
+    static func deleteAll() {
+        guard let folder else { return }
+        queue.async { try? FileManager.default.removeItem(at: folder) }
+    }
+}
+
+/// An async throwing call as a Result (Result(catching:) can't await).
+func attempt<T>(_ body: () async throws -> T) async -> Result<T, Error> {
+    do { return .success(try await body()) } catch { return .failure(error) }
 }

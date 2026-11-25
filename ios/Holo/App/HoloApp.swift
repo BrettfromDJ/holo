@@ -128,9 +128,11 @@ struct RootView: View {
                                 // Portfolios load alongside, so the selected one applies to the
                                 // collection saved on the phone as soon as it shows.
                                 let portfolios = Task { await groups.load(userId: userId, store: store) }
+                                // The Deal tab's lists alongside the collection, not after it.
+                                let dealLists = Task { await deals.load(userId: userId) }
                                 await store.load(userId: userId)
                                 await portfolios.value
-                                await deals.load(userId: userId)
+                                await dealLists.value
                             }
                             await grading.load(userId: store.demo == nil ? userId : nil)
                             // Slabs marked CGC Pristine 10 are priced apart; the marks arrive after the first pricing.
