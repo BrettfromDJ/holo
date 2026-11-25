@@ -225,8 +225,19 @@ struct ScanView: View {
             let h = min(geo.size.height * 0.86, geo.size.width * 0.62 * 88 / 63)
             let w = h * 63 / 88
             ZStack {
-                // No still frame (removed by the owner: the card sat high in its thumbnail); only the
-                // live outline hugging the card shows where it is.
+                // The still guide (back by the owner's call); it gives way to the live outline once a
+                // card is followed steadily (`isTracking` settles first, so the two never flicker).
+                TrackingFade(tracker: tracker) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .strokeBorder(Theme.lime, lineWidth: 2)
+                            .shadow(color: Theme.lime.opacity(0.6), radius: 6)
+                            .frame(width: w, height: h)
+                        ScanSweep(height: h)
+                            .frame(width: w - 16, height: h)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
+                }
                 // Its own view: it's the only part of the guide that watches the scans.
                 ReadingPill(model: model)
                     .frame(width: w, height: h, alignment: .bottom)

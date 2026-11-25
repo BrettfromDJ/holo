@@ -269,9 +269,15 @@ final class Camera: NSObject, ObservableObject {
         if (try? device.lockForConfiguration()) != nil {
             // On the combined camera, 1× is the ultra wide; start on the main lens's framing (where
             // it hands over), so it looks like before and switches to macro by itself up close.
-            if let first = device.virtualDeviceSwitchOverVideoZoomFactors.first {
-                device.videoZoomFactor = CGFloat(truncating: first)
-            }
+            // Then in closer (1.8× the main lens), as other scanners do: the card fills more of the
+            // picture, and you hold the phone a little farther off, where the main lens focuses
+            // sharply instead of handing over to the softer close-up (macro) camera. Kept short of
+            // the telephoto's hand-over.
+            let switches = device.virtualDeviceSwitchOverVideoZoomFactors.map { CGFloat(truncating: $0) }
+            let main = switches.first ?? 1
+            var zoom = main * 1.8
+            if switches.count > 1 { zoom = min(zoom, switches[1] * 0.95) }
+            device.videoZoomFactor = min(max(zoom, device.minAvailableVideoZoomFactor), device.maxAvailableVideoZoomFactor)
             if device.isFocusModeSupported(.continuousAutoFocus) { device.focusMode = .continuousAutoFocus }
             if device.isAutoFocusRangeRestrictionSupported { device.autoFocusRangeRestriction = .near }
             device.unlockForConfiguration()

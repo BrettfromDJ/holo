@@ -117,6 +117,8 @@ final class CardTracker {
 
     @ObservationIgnored private(set) var liveMatch: LiveMatch?
     @ObservationIgnored private var lastSeen: CFTimeInterval = 0
+    /// When the card now followed was first seen (the outline waits a moment before showing).
+    @ObservationIgnored private var firstSeen: CFTimeInterval?
     @ObservationIgnored private var steadyRef: CardQuad?
     @ObservationIgnored private var steadySince: CFTimeInterval = 0
     @ObservationIgnored private var identifying = false
@@ -137,17 +139,21 @@ final class CardTracker {
         guard active else { return }
         let now = CACurrentMediaTime()
         guard let raw else {
-            if quad != nil, now - lastSeen > 0.4 { reset() }
+            // Lost for a moment (a glint, a wobble): keep the outline where it was; only after
+            // 0.8 s is the card gone and the still frame comes back (no flicker between the two).
+            if quad != nil, now - lastSeen > 0.8 { reset() }
             return
         }
         lastSeen = now
+        if firstSeen == nil { firstSeen = now }
         if frameSize != frame { frameSize = frame }
         if let current = quad, current.distance(to: raw) < 0.12 {
             quad = current.blended(toward: raw, by: 0.5)
         } else {
             quad = raw
         }
-        if !isTracking { isTracking = true }
+        // Shown once it's held a quarter of a second, so a passing edge doesn't flash an outline.
+        if !isTracking, let first = firstSeen, now - first >= 0.25 { isTracking = true }
 
         // Held still for half a second: read it (once per steady card).
         if let ref = steadyRef, ref.distance(to: raw) < 0.03 {
@@ -163,6 +169,7 @@ final class CardTracker {
         generation += 1
         if quad != nil { quad = nil }
         if isTracking { isTracking = false }
+        firstSeen = nil
         liveMatch = nil
         steadyRef = nil
         missQuad = nil
@@ -220,7 +227,8 @@ struct CardTrackingOverlay: View {
 
     var body: some View {
         GeometryReader { geo in
-            if let quad = tracker.quad {
+            // Only once tracking has settled: the still frame and this are never on screen together.
+            if tracker.isTracking, let quad = tracker.quad {
                 let points = quad.viewPoints(frame: tracker.frameSize, view: geo.size)
                 if points.count == 4 {
                     let shape = CardQuadShape(points: points)
@@ -265,10 +273,19 @@ struct CardQuadShape: Shape {
         }
     }
 
+    /// Rounded corners like a real card's (the owner's call), sized to the card.
     func path(in rect: CGRect) -> Path {
         var path = Path()
         guard points.count == 4 else { return path }
-        path.addLines(points)
+        func mid(_ a: CGPoint, _ b: CGPoint) -> CGPoint { CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2) }
+        let side = min(hypot(points[0].x - points[1].x, points[0].y - points[1].y),
+                       hypot(points[1].x - points[2].x, points[1].y - points[2].y))
+        let radius = max(4, side * 0.07)
+        path.move(to: mid(points[3], points[0]))
+        for i in 0..<4 {
+            path.addArc(tangent1End: points[i], tangent2End: mid(points[i], points[(i + 1) % 4]), radius: radius)
+            path.addLine(to: mid(points[i], points[(i + 1) % 4]))
+        }
         path.closeSubpath()
         return path
     }
