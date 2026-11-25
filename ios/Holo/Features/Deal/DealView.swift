@@ -52,7 +52,8 @@ struct DealView: View {
     @State private var leaving = false
     @State private var dealOptions = false
     /// A switch to Buy or Sell that would drop the other side's cards: asked first.
-    @State private var pendingKind: DealKind?
+    @State private var pendingKind: KindPick?
+    struct KindPick: Identifiable { let kind: DealKind; var id: String { kind.rawValue } }
     @State private var renaming = false
     @State private var nameText = ""
     @AppStorage("deal-name") private var dealName = ""
@@ -200,16 +201,16 @@ struct DealView: View {
                  + (deals.deal.hasContent ? [SheetAction(title: "Park deal", subtitle: "Pick it up where you left off", icon: "pause") { parkNow() }] : []),
                  [SheetAction(title: "Delete deal", icon: "trash", destructive: true) { discardDeal() }]]
             }
-            .alert(pendingKind.map { dropPrompt(for: $0) } ?? "", isPresented: Binding(get: { pendingKind != nil }, set: { if !$0 { pendingKind = nil } })) {
-                Button("Cancel", role: .cancel) { pendingKind = nil }
-                Button("Remove and switch", role: .destructive) {
-                    guard let k = pendingKind else { return }
-                    pendingKind = nil
+            // Asked in our own small sheet (an Apple alert raised as the ⋯ sheet closed never showed).
+            .actionsSheet(item: $pendingKind, title: { dropPrompt(for: $0.kind) }) { pick in
+                [[SheetAction(title: "Remove and switch to \(Self.pathTitle(pick.kind).lowercased())", icon: "trash", destructive: true) {
                     withAnimation(.snappy) {
-                        deals.update { d in if k == .buy { d.outgoing = [] } else { d.incoming = [] } }
-                        pathRaw = k.rawValue
+                        // Switch first, so emptying the deal doesn't send you back to the start.
+                        pathRaw = pick.kind.rawValue
+                        deals.update { d in if pick.kind == .buy { d.outgoing = [] } else { d.incoming = [] } }
                     }
-                }
+                }],
+                 [SheetAction(title: "Keep both sides") {}]]
             }
             .alert("Name this deal", isPresented: $renaming) {
                 TextField("Untitled deal", text: $nameText)
@@ -532,7 +533,7 @@ struct DealView: View {
     /// first (they'd be removed); nothing switches by itself as cards come and go.
     private func changeKind(to k: DealKind) {
         if k == .buy && !deals.deal.outgoing.isEmpty || k == .sell && !deals.deal.incoming.isEmpty {
-            pendingKind = k
+            pendingKind = KindPick(kind: k)
         } else {
             withAnimation(.snappy) { pathRaw = k.rawValue }
         }
