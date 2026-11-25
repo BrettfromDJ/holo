@@ -161,11 +161,40 @@ while !timeUp(), let cursor = after {
     log("Fingerprinted \(total) so far (\(failed) pictures couldn't be read), \(Int(Date().timeIntervalSince(started) / 60)) min in.")
 }
 log("Done: \(total) cards fingerprinted, \(failed) skipped. Fingerprint size: \(seenDims.sorted()).")
+if !reasons.isEmpty {
+    log("Why pictures couldn't be read: " + reasons.sorted { $0.value > $1.value }.map { "\($0.value) \($0.key)" }.joined(separator: " · "))
+    log("First few:")
+    for e in examples { log("  " + e) }
+}
+
+/// Why pictures couldn't be read, tallied for the end of the run (and the first few named).
+let reasonLock = NSLock()
+var reasons: [String: Int] = [:]
+var examples: [String] = []
+func fail(_ card: Card, _ why: String) -> Print? {
+    reasonLock.lock()
+    reasons[why, default: 0] += 1
+    if examples.count < 25 { examples.append("\(why): \(card.productId) \(card.imageUrl)") }
+    reasonLock.unlock()
+    return nil
+}
 
 func make(_ card: Card) async -> Print? {
-    guard let url = URL(string: card.imageUrl),
-          let (data, resp) = try? await session.data(from: url),
-          (resp as? HTTPURLResponse)?.statusCode == 200,
-          let print = await fingerprintAsync(data) else { return nil }
+    guard let url = URL(string: card.imageUrl) else { return fail(card, "bad picture link") }
+    let fetched: (Data, URLResponse)
+    do { fetched = try await session.data(from: url) } catch {
+        let code = (error as? URLError)?.code
+        return fail(card, code == .timedOut ? "timed out" : "download failed (\(code.map { "\($0.rawValue)" } ?? "error"))")
+    }
+    let status = (fetched.1 as? HTTPURLResponse)?.statusCode ?? 0
+    guard status == 200 else {
+        let why = status == 404 || status == 410 ? "not found (\(status))"
+            : status == 403 ? "refused (403)"
+            : status == 429 ? "too many requests (429)"
+            : "server said \(status)"
+        return fail(card, why)
+    }
+    if fetched.0.count < 200 { return fail(card, "empty picture") }
+    guard let print = await fingerprintAsync(fetched.0) else { return fail(card, "picture Vision couldn't read (\(fetched.1.mimeType ?? "unknown type"))") }
     return Print(productId: card.productId, imageUrl: card.imageUrl, print: print)
 }
