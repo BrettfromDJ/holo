@@ -43,4 +43,24 @@ final class OnDeviceScanTests: XCTestCase {
         XCTAssertFalse(OnDeviceScan.sameNumber("214/203", "215/203"))
         XCTAssertFalse(OnDeviceScan.sameNumber(nil, "215/203"))
     }
+
+    func testSubsetNumberBesideTheRealOne() {
+        // 30th Celebration cards print "031/128 09/30": the set's own number wins.
+        let r = OnDeviceScan.parse([("Pikachu", box(top: 0.95)), ("031/128 09/30", box(top: 0.04))])
+        XCTAssertEqual(r?.number, "031/128")
+    }
+
+    func testNameMustFitTheCard() {
+        XCTAssertTrue(OnDeviceScan.nameAgrees("PASIC TerapagoseX", "Terapagos ex - 092/131"))
+        XCTAssertTrue(OnDeviceScan.nameAgrees("Pikachu", "Pikachu - 031/128"))
+        XCTAssertTrue(OnDeviceScan.nameAgrees(nil, "Seaking"))
+        XCTAssertFalse(OnDeviceScan.nameAgrees("A SIC", "Basic Grass Energy - 009 (30th Celebration)"))
+    }
+
+    func testTotalOneOff() {
+        XCTAssertTrue(OnDeviceScan.closeNumber("021/131", "021/130"))
+        XCTAssertFalse(OnDeviceScan.closeNumber("021/131", "021/131"))
+        XCTAssertFalse(OnDeviceScan.closeNumber("022/131", "021/130"))
+        XCTAssertFalse(OnDeviceScan.closeNumber("021/142", "021/130"))
+    }
 }

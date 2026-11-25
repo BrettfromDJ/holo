@@ -28,47 +28,102 @@ enum OnDeviceScan {
     /// Text first; when the text narrows it to several cards (or only a name was read), picture
     /// matching (`CardFingerprint`) picks the one the photo looks most like, if one clearly is.
     static func identifyWithReading(jpeg: Data) async -> (result: ScanResult?, reading: Reading?, note: String?) {
+        let began = Date()
+        var steps: [String] = []
+        func lap(_ what: String, _ from: Date) { steps.append(String(format: "%@ %.1fs", what, Date().timeIntervalSince(from))) }
+        func noted(_ how: String) -> String { ([how] + steps).joined(separator: " · ") }
         // The photo's fingerprint starts alongside the text reading (it's needed whenever the
         // text alone doesn't settle it) and is made once for both picture checks below.
         // (A plain task, so a scan settled by its text never waits for it.)
         let printing = Task { await CardFingerprint.fingerprint(of: jpeg) }
         let reading = await read(jpeg: jpeg)
+        lap("read", began)
         var why = reading == nil ? "no text" : "text unsure"
         if let reading {
-            if !reading.number.isEmpty, let hit = await lookUp(reading) { return (result(for: hit), reading, "text") }
-            let pool = await candidates(reading)
-            if !pool.isEmpty {
-                if let mine = await printing.value, let best = await CardFingerprint.best(print: mine, among: pool) {
+            // Every catalog search at once (they took a second or more each, one after another).
+            let searched = Date()
+            let hits = await searches(reading)
+            lap("search", searched)
+            let numbered = hits.filter { sameNumber($0.product.number, reading.number) }
+            // One card with that number, and the name read (if any) agrees: that's it.
+            if !reading.number.isEmpty, Set(numbered.map(\.product.id)).count == 1, let hit = numbered.first,
+               nameAgrees(reading.name, hit.product.name) {
+                return (result(for: hit), reading, noted("text"))
+            }
+            // A misread set total ("021/130" for 021/131): cards with the same number and a total one off.
+            let close = numbered.isEmpty ? hits.filter { closeNumber($0.product.number, reading.number) } : []
+            if Set(close.map(\.product.id)).count == 1, let hit = close.first, nameAgrees(reading.name, hit.product.name) {
+                return (result(for: hit), reading, noted("text, total one off"))
+            }
+            let pool = candidates(reading, hits: numbered.isEmpty ? close : numbered, all: hits)
+            if !pool.isEmpty, let mine = await printing.value {
+                let compared = Date()
+                let best = await CardFingerprint.best(print: mine, among: pool)
+                lap("picture", compared)
+                if let best {
                     let note = String(format: "picture %.2f vs %@ among %d", best.distance, best.next.map { String(format: "%.2f", $0) } ?? "none", pool.count)
-                    return (result(for: best.hit), reading, note)
+                    return (result(for: best.hit), reading, noted(note))
                 }
                 why = "picture unsure among \(pool.count)"
             }
         }
         // Last on the phone's side: the scan's picture against every card in the catalog.
-        if let mine = await printing.value, let best = await CardFingerprint.catalogMatch(print: mine) {
-            let note = String(format: "catalog picture %.2f vs %@", best.distance, best.next.map { String(format: "%.2f", $0) } ?? "none")
-            return (result(for: best.hit), reading, note)
+        if let mine = await printing.value {
+            let compared = Date()
+            let best = await CardFingerprint.catalogMatch(print: mine)
+            lap("catalog", compared)
+            if let best {
+                let note = String(format: "catalog picture %.2f vs %@", best.distance, best.next.map { String(format: "%.2f", $0) } ?? "none")
+                return (result(for: best.hit), reading, noted(note))
+            }
         }
-        return (nil, reading, why + ", catalog picture unsure")
+        return (nil, reading, noted(why + ", catalog picture unsure"))
     }
 
-    /// The cards the reading could be: ones with its number (and name, when read), else every
-    /// single with its name; one entry per product.
-    static func candidates(_ reading: Reading) async -> [SearchHit] {
-        var out: [SearchHit] = []
+    /// The name, the number and both together, searched at the same time; one list, each product once.
+    static func searches(_ reading: Reading) async -> [SearchHit] {
+        var queries: [String] = []
+        if let name = reading.name { queries.append(name) }
+        if !reading.number.isEmpty { queries.append(reading.number) }
+        if let name = reading.name, !reading.number.isEmpty { queries.append(name + " " + reading.number) }
+        let lists = await withTaskGroup(of: [SearchHit].self) { group in
+            for q in queries { group.addTask { (try? await Backend.shared.api.search(q)) ?? [] } }
+            var all: [[SearchHit]] = []
+            for await list in group { all.append(list) }
+            return all
+        }
         var seen = Set<String>()
-        func add(_ hits: [SearchHit]) {
-            for h in hits where !h.product.isSealed && !h.product.isHiddenFromBrowsing && seen.insert(h.product.id).inserted { out.append(h) }
-        }
-        if !reading.number.isEmpty {
-            let q = [reading.name, reading.number].compactMap { $0 }.joined(separator: " ")
-            if let hits = try? await Backend.shared.api.search(q) { add(hits.filter { sameNumber($0.product.number, reading.number) }) }
-            if out.isEmpty, let hits = try? await Backend.shared.api.search(reading.number) { add(hits.filter { sameNumber($0.product.number, reading.number) }) }
-        }
-        if out.isEmpty, let name = reading.name, let hits = try? await Backend.shared.api.search(name) {
+        return lists.flatMap { $0 }.filter { !$0.product.isSealed && !$0.product.isHiddenFromBrowsing && seen.insert($0.product.id + "|" + ($0.printing ?? "")).inserted }
+    }
+
+    /// Whether the name read fits the card (no name read: nothing to disagree with). Loose, as the
+    /// reader often runs words together ("TerapagoseX"): the card's first word, letters only, must
+    /// appear in what was read. Stops a stray small number ("09/30") naming the wrong card.
+    static func nameAgrees(_ read: String?, _ name: String) -> Bool {
+        guard let read else { return true }
+        func letters(_ s: String) -> String { s.lowercased().filter(\.isLetter) }
+        let seen = letters(read)
+        guard let first = name.split(separator: " ").first.map({ letters(String($0)) }), first.count >= 3 else { return true }
+        return seen.contains(first) || (seen.count >= 4 && first.contains(seen))
+    }
+
+    /// The same card number with a set total one off ("021/130" read for 021/131).
+    static func closeNumber(_ catalog: String?, _ read: String) -> Bool {
+        guard let catalog else { return false }
+        let a = catalog.split(separator: "/"), b = read.split(separator: "/")
+        guard a.count == 2, b.count == 2, sameNumber(String(a[0]), String(b[0])),
+              let x = Int(a[1].filter(\.isNumber)), let y = Int(b[1].filter(\.isNumber)) else { return false }
+        return abs(x - y) == 1
+    }
+
+    /// The cards the reading could be, from the searches already made: ones with its number,
+    /// else every single starting with its name; one entry per product.
+    static func candidates(_ reading: Reading, hits numbered: [SearchHit], all: [SearchHit]) -> [SearchHit] {
+        var seen = Set<String>()
+        var out = numbered.filter { seen.insert($0.product.id).inserted }
+        if out.isEmpty, let name = reading.name {
             let base = name.lowercased()
-            add(hits.filter { $0.product.name.lowercased().hasPrefix(base) })
+            out = all.filter { $0.product.name.lowercased().hasPrefix(base) && seen.insert($0.product.id).inserted }
         }
         return out
     }
@@ -130,10 +185,18 @@ enum OnDeviceScan {
         let pattern = #"\b([A-Z]{0,3}\d{1,3})\s*/\s*([A-Z]{0,3}\d{2,3})\b"#
         var numbers: [String] = []
         for (text, _) in lines {
-            if let r = text.range(of: pattern, options: .regularExpression) {
+            var from = text.startIndex
+            while let r = text.range(of: pattern, options: .regularExpression, range: from..<text.endIndex) {
                 let n = text[r].replacingOccurrences(of: " ", with: "")
                 if !numbers.contains(n) { numbers.append(n) }
+                from = r.upperBound
             }
+        }
+        // A card can carry a second, small subset number beside its own (30th Celebration's
+        // "031/128 09/30"): when one is out of 30 or fewer and another isn't, drop the small one.
+        func total(_ n: String) -> Int { Int(n.split(separator: "/").last?.filter(\.isNumber) ?? "") ?? 0 }
+        if numbers.count > 1, numbers.contains(where: { total($0) > 30 }) {
+            numbers.removeAll { total($0) <= 30 }
         }
         // Several cards in one photo: leave it to the server, which reads them all.
         guard numbers.count <= 1 else { return nil }
@@ -179,21 +242,14 @@ enum OnDeviceScan {
         return true
     }
 
-    /// One clear catalog match for the reading, or nil.
+    /// One clear catalog match for the reading, or nil (the live scanner's check).
     static func lookUp(_ reading: Reading) async -> SearchHit? {
         guard !reading.number.isEmpty else { return nil }
-        var queries: [String] = []
-        if let name = reading.name { queries.append(name) }
-        queries.append(reading.number)
-        for q in queries {
-            guard let hits = try? await Backend.shared.api.search(q) else { continue }
-            let matches = hits.filter { !$0.product.isSealed && sameNumber($0.product.number, reading.number) }
-            // One product (its printings come along with it): accept. More than one: let the
-            // server decide.
-            let ids = Set(matches.map(\.product.id))
-            if ids.count == 1, let hit = matches.first { return hit }
-        }
-        return nil
+        let numbered = await searches(reading).filter { sameNumber($0.product.number, reading.number) }
+        // One product (its printings come along with it) that fits the name read: accept. More
+        // than one: let the server decide.
+        guard Set(numbered.map(\.product.id)).count == 1, let hit = numbered.first, nameAgrees(reading.name, hit.product.name) else { return nil }
+        return hit
     }
 }
 

@@ -289,7 +289,7 @@ and say exactly what to run or click.
   `ProductDetailView`, web product page) opens the artist's page (app `Features/Artist/ArtistPage.swift`,
   web `/artist/<name>`), every card they drew, priciest first, from `/api/artists/<name>`.
 - Scanner: the phone reads first (`OnDeviceScan`: Apple's text recognition for name + number, then
-  the free catalog search; one clear match or it falls back), live (`CardTracker`) and on the shutter
+  the free catalog search, name / number / both searched at once (`searches`); one clear match whose name fits what was read (`nameAgrees`) or it falls back; a set total read one off (021/130 for 021/131) still matches (`closeNumber`); a small subset number beside the real one (30th Celebration's "09/30") is dropped; test scans' notes carry each step's seconds), live (`CardTracker`) and on the shutter
   (a crop of the tracked card); CardSight (server) gets the whole photo only when the phone isn't sure,
   or several cards are in it. Camera: combined camera (macro up close), 4K frames, a real photo per scan.
   Test-photo mode (Settings → Scanner, `ScanTestLog`): saves each scan's photo + both scanners'
