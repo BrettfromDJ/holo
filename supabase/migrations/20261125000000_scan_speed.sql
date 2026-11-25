@@ -10,5 +10,6 @@ create index if not exists products_number_trgm on public.products using gin (nu
 --    on the column. IVFFlat, not HNSW: HNSW took longer to build than the SQL editor allows.
 --    Searching 10 of the 100 groups keeps the nearest cards found while staying quick.
 alter table public.card_prints alter column print type vector(768);
+set maintenance_work_mem = '128MB';
 create index if not exists card_prints_ivf on public.card_prints using ivfflat (print vector_l2_ops) with (lists = 100);
 alter function public.match_card_prints(vector, int) set ivfflat.probes = 10;
