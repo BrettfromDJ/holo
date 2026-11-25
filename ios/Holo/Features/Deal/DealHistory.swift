@@ -529,8 +529,8 @@ struct DealHistoryView: View {
         let shown = self.shown
         let days = Self.days(shown)
         ScrollView {
-            VStack(alignment: .leading, spacing: 34) {
-                if !deals.parked.isEmpty { parkedSection }
+            // Tighter (the owner's call), and no Saved for later here: it lives on the Deal tab.
+            VStack(alignment: .leading, spacing: 22) {
                 if deals.log.isEmpty {
                     empty
                 } else {
@@ -541,7 +541,7 @@ struct DealHistoryView: View {
                     if let best = shown.filter({ ($0.aheadTotal ?? 0) > 0 }).max(by: { ($0.aheadTotal ?? 0) < ($1.aheadTotal ?? 0) }), shown.count > 1 {
                         NavigationLink(value: best) { BestDealCard(record: best) }.buttonStyle(.plain).reveal()
                     }
-                    VStack(alignment: .leading, spacing: 26) {
+                    VStack(alignment: .leading, spacing: 18) {
                         ChipPicker(options: Self.filters, selection: $filter)
                         if days.isEmpty {
                             let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -640,7 +640,7 @@ struct DealHistoryView: View {
                 + Text("\(Format.signedMoney(cash)) cash").foregroundColor(Theme.tone(cash)))
                 .font(.geist(15)).monospacedDigit()
             ProfitClimb(records: shown)
-                .padding(.top, 10)
+                .padding(.top, 4)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -749,7 +749,7 @@ private struct ProfitClimb: View {
             }
             .chartXAxis(.hidden)
             .chartYAxis(.hidden)
-            .frame(height: 110)
+            .frame(height: 72)
             .drawIn()
         }
     }
@@ -762,18 +762,17 @@ private struct BestDealCard: View {
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
         let lines = record.lines ?? []
-        HStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 10) {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
                 SkewTag(text: "Best deal", icon: "star.fill")
                 Text("\(record.kind.noun) · \(record.date.formatted(.dateTime.month(.abbreviated).day()))").font(.geist(15, .semibold)).foregroundStyle(.white)
-                Text(Format.signedMoney(record.aheadTotal)).font(.display(40)).tracking(-1.6).monospacedDigit().foregroundStyle(Theme.lime).displayTrim(40)
-                    .shadow(color: Theme.lime.opacity(0.4), radius: 12)
+                Text(Format.signedMoney(record.aheadTotal)).font(.display(30)).tracking(-1.1).monospacedDigit().foregroundStyle(Theme.lime).displayTrim(30)
             }
             Spacer(minLength: 0)
-            CardFanStack(lines: Array(lines.prefix(4)), size: CGSize(width: 54, height: 76))
-                .frame(width: 120, height: 100)
+            CardFanStack(lines: Array(lines.prefix(4)), size: CGSize(width: 44, height: 62))
+                .frame(width: 100, height: 76)
         }
-        .padding(18)
+        .padding(.horizontal, 16).padding(.vertical, 14)
         // A plain glass card (the electric border and glow were too much; the owner's clean-up).
         .liquidGlass(in: shape)
     }
