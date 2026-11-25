@@ -45,15 +45,26 @@ enum OnDeviceScan {
             let hits = await searches(reading)
             lap("search", searched)
             let numbered = hits.filter { strictNumber($0.product.number, reading.number) }
-            // One card with that number, and the name read (if any) agrees: that's it.
-            if !reading.number.isEmpty, Set(numbered.map(\.product.id)).count == 1, let hit = numbered.first,
-               numberIsEnough(reading.number) || nameAgrees(reading.name, hit.product.name) {
+            // The cards the name read could be, in a set of the same size (the number may be misread:
+            // "083/128" read for Mewtwo's 063/128 named a Lucario).
+            let total = reading.number.split(separator: "/").dropFirst().first.map(String.init)
+            let sameName = reading.name == nil ? [] : hits.filter {
+                nameAgrees(reading.name, $0.product.name) && total != nil
+                    && ($0.product.number ?? "").split(separator: "/").dropFirst().first.map { ScanCatalog.key(String($0)) } == ScanCatalog.key(total!)
+            }
+            // One card with that number (its pattern versions count as one), and the name read
+            // agrees, or isn't any card's name (an attack read as the name): that's it.
+            if !reading.number.isEmpty, let hit = oneCard(numbered),
+               nameAgrees(reading.name, hit.product.name) || (numberIsEnough(reading.number) && sameName.isEmpty) {
                 return (result(for: hit), reading, noted("text"))
             }
             // Several cards print that number (other games and sets): the name read picks one.
-            let named = numbered.filter { nameAgrees(reading.name, $0.product.name) && reading.name != nil }
-            if Set(named.map(\.product.id)).count == 1, let hit = named.first {
+            if let hit = oneCard(numbered.filter { reading.name != nil && nameAgrees(reading.name, $0.product.name) }) {
                 return (result(for: hit), reading, noted("text + name among \(Set(numbered.map(\.product.id)).count)"))
+            }
+            // The number names another card: the card with the name read, in a set that size.
+            if let hit = oneCard(sameName) {
+                return (result(for: hit), reading, noted("name + set size (number misread?)"))
             }
             // A misread set total ("021/130" for 021/131): cards with the same number and a total one off.
             var close = numbered.isEmpty ? hits.filter { closeNumber($0.product.number, reading.number) } : []
@@ -129,6 +140,24 @@ enum OnDeviceScan {
         // A partly read name ("eevee" read as "evee") counts only from 5 letters: "asic" sits
         // inside "basic" and named a Grass Energy.
         return seen.contains(first) || (seen.count >= 5 && first.contains(seen))
+    }
+
+    /// The one card these are, counting a card's pattern versions (Prismatic Evolutions' Poké Ball
+    /// and Master Ball patterns are their own products with the same number) as one: the plainest
+    /// name wins (the others are a tap away under Wrong card?). Nil when they're different cards.
+    static func oneCard(_ hits: [SearchHit]) -> SearchHit? {
+        guard let first = hits.first else { return nil }
+        if Set(hits.map(\.product.id)).count == 1 { return first }
+        func base(_ n: String) -> String {
+            n.replacingOccurrences(of: #"\s*[\(\[].*$"#, with: "", options: .regularExpression)
+                .replacingOccurrences(of: #"\s+-\s+\S+$"#, with: "", options: .regularExpression).lowercased()
+        }
+        let sameCard = hits.allSatisfy {
+            $0.product.setId == first.product.setId && sameNumber($0.product.number, first.product.number ?? "")
+                && base($0.product.name) == base(first.product.name)
+        }
+        guard sameCard else { return nil }
+        return hits.min { $0.product.name.count < $1.product.name.count }
     }
 
     /// A full collector number ("092/131") names one card by itself, even when the line read as
@@ -248,11 +277,33 @@ enum OnDeviceScan {
             .map { cleanName($0.0) }
             .first { n in
                 guard let n, n.count >= 3 else { return false }
-                return !notNames.contains(n.lowercased())
+                return !notNames.contains(n.lowercased()) && !looksLikeStage(n)
             } ?? nil
         // Neither a number nor a name: nothing to go on.
         if number.isEmpty && name == nil { return nil }
         return Reading(name: name, number: number)
+    }
+
+    /// A misread "BASIC" / "STAGE 1" label ("BASR", "STAOEJ"): within two letters of one.
+    static func looksLikeStage(_ s: String) -> Bool {
+        let t = s.lowercased().filter(\.isLetter)
+        guard t.count <= 7 else { return false }
+        return ["basic", "stage", "stagei"].contains { edits(t, $0) <= 2 }
+    }
+
+    private static func edits(_ a: String, _ b: String) -> Int {
+        let a = Array(a), b = Array(b)
+        var row = Array(0...b.count)
+        for i in 1...max(a.count, 1) where !a.isEmpty {
+            var prev = row[0]
+            row[0] = i
+            for j in 1...max(b.count, 1) where !b.isEmpty {
+                let cur = row[j]
+                row[j] = min(row[j] + 1, row[j - 1] + 1, prev + (a[i - 1] == b[j - 1] ? 0 : 1))
+                prev = cur
+            }
+        }
+        return a.isEmpty ? b.count : row[b.count]
     }
 
     /// "Umbreon VMAX HP310" → "Umbreon VMAX"; drops HP figures and stray symbols.
@@ -288,11 +339,9 @@ enum OnDeviceScan {
         let numbered = await searches(reading).filter { strictNumber($0.product.number, reading.number) }
         // One product (its printings come along with it) that fits the name read: accept. Several
         // with that number: the one whose name fits, if only one does. Else let the server decide.
-        if Set(numbered.map(\.product.id)).count == 1, let hit = numbered.first,
-           numberIsEnough(reading.number) || nameAgrees(reading.name, hit.product.name) { return hit }
+        if let hit = oneCard(numbered), nameAgrees(reading.name, hit.product.name) { return hit }
         guard reading.name != nil else { return nil }
-        let named = numbered.filter { nameAgrees(reading.name, $0.product.name) }
-        return Set(named.map(\.product.id)).count == 1 ? named.first : nil
+        return oneCard(numbered.filter { nameAgrees(reading.name, $0.product.name) })
     }
 }
 

@@ -75,4 +75,22 @@ final class OnDeviceScanTests: XCTestCase {
         XCTAssertFalse(OnDeviceScan.strictNumber("074", "074/131"))
         XCTAssertTrue(OnDeviceScan.strictNumber("074", "074"))
     }
+
+    func testMisreadStageLabelIsNotAName() {
+        XCTAssertTrue(OnDeviceScan.looksLikeStage("BASR"))
+        XCTAssertTrue(OnDeviceScan.looksLikeStage("STAOEJ"))
+        XCTAssertFalse(OnDeviceScan.looksLikeStage("Mewtwo"))
+        XCTAssertFalse(OnDeviceScan.looksLikeStage("Seaking"))
+        let r = OnDeviceScan.parse([("BASR", box(top: 0.97)), ("Mewtwo", box(top: 0.93)), ("063/128", box(top: 0.04))])
+        XCTAssertEqual(r?.name, "Mewtwo")
+    }
+
+    func testPatternVersionsCountAsOneCard() {
+        func hit(_ id: String, _ name: String) -> SearchHit {
+            SearchHit(product: Product(id: id, name: name, setId: "pre", number: "021/131", kind: "single"))
+        }
+        let picked = OnDeviceScan.oneCard([hit("2", "Seaking (Poke Ball Pattern)"), hit("1", "Seaking"), hit("3", "Seaking (Master Ball Pattern)")])
+        XCTAssertEqual(picked?.product.id, "1")
+        XCTAssertNil(OnDeviceScan.oneCard([hit("1", "Seaking"), hit("4", "Goldeen")]))
+    }
 }
