@@ -373,11 +373,14 @@ extension Camera: AVCaptureVideoDataOutputSampleBufferDelegate {
                 CardQuad(topLeft: r.topLeft, topRight: r.topRight, bottomRight: r.bottomRight, bottomLeft: r.bottomLeft)
             }
         }
+        // Only upright, card-shaped outlines (not the art or attack boxes inside a card).
+        quads = quads.filter { $0.isCardShaped(in: size) }
         // One card at a time: keep following the card from the last frame when it's still
-        // there; otherwise take the biggest in view.
+        // there; otherwise take the biggest in view. A bigger outline around the one followed is
+        // the card's own edge: switch to it.
         var quad: CardQuad?
         if let last = lastQuad, let same = quads.filter({ $0.distance(to: last) < 0.12 }).min(by: { $0.distance(to: last) < $1.distance(to: last) }) {
-            quad = same
+            quad = quads.filter { $0.area > same.area * 1.4 && $0.contains(same) }.max { $0.area < $1.area } ?? same
         } else {
             quad = quads.max { $0.area < $1.area }
         }

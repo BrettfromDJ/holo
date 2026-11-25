@@ -24,6 +24,26 @@ struct CardQuad: Equatable, Sendable {
         return abs(sum) / 2
     }
 
+    /// Upright and card-shaped (63:88, allowing for tilt) in a frame of `size` pixels. A card's
+    /// picture box or attack box is wide, not tall, so it's turned away (the scanner kept locking
+    /// onto those and cropping into the middle of the card).
+    func isCardShaped(in size: CGSize) -> Bool {
+        func px(_ p: CGPoint) -> CGPoint { CGPoint(x: p.x * size.width, y: p.y * size.height) }
+        func len(_ a: CGPoint, _ b: CGPoint) -> CGFloat { hypot(px(a).x - px(b).x, px(a).y - px(b).y) }
+        let w = (len(topLeft, topRight) + len(bottomLeft, bottomRight)) / 2
+        let h = (len(topLeft, bottomLeft) + len(topRight, bottomRight)) / 2
+        guard h > 0 else { return false }
+        let ratio = w / h
+        return ratio >= 0.58 && ratio <= 0.85
+    }
+
+    /// Whether `other` sits inside this one (its middle within this one's bounds).
+    func contains(_ other: CardQuad) -> Bool {
+        let xs = corners.map(\.x), ys = corners.map(\.y)
+        let mid = CGPoint(x: other.corners.map(\.x).reduce(0, +) / 4, y: other.corners.map(\.y).reduce(0, +) / 4)
+        return mid.x > (xs.min() ?? 0) && mid.x < (xs.max() ?? 0) && mid.y > (ys.min() ?? 0) && mid.y < (ys.max() ?? 0)
+    }
+
     /// The furthest any corner moved, in frame widths/heights.
     func distance(to other: CardQuad) -> CGFloat {
         zip(corners, other.corners).map { hypot($0.x - $1.x, $0.y - $1.y) }.max() ?? 0
