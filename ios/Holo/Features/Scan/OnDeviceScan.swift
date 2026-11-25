@@ -79,7 +79,7 @@ enum OnDeviceScan {
                     let jp = Reading(name: nil, number: reading.number, japanese: true)
                     let found = realSets((await searches(jp)).filter { strictNumber($0.product.number, jp.number) })
                     if let card = oneCard(found) { return (result(for: card), jp, noted("japanese, by number")) }
-                    return (nil, jp, noted("japanese, number unsure among \(found.count)"))
+                    return (nil, jp, noted("japanese, number unsure among \(found.count) (lookup gave \(lastJapaneseSeen ?? -1) cards\(lastLookupError.map { ", error: \($0)" } ?? ""))"))
                 }
                 return (result(for: hit), reading, noted("text (number)"))
             }
@@ -132,7 +132,15 @@ enum OnDeviceScan {
     static func searches(_ reading: Reading) async -> [SearchHit] {
         // A Japanese card: the server's lookup, kept to Japanese cards (the phone's list is English).
         if reading.japanese {
-            let hits = (try? await Backend.shared.api.scanLookup(name: nil, number: reading.number)) ?? []
+            // Tried twice: a blip shouldn't send a Japanese card to CardSight (it can't read them well).
+            var hits: [SearchHit] = []
+            for attempt in 0..<2 {
+                do { hits = try await Backend.shared.api.scanLookup(name: nil, number: reading.number); break } catch {
+                    lastLookupError = error.localizedDescription
+                    if attempt == 0 { try? await Task.sleep(nanoseconds: 300_000_000) }
+                }
+            }
+            lastJapaneseSeen = hits.count
             return hits.filter { ($0.gameName ?? "").localizedCaseInsensitiveContains("japan") && !$0.product.isSealed }
         }
         // The card list kept on the phone first (milliseconds). The server too only when the
@@ -228,7 +236,10 @@ enum OnDeviceScan {
         let a = catalog.split(separator: "/"), b = read.split(separator: "/")
         guard a.count == 2, b.count == 2, sameNumber(String(a[0]), String(b[0])),
               let x = Int(a[1].filter(\.isNumber)), let y = Int(b[1].filter(\.isNumber)) else { return false }
-        return abs(x - y) == 1
+        if abs(x - y) == 1 { return true }
+        // One digit misread ("021/137" for 021/131: a 1 read as a 7).
+        let a1 = Array(String(x)), b1 = Array(String(y))
+        return a1.count == b1.count && zip(a1, b1).filter { $0 != $1 }.count == 1
     }
 
     /// The cards the reading could be, from the searches already made: ones with its number,
@@ -273,6 +284,10 @@ enum OnDeviceScan {
                                                 "supporter", "stadium", "energy", "pokémon tool", "evolves from", "vmax", "vstar", "mega"]
     /// Slab labels: leave those to the server, which also reads the grade.
     private static let slabWords = ["psa", "bgs", "beckett", "cgc", "sgc", "gem mt", "gem mint", "pristine", "certified"]
+
+    /// For test notes: the last Japanese lookup's raw count, and the last lookup error.
+    nonisolated(unsafe) static var lastJapaneseSeen: Int?
+    nonisolated(unsafe) static var lastLookupError: String?
 
     /// Whether the card's text is Japanese: a quick Japanese-only read of the photo, kana or kanji
     /// in what comes back.
