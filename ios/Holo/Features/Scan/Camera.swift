@@ -429,8 +429,9 @@ extension Camera: AVCaptureVideoDataOutputSampleBufferDelegate {
         guard e.width > 0, e.height > 0 else { return nil }
         let h = min(e.height * 0.5, e.width * 0.8 * 88 / 63)
         let w = h * 63 / 88
-        // Core Image's origin is bottom-left; the guide sits a touch above the middle.
-        let rect = CGRect(x: e.midX - w / 2, y: e.minY + e.height * 0.52 - h / 2, width: w, height: h).intersection(e)
+        // Core Image's origin is bottom-left; cards held up sit above the middle (the owner's
+        // thumbnails showed the card high in a centred crop).
+        let rect = CGRect(x: e.midX - w / 2, y: e.minY + e.height * 0.58 - h / 2, width: w, height: h).intersection(e)
         var out = image.cropped(to: rect)
         out = out.transformed(by: CGAffineTransform(translationX: -rect.minX, y: -rect.minY))
         let long = max(out.extent.width, out.extent.height)

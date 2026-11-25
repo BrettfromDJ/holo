@@ -53,8 +53,8 @@ struct ScanView: View {
             CameraPreview(session: camera.session, running: camera.state == .running).ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture { shoot() }
-            // The lime outline hugging the card's edge as it's followed (back by the owner's call);
-            // the still guide gives way to it while a card is tracked.
+            // The lime outline hugging the card's edge as it's followed (back by the owner's call),
+            // the only frame on screen.
             CardTrackingOverlay(tracker: tracker, onTap: { shoot() })
             if flash { Color.white.opacity(0.7).ignoresSafeArea().transition(.opacity).allowsHitTesting(false) }
 
@@ -224,18 +224,8 @@ struct ScanView: View {
             let h = min(geo.size.height * 0.86, geo.size.width * 0.62 * 88 / 63)
             let w = h * 63 / 88
             ZStack {
-                // The still guide; it gives way to the live outline while a card is tracked.
-                TrackingFade(tracker: tracker) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .strokeBorder(Theme.lime, lineWidth: 2)
-                            .shadow(color: Theme.lime.opacity(0.6), radius: 6)
-                            .frame(width: w, height: h)
-                        ScanSweep(height: h)
-                            .frame(width: w - 16, height: h)
-                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    }
-                }
+                // No still frame (removed by the owner: the card sat high in its thumbnail); only the
+                // live outline hugging the card shows where it is.
                 // Its own view: it's the only part of the guide that watches the scans.
                 ReadingPill(model: model)
                     .frame(width: w, height: h, alignment: .bottom)
