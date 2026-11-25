@@ -822,16 +822,28 @@ private struct RecordedScreen: View {
     /// lime). Without every cost, a short note that the total isn't known.
     @ViewBuilder private func breakdown(_ t: DealTotals, ink: Color) -> some View {
         if t.ahead != nil {
-            let parts = [t.profit.map { "Sale profit \(Format.signedMoney($0))" },
-                         t.showsEquity ? "Potential profit \(Format.signedMoney(t.equity))" : nil].compactMap { $0 }
-            // Only when it's made of two parts (a trade); one part just repeats the big number.
-            if parts.count > 1 {
-                Text(parts.joined(separator: " · ")).font(.geist(14, .semibold)).monospacedDigit().foregroundStyle(ink)
-                    .lineLimit(1).minimumScaleFactor(0.75)
+            // A trade's profit in its two parts, each named as on the deal card with a plain line
+            // on where it comes from (one line of "Sale profit · Potential profit" was unclear).
+            // Only when there are two parts; one part just repeats the big number.
+            if let sale = t.profit, t.showsEquity {
+                HStack(alignment: .top, spacing: 28) {
+                    part(Format.signedMoney(sale), "Sale profit", "on the cards you traded away", ink: ink)
+                    part(Format.signedMoney(t.equity), "Trade-in value", "under market on what you got", ink: ink)
+                }
+                .padding(.top, 4)
             }
         } else if t.uncosted > 0 {
             Text("Total unknown: not every item had a\u{00A0}cost").font(.geist(12, .medium)).foregroundStyle(ink.opacity(0.65))
         }
+    }
+
+    private func part(_ value: String, _ label: String, _ line: String, ink: Color) -> some View {
+        VStack(spacing: 2) {
+            Text(value).font(.display(22)).tracking(-0.5).monospacedDigit().foregroundStyle(ink)
+            Text(label).font(.geist(13, .semibold)).foregroundStyle(ink)
+            Text(line).font(.geist(12)).foregroundStyle(ink.opacity(0.65)).multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: 150)
     }
 
     /// An ink receipt: each item with its side, quantity and price, then who paid.
