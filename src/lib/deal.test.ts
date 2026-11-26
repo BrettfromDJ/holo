@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { bestDeal, lineShare, marketAgreed, marketOf, profitClimb, recordTotals, unroundedDeal, withAgreedMarket, withCatalogMarket, withTypedMarket } from "./deal";
 import { DEFAULT_RATES, agreedDeal, rateForCash, roundStep, roundedCash, withAgreedCash, aheadTitle, dealDayTotals, dealKind, dealTotals, defaultSideRates, matchesDealSearch, parkedDealName, recordAhead, renegotiates, signedAgreedCash, unitPrice, type DealHistoryRecord, type DealLine } from "./deal";
 
 describe("deal maker", () => {
@@ -88,8 +89,10 @@ describe("deal maker", () => {
   });
 
   it("words the headline for open and closed deals", () => {
-    expect(aheadTitle(58)).toBe("You come out ahead");
-    expect(aheadTitle(-20, true)).toBe("You came out behind");
+    expect(aheadTitle(58)).toBe("You make a profit");
+    expect(aheadTitle(-20, true)).toBe("You took a loss");
+    expect(aheadTitle(-20)).toBe("You take a loss");
+    expect(aheadTitle(58, true)).toBe("You made a profit");
     expect(aheadTitle(0, true)).toBe("You broke even");
   });
 
@@ -318,5 +321,66 @@ describe("cash moves the slider", () => {
     const next = withAgreedCash(d, { in: 0.7, out: 1 }, 80);
     expect(next.rateOut).toBeNull();
     expect(settled(next, { in: 0.7, out: 1 }).balance).toBe(80);
+  });
+});
+
+describe("agreed market", () => {
+  it("shares the agreed total across lines by market, keeping each catalog price", () => {
+    const items: DealLine[] = [{ market: 60, qty: 1 }, { market: 20, qty: 2 }, { market: null, qty: 1, price: 5 }];
+    const next = withAgreedMarket(items, 80);
+    expect(next.map((l) => l.market)).toEqual([48, 16, null]);
+    expect(next.map((l) => l.catalogMarket ?? null)).toEqual([60, 20, null]);
+    expect(marketOf(next)).toBe(80);
+    expect(marketAgreed(next)).toBe(true);
+    // Agreeing again keeps the first catalog price; landing back on it forgets it.
+    const back = withAgreedMarket(next, 100);
+    expect(back.map((l) => l.market)).toEqual([60, 20, null]);
+    expect(back.map((l) => l.catalogMarket ?? null)).toEqual([null, null, null]);
+    expect(marketAgreed(back)).toBe(false);
+  });
+
+  it("re-prices lines at a % of market and resets to catalog", () => {
+    const next = withAgreedMarket([{ market: 100, qty: 1 }], 90);
+    expect(dealTotals(next, [], { in: 0.8, out: 1 }).inValue).toBe(72);
+    expect(withCatalogMarket(next)).toEqual([{ market: 100, qty: 1, catalogMarket: null }]);
+    expect(withAgreedMarket([{ market: 100, qty: 1 }], 0)).toEqual([{ market: 100, qty: 1 }]);
+  });
+
+  it("remembers the catalog price when one card's market is typed", () => {
+    const typed = withTypedMarket<DealLine>({ market: 20.89, qty: 1 }, 18);
+    expect(typed).toEqual({ market: 18, qty: 1, catalogMarket: 20.89 });
+    expect(withTypedMarket(typed, 17).catalogMarket).toBe(20.89);
+    expect(withTypedMarket(typed, 20.89).catalogMarket).toBeNull();
+  });
+});
+
+describe("rounding and shares", () => {
+  it("lets go of a rounded total with whole %s", () => {
+    expect(unroundedDeal({ rateIn: null, rateOut: 0.99623, agreedCash: 780 })).toEqual({ rateIn: null, rateOut: 1, agreedCash: undefined });
+  });
+
+  it("shows a line's true share only when it's off a whole %", () => {
+    expect(lineShare(5.54, 6.92)).toEqual({ label: "80", offWhole: false });
+    expect(lineShare(99.6, 100)).toEqual({ label: "99.6", offWhole: true });
+    expect(lineShare(10, null)).toBeNull();
+  });
+});
+
+describe("closed deal figures", () => {
+  const recs = [
+    { at: "2026-11-02T10:00:00.000Z", kind: "buy" as const, profit: null, equity: 30, ahead: 30, uncosted: 0, inValue: 70, outValue: 0, balance: -70 },
+    { at: "2026-11-01T10:00:00.000Z", kind: "sell" as const, profit: -10, equity: 0, ahead: -10, uncosted: 0, inValue: 0, outValue: 50, balance: 50 },
+    { at: "2026-11-03T10:00:00.000Z", kind: "sell" as const, profit: null, equity: 0, ahead: null, uncosted: 1, inValue: 0, outValue: 20, balance: 20 },
+  ];
+  it("climbs deal by deal, oldest first, skipping unknowns", () => {
+    expect(profitClimb(recs)).toEqual([-10, 20]);
+    expect(bestDeal(recs)?.at).toBe("2026-11-02T10:00:00.000Z");
+    expect(bestDeal([recs[1]])).toBeNull();
+  });
+  it("rebuilds a record's card figures", () => {
+    const t = recordTotals(recs[0]);
+    expect(t.inMarket).toBe(100);
+    expect(t.outMarket).toBeNull();
+    expect(t.ahead).toBe(30);
   });
 });

@@ -104,6 +104,14 @@ export interface DealTotals {
    * prices were split. Null when anything going out has no known cost, or the deal is empty.
    */
   ahead: number | null;
+  /** Market value of what comes in / goes out (items without a market count as $0). */
+  inMarket: number;
+  outMarket: number;
+}
+
+/** Market value of some lines (items without a market count as $0). */
+export function marketOf(lines: Pick<DealLine, "market" | "qty">[]): number {
+  return round2(lines.reduce((s, l) => s + (l.market ?? 0) * l.qty, 0));
 }
 
 export function dealTotals(incoming: DealLine[], outgoing: DealLine[], rates: { in: number; out: number }): DealTotals {
@@ -117,13 +125,14 @@ export function dealTotals(incoming: DealLine[], outgoing: DealLine[], rates: { 
   const uncosted = outgoing.length - costed.length;
   // A pure buy has no profit (ahead = value gained); a pure sell has no value gained (ahead = profit).
   const ahead = kind === "empty" || uncosted > 0 ? null : round2((profit ?? 0) + equity);
-  return { kind, inValue, outValue, balance: round2(outValue - inValue), profit, equity, belowCost, uncosted, ahead };
+  return { kind, inValue, outValue, balance: round2(outValue - inValue), profit, equity, belowCost, uncosted, ahead, inMarket: marketOf(incoming), outMarket: marketOf(outgoing) };
 }
 
-/** The ahead headline: "You come out ahead" (an open deal) or "You came out ahead" (a closed one). */
+/** The ahead headline: "You make a profit" (an open deal) or "You made a profit" (a closed one). Same as the app's dealAheadTitle. */
 export function aheadTitle(n: number, past = false): string {
   if (Math.abs(n) < 0.005) return past ? "You broke even" : "You break even";
-  return `You ${past ? "came" : "come"} out ${n > 0 ? "ahead" : "behind"}`;
+  if (n > 0) return past ? "You made a profit" : "You make a profit";
+  return past ? "You took a loss" : "You take a loss";
 }
 
 /** What a closed deal keeps of its totals, for working out how far ahead it left you. */
@@ -150,7 +159,7 @@ export function recordAhead(r: DealRecordTotals): number | null {
 }
 
 /** Value taken in only means something when something comes in. */
-export function showsEquity(t: DealTotals): boolean {
+export function showsEquity(t: Pick<DealTotals, "kind" | "inValue">): boolean {
   return !(t.kind === "sell" || t.kind === "empty" || t.inValue === 0);
 }
 
@@ -158,13 +167,13 @@ export function showsEquity(t: DealTotals): boolean {
  * How much better off you are after the deal, at market: your profit on what goes out plus
  * the value you gain on what comes in. Null when neither is known.
  */
-export function dealNet(t: DealTotals): number | null {
+export function dealNet(t: Pick<DealTotals, "kind" | "inValue" | "profit" | "equity">): number | null {
   if (t.profit === null && !showsEquity(t)) return null;
   return round2((t.profit ?? 0) + (showsEquity(t) ? t.equity : 0));
 }
 
 /** "You come out $58 ahead", in plain English. */
-export function dealVerdict(t: DealTotals): string | null {
+export function dealVerdict(t: Pick<DealTotals, "kind" | "inValue" | "profit" | "equity">): string | null {
   const n = dealNet(t);
   if (n === null) return null;
   if (Math.abs(n) < 0.005) return "You break even";
@@ -392,4 +401,123 @@ export function matchesDealSearch(r: DealHistoryRecord, query: string): boolean 
   if (!words.length) return true;
   const text = [...(r.lines ?? []).map((l) => l.product.name), r.notes ?? "", KIND_WORDS[r.kind]].join(" \n ").toLowerCase();
   return words.every((w) => text.includes(w));
+}
+
+/* ------------------------- Agreed market and rounding ------------------------- */
+
+/**
+ * A side's lines at the market value the two of you agreed on: `total` shared across the lines in
+ * proportion to their market prices, each keeping its catalog price in `catalogMarket` (cleared
+ * once it's back on it), so it can be put back. Lines at a % of market re-price with it; typed
+ * prices stay. Unchanged when the side has no market value or the total isn't positive. Same as
+ * the app's DealStore.setAgreedMarket(_:on:).
+ */
+export function withAgreedMarket<T extends DealLine>(items: T[], total: number): T[] {
+  const current = items.reduce((s, l) => s + (l.market ?? 0) * l.qty, 0);
+  if (!(current > 0) || !(total > 0)) return items;
+  const factor = total / current;
+  return items.map((l) => {
+    if (l.market === null || l.market === undefined) return l;
+    const catalog = l.catalogMarket ?? l.market;
+    const next = round2(l.market * factor);
+    return { ...l, market: next, catalogMarket: Math.abs(next - catalog) < 0.005 ? null : catalog };
+  });
+}
+
+/** Every line back on its catalog market price (the app's DealStore.resetMarket(on:)). */
+export function withCatalogMarket<T extends DealLine>(items: T[]): T[] {
+  return items.map((l) => (l.catalogMarket === null || l.catalogMarket === undefined ? l : { ...l, market: l.catalogMarket, catalogMarket: null }));
+}
+
+/** Whether a side's market value was changed by hand (any line keeps its catalog price aside). */
+export function marketAgreed(items: DealLine[]): boolean {
+  return items.some((l) => l.catalogMarket !== null && l.catalogMarket !== undefined);
+}
+
+/**
+ * A market price typed for one line (the card sheet): the catalog's is remembered the first time
+ * it changes and forgotten once it's back on it. Same as the app's DealCardSheet.applyMarket.
+ */
+export function withTypedMarket<T extends DealLine>(item: T, typed: number | null): T {
+  if (typed === null || !Number.isFinite(typed)) return item;
+  const catalog = item.catalogMarket ?? item.market;
+  const catalogMarket = catalog !== null && catalog !== undefined && Math.abs(typed - catalog) < 0.005 ? null : (item.catalogMarket ?? item.market);
+  return { ...item, market: typed, catalogMarket };
+}
+
+/** A side's % back on a whole number (settling on a total moved it to a fraction, e.g. 99.62%). */
+export function wholeRate(r: number | null | undefined): number | null {
+  return r === null || r === undefined ? null : Math.round(r * 100) / 100;
+}
+
+/**
+ * The deal without its rounding: no agreed total, each side's % back on a whole number. What the
+ * cards come to on their own (what Round up rounds), and what "Reset" / "Undo round" goes back to.
+ * Same as the app's DealStore.unrounded / clearAgreedTotal().
+ */
+export function unroundedDeal<D extends { rateIn?: number | null; rateOut?: number | null; agreedCash?: number | null }>(deal: D): D {
+  return { ...deal, agreedCash: undefined, rateIn: wholeRate(deal.rateIn), rateOut: wholeRate(deal.rateOut) };
+}
+
+/**
+ * A line's true share of market at the price it goes at: "80" normally, "99.6" when rounding the
+ * total moved it off a whole % (a price that's just the whole % rounded to the cent still reads
+ * whole: $6.92 at 80% is $5.54, which is 80.06%). Null without a market. Same as the app's card row.
+ */
+export function lineShare(unit: number | null, market: number | null | undefined): { label: string; offWhole: boolean } | null {
+  if (unit === null || market === null || market === undefined || !(market > 0)) return null;
+  const share = (unit / market) * 100;
+  const offWhole = Math.abs(unit - round2((market * Math.round(share)) / 100)) > 0.005;
+  return { label: offWhole ? share.toFixed(1) : String(Math.round(share)), offWhole };
+}
+
+/* ------------------------------ Closed deals ------------------------------ */
+
+/** What a closed deal records, enough to show its card again (the app's DealTotals(record:)). */
+export interface DealRecordFigures extends DealRecordTotals {
+  inValue: number;
+  outValue: number;
+  balance: number;
+}
+
+/**
+ * A closed deal's figures as recorded, for the same card the deal page shows. What came in was
+ * worth what it went for plus the value gained; what went out isn't recorded (null).
+ */
+/** Totals as the deal card shows them: a closed deal doesn't know what went out was worth. */
+export type CardTotals = Omit<DealTotals, "inMarket" | "outMarket"> & { inMarket: number | null; outMarket: number | null };
+
+export function recordTotals(r: DealRecordFigures): CardTotals {
+  return {
+    kind: r.kind,
+    inValue: r.inValue,
+    outValue: r.outValue,
+    balance: r.balance,
+    profit: r.profit ?? null,
+    equity: r.equity,
+    belowCost: 0,
+    uncosted: r.uncosted ?? 0,
+    ahead: recordAhead(r),
+    inMarket: r.inValue > 0 ? round2(r.inValue + r.equity) : null,
+    outMarket: null,
+  };
+}
+
+/** How far ahead, adding up deal by deal (oldest first), from the deals that know it: the climb chart. */
+export function profitClimb(records: (DealRecordTotals & { at: string })[]): number[] {
+  let running = 0;
+  return records
+    .filter((r) => recordAhead(r) !== null)
+    .sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0))
+    .map((r) => (running = round2(running + (recordAhead(r) ?? 0))));
+}
+
+/** The deal that left you furthest ahead (only one that made a profit), or null. */
+export function bestDeal<R extends DealRecordTotals>(records: R[]): R | null {
+  let best: R | null = null;
+  for (const r of records) {
+    const a = recordAhead(r) ?? 0;
+    if (a > 0 && (best === null || a > (recordAhead(best) ?? 0))) best = r;
+  }
+  return best;
 }
