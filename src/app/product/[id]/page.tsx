@@ -1,42 +1,42 @@
 "use client";
 
 import { useHeroTarget } from "@/lib/motion/hero";
-import { Hint } from "@/components/ui/tooltip";
-import { WishButton } from "@/components/wishlist/wish-items";
-import { BumperButton, CertDialog, GradeChip, SendToGraderDialog, SlabCard, useAtGrader } from "@/components/grading/grading-items";
-import { Calculator, Check, ChevronDown, ChevronLeft, Eye, EyeOff, Layers, Loader2, MoreHorizontal, Package, Plus, Tag } from "lucide-react";
+import { BumperDialog, CertDialog, GradeChip } from "@/components/grading/grading-items";
+import { Check, ChevronRight, ExternalLink, Loader2, MoreHorizontal, Plus } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
 import { ScrubChart, type ChartMarker } from "@/components/charts/scrub-chart";
-import { SellCalculatorDialog } from "@/components/flows/sell-calculator";
-import { AdjustDialog, ManualValueDialog, SaleDialog, TransactionActions, partitionHistory } from "@/components/flows/transaction-dialogs";
+import { TransactionActions, partitionHistory } from "@/components/flows/transaction-dialogs";
 import { ErrorState } from "@/components/portfolio/error-state";
 import { holdingLabel } from "@/components/portfolio/holding-items";
+import { HoldingSheet } from "@/components/portfolio/holding-sheet";
 import { Delta, DeltaPill } from "@/components/product/delta";
 import { AnimatedNumber } from "@/components/motion/animated-number";
 import { Reveal } from "@/components/motion/reveal";
 import { HoloTilt, isFoilCard } from "@/components/motion/holo-tilt";
-import { MoveToPortfolio } from "@/components/portfolio/portfolio-controls";
-import { ShelfMenu } from "@/components/shelves/shelf-controls";
 import { ProductImage } from "@/components/product/product-image";
+import { ChipTiles } from "@/components/product/chip-tiles";
+import { PageActions } from "@/components/product/page-actions";
+import { SimilarCards } from "@/components/product/similar-cards";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, SectionTitle } from "@/components/ui/card";
 import { ConditionTag, EbaySales } from "@/components/product/ebay-sales";
 import { WhatsItWorth } from "@/components/product/whats-it-worth";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
+import { bumperById } from "@/lib/bumpers";
 import { categoryOf } from "@/lib/catalog";
 import { packCount, pricePerPack } from "@/lib/packs";
 import { addDays } from "@/lib/finance/dates";
 import { acquisitionCost, effectiveTransactions, saleProceeds } from "@/lib/finance/ledger";
 import type { HoldingView } from "@/lib/finance/portfolio";
-import { formatDate, money, relativeTime, tone } from "@/lib/format";
+import { formatDate, money, relativeTime, signedPct, tone } from "@/lib/format";
+import { certLookupUrl, gradeLabel } from "@/lib/graded";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
+import { useSlabBumpers, useSlabCerts } from "@/lib/store/grading";
 import { priceKey, type Product, type Transaction } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import { orderPrintings, withEditionArt } from "@/lib/editions";
 import { PriceInfoDialog, type PriceInfoData } from "@/components/product/price-info";
 import { isStalePrice, priceAge } from "@/lib/price-info";
@@ -106,65 +106,84 @@ export default function ProductPage() {
     const base = [...hist].reverse().find((p) => p.date <= cutoff);
     return base && base.price > 0 ? ((lastPoint.price - base.price) / base.price) * 100 : null;
   };
-  const watch = store.data.watchlist.find((w) => w.productId === productId);
   const slab = owned.length > 0 && owned.every((h) => h.identity.grade) ? owned[0].identity.grade : null;
+  const owns = owned.reduce((s, h) => s + h.quantity, 0);
+  const stageLine = [product.setName, product.number ? `#${product.number}` : null].filter(Boolean).join(" · ");
+  // The set's name opens its page in Explore when the catalog has it.
+  const setHref = product.setId && product.source === "tcgapi" ? `/explore/${encodeURIComponent(product.setId)}` : null;
+  const rest = [product.number ? `#${product.number}` : null, printings.length < 2 && printing && printing !== "Normal" ? printing : null].filter(Boolean).join(" · ");
 
   return (
     <div className="animate-fade-in">
-      {/* Owned products go back to the collection; catalog products back to their set in Explore. */}
-      {owned.length || !product.setId || product.source !== "tcgapi" ? (
-        <Link href="/collection" className="mb-6 inline-flex items-center gap-1 text-[14px] text-muted hover:text-foreground">
-          <ChevronLeft className="size-4" /> Collection
-        </Link>
-      ) : (
-        <Link href={`/explore/${encodeURIComponent(product.setId)}`} className="mb-6 inline-flex items-center gap-1 text-[14px] text-muted hover:text-foreground">
-          <ChevronLeft className="size-4" /> {product.setName ?? "Explore"}
-        </Link>
-      )}
+      {/* What it is and its rarity at the top, and everything you can do with it in one ⋯ (the app's toolbar). */}
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="inline-flex h-[22px] items-center rounded-full border border-white/10 bg-white/[0.06] px-[9px] text-[12px] font-medium text-muted backdrop-blur-xl">
+            {product.kind === "sealed" ? (product.productType ?? categoryOf(product)) : "Card"}
+          </span>
+          {product.rarity && <Badge variant="outline" className="h-[22px] px-[9px] text-[12px]">{product.rarity}</Badge>}
+          {product.source === "sample" && <Badge variant="sample">Sample data</Badge>}
+        </div>
+        <PageActions product={product} printing={printing} price={price?.market ?? null} owned={owned} />
+      </div>
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,420px)_1fr] lg:gap-12">
-        {slab ? (
-          // Only slabs of this card are owned: show it in its slab.
-          <div className="flex flex-col items-center self-start lg:sticky lg:top-10">
+        <div className="flex flex-col items-center gap-[22px] self-start lg:sticky lg:top-10">
+          {/* Above the piece: the set and number, and whether (and how many) you own. */}
+          {(stageLine || owns > 0) && (
+            <div className="flex flex-col items-center gap-2.5 text-center">
+              {stageLine && <p className="font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-subtle">{stageLine}</p>}
+              {owns > 0 && (
+                <span className="tag-skew tag-lime">
+                  <Check className="size-2.5" strokeWidth={3} /> Owned{owns > 1 ? ` ×${owns}` : ""}
+                </span>
+              )}
+            </div>
+          )}
+          {slab ? (
+            // Only slabs of this card are owned: show it in its slab.
             <HoloTilt heroName={hero.name} radius="7% / 4.4%" foil={false} className={`mx-auto aspect-[5/8] w-full max-w-[260px] ${hero.arriving ? "" : "animate-pop"} sm:max-w-[340px]`}>
               <ProductImage product={art} grade={slab} slabKey={owned[0]?.key} size="xl" priority className="h-full w-full" />
             </HoloTilt>
-            <BumperButton h={owned[0]} className="mt-6 py-1.5 pl-1.5 pr-3.5 text-[13px]" />
-          </div>
-        ) : product.kind === "single" && product.imageUrl ? (
-          // A bare card: no well or frame, just the card at its own proportions.
-          <HoloTilt heroName={hero.name} radius="4.5% / 3.2%" foil={isFoilCard(product)} className={`mx-auto aspect-[63/88] w-full max-w-[260px] ${hero.arriving ? "" : "animate-pop"} sm:max-w-[360px] self-start lg:sticky lg:top-10`}>
-            <ProductImage product={art} size="xl" priority frame={false} className="h-full w-full rounded-[4.5%/3.2%] shadow-2xl shadow-black/50" />
-          </HoloTilt>
-        ) : (
-          <HoloTilt heroName={hero.name} radius="1.75rem" foil={false} className={`aspect-square w-full ${hero.arriving ? "" : "animate-pop"} lg:sticky lg:top-10`}>
-            <ProductImage product={art} size="xl" priority className="h-full w-full rounded-[1.75rem]" />
-          </HoloTilt>
-        )}
+          ) : product.kind === "single" && product.imageUrl ? (
+            // A bare card: no well or frame, just the card at its own proportions.
+            <HoloTilt heroName={hero.name} radius="4.5% / 3.2%" foil={isFoilCard(product)} className={`mx-auto aspect-[63/88] w-full max-w-[260px] ${hero.arriving ? "" : "animate-pop"} sm:max-w-[360px]`}>
+              <ProductImage product={art} size="xl" priority frame={false} className="h-full w-full rounded-[4.5%/3.2%] shadow-2xl shadow-black/50" />
+            </HoloTilt>
+          ) : (
+            <HoloTilt heroName={hero.name} radius="1.75rem" foil={false} className={`aspect-square w-full ${hero.arriving ? "" : "animate-pop"}`}>
+              <ProductImage product={art} size="xl" priority className="h-full w-full rounded-[1.75rem]" />
+            </HoloTilt>
+          )}
+        </div>
 
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <KindMenu productId={productId} kind={product.kind} label={categoryOf(product)} />
-            {product.rarity && <Badge variant="outline">{product.rarity}</Badge>}
-            {product.source === "sample" && <Badge variant="sample">Sample data</Badge>}
-          </div>
-          <h1 className="mt-3 font-display text-[27px] leading-[0.98] sm:text-[38px]">{product.name}</h1>
-          <p className="mt-1 text-[15px] text-muted">
-            {[product.setName, product.number ? `#${product.number}` : null, printings.length < 2 && printing && printing !== "Normal" ? printing : null].filter(Boolean).join(" · ")}
+          <h1 className="font-display text-[34px] leading-[1.02] tracking-[-0.02em] [text-wrap:balance]">{product.name}</h1>
+          {/* The set's name opens the set, then number and printing. */}
+          <p className="mt-1.5 text-[15px] text-muted [text-wrap:pretty]">
+            {product.setName &&
+              (setHref ? (
+                <Link href={setHref} aria-label={`Open the set ${product.setName}`} className="text-foreground underline decoration-white/35 underline-offset-[3px] hover:decoration-white/70">
+                  {product.setName}
+                  {"\u00a0"}
+                  <ChevronRight className="inline size-3 -translate-y-px text-muted" strokeWidth={3} />
+                </Link>
+              ) : (
+                <span>{product.setName}</span>
+              ))}
+            {rest && <span>{product.setName ? " · " : ""}{rest}</span>}
           </p>
           {product.artist && (
-            <Link href={`/artist/${encodeURIComponent(product.artist)}`} className="mt-1 inline-block text-[14px] text-muted hover:text-foreground">
-              Illustrated by <span className="font-medium text-foreground underline-offset-2 hover:underline">{product.artist}</span>
+            <Link href={`/artist/${encodeURIComponent(product.artist)}`} className="mt-1 inline-block text-[14px] text-muted">
+              Illustrated by <span className="text-foreground underline decoration-white/35 underline-offset-[3px] hover:decoration-white/70">{product.artist}</span>
+              {"\u00a0"}
+              <ChevronRight className="inline size-3 -translate-y-px text-muted" strokeWidth={3} />
             </Link>
           )}
           {/* Different printings sell for different prices: switch between them. */}
-          {printings.length > 1 && (
-            <div className="-mx-1 mt-4 overflow-x-auto px-1">
-              <Segmented ariaLabel="Printing" size="sm" value={printing ?? printings[0]} onChange={choosePrinting} options={printings.map((p) => ({ value: p, label: p }))} />
-            </div>
-          )}
+          {printings.length > 1 && <ChipTiles ariaLabel="Printing" className="mt-3.5" value={printing ?? printings[0]} onChange={choosePrinting} options={printings.map((p) => ({ value: p, label: p }))} />}
 
-          <div className="mt-6">
+          <div className="mt-3">
             {/* Click the price: where it comes from and what eBay's recent sales say. An old price stays white; the line under it says when it's from. */}
             <button
               type="button"
@@ -182,19 +201,19 @@ export default function ProductPage() {
                   stale: isStalePrice(price?.updatedAt),
                 })
               }
-              className="tabular block cursor-pointer text-left font-display text-[42px] leading-none sm:text-[48px]"
+              className="tabular block cursor-pointer text-left font-display text-[52px] leading-none tracking-[-2.1px]"
             >
               {headline != null ? <AnimatedNumber key={productId} value={headline} format={money} from={headline * 0.85} /> : <span className="text-muted">No price</span>}
             </button>
             <PriceInfoDialog info={priceInfo} onOpenChange={(o) => !o && setPriceInfo(null)} />
-            {product.kind === "sealed" ? <PerPack product={product} price={headline} /> : <p className="mt-2 text-[13px] text-muted">TCGplayer market price · ungraded</p>}
+            {product.kind === "sealed" ? <PerPack product={product} price={headline} /> : <p className="mt-1 text-[13px] text-muted">TCGplayer market price · ungraded</p>}
             {/* The headline is the card's Near Mint price; copies you own that differ get their own figure here. */}
             {yourCopies.length > 0 && (
-              <div className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] text-muted">
+              <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted">
                 {yourCopies.map((h) => (
-                  <span key={h.key} className="inline-flex items-center gap-1.5">
+                  <span key={h.key} className="inline-flex items-center gap-1">
                     Your {h.identity.grade ? <GradeChip grade={h.identity.grade} /> : <ConditionTag condition={h.identity.condition} />}
-                    {h.quantity > 1 && <span className="tabular">×{h.quantity}</span>} <span className="tabular text-foreground">{h.conditionEstimate ? "≈ " : ""}{money(h.price)}</span>
+                    {h.quantity > 1 && <span className="tabular">×{h.quantity}</span>} <span className="tabular font-semibold text-foreground">{h.conditionEstimate ? "≈ " : ""}{money(h.price)}</span>
                   </span>
                 ))}
               </div>
@@ -215,7 +234,7 @@ export default function ProductPage() {
                 ? `${price.source === "sample" ? "Sample price" : price.source === "pricecharting" ? "Ungraded price via PriceCharting (no TCGplayer price)" : "Market price via TCG API"} · ${price.status === "stale" ? "stale · " : ""}updated ${relativeTime(price.updatedAt)}`
                 : lastPoint
                   ? `Last market price ${formatDate(lastPoint.date)} · no current price yet`
-                  : "No market price available — not counted as $0."}
+                  : "No market price available. Not counted as $0."}
               {price && price.source !== "pricecharting" && product.tcgplayerUrl && (
                 <>
                   {" · "}
@@ -227,20 +246,20 @@ export default function ProductPage() {
             </p>
           </div>
 
-          <div className="mt-6 flex flex-wrap items-center gap-1.5 sm:gap-2 max-sm:[&_button.size-10]:size-9 max-sm:[&_a.size-10]:size-9">
-            {/* Same height as the round buttons beside it (they shrink a size on phones). */}
-            <Button variant="primary" className="max-sm:h-9" onClick={() => store.openAdd({ productId })}>
-              <Plus /> {owned.length ? "Add more" : "Add to collection"}
-            </Button>
-            {owned.length > 0 && <SaleButton holdings={owned} />}
-            <WatchButton productId={productId} printing={printing} watchId={watch?.id} />
-            <WishButton product={product} price={price?.market ?? null} printing={printing} compact />
-            <ShelfMenu productId={productId} compact />
+          {/* A card you own opens here straight away: how yours are doing comes first. */}
+          {owned.length > 0 && <Position product={product} holdings={owned} realized={realizedHere} />}
+
+          {/* One lime button; everything else is in the ⋯ at the top right. Then the card on TCGplayer. */}
+          <div className="mt-6">
+            <button
+              type="button"
+              onClick={() => store.openAdd({ productId })}
+              className="btn-3d btn-3d-lime flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-lime text-[15px] font-semibold text-[#0b0b0c] transition-transform active:scale-[0.98]"
+            >
+              <Plus className="size-4" strokeWidth={2.5} /> {owned.length ? "Add more" : "Add to Collection"}
+            </button>
+            {product.kind === "single" && <WhatsItWorth nm={price?.market ?? null} tcgplayerUrl={product.tcgplayerUrl} tcgplayerId={product.tcgplayerId} printing={printing} />}
           </div>
-          {/* Right under the actions: the card on TCGplayer, a quiet glass button. Same as the app. */}
-          {product.kind === "single" && (
-            <WhatsItWorth nm={price?.market ?? null} tcgplayerUrl={product.tcgplayerUrl} tcgplayerId={product.tcgplayerId} printing={printing} />
-          )}
 
           <Reveal delay={80}>
             <PriceHistory productId={productId} printing={printing} />
@@ -252,12 +271,7 @@ export default function ProductPage() {
             </Reveal>
           )}
 
-
-          {owned.length > 0 && (
-            <Reveal>
-              <Position holdings={owned} realized={realizedHere} />
-            </Reveal>
-          )}
+          {owned.some((h) => h.identity.grade) && <YourSlabs holdings={owned.filter((h) => h.identity.grade)} />}
           {owned.length === 0 && realizedHere !== 0 && (
             <Card className="mt-6 p-5">
               <p className="text-[13px] text-muted">Position closed · realized</p>
@@ -267,117 +281,10 @@ export default function ProductPage() {
           <Reveal>
             <History productId={productId} />
           </Reveal>
+          {product.kind === "single" && <SimilarCards product={product} />}
         </div>
       </div>
     </div>
-  );
-}
-
-/** Category badge that doubles as a "Change type" control (sealed ⇄ single). */
-function KindMenu({ productId, kind, label }: { productId: string; kind: Product["kind"]; label: string }) {
-  const { setProductKind } = useStore();
-  const change = async (next: Product["kind"]) => {
-    if (next === kind) return;
-    try {
-      await setProductKind(productId, next);
-      toast.success(next === "sealed" ? "Marked as sealed product" : "Marked as single card");
-    } catch (e) {
-      toast.error((e as Error).message);
-    }
-  };
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium leading-4 text-muted transition-colors hover:bg-surface-3 hover:text-foreground" aria-label={`Type: ${label}. Change type`}>
-        {label}
-        <ChevronDown className="size-3" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
-        <DropdownMenuLabel>Product type</DropdownMenuLabel>
-        <DropdownMenuItem onSelect={() => void change("sealed")}>
-          <Package /> Sealed product {kind === "sealed" && <Check className="ml-auto !text-foreground" />}
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => void change("single")}>
-          <Layers /> Single card {kind === "single" && <Check className="ml-auto !text-foreground" />}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-/**
- * What if I sell? and Record sale, up top. With more than one version held
- * (say a raw copy and a PSA 10), each button first asks which one.
- */
-function SaleButton({ holdings }: { holdings: HoldingView[] }) {
-  const [open, setOpen] = useState<{ kind: "sale" | "whatif"; key: string } | null>(null);
-  const target = holdings.find((h) => h.key === open?.key) ?? null;
-  const action = (kind: "sale" | "whatif", label: string, icon: React.ReactNode) =>
-    holdings.length === 1 ? (
-      <Hint content={label}>
-        <Button variant="secondary" size="icon" aria-label={label} onClick={() => setOpen({ kind, key: holdings[0].key })}>
-          {icon}
-        </Button>
-      </Hint>
-    ) : (
-      <DropdownMenu>
-        <Hint content={label}>
-          <DropdownMenuTrigger asChild>
-            <Button variant="secondary" size="icon" aria-label={label}>
-              {icon}
-            </Button>
-          </DropdownMenuTrigger>
-        </Hint>
-        <DropdownMenuContent align="start">
-          <DropdownMenuLabel>{label}</DropdownMenuLabel>
-          {holdings.map((h) => (
-            <DropdownMenuItem key={h.key} onSelect={() => setOpen({ kind, key: h.key })}>
-              <span className="flex-1">{h.identity.grade ? `${h.identity.grade.company} ${h.identity.grade.grade}` : (holdingLabel(h) ?? h.identity.condition)}</span>
-              <span className="tabular text-muted">× {h.quantity}</span>
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    );
-  return (
-    <>
-      {action("whatif", "What if I sell?", <Calculator />)}
-      {action("sale", "Record sale", <Tag />)}
-      {target && <SellCalculatorDialog holding={target} open={open?.kind === "whatif"} onOpenChange={(o) => !o && setOpen(null)} />}
-      {target && <SaleDialog holding={target} open={open?.kind === "sale"} onOpenChange={(o) => !o && setOpen(null)} />}
-    </>
-  );
-}
-
-function WatchButton({ productId, printing, watchId }: { productId: string; printing: string | null; watchId?: string }) {
-  const { addWatch, removeWatch } = useStore();
-  const [busy, setBusy] = useState(false);
-  return (
-    <Hint content={watchId ? "Watching · tap to stop" : "Watch"}>
-    <Button
-      variant="secondary"
-      size="icon"
-      aria-label={watchId ? "Stop watching" : "Watch"}
-      disabled={busy}
-      onClick={async () => {
-        setBusy(true);
-        try {
-          if (watchId) {
-            await removeWatch(watchId);
-            toast("Removed from watchlist");
-          } else {
-            await addWatch(productId, printing, null);
-            toast.success("Added to watchlist");
-          }
-        } catch (e) {
-          toast.error((e as Error).message);
-        } finally {
-          setBusy(false);
-        }
-      }}
-    >
-      {busy ? <Loader2 className="animate-spin" /> : watchId ? <EyeOff /> : <Eye />}
-    </Button>
-    </Hint>
   );
 }
 
@@ -489,7 +396,7 @@ function PriceHistory({ productId, printing }: { productId: string; printing: st
     <Card className="mt-8 p-5 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-[15px] font-semibold">Market price history</h2>
+          <h2 className="font-display text-[18px] leading-none tracking-[-0.01em]">Market price history</h2>
           <p className="tabular mt-1 text-[13px]">
             {at ? (
               <>
@@ -501,7 +408,7 @@ function PriceHistory({ productId, printing }: { productId: string; printing: st
             )}
           </p>
         </div>
-        <Segmented ariaLabel="History range" size="sm" value={range} onChange={setRange} options={(["1M", "3M", "1Y", "ALL"] as HistRange[]).map((r) => ({ value: r, label: r }))} />
+        <ChipTiles ariaLabel="History range" size="sm" className="-mr-1 pr-1 [mask-image:none]" value={range} onChange={setRange} options={(["1M", "3M", "1Y", "ALL"] as HistRange[]).map((r) => ({ value: r, label: r === "ALL" ? "All" : r }))} />
       </div>
       <div className="mt-4">
         {sliced.length > 1 ? (
@@ -516,7 +423,7 @@ function PriceHistory({ productId, printing }: { productId: string; printing: st
               <>
                 <p className="font-medium text-foreground">{full.note ?? "Not enough price history yet"}</p>
                 <p className="mt-1 max-w-sm">
-                  Holo stores a daily snapshot for products you own or watch, so this chart fills in over time. Missing days are never filled with estimates.
+                  Corodex stores a daily snapshot for products you own or watch, so this chart fills in over time. Missing days are never filled with estimates.
                 </p>
                 {full.status === "error" && (
                   <Button variant="secondary" size="sm" className="mt-4" onClick={() => void full.retry()}>
@@ -550,81 +457,117 @@ function PriceHistory({ productId, printing }: { productId: string; printing: st
   );
 }
 
-function Position({ holdings, realized }: { holdings: HoldingView[]; realized: number }) {
+type Category = "Singles" | "Sealed" | "Graded";
+const CATEGORY_TINT: Record<Category, { tint: string; tag: string }> = {
+  Singles: { tint: "tint-pink", tag: "tag-pink" },
+  Sealed: { tint: "tint-blue", tag: "tag-blue" },
+  Graded: { tint: "tint-lime", tag: "tag-lime" },
+};
+
+/**
+ * Your position, right under the title (the app's): how many, what you paid, and how far up or
+ * down (profit from sales only when you've sold some), in a panel tinted the kind's colour. Each
+ * copy is one row that opens Your copy (HoldingSheet) for its actions.
+ */
+function Position({ product, holdings, realized }: { product: Product; holdings: HoldingView[]; realized: number }) {
+  const [managing, setManaging] = useState<HoldingView | null>(null);
   const qty = holdings.reduce((s, h) => s + h.quantity, 0);
   const priced = holdings.filter((h) => h.value !== null);
   const value = priced.reduce((s, h) => s + (h.value ?? 0), 0);
   const cost = holdings.reduce((s, h) => s + h.costBasis, 0);
   const pricedCost = priced.reduce((s, h) => s + h.costBasis, 0);
-  const unrealized = priced.length ? value - pricedCost : null;
+  const gain = value - pricedCost;
+  const kind: Category = holdings.every((h) => h.identity.grade) ? "Graded" : product.kind === "sealed" ? "Sealed" : "Singles";
+  const gainTone = tone(gain) === "up" ? "text-up" : tone(gain) === "down" ? "text-down" : "";
   return (
-    <Card className="mt-6 p-5 sm:p-6">
-      <SectionTitle title="Your position" />
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3">
-        <Stat label="Quantity" value={String(qty)} />
-        <Stat label="Holding value" value={priced.length ? money(value) : "—"} />
-        <Stat label="Cost basis" value={money(cost)} />
-        <Stat label="Average cost" value={money(cost / qty)} />
-        <Stat label="Unrealized" value={<Delta value={unrealized} ratio={unrealized !== null && pricedCost > 0 ? unrealized / pricedCost : null} />} />
-        <Stat label="Realized" value={<Delta value={realized} />} />
+    <section className={cn("tint mt-6 rounded-[20px] p-5", CATEGORY_TINT[kind].tint)}>
+      <div className="mb-4 flex items-center gap-2.5">
+        <h2 className="font-display text-[22px] leading-none tracking-[-0.02em]">Your position</h2>
+        <span className={cn("tag-skew", CATEGORY_TINT[kind].tag)}>{kind}</span>
+      </div>
+      <dl className="flex flex-wrap gap-x-6 gap-y-4">
+        <Stat label="You own" value={`×${qty}`} />
+        <Stat label="Paid" value={money(cost)} />
+        <Stat label={gain >= 0 ? "Up" : "Down"} value={<span className={gainTone}>{money(Math.abs(gain))}{pricedCost > 0 ? ` (${signedPct(gain / pricedCost)})` : ""}</span>} />
+        {realized !== 0 && <Stat label="From sales" value={<Delta value={realized} />} />}
       </dl>
       <div className="mt-6 divide-y divide-border border-t border-border">
         {holdings.map((h) => (
-          <HoldingLine key={h.key} h={h} showBumper={holdings.length > 1} />
+          <button key={h.key} type="button" onClick={() => setManaging(h)} className="group flex w-full items-center gap-3 pt-3.5 text-left [&:not(:last-child)]:pb-3.5">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[14px] font-medium">
+                {h.quantity} × {holdingLabel(h) ?? (product.kind === "sealed" ? "Sealed" : h.identity.condition)}
+              </p>
+              <p className="tabular text-[12px] text-muted">
+                {h.lots.length} open lot{h.lots.length === 1 ? "" : "s"} · avg {money(h.avgCost)}
+              </p>
+            </div>
+            <span className="flex items-center gap-1.5">
+              <Delta value={h.unrealized} className="text-[13px]" />
+              <DeltaPill ratio={h.unrealizedPct} className="text-[11px]" />
+            </span>
+            <MoreHorizontal aria-label="Actions" className="size-4 shrink-0 text-muted transition-colors group-hover:text-foreground" />
+          </button>
         ))}
       </div>
-    </Card>
+      <HoldingSheet holding={managing} onOpenChange={(o) => !o && setManaging(null)} hideViewDetails />
+    </section>
   );
 }
 
-function HoldingLine({ h, showBumper }: { h: HoldingView; showBumper: boolean }) {
-  const [dialog, setDialog] = useState<"sale" | "whatif" | "adjust" | "value" | "cert" | "grade" | null>(null);
-  const atGrader = useAtGrader().get(h.key) ?? 0;
-  const gradeable = !h.identity.grade && h.product?.kind === "single";
-  const menu = (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon-sm" aria-label="Holding actions">
-          <MoreHorizontal />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onSelect={() => setDialog("whatif")}>What if I sell?</DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => setDialog("sale")}>Record sale</DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => setDialog("adjust")}>Adjust quantity</DropdownMenuItem>
-        {h.identity.grade && <DropdownMenuItem onSelect={() => setDialog("value")}>Set your own value</DropdownMenuItem>}
-        {h.identity.grade && <DropdownMenuItem onSelect={() => setDialog("cert")}>Cert number</DropdownMenuItem>}
-        {gradeable && <DropdownMenuItem onSelect={() => setDialog("grade")}>Send for grading</DropdownMenuItem>}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
+/** For each graded copy you own: its cert number (with a lookup link) and its bumper. */
+function YourSlabs({ holdings }: { holdings: HoldingView[] }) {
   return (
-    <div className={h.identity.grade ? "py-4" : "flex items-center gap-3 py-3.5"}>
-      {h.identity.grade ? (
-        <SlabCard h={h} showBumper={showBumper} actions={<><MoveToPortfolio holdingKey={h.key} />{menu}</>} onRevalue={() => setDialog("value")} onCert={() => setDialog("cert")} />
-      ) : (
-        <>
-          <div className="min-w-0 flex-1">
-            <p className="flex flex-wrap items-center gap-2 text-[14px] font-medium">
-              {h.quantity} × {holdingLabel(h) ?? h.identity.condition}
-              {atGrader > 0 && <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-muted">{atGrader} at the grader</span>}
-            </p>
-            <p className="tabular text-[12px] text-muted">
-              {h.lots.length} open lot{h.lots.length === 1 ? "" : "s"} · avg {money(h.avgCost)}
-            </p>
-          </div>
-          <MoveToPortfolio holdingKey={h.key} />
-          <Delta value={h.unrealized} ratio={h.unrealizedPct} className="text-[13px]" />
-          {menu}
-        </>
-      )}
-      <SellCalculatorDialog holding={h} open={dialog === "whatif"} onOpenChange={(o) => !o && setDialog(null)} />
-      <SaleDialog holding={h} open={dialog === "sale"} onOpenChange={(o) => !o && setDialog(null)} />
-      <AdjustDialog holding={h} open={dialog === "adjust"} onOpenChange={(o) => !o && setDialog(null)} />
-      {h.identity.grade && <ManualValueDialog holding={h} open={dialog === "value"} onOpenChange={(o) => !o && setDialog(null)} />}
-      {h.identity.grade && <CertDialog holding={h} open={dialog === "cert"} onOpenChange={(o) => !o && setDialog(null)} />}
-      {gradeable && <SendToGraderDialog holding={h} open={dialog === "grade"} onOpenChange={(o) => !o && setDialog(null)} />}
-    </div>
+    <section className="mt-6">
+      <h2 className="mb-3.5 font-display text-[22px] leading-none tracking-[-0.02em]">{holdings.length === 1 ? "Your slab" : "Your slabs"}</h2>
+      <div className="space-y-3.5">
+        {holdings.map((h) => (
+          <SlabPanel key={h.key} h={h} label={holdings.length > 1} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function SlabPanel({ h, label }: { h: HoldingView; label: boolean }) {
+  const { certs } = useSlabCerts();
+  const { bumpers } = useSlabBumpers();
+  const [open, setOpen] = useState<"cert" | "bumper" | null>(null);
+  const grade = h.identity.grade!;
+  const cert = certs[h.key];
+  const bumper = bumperById(bumpers[h.key]);
+  const dark = "inline-flex h-9 items-center gap-1.5 rounded-xl bg-surface-2 px-3.5 text-[14px] font-semibold ring-1 ring-inset ring-border transition-colors hover:bg-surface-3";
+  return (
+    <Card className="p-4">
+      {label && <p className="mb-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-subtle">{gradeLabel(grade)}</p>}
+      <div className="flex items-center gap-2.5">
+        <div className="min-w-0 flex-1">
+          <p className="text-[12px] text-muted">Cert number</p>
+          <p className={cn("mt-0.5 truncate font-mono text-[15px] font-medium", !cert && "text-subtle")}>{cert ?? "Not added"}</p>
+        </div>
+        {cert && (
+          <a href={certLookupUrl(grade.company, cert)} target="_blank" rel="noreferrer" className={dark}>
+            <ExternalLink className="size-4" /> Look up
+          </a>
+        )}
+        <button type="button" onClick={() => setOpen("cert")} className={dark}>
+          {cert ? "Edit" : "Add"}
+        </button>
+      </div>
+      <div className="my-2.5 h-px bg-border" />
+      <button type="button" onClick={() => setOpen("bumper")} className="flex w-full items-center gap-2.5 text-left">
+        <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full ring-1 ring-inset ring-white/20" style={{ background: bumper?.background ?? "transparent" }}>
+          {!bumper && <Plus className="size-2.5 text-muted" strokeWidth={3} />}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[12px] text-muted">Bumper</span>
+          <span className="block truncate text-[15px] font-medium">{bumper?.name ?? "Add a bumper"}</span>
+        </span>
+        <ChevronRight className="size-3.5 shrink-0 text-subtle" strokeWidth={3} />
+      </button>
+      <CertDialog holding={h} open={open === "cert"} onOpenChange={(o) => !o && setOpen(null)} />
+      <BumperDialog h={h} open={open === "bumper"} onOpenChange={(o) => !o && setOpen(null)} />
+    </Card>
   );
 }
 

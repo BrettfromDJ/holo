@@ -1,13 +1,15 @@
 "use client";
 
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { ArrowRight, Award, ChevronRight, Diff, ExternalLink, Hash, MinusCircle, MoreHorizontal, Pencil, Send, Square, Tag, Trash2 } from "lucide-react";
+import { ArrowRight, Award, Check, ChevronRight, Diff, ExternalLink, Folder, Hash, Library, MinusCircle, MoreHorizontal, Pencil, Plus, Send, Square, Tag, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { DeleteCopyDialog, EditDetailsDialog, RemoveDialog } from "@/components/flows/holding-dialogs";
 import { SellCalculatorDialog } from "@/components/flows/sell-calculator";
 import { ManualValueDialog, SaleDialog, TransactionActions, partitionHistory } from "@/components/flows/transaction-dialogs";
 import { BumperDialog, CertDialog, SendToGraderDialog } from "@/components/grading/grading-items";
+import { MenuSub, MenuSubContent, MenuSubTrigger } from "@/components/product/menu-sub";
+import { ShelfDialog } from "@/components/shelves/shelf-controls";
 import { AnimatedNumber } from "@/components/motion/animated-number";
 import { Sparkline } from "@/components/overview/sparkline";
 import { DeltaPill } from "@/components/product/delta";
@@ -23,6 +25,9 @@ import { formatDate, money, signedMoney } from "@/lib/format";
 import { certLookupUrl, gradeLabel, isCgcTen } from "@/lib/graded";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
 import { useSlabBumpers, useSlabCerts, useSlabPristine } from "@/lib/store/grading";
+import { MAIN, MAIN_NAME, usePortfolios } from "@/lib/store/portfolios";
+import { useShelves } from "@/lib/store/shelves";
+import { toast } from "sonner";
 import { holdingKey, priceKey, type Transaction } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { holdingHref, holdingLabel } from "./holding-items";
@@ -35,8 +40,9 @@ import { isStalePrice, priceAge } from "@/lib/price-info";
  * (slabs), sell or try a sale, its history, and a button to the full card page. A right-side
  * drawer on wide screens and a bottom sheet on phones. Port of the app's HoldingSheet.
  * Only the figures count up and the line draws in; the content itself sits still.
+ * `hideViewDetails` drops the pinned "View details →" button (on the card page itself).
  */
-export function HoldingSheet({ holding, onOpenChange }: { holding: HoldingView | null; onOpenChange: (open: boolean) => void }) {
+export function HoldingSheet({ holding, onOpenChange, hideViewDetails = false }: { holding: HoldingView | null; onOpenChange: (open: boolean) => void; hideViewDetails?: boolean }) {
   // Keeps the last copy on show while the sheet slides away.
   const [last, setLast] = useState(holding);
   if (holding && holding !== last) setLast(holding);
@@ -58,16 +64,16 @@ export function HoldingSheet({ holding, onOpenChange }: { holding: HoldingView |
             "inset-x-0 bottom-0 max-h-[93dvh] rounded-t-[1.75rem] sm:inset-x-auto sm:bottom-3 sm:right-3 sm:top-3 sm:max-h-none sm:w-[440px] sm:rounded-[1.75rem]",
           )}
         >
-          {shown && <SheetBody key={shown.key} opened={shown} close={() => onOpenChange(false)} />}
+          {shown && <SheetBody key={shown.key} opened={shown} close={() => onOpenChange(false)} viewDetails={!hideViewDetails} />}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
   );
 }
 
-type Open = "sell" | "whatif" | "grade" | "cert" | "bumper" | "value" | "details" | "remove" | "delete" | null;
+type Open = "sell" | "whatif" | "grade" | "cert" | "bumper" | "value" | "details" | "remove" | "delete" | "newList" | null;
 
-function SheetBody({ opened, close }: { opened: HoldingView; close: () => void }) {
+function SheetBody({ opened, close, viewDetails }: { opened: HoldingView; close: () => void; viewDetails: boolean }) {
   const { holdings } = usePortfolio({ ignoreFilter: true });
   // Follows the copy when Edit details gives it a new key.
   const [key, setKey] = useState(opened.key);
@@ -83,6 +89,8 @@ function SheetBody({ opened, close }: { opened: HoldingView; close: () => void }
   const pristine = h.identity.grade && isCgcTen(h.identity.grade) ? pristineSlabs.has(h.key) : undefined;
   const rawSingle = !graded && product?.kind === "single";
   const tag = holdingLabel(h) ?? (product?.kind === "sealed" ? "Sealed" : h.identity.condition);
+  // The card page's lime tag: in your collection, and how many copies you have.
+  const owns = holdings.filter((x) => x.identity.productId === h.identity.productId).reduce((s, x) => s + x.quantity, 0);
 
   return (
     <>
@@ -90,20 +98,31 @@ function SheetBody({ opened, close }: { opened: HoldingView; close: () => void }
         {/* A grab handle on phones, where it's a bottom sheet. */}
         <div aria-hidden className="mx-auto mb-3 h-1 w-9 rounded-full bg-foreground/20 sm:hidden" />
         <div className="relative flex h-9 items-center justify-center">
-          <DialogPrimitive.Title className="text-[17px] font-semibold">Owned</DialogPrimitive.Title>
+          <DialogPrimitive.Title className="text-[17px] font-semibold">
+            <span className="sr-only">Owned</span>
+            {owns > 0 ? (
+              <span aria-hidden className="tag-skew tag-lime">
+                <Check className="size-2.5" strokeWidth={3} /> Owned{owns > 1 ? ` ×${owns}` : ""}
+              </span>
+            ) : (
+              <span aria-hidden>Owned</span>
+            )}
+          </DialogPrimitive.Title>
           <DialogPrimitive.Close className="absolute right-0 h-9 rounded-full bg-foreground/[0.09] px-3.5 text-[15px] font-semibold text-[var(--lime)] transition-colors hover:bg-foreground/[0.14]">Done</DialogPrimitive.Close>
         </div>
 
         {/* Header */}
         <div className="mt-5 flex items-center gap-3.5">
           <ProductImage product={product} grade={h.identity.grade} slabKey={h.key} size="sm" frame={!(product?.kind === "single" && product.imageUrl)} className="h-[86px] w-[62px] shrink-0 rounded-md" />
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="line-clamp-2 text-[17px] font-semibold leading-snug">{product?.name ?? "Unknown product"}</p>
             <p className="mt-1.5 flex min-w-0 items-center gap-2">
               <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset", graded ? "text-[var(--lime)] ring-[color-mix(in_srgb,var(--lime)_40%,transparent)]" : "text-foreground ring-foreground/15")}>{tag}</span>
               {product?.setName && <span className="truncate text-[12px] text-muted">{product.setName}</span>}
             </p>
           </div>
+          {/* Everything else you can do with this copy, up by its name where it's easy to find. */}
+          {live && <MoreMenu h={live} onPick={setOpen} />}
         </div>
 
         {live ? (
@@ -130,12 +149,11 @@ function SheetBody({ opened, close }: { opened: HoldingView; close: () => void }
             )}
             <div className="mt-5 flex gap-2">
               <button type="button" onClick={() => setOpen("sell")} className="sheet-panel flex h-11 flex-1 items-center justify-center gap-2 rounded-full text-[14px] font-semibold transition-colors hover:bg-foreground/[0.11]">
-                <Tag className="size-4" /> Sell
+                <Tag className="size-4" /> Record sale
               </button>
               <button type="button" onClick={() => setOpen("whatif")} className="sheet-panel flex h-11 flex-1 items-center justify-center gap-2 rounded-full text-[14px] font-semibold transition-colors hover:bg-foreground/[0.11]">
                 <Diff className="size-4" /> What if I sell?
               </button>
-              <MoreMenu onPick={setOpen} />
             </div>
           </>
         ) : (
@@ -145,9 +163,11 @@ function SheetBody({ opened, close }: { opened: HoldingView; close: () => void }
         <History h={h} />
       </div>
 
-      <div className="border-t border-foreground/[0.06] px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-6 sm:pb-5">
-        <Button3DLink href={holdingHref(h)} onClick={close} />
-      </div>
+      {viewDetails && (
+        <div className="border-t border-foreground/[0.06] px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-6 sm:pb-5">
+          <Button3DLink href={holdingHref(h)} onClick={close} />
+        </div>
+      )}
 
       {live && (
         <>
@@ -160,18 +180,25 @@ function SheetBody({ opened, close }: { opened: HoldingView; close: () => void }
           <EditDetailsDialog holding={live} {...dialog("details")} onChanged={setKey} />
           <RemoveDialog holding={live} {...dialog("remove")} />
           <DeleteCopyDialog holding={live} {...dialog("delete")} onDeleted={close} />
+          <ShelfDialog {...dialog("newList")} initialProductIds={[live.identity.productId]} />
         </>
       )}
     </>
   );
 }
 
-/** Everything else you can do with this copy (the app's ⋯ menu beside Sell). */
-function MoreMenu({ onPick }: { onPick: (o: Open) => void }) {
+/** Everything else you can do with this copy (the app's ⋯ beside the name): details, lists, portfolios, sell, remove, delete. */
+function MoreMenu({ h, onPick }: { h: HoldingView; onPick: (o: Open) => void }) {
+  const { shelves, toggle } = useShelves();
+  const { portfolios, membersOf, place } = usePortfolios();
+  const productId = h.identity.productId;
+  const on = shelves.filter((s) => s.productIds.includes(productId));
+  const current = membersOf(h.key);
+  const run = (work: Promise<unknown>, done: string) => work.then(() => toast(done), (e: Error) => toast.error(e.message));
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
-        <button type="button" aria-label="More actions" className="sheet-panel flex size-11 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-foreground/[0.11] data-[state=open]:bg-foreground/[0.14]">
+        <button type="button" aria-label="More actions" className="flex size-10 shrink-0 items-center justify-center rounded-full bg-foreground/[0.12] ring-1 ring-inset ring-foreground/[0.14] transition-colors hover:bg-foreground/[0.16] data-[state=open]:bg-foreground/[0.18]">
           <MoreHorizontal className="size-[18px]" />
         </button>
       </DropdownMenuTrigger>
@@ -179,6 +206,63 @@ function MoreMenu({ onPick }: { onPick: (o: Open) => void }) {
         <DropdownMenuItem onSelect={() => onPick("details")}>
           <Pencil /> Edit details (condition, grade, printing)
         </DropdownMenuItem>
+        <MenuSub>
+          <MenuSubTrigger>
+            <Library />
+            <span className="min-w-0 flex-1 truncate">
+              Lists <span className="text-muted">· {on.length ? on.map((s) => s.name).join(", ") : "On no list"}</span>
+            </span>
+          </MenuSubTrigger>
+          <MenuSubContent>
+            {shelves.map((s) => {
+              const checked = s.productIds.includes(productId);
+              return (
+                <DropdownMenuItem
+                  key={s.id}
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    void run(toggle(s.id, productId), checked ? `Removed from ${s.name}` : `Added to ${s.name}`);
+                  }}
+                >
+                  <span className="flex-1 truncate">{s.name}</span>
+                  {checked && <Check className="!text-foreground" />}
+                </DropdownMenuItem>
+              );
+            })}
+            {shelves.length > 0 && <DropdownMenuSeparator />}
+            <DropdownMenuItem onSelect={() => window.setTimeout(() => onPick("newList"), 0)}>
+              <Plus /> New list…
+            </DropdownMenuItem>
+          </MenuSubContent>
+        </MenuSub>
+        {portfolios.length > 0 && (
+          <MenuSub>
+            <MenuSubTrigger>
+              <Folder /> Portfolios
+            </MenuSubTrigger>
+            <MenuSubContent>
+              {/* Which portfolios this copy shows in: tap one to add it there or take it out (it always stays in at least one). */}
+              {[{ id: MAIN, name: MAIN_NAME }, ...portfolios].map((p) => {
+                const checked = current.includes(p.id);
+                return (
+                  <DropdownMenuItem
+                    key={p.id}
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      const next = checked ? current.filter((id) => id !== p.id) : [...current, p.id];
+                      if (!next.length) return;
+                      void run(place(h.key, next), checked ? `Taken out of ${p.name}` : `Added to ${p.name}`);
+                    }}
+                  >
+                    <span className="flex-1 truncate">{p.name}</span>
+                    {checked && <Check className="!text-foreground" />}
+                  </DropdownMenuItem>
+                );
+              })}
+            </MenuSubContent>
+          </MenuSub>
+        )}
+        <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => onPick("sell")}>
           <Tag /> Mark as sold
         </DropdownMenuItem>
