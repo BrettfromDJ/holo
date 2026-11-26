@@ -641,7 +641,8 @@ private struct CardOfTheDay: View {
                     .frame(width: 236, height: 330)
                     .shadow(color: .black.opacity(0.6), radius: 24, y: 14)
                     .frame(maxWidth: .infinity)
-                    .padding(.top, 30)
+                    // Room above for the corner tag, so it doesn't touch the card.
+                    .padding(.top, 48)
                     .padding(.bottom, 24)
                     .background {
                         RadialGradient(colors: [tone.opacity(0.3), .clear], center: .center, startRadius: 0, endRadius: 200)
