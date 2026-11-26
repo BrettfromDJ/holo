@@ -468,8 +468,8 @@ private struct ScanTray: View {
     private var tray: some View {
         let shape = UnevenRoundedRectangle(topLeadingRadius: 30, topTrailingRadius: 30, style: .continuous)
         return VStack(spacing: 0) {
-            // Nothing scanned yet: just the how-to (no header, no $0.00 total or greyed buttons).
-            if !model.entries.isEmpty {
+            // The same layout before the first scan as after (empty tiles, a $0.00 total and the
+            // buttons dimmed), so nothing jumps when the first card comes in.
             HStack {
                 // What this scan is, and the running total.
                 HStack(spacing: 8) {
@@ -512,7 +512,6 @@ private struct ScanTray: View {
                 withAnimation(reduceMotion ? nil : .snappy(duration: 0.3)) { expanded = open }
             })
             Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
-            }
             Group {
                 if expanded {
                     // Every scan, top to bottom, newest first.
@@ -530,7 +529,7 @@ private struct ScanTray: View {
                     // Rows stay inside the tray (they scrolled out over its header and the camera).
                     .clipped()
                 } else if model.entries.isEmpty {
-                    EmptyScanTray()
+                    EmptyScanTray().padding(.horizontal, 16)
                 } else if let latest = model.entries.first {
                     // The card you just scanned, big: its picture, then what it is, its price and
                     // its printing and condition to change right here. The count above opens the rest.
@@ -544,9 +543,8 @@ private struct ScanTray: View {
                         .padding(.horizontal, 16)
                 }
             }
-            .frame(height: expanded ? min(CGFloat(model.entries.count) * 120 + 16, 480) : (model.entries.isEmpty ? 196 : 222))
+            .frame(height: expanded ? min(CGFloat(model.entries.count) * 120 + 16, 480) : 222)
             .padding(.vertical, 4)
-            if !model.entries.isEmpty {
             Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 1) {
@@ -572,7 +570,7 @@ private struct ScanTray: View {
                     if dealSide != nil { onDone() } else { onNext() }
                 } label: {
                     HStack(spacing: 6) {
-                        Text(dealSide == nil ? "Review \(model.entries.count)" : "Done")
+                        Text(dealSide == nil ? (model.entries.isEmpty ? "Review" : "Review \(model.entries.count)") : "Done")
                         if dealSide == nil { Image(systemName: "arrow.right").font(.system(size: 13, weight: .semibold)) }
                     }
                 }
@@ -582,7 +580,6 @@ private struct ScanTray: View {
                 .disabled(model.entries.isEmpty)
             }
             .padding(.horizontal, 20).padding(.top, 14).padding(.bottom, 10)
-            }
         }
         .foregroundStyle(.white)
         // Solid black, not glass: the camera behind made the tray's text and tiles hard to read.
@@ -861,33 +858,28 @@ struct ScanListRow: View {
 /// corners, and how to scan. Still: nothing moves.
 private struct EmptyScanTray: View {
     var body: some View {
-        VStack(spacing: 14) {
-            HStack(spacing: -10) {
-                ghost.rotationEffect(.degrees(-9)).offset(y: 6)
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(Color.white.opacity(0.06))
-                    .frame(width: 58, height: 81)
-                    .overlay(ScanCorners(radius: 7).stroke(Theme.lime, style: StrokeStyle(lineWidth: 2, lineCap: .round)))
-                    .zIndex(1)
-                ghost.rotationEffect(.degrees(9)).offset(y: 6)
+        // The latest scan's layout (LatestScan) with nothing in it yet: an empty card-shaped
+        // tile with the lime corners where the picture goes, and the how-to in the panel.
+        HStack(alignment: .top, spacing: 12) {
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(Color.white.opacity(0.06))
+                .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Color.white.opacity(0.16), style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
+                .overlay(ScanCorners(radius: 9).stroke(Theme.lime, style: StrokeStyle(lineWidth: 2, lineCap: .round)).padding(10))
+                .frame(width: 128, height: 178)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Tap to scan").font(.geist(18, .semibold)).foregroundStyle(.white)
+                Text("Hold a card in the frame, then tap the screen. Scan as many as you like.")
+                    .font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(4)
+                Spacer(minLength: 0)
             }
-            VStack(spacing: 4) {
-                Text("Tap to scan").font(.display(20)).tracking(-0.4)
-                // Lines of even length, centred.
-                BalancedText(text: "Hold a card in the frame, then tap the screen. Scan as many as you like.",
-                             font: .geist(13), lineGap: 1, color: Theme.muted, alignment: .center)
-            }
-            .padding(.horizontal, 32)
+            .padding(14)
+            .frame(maxWidth: .infinity, minHeight: 178, maxHeight: 178, alignment: .topLeading)
+            .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.white.opacity(0.06)))
+            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color.white.opacity(0.1), lineWidth: 1))
         }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 18)
+        .padding(.top, 8)
+        .padding(.bottom, 20)
         .accessibilityElement(children: .combine)
-    }
-
-    private var ghost: some View {
-        RoundedRectangle(cornerRadius: 6, style: .continuous)
-            .strokeBorder(Color.white.opacity(0.16), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-            .frame(width: 48, height: 67)
     }
 }
 

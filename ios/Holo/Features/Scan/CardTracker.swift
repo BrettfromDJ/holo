@@ -34,7 +34,21 @@ struct CardQuad: Equatable, Sendable {
         let h = (len(topLeft, bottomLeft) + len(topRight, bottomRight)) / 2
         guard h > 0 else { return false }
         let ratio = w / h
-        return ratio >= 0.58 && ratio <= 0.85
+        guard ratio >= 0.58 && ratio <= 0.85 else { return false }
+        // A card seen at an angle still has corners near square and opposite sides of similar
+        // length; a lopsided outline (a corner of the desk, a keyboard edge) doesn't.
+        let ring = [topLeft, topRight, bottomRight, bottomLeft].map(px)
+        for i in 0..<4 {
+            let a = ring[(i + 3) % 4], b = ring[i], c = ring[(i + 1) % 4]
+            let u = CGVector(dx: a.x - b.x, dy: a.y - b.y), v = CGVector(dx: c.x - b.x, dy: c.y - b.y)
+            let lu = hypot(u.dx, u.dy), lv = hypot(v.dx, v.dy)
+            guard lu > 0, lv > 0 else { return false }
+            let degrees = acos(max(-1, min(1, (u.dx * v.dx + u.dy * v.dy) / (lu * lv)))) * 180 / .pi
+            if abs(degrees - 90) > 30 { return false }
+        }
+        let top = len(topLeft, topRight), bottom = len(bottomLeft, bottomRight)
+        let left = len(topLeft, bottomLeft), right = len(topRight, bottomRight)
+        return min(top, bottom) / max(top, bottom) > 0.6 && min(left, right) / max(left, right) > 0.6
     }
 
     /// Whether `other` sits inside this one (its middle within this one's bounds).
