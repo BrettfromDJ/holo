@@ -168,10 +168,14 @@ final class CardTracker {
         if let current = quad, current.distance(to: raw) < 0.12 {
             quad = current.blended(toward: raw, by: 0.5)
         } else {
+            // A jump to another shape: the phone is moving, or it's not a card (a desk edge, a
+            // keyboard). Start counting again, and hide the outline until this one holds.
+            if quad != nil { firstSeen = now; if isTracking { isTracking = false } }
             quad = raw
         }
-        // Shown once it's held a quarter of a second, so a passing edge doesn't flash an outline.
-        if !isTracking, let first = firstSeen, now - first >= 0.25 { isTracking = true }
+        // Shown once the same outline has held for 0.4 s, so passing edges and a moving phone
+        // don't draw an outline where there's no card.
+        if !isTracking, let first = firstSeen, now - first >= 0.4 { isTracking = true }
 
         // Held still for a quarter second: read it (once per steady card). Was half a second;
         // sooner means it's more often read by the time you tap.
