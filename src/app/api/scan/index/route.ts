@@ -4,7 +4,7 @@ import { selectAll } from "@/lib/server/paging";
 import { getAdminSupabase } from "@/lib/supabase/server";
 
 /**
- * GET /api/scan/index — every English Pokémon single, packed small, for the phone scanner to keep
+ * GET /api/scan/index — every English Pokémon single (`?lang=ja`: every Pokémon Japan single), packed small, for the phone scanner to keep
  * on the phone: once it reads a card's name and number it finds the card there in milliseconds
  * instead of asking the server (the round trip was most of a scan's time). Built from our own
  * catalog (no TCG API cost) and cached a day at Vercel's edge; the phone refreshes daily.
@@ -17,14 +17,17 @@ export const maxDuration = 60;
 
 type Row = { id: string; name: string; number: string | null; set_id: string | null; set_name: string | null; image_url: string | null; rarity: string | null; printings: string[] | null; product_type: string | null };
 
-export async function GET() {
+export async function GET(req: Request) {
+  // Japanese cards come as their own list: the phone looks them up by number alone (it can't
+  // read their names), and it saved a server trip on every Japanese scan.
+  const japanese = new URL(req.url).searchParams.get("lang") === "ja";
   const admin = getAdminSupabase();
   if (!admin) return NextResponse.json({ error: { message: "Not configured." } }, { status: 503 });
 
   const { data: setRows, error } = await admin.from("catalog_sets").select("slug, name, game_name").ilike("game_name", "%pok%");
   if (error) return NextResponse.json({ error: { message: error.message } }, { status: 500 });
-  const englishSets = (setRows ?? []).filter((s) => !/japan/i.test(s.game_name));
-  const slugs = englishSets.map((s) => s.slug);
+  const listSets = (setRows ?? []).filter((s) => /japan/i.test(s.game_name) === japanese);
+  const slugs = listSets.map((s) => s.slug);
   if (!slugs.length) return NextResponse.json({ v: 1, built: new Date().toISOString(), sets: [], dirs: [], rarities: [], printings: [], cards: [] });
 
   const rows: Row[] = [];
@@ -44,7 +47,7 @@ export async function GET() {
     return { list, index: (v: T) => { let n = at.get(v); if (n === undefined) { n = list.length; list.push(v); at.set(v, n); } return n; } };
   };
   const sets = table<string>(), dirs = table<string>(), rarities = table<string>(), printings = table<string>();
-  const setNames = new Map(englishSets.map((s) => [s.slug, s.name]));
+  const setNames = new Map(listSets.map((s) => [s.slug, s.name]));
   const cards: (string | number)[][] = [];
   for (const r of rows) {
     const product = { name: r.name, setName: r.set_name, number: r.number, rarity: r.rarity, productType: r.product_type };

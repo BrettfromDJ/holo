@@ -134,7 +134,7 @@ struct RootView: View {
                                 await portfolios.value
                                 await dealLists.value
                                 // The scanner's card list, read (and refreshed daily) in the background.
-                                ScanCatalog.shared.prepare()
+                                ScanCatalog.prepareAll()
                             }
                             await grading.load(userId: store.demo == nil ? userId : nil)
                             // Slabs marked CGC Pristine 10 are priced apart; the marks arrive after the first pricing.

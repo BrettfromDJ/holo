@@ -42,6 +42,9 @@ enum OnDeviceScan {
         // text alone doesn't settle it) and is made once for both picture checks below.
         // (A plain task, so a scan settled by its text never waits for it.)
         let printing = Task { await CardFingerprint.fingerprint(of: jpeg) }
+        // The Japanese-only read too, at the same time (the combined read below misses Japanese
+        // text; it ran only after the English lookup failed, 0.3 s more on every Japanese card).
+        let japaneseRead = Task { await looksJapanese(jpeg: jpeg) }
         let reading = await read(jpeg: jpeg)
         lap("read", began)
         var why = reading == nil ? "no text" : "text unsure"
@@ -76,7 +79,7 @@ enum OnDeviceScan {
             let nameFitsNumbered = numbered.contains { fits(reading, $0.product.name) }
             if numberIsEnough(reading.number), sameName.isEmpty, !nameFitsNumbered || oneCard(numbered) != nil {
                 let checked = Date()
-                let japanese = await looksJapanese(jpeg: jpeg)
+                let japanese = await japaneseRead.value
                 lap("japanese check", checked)
                 if japanese {
                     let jp = Reading(name: nil, number: reading.number, japanese: true)
@@ -135,6 +138,12 @@ enum OnDeviceScan {
     static func searches(_ reading: Reading) async -> [SearchHit] {
         // A Japanese card: the server's lookup, kept to Japanese cards (the phone's list is English).
         if reading.japanese {
+            // The Japanese list kept on the phone first; the server only for a set newer than it.
+            if let local = ScanCatalog.japanese.hits(for: reading),
+               local.contains(where: { strictNumber($0.product.number, reading.number) }) {
+                lastJapaneseSeen = local.count
+                return local
+            }
             // Tried twice: a blip shouldn't send a Japanese card to CardSight (it can't read them well).
             var hits: [SearchHit] = []
             for attempt in 0..<2 {
@@ -454,12 +463,22 @@ enum OnDeviceScan {
     }
 
     /// One clear catalog match for the reading, or nil (the live scanner's check).
-    static func lookUp(_ reading: Reading) async -> SearchHit? {
+    static func lookUp(_ reading: Reading, jpeg: Data? = nil) async -> SearchHit? {
         guard !reading.number.isEmpty else { return nil }
+        if reading.japanese {
+            return oneCard(realSets(await searches(reading).filter { strictNumber($0.product.number, reading.number) }))
+        }
         let numbered = await searches(reading).filter { strictNumber($0.product.number, reading.number) }
         // One product (its printings come along with it) that fits the name read: accept. Several
         // with that number: the one whose name fits, if only one does. Else let the server decide.
         if let hit = oneCard(numbered), fits(reading, hit.product.name) { return hit }
+        // No English card fits the name read: a Japanese card (its name reads as gibberish) is
+        // looked up among Japanese cards by its number, so it's ready on the tap too.
+        if let jpeg, numberIsEnough(reading.number), !numbered.contains(where: { fits(reading, $0.product.name) }),
+           await looksJapanese(jpeg: jpeg) {
+            let jp = Reading(name: nil, number: reading.number, japanese: true)
+            return oneCard(realSets(await searches(jp).filter { strictNumber($0.product.number, jp.number) }))
+        }
         guard reading.name != nil else { return nil }
         return oneCard(numbered.filter { fits(reading, $0.product.name) })
     }

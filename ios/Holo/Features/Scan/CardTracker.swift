@@ -159,13 +159,28 @@ final class CardTracker {
         // Shown once it's held a quarter of a second, so a passing edge doesn't flash an outline.
         if !isTracking, let first = firstSeen, now - first >= 0.25 { isTracking = true }
 
-        // Held still for half a second: read it (once per steady card).
+        // Held still for a quarter second: read it (once per steady card). Was half a second;
+        // sooner means it's more often read by the time you tap.
         if let ref = steadyRef, ref.distance(to: raw) < 0.03 {
-            if now - steadySince >= 0.5 { identifyIfNeeded(raw, now: now) }
+            if now - steadySince >= 0.25 { identifyIfNeeded(raw, now: now) }
         } else {
             steadyRef = raw
             steadySince = now
         }
+    }
+
+    /// A read of the card in view is under way (a tap can wait for it instead of starting over).
+    var isReading: Bool { identifying && quad != nil }
+
+    /// Waits for the read under way (at most `timeout` seconds), then the match for the card in
+    /// view, if it found one.
+    func awaitMatch(timeout: Double) async -> LiveMatch? {
+        let gen = generation
+        let start = CACurrentMediaTime()
+        while identifying, gen == generation, CACurrentMediaTime() - start < timeout {
+            try? await Task.sleep(nanoseconds: 20_000_000)
+        }
+        return gen == generation ? readyMatch : nil
     }
 
     /// A shot was taken: what was read is used up, and anything being read now is dropped.
@@ -207,7 +222,7 @@ final class CardTracker {
                 if let known = self?.cache[key] {
                     hit = known
                 } else {
-                    hit = await OnDeviceScan.lookUp(reading)
+                    hit = await OnDeviceScan.lookUp(reading, jpeg: crop.jpeg)
                     self?.cache[key] = .some(hit)
                 }
             }

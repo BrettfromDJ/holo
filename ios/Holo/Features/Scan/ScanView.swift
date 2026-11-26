@@ -30,6 +30,8 @@ struct ScanView: View {
     @State private var tracker = CardTracker()
     @State private var reviewing = false
     @State private var flash = false
+    /// A tap is waiting on the read already under way (further taps wait too).
+    @State private var waitingForRead = false
     @State private var focused: UUID?
     @State private var torch = false
     @AppStorage(ScanGame.key) private var scanGame = ScanGame.pokemon.rawValue
@@ -80,7 +82,7 @@ struct ScanView: View {
             if g.translation.height > 120 && abs(g.translation.width) < g.translation.height { dismiss() }
         })
         .onAppear {
-            ScanCatalog.shared.prepare()
+            ScanCatalog.prepareAll()
             wire()
             // The note's button starts the camera the first time (its prompt follows the note).
             if !cameraNote { camera.start() }
@@ -343,8 +345,31 @@ struct ScanView: View {
             showTip = false
             UserDefaults.standard.set(true, forKey: "scan-tip-seen")
         }
+        // A tap while the last one waits on its read: ignored (it's the same card).
+        guard !waitingForRead else { return }
         // Reading the tracker here (an action, not `body`) doesn't make this view observe it.
         let ready = tracker.readyMatch
+        // The card in view is being read right now: wait for that (usually a fraction of a
+        // second) rather than start over from a fresh photo, which took a second or more.
+        if ready == nil, tracker.isReading {
+            guard Pro.shared.canScan else { proPaywall = .scans; return }
+            waitingForRead = true
+            Haptics.tap()
+            flashOnce()
+            let tappedAt = Date()
+            Task {
+                let live = await tracker.awaitMatch(timeout: 1.2)
+                waitingForRead = false
+                tracker.consume()
+                if let live {
+                    Pro.shared.countScan()
+                    model.add(matched: OnDeviceScan.result(for: live.hit), photo: live.crop.jpeg, thumbnail: live.crop.image)
+                } else {
+                    photograph(tappedAt: tappedAt, feedback: false)
+                }
+            }
+            return
+        }
         // Either way the reading is used up: the next tap is read afresh.
         tracker.consume()
         if let live = ready {
@@ -355,14 +380,20 @@ struct ScanView: View {
             model.add(matched: OnDeviceScan.result(for: live.hit), photo: live.crop.jpeg, thumbnail: live.crop.image)
             return
         }
+        photograph(tappedAt: Date(), feedback: true)
+    }
+
+    /// A photo of the card in view, read from scratch (no live read to use).
+    private func photograph(tappedAt: Date, feedback: Bool) {
         guard model.blocked == nil else { return }
         // Free: 20 scans a month, then the Pro page.
         guard Pro.shared.canScan else { proPaywall = .scans; return }
         Pro.shared.countScan()
         let quad = tracker.quad
-        let tappedAt = Date()
-        UIImpactFeedbackGenerator(style: quad == nil ? .medium : .light).impactOccurred()
-        flashOnce()
+        if feedback {
+            UIImpactFeedbackGenerator(style: quad == nil ? .medium : .light).impactOccurred()
+            flashOnce()
+        }
         Task {
             do {
                 // A sharp full photo; the phone reads a crop of the tracked card from it, and with

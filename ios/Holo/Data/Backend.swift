@@ -84,8 +84,10 @@ final class HoloAPI {
     /// Every English Pokémon single, packed small, for the scanner to keep on the phone
     /// (`ScanCatalog`). Raw bytes, saved as they come. No sign-in sent: it's the same for
     /// everyone, and cached at the edge.
-    func scanIndex() async throws -> Data {
-        var req = URLRequest(url: base.appendingPathComponent("api/scan/index"))
+    func scanIndex(japanese: Bool = false) async throws -> Data {
+        var url = base.appendingPathComponent("api/scan/index")
+        if japanese { url = url.appending(queryItems: [URLQueryItem(name: "lang", value: "ja")]) }
+        var req = URLRequest(url: url)
         req.setValue("application/json", forHTTPHeaderField: "Accept")
         req.timeoutInterval = 60
         let (data, response) = try await session.data(for: req)

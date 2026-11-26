@@ -6,7 +6,19 @@ import Foundation
 /// today) still go to the server lookup. Prices aren't in it: the scan's price fills in a moment
 /// later, as before (`ScanModel.prefetch`).
 final class ScanCatalog: @unchecked Sendable {
-    static let shared = ScanCatalog()
+    static let shared = ScanCatalog(japanese: false)
+    /// Every Pokémon Japan single (`?lang=ja`), looked up by number: a Japanese card's name can't
+    /// be read, and each Japanese scan used to wait on the server for this.
+    static let japanese = ScanCatalog(japanese: true)
+
+    /// Both lists (on launch and when the scanner opens).
+    static func prepareAll() {
+        shared.prepare()
+        japanese.prepare()
+    }
+
+    private let isJapanese: Bool
+    private init(japanese: Bool) { isJapanese = japanese }
 
     private struct Card {
         var product: Product
@@ -24,7 +36,7 @@ final class ScanCatalog: @unchecked Sendable {
     var isReady: Bool { lock.lock(); defer { lock.unlock() }; return !cards.isEmpty }
 
     private var file: URL {
-        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("scan-catalog-v1.json")
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent(isJapanese ? "scan-catalog-ja-v1.json" : "scan-catalog-v1.json")
     }
 
     /// Reads the saved list (once per launch), then fetches a fresh one when it's a day old or
@@ -40,7 +52,7 @@ final class ScanCatalog: @unchecked Sendable {
             if empty, let data = try? Data(contentsOf: file) { install(data) }
             let age = (try? file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate).map { Date().timeIntervalSince($0) }
             guard age == nil || age! > 20 * 3600 || !isReady else { return }
-            guard let data = try? await Backend.shared.api.scanIndex(), install(data) else { return }
+            guard let data = try? await Backend.shared.api.scanIndex(japanese: isJapanese), install(data) else { return }
             try? data.write(to: file, options: .atomic)
         }
     }
@@ -63,7 +75,9 @@ final class ScanCatalog: @unchecked Sendable {
             }
         }
         var seen = Set<Int>()
-        return picked.filter { seen.insert($0).inserted }.map { SearchHit(product: cards[$0].product) }
+        return picked.filter { seen.insert($0).inserted }.map {
+            SearchHit(product: cards[$0].product, gameName: isJapanese ? "Pokemon Japan" : nil)
+        }
     }
 
     /// Unpacks the server's list (see `/api/scan/index`); false when it can't be read.
