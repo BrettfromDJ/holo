@@ -1,7 +1,7 @@
 "use client";
 
 import * as DropdownPrimitive from "@radix-ui/react-dropdown-menu";
-import { Activity, Award, BarChart3, Compass, Eye, Grid3x3, Handshake, Heart, LayoutGrid, Menu, Play, Settings, type LucideIcon, Receipt } from "lucide-react";
+import { Activity, Award, BarChart3, Compass, Grid3x3, Handshake, Layers, LayoutGrid, Menu, Play, Settings, type LucideIcon, Receipt } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 type Place = { label: string; icon: LucideIcon; href?: string; run?: () => void };
@@ -26,8 +26,7 @@ export function PlacesMenu({ onWeek, onCards }: { onWeek: () => void; onCards: (
       { label: "Master sets", icon: Grid3x3, href: "/master-sets" },
       { label: "Activity", icon: Activity, href: "/activity" },
       { label: "Sales & taxes", icon: Receipt, href: "/sales" },
-      { label: "Watchlist", icon: Eye, href: "/watchlist" },
-      { label: "Wishlist", icon: Heart, href: "/wishlist" },
+      { label: "Lists", icon: Layers, href: "/lists" },
     ],
     [{ label: "Account and settings", icon: Settings, href: "/settings" }],
   ];

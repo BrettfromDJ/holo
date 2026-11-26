@@ -216,6 +216,7 @@ and say exactly what to run or click.
 
 ## Website
 
+- Brought in line with the app (Nov 26 2026): `/` is the market Home (`src/components/home/market-home.tsx`), `/collection` has Summary and Cards as two titles (`?view=summary`, `collection-mode` in the browser; Summary's ☰ is `places-menu.tsx`), tabs Home · Collection · Search (`/search`) · Explore · Deal (`src/components/shell/nav.ts`; `/trade` is off the nav), `/gains` redirects to Analytics, new `/sales` and `/lists` (+ `/lists/[id]`), the Deal page split into `src/components/deal/*` (same stored data as the app), shared empty page `EmptyPage` in `src/components/portfolio/empty-state.tsx`, games order and short names in `src/lib/games.ts`. Not yet aligned: Settings (no delete account on the web), no scanner on the web (empty pages point to Search).
 - `npm run dev`, `npm test` (Vitest), `npm run lint`. Supabase migrations in `supabase/`.
 - The daily price sync cron also sends watch-price push notifications (`src/lib/server/apns.ts`,
   `price-alerts.ts`).

@@ -1,4 +1,4 @@
-import { Compass, Eye, Handshake, Heart, House, LayoutGrid, Search, Settings } from "lucide-react";
+import { Compass, Eye, Handshake, Heart, House, Layers, LayoutGrid, Search, Settings } from "lucide-react";
 
 /**
  * The five tabs, as in the app: Home, Collection, Search, Explore, Deal. Gains, Analytics,
@@ -10,6 +10,7 @@ export const NAV = [
   { href: "/search", label: "Search", icon: Search },
   { href: "/explore", label: "Explore", icon: Compass },
   { href: "/deal", label: "Deal", icon: Handshake },
+  { href: "/lists", label: "Lists", icon: Layers },
   { href: "/watchlist", label: "Watchlist", icon: Eye },
   { href: "/wishlist", label: "Wishlist", icon: Heart },
   { href: "/settings", label: "Settings", icon: Settings },
@@ -28,7 +29,7 @@ export const SETTINGS = byHref("/settings");
 export const MOBILE_TABS = { left: ["/", "/collection"].map(byHref), right: ["/explore", "/deal"].map(byHref) };
 
 /** The phone top bar's short menu: your lists (everything else is in Summary's places menu). */
-export const MOBILE_MENU = ["/watchlist", "/wishlist"].map(byHref);
+export const MOBILE_MENU = ["/lists", "/watchlist", "/wishlist"].map(byHref);
 
 export function isActive(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
