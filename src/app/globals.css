@@ -610,6 +610,8 @@
 .tint-lime { --tint: var(--lime); }
 .tint-pink { --tint: var(--plan-pink); }
 .tint-blue { --tint: var(--plan-blue); }
+/* The Deal tab's trade colour (the app's DealKind.trade.tint). */
+.tint-purple { --tint: #a584ff; }
 .tint-orange { --tint: var(--cat-2); }
 .tint-teal { --tint: var(--cat-3); }
 .tint-azure { --tint: var(--cat-1); }
@@ -671,6 +673,8 @@
 .plan-btn-lime { background-color: var(--lime); color: #0b0b0c; }
 .btn-3d-pink { --edge: #a3175f; }
 .btn-3d-blue { --edge: #1a2f9e; }
+.btn-3d-purple { --edge: #45289e; }
+.tag-purple { background: #a584ff; color: #fff; }
 .tag-blue { background: var(--plan-blue); color: #fff; }
 .tag-pink { background: var(--plan-pink); color: #fff; }
 
@@ -1011,4 +1015,56 @@
 .fade-row[data-fade-end="true"] {
   -webkit-mask-image: linear-gradient(to right, black calc(100% - 48px), transparent);
   mask-image: linear-gradient(to right, black calc(100% - 48px), transparent);
+}
+
+/* Liquid Glass, web edition (the app's .liquidGlass): blurs what's behind, a faint light edge. */
+.glass {
+  background: color-mix(in srgb, var(--foreground) 6%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  backdrop-filter: blur(20px) saturate(1.5);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--foreground) 10%, transparent), inset 0 1px 0 color-mix(in srgb, var(--foreground) 10%, transparent);
+}
+/* The places menu's panel: a touch denser so its rows read over the page. */
+.glass-panel {
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  backdrop-filter: blur(24px) saturate(1.5);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--foreground) 12%, transparent), 0 18px 40px -12px rgb(0 0 0 / 0.6);
+}
+/* Chips like a streaming app's category tabs: separate glass tiles, the picked one white. */
+.glass-chip {
+  background: color-mix(in srgb, var(--foreground) 6%, transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  backdrop-filter: blur(16px) saturate(1.4);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--foreground) 10%, transparent);
+  color: var(--foreground);
+}
+.glass-chip[aria-pressed="true"] {
+  background: var(--foreground);
+  color: var(--background);
+  box-shadow: none;
+}
+
+/* Watchlist, Wishlist and Lists (the app's Lists pages). Glass that blurs what's behind it. */
+.lists-glass {
+  background: color-mix(in srgb, var(--foreground) 7%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  backdrop-filter: blur(20px) saturate(1.5);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--foreground) 10%, transparent), inset 0 1px 0 color-mix(in srgb, var(--foreground) 8%, transparent);
+}
+/* Each row its own card, a touch lighter than the page with a faint light edge (the app's ListRowPanel). */
+.list-row-panel {
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+/* Chips like a streaming app's category tabs: glass tiles, the picked one filled white. */
+.lists-chip {
+  background: color-mix(in srgb, var(--foreground) 6%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--foreground) 10%, transparent);
+  color: var(--foreground);
+}
+.lists-chip[aria-pressed="true"] {
+  background: var(--foreground);
+  color: var(--background);
+  box-shadow: none;
 }

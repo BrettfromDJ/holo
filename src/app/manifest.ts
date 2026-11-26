@@ -1,10 +1,10 @@
 import type { MetadataRoute } from "next";
 
-/** Lets Dexora be installed to the home screen and open full-screen like an app. */
+/** Lets Corodex be installed to the home screen and open full-screen like an app. */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Dexora",
-    short_name: "Dexora",
+    name: "Corodex",
+    short_name: "Corodex",
     description: "Track the value of your trading cards and sealed products.",
     start_url: "/",
     scope: "/",

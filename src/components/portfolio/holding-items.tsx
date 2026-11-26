@@ -12,9 +12,12 @@ import type { HoldingView } from "@/lib/finance/portfolio";
 import { money } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { isStalePrice } from "@/lib/price-info";
+import { MoreHorizontal } from "lucide-react";
+import { cardHref } from "./collection-links";
 
+/** A card's page, on the tapped copy's printing. */
 export function holdingHref(h: HoldingView) {
-  return `/product/${encodeURIComponent(h.identity.productId)}`;
+  return cardHref(h);
 }
 
 export function holdingLabel(h: HoldingView): string | null {
@@ -63,8 +66,9 @@ export function HoldingMiniRow({ h, metric = "gain", change }: { h: HoldingView;
 
 /** Table-style row for the collection list view. */
 /** `onOpen` opens your copy in place (Collection's sheet) instead of following the link. */
-export function HoldingListRow({ h, onOpen }: { h: HoldingView; onOpen?: (h: HoldingView) => void }) {
-  return (
+/** `onMore` adds a ⋯ at the end of the row opening its actions (the app's `RowMoreButton`). */
+export function HoldingListRow({ h, onOpen, onMore }: { h: HoldingView; onOpen?: (h: HoldingView) => void; onMore?: (h: HoldingView) => void }) {
+  const link = (
     <Link
       href={holdingHref(h)}
       onClick={(e) => {
@@ -101,11 +105,32 @@ export function HoldingListRow({ h, onOpen }: { h: HoldingView; onOpen?: (h: Hol
       </div>
     </Link>
   );
+  if (!onMore) return link;
+  return (
+    <div className="flex items-center">
+      <div className="min-w-0 flex-1">{link}</div>
+      <MoreButton onClick={() => onMore(h)} label={h.product?.name} className="mr-2" />
+    </div>
+  );
 }
 
-export function HoldingListHeader() {
+/** The ⋯ at the end of a row or on a tile: opens the same actions as the app's hold. */
+export function MoreButton({ onClick, label, className }: { onClick: () => void; label?: string; className?: string }) {
   return (
-    <div className="hidden grid-cols-[3.5rem_minmax(0,2.4fr)_repeat(5,minmax(0,1fr))] gap-4 border-b border-border px-4 pb-3 text-[12px] font-medium text-subtle md:grid">
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`More for ${label ?? "this card"}`}
+      className={cn("flex size-9 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-foreground/10 hover:text-foreground", className)}
+    >
+      <MoreHorizontal className="size-[18px]" />
+    </button>
+  );
+}
+
+export function HoldingListHeader({ className }: { className?: string }) {
+  return (
+    <div className={"hidden grid-cols-[3.5rem_minmax(0,2.4fr)_repeat(5,minmax(0,1fr))] gap-4 border-b border-border px-4 pb-3 text-[12px] font-medium text-subtle md:grid" + (className ? ` ${className}` : "")}>
       <span />
       <span>Product</span>
       <span className="text-right">Qty</span>
@@ -119,10 +144,10 @@ export function HoldingListHeader() {
 
 /** Photo-forward card for the collection grid view. */
 /** `onOpen` opens your copy in place (Collection's sheet) instead of following the link. */
-export function HoldingTile({ h, onOpen }: { h: HoldingView; onOpen?: (h: HoldingView) => void }) {
+export function HoldingTile({ h, onOpen, onMore }: { h: HoldingView; onOpen?: (h: HoldingView) => void; onMore?: (h: HoldingView) => void }) {
   const hero = useHeroLink();
   const shape = h.identity.grade ? "slab" : h.product?.kind === "single" && h.product.imageUrl ? "card" : "sealed";
-  return (
+  const link = (
     <Link
       href={holdingHref(h)}
       onClick={(e) => {
@@ -148,7 +173,7 @@ export function HoldingTile({ h, onOpen }: { h: HoldingView; onOpen?: (h: Holdin
         </div>
         {h.quantity > 1 && <span className="tabular absolute left-2.5 top-2.5 rounded-full bg-background/80 px-2 py-0.5 text-[11px] font-semibold ring-1 ring-border backdrop-blur">×{h.quantity}</span>}
         {/* A slab's own label already shows its grade. */}
-        {holdingLabel(h) && !h.identity.grade && <span className="absolute right-2.5 top-2.5 rounded-full bg-background/80 px-2 py-0.5 text-[11px] font-medium text-muted backdrop-blur">{holdingLabel(h)}</span>}
+        {holdingLabel(h) && !h.identity.grade && <span className={cn("absolute top-2.5", onMore ? "right-12" : "right-2.5", " rounded-full bg-background/80 px-2 py-0.5 text-[11px] font-medium text-muted backdrop-blur")}>{holdingLabel(h)}</span>}
       </div>
       <div className="mt-3 min-w-0 px-0.5">
         <p className="truncate text-[14px] font-medium">{h.product?.name ?? "Unknown product"}</p>
@@ -169,5 +194,12 @@ export function HoldingTile({ h, onOpen }: { h: HoldingView; onOpen?: (h: Holdin
         </div>
       </div>
     </Link>
+  );
+  if (!onMore) return link;
+  return (
+    <div className="relative">
+      {link}
+      <MoreButton onClick={() => onMore(h)} label={h.product?.name} className="glass absolute right-1.5 top-1.5 size-8 text-foreground" />
+    </div>
   );
 }

@@ -240,7 +240,7 @@ function MiniTile({ h, icon: Icon, label, value, ratio, paidLine }: { h: Holding
 /* -------------------------------- Shelf -------------------------------- */
 
 /** A display shelf of the most valuable pieces: each stands on a glass ledge under its own light, with a price tag below. */
-export function Shelf({ holdings, title = "Your shelf", subtitle }: { holdings: HoldingView[]; title?: string; subtitle?: string }) {
+export function Shelf({ holdings, title = "Your shelf", subtitle, seeAllHref, onSeeAll }: { holdings: HoldingView[]; title?: string; subtitle?: string; seeAllHref?: string; onSeeAll?: () => void }) {
   const items = useMemo(() => [...holdings].filter((h) => h.value !== null).sort((a, b) => (b.value ?? 0) - (a.value ?? 0)).slice(0, 14), [holdings]);
   const shelf = useRef<HTMLDivElement>(null);
   const frame = useRef(0);
@@ -278,7 +278,15 @@ export function Shelf({ holdings, title = "Your shelf", subtitle }: { holdings: 
           </h2>
           {subtitle && <p className="mt-1.5 text-[13px] text-muted">{subtitle}</p>}
         </div>
-        <Link href="/collection?sort=value" className="flex items-center gap-1 text-[13px] font-medium text-muted hover:text-foreground">
+        <Link
+          href={seeAllHref ?? "/collection"}
+          onClick={(e) => {
+            if (onSeeAll && !e.metaKey && !e.ctrlKey) {
+              e.preventDefault();
+              onSeeAll();
+            }
+          }}
+          className="flex items-center gap-1 text-[13px] font-medium text-muted hover:text-foreground">
           See all <ArrowRight className="size-3.5" />
         </Link>
       </div>

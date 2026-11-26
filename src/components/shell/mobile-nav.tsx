@@ -3,44 +3,36 @@
 import { Menu, Search, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { Logo } from "./logo";
 import { MOBILE_MENU, MOBILE_TABS, SETTINGS, isActive, type NavItem } from "./nav";
 
-/** Top bar on small screens: logo, settings, and a menu with every other destination. */
+/** Top bar on small screens: logo, a short menu (your lists) and settings. Everything else is in Summary's places menu. */
 export function MobileTopBar() {
   const pathname = usePathname();
   const inMenu = MOBILE_MENU.some((n) => isActive(pathname, n.href));
   return (
     <header className="sticky top-0 z-30 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center pt-[env(safe-area-inset-top)] justify-between border-b border-border bg-background/85 px-4 backdrop-blur-xl lg:hidden">
-      <Link href="/" aria-label="Overview">
+      <Link href="/" aria-label="Home">
         <Logo />
       </Link>
       <div className="flex items-center gap-1">
         <DropdownMenu>
           <DropdownMenuTrigger
-            aria-label="More pages"
+            aria-label="Your lists"
             className={cn("flex h-10 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium", inMenu ? "bg-surface-2 text-foreground" : "text-muted")}
           >
             <Menu className="size-5" />
-            {inMenu ? MOBILE_MENU.find((n) => isActive(pathname, n.href))?.label : "More"}
+            {inMenu ? MOBILE_MENU.find((n) => isActive(pathname, n.href))?.label : "Lists"}
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            {MOBILE_MENU.map((n, i) => (
-              <div key={n.href}>
-                {n.group !== (MOBILE_MENU[i - 1]?.group ?? undefined) && (
-                  <>
-                    {i > 0 && <DropdownMenuSeparator />}
-                    {n.group && <DropdownMenuLabel>{n.group}</DropdownMenuLabel>}
-                  </>
-                )}
-                <DropdownMenuItem asChild>
-                  <Link href={n.href} className={cn(isActive(pathname, n.href) && "bg-surface-2")}>
-                    <n.icon className="size-4" /> {n.label}
-                  </Link>
-                </DropdownMenuItem>
-              </div>
+          <DropdownMenuContent align="end" className="w-48">
+            {MOBILE_MENU.map((n) => (
+              <DropdownMenuItem key={n.href} asChild>
+                <Link href={n.href} className={cn(isActive(pathname, n.href) && "bg-surface-2")}>
+                  <n.icon className="size-4" /> {n.label}
+                </Link>
+              </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
@@ -57,7 +49,7 @@ export function MobileTopBar() {
   );
 }
 
-/** Bottom tab bar: Overview, Collection, Search, Explore, Trade (adding is on Overview and Collection). */
+/** Bottom tab bar, as in the app: Home, Collection, Search, Explore, Deal. */
 export function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();

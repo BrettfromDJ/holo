@@ -4,14 +4,16 @@ import { Check, ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useDeferredValue, useMemo, useState } from "react";
+import { SetArt, useExploreIndex } from "@/components/explore/explore-items";
 import { gridPattern, MASTER_SETS, ProgressBar, SearchSort } from "@/components/master-sets/master-set-items";
 import { HoloTilt, isFoilCard } from "@/components/motion/holo-tilt";
 import { ErrorState } from "@/components/portfolio/error-state";
 import { ProductImage } from "@/components/product/product-image";
-import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ownedSets, useChecklist, type OwnedSet } from "@/lib/checklists";
 import { compareCollectorNumbers } from "@/lib/collector-number";
+import { parseEditionSlug } from "@/lib/editions";
+import type { ExploreSet } from "@/lib/explore/types";
 import type { HoldingView } from "@/lib/finance/portfolio";
 import { money } from "@/lib/format";
 import { useHeroLink } from "@/lib/motion/hero";
@@ -19,7 +21,6 @@ import type { ChecklistCard } from "@/lib/pricing/types";
 import { usePortfolio, useStore } from "@/lib/store/collection-store";
 import { cn } from "@/lib/utils";
 
-type Show = "all" | "owned" | "missing";
 type Sort = "number" | "priceHigh" | "priceLow" | "name" | "ownedFirst" | "missingFirst";
 
 const SORTS: { value: Sort; label: string }[] = [
@@ -70,7 +71,6 @@ export default function MasterSetPage() {
   // Until the first load starts the state is empty; treat that as loading too.
   const loading = fetching || (!checklist && !error && !sample);
 
-  const [show, setShow] = useState<Show>("all");
   const [sort, setSort] = useState<Sort>("number");
   const [query, setQuery] = useState("");
   const settledQuery = useDeferredValue(query);
@@ -91,7 +91,7 @@ export default function MasterSetPage() {
   const shown = useMemo(() => {
     const q = settledQuery.trim().toLowerCase();
     const list = entries.filter(
-      (e) => (show === "all" || (show === "owned") === owned(e)) && (!q || (!e.slot && e.card.name.toLowerCase().includes(q)) || (e.card.number ?? "").toLowerCase().includes(q)),
+      (e) => !q || (!e.slot && e.card.name.toLowerCase().includes(q)) || (e.card.number ?? "").toLowerCase().includes(q),
     );
     const nullLast = (n: number | null, dir: 1 | -1) => (n === null ? Infinity : dir * n);
     switch (sort) {
@@ -108,19 +108,18 @@ export default function MasterSetPage() {
       case "missingFirst":
         return [...list.filter((e) => !owned(e)), ...list.filter(owned)];
     }
-  }, [entries, settledQuery, show, sort]);
+  }, [entries, settledQuery, sort]);
 
   if (store.status === "loading") return <SetSkeleton />;
   if (store.status === "error") return <ErrorState message={store.error} />;
 
   const name = checklist?.name ?? set.name;
-  const total = entries.length;
-  const ownedCount = entries.filter(owned).length;
   const known = Boolean(checklist);
 
   return (
     <div className="animate-fade-in">
       <SetHero
+        setId={setId}
         name={name}
         loading={loading}
         known={known}
@@ -130,16 +129,6 @@ export default function MasterSetPage() {
 
       <div className="mt-6 space-y-3">
         <SearchSort query={query} onQuery={setQuery} placeholder="Search this set" sort={sort} onSort={setSort} sorts={SORTS} />
-        <Segmented
-          ariaLabel="Show"
-          value={show}
-          onChange={setShow}
-          options={[
-            { value: "all", label: <Count label="All" n={total} /> },
-            { value: "owned", label: <Count label="Owned" n={ownedCount} /> },
-            { value: "missing", label: <Count label="Missing" n={total - ownedCount} /> },
-          ]}
-        />
         {sort !== "number" && <p className="text-[13px] text-muted">Sorted by {SORTS.find((s) => s.value === sort)?.label.toLowerCase()}</p>}
       </div>
 
@@ -150,7 +139,7 @@ export default function MasterSetPage() {
           ))}
         </div>
       ) : !shown.length ? (
-        <p className="py-14 text-center text-[15px] text-muted">{show === "owned" ? "None owned yet." : show === "missing" ? "Nothing missing. Set complete." : "Nothing matches."}</p>
+        <p className="py-14 text-center text-[15px] text-muted">Nothing matches.</p>
       ) : (
         <div className="mt-6 grid grid-cols-3 gap-x-2.5 gap-y-[18px] sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10">
           {shown.map((e) => (
@@ -159,14 +148,6 @@ export default function MasterSetPage() {
         </div>
       )}
     </div>
-  );
-}
-
-function Count({ label, n }: { label: string; n: number }) {
-  return (
-    <>
-      {label} <span className="tabular opacity-60">{n}</span>
-    </>
   );
 }
 
@@ -236,12 +217,14 @@ function CardCell({ entry: e }: { entry: Entry }) {
  * the set as one tick.
  */
 function SetHero({
+  setId,
   name,
   loading,
   known,
   owned,
   note,
 }: {
+  setId: string;
   name: string;
   loading: boolean;
   known: boolean;
@@ -254,9 +237,22 @@ function SetHero({
   const pct = Math.round(ratio * 100);
   // Under 10% only the count shows ("1%" says little). Same as the app.
   const early = pct < 10 && have < total;
+  const art = useSetArt(setId, name);
+  // Our own set art (a background and a logo): the background fills the top, blurred, the logo on it.
+  const ownArt = art?.logoUrl && art.iconUrl ? art.iconUrl : null;
   return (
     <section className="relative isolate -mx-4 -mt-6 mb-6 [--hero-glow-x:50%] lg:[--hero-glow-x:62%] overflow-hidden rounded-b-[34px] bg-[#050505] px-4 pb-6 pt-4 text-white sm:-mx-8 sm:-mt-10 sm:px-8 sm:pb-8 sm:pt-7 lg:rounded-b-[40px]">
-      <div aria-hidden className="absolute inset-0 -z-10" style={gridPattern(28)} />
+      {ownArt ? (
+        // eslint-disable-next-line @next/next/no-img-element -- decorative, blurred
+        <img
+          src={ownArt}
+          alt=""
+          aria-hidden
+          className="absolute inset-0 -z-10 h-full w-full scale-110 object-cover opacity-60 blur-[16px] [mask-image:linear-gradient(to_bottom,black_40%,transparent)]"
+        />
+      ) : (
+        <div aria-hidden className="absolute inset-0 -z-10" style={gridPattern(28)} />
+      )}
       <div
         aria-hidden
         className="absolute inset-0 -z-10"
@@ -271,6 +267,17 @@ function SetHero({
       <Link href={MASTER_SETS} className="-ml-1 inline-flex items-center gap-0.5 text-[13px] font-medium text-white/55 hover:text-white">
         <ChevronLeft className="size-4" /> Master sets
       </Link>
+      {/* The compact top (the app's SetHero(compact: true)): the logo area is 120px tall, not 210. */}
+      {art && (
+        <div className="mt-2 flex h-[120px] items-center justify-center">
+          {ownArt && art.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- the set's logo
+            <img src={art.logoUrl} alt={name} className="max-h-[96px] max-w-[220px] object-contain drop-shadow-[0_6px_14px_rgba(0,0,0,0.6)]" />
+          ) : (
+            <SetArt set={art} className="aspect-[2.4] h-full rounded-[22px] ring-1 ring-inset ring-white/10" />
+          )}
+        </div>
+      )}
       <h1 className="mt-3 text-balance font-display text-[24px] font-semibold leading-tight sm:text-[30px]">{name}</h1>
 
       {/* One compact line: how many you own of the set and the %, over a lime bar. Same as the app. */}
@@ -299,6 +306,16 @@ function SetHero({
   );
 }
 
+
+/** The set's catalog entry (banner and logo), matched by slug, name, or its edition's catalog set. */
+function useSetArt(setId: string, name: string): ExploreSet | null {
+  const index = useExploreIndex();
+  return useMemo(() => {
+    if (index.status !== "ready") return null;
+    const base = parseEditionSlug(setId)?.slug;
+    return index.sets.find((s) => s.slug === setId) ?? index.sets.find((s) => s.name.toLowerCase() === name.toLowerCase()) ?? (base ? index.sets.find((s) => s.slug === base) : undefined) ?? null;
+  }, [index, setId, name]);
+}
 
 function SetSkeleton() {
   return (

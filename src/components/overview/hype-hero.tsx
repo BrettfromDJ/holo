@@ -1,13 +1,12 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { LayoutGrid } from "lucide-react";
 import Link from "next/link";
 import { AnimatedNumber } from "@/components/motion/animated-number";
 import { ProductImage } from "@/components/product/product-image";
 import type { HoldingView, PortfolioSummary } from "@/lib/finance/portfolio";
 import { money, signedMoney, signedPct } from "@/lib/format";
 import { useHeroLink } from "@/lib/motion/hero";
-import { useStore } from "@/lib/store/collection-store";
 import { cn } from "@/lib/utils";
 import { looksSealed } from "@/lib/catalog";
 import { useState } from "react";
@@ -30,11 +29,16 @@ const FAN = [
 export function HypeHero({
   holdings,
   summary,
+  above,
+  onViewCards,
 }: {
   holdings: HoldingView[];
   summary: PortfolioSummary;
+  /** Shown centred just above the heading (the portfolio switcher). */
+  above?: React.ReactNode;
+  /** The dark "View cards" button: switches Collection to Cards. */
+  onViewCards?: () => void;
 }) {
-  const { openAdd } = useStore();
   const hero = useHeroLink();
   // A click on the worth: what it's made of (same as the app's Summary).
   const [info, setInfo] = useState<PriceInfoData | null>(null);
@@ -128,82 +132,54 @@ export function HypeHero({
           </div>
         )}
 
-        {/* Headline */}
+        {/* Headline: the portfolio switcher sits just above "Your collection's worth" (app's Hero). */}
         <div className="relative mt-6 text-center sm:mt-8 lg:order-1 lg:mt-0 lg:text-left">
-          <p className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
-            {summary.holdingsCount} products · {summary.unitCount} items
-          </p>
-          <h1 className="mt-3 font-display text-[clamp(24px,7vw,32px)] leading-[0.95] sm:text-[54px] lg:text-[45px]">
-            <span className="block text-[clamp(22px,6.4vw,28px)] sm:text-[40px] lg:text-[28px] xl:text-[32px]">
-              Your collection<span className="sm:hidden">&apos;s</span>
-              <span className="hidden sm:inline"> is</span> worth
-            </span>
-            <span className="tabular mt-1 block text-[clamp(40px,11vw,52px)] text-lime drop-shadow-[0_0_28px_color-mix(in_srgb,var(--lime)_45%,transparent)] sm:mt-0 sm:text-[56px] lg:mt-2 lg:text-[46px] xl:text-[52px]">
+          {above}
+          <h1 className="font-display leading-[0.95]">
+            <span className="block text-[clamp(22px,6.4vw,28px)] sm:text-[32px]">Your collection&apos;s worth</span>
+            <span className="tabular mt-1 block text-[clamp(40px,11vw,52px)] text-lime drop-shadow-[0_0_28px_color-mix(in_srgb,var(--lime)_45%,transparent)] sm:text-[56px] lg:mt-2 lg:text-[46px] xl:text-[52px]">
               <button type="button" onClick={showBreakdown} className="tabular cursor-pointer">
-                <AnimatedNumber
-                  value={summary.marketValue}
-                  format={money}
-                  duration={1300}
-                  from={summary.marketValue * 0.85}
-                />
+                <AnimatedNumber value={summary.marketValue} format={money} duration={1300} from={summary.marketValue * 0.85} />
               </button>
             </span>
           </h1>
           <PriceInfoDialog info={info} onOpenChange={(o) => !o && setInfo(null)} />
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-[13px] lg:justify-start">
-            <Chip label="Today">
-              <Num value={summary.dayChange} />{" "}
-              <span className="text-subtle">
-                {summary.dayChangePct !== null
-                  ? signedPct(summary.dayChangePct)
-                  : ""}
-              </span>
-            </Chip>
-            <Chip label="All time">
-              <Num value={allTime} />
-            </Chip>
-            <Chip label="Invested">{money(summary.costBasis)}</Chip>
+          {/* Today / All time / Invested: one glass strip, three columns split by hairlines. */}
+          <div className="glass mx-auto mt-5 flex max-w-[460px] items-center rounded-[20px] py-2.5 lg:mx-0">
+            <HeroStat label="Today" tint={summary.dayChange >= 0 ? "up" : "down"} value={signedMoney(summary.dayChange)} extra={summary.dayChangePct !== null ? signedPct(summary.dayChangePct) : null} />
+            <span aria-hidden className="h-[30px] w-px bg-foreground/[0.12]" />
+            <HeroStat label="All time" tint={allTime >= 0 ? "up" : "down"} value={signedMoney(allTime)} />
+            <span aria-hidden className="h-[30px] w-px bg-foreground/[0.12]" />
+            <HeroStat label="Invested" value={money(summary.costBasis)} />
           </div>
 
-          {/* Add to Collection: a compact lime button sized to its label (the full-width bar was
-              far too big), centered on phones and left-aligned beside the figures on wide screens. */}
-          <div className="mt-6 flex justify-center lg:justify-start">
-            <button
-              type="button"
-              onClick={() => openAdd()}
-              className="hype-cta btn-3d btn-3d-lime inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-lime px-5 text-[14px] font-semibold text-[#0b0b0c]"
-            >
-              <Plus className="size-4" strokeWidth={2.4} /> Add to Collection
-            </button>
-          </div>
+          {onViewCards && (
+            <div className="mt-6 flex justify-center lg:justify-start">
+              <button
+                type="button"
+                onClick={onViewCards}
+                className="btn-3d btn-3d-dark inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-surface-2 px-5 text-[14px] font-semibold text-foreground hover:bg-surface-3"
+              >
+                <LayoutGrid className="size-4" strokeWidth={2.2} /> View cards
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </section>
   );
 }
 
-function Chip({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function HeroStat({ label, value, extra, tint }: { label: string; value: string; extra?: string | null; tint?: "up" | "down" }) {
+  const color = tint === "up" ? "text-up" : tint === "down" ? "text-down" : "text-foreground";
   return (
-    <span className="tabular inline-flex items-center gap-2 rounded-full border border-white/10 bg-surface/70 px-3 py-1.5 backdrop-blur">
-      <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-subtle">
-        {label}
+    <div className="flex min-w-0 flex-1 flex-col items-center gap-1 px-1.5">
+      <span className="font-mono text-[10px] font-medium uppercase tracking-[0.08em] text-subtle">{label}</span>
+      <span className={cn("tabular flex items-baseline gap-1 whitespace-nowrap text-[15px] font-semibold", color)}>
+        {value}
+        {extra && <span className={cn("rounded-md px-1.5 py-0.5 text-[11px]", tint === "down" ? "bg-down-soft" : "bg-up-soft")}>{extra}</span>}
       </span>
-      <span className="font-semibold">{children}</span>
-    </span>
-  );
-}
-
-function Num({ value }: { value: number }) {
-  return (
-    <span className={value >= 0 ? "text-up" : "text-down"}>
-      {signedMoney(value)}
-    </span>
+    </div>
   );
 }
 

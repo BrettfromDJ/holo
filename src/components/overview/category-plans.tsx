@@ -6,11 +6,12 @@ import { ProductImage } from "@/components/product/product-image";
 import type { HoldingCategory, HoldingView } from "@/lib/finance/portfolio";
 import { money, pct, signedMoney, signedPct } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { collectionHref } from "@/components/portfolio/collection-links";
 
 const PLANS: Record<HoldingCategory, { title: string; blurb: string; color: "blue" | "pink" | "lime"; href: string }> = {
-  sealed: { title: "Sealed", blurb: "Boxes, ETBs, packs & collections", color: "blue", href: "/collection?kind=sealed" },
-  single: { title: "Singles", blurb: "Raw cards, straight from the pack", color: "pink", href: "/collection?kind=single" },
-  graded: { title: "Graded", blurb: "Slabbed and certified", color: "lime", href: "/collection?kind=graded" },
+  sealed: { title: "Sealed", blurb: "Boxes, ETBs, packs & collections", color: "blue", href: collectionHref({ cat: "sealed" }) },
+  single: { title: "Singles", blurb: "Raw cards, straight from the pack", color: "pink", href: collectionHref({ cat: "singles" }) },
+  graded: { title: "Graded", blurb: "Slabbed and certified", color: "lime", href: collectionHref({ cat: "graded" }) },
 };
 
 const BAR: Record<string, string> = { blue: "bg-[var(--plan-blue)]", pink: "bg-[var(--plan-pink)]", lime: "bg-lime" };

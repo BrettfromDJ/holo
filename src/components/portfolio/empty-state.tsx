@@ -1,31 +1,72 @@
 "use client";
 
-import { FlaskConical, Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useStore } from "@/lib/store/collection-store";
+import { Search, type LucideIcon } from "lucide-react";
+import Link from "next/link";
 
-/** An empty collection, on each page: a short title, one line and one action (like the app). */
-export function EmptyCollection({ title = "Nothing here yet", body, action = "Add a card" }: { title?: string; body?: string; action?: string }) {
-  const { openAdd, setMode } = useStore();
+/**
+ * Every empty page looks the same (the app's `EmptyPage`): an icon in a glass circle, a display
+ * heading, one muted balanced line, one flat lime 44px pill button, and an optional quiet link.
+ * No pictures, no demo button.
+ */
+export function EmptyPage({
+  title,
+  line,
+  icon: Icon = Search,
+  symbol: Symbol,
+  action,
+  href,
+  onAction,
+  link,
+  linkHref,
+  onLink,
+}: {
+  title: string;
+  line: string;
+  /** The button's icon, and the big icon on top unless `symbol` is given. */
+  icon?: LucideIcon;
+  symbol?: LucideIcon;
+  action?: string;
+  href?: string;
+  onAction?: () => void;
+  link?: string;
+  linkHref?: string;
+  onLink?: () => void;
+}) {
+  const Big = Symbol ?? Icon;
+  const button = "mt-2 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-lime px-[22px] text-[15px] font-semibold text-[#0b0b0c] transition-transform active:scale-[0.97]";
+  const quiet = "text-[14px] font-medium text-muted hover:text-foreground";
   return (
-    <div className="flex flex-col items-center px-6 py-20 text-center animate-rise">
-      <div className="relative mb-8 h-36 w-56">
-        <div className="absolute left-4 top-6 h-28 w-20 -rotate-12 rounded-xl border border-border bg-surface-2" />
-        <div className="absolute right-4 top-6 h-28 w-20 rotate-12 rounded-xl border border-border bg-surface-2" />
-        <div className="absolute left-1/2 top-0 flex h-32 w-24 -translate-x-1/2 items-center justify-center rounded-xl border border-border-strong bg-surface-3 shadow-2xl shadow-black/40">
-          <Plus className="size-7 text-muted" />
-        </div>
-      </div>
-      <h2 className="text-[22px] font-semibold tracking-tight">{title}</h2>
-      <p className="mt-2 max-w-sm text-[15px] text-muted">{body ?? "Add a card or sealed product to see what it's worth."}</p>
-      <div className="mt-8 flex flex-wrap justify-center gap-3">
-        <Button variant="lime" size="lg" onClick={() => openAdd()}>
-          <Plus /> {action}
-        </Button>
-        <Button variant="secondary" size="lg" onClick={() => setMode("demo")}>
-          <FlaskConical /> Explore the demo
-        </Button>
-      </div>
+    <div className="flex flex-col items-center gap-2.5 px-8 py-12 text-center animate-fade-in">
+      <span className="glass mb-1 flex size-[72px] items-center justify-center rounded-full">
+        <Big className="size-[26px] text-foreground" strokeWidth={1.9} />
+      </span>
+      <h2 className="text-balance font-display text-[24px] leading-tight">{title}</h2>
+      <p className="max-w-[300px] text-balance text-[15px] text-muted">{line}</p>
+      {action &&
+        (href ? (
+          <Link href={href} className={button}>
+            <Icon className="size-4" strokeWidth={2.2} /> {action}
+          </Link>
+        ) : (
+          <button type="button" onClick={onAction} className={button}>
+            <Icon className="size-4" strokeWidth={2.2} /> {action}
+          </button>
+        ))}
+      {link &&
+        (linkHref ? (
+          <Link href={linkHref} className={quiet}>
+            {link}
+          </Link>
+        ) : (
+          <button type="button" onClick={onLink} className={quiet}>
+            {link}
+          </button>
+        ))}
     </div>
   );
+}
+
+/** An empty collection on other pages (Gains, Analytics…): the same empty page, pointing to search. */
+export function EmptyCollection({ title = "Nothing here yet", body, action = "Search cards" }: { title?: string; body?: string; action?: string }) {
+  return <EmptyPage title={title} line={body ?? "Scan a card to see what it's worth."} action={action} href="/explore?search=1" />;
 }

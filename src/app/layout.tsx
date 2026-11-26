@@ -6,11 +6,11 @@ import "./globals.css";
 
 
 export const metadata: Metadata = {
-  title: { default: "Dexora — Pokémon Collection Tracker", template: "%s · Dexora" },
+  title: { default: "Corodex — Pokémon Collection Tracker", template: "%s · Corodex" },
   description: "Track the market value and investment performance of your Pokémon cards and sealed products.",
-  applicationName: "Dexora",
-  // Added to the iPhone home screen, Dexora opens full-screen under a translucent status bar.
-  appleWebApp: { capable: true, title: "Dexora", statusBarStyle: "black-translucent" },
+  applicationName: "Corodex",
+  // Added to the iPhone home screen, Corodex opens full-screen under a translucent status bar.
+  appleWebApp: { capable: true, title: "Corodex", statusBarStyle: "black-translucent" },
   formatDetection: { telephone: false },
   // Older iOS versions only go full-screen with this one.
   other: { "apple-mobile-web-app-capable": "yes" },

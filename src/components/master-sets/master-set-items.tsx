@@ -31,11 +31,6 @@ export function ProgressBar({ value, className }: { value: number; className?: s
   );
 }
 
-/** The lime figure chip used in header notes ("72%", "12 of 237"). */
-export function LimeChip({ children }: { children: React.ReactNode }) {
-  return <span className="tabular rounded-md bg-lime px-2 py-[3px] text-[13px] font-semibold text-[#0b0b0c]">{children}</span>;
-}
-
 /** Search field and sort menu side by side, like the app's controls row. */
 export function SearchSort<T extends string>({
   query,
@@ -90,50 +85,7 @@ export function SearchSort<T extends string>({
   );
 }
 
-// MARK: The app's glow pieces (Glow.swift), for the deck and the set page's hero.
-
-const DOT_FONT: Record<string, string[]> = {
-  "0": ["01110", "10001", "10011", "10101", "11001", "10001", "01110"],
-  "1": ["00100", "01100", "00100", "00100", "00100", "00100", "01110"],
-  "2": ["01110", "10001", "00001", "00010", "00100", "01000", "11111"],
-  "3": ["11110", "00001", "00001", "01110", "00001", "00001", "11110"],
-  "4": ["10010", "10010", "10010", "11111", "00010", "00010", "00010"],
-  "5": ["11111", "10000", "11110", "00001", "00001", "10001", "01110"],
-  "6": ["00110", "01000", "10000", "11110", "10001", "10001", "01110"],
-  "7": ["11111", "00001", "00010", "00100", "00100", "00100", "00100"],
-  "8": ["01110", "10001", "10001", "01110", "10001", "10001", "01110"],
-  "9": ["01110", "10001", "10001", "01111", "00001", "00010", "01100"],
-  "%": ["11000", "11001", "00010", "00100", "01000", "10011", "00011"],
-  "+": ["00000", "00100", "00100", "11111", "00100", "00100", "00000"],
-  "-": ["00000", "00000", "00000", "11111", "00000", "00000", "00000"],
-  ".": ["00000", "00000", "00000", "00000", "00000", "01100", "01100"],
-};
-
-/** Digits drawn as a dot matrix, like an LED display (0-9, %, +, -, .), with a soft glow. */
-export function DotMatrix({ text, dot = 3.6, color = "var(--lime)", glow = 8, className }: { text: string; dot?: number; color?: string; glow?: number; className?: string }) {
-  const chars = [...text].filter((c) => DOT_FONT[c]);
-  const pitch = dot * 1.25;
-  const width = Math.max(chars.length * pitch * 6 - pitch, 0);
-  const height = pitch * 7;
-  const r = dot / 2;
-  return (
-    <svg
-      role="img"
-      aria-label={text}
-      width={width}
-      height={height}
-      viewBox={`0 0 ${width} ${height}`}
-      className={cn("shrink-0 overflow-visible", className)}
-      style={glow ? { filter: `drop-shadow(0 0 ${glow}px color-mix(in srgb, ${color} 55%, transparent))` } : undefined}
-    >
-      <g fill={color}>
-        {chars.flatMap((ch, n) =>
-          DOT_FONT[ch].flatMap((row, y) => [...row].map((bit, x) => (bit === "1" ? <circle key={`${n}-${x}-${y}`} cx={(n * 6 + x) * pitch + r} cy={y * pitch + r} r={r} /> : null))),
-        )}
-      </g>
-    </svg>
-  );
-}
+// MARK: The app's glow pieces (Glow.swift). No dot-matrix digits: numbers use the display font.
 
 /** The faint square grid the app lays over its lit surfaces (`GridPattern`). */
 export function gridPattern(step: number, line = "rgb(255 255 255 / 0.07)"): React.CSSProperties {
@@ -141,23 +93,6 @@ export function gridPattern(step: number, line = "rgb(255 255 255 / 0.07)"): Rea
     backgroundImage: `linear-gradient(to right, ${line} 1px, transparent 1px), linear-gradient(to bottom, ${line} 1px, transparent 1px)`,
     backgroundSize: `${step}px ${step}px`,
   };
-}
-
-const ACCENTS = ["var(--lime)", "var(--plan-blue)", "var(--plan-pink)"];
-
-/** A set's own glow, the same every time for the same set: a main lime, blue or pink light and a fainter second one. */
-export function deckGlow(id: string): string {
-  // FNV-1a, like the app's GlowPalette.forProduct.
-  let h = 2166136261;
-  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619) >>> 0;
-  const main = ACCENTS[h % 3];
-  const second = ACCENTS[(h + 1 + ((h >>> 3) % 2)) % 3];
-  const x = 15 + ((h >>> 5) % 60);
-  return [
-    `radial-gradient(70% 90% at ${x}% 0%, color-mix(in srgb, ${main} 26%, transparent), transparent 70%)`,
-    `radial-gradient(55% 80% at ${100 - x / 2}% 100%, color-mix(in srgb, ${second} 16%, transparent), transparent 70%)`,
-    "linear-gradient(to bottom, rgb(255 255 255 / 0.04), transparent 50%)",
-  ].join(", ");
 }
 
 /**

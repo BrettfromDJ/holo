@@ -44,15 +44,20 @@ export const SelectableHolding = memo(function SelectableHolding({
   selected,
   onToggle,
   onOpen,
+  onMore,
 }: {
   h: HoldingView;
   view: "grid" | "list";
   selecting: boolean;
   selected: boolean;
   onToggle: (key: string) => void;
-  onOpen: (h: HoldingView) => void;
+  /** Opens your copy in place; left out, a tap opens the card's page. */
+  onOpen?: (h: HoldingView) => void;
+  /** The ⋯ on each row and tile (hidden while selecting). */
+  onMore?: (h: HoldingView) => void;
 }) {
-  const item = view === "grid" ? <HoldingTile h={h} onOpen={onOpen} /> : <HoldingListRow h={h} onOpen={onOpen} />;
+  const more = selecting ? undefined : onMore;
+  const item = view === "grid" ? <HoldingTile h={h} onOpen={onOpen} onMore={more} /> : <HoldingListRow h={h} onOpen={onOpen} onMore={more} />;
   if (!selecting) return item;
   return (
     <div className="relative">

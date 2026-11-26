@@ -110,6 +110,41 @@ export function PortfolioSwitcher({ className, compact }: { className?: string; 
   );
 }
 
+/**
+ * Summary's switcher (the app's `PortfolioSwitcher`): a small glass pill centred just above
+ * "Your collection's worth". Only there once you have a portfolio to switch to.
+ */
+export function PortfolioPill({ className }: { className?: string }) {
+  const { portfolios, selected, select, nameOf } = usePortfolios();
+  const [creating, setCreating] = useState(false);
+  if (!portfolios.length) return null;
+  const options = [{ id: ALL, name: "All portfolios" }, { id: MAIN, name: MAIN_NAME }, ...portfolios];
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger className={cn("glass inline-flex h-9 max-w-full items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium", className)}>
+          <span className="truncate">{selected === ALL ? "All portfolios" : nameOf(selected)}</span>
+          <ChevronsUpDown className="size-3.5 shrink-0 text-subtle" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="center" className="w-[216px]">
+          <DropdownMenuLabel>Portfolio</DropdownMenuLabel>
+          {options.map((o) => (
+            <DropdownMenuItem key={o.id} onSelect={() => select(o.id)}>
+              <span className="flex-1 truncate">{o.name}</span>
+              {selected === o.id && <Check className="size-4" />}
+            </DropdownMenuItem>
+          ))}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => window.setTimeout(() => setCreating(true), 0)}>
+            <Plus className="size-4" /> New portfolio…
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <PortfolioDialog open={creating} onOpenChange={setCreating} />
+    </>
+  );
+}
+
 /** Shown on Overview and Collection while one portfolio is selected. */
 export function PortfolioBanner() {
   const { selected, nameOf, select } = usePortfolios();

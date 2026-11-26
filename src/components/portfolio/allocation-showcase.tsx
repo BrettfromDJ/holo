@@ -5,6 +5,7 @@ import type { HoldingCategory, HoldingView } from "@/lib/finance/portfolio";
 import { money, pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { CATEGORY_META } from "./allocation-bar";
+import { collectionHref, type CollectionCategory } from "./collection-links";
 
 interface CategoryGroup {
   category: HoldingCategory;
@@ -65,9 +66,9 @@ export function AllocationShowcase({
   const groups = groupHoldings(holdings);
   if (!groups.length)
     return <p className="py-6 text-[14px] text-muted">Nothing to show yet.</p>;
-  const filterFor: Record<HoldingCategory, string> = {
+  const filterFor: Record<HoldingCategory, CollectionCategory> = {
     sealed: "sealed",
-    single: "single",
+    single: "singles",
     graded: "graded",
   };
 
@@ -217,7 +218,7 @@ export function AllocationShowcase({
           return linkTiles ? (
             <Link
               key={g.category}
-              href={`/collection?kind=${filterFor[g.category]}`}
+              href={collectionHref({ cat: filterFor[g.category] })}
               className={cls}
               aria-label={`${CATEGORY_META[g.category].label}: ${money(g.value)}, ${pct(g.share, 0)} of collection`}
             >
