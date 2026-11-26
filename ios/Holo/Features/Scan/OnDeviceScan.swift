@@ -71,7 +71,10 @@ enum OnDeviceScan {
             }
             // The number alone (the name read isn't a card's): a Japanese card reads as Latin
             // gibberish, so check with a Japanese-only read first; if it is, look among Japanese cards.
-            if !reading.number.isEmpty, let hit = oneCard(numbered), numberIsEnough(reading.number), sameName.isEmpty {
+            // Also when no English card with the number fits the name read (none, or several): a
+            // Japanese 30th Celebration card's "005/103" found no English card and went unsure.
+            let nameFitsNumbered = numbered.contains { fits(reading, $0.product.name) }
+            if numberIsEnough(reading.number), sameName.isEmpty, !nameFitsNumbered || oneCard(numbered) != nil {
                 let checked = Date()
                 let japanese = await looksJapanese(jpeg: jpeg)
                 lap("japanese check", checked)
@@ -81,7 +84,7 @@ enum OnDeviceScan {
                     if let card = oneCard(found) { return (result(for: card), jp, noted("japanese, by number")) }
                     return (nil, jp, noted("japanese, number unsure among \(found.count) (lookup gave \(lastJapaneseSeen ?? -1) cards\(lastLookupError.map { ", error: \($0)" } ?? ""))"))
                 }
-                return (result(for: hit), reading, noted("text (number)"))
+                if let hit = oneCard(numbered) { return (result(for: hit), reading, noted("text (number)")) }
             }
             // Several cards print that number (other games and sets): the name read picks one.
             if let hit = oneCard(numbered.filter { reading.name != nil && fits(reading, $0.product.name) }) {

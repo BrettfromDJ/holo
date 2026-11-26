@@ -972,6 +972,13 @@ final class CollectionStore {
     /// Add purchases: save each product to the catalog, find or create its holding, log the transaction.
     @MainActor
     func add(_ purchases: [Purchase]) async throws {
+        // Several at once (a scan's batch): a few requests in all instead of three per card,
+        // one after another (22 scanned cards sat on "Adding…" for many seconds).
+        if purchases.count > 1, demo == nil {
+            try await addMany(purchases)
+            recompute()
+            return
+        }
         for p in purchases {
             try await ensureInCatalog(p.product, printing: p.printing)
             let identity = HoldingIdentity(productId: p.product.id, printing: p.printing, condition: p.condition, gradeCompany: p.gradeCompany, grade: p.grade)
@@ -1150,6 +1157,62 @@ final class CollectionStore {
         )
         let saved: TransactionRow = try await db.from("transactions").insert(row).select().single().execute().value
         if let t = Self.txn(saved, identity: identity) { transactions.append(t) }
+    }
+
+    /// `add` for many: new products are imported side by side (a few at a time), then every new
+    /// holding goes in one insert and every purchase in another.
+    @MainActor
+    private func addMany(_ purchases: [Purchase]) async throws {
+        guard let userId else { throw HoloError.signedOut }
+        // 1. Catalog: each product not yet known, once, four at a time.
+        var seen = Set<String>()
+        let missing = purchases.filter { products[$0.product.id] == nil && seen.insert($0.product.id).inserted }
+        var next = 0
+        try await withThrowingTaskGroup(of: (CatalogImport, String?).self) { group in
+            func start() {
+                guard next < missing.count else { return }
+                let p = missing[next]; next += 1
+                group.addTask { (try await Backend.shared.api.importProduct(p.product, printing: p.printing), p.printing) }
+            }
+            for _ in 0..<4 { start() }
+            while let (res, printing) = try await group.next() {
+                products[res.product.id] = res.product
+                for price in res.prices { prices[priceKey(price.productId, price.printing)] = price }
+                if !res.history.isEmpty { history[priceKey(res.product.id, printing ?? res.prices.first?.printing)] = Self.onePerDay(res.history) }
+                start()
+            }
+        }
+        // 2. Holdings: the copies you don't have yet, in one insert.
+        let identities = purchases.map {
+            HoldingIdentity(productId: $0.product.id, printing: $0.printing, condition: $0.condition, gradeCompany: $0.gradeCompany, grade: $0.grade)
+        }
+        var have = Set(holdingRows.map(\.identity.key))
+        let fresh: [NewHoldingRow] = identities.compactMap { id in
+            guard have.insert(id.key).inserted else { return nil }
+            return NewHoldingRow(user_id: userId, product_id: id.productId, printing: id.printing, condition: id.condition,
+                                 grade_company: id.gradeCompany, grade: id.grade)
+        }
+        if !fresh.isEmpty {
+            let rows: [HoldingRow] = try await db.from("holdings").insert(fresh).select().execute().value
+            holdingRows.append(contentsOf: rows)
+        }
+        // 3. Purchases: one insert for all.
+        var byKey: [String: HoldingRow] = [:]
+        for row in holdingRows { byKey[row.identity.key] = row }
+        var rows: [NewTransactionRow] = []
+        var rowIdentities: [String: HoldingIdentity] = [:]
+        for (p, id) in zip(purchases, identities) {
+            guard let holding = byKey[id.key] else { continue }
+            rowIdentities[holding.id] = id
+            rows.append(NewTransactionRow(
+                user_id: userId, holding_id: holding.id, type: "purchase", trade_date: p.date, quantity: p.quantity, unit_price: p.unitPrice,
+                fees: p.fees, shipping: p.shipping, tax: p.tax, source: p.source, notes: p.notes, corrects_id: nil))
+        }
+        guard !rows.isEmpty else { return }
+        let saved: [TransactionRow] = try await db.from("transactions").insert(rows).select().execute().value
+        for row in saved {
+            if let id = rowIdentities[row.holding_id], let t = Self.txn(row, identity: id) { transactions.append(t) }
+        }
     }
 
     private func holdingRow(for identity: HoldingIdentity, userId: String) async throws -> HoldingRow {

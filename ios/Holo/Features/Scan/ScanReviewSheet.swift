@@ -232,16 +232,20 @@ struct ScanReviewSheet: View {
             }
             if drafted.contains(where: \.pristine) { Task { await store.loadSlabPrices() } }
             // Into the picked portfolio: more of a copy you own is also shown there (a Copy); a new one goes only there.
+            // Grouped: one save per portfolio, not one per card.
             if !groups.portfolios.isEmpty {
+                var copies: [String: [String]] = [:], moves: [String: [String]] = [:]
                 for (p, target) in zip(purchases, targets) {
                     guard let target else { continue }
                     let key = HoldingIdentity(productId: p.product.id, printing: p.printing, condition: p.condition, gradeCompany: p.gradeCompany, grade: p.grade).key
                     if ownedBefore.contains(key) {
-                        try? await groups.copyMany([key], to: target, store: store)
-                    } else if groups.portfoliosOf(key) != [target] {
-                        try? await groups.moveMany([key], to: target, store: store)
+                        if !(copies[target]?.contains(key) ?? false) { copies[target, default: []].append(key) }
+                    } else if groups.portfoliosOf(key) != [target], !(moves[target]?.contains(key) ?? false) {
+                        moves[target, default: []].append(key)
                     }
                 }
+                for (target, keys) in copies { try? await groups.copyMany(keys, to: target, store: store) }
+                for (target, keys) in moves { try? await groups.moveMany(keys, to: target, store: store) }
             }
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             dismiss()
