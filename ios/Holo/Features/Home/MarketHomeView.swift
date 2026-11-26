@@ -652,10 +652,10 @@ private struct CardOfTheDay: View {
             VStack(spacing: 10) {
                 Text(p.name.noWidow).font(.display(30)).tracking(-1).foregroundStyle(.white)
                     .multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.8)
-                // One quiet line, like a film's genres: what it is · its set · its move.
-                (Text(tag).font(.geist(14, .semibold)).foregroundStyle(.white)
-                 + Text(meta(p)).font(.geist(14)).foregroundStyle(Theme.muted)
-                 + Text(pct.map { "  \u{2022}  " + Format.signedPercent($0 / 100) } ?? "").font(.geist(14, .semibold)).foregroundStyle(tone))
+                // One quiet line, like a film's genres: its set · its move (what it is sits in the
+                // slanted tag in the corner).
+                (Text(p.setName ?? "").font(.geist(14)).foregroundStyle(Theme.muted)
+                 + Text(pct.map { ((p.setName ?? "").isEmpty ? "" : "  \u{2022}  ") + Format.signedPercent($0 / 100) } ?? "").font(.geist(14, .semibold)).foregroundStyle(tone))
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                 HStack(spacing: 10) {
@@ -691,6 +691,13 @@ private struct CardOfTheDay: View {
         }
         .frame(maxWidth: .infinity)
         .background { backdrop(p, shape: shape) }
+        // "Card of the day" in the slanted tag, in the panel's top-left corner (the owner's call);
+        // pink with white text when the card is down (never pink on lime).
+        .overlay(alignment: .topLeading) {
+            SkewTag(text: tag, color: tone, textColor: down ? .white : Theme.ink)
+                .padding(.top, 16).padding(.leading, 16)
+                .allowsHitTesting(false)
+        }
         .clipShape(shape)
         .overlay(shape.strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
     }

@@ -78,7 +78,7 @@ and say exactly what to run or click.
   via `ThemesModel.filtered`, rows with 4+ matching cards, up to 14). Sets, For you and lists: All only.
 - **Card of the day** leads Home as a clean poster like a streaming app's featured title
   (`CardOfTheDay`): the card big on its own blurred art with a soft glow (pink when down), its
-  name, one line ("Card of the day • set • +12%", only the number colored), and two buttons:
+  name, one line ("set • +12%", only the number colored; "Card of the day" sits in a lime `SkewTag` in the panel's top-left corner, the owner's call, pink with white text when down), and two buttons:
   View card (light) and + Wishlist (dark). No stats, chart, fun fact, countdown, rays or electric
   border (the owner wanted it simple). Collection of the Day follows, then Heating up / Cooling off.
 - **By era on Home:** removed (the owner's call). `/api/eras` and `src/lib/server/era-summary.ts` still exist
