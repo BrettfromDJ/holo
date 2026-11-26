@@ -146,10 +146,20 @@ enum OnDeviceScan {
         // The card list kept on the phone first (milliseconds). The server too only when the
         // phone's list has nothing for this number (a set newer than the list) or isn't ready.
         if let local = ScanCatalog.shared.hits(for: reading) {
+            // Covered when a card has the number (and fits the name read, when one was read: a set
+            // newer than the phone's list shares numbers with older cards, Chaos Rising's Emolga
+            // with Black Bolt's Tynamo, so the number alone isn't enough to skip the server).
+            let numbered = local.filter { strictNumber($0.product.number, reading.number) || closeNumber($0.product.number, reading.number) }
             let covered = reading.number.isEmpty
                 ? !local.isEmpty
-                : local.contains { strictNumber($0.product.number, reading.number) || closeNumber($0.product.number, reading.number) }
+                : reading.name == nil || looksLikeStage(reading.name!) ? !numbered.isEmpty : numbered.contains { fits(reading, $0.product.name) }
             if covered { return local }
+            // Not covered: the server's lookup, merged with what the phone had.
+            if let server = try? await Backend.shared.api.scanLookup(name: reading.name, number: reading.number) {
+                var seen = Set<String>()
+                return (server + local).filter { !$0.product.isSealed && seen.insert($0.product.id + "|" + ($0.printing ?? "")).inserted }
+            }
+            return local
         }
         if let hits = try? await Backend.shared.api.scanLookup(name: reading.name, number: reading.number) {
             var seen = Set<String>()
@@ -191,8 +201,14 @@ enum OnDeviceScan {
     /// Leaves out "Miscellaneous Cards & Products" (stamped oddities like a Pokémon Day Eevee or a
     /// "What's Your Favorite" Mewtwo) when a card from a real set is there too: they share its
     /// number and name, and made the phone unsure on the everyday card.
+    /// Where TCGplayer files reprints and stamped copies of cards from real sets.
+    static let oddSets = ["miscellaneous", "blister exclusives", "deck exclusives", "prize pack", "professor program", "league & championship", "trick or trade"]
+
     static func realSets(_ hits: [SearchHit]) -> [SearchHit] {
-        let real = hits.filter { !($0.product.setName ?? "").localizedCaseInsensitiveContains("miscellaneous") }
+        let real = hits.filter { hit in
+            let set = (hit.product.setName ?? "").lowercased()
+            return !oddSets.contains { set.contains($0) }
+        }
         return real.isEmpty ? hits : real
     }
 

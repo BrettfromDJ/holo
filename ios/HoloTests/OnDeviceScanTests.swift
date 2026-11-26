@@ -124,4 +124,12 @@ final class OnDeviceScanTests: XCTestCase {
         XCTAssertTrue(OnDeviceScan.fits(r, "Articuno - 097 (30th Celebration)"))
         XCTAssertFalse(OnDeviceScan.fits(r, "Zapdos - 098 (30th Celebration)"))
     }
+
+    func testExclusivesGiveWayToo() {
+        func hit(_ id: String, _ name: String, _ set: String) -> SearchHit {
+            SearchHit(product: Product(id: id, name: name, setName: set, setId: set, number: "028/088", kind: "single"))
+        }
+        let kept = OnDeviceScan.realSets([hit("1", "Luxray", "ME03: Perfect Order"), hit("2", "Luxray - 028/088 (Cosmos Holo)", "Blister Exclusives")])
+        XCTAssertEqual(kept.map(\.product.id), ["1"])
+    }
 }
