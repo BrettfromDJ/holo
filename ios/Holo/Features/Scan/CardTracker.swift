@@ -146,6 +146,10 @@ final class CardTracker {
         }
         lastSeen = now
         if firstSeen == nil { firstSeen = now }
+        // The card moved since it was read (a hand swapping in the next card): its answer is
+        // stale. It stuck around when the next card landed in the same spot, so every tap added
+        // the previous card again.
+        if let m = liveMatch, m.quad.distance(to: raw) > 0.06 { liveMatch = nil }
         if frameSize != frame { frameSize = frame }
         if let current = quad, current.distance(to: raw) < 0.12 {
             quad = current.blended(toward: raw, by: 0.5)
@@ -162,6 +166,15 @@ final class CardTracker {
             steadyRef = raw
             steadySince = now
         }
+    }
+
+    /// A shot was taken: what was read is used up, and anything being read now is dropped.
+    /// The next tap reads afresh (it's usually another card).
+    func consume() {
+        generation += 1
+        liveMatch = nil
+        steadyRef = nil
+        missQuad = nil
     }
 
     /// The card is gone (or the scanner paused): forget it and anything read in flight.
@@ -204,7 +217,8 @@ final class CardTracker {
 
     private func finish(_ gen: Int, hit: SearchHit?, crop: CardCrop?, quad read: CardQuad) {
         identifying = false
-        guard gen == generation, quad != nil else { return }
+        // Dropped too when the card moved while it was being read (another card now).
+        guard gen == generation, let now = quad, now.distance(to: read) < 0.06 else { return }
         if let hit, let crop {
             liveMatch = LiveMatch(hit: hit, crop: crop, quad: read)
             missQuad = nil

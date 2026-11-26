@@ -344,7 +344,10 @@ struct ScanView: View {
             UserDefaults.standard.set(true, forKey: "scan-tip-seen")
         }
         // Reading the tracker here (an action, not `body`) doesn't make this view observe it.
-        if let live = tracker.readyMatch {
+        let ready = tracker.readyMatch
+        // Either way the reading is used up: the next tap is read afresh.
+        tracker.consume()
+        if let live = ready {
             guard Pro.shared.canScan else { proPaywall = .scans; return }
             Pro.shared.countScan()
             Haptics.tap()
