@@ -163,7 +163,7 @@ export default function MasterSetsPage() {
         {!started.length && !rest.length && (settledQuery.trim() ? (
           <p className="py-10 text-center text-[15px] text-muted">Nothing matches.</p>
         ) : indexTried ? (
-          <EmptyPage title={`No ${brandName} sets yet`} line="Add a few cards and your sets appear here." symbol={Grid3x3} action="Search cards" href="/explore?search=1" />
+          <EmptyPage title={`No ${brandName} sets yet`} line="Add a few cards and your sets appear here." symbol={Grid3x3} action="Search cards" href="/search" />
         ) : (
           <TileGridSkeleton />
         ))}

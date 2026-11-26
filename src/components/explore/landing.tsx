@@ -1,11 +1,12 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- set art and brand logos come from our files and the catalog's CDN */
 
-import { ArrowRight, Bell, BellRing, Sparkles } from "lucide-react";
+import { ArrowRight, Bell, BellRing, Search, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { gridPattern } from "@/components/master-sets/master-set-items";
 import type { ExploreGame, ExploreSet } from "@/lib/explore/types";
 import { formatDate } from "@/lib/format";
+import { compactCount, shortGameName } from "@/lib/games";
 import { daysUntil, useReleaseReminders } from "@/lib/reminders";
 import { useStore } from "@/lib/store/collection-store";
 import { cn } from "@/lib/utils";
@@ -34,7 +35,7 @@ export function CatalogHero({ next }: { index?: { games: ExploreGame[]; sets: Ex
 }
 
 /** The next set to come out: its name and date, a big lime day count and a reminder (the app's NextRelease). */
-function NextRelease({ set }: { set: ExploreSet }) {
+export function NextRelease({ set }: { set: ExploreSet }) {
   const { today } = useStore();
   const reminders = useReleaseReminders();
   const on = reminders.has(set.slug);
@@ -50,7 +51,7 @@ function NextRelease({ set }: { set: ExploreSet }) {
             <Sparkles className="size-3" /> Next release
           </span>
           <p className="font-display text-[24px] leading-[1.05] tracking-[-0.03em] text-balance">{set.name}</p>
-          <p className="truncate text-[13px] text-muted">{[set.gameName, set.releaseDate ? formatDate(set.releaseDate) : null].filter(Boolean).join(" · ")}</p>
+          <p className="truncate text-[13px] text-muted">{[shortGameName(set.gameName), set.releaseDate ? formatDate(set.releaseDate) : null].filter(Boolean).join(" · ")}</p>
           <button
             type="button"
             onClick={(e) => {
@@ -71,20 +72,28 @@ function NextRelease({ set }: { set: ExploreSet }) {
   );
 }
 
-/** A heading with its subtitle, and an optional link on the right. */
-export function LandingHeading({ title, subtitle, href, linkLabel }: { title: string; subtitle: string; href?: string; linkLabel?: string }) {
+/** A section heading (display 22, no line under it), with an optional "Calendar →" style link on the right. */
+export function LandingHeading({ title, subtitle, href, linkLabel }: { title: string; /** Ignored: headings carry no subtitle (the owner's call). */ subtitle?: string; href?: string; linkLabel?: string }) {
+  void subtitle;
   return (
-    <div className="mb-3.5 flex items-end justify-between gap-3">
-      <div>
-        <h2 className="font-display text-[22px] leading-none tracking-[-0.03em]">{title}</h2>
-        <p className="mt-1.5 text-[14px] text-muted">{subtitle}</p>
-      </div>
+    <div className="mb-3.5 flex items-baseline justify-between gap-3">
+      <h2 className="font-display text-[22px] leading-none tracking-[-0.03em]">{title}</h2>
       {href && (
         <Link href={href} className="flex shrink-0 items-center gap-1 text-[13px] font-medium text-muted hover:text-foreground">
           {linkLabel} <ArrowRight className="size-3.5" />
         </Link>
       )}
     </div>
+  );
+}
+
+/** The search box as a link (the app's SearchFieldButton): opens the search page. */
+export function SearchFieldLink({ prompt = "Search cards and sealed, any brand", className }: { prompt?: string; className?: string }) {
+  return (
+    <Link href="/search" className={cn("glass flex h-12 items-center gap-2.5 rounded-full px-4 text-[16px] text-subtle transition-colors hover:text-muted", className)}>
+      <Search className="size-4 shrink-0 text-muted" strokeWidth={2.5} />
+      <span className="truncate">{prompt}</span>
+    </Link>
   );
 }
 
@@ -120,30 +129,37 @@ function SetCard({ set, upcoming }: { set: ExploreSet; upcoming: boolean }) {
         )}
       </div>
       <p className="mt-2.5 truncate text-[14px] font-medium">{set.name}</p>
-      <p className="tabular truncate text-[12px] text-muted">{[set.gameName, set.releaseDate ? formatDate(set.releaseDate) : null].filter(Boolean).join(" · ")}</p>
+      <p className="tabular truncate text-[12px] text-muted">{[shortGameName(set.gameName), set.releaseDate ? formatDate(set.releaseDate) : null].filter(Boolean).join(" · ")}</p>
     </Link>
   );
 }
 
-const TINTS = ["tint-lime", "tint-pink", "tint-blue", "tint-azure"];
-
-/** A brand as a tinted card: its logo, name, and how many sets and cards (the app's BrandCard). */
-export function BrandCard({ game, i }: { game: ExploreGame; i: number }) {
+/**
+ * A game as a plain dark tile with a fine light edge (the app's BrandCard): its logo big in place
+ * of the name (the name only when there's no logo), a small "Japan" tag for Pokémon Japan, and
+ * compact counts ("240 sets · 33K cards").
+ */
+export function BrandCard({ game }: { game: ExploreGame; /** No longer used (the tints were removed). */ i?: number }) {
+  const name = shortGameName(game.name);
   return (
-    <Link href={`/explore/g/${encodeURIComponent(game.slug)}`} className={cn("tint group flex min-h-[124px] flex-col items-center justify-center gap-3 rounded-[var(--radius-card)] p-3.5 text-center transition-transform duration-300 hover:-translate-y-1", TINTS[i % TINTS.length])}>
-      <div className="flex h-11 w-full items-center justify-center">
+    <Link
+      href={`/explore/g/${encodeURIComponent(game.slug)}`}
+      aria-label={name}
+      className="group flex min-h-[124px] flex-col items-center justify-center gap-2.5 rounded-[20px] border border-white/[0.07] border-t-white/[0.16] bg-surface p-3.5 text-center transition-transform duration-300 hover:-translate-y-0.5"
+    >
+      <div className="flex h-[66px] w-full items-center justify-center px-1.5">
         {game.logoUrl ? (
-          <img src={game.logoUrl} alt="" loading="lazy" className={cn("max-h-full max-w-[80%] object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.5)]", logoTone(game))} />
+          <img src={game.logoUrl} alt="" loading="lazy" className={cn("max-h-full max-w-full object-contain drop-shadow-[0_8px_9px_rgba(0,0,0,0.5)]", logoTone(game))} />
         ) : (
-          <span className="font-display text-[26px] leading-none text-[var(--tint)]">{game.name.slice(0, 1).toUpperCase()}</span>
+          <span className="truncate font-display text-[22px] leading-none tracking-[-0.03em] text-white">{name}</span>
         )}
       </div>
-      <div className="min-w-0">
-        <p className="truncate text-[15px] font-semibold">{game.name}</p>
-        <p className="tabular truncate text-[12px] text-muted">
-          {game.sets} sets{game.cardCount ? ` · ${game.cardCount.toLocaleString()} cards` : ""}
-        </p>
-      </div>
+      <p className="tabular flex min-w-0 items-center gap-1.5 truncate text-[12px] text-muted">
+        {name === "Pokémon Japan" && <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-white">Japan</span>}
+        <span className="truncate">
+          {game.sets} sets{game.cardCount ? ` · ${compactCount(game.cardCount)} cards` : ""}
+        </span>
+      </p>
     </Link>
   );
 }

@@ -1,100 +1,109 @@
 "use client";
 
-import { CalendarDays, ChevronLeft } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useExploreIndex } from "@/components/explore/explore-items";
-import { ReleaseRow } from "@/components/explore/release-items";
+import { ExploreBackdrop, NextRelease } from "@/components/explore/landing";
+import { CalendarRow } from "@/components/explore/release-items";
 import { Skeleton } from "@/components/ui/skeleton";
 import { addDays } from "@/lib/finance/dates";
+import { useReleaseReminders } from "@/lib/reminders";
 import { useStore } from "@/lib/store/collection-store";
+import type { ExploreSet } from "@/lib/explore/types";
 import { cn } from "@/lib/utils";
 
-/** Upcoming sets across every brand, by month, plus the last 30 days of releases. */
+/** Upcoming sets across every game by month, plus the last 30 days of releases (the app's ReleaseCalendarView). */
 export default function ReleaseCalendarPage() {
   const index = useExploreIndex();
   const { today } = useStore();
-  const [brand, setBrand] = useState<string>("all");
+  const reminders = useReleaseReminders();
 
-  const { upcoming, recent, brands } = useMemo(() => {
-    if (index.status !== "ready") return { upcoming: [], recent: [], brands: [] };
-    const sets = index.sets.filter((s) => s.releaseDate && (brand === "all" || s.gameSlug === brand));
+  const { upcoming, months, recent, soon } = useMemo(() => {
+    if (index.status !== "ready") return { upcoming: [], months: [], recent: [], soon: 0 };
+    const sets = index.sets.filter((s) => s.releaseDate);
     const up = sets.filter((s) => s.releaseDate! >= today).sort((a, b) => (a.releaseDate! < b.releaseDate! ? -1 : 1));
-    const months = new Map<string, typeof up>();
+    const months = new Map<string, ExploreSet[]>();
     for (const s of up) {
       const m = s.releaseDate!.slice(0, 7);
       months.set(m, [...(months.get(m) ?? []), s]);
     }
     const since = addDays(today, -30);
+    const in30 = addDays(today, 30);
     return {
-      upcoming: [...months.entries()],
+      upcoming: up,
+      months: [...months.entries()],
       recent: sets.filter((s) => s.releaseDate! < today && s.releaseDate! >= since).sort((a, b) => (a.releaseDate! > b.releaseDate! ? -1 : 1)),
-      brands: index.games.filter((g) => index.sets.some((s) => s.gameSlug === g.slug && s.releaseDate && s.releaseDate >= since)),
+      soon: up.filter((s) => s.releaseDate! <= in30).length,
     };
-  }, [index, brand, today]);
+  }, [index, today]);
+  const reminded = upcoming.filter((s) => reminders.has(s.slug)).length;
 
   return (
-    <div className="animate-fade-in">
-      <Link href="/explore" className="mb-6 inline-flex items-center gap-1 text-[13px] text-muted hover:text-foreground">
+    <div className="relative animate-fade-in">
+      <ExploreBackdrop />
+      <Link href="/explore" className="mb-5 inline-flex items-center gap-1 text-[13px] text-muted hover:text-foreground">
         <ChevronLeft className="size-4" /> Explore
       </Link>
-      <h1 className="text-[28px] font-semibold tracking-[-0.02em] sm:text-[34px]">Release calendar</h1>
-      <p className="mt-1 text-[14px] text-muted">Upcoming sets across every brand. Tap the bell to get a reminder on your Overview.</p>
-
-      {brands.length > 1 && (
-        <div className="fade-row scrollbar-none -mx-1 mt-5 flex gap-1.5 overflow-x-auto px-1">
-          {[{ slug: "all", name: "All brands" }, ...brands].map((b) => (
-            <button
-              key={b.slug}
-              onClick={() => setBrand(b.slug)}
-              aria-pressed={brand === b.slug}
-              className={cn("h-8 shrink-0 rounded-full px-3.5 text-[13px] font-medium transition-colors", brand === b.slug ? "bg-lime font-semibold text-[#0b0b0c] shadow-[0_0_16px_-4px_var(--lime)]" : "bg-surface-2 text-muted hover:text-foreground")}
-            >
-              {b.name}
-            </button>
-          ))}
-        </div>
-      )}
+      <h1 className="font-display text-[30px] leading-[1.02] tracking-[-0.035em] sm:text-[34px]">Release calendar</h1>
+      <p className="mt-2 text-[14px] text-muted">Tap the bell to get a reminder on your Home.</p>
 
       {index.status === "loading" ? (
-        <div className="mt-8 space-y-3">
+        <div className="mt-6 space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-16 w-full rounded-2xl" />
+            <Skeleton key={i} className="h-[80px] w-full rounded-[18px]" />
           ))}
         </div>
       ) : index.status === "error" ? (
         <p className="py-20 text-center text-[14px] text-muted">{index.message}</p>
       ) : (
         <>
-          {upcoming.length ? (
-            upcoming.map(([month, sets]) => (
-              <section key={month} className="mt-8" aria-label={month}>
-                <h2 className="mb-2 border-b border-border pb-2 text-[18px] font-semibold">
-                  {new Date(`${month}-01T00:00:00Z`).toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })}
-                </h2>
-                {sets.map((s) => (
-                  <ReleaseRow key={s.slug} set={s} />
-                ))}
-              </section>
-            ))
-          ) : (
-            <div className="flex flex-col items-center py-16 text-center">
-              <CalendarDays className="size-9 text-subtle" strokeWidth={1.5} />
-              <p className="mt-3 font-medium">No announced releases yet</p>
-              <p className="mt-1 max-w-sm text-sm text-muted">New sets appear here as soon as they&apos;re listed in the catalog (the set list refreshes weekly).</p>
+          <div className="mt-6 grid grid-cols-3 gap-2 sm:max-w-xl">
+            <StatTile label="Upcoming" value={upcoming.length} />
+            <StatTile label="Next 30 days" value={soon} />
+            <StatTile label="Reminders" value={reminded} lime />
+          </div>
+          {upcoming[0] && (
+            <div className="mt-5">
+              <NextRelease set={upcoming[0]} />
             </div>
           )}
 
-          {recent.length > 0 && (
-            <section className="mt-12" aria-label="Recently released">
-              <h2 className="mb-2 border-b border-border pb-2 text-[18px] font-semibold">Released in the last 30 days</h2>
-              {recent.map((s) => (
-                <ReleaseRow key={s.slug} set={s} />
-              ))}
-            </section>
-          )}
+          {upcoming.length === 0 && <p className="mt-9 text-[14px] text-muted">No upcoming releases in the catalog&nbsp;yet.</p>}
+          {months.map(([month, sets]) => (
+            <Section key={month} title={new Date(`${month}-01T00:00:00Z`).toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })} sets={sets} upcoming />
+          ))}
+          {recent.length > 0 && <Section title="Out in the last 30 days" sets={recent} upcoming={false} />}
         </>
       )}
+    </div>
+  );
+}
+
+function Section({ title, sets, upcoming }: { title: string; sets: ExploreSet[]; upcoming: boolean }) {
+  return (
+    <section className="mt-9" aria-label={title}>
+      <div className="mb-3 flex items-baseline gap-2.5">
+        <h2 className="font-display text-[24px] leading-none tracking-[-0.03em]">{title}</h2>
+        <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-subtle">
+          {sets.length} set{sets.length === 1 ? "" : "s"}
+        </span>
+      </div>
+      <div className="grid gap-2.5 lg:grid-cols-2">
+        {sets.map((s) => (
+          <CalendarRow key={s.slug} set={s} upcoming={upcoming} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** A glass tile with a mono label and a big number (the app's StatTile). */
+function StatTile({ label, value, lime }: { label: string; value: number; lime?: boolean }) {
+  return (
+    <div className="glass rounded-2xl px-3.5 py-3">
+      <p className="truncate font-mono text-[11px] uppercase tracking-[0.08em] text-subtle">{label}</p>
+      <p className={cn("tabular mt-1 font-display text-[28px] leading-none tracking-[-0.035em]", lime ? "text-[var(--lime)]" : "text-white")}>{value.toLocaleString()}</p>
     </div>
   );
 }

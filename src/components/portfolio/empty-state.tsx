@@ -68,5 +68,5 @@ export function EmptyPage({
 
 /** An empty collection on other pages (Gains, Analytics…): the same empty page, pointing to search. */
 export function EmptyCollection({ title = "Nothing here yet", body, action = "Search cards" }: { title?: string; body?: string; action?: string }) {
-  return <EmptyPage title={title} line={body ?? "Scan a card to see what it's worth."} action={action} href="/explore?search=1" />;
+  return <EmptyPage title={title} line={body ?? "Scan a card to see what it's worth."} action={action} href="/search" />;
 }

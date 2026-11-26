@@ -7,7 +7,7 @@ import { Compass, Eye, Handshake, Heart, House, LayoutGrid, Search, Settings } f
 export const NAV = [
   { href: "/", label: "Home", icon: House },
   { href: "/collection", label: "Collection", icon: LayoutGrid },
-  { href: "/explore?search=1", label: "Search", icon: Search },
+  { href: "/search", label: "Search", icon: Search },
   { href: "/explore", label: "Explore", icon: Compass },
   { href: "/deal", label: "Deal", icon: Handshake },
   { href: "/watchlist", label: "Watchlist", icon: Eye },
@@ -20,7 +20,7 @@ export type NavItem = (typeof NAV)[number];
 const byHref = (href: string) => NAV.find((n) => n.href === href)!;
 
 /** The sidebar: the five tabs, then Settings on its own. */
-export const TABS: NavItem[] = ["/", "/collection", "/explore?search=1", "/explore", "/deal"].map(byHref);
+export const TABS: NavItem[] = ["/", "/collection", "/search", "/explore", "/deal"].map(byHref);
 
 export const SETTINGS = byHref("/settings");
 

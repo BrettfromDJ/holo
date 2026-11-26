@@ -30,7 +30,7 @@ export function CollectionSummary({ onViewCards }: { onViewCards: () => void }) 
   if (store.status === "loading") return <SummarySkeleton />;
   if (store.status === "error") return <ErrorState message={store.error} />;
   if (!store.data.transactions.length) {
-    return <EmptyPage title="Nothing here yet" line="Scan a card to see what it's worth." action="Search cards" href="/explore?search=1" link="Browse Explore" linkHref="/explore" />;
+    return <EmptyPage title="Nothing here yet" line="Scan a card to see what it's worth." action="Search cards" href="/search" link="Browse Explore" linkHref="/explore" />;
   }
 
   return (

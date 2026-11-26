@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- set logos come from the pricing source's CDN */
 
 import { useHeroLink } from "@/lib/motion/hero";
-import { Check } from "lucide-react";
+import { BellRing, Check } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { HoloTilt, isFoilCard } from "@/components/motion/holo-tilt";
@@ -13,9 +13,12 @@ import type { ExploreMarket } from "@/lib/explore/movers";
 import type { ExploreGame, ExploreProduct, ExploreSet } from "@/lib/explore/types";
 import { formatDate, money } from "@/lib/format";
 import { packCount, pricePerPack } from "@/lib/packs";
-import { usePortfolio } from "@/lib/store/collection-store";
+import { usePortfolio, useStore } from "@/lib/store/collection-store";
+import { compactCount, shortGameName } from "@/lib/games";
+import { daysUntil, useReleaseReminders } from "@/lib/reminders";
 import { cn } from "@/lib/utils";
 import { withEditionArt } from "@/lib/editions";
+import { rememberViewed } from "@/lib/search-history";
 
 /** Product ids the user owns, for "Owned" badges. */
 export function useOwnedIds() {
@@ -40,15 +43,6 @@ export function ownedLabel(quantity: number | undefined): string {
   return n > 1 ? `Owned ×${n}` : "Owned";
 }
 
-function isNew(releaseDate: string | null) {
-  if (!releaseDate) return false;
-  const age = Date.now() - Date.parse(releaseDate);
-  return age < 60 * 24 * 60 * 60 * 1000;
-}
-
-function compactCount(n: number) {
-  return n >= 1000 ? `${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}K` : String(n);
-}
 
 /** Logos drawn in black, which vanish on the dark theme: shown white there instead. */
 export function logoTone(game: Pick<ExploreGame, "slug" | "name">) {
@@ -120,43 +114,35 @@ export function SetArt({ set, className }: { set: Pick<ExploreSet, "iconUrl" | "
   );
 }
 
-/** A set with its banner art, release date and size. */
-export function SetTile({ set }: { set: ExploreSet }) {
-  const body = (
-    <>
-      {/* Fixed 3:2 frame. TCG API's set_icon_url is the set's banner art; image_url is a sample product. */}
-      <div className="relative aspect-[3/2] overflow-hidden">
-        <div className="absolute inset-4 flex items-center justify-center sm:inset-5">
-          {set.iconUrl ? (
-            <div className="relative h-full w-full transition-transform duration-500 ease-[var(--ease-apple)] group-hover:scale-[1.03]">
-              <img src={set.iconUrl} alt="" loading="lazy" className="h-full w-full rounded-lg object-cover shadow-lg shadow-black/40" />
-              <SetLogo url={set.logoUrl} />
-            </div>
-          ) : set.imageUrl ? (
-            <img src={set.imageUrl} alt="" loading="lazy" className="h-full w-full object-contain drop-shadow-[0_8px_16px_rgba(0,0,0,0.45)] transition-transform duration-500 ease-[var(--ease-apple)] group-hover:scale-[1.03]" />
-          ) : (
-            <span className="text-center text-[13px] font-semibold text-subtle">{set.name}</span>
-          )}
-        </div>
-      </div>
-      <div className="border-t border-border px-4 py-3">
-        <p className="flex items-start gap-2">
-          <span className="line-clamp-2 text-[14px] font-medium leading-snug">{set.name}</span>
-          {isNew(set.releaseDate) && <span className="mt-px shrink-0 rounded bg-[var(--cat-1)]/20 px-1.5 py-px text-[10px] font-medium font-mono uppercase tracking-[0.06em] text-[var(--cat-1)]">New</span>}
-        </p>
-        <p className="tabular mt-0.5 truncate text-[12px] text-subtle">
-          {[set.releaseDate ? formatDate(set.releaseDate) : null, set.loaded ? `${set.productCount ?? 0} products` : null].filter(Boolean).join(" · ")}
-        </p>
-      </div>
-    </>
-  );
+/**
+ * A set (the app's SetTile): its banner art filling a 3:2 frame (16px corners, a fine edge), with
+ * "In N days" (lime within a week, else blue) and a lime bell when a reminder is on for sets still
+ * to come; then the name and one quiet line (date and product count, or the game and date).
+ */
+export function SetTile({ set, upcoming, showGame = false }: { set: ExploreSet; /** Defaults to "release date is today or later". */ upcoming?: boolean; showGame?: boolean }) {
+  const { today } = useStore();
+  const reminders = useReleaseReminders();
+  const days = set.releaseDate ? daysUntil(set.releaseDate, today) : null;
+  const coming = upcoming ?? (days !== null && days >= 0);
+  const date = set.releaseDate ? formatDate(set.releaseDate) : null;
+  const count = set.loaded && set.productCount ? `${set.productCount} product${set.productCount === 1 ? "" : "s"}` : null;
+  const line = showGame ? [shortGameName(set.gameName), date] : [date ?? "Undated", count];
   // Every set opens; one whose cards aren't in the catalog yet says so on its page.
   return (
-    <Link
-      href={`/explore/${encodeURIComponent(set.slug)}`}
-      className="group flex flex-col overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface transition-colors hover:border-border-strong"
-    >
-      {body}
+    <Link href={`/explore/${encodeURIComponent(set.slug)}`} className="group flex min-w-0 flex-col">
+      <div className="relative aspect-[3/2] overflow-hidden rounded-2xl border border-border">
+        <SetArt set={set} className="h-full w-full" />
+        {coming && days !== null && (
+          <span className={cn("tag-skew absolute left-2.5 top-2.5", days <= 7 ? "tag-lime" : "tag-blue")}>{days <= 0 ? "Out today" : `In ${days} day${days === 1 ? "" : "s"}`}</span>
+        )}
+        {coming && reminders.has(set.slug) && (
+          <span className="absolute right-2 top-2 flex size-6 items-center justify-center rounded-full bg-[var(--lime)] text-[#0b0b0c]">
+            <BellRing className="size-3" />
+          </span>
+        )}
+      </div>
+      <p className="mt-2.5 truncate text-[14px] font-medium">{set.name}</p>
+      <p className="tabular truncate text-[12px] text-muted">{line.filter(Boolean).join(" · ")}</p>
     </Link>
   );
 }
@@ -192,7 +178,14 @@ export function ProductTile({ item, owned, ownedQty, gameSlug, showBrand }: { it
   // Open the page on the printing this tile shows.
   const href = `/product/${encodeURIComponent(p.id)}${item.printing ? `?printing=${encodeURIComponent(item.printing)}` : ""}`;
   return (
-    <Link href={href} onClick={(e) => hero(e, href)} className="group flex w-full min-w-0 flex-col text-left">
+    <Link
+      href={href}
+      onClick={(e) => {
+        rememberViewed(item);
+        hero(e, href);
+      }}
+      className="group flex w-full min-w-0 flex-col text-left"
+    >
       <div className="relative">
         {/* Tall, card-shaped tiles so cards fill the width; sealed sits in the same frame. */}
         {p.kind === "single" && p.imageUrl ? (

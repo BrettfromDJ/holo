@@ -80,9 +80,8 @@ export function BottomNav() {
           <button
             type="button"
             onClick={() => {
-              // Search everything: Explore's search field, ready to type (as in the app).
-              if (pathname === "/explore") window.dispatchEvent(new Event("focus-explore-search"));
-              else router.push("/explore?search=1");
+              // Search everything (its own page, as in the app).
+              router.push("/search");
             }}
             className="flex w-full flex-col items-center gap-1 pt-2 text-[10px] font-medium text-subtle transition-colors"
           >

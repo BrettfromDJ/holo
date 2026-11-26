@@ -154,7 +154,7 @@ export function CollectionCards() {
     <div className="animate-fade-in">
       {portfolio !== ALL && <p className="mb-2 truncate text-[15px] font-semibold">{nameOf(portfolio)}</p>}
       {!holdings.length ? (
-        <EmptyPage title="Nothing here yet" line="Scan a card, or search for anything you own." action="Search cards" href="/explore?search=1" link="Browse Explore" linkHref="/explore" />
+        <EmptyPage title="Nothing here yet" line="Scan a card, or search for anything you own." action="Search cards" href="/search" link="Browse Explore" linkHref="/explore" />
       ) : (
         <>
           {/* Toolbar: one glass family. */}

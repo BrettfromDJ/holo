@@ -28,7 +28,7 @@ export function HomeSearch({ className }: { className?: string }) {
   const owned = useOwnedIds();
   const ownedQty = useOwnedQuantities();
   const items = results?.status === "ready" ? results.data.slice(0, PREVIEW) : [];
-  const all = `/explore?q=${encodeURIComponent(query.trim())}`;
+  const all = `/search?q=${encodeURIComponent(query.trim())}`;
 
   useEffect(() => setActive(-1), [results]);
 

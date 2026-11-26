@@ -7,7 +7,9 @@ import { toast } from "sonner";
 import type { ExploreSet } from "@/lib/explore/types";
 import { daysUntil, useReleaseReminders, whenLabel } from "@/lib/reminders";
 import { useStore } from "@/lib/store/collection-store";
+import { shortGameName } from "@/lib/games";
 import { cn } from "@/lib/utils";
+import { SetArt } from "./explore-items";
 
 export function ReminderButton({ set, compact }: { set: ExploreSet; compact?: boolean }) {
   const { has, toggle } = useReleaseReminders();
@@ -51,7 +53,7 @@ export function ReleaseRow({ set }: { set: ExploreSet }) {
       <div className="min-w-0 flex-1">
         <p className="truncate text-[14px] font-medium">{set.name}</p>
         <p className="truncate text-[12px] text-muted">
-          {set.gameName}
+          {shortGameName(set.gameName)}
           {days !== null && <span className={cn(days >= 0 && days <= 7 && "text-foreground")}> · {whenLabel(days)}</span>}
         </p>
       </div>
@@ -75,5 +77,50 @@ export function ReleaseRow({ set }: { set: ExploreSet }) {
     </Link>
   ) : (
     <div className={cls}>{body}</div>
+  );
+}
+
+/**
+ * One set on the calendar (the app's CalendarRow): a date block (lime within a week), its art, its
+ * name with an "In N days" tag (or the game once out), and a round bell for sets still to come.
+ */
+export function CalendarRow({ set, upcoming }: { set: ExploreSet; upcoming: boolean }) {
+  const { today } = useStore();
+  const { has, toggle } = useReleaseReminders();
+  const on = has(set.slug);
+  const days = set.releaseDate ? daysUntil(set.releaseDate, today) : null;
+  const d = set.releaseDate ? new Date(`${set.releaseDate}T00:00:00Z`) : null;
+  return (
+    <Link href={`/explore/${encodeURIComponent(set.slug)}`} className="flex min-w-0 items-center gap-3 rounded-[18px] border border-border bg-surface p-2.5 transition-colors hover:border-white/15">
+      <div className="flex h-[60px] w-[50px] shrink-0 flex-col items-center justify-center gap-1 rounded-[14px] bg-image-well">
+        <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-subtle">{d ? d.toLocaleString("en-US", { month: "short", timeZone: "UTC" }) : "TBA"}</span>
+        <span className={cn("tabular font-display text-[26px] leading-none tracking-[-0.03em]", upcoming && days !== null && days <= 7 ? "text-[var(--lime)]" : "text-white")}>{d ? d.getUTCDate() : "–"}</span>
+      </div>
+      {(set.iconUrl || set.imageUrl) && <SetArt set={set} className="h-[52px] w-[78px] shrink-0 rounded-[10px]" />}
+      <div className="min-w-0 flex-1 space-y-1.5">
+        <p className="line-clamp-2 text-[15px] font-semibold leading-snug text-white">{set.name}</p>
+        {upcoming && days !== null ? (
+          <span className={cn("tag-skew", days <= 7 ? "tag-lime" : "tag-blue")}>{days <= 0 ? "Out today" : `In ${days} day${days === 1 ? "" : "s"}`}</span>
+        ) : (
+          <p className="truncate text-[12px] text-muted">{shortGameName(set.gameName)}</p>
+        )}
+      </div>
+      {upcoming && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const now = toggle(set.slug);
+            toast(now ? `We'll remind you about ${set.name}` : `Reminder removed for ${set.name}`);
+          }}
+          aria-pressed={on}
+          aria-label={on ? "Turn off reminder" : "Remind me on release day"}
+          className={cn("flex size-[38px] shrink-0 items-center justify-center rounded-full transition-colors", on ? "bg-[var(--lime)] text-[#0b0b0c]" : "bg-white/[0.06] text-muted hover:text-foreground")}
+        >
+          {on ? <BellRing className="size-3.5" /> : <Bell className="size-3.5" />}
+        </button>
+      )}
+    </Link>
   );
 }
