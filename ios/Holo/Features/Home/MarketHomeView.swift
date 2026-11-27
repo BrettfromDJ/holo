@@ -1001,11 +1001,12 @@ private struct MoversWidget: View {
             LazyHStack(spacing: 0) {
                 ForEach(pick.hits) { item in
                     ProductImage(product: item.pictured, cornerRadius: 10, large: true)
-                        .frame(width: 184, height: 257)
+                        .frame(width: 176, height: 246)
                         .cardZoomSource(item.pictured.id)
                         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(.black).shadow(color: glow.opacity(0.6), radius: 26))
                         .rotationEffect(.degrees(pick.hot ? -4 : 4))
-                        .padding(.vertical, 22)
+                        // Room for the glow, so the scroller's edge doesn't cut it.
+                        .padding(.vertical, 34)
                         .containerRelativeFrame(.horizontal)
                         .contentShape(Rectangle())
                         .onTapGesture { view(item) }
@@ -1024,7 +1025,7 @@ private struct MoversWidget: View {
         }
         .scrollTargetBehavior(.paging)
         .scrollPosition(id: $current)
-        .frame(height: 301)
+        .frame(height: 314)
     }
 
     /// The showing card's name, set and figures, changing with the page.
@@ -1034,7 +1035,7 @@ private struct MoversWidget: View {
         let tone = (pct ?? 0) >= 0 ? Theme.lime : Theme.planPink
         let meta = [p.setName, p.number.map { "#\($0)" }].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: "  \u{2022}  ")
         return VStack(spacing: 6) {
-            Text(p.name.noWidow).font(.display(24)).tracking(-0.8)
+            Text(Self.cardName(p.name).noWidow).font(.display(24)).tracking(-0.8)
                 .multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.8)
             if !meta.isEmpty {
                 Text(meta).font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
@@ -1059,6 +1060,12 @@ private struct MoversWidget: View {
         .frame(minHeight: 132, alignment: .top)
         .id(hit.id)
         .transition(.opacity)
+    }
+
+    /// "Dugtrio - 5/100 (EX Crystal Guardians)" → "Dugtrio": the set line under it says which.
+    static func cardName(_ name: String) -> String {
+        guard let r = name.range(of: " - "), name[r.upperBound...].first?.isNumber == true else { return name }
+        return String(name[..<r.lowerBound])
     }
 
     /// The five as small cards: the one showing lifted and lit in the glow's color; tap to go.
