@@ -150,6 +150,13 @@ struct MarketHomeView: View {
             .task { await load() }
             // For you, worked out again when your collection changes.
             .task(id: "\(store.allHoldings.count)|\(store.status == .ready)|\(index != nil)") { await forYou.load(store: store, index: index) }
+            // Screenshots: Heating up opened big once Home's lists are in.
+            .task(id: index != nil) {
+                guard let index, movers == nil, ProcessInfo.processInfo.arguments.contains("-HoloMovers") else { return }
+                let risers = Array((index.trending ?? []).prefix(5))
+                try? await Task.sleep(for: .seconds(1))
+                openMovers(risers, hot: true, at: 0)
+            }
             .task(id: index != nil) {
                 await themes.load(index: index)
                 themes.pick(store: store, index: index)

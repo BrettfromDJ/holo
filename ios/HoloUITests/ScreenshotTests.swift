@@ -9,6 +9,8 @@ final class ScreenshotTests: XCTestCase {
     }
 
     func testHome() { capture("home", args: [], pages: 5) }
+    /// Heating up opened big (the movers widget), then swiped to its next card.
+    func testMoversWidget() { capture("movers", args: ["-HoloMovers"], pages: 2, swipe: .left) }
     // What Overview showed, now Collection's Summary.
     func testOverview() { capture("overview", args: ["-HoloTab", "collection", "-HoloCollectionMode", "summary"], pages: 7) }
     func testCollection() { capture("collection", args: ["-HoloTab", "collection"], pages: 3) }
