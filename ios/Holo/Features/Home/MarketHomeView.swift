@@ -903,6 +903,8 @@ private struct MoversWidget: View {
     var view: (SearchHit) -> Void
     @State private var current: String?
     @State private var shown = false
+    @State private var saving = false
+    @Environment(CollectionStore.self) private var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(pick: MoversPick, close: @escaping () -> Void, view: @escaping (SearchHit) -> Void) {
@@ -935,15 +937,19 @@ private struct MoversWidget: View {
                     .padding(.horizontal, 20)
                 thumbnails
                     .padding(.top, 18)
-                Button { view(hit) } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "rectangle.portrait.on.rectangle.portrait.angled.fill").font(.system(size: 15, weight: .semibold))
-                        Text("View card")
+                // Like Card of the day: View card (light) and Wishlist (dark), side by side.
+                HStack(spacing: 10) {
+                    Button { view(hit) } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "rectangle.portrait.on.rectangle.portrait.angled.fill").font(.system(size: 15, weight: .semibold))
+                            Text("View card")
+                        }
+                        .font(.geist(16, .semibold))
+                        .frame(maxWidth: .infinity)
                     }
-                    .font(.geist(16, .semibold))
-                    .frame(maxWidth: .infinity)
+                    .buttonStyle(Button3D(kind: .light, height: 50))
+                    wishButton
                 }
-                .buttonStyle(Button3D(kind: .light, height: 50))
                 .padding(.horizontal, 18)
                 .padding(.top, 20)
                 .padding(.bottom, 18)
@@ -955,12 +961,26 @@ private struct MoversWidget: View {
             .background {
                 ZStack {
                     shape.fill(Color(hex: 0x080808))
+                    // The showing card's own art, blown up and blurred (drawn once per card, not
+                    // per frame), fading out toward the figures.
+                    CachedImage(url: hit.pictured.imageURL) { img in img.resizable().scaledToFill() } placeholder: { Color.clear }
+                        .environment(\.imageFadesIn, false)
+                        .scaleEffect(1.5)
+                        .blur(radius: 46, opaque: true)
+                        .opacity(0.32)
+                        .drawingGroup()
+                        .mask(LinearGradient(colors: [.black, .black.opacity(0.4), .clear], startPoint: .top, endPoint: UnitPoint(x: 0.5, y: 0.75)))
+                        .id(hit.id)
+                        .transition(.opacity)
                     // The tile's glow, bigger, sitting behind the card.
-                    RadialGradient(colors: [glow.opacity(0.38), glow.opacity(0.08), .clear], center: UnitPoint(x: 0.5, y: 0.3), startRadius: 0, endRadius: 300)
+                    RadialGradient(colors: [glow.opacity(0.42), glow.opacity(0.1), .clear], center: UnitPoint(x: 0.5, y: 0.32), startRadius: 0, endRadius: 280)
                     TileParticles(hot: pick.hot)
                 }
                 .clipShape(shape)
             }
+            // The pager draws its glow past its own edges (no square cut-off); the panel's edge is
+            // the only thing that trims it, and the cards waiting either side stay hidden.
+            .clipShape(shape)
             .overlay(shape.strokeBorder(glow.opacity(0.4), lineWidth: 1))
             .background(shape.fill(.black).shadow(color: glow.opacity(0.25), radius: 40))
             .padding(.horizontal, 16)
@@ -1003,9 +1023,8 @@ private struct MoversWidget: View {
                     ProductImage(product: item.pictured, cornerRadius: 10, large: true)
                         .frame(width: 176, height: 246)
                         .cardZoomSource(item.pictured.id)
-                        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(.black).shadow(color: glow.opacity(0.6), radius: 26))
+                        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(.black).shadow(color: glow.opacity(0.65), radius: 30))
                         .rotationEffect(.degrees(pick.hot ? -4 : 4))
-                        // Room for the glow, so the scroller's edge doesn't cut it.
                         .padding(.vertical, 34)
                         .containerRelativeFrame(.horizontal)
                         .contentShape(Rectangle())
@@ -1025,6 +1044,8 @@ private struct MoversWidget: View {
         }
         .scrollTargetBehavior(.paging)
         .scrollPosition(id: $current)
+        // The glow spills past the scroller (it was cut off square above and below the card).
+        .scrollClipDisabled()
         .frame(height: 314)
     }
 
@@ -1046,6 +1067,7 @@ private struct MoversWidget: View {
                     HStack(spacing: 4) {
                         Image(systemName: pct >= 0 ? "arrow.up.right" : "arrow.down.right").font(.system(size: 11, weight: .bold))
                         Text(Format.signedPercent(pct / 100)).font(.geist(14, .semibold)).monospacedDigit()
+                        Text("7D").font(.mono(10)).tracking(0.8).opacity(0.7)
                     }
                     .foregroundStyle(tone)
                     .padding(.horizontal, 10).padding(.vertical, 5)
@@ -1054,12 +1076,35 @@ private struct MoversWidget: View {
                 }
             }
             .padding(.top, 6)
-            Text("this week").font(.mono(10)).tracking(1.2).foregroundStyle(Theme.subtle).textCase(.uppercase)
         }
         .frame(maxWidth: .infinity)
-        .frame(minHeight: 132, alignment: .top)
+        .frame(minHeight: 112, alignment: .top)
         .id(hit.id)
         .transition(.opacity)
+    }
+
+    /// Wishlist for the showing card: "Wishlist", or "On wishlist" once it's there (tap again to
+    /// take it off), as on Card of the day.
+    private var wishButton: some View {
+        let wish = store.wish(for: hit.product.id)
+        return Button {
+            guard !saving, !Demo.isOn else { return }
+            Haptics.tap()
+            saving = true
+            let h = hit
+            Task {
+                if let wish { try? await store.removeWish(wish.id) } else { try? await store.addWish(h.product, printing: h.printing, price: h.market) }
+                saving = false
+            }
+        } label: {
+            HStack(spacing: 7) {
+                Image(systemName: wish == nil ? "plus" : "checkmark").font(.system(size: 14, weight: .bold))
+                Text(wish == nil ? "Wishlist" : "On wishlist").lineLimit(1)
+            }
+            .font(.geist(16, .semibold))
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(Button3D(kind: .dark, height: 50))
     }
 
     /// "Dugtrio - 5/100 (EX Crystal Guardians)" → "Dugtrio": the set line under it says which.
