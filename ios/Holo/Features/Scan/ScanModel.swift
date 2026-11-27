@@ -141,7 +141,7 @@ final class ScanModel {
             let printing = e.printing ?? c.printing
             // A card found in the phone's own list comes without a printing or price: once the
             // prices arrive, take the first printing that has one.
-            if printing == nil, let first = printingPrices[id]?.first(where: { $0.market != nil }) {
+            if printing == nil, let first = printingPrices[id].flatMap(Self.defaultPrice) {
                 e.printing = first.printing
             }
             let nm = printingPrices[id]?.first(where: { $0.printing == (e.printing ?? printing) })?.market ?? (printing == c.printing ? c.market : nil) ?? c.market
@@ -157,6 +157,15 @@ final class ScanModel {
             }
         }
         if e.value != entries[i].value || e.priceNote != entries[i].priceNote { entries[i] = e }
+    }
+
+    /// The printing a scan starts on when none was picked: the first priced one, Unlimited before
+    /// 1st Edition (the everyday print; it showed 1st Edition on old Base Set cards).
+    static func defaultPrice(_ prices: [Price]) -> Price? {
+        let order = Editions.ordered(prices.compactMap(\.printing))
+        return prices.filter { $0.market != nil }.min { a, b in
+            (order.firstIndex(of: a.printing ?? "") ?? 99) < (order.firstIndex(of: b.printing ?? "") ?? 99)
+        }
     }
 
     /// Fetches a product's prices by condition and by printing once, then reprices its scans,
@@ -180,7 +189,7 @@ final class ScanModel {
                 for i in self.entries.indices where self.handLater.contains(self.entries[i].id) && self.entries[i].picked?.product.id == id {
                     self.handLater.remove(self.entries[i].id)
                     let chosen = self.entries[i].printing
-                    let price = prices.first { $0.printing == chosen && $0.market != nil } ?? prices.first { $0.market != nil }
+                    let price = prices.first { $0.printing == chosen && $0.market != nil } ?? Self.defaultPrice(prices)
                     self.entries[i].picked?.market = price?.market
                     if self.entries[i].picked?.printing == nil { self.entries[i].picked?.printing = price?.printing }
                     self.hand(i)
@@ -213,7 +222,7 @@ final class ScanModel {
         guard let onPick, var c = entries[i].picked else { return }
         // Its price already fetched (the same card scanned before): fill it in.
         if c.market == nil, let prices = printingPrices[c.product.id],
-           let price = prices.first(where: { $0.printing == (entries[i].printing ?? c.printing) && $0.market != nil }) ?? prices.first(where: { $0.market != nil }) {
+           let price = prices.first(where: { $0.printing == (entries[i].printing ?? c.printing) && $0.market != nil }) ?? Self.defaultPrice(prices) {
             c.market = price.market
             if c.printing == nil { c.printing = price.printing }
             entries[i].picked = c

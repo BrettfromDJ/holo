@@ -132,4 +132,33 @@ final class OnDeviceScanTests: XCTestCase {
         let kept = OnDeviceScan.realSets([hit("1", "Luxray", "ME03: Perfect Order"), hit("2", "Luxray - 028/088 (Cosmos Holo)", "Blister Exclusives")])
         XCTAssertEqual(kept.map(\.product.id), ["1"])
     }
+
+    func testEvolvesLineIsNotTheName() {
+        // An evolved card's top line names the Pokémon it evolves from.
+        let r = OnDeviceScan.parse([("Evolves from Ivysaur Put Venusaur on the Stage 1 card", box(top: 0.98)),
+                                    ("Venusaur", box(top: 0.93)), ("15/102", box(top: 0.04))])!
+        XCTAssertEqual(r.name, "Venusaur")
+        // Misread title: the name in "Put … on the" still counts.
+        let m = OnDeviceScan.parse([("Put Blastoise on the Sta", box(top: 0.98)), ("Blastoisa", box(top: 0.93))])!
+        XCTAssertTrue(OnDeviceScan.fits(m, "Blastoise"))
+    }
+
+    func testLevelIsNotAPromoNumber() {
+        let r = OnDeviceScan.parse([("Dark Gengar", box(top: 0.93)), ("LV. 32 #94", box(top: 0.06))])
+        XCTAssertEqual(r?.number, "")
+    }
+
+    func testOriginalPrintBeatsReprints() {
+        func hit(_ id: String, _ set: String) -> SearchHit {
+            SearchHit(product: Product(id: id, name: "Venusaur", setName: set, setId: set, number: "15/102", kind: "single"))
+        }
+        let hits = [hit("1", "Base Set"), hit("2", "Base Set (Shadowless)"), hit("3", "Celebrations: Classic Collection")]
+        let plain = OnDeviceScan.Reading(name: "Venusaur", number: "15/102")
+        XCTAssertEqual(OnDeviceScan.commonPrints(hits, plain).map(\.product.id), ["1"])
+        var reprint = plain
+        reprint.reprint2021 = true
+        XCTAssertEqual(OnDeviceScan.commonPrints(hits, reprint).map(\.product.id), ["3"])
+        let copyright = OnDeviceScan.parse([("Venusaur", box(top: 0.93)), ("©2021 Pokémon / Nintendo 15/102", box(top: 0.04))])
+        XCTAssertEqual(copyright?.reprint2021, true)
+    }
 }

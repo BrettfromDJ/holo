@@ -23,6 +23,9 @@ enum OnDeviceScan {
         /// The next lines that could be the name, when the first is a misread label ("HASG" for
         /// BASIC sat above "Articuno").
         var otherNames: [String] = []
+        /// What the copyright line says about the print: true when it reads 2021 (a Celebrations
+        /// Classic Collection reprint), false when it reads the 1990s (the original), nil unread.
+        var reprint2021: Bool? = nil
     }
 
     /// Identify a raw card in a photo, or nil when not sure.
@@ -53,7 +56,7 @@ enum OnDeviceScan {
             let searched = Date()
             let hits = await searches(reading)
             lap("search", searched)
-            var numbered = realSets(hits.filter { strictNumber($0.product.number, reading.number) })
+            var numbered = commonPrints(realSets(hits.filter { strictNumber($0.product.number, reading.number) }), reading)
             // A promo's bare number ("098"): promos print theirs bare too, so prefer those over
             // every set's 98th card.
             if !reading.number.contains("/") {
@@ -106,7 +109,13 @@ enum OnDeviceScan {
             if Set(close.map(\.product.id)).count == 1, let hit = close.first, fits(reading, hit.product.name) {
                 return (result(for: hit), reading, noted("text, total one off"))
             }
-            let pool = candidates(reading, hits: numbered.isEmpty ? close : numbered, all: hits)
+            // Only a name read (the number missed): when one card has exactly that name, it's that card.
+            if reading.number.isEmpty, reading.name != nil {
+                let names = ([reading.name!] + reading.otherNames).map { $0.lowercased() }
+                let exact = commonPrints(realSets(hits.filter { names.contains(baseName($0.product.name)) }), reading)
+                if let hit = oneCard(exact) { return (result(for: hit), reading, noted("name alone, one card")) }
+            }
+            let pool = commonPrints(candidates(reading, hits: numbered.isEmpty ? close : numbered, all: hits), reading)
             if !pool.isEmpty, let mine = await printing.value {
                 let compared = Date()
                 let best = await CardFingerprint.best(print: mine, among: pool)
@@ -222,6 +231,27 @@ enum OnDeviceScan {
             return !oddSets.contains { set.contains($0) }
         }
         return real.isEmpty ? hits : real
+    }
+
+    /// The same old card printed again: Base Set's Shadowless run and Celebrations' Classic
+    /// Collection reprints share its name and number. Unless the copyright line says 2021 (the
+    /// reprint), the original set wins, the everyday Unlimited run before Shadowless; with 2021,
+    /// only the reprint. The others stay a tap away under Wrong card?.
+    static func commonPrints(_ hits: [SearchHit], _ reading: Reading) -> [SearchHit] {
+        func set(_ h: SearchHit) -> String { (h.product.setName ?? "").lowercased() }
+        let classic = hits.filter { set($0).contains("classic collection") }
+        if reading.reprint2021 == true, !classic.isEmpty { return classic }
+        let originals = hits.filter { !set($0).contains("classic collection") }
+        guard !originals.isEmpty else { return hits }
+        let plain = originals.filter { !set($0).contains("shadowless") }
+        return plain.isEmpty ? originals : plain
+    }
+
+    /// A card's name without its number or variant ("Dugtrio - 5/100 (EX…)" → "dugtrio").
+    static func baseName(_ n: String) -> String {
+        n.replacingOccurrences(of: #"\s*[\(\[].*$"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"\s+-\s+\S+$"#, with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespaces).lowercased()
     }
 
     /// The one card these are, counting a card's pattern versions (Prismatic Evolutions' Poké Ball
@@ -392,6 +422,9 @@ enum OnDeviceScan {
         if number.isEmpty {
             let promo = lines.compactMap { text, box -> String? in
                 guard box.maxY < 0.12, box.minX < 0.5 else { return nil }
+                // Old cards' flavor line ends "LV. 32 #94": a level, not a number.
+                let low = text.lowercased()
+                if low.contains("lv") || low.contains("#") || low.contains("length") || low.contains("weight") { return nil }
                 let tokens = text.split(whereSeparator: { $0 == " " }).map(String.init)
                 // Two or three digits ("098", "168"): a lone "1" in the corner is something else.
                 return tokens.last { $0.range(of: #"^[A-Z]{0,4}\d{2,3}$"#, options: .regularExpression) != nil }
@@ -399,18 +432,35 @@ enum OnDeviceScan {
             if promo.count == 1 { number = promo[0].filter(\.isNumber) }
         }
         // The name: the topmost line with letters that isn't a stage/type word or an HP figure.
-        let names = lines
+        // An evolved card's top line, "Evolves from Ivysaur   Put Venusaur on the Stage 1 card", sits
+        // above its name: it named the other Pokémon (or itself, misspelled). Skipped here; the
+        // name in "Put … on the" is kept as one more name to try.
+        let putName = lines.lazy.compactMap { text, _ -> String? in
+            guard let r = text.range(of: #"(?i)\bput\s+(.+?)\s+on\s+the\b"#, options: .regularExpression) else { return nil }
+            let inner = text[r].replacingOccurrences(of: #"(?i)^put\s+|\s+on\s+the$"#, with: "", options: .regularExpression)
+            return cleanName(inner)
+        }.first
+        var names = lines
             .sorted { $0.1.maxY > $1.1.maxY }
+            .filter { text, _ in
+                let low = text.lowercased()
+                return !low.contains("evolves from") && !low.contains("evolves fron") && low.range(of: #"\bput\s+.+\s+on\s+the\b"#, options: .regularExpression) == nil
+            }
             .prefix(6)
             .compactMap { cleanName($0.0) }
             .filter { n in n.count >= 3 && !notNames.contains(n.lowercased()) && !looksLikeStage(n) }
+        if let putName, putName.count >= 3, !names.contains(where: { $0.caseInsensitiveCompare(putName) == .orderedSame }) {
+            names.insert(putName, at: min(1, names.count))
+        }
         let name = names.first
+        // The copyright line: Celebrations' Classic Collection reprints say ©2021, the originals 1995–2000.
+        let reprint: Bool? = all.contains("2021") ? true : (all.range(of: #"199[5-9]|2000"#, options: .regularExpression) != nil ? false : nil)
         // Neither a number nor a name: nothing to go on.
         if number.isEmpty && name == nil { return nil }
         let japanese = lines.contains { $0.0.unicodeScalars.contains { (0x3040...0x30FF).contains($0.value) || (0x4E00...0x9FFF).contains($0.value) } }
         // A Japanese card's name can't be matched to the catalog's English names.
         if japanese { return number.isEmpty ? nil : Reading(name: nil, number: number, japanese: true) }
-        return Reading(name: name, number: number, otherNames: Array(names.dropFirst().prefix(2)))
+        return Reading(name: name, number: number, otherNames: Array(names.dropFirst().prefix(2)), reprint2021: reprint)
     }
 
     /// A misread "BASIC" / "STAGE 1" label ("BASR", "STAOEJ"): within two letters of one.
