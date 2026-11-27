@@ -30,6 +30,8 @@ struct MarketHomeView: View {
     @State private var menuOpen = false
     @State private var account = false
     @State private var recap = false
+    /// Heating up / Cooling off, opened big: the widget to step through its cards.
+    @State private var movers: MoversPick?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var today: String { Format.day() }
@@ -127,7 +129,18 @@ struct MarketHomeView: View {
                     .transition(.opacity)
                 }
             }
-            .onDisappear { if menuOpen { setMenu(false, animated: false) } }
+            .overlay {
+                if let movers {
+                    MoversWidget(pick: movers, close: { closeMovers() }, view: { viewMover($0, in: movers) })
+                        .environment(\.cardZoom, cardZoom)
+                        .id(movers.id)
+                        .transition(.opacity)
+                }
+            }
+            .onDisappear {
+                if menuOpen { setMenu(false, animated: false) }
+                if movers != nil { closeMovers(animated: false) }
+            }
             .sheet(isPresented: $account) { SettingsView() }
             // From a tapped notification ("sets nearly done"): Master Sets, on Home.
             .onChange(of: Router.shared.masterSetsRequest) { _, _ in path.append(MorePage.masterSets) }
@@ -203,8 +216,8 @@ struct MarketHomeView: View {
         if !top.isEmpty || !drops.isEmpty {
             HStack(spacing: 10) {
                 let risers = Array((today.isEmpty ? Array(top.dropFirst()) : top).prefix(5))
-                if !risers.isEmpty { HotColdTile(hits: risers, hot: true) }
-                if !drops.isEmpty { HotColdTile(hits: Array(drops.prefix(5)), hot: false) }
+                if !risers.isEmpty { HotColdTile(hits: risers, hot: true) { openMovers(risers, hot: true, at: $0) } }
+                if !drops.isEmpty { HotColdTile(hits: Array(drops.prefix(5)), hot: false) { openMovers(Array(drops.prefix(5)), hot: false, at: $0) } }
             }
             .padding(.horizontal, 16)
         }
@@ -256,8 +269,8 @@ struct MarketHomeView: View {
                 // The week's top risers (after Card of the day's, when that's the week's too) and
                 // the biggest fallers, five each, cycling.
                 let risers = Array((index.today?.first == nil ? Array(trending.dropFirst()) : trending).prefix(5))
-                if !risers.isEmpty { HotColdTile(hits: risers, hot: true) }
-                if !drops.isEmpty { HotColdTile(hits: Array(drops.prefix(5)), hot: false) }
+                if !risers.isEmpty { HotColdTile(hits: risers, hot: true) { openMovers(risers, hot: true, at: $0) } }
+                if !drops.isEmpty { HotColdTile(hits: Array(drops.prefix(5)), hot: false) { openMovers(Array(drops.prefix(5)), hot: false, at: $0) } }
             }
             .padding(.horizontal, 16)
         }
@@ -340,6 +353,33 @@ struct MarketHomeView: View {
     private func seeAll(_ title: String) -> some View {
         HStack(spacing: 4) { Text(title); Image(systemName: "arrow.right").font(.system(size: 12, weight: .semibold)) }
             .font(.geist(13, .medium)).foregroundStyle(Theme.muted)
+    }
+
+    private func openMovers(_ hits: [SearchHit], hot: Bool, at index: Int) {
+        guard !hits.isEmpty else { return }
+        Router.shared.tabBarHidden = true
+        let pick = MoversPick(hits: hits, hot: hot, start: min(max(index, 0), hits.count - 1))
+        withAnimation(reduceMotion ? nil : .snappy(duration: 0.28)) { movers = pick }
+    }
+
+    private func closeMovers(animated: Bool = true) {
+        Router.shared.tabBarHidden = false
+        if animated, !reduceMotion {
+            withAnimation(.snappy(duration: 0.22)) { movers = nil }
+        } else {
+            var t = Transaction()
+            t.disablesAnimations = true
+            withTransaction(t) { movers = nil }
+        }
+    }
+
+    /// View card: the card page grows out of the widget's card, then the widget goes quietly
+    /// (Home's root leaving the screen closes it, see `onDisappear`).
+    private func viewMover(_ hit: SearchHit, in pick: MoversPick) {
+        store.seed(hit)
+        // The card page's arrows step through this widget's cards.
+        CardSequence.shared.ids = pick.hits.map(\.product.id)
+        path.append(hit.product.id)
     }
 
     private func setMenu(_ open: Bool, animated: Bool = true) {
@@ -762,6 +802,8 @@ private struct HotColdTile: View {
     /// The cards it cycles through, about four seconds each (one stays still).
     var hits: [SearchHit]
     var hot: Bool
+    /// Tapped: opens the movers widget on the card showing.
+    var open: (Int) -> Void
     @State private var index = 0
     @State private var onScreen = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -770,7 +812,10 @@ private struct HotColdTile: View {
         let glow = hot ? Color(hex: 0xFF7A1A) : Color(hex: 0x7DD3FC)
         let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
         let hit = hits[index % max(hits.count, 1)]
-        MarketLink(hit: hit) {
+        Button {
+            Haptics.tap()
+            open(index % max(hits.count, 1))
+        } label: {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 5) {
                     Image(systemName: hot ? "flame.fill" : "snowflake").font(.system(size: 11, weight: .bold)).foregroundStyle(glow)
@@ -816,7 +861,10 @@ private struct HotColdTile: View {
                 .clipShape(shape)
             }
             .overlay(shape.strokeBorder(glow.opacity(0.35), lineWidth: 1))
+            .contentShape(shape)
         }
+        .buttonStyle(ChipPress())
+        .accessibilityHint("Opens the \(hot ? "heating up" : "cooling off") cards")
         .onVisibilityChange { visible in if visible != onScreen { onScreen = visible } }
         // Cycles only while on screen; the cold tile starts half a beat later so the two
         // don't change at the same moment.
@@ -826,6 +874,205 @@ private struct HotColdTile: View {
             while !Task.isCancelled {
                 withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.45)) { index += 1 }
                 try? await Task.sleep(for: .seconds(4))
+            }
+        }
+    }
+}
+
+/// Which tile was opened: its cards, hot or cold, and the card it was showing.
+struct MoversPick: Identifiable {
+    var hits: [SearchHit]
+    var hot: Bool
+    var start: Int
+    var id: String { (hot ? "hot:" : "cold:") + hits.map(\.product.id).joined(separator: ",") }
+}
+
+/// Heating up / Cooling off, opened big: the tile's look (dark, its fire or ice glow, embers or
+/// snow, the glow-colored edge) as a pop-up over Home. Swipe the card, or tap a thumbnail, to
+/// step through the five; each shows its price and the week's move, and View card opens its page.
+private struct MoversWidget: View {
+    var pick: MoversPick
+    var close: () -> Void
+    var view: (SearchHit) -> Void
+    @State private var current: String?
+    @State private var shown = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    init(pick: MoversPick, close: @escaping () -> Void, view: @escaping (SearchHit) -> Void) {
+        self.pick = pick
+        self.close = close
+        self.view = view
+        _current = State(initialValue: pick.hits[pick.start].product.id)
+    }
+
+    private var glow: Color { pick.hot ? Color(hex: 0xFF7A1A) : Color(hex: 0x7DD3FC) }
+    private var position: Int { pick.hits.firstIndex { $0.product.id == current } ?? pick.start }
+    private var hit: SearchHit { pick.hits[min(position, pick.hits.count - 1)] }
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 30, style: .continuous)
+        ZStack {
+            // The page dims behind; a tap there closes.
+            Color.black.opacity(0.72).ignoresSafeArea()
+                .contentShape(Rectangle())
+                .onTapGesture { close() }
+                .accessibilityLabel("Close")
+                .accessibilityAddTraits(.isButton)
+            VStack(spacing: 0) {
+                header
+                    .padding(.horizontal, 18)
+                    .padding(.top, 16)
+                pager
+                    .padding(.top, 6)
+                details
+                    .padding(.horizontal, 20)
+                thumbnails
+                    .padding(.top, 18)
+                Button { view(hit) } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "rectangle.portrait.on.rectangle.portrait.angled.fill").font(.system(size: 15, weight: .semibold))
+                        Text("View card")
+                    }
+                    .font(.geist(16, .semibold))
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(Button3D(kind: .light, height: 50))
+                .padding(.horizontal, 18)
+                .padding(.top, 20)
+                .padding(.bottom, 18)
+            }
+            .foregroundStyle(.white)
+            // The name and figures cross-fade as the card changes.
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: position)
+            .frame(maxWidth: 420)
+            .background {
+                ZStack {
+                    shape.fill(Color(hex: 0x080808))
+                    // The tile's glow, bigger, sitting behind the card.
+                    RadialGradient(colors: [glow.opacity(0.38), glow.opacity(0.08), .clear], center: UnitPoint(x: 0.5, y: 0.3), startRadius: 0, endRadius: 300)
+                    TileParticles(hot: pick.hot)
+                }
+                .clipShape(shape)
+            }
+            .overlay(shape.strokeBorder(glow.opacity(0.4), lineWidth: 1))
+            .background(shape.fill(.black).shadow(color: glow.opacity(0.25), radius: 40))
+            .padding(.horizontal, 16)
+            .scaleEffect(shown || reduceMotion ? 1 : 0.92)
+            .offset(y: shown || reduceMotion ? 0 : 24)
+        }
+        .onAppear {
+            withAnimation(reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.82)) { shown = true }
+        }
+        .sensoryFeedback(.selection, trigger: current)
+    }
+
+    private var header: some View {
+        HStack(spacing: 6) {
+            Image(systemName: pick.hot ? "flame.fill" : "snowflake").font(.system(size: 12, weight: .bold)).foregroundStyle(glow)
+            Text(pick.hot ? "HEATING UP" : "COOLING OFF").font(.mono(11)).tracking(1.4).foregroundStyle(.white.opacity(0.85))
+            Spacer(minLength: 8)
+            Text("\(position + 1) / \(pick.hits.count)").font(.mono(11)).tracking(1).foregroundStyle(Theme.muted)
+                .monospacedDigit()
+                .contentTransition(.numericText())
+                .animation(.snappy(duration: 0.2), value: position)
+            Button(action: close) {
+                Image(systemName: "xmark").font(.system(size: 13, weight: .bold)).foregroundStyle(.white)
+                    .frame(width: 32, height: 32)
+                    .liquidGlass(in: Circle())
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.trailing, -8)
+            .accessibilityLabel("Close")
+        }
+    }
+
+    /// The cards, one per page, swiped sideways; the ones leaving tilt and fall back.
+    private var pager: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            LazyHStack(spacing: 0) {
+                ForEach(pick.hits) { item in
+                    ProductImage(product: item.pictured, cornerRadius: 10, large: true)
+                        .frame(width: 184, height: 257)
+                        .cardZoomSource(item.pictured.id)
+                        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(.black).shadow(color: glow.opacity(0.6), radius: 26))
+                        .rotationEffect(.degrees(pick.hot ? -4 : 4))
+                        .padding(.vertical, 22)
+                        .containerRelativeFrame(.horizontal)
+                        .contentShape(Rectangle())
+                        .onTapGesture { view(item) }
+                        .scrollTransition(.interactive, axis: .horizontal) { content, phase in
+                            content
+                                .rotation3DEffect(.degrees(phase.value * -28), axis: (x: 0, y: 1, z: 0), perspective: 0.6)
+                                .scaleEffect(1 - abs(phase.value) * 0.16)
+                                .opacity(1 - abs(phase.value) * 0.5)
+                        }
+                        .accessibilityLabel(item.product.name)
+                        .accessibilityHint("Opens the card")
+                        .id(item.id)
+                }
+            }
+            .scrollTargetLayout()
+        }
+        .scrollTargetBehavior(.paging)
+        .scrollPosition(id: $current)
+        .frame(height: 301)
+    }
+
+    /// The showing card's name, set and figures, changing with the page.
+    private var details: some View {
+        let p = hit.pictured
+        let pct = hit.change7dPct
+        let tone = (pct ?? 0) >= 0 ? Theme.lime : Theme.planPink
+        let meta = [p.setName, p.number.map { "#\($0)" }].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: "  \u{2022}  ")
+        return VStack(spacing: 6) {
+            Text(p.name.noWidow).font(.display(24)).tracking(-0.8)
+                .multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.8)
+            if !meta.isEmpty {
+                Text(meta).font(.geist(13)).foregroundStyle(Theme.muted).lineLimit(1)
+            }
+            HStack(alignment: .center, spacing: 10) {
+                Text(Format.money(hit.market)).font(.display(34)).tracking(-1).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7)
+                if let pct {
+                    HStack(spacing: 4) {
+                        Image(systemName: pct >= 0 ? "arrow.up.right" : "arrow.down.right").font(.system(size: 11, weight: .bold))
+                        Text(Format.signedPercent(pct / 100)).font(.geist(14, .semibold)).monospacedDigit()
+                    }
+                    .foregroundStyle(tone)
+                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .background(Capsule().fill(tone.opacity(0.14)))
+                    .overlay(Capsule().strokeBorder(tone.opacity(0.3), lineWidth: 1))
+                }
+            }
+            .padding(.top, 6)
+            Text("this week").font(.mono(10)).tracking(1.2).foregroundStyle(Theme.subtle).textCase(.uppercase)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(minHeight: 132, alignment: .top)
+        .id(hit.id)
+        .transition(.opacity)
+    }
+
+    /// The five as small cards: the one showing lifted and lit in the glow's color; tap to go.
+    private var thumbnails: some View {
+        HStack(spacing: 10) {
+            ForEach(Array(pick.hits.enumerated()), id: \.element.id) { i, item in
+                let on = i == position
+                Button {
+                    withAnimation(reduceMotion ? nil : .snappy(duration: 0.35)) { current = item.id }
+                } label: {
+                    ProductImage(product: item.pictured, cornerRadius: 4)
+                        .frame(width: 40, height: 56)
+                        .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(on ? glow : .clear, lineWidth: 1.5).padding(-3))
+                        .opacity(on ? 1 : 0.4)
+                        .offset(y: on ? -4 : 0)
+                        .frame(width: 44, height: 64)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(item.product.name)
+                .accessibilityAddTraits(on ? .isSelected : [])
             }
         }
     }
