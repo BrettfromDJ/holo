@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 @testable import Holo
 
 /// The on-device scan's text parsing and number matching (the lookup itself needs the network).
@@ -160,5 +161,35 @@ final class OnDeviceScanTests: XCTestCase {
         XCTAssertEqual(OnDeviceScan.commonPrints(hits, reprint).map(\.product.id), ["3"])
         let copyright = OnDeviceScan.parse([("Venusaur", box(top: 0.93)), ("©2021 Pokémon / Nintendo 15/102", box(top: 0.04))])
         XCTAssertEqual(copyright?.reprint2021, true)
+    }
+}
+
+final class PrintMarksTests: XCTestCase {
+    /// A plain green card, with the stamp and/or the Pikachu painted where they sit.
+    private func card(stamp: Bool, pikachu: Bool) -> CGImage {
+        let size = CGSize(width: 630, height: 880)
+        let img = UIGraphicsImageRenderer(size: size).image { ctx in
+            UIColor(red: 0.55, green: 0.78, blue: 0.55, alpha: 1).setFill()
+            ctx.fill(CGRect(origin: .zero, size: size))
+            if stamp {
+                UIColor.black.setFill()
+                ctx.cgContext.fillEllipse(in: CGRect(x: 0.055 * size.width, y: 0.535 * size.height, width: 0.045 * size.width, height: 0.045 * size.width))
+            }
+            if pikachu {
+                UIColor(red: 1, green: 0.85, blue: 0.05, alpha: 1).setFill()
+                ctx.cgContext.fillEllipse(in: CGRect(x: 0.78 * size.width, y: 0.43 * size.height, width: 0.18 * size.width, height: 0.12 * size.height))
+            }
+        }
+        return img.cgImage!
+    }
+
+    func testReadsTheStamp() {
+        XCTAssertEqual(PrintMarks.read(card(stamp: true, pikachu: false))?.firstEdition, true)
+        XCTAssertEqual(PrintMarks.read(card(stamp: false, pikachu: false))?.firstEdition, false)
+    }
+
+    func testReadsThePikachu() {
+        XCTAssertEqual(PrintMarks.read(card(stamp: false, pikachu: true))?.celebrations, true)
+        XCTAssertEqual(PrintMarks.read(card(stamp: false, pikachu: false))?.celebrations, false)
     }
 }

@@ -37,6 +37,59 @@ enum OnDeviceScan {
     /// Text first; when the text narrows it to several cards (or only a name was read), picture
     /// matching (`CardFingerprint`) picks the one the photo looks most like, if one clearly is.
     static func identifyWithReading(jpeg: Data) async -> (result: ScanResult?, reading: Reading?, note: String?) {
+        let found = await identifyByText(jpeg: jpeg)
+        guard let res = found.result, let c = res.candidates.first else { return found }
+        let hit = SearchHit(product: c.product, printing: c.printing, market: c.market)
+        let (picked, marks) = await applyMarks(hit, reading: found.reading, jpeg: jpeg)
+        guard let marks else { return found }
+        return (result(for: picked), found.reading, (found.note.map { $0 + " · " } ?? "") + marks)
+    }
+
+    /// Old cards' prints, from their marks (`PrintMarks`): a Base Set card with the Celebrations
+    /// Pikachu is its Classic Collection reprint (and a reprint without it the original), and a
+    /// card from a set with 1st Edition and Unlimited runs takes the printing its stamp says.
+    /// Nothing changes when the marks can't be read. The note says what was seen (test scans).
+    static func applyMarks(_ hit: SearchHit, reading: Reading?, jpeg: Data) async -> (SearchHit, String?) {
+        let set = (hit.product.setName ?? "").lowercased()
+        let isClassic = set.contains("classic collection")
+        // The same card in the other run: the reprint for an original, the original for a reprint.
+        let twin: SearchHit? = {
+            guard let number = hit.product.number, !number.isEmpty,
+                  let local = ScanCatalog.shared.hits(for: Reading(name: nil, number: number)) else { return nil }
+            let name = baseName(hit.product.name)
+            return local.first { h in
+                let other = (h.product.setName ?? "").lowercased()
+                return h.product.id != hit.product.id && baseName(h.product.name) == name && sameNumber(h.product.number, number)
+                    && (isClassic ? !other.contains("classic collection") && !other.contains("shadowless") : other.contains("classic collection"))
+            }
+        }()
+        let editions = Editions.isEditionSet(hit.product.setName) || Editions.isEditionSet(twin?.product.setName)
+        guard twin != nil || editions else { return (hit, nil) }
+        let marks = await Task.detached(priority: .userInitiated) { PrintMarks.read(jpeg) }.value
+        guard let marks else { return (hit, nil) }
+        var out = hit
+        var note: [String] = []
+        // The copyright line backs the Pikachu up: originals say "© 1999 Wizards".
+        let celebrations = marks.celebrations ?? (reading?.reprint2021 == false ? false : nil)
+        if let twin {
+            if celebrations == true, !isClassic { out = twin; note.append("Celebrations mark") }
+            if celebrations == false, isClassic { out = twin; note.append("no Celebrations mark") }
+        }
+        if Editions.isEditionSet(out.product.setName) {
+            let printings = Editions.ordered(out.product.printings ?? [])
+            let first = printings.first { Editions.of(printing: $0) == .firstEdition }
+            let unlimited = printings.first { Editions.of(printing: $0) == .unlimited }
+            switch marks.firstEdition {
+            case true?: if let first { out.printing = first; out.market = nil }; note.append("1st Edition stamp")
+            case false?: if let unlimited, out.printing != unlimited { out.printing = unlimited; out.market = nil }; note.append("no stamp")
+            case nil: note.append("stamp unclear")
+            }
+        }
+        return (out, note.isEmpty ? nil : "marks: " + note.joined(separator: ", "))
+    }
+
+    /// Finding the card from its text and picture (see `identifyWithReading`).
+    static func identifyByText(jpeg: Data) async -> (result: ScanResult?, reading: Reading?, note: String?) {
         let began = Date()
         var steps: [String] = []
         func lap(_ what: String, _ from: Date) { steps.append(String(format: "%@ %.1fs", what, Date().timeIntervalSince(from))) }
@@ -454,7 +507,8 @@ enum OnDeviceScan {
         }
         let name = names.first
         // The copyright line: Celebrations' Classic Collection reprints say ©2021, the originals 1995–2000.
-        let reprint: Bool? = all.contains("2021") ? true : (all.range(of: #"199[5-9]|2000"#, options: .regularExpression) != nil ? false : nil)
+        // (The Classic Collection reprints keep the old years but drop "© 1999 Wizards".)
+        let reprint: Bool? = all.contains("2021") ? true : (all.contains("wizards") ? false : nil)
         // Neither a number nor a name: nothing to go on.
         if number.isEmpty && name == nil { return nil }
         let japanese = lines.contains { $0.0.unicodeScalars.contains { (0x3040...0x30FF).contains($0.value) || (0x4E00...0x9FFF).contains($0.value) } }
@@ -514,6 +568,12 @@ enum OnDeviceScan {
 
     /// One clear catalog match for the reading, or nil (the live scanner's check).
     static func lookUp(_ reading: Reading, jpeg: Data? = nil) async -> SearchHit? {
+        guard let hit = await lookUpByText(reading, jpeg: jpeg) else { return nil }
+        guard let jpeg else { return hit }
+        return await applyMarks(hit, reading: reading, jpeg: jpeg).0
+    }
+
+    static func lookUpByText(_ reading: Reading, jpeg: Data? = nil) async -> SearchHit? {
         guard !reading.number.isEmpty else { return nil }
         if reading.japanese {
             return oneCard(realSets(await searches(reading).filter { strictNumber($0.product.number, reading.number) }))

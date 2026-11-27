@@ -237,12 +237,15 @@ final class CardTracker {
             let crop = await snapshot()
             if let crop, let reading = await OnDeviceScan.read(jpeg: crop.jpeg) {
                 let key = OnDeviceScan.cacheKey(reading)
+                // The text's match is cached; the print marks (1st Edition, Celebrations) are read
+                // on every card, since an original and its reprint read the same.
                 if let known = self?.cache[key] {
                     hit = known
                 } else {
-                    hit = await OnDeviceScan.lookUp(reading, jpeg: crop.jpeg)
+                    hit = await OnDeviceScan.lookUpByText(reading, jpeg: crop.jpeg)
                     self?.cache[key] = .some(hit)
                 }
+                if let found = hit { hit = await OnDeviceScan.applyMarks(found, reading: reading, jpeg: crop.jpeg).0 }
             }
             self?.finish(gen, hit: hit, crop: crop, quad: current)
         }
