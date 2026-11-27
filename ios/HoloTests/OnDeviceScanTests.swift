@@ -188,6 +188,20 @@ final class PrintMarksTests: XCTestCase {
         XCTAssertEqual(PrintMarks.read(card(stamp: false, pikachu: false))?.firstEdition, false)
     }
 
+    func testFindsTheCardInsideAHolder() {
+        // The card in a toploader: the photo has a margin around the card's yellow border.
+        let inner = card(stamp: true, pikachu: false)
+        let size = CGSize(width: 760, height: 1000)
+        let holder = UIGraphicsImageRenderer(size: size).image { ctx in
+            UIColor(red: 0.75, green: 0.68, blue: 0.6, alpha: 1).setFill()
+            ctx.fill(CGRect(origin: .zero, size: size))
+            UIColor(red: 0.98, green: 0.82, blue: 0.2, alpha: 1).setFill()
+            ctx.fill(CGRect(x: 70, y: 60, width: 630, height: 880))
+            UIImage(cgImage: inner).draw(in: CGRect(x: 90, y: 80, width: 590, height: 840))
+        }.cgImage!
+        XCTAssertEqual(PrintMarks.read(holder)?.firstEdition, true)
+    }
+
     func testReadsThePikachu() {
         XCTAssertEqual(PrintMarks.read(card(stamp: false, pikachu: true))?.celebrations, true)
         XCTAssertEqual(PrintMarks.read(card(stamp: false, pikachu: false))?.celebrations, false)

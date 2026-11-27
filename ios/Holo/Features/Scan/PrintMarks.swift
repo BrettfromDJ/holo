@@ -30,7 +30,7 @@ enum PrintMarks {
     }
 
     static func read(_ cg: CGImage) -> Found? {
-        let w = 120, h = 168
+        let w = 240, h = 336
         var px = [UInt8](repeating: 0, count: w * h * 4)
         let drawn: Bool = px.withUnsafeMutableBytes { buf in
             guard let ctx = CGContext(data: buf.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
@@ -41,19 +41,53 @@ enum PrintMarks {
         }
         guard drawn else { return nil }
         // The bitmap's first row is the card's top.
-        func pixels(_ box: CGRect) -> [(r: Double, g: Double, b: Double)] {
+        func at(_ x: Int, _ y: Int) -> (r: Double, g: Double, b: Double) {
+            let i = (y * w + x) * 4
+            return (Double(px[i]) / 255, Double(px[i + 1]) / 255, Double(px[i + 2]) / 255)
+        }
+        // The card inside the photo: in a toploader or sleeve the crop is the holder, with the card
+        // a little in from its edges. Old cards' yellow border gives the card's own edges: the
+        // outermost columns and rows that are mostly border yellow.
+        let card = cardBounds(w: w, h: h, at: at) ?? CGRect(x: 0, y: 0, width: 1, height: 1)
+        func pixels(_ inCard: CGRect) -> [(r: Double, g: Double, b: Double)] {
+            let box = CGRect(x: card.minX + inCard.minX * card.width, y: card.minY + inCard.minY * card.height,
+                             width: inCard.width * card.width, height: inCard.height * card.height)
             let x0 = Int(box.minX * Double(w)), x1 = Int(box.maxX * Double(w))
             let y0 = Int(box.minY * Double(h)), y1 = Int(box.maxY * Double(h))
             var out: [(Double, Double, Double)] = []
             for y in max(0, y0)..<min(h, y1) {
                 for x in max(0, x0)..<min(w, x1) {
-                    let i = (y * w + x) * 4
-                    out.append((Double(px[i]) / 255, Double(px[i + 1]) / 255, Double(px[i + 2]) / 255))
+                    out.append(at(x, y))
                 }
             }
             return out
         }
         return Found(firstEdition: stamp(pixels(stampBox)), celebrations: pikachu(pixels(pikachuBox)))
+    }
+
+    /// The card's yellow border's outer edges, as fractions of the photo; nil when there's no
+    /// clear border (then the whole photo is taken as the card).
+    static func cardBounds(w: Int, h: Int, at: (Int, Int) -> (r: Double, g: Double, b: Double)) -> CGRect? {
+        func border(_ p: (r: Double, g: Double, b: Double)) -> Bool {
+            let mx = max(p.r, p.g, p.b), mn = min(p.r, p.g, p.b)
+            guard mx > 0.55, mx - mn > 0.4 * mx else { return false }
+            var hue: Double
+            if mx == p.r { hue = (p.g - p.b) / (mx - mn) } else if mx == p.g { hue = 2 + (p.b - p.r) / (mx - mn) } else { hue = 4 + (p.r - p.g) / (mx - mn) }
+            hue *= 60
+            if hue < 0 { hue += 360 }
+            return hue > 36 && hue < 65
+        }
+        var cols = [Int](repeating: 0, count: w), rows = [Int](repeating: 0, count: h)
+        for y in 0..<h { for x in 0..<w where border(at(x, y)) { cols[x] += 1; rows[y] += 1 } }
+        func firstOver(_ counts: [Int], _ total: Int) -> Int? { counts.firstIndex { Double($0) / Double(total) > 0.45 } }
+        guard let l = firstOver(cols, h), let r = firstOver(cols.reversed(), h),
+              let t = firstOver(rows, w), let b = firstOver(rows.reversed(), w) else { return nil }
+        let rect = CGRect(x: Double(l) / Double(w), y: Double(t) / Double(h),
+                          width: Double(w - r - l) / Double(w), height: Double(h - b - t) / Double(h))
+        // A card's shape (63 × 88), or it isn't the border.
+        let ratio = (rect.width * Double(w)) / max(1, rect.height * Double(h))
+        guard rect.width > 0.5, rect.height > 0.5, ratio > 0.6, ratio < 0.85 else { return nil }
+        return rect
     }
 
     /// The stamp: a share of pixels far darker than the patch around them.

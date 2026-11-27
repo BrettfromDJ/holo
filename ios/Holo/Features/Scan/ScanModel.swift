@@ -163,9 +163,15 @@ final class ScanModel {
     /// 1st Edition (the everyday print; it showed 1st Edition on old Base Set cards).
     static func defaultPrice(_ prices: [Price]) -> Price? {
         let order = Editions.ordered(prices.compactMap(\.printing))
-        return prices.filter { $0.market != nil }.min { a, b in
-            (order.firstIndex(of: a.printing ?? "") ?? 99) < (order.firstIndex(of: b.printing ?? "") ?? 99)
-        }
+        func rank(_ p: Price) -> Int { order.firstIndex(of: p.printing ?? "") ?? 99 }
+        // Never 1st Edition by default (only the stamp read on the card picks it, see
+        // `OnDeviceScan.applyMarks`): old holos often have a price only for 1st Edition, and
+        // the scan landed on it. An everyday printing without a price still wins; the card's
+        // own market price stands in.
+        let everyday = prices.filter { Editions.of(printing: $0.printing) == .unlimited }
+        if let priced = everyday.filter({ $0.market != nil }).min(by: { rank($0) < rank($1) }) { return priced }
+        if let any = everyday.min(by: { rank($0) < rank($1) }) { return any }
+        return prices.filter { $0.market != nil }.min { rank($0) < rank($1) }
     }
 
     /// Fetches a product's prices by condition and by printing once, then reprices its scans,
