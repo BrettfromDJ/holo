@@ -43,55 +43,60 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
-                // The page's own big title (no bar title: shown small over the rows as they
-                // scrolled under it, it overlapped them: "Corodex Pro is onAccount").
-                Text("Account").font(.display(34)).tracking(-1)
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 0))
+                // The page's own big title, with Done beside it (it floated over the rows as they
+                // scrolled under it).
+                HStack(alignment: .center) {
+                    Text("Account").font(.display(34)).tracking(-1)
+                    Spacer()
+                    DoneButton()
+                }
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 0))
                 // The plan: Go Pro, or that Pro is on (test mode).
                 Section {
                     ProAccountCard().padding(.vertical, 6)
                 }
+                .listRowBackground(rowFill)
                 Section {
                     if signedIn {
-                        LabeledContent("Signed in as", value: email ?? "—")
-                        Button("Sign out", role: .destructive) { confirming = true }
-                        Button("Delete account", role: .destructive) { deletingAccount = true }
-                        if let deleteError { Text(deleteError).font(.footnote).foregroundStyle(Theme.muted) }
+                        HStack(spacing: 12) {
+                            tile("person.fill", Theme.lime)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Signed in as").font(.geist(12)).foregroundStyle(Theme.muted)
+                                Text(email ?? "—").font(.geist(15, .medium)).foregroundStyle(.white).lineLimit(1).truncationMode(.middle)
+                            }
+                        }
+                        .padding(.vertical, 2)
                     } else {
                         // Trying the demo without an account.
                         Text("You're looking at a demo. Sign in to track your own\u{00A0}collection.").foregroundStyle(Theme.muted)
-                        Button("Sign in") { Onboarding.shared.tryingDemo = false }
+                        Button { Onboarding.shared.tryingDemo = false } label: { iconRow("person.crop.circle.badge.plus", Theme.lime, "Sign in") }
                     }
                 } header: {
                     SectionTitle("Account")
                 }
-                // Test-photo mode: measure our own scanner against CardSight before it takes over.
+                .listRowBackground(rowFill)
+                // Settings that live on other screens, gathered here with their current values.
                 Section {
-                    Toggle(isOn: Binding(get: { scanTests }, set: { on in scanTests = on; ScanTestLog.isOn = on })) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Save scan test photos")
-                            Text("Each scan is kept in Files → Corodex → Scan tests, read by both scanners").font(.geist(12)).foregroundStyle(Theme.muted)
-                        }
+                    Button { dealSettings = true } label: { iconRow("arrow.left.arrow.right", Theme.purple, "Deal", value: deals.role.title) }
+                    HStack(spacing: 12) {
+                        tile("camera.viewfinder", Theme.blue)
+                        Picker(selection: $scanGame) {
+                            ForEach(ScanGame.allCases) { Text($0.title).tag($0.rawValue) }
+                        } label: { Text("Scanner game").foregroundStyle(.white) }
+                        .tint(Theme.muted)
                     }
-                    if scanTests || testSummary.scans > 0 {
-                        let s = testSummary
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("\(s.scans) test scans").font(.geist(15, .semibold))
-                            Text("Phone sure on \(s.phoneSure) · agreed with CardSight on \(s.agreed), disagreed on \(s.disagreed)")
-                                .font(.geist(13)).foregroundStyle(Theme.muted)
-                            if s.phoneSure > 0, s.cardSightCount > 0 {
-                                Text(String(format: "Phone %.2fs a scan · CardSight %.2fs", s.phoneSeconds / Double(s.phoneSure), s.cardSightSeconds / Double(s.cardSightCount)))
-                                    .font(.geist(13)).foregroundStyle(Theme.muted).monospacedDigit()
-                            }
-                        }
-                        .padding(.vertical, 2)
-                        Button("Delete test photos", role: .destructive) { ScanTestLog.clear(); testSummary = .init() }
+                    Button { gradingCosts = true } label: {
+                        iconRow("checkmark.seal", Theme.lime, "Grading costs", value: Format.money(grading.costs.fee + grading.costs.shipping) + " a card")
                     }
+                    Button {
+                        budgetText = store.monthlyBudget.map { String(format: "%.0f", $0) } ?? ""
+                        editingBudget = true
+                    } label: { iconRow("wallet.pass", Theme.blue, "Monthly budget", value: store.monthlyBudget.map { Format.money($0) } ?? "None") }
                 } header: {
-                    Text("Scanner")
+                    SectionTitle("Preferences")
                 }
-                .task { testSummary = await Task.detached { ScanTestLog.loadSummary() }.value }
+                .listRowBackground(rowFill)
                 Section {
                     if notifyStatus == .denied {
                         // The switches can't do anything until iOS allows Corodex's notifications.
@@ -105,83 +110,51 @@ struct SettingsView: View {
                         }
                         .padding(.vertical, 4)
                     }
-                    notifyToggle("Price targets", "A card you watch hits your target price", \.priceTargets)
-                    notifyToggle("Big moves", "One of your cards moves 15% in a day", \.bigMoves)
-                    notifyToggle("Milestones", "Your collection passes a new high, or a card doubles", \.milestones)
-                    notifyToggle("Sets nearly done", "Sundays, when a set is 1 to 5 cards from finished", \.nearlyDone)
-                    notifyToggle("Weekly recap", "Sundays at 6pm, your week in Corodex", \.weeklyRecap)
+                    notifyToggle("target", Theme.lime, "Price targets", "A card you watch hits your target price", \.priceTargets)
+                    notifyToggle("chart.line.uptrend.xyaxis", Theme.blue, "Big moves", "One of your cards moves 15% in a day", \.bigMoves)
+                    notifyToggle("flag.checkered", Theme.purple, "Milestones", "Your collection passes a new high, or a card doubles", \.milestones)
+                    notifyToggle("square.grid.3x3.fill", Theme.lime, "Sets nearly done", "Sundays, when a set is 1 to 5 cards from finished", \.nearlyDone)
+                    notifyToggle("calendar", Theme.blue, "Weekly recap", "Sundays at 6pm, your week in Corodex", \.weeklyRecap)
                     if notifyStatus == .authorized || notifyStatus == .provisional {
-                    Button {
-                        Task { await sendTest() }
-                    } label: {
-                        HStack {
-                            Text(testing ? "Sending…" : "Send a test notification")
-                            Spacer()
-                            if testing { ProgressView() }
+                        Button {
+                            Task { await sendTest() }
+                        } label: {
+                            iconRow("bell.badge", Theme.purple, testing ? "Sending…" : "Send a test notification", chevron: false)
                         }
-                    }
-                    .disabled(testing)
-                    if let testResult {
-                        Text(testResult).font(.footnote).foregroundStyle(Theme.muted)
-                    }
+                        .disabled(testing)
+                        if let testResult {
+                            Text(testResult).font(.geist(13)).foregroundStyle(Theme.muted)
+                        }
                     }
                 } header: {
                     SectionTitle("Notifications")
                 } footer: {
                     SectionNote("Price targets, big moves, milestones and sets arrive after the daily price check.")
                 }
-                // Settings that live on other screens, gathered here with their current values.
-                Section {
-                    Button { dealSettings = true } label: { prefRow("Deal", deals.role.title) }
-                    Picker("Scanner game", selection: $scanGame) {
-                        ForEach(ScanGame.allCases) { Text($0.title).tag($0.rawValue) }
-                    }
-                    Button { gradingCosts = true } label: {
-                        prefRow("Grading costs", Format.money(grading.costs.fee + grading.costs.shipping) + " a card")
-                    }
-                    Button {
-                        budgetText = store.monthlyBudget.map { String(format: "%.0f", $0) } ?? ""
-                        editingBudget = true
-                    } label: { prefRow("Monthly budget", store.monthlyBudget.map { Format.money($0) } ?? "None") }
-                } header: {
-                    SectionTitle("Preferences")
-                }
+                .listRowBackground(rowFill)
                 Section {
                     ShareLink(item: ExportFile(transactions: store.transactions, watchlist: store.watchlist, products: store.products,
                                                mode: store.demo == nil ? "cloud" : "demo"),
                               preview: SharePreview("Corodex export")) {
-                        Label("Export your data", systemImage: "square.and.arrow.up")
+                        iconRow("square.and.arrow.up", Theme.lime, "Export your data", chevron: false)
                     }
                     if signedIn && store.demo == nil {
-                        Button { sharing = true } label: { Label("Share your collection", systemImage: "link") }
+                        Button { sharing = true } label: { iconRow("link", Theme.blue, "Share your collection") }
                     }
                 } header: {
                     SectionTitle("Collection")
                 } footer: {
                     SectionNote("Export saves everything as a file, the same as the website's export. Share makes a read-only link you can turn off any time.")
                 }
+                .listRowBackground(rowFill)
                 Section {
-                    NavigationLink { NumbersExplained() } label: { Text("How the numbers work") }
-                    if !AppConfig.supportEmail.isEmpty, let url = contactURL {
-                        Link("Contact us", destination: url)
-                    }
-                    Link("Open Corodex on the web", destination: AppConfig.apiBaseURL)
-                } header: {
-                    SectionTitle("Help")
-                } footer: {
-                    SectionNote("Your collection syncs with the website.")
-                }
-                Section {
-                    LabeledContent("Version", value: versionText)
-                    Link("Privacy", destination: AppConfig.apiBaseURL.appendingPathComponent("privacy"))
-                    Link("Terms", destination: AppConfig.apiBaseURL.appendingPathComponent("terms"))
-                } header: {
-                    SectionTitle("About")
-                }
-                Section {
-                    Picker("Show", selection: $demo) {
-                        Text("My collection").tag(DemoKind?.none)
-                        ForEach(DemoKind.allCases) { kind in Text("Demo: \(kind.title)").tag(DemoKind?.some(kind)) }
+                    HStack(spacing: 12) {
+                        tile("photo.stack", Theme.purple)
+                        Picker(selection: $demo) {
+                            Text("My collection").tag(DemoKind?.none)
+                            ForEach(DemoKind.allCases) { kind in Text("Demo: \(kind.title)").tag(DemoKind?.some(kind)) }
+                        } label: { Text("Show").foregroundStyle(.white) }
+                        .tint(Theme.muted)
                     }
                     .onChange(of: demo) { _, kind in
                         DemoKind.selected = kind
@@ -203,16 +176,97 @@ struct SettingsView: View {
                 } header: {
                     SectionTitle("Demo collection")
                 } footer: {
-                    SectionNote("See how the app looks with a made-up collection: sealed only, singles only, singles with graded slabs, or a mix. Prices are made up and nothing you do in a demo is saved. Pick My collection to go back.")
+                    SectionNote("A made-up collection to try things with: sealed only, singles only, singles with graded slabs, or a mix. Nothing in a demo is saved.")
+                }
+                .listRowBackground(rowFill)
+                Section {
+                    NavigationLink { NumbersExplained() } label: { iconRow("function", Theme.lime, "How the numbers work", chevron: false) }
+                    if !AppConfig.supportEmail.isEmpty, let url = contactURL {
+                        Link(destination: url) { iconRow("envelope", Theme.blue, "Contact us", external: true) }
+                    }
+                    Link(destination: AppConfig.apiBaseURL) { iconRow("globe", Theme.purple, "Open Corodex on the web", external: true) }
+                } header: {
+                    SectionTitle("Help")
+                } footer: {
+                    SectionNote("Your collection syncs with the website.")
+                }
+                .listRowBackground(rowFill)
+                Section {
+                    Link(destination: AppConfig.apiBaseURL.appendingPathComponent("privacy")) { iconRow("hand.raised", Theme.blue, "Privacy", external: true) }
+                    Link(destination: AppConfig.apiBaseURL.appendingPathComponent("terms")) { iconRow("doc.text", Theme.purple, "Terms", external: true) }
+                } header: {
+                    SectionTitle("About")
+                }
+                .listRowBackground(rowFill)
+                // Test-photo mode: measure our own scanner against CardSight (a tool, so last).
+                Section {
+                    Toggle(isOn: Binding(get: { scanTests }, set: { on in scanTests = on; ScanTestLog.isOn = on })) {
+                        HStack(spacing: 12) {
+                            tile("camera.metering.matrix", Theme.blue)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Save scan test photos").foregroundStyle(.white)
+                                Text("Kept in Files → Corodex → Scan tests, read by both scanners").font(.geist(12)).foregroundStyle(Theme.muted)
+                            }
+                        }
+                    }
+                    .tint(Theme.lime)
+                    if scanTests || testSummary.scans > 0 {
+                        let s = testSummary
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("\(s.scans) test scans").font(.geist(15, .semibold))
+                            Text("Phone sure on \(s.phoneSure) · agreed with CardSight on \(s.agreed), disagreed on \(s.disagreed)")
+                                .font(.geist(13)).foregroundStyle(Theme.muted)
+                            if s.phoneSure > 0, s.cardSightCount > 0 {
+                                Text(String(format: "Phone %.2fs a scan · CardSight %.2fs", s.phoneSeconds / Double(s.phoneSure), s.cardSightSeconds / Double(s.cardSightCount)))
+                                    .font(.geist(13)).foregroundStyle(Theme.muted).monospacedDigit()
+                            }
+                        }
+                        .padding(.vertical, 2)
+                        Button { ScanTestLog.clear(); testSummary = .init() } label: {
+                            Text("Delete test photos").font(.geist(15, .semibold))
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                                .dangerStyle(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                } header: {
+                    SectionTitle("Scanner tests")
+                }
+                .listRowBackground(rowFill)
+                .task { testSummary = await Task.detached { ScanTestLog.loadSummary() }.value }
+                // Leaving, last: sign out (glass) and delete (pink, our one remove look), then the version.
+                if signedIn {
+                    VStack(spacing: 10) {
+                        Button { confirming = true } label: {
+                            Text("Sign out").font(.geist(16, .semibold)).foregroundStyle(.white)
+                                .frame(maxWidth: .infinity, minHeight: 48)
+                                .liquidGlass(in: Capsule(), interactive: true)
+                        }
+                        .buttonStyle(.plain)
+                        Button { deletingAccount = true } label: {
+                            Text("Delete account").font(.geist(16, .semibold))
+                                .frame(maxWidth: .infinity, minHeight: 48)
+                                .dangerStyle(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        if let deleteError { Text(deleteError).font(.geist(13)).foregroundStyle(Theme.muted) }
+                        Text("Corodex \(versionText)").font(.mono(11)).tracking(0.6).foregroundStyle(Theme.subtle)
+                            .padding(.top, 8)
+                    }
+                    .padding(.top, 12)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 24, trailing: 0))
+                } else {
+                    Text("Corodex \(versionText)").font(.mono(11)).tracking(0.6).foregroundStyle(Theme.subtle)
+                        .frame(maxWidth: .infinity)
+                        .listRowBackground(Color.clear)
                 }
             }
             .scrollContentBackground(.hidden)
             .background(Theme.background)
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
-            .clearTopEdge()
-            .toolbar { ToolbarItem(placement: .confirmationAction) { DoneButton() } }
+            .toolbar(.hidden, for: .navigationBar)
             .alert("Sign out of Corodex?", isPresented: $confirming) {
                 Button("Cancel", role: .cancel) {}
                 Button("Sign out", role: .destructive) {
@@ -232,7 +286,7 @@ struct SettingsView: View {
                 Button("Remove", role: .destructive) { Task { try? await store.setMonthlyBudget(nil) } }
                 Button("Save") { Task { try? await store.setMonthlyBudget(MoneyField.value(budgetText)) } }
             } message: {
-                Text("What you plan to spend a month. Overview shows how much is\u{00A0}left.")
+                Text("What you plan to spend a month. Summary shows how much is\u{00A0}left.")
             }
             .alert("Delete your account?", isPresented: $deletingAccount) {
                 Button("Cancel", role: .cancel) {}
@@ -243,14 +297,31 @@ struct SettingsView: View {
         }
     }
 
-    /// A preference row: its name, and its current value on the right.
-    private func prefRow(_ title: String, _ value: String) -> some View {
-        HStack {
-            Text(title).foregroundStyle(.white)
-            Spacer()
-            Text(value).foregroundStyle(Theme.muted)
-            Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.subtle)
+    /// The rows' panel: a faint white fill (not the system's grey cells).
+    private var rowFill: Color { Color.white.opacity(0.06) }
+
+    /// A small rounded tile with a symbol in one of the app's colours (lime, blue, purple).
+    private func tile(_ icon: String, _ tint: Color) -> some View {
+        Image(systemName: icon).font(.system(size: 14, weight: .semibold)).foregroundStyle(tint)
+            .frame(width: 30, height: 30)
+            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(tint.opacity(0.16)))
+    }
+
+    /// A row: icon tile, white name, the current value quiet on the right, and a chevron (or ↗
+    /// for a link that leaves the app).
+    private func iconRow(_ icon: String, _ tint: Color, _ title: String, value: String? = nil, chevron: Bool = true, external: Bool = false) -> some View {
+        HStack(spacing: 12) {
+            tile(icon, tint)
+            Text(title).font(.geist(16)).foregroundStyle(.white)
+            Spacer(minLength: 8)
+            if let value { Text(value).font(.geist(15)).foregroundStyle(Theme.muted).lineLimit(1) }
+            if external {
+                Image(systemName: "arrow.up.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.subtle)
+            } else if chevron {
+                Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.subtle)
+            }
         }
+        .contentShape(Rectangle())
     }
 
     private var versionText: String {
@@ -279,14 +350,17 @@ struct SettingsView: View {
     }
 
     /// A notification kind's switch: its name, and a line on when it comes.
-    private func notifyToggle(_ title: String, _ note: String, _ key: WritableKeyPath<NotificationPrefs, Bool>) -> some View {
+    private func notifyToggle(_ icon: String, _ tint: Color, _ title: String, _ note: String, _ key: WritableKeyPath<NotificationPrefs, Bool>) -> some View {
         Toggle(isOn: Binding(get: { prefs[keyPath: key] }, set: { on in
             prefs[keyPath: key] = on
             Task { await savePrefs() }
         })) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                Text(note).font(.geist(12)).foregroundStyle(Theme.muted)
+            HStack(spacing: 12) {
+                tile(icon, tint)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).foregroundStyle(.white)
+                    Text(note).font(.geist(12)).foregroundStyle(Theme.muted)
+                }
             }
         }
         .tint(Theme.lime)
@@ -340,7 +414,14 @@ private struct DoneButton: View {
     @Environment(\.isPresented) private var isPresented
 
     var body: some View {
-        if isPresented { Button("Done") { dismiss() } }
+        if isPresented {
+            Button { dismiss() } label: {
+                Text("Done").font(.geist(15, .semibold)).foregroundStyle(Theme.lime)
+                    .padding(.horizontal, 16).frame(height: 38)
+                    .liquidGlass(in: Capsule(), interactive: true)
+            }
+            .buttonStyle(.plain)
+        }
     }
 
 }

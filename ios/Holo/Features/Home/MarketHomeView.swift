@@ -147,6 +147,12 @@ struct MarketHomeView: View {
                 if movers != nil { closeMovers(animated: false) }
             }
             .sheet(isPresented: $account) { SettingsView() }
+            // Screenshots: the Account page (`-HoloAccount`).
+            .task {
+                guard ProcessInfo.processInfo.arguments.contains("-HoloAccount") else { return }
+                try? await Task.sleep(for: .seconds(1))
+                account = true
+            }
             // From a tapped notification ("sets nearly done"): Master Sets, on Home.
             .onChange(of: Router.shared.masterSetsRequest) { _, _ in path.append(MorePage.masterSets) }
             .fullScreenCover(isPresented: $recap) { WeeklyRecap(store: store) }
