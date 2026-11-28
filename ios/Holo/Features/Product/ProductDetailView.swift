@@ -1165,7 +1165,7 @@ private struct ProductStage: View {
                 .opacity(breathe ? 1 : 0.8)
             RadialGradient(colors: [mood.opacity(0.32), .clear], center: UnitPoint(x: 0.5, y: 0.5), startRadius: 0, endRadius: 320)
                 .opacity(breathe ? 1 : 0.75)
-            RadialGradient(colors: [Theme.planPink.opacity(0.28), .clear], center: UnitPoint(x: 0.9, y: 0.2), startRadius: 0, endRadius: 220)
+            RadialGradient(colors: [Theme.purple.opacity(0.28), .clear], center: UnitPoint(x: 0.9, y: 0.2), startRadius: 0, endRadius: 220)
             RadialGradient(colors: [Theme.planBlue.opacity(0.26), .clear], center: UnitPoint(x: 0.1, y: 0.85), startRadius: 0, endRadius: 220)
         }
         .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.2),

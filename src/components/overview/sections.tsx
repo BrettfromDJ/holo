@@ -30,7 +30,7 @@ export interface Metric {
 }
 
 /** Key numbers. `tinted` lays them out as separate color-washed cards. */
-const STRIP_TINTS = ["tint-blue", "tint-lime", "tint-pink", "tint-blue"];
+const STRIP_TINTS = ["tint-blue", "tint-lime", "tint-purple", "tint-blue"];
 
 /** Key numbers as separate color-washed cards; `tinted={false}` keeps the plain joined strip. */
 export function MetricStrip({ items, tinted = true }: { items: Metric[]; tinted?: boolean }) {

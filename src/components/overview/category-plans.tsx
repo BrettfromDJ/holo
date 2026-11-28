@@ -8,13 +8,13 @@ import { money, pct, signedMoney, signedPct } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { collectionHref } from "@/components/portfolio/collection-links";
 
-const PLANS: Record<HoldingCategory, { title: string; blurb: string; color: "blue" | "pink" | "lime"; href: string }> = {
+const PLANS: Record<HoldingCategory, { title: string; blurb: string; color: "blue" | "purple" | "lime"; href: string }> = {
   sealed: { title: "Sealed", blurb: "Boxes, ETBs, packs & collections", color: "blue", href: collectionHref({ cat: "sealed" }) },
-  single: { title: "Singles", blurb: "Raw cards, straight from the pack", color: "pink", href: collectionHref({ cat: "singles" }) },
+  single: { title: "Singles", blurb: "Raw cards, straight from the pack", color: "purple", href: collectionHref({ cat: "singles" }) },
   graded: { title: "Graded", blurb: "Slabbed and certified", color: "lime", href: collectionHref({ cat: "graded" }) },
 };
 
-const BAR: Record<string, string> = { blue: "bg-[var(--plan-blue)]", pink: "bg-[var(--plan-pink)]", lime: "bg-lime" };
+const BAR: Record<string, string> = { blue: "bg-[var(--plan-blue)]", purple: "bg-[#a584ff]", lime: "bg-lime" };
 
 /**
  * Where the collection's value sits, styled like a pricing table: one bold

@@ -72,6 +72,11 @@ extension Theme {
     static let planBlue = Color(hex: 0x2F5BFF)
     static let planPink = Color(hex: 0xFF2E9A)
     static let azure = Color(hex: 0x4A72FF)
+    /// The Deal tab's blue and purple, used across the app as quieter companions to lime: glows,
+    /// tags, Singles (purple) and secondary chart lines. Pink stays for losses only.
+    static let blue = Color(hex: 0x5B82FF)
+    static let purple = Color(hex: 0xA584FF)
+    static let purpleDeep = Color(hex: 0x7B5CF0)
     /// Quieter text still: white, more see-through (never grey).
     static let subtle = Color.white.opacity(0.42)
     static let border = Color.white.opacity(0.07)
@@ -831,7 +836,7 @@ struct Silhouette: View {
     }
 }
 
-// MARK: - Category colors (Sealed blue, Singles pink, Graded lime, as on the website)
+// MARK: - Category colors (Sealed blue, Singles purple, Graded lime, as on the website; pink is for losses)
 
 enum HoldingCategory: String, CaseIterable, Identifiable {
     case sealed = "Sealed", singles = "Singles", graded = "Graded"
@@ -841,7 +846,7 @@ enum HoldingCategory: String, CaseIterable, Identifiable {
     var color: Color {
         switch self {
         case .sealed: return Theme.planBlue
-        case .singles: return Theme.planPink
+        case .singles: return Theme.purpleDeep
         case .graded: return Theme.lime
         }
     }
@@ -849,7 +854,7 @@ enum HoldingCategory: String, CaseIterable, Identifiable {
     var button: Button3D.Kind {
         switch self {
         case .sealed: return .blue
-        case .singles: return .pink
+        case .singles: return .purple
         case .graded: return .lime
         }
     }
@@ -864,7 +869,7 @@ enum HoldingCategory: String, CaseIterable, Identifiable {
 }
 
 extension HoldingCategory {
-    /// The slanted tag in this kind's color (ink on lime, white on blue and pink).
+    /// The slanted tag in this kind's color (ink on lime, white on blue and purple).
     func tag(_ text: String? = nil) -> SkewTag {
         SkewTag(text: text ?? rawValue, color: color, textColor: self == .graded ? Theme.ink : .white)
     }

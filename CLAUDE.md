@@ -40,7 +40,12 @@ and say exactly what to run or click.
 - **Fonts:** Geist (body), Geist SemiBold for headings and big numbers (`Font.display` in the
   app, `font-display` on the web), in sentence case with tight tracking (Anton caps are retired;
   never uppercase headings), Geist Mono (small caps labels). The app also bundles Roboto Mono.
-- **Colors:** lime `#D4FF3A` (accent, up), plan blue `#2F5BFF`, plan pink `#FF2E9A` (down).
+- **Colors:** lime `#D4FF3A` (accent, up), plan blue `#2F5BFF`, plan pink `#FF2E9A` (down only).
+  The Deal tab's blue `#5B82FF` and purple `#A584FF` (`Theme.blue` / `Theme.purple`, deep `#7B5CF0`) are scattered
+  through the app as lime's quieter companions (the owner's call, Nov 2026): soft blue/purple glows behind page tops
+  (Home, Summary's hero, Explore, the card page's stage, sign-in), tags by meaning (New = purple, Next release / Best match = blue),
+  categories Sealed blue · Singles purple · Graded lime (app `HoldingCategory`, web `CATEGORY_TINT` / category plans), and
+  Analytics' secondary marks (invested bars blue, the paid line purple). Pink is never decorative: losses only.
   Color only numbers (gains green/lime, losses pink); text stays white or muted.
 - **No grey text.** Quiet text is white made partly see-through (`Theme.muted` = white 60%,
   `Theme.subtle` = white 42%), never a grey color.

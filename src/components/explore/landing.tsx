@@ -23,7 +23,7 @@ export function ExploreBackdrop() {
   return (
     <div aria-hidden className="pointer-events-none absolute inset-x-0 -top-24 -z-10 h-[620px] [mask-image:linear-gradient(to_bottom,black,black_70%,transparent)]">
       <div className="absolute inset-0" style={{ ...gridPattern(36, "rgb(255 255 255 / 0.05)") }} />
-      <div className="absolute inset-0" style={{ backgroundImage: "radial-gradient(260px 260px at 20% 30%, color-mix(in srgb, var(--lime) 22%, transparent), transparent), radial-gradient(240px 240px at 90% 55%, color-mix(in srgb, var(--plan-blue) 22%, transparent), transparent), radial-gradient(200px 200px at 60% 5%, color-mix(in srgb, var(--plan-pink) 16%, transparent), transparent)" }} />
+      <div className="absolute inset-0" style={{ backgroundImage: "radial-gradient(260px 260px at 20% 30%, color-mix(in srgb, var(--lime) 22%, transparent), transparent), radial-gradient(240px 240px at 90% 55%, color-mix(in srgb, var(--plan-blue) 22%, transparent), transparent), radial-gradient(200px 200px at 60% 5%, color-mix(in srgb, #a584ff 16%, transparent), transparent)" }} />
     </div>
   );
 }

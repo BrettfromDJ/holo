@@ -481,13 +481,14 @@ private struct Hero: View {
     }
 }
 
-/// The dark grid with lime and pink glows behind the hero.
+/// The dark grid with lime, purple and blue glows behind the hero.
 private struct HeroBackdrop: View {
     var body: some View {
         ZStack {
             GridPattern()
             RadialGradient(colors: [Theme.lime.opacity(0.22), .clear], center: UnitPoint(x: 0.3, y: 0.55), startRadius: 0, endRadius: 260)
-            RadialGradient(colors: [Theme.planPink.opacity(0.16), .clear], center: UnitPoint(x: 0.85, y: 0.3), startRadius: 0, endRadius: 220)
+            RadialGradient(colors: [Theme.purple.opacity(0.18), .clear], center: UnitPoint(x: 0.85, y: 0.3), startRadius: 0, endRadius: 220)
+            RadialGradient(colors: [Theme.blue.opacity(0.14), .clear], center: UnitPoint(x: 0.1, y: 0.15), startRadius: 0, endRadius: 200)
         }
         .mask(LinearGradient(colors: [.clear, .black, .black, .clear], startPoint: .top, endPoint: .bottom))
     }

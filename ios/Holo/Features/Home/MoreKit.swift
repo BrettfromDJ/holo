@@ -285,7 +285,7 @@ struct DotBackdrop: View {
         ZStack {
             DotField()
             RadialGradient(colors: [Theme.lime.opacity(0.2), .clear], center: UnitPoint(x: 0.2, y: 0.42), startRadius: 0, endRadius: 260)
-            RadialGradient(colors: [Theme.planPink.opacity(0.16), .clear], center: UnitPoint(x: 0.85, y: 0.2), startRadius: 0, endRadius: 220)
+            RadialGradient(colors: [Theme.purple.opacity(0.16), .clear], center: UnitPoint(x: 0.85, y: 0.2), startRadius: 0, endRadius: 220)
             RadialGradient(colors: [Theme.planBlue.opacity(0.16), .clear], center: UnitPoint(x: 0.75, y: 0.72), startRadius: 0, endRadius: 220)
         }
         .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.7), .init(color: .clear, location: 1)],

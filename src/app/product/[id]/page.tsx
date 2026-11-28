@@ -459,7 +459,7 @@ function PriceHistory({ productId, printing }: { productId: string; printing: st
 
 type Category = "Singles" | "Sealed" | "Graded";
 const CATEGORY_TINT: Record<Category, { tint: string; tag: string }> = {
-  Singles: { tint: "tint-pink", tag: "tag-pink" },
+  Singles: { tint: "tint-purple", tag: "tag-purple" },
   Sealed: { tint: "tint-blue", tag: "tag-blue" },
   Graded: { tint: "tint-lime", tag: "tag-lime" },
 };

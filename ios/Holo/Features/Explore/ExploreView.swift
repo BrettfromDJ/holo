@@ -1131,7 +1131,7 @@ private struct ExploreBackdrop: View {
             GridPattern(step: 36, opacity: 0.05)
             RadialGradient(colors: [Theme.lime.opacity(0.22), .clear], center: UnitPoint(x: 0.2, y: 0.3), startRadius: 0, endRadius: 260)
             RadialGradient(colors: [Theme.planBlue.opacity(0.22), .clear], center: UnitPoint(x: 0.9, y: 0.55), startRadius: 0, endRadius: 240)
-            RadialGradient(colors: [Theme.planPink.opacity(0.16), .clear], center: UnitPoint(x: 0.6, y: 0.05), startRadius: 0, endRadius: 200)
+            RadialGradient(colors: [Theme.purple.opacity(0.16), .clear], center: UnitPoint(x: 0.6, y: 0.05), startRadius: 0, endRadius: 200)
         }
         .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.7), .init(color: .clear, location: 1)],
                              startPoint: .top, endPoint: .bottom))
@@ -1351,7 +1351,7 @@ private struct NextRelease: View {
         NavigationLink(value: set) {
             HStack(alignment: .center, spacing: 16) {
                 VStack(alignment: .leading, spacing: 10) {
-                    SkewTag(text: "Next release", icon: "sparkles")
+                    SkewTag(text: "Next release", color: Theme.blue, textColor: .white, icon: "sparkles")
                     DisplayText(text: set.name, size: 24)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     Text([set.shortGame, set.release?.formatted(date: .abbreviated, time: .omitted)].compactMap { $0 }.joined(separator: " · "))

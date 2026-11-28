@@ -391,7 +391,7 @@ private struct HistorySection: View {
             ForEach(p.days) { d in
                 if mode == .value {
                     LineMark(x: .value("Day", d.date), y: .value("Cost", d.cost), series: .value("Line", "Cost"))
-                        .foregroundStyle(Theme.subtle).lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 4]))
+                        .foregroundStyle(Theme.purple.opacity(0.8)).lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 4]))
                 }
                 AreaMark(x: .value("Day", d.date), yStart: .value("Base", mode == .value ? domain.lowerBound : 0), yEnd: .value("Y", y(d)))
                     .foregroundStyle(LinearGradient(colors: [tint.opacity(0.28), tint.opacity(0)], startPoint: mode == .drawdown ? .bottom : .top, endPoint: mode == .drawdown ? .top : .bottom))
@@ -432,7 +432,7 @@ private struct GrowingBars: View {
     var body: some View {
         Chart(months) { m in
             BarMark(x: .value("Month", m.date, unit: .month), y: .value("Invested", m.invested * (grown || reduceMotion ? 1 : 0.02)))
-                .foregroundStyle(highlight == nil || m.month == highlight ? Theme.lime : Theme.planBlue)
+                .foregroundStyle(highlight == nil || m.month == highlight ? Theme.blue : Theme.blue.opacity(0.35))
                 .cornerRadius(4)
         }
         .chartYScale(domain: 0...max(1, (months.map(\.invested).max() ?? 1) * 1.1))

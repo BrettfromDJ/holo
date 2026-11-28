@@ -234,7 +234,7 @@ struct RowTitle: View {
     var body: some View {
         HStack(spacing: 8) {
             Text(title).font(.display(22)).tracking(22 * -0.03).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.8).displayTrim(22)
-            if fresh { SkewTag(text: "New") }
+            if fresh { SkewTag(text: "New", color: Theme.purple, textColor: .white) }
             Spacer(minLength: 0)
         }
         .contentShape(Rectangle())
@@ -360,7 +360,7 @@ struct ThemePage: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 VStack(alignment: .leading, spacing: 8) {
-                    if theme.fresh == true { SkewTag(text: "New this week") }
+                    if theme.fresh == true { SkewTag(text: "New this week", color: Theme.purple, textColor: .white) }
                     Text(theme.title.noWidow).font(.display(34)).tracking(-1.1).foregroundStyle(.white)
                     Text(theme.blurb.noWidow).font(.geist(15)).foregroundStyle(Theme.muted)
                     Text("\(theme.hits.count) cards").font(.mono(11)).foregroundStyle(Theme.subtle).padding(.top, 2)

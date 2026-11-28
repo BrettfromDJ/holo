@@ -357,7 +357,7 @@ private struct CandidateCard: View {
                     .aspectRatio(0.716, contentMode: .fit)
                     .frame(maxWidth: .infinity)
                     .overlay(alignment: .topLeading) {
-                        if best { SkewTag(text: "Best match", icon: "sparkles").padding(6) }
+                        if best { SkewTag(text: "Best match", color: Theme.blue, textColor: .white, icon: "sparkles").padding(6) }
                     }
                     .padding(.bottom, 4)
                 Text(p.name).font(.geist(14, .semibold)).lineLimit(2).fixedSize(horizontal: false, vertical: true)

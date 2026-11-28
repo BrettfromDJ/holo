@@ -74,11 +74,16 @@ struct MarketHomeView: View {
                 .padding(.bottom, 40)
             }
             .background(alignment: .top) {
-                // The lit grid of the other tops, fading out down the page.
-                GridPattern(step: 28, opacity: 0.05)
-                    .frame(height: 420)
-                    .mask(LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom))
-                    .ignoresSafeArea(edges: .top)
+                // The lit grid of the other tops, with a soft blue and purple glow (the Deal tab's
+                // colours), fading out down the page. Drawn once; nothing moves.
+                ZStack {
+                    GridPattern(step: 28, opacity: 0.05)
+                    RadialGradient(colors: [Theme.blue.opacity(0.16), .clear], center: UnitPoint(x: 0.92, y: 0.05), startRadius: 0, endRadius: 240)
+                    RadialGradient(colors: [Theme.purple.opacity(0.12), .clear], center: UnitPoint(x: 0.1, y: 0.25), startRadius: 0, endRadius: 220)
+                }
+                .frame(height: 420)
+                .mask(LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom))
+                .ignoresSafeArea(edges: .top)
             }
             .environment(\.cardZoom, cardZoom)
             .fullScreenCover(isPresented: $searchOpen) { SearchScreen() }
