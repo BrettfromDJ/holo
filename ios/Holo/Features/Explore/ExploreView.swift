@@ -352,7 +352,7 @@ struct SetView: View {
         .replaysAnimations()
         .tabBarClearance()
         .navigationBarTitleDisplayMode(.inline)
-        .pageTitle(MasterSetsView.shortName(info.gameName))
+        .pageTitle(info.name)
         .task { await load() }
     }
 
