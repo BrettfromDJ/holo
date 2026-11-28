@@ -411,17 +411,16 @@ struct SettingsView: View {
 /// Closes a sheet; hidden when the view isn't presented as one.
 private struct DoneButton: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.isPresented) private var isPresented
 
+    // Account only ever opens as a sheet (Home's and Summary's menus). Inside the list,
+    // `isPresented` read false and hid the button.
     var body: some View {
-        if isPresented {
-            Button { dismiss() } label: {
-                Text("Done").font(.geist(15, .semibold)).foregroundStyle(Theme.lime)
-                    .padding(.horizontal, 16).frame(height: 38)
-                    .liquidGlass(in: Capsule(), interactive: true)
-            }
-            .buttonStyle(.plain)
+        Button { dismiss() } label: {
+            Text("Done").font(.geist(15, .semibold)).foregroundStyle(Theme.lime)
+                .padding(.horizontal, 16).frame(height: 38)
+                .liquidGlass(in: Capsule(), interactive: true)
         }
+        .buttonStyle(.plain)
     }
 
 }
